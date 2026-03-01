@@ -169,6 +169,42 @@ if (!editorContainer) {
     // ── Keyboard shortcuts ──────────────────────────────────────────────────────
     editorProps: {
       handleKeyDown(view, event) {
+        // M5a — Table keyboard navigation.
+        // Tab/Shift+Tab move between cells. Tab on the last cell of the last row
+        // creates a new row. Escape exits the table.
+        if (event.key === 'Tab' && editor.isActive('table')) {
+          event.preventDefault();
+          if (event.shiftKey) {
+            editor.commands.goToPreviousCell();
+          } else {
+            // goToNextCell returns false when the cursor is already in the last cell.
+            const canGoNext = editor.commands.goToNextCell();
+            if (!canGoNext) {
+              // Last cell — create a new row and move into its first cell.
+              editor.chain().addRowAfter().goToNextCell().run();
+            }
+          }
+          return true;
+        }
+
+        if (event.key === 'Escape' && editor.isActive('table')) {
+          // Move cursor to the paragraph immediately after the table.
+          const { state } = editor;
+          const { $head } = state.selection;
+          // Walk up the node tree until we reach the table node.
+          let tableDepth = $head.depth;
+          while (tableDepth > 0 && $head.node(tableDepth).type.name !== 'table') {
+            tableDepth--;
+          }
+          if (tableDepth > 0) {
+            const posAfterTable = $head.after(tableDepth);
+            if (posAfterTable < state.doc.content.size) {
+              editor.commands.setTextSelection(posAfterTable + 1);
+            }
+          }
+          return true;
+        }
+
         // M2c — Tab to indent list item (sink one level deeper).
         // TipTap's BulletList / OrderedList extensions do not add Tab bindings by
         // default; we add them here so Tab behaves as expected inside lists.
