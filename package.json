@@ -1,19 +1,54 @@
 {
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
-  "description": "WYSIWYG Markdown editor for VS Code — Typora-style inline editing",
+  "description": "A Typora-style WYSIWYG Markdown editor for VS Code — live preview editing, smart paste, source mode toggle, and export.",
   "version": "0.1.0",
+  "publisher": "mikedown",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.80.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Formatters",
+    "Education"
   ],
+  "keywords": [
+    "markdown",
+    "wysiwyg",
+    "editor",
+    "typora",
+    "preview",
+    "live preview"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mikedown/mikedown-editor"
+  },
+  "bugs": {
+    "url": "https://github.com/mikedown/mikedown-editor/issues"
+  },
   "activationEvents": [
     "onCustomEditor:mikedown.editor"
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "mikedown.backlinks",
+          "name": "Backlinks",
+          "when": "resourceExtname == .md || resourceExtname == .markdown"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": []
+    },
     "customEditors": [
       {
         "viewType": "mikedown.editor",
@@ -218,17 +253,27 @@
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
     "lint": "eslint src --ext ts",
-    "format": "prettier --write \"src/**/*.{ts,html,css,js}\""
+    "format": "prettier --write \"src/**/*.{ts,html,css,js}\"",
+    "test:unit": "vitest run test/unit --reporter=verbose",
+    "test:unit:watch": "vitest test/unit",
+    "test:integration": "vscode-test",
+    "test:edge": "vitest run test/edge-cases test/performance --reporter=verbose",
+    "pretest": "npm run compile"
   },
   "devDependencies": {
     "@types/node": "^20.19.35",
     "@types/vscode": "^1.109.0",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
     "eslint": "^8.57.1",
+    "jsdom": "^28.1.0",
     "prettier": "^3.8.1",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
     "webpack": "^5.105.3",
     "webpack-cli": "^5.1.4"
   },
