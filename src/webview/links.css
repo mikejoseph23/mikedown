@@ -1,0 +1,67 @@
+/* ============================================================
+   Link Navigation & Anchor System
+   ============================================================ */
+
+/* Link styles */
+.ProseMirror a {
+  color: var(--vscode-textLink-foreground, #4e9de0);
+  text-decoration: underline;
+  cursor: text; /* editing cursor by default */
+}
+.ProseMirror a:hover {
+  color: var(--vscode-textLink-activeForeground, #6aafee);
+}
+
+/* Cmd+Click hint cursor */
+.ProseMirror a:is(:hover) {
+  /* JS adds .cmd-held class to body when Meta/Ctrl is held */
+  cursor: text;
+}
+body.cmd-held .ProseMirror a {
+  cursor: pointer;
+}
+
+/* Link tooltip */
+#link-tooltip {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  background: var(--vscode-editorHoverWidget-background);
+  color: var(--vscode-editorHoverWidget-foreground);
+  border: 1px solid var(--vscode-editorHoverWidget-border);
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 0.8em;
+  font-family: var(--vscode-editor-font-family, monospace);
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Heading hover anchor icon — see section 5 above */
+.ProseMirror h1[data-anchor-id],
+.ProseMirror h2[data-anchor-id],
+.ProseMirror h3[data-anchor-id],
+.ProseMirror h4[data-anchor-id],
+.ProseMirror h5[data-anchor-id],
+.ProseMirror h6[data-anchor-id] {
+  position: relative;
+}
+
+.ProseMirror h1[data-anchor-id]:hover::before,
+.ProseMirror h2[data-anchor-id]:hover::before,
+.ProseMirror h3[data-anchor-id]:hover::before,
+.ProseMirror h4[data-anchor-id]:hover::before,
+.ProseMirror h5[data-anchor-id]:hover::before,
+.ProseMirror h6[data-anchor-id]:hover::before {
+  content: '#';
+  position: absolute;
+  left: -1.2em;
+  color: var(--vscode-textLink-foreground, #4e9de0);
+  opacity: 0.6;
+  font-weight: normal;
+  cursor: pointer;
+  user-select: none;
+}

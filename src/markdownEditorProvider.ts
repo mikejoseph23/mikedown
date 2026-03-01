@@ -136,6 +136,49 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // as a 'toggleSource' message so the webview handles the toggle.
           webviewPanel.webview.postMessage({ type: 'toggleSource' });
           break;
+        case 'openLink': {
+          // M6a — Navigate to a link from the WYSIWYG editor.
+          const href = message.href as string;
+          const settings = getSettings();
+
+          if (!href) break;
+
+          // Internal anchor link (#section-name)
+          if (href.startsWith('#')) {
+            // Post back to webview to scroll to anchor
+            webviewPanel.webview.postMessage({ type: 'scrollToAnchor', anchor: href.slice(1) });
+            break;
+          }
+
+          // External URL
+          if (href.startsWith('http://') || href.startsWith('https://')) {
+            vscode.env.openExternal(vscode.Uri.parse(href));
+            break;
+          }
+
+          // Relative file link (may include anchor: ./other.md#section)
+          const [filePart, anchor] = href.split('#');
+          const resolvedUri = vscode.Uri.joinPath(
+            vscode.Uri.file(path.dirname(document.uri.fsPath)),
+            filePart
+          );
+
+          // TODO (M10): showContextMenu behavior not fully implementable without
+          // a custom context menu. Treat it the same as openNewTab for now.
+          const viewColumn = settings.linkClickBehavior === 'openNewTab' || settings.linkClickBehavior === 'showContextMenu'
+            ? vscode.ViewColumn.Beside
+            : vscode.ViewColumn.Active;
+
+          await vscode.commands.executeCommand('vscode.open', resolvedUri, { viewColumn });
+
+          // If anchor included, post a scrollToAnchor after a brief delay
+          if (anchor) {
+            setTimeout(() => {
+              webviewPanel.webview.postMessage({ type: 'scrollToAnchor', anchor });
+            }, 300);
+          }
+          break;
+        }
         default:
           console.warn(`MikeDown: unknown message type "${(message as { type: string }).type}"`);
       }
@@ -354,9 +397,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'openLink';
   content?: string;
   plainText?: string;
+  href?: string;
 }
 
 /**
