@@ -30,6 +30,11 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
+import { SmartPasteExtension } from './smartpaste';
+import {
+  FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
+  replaceCurrentMatch, replaceAllMatches
+} from './findreplace';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
 import { EditorState } from '@codemirror/state';
@@ -85,6 +90,15 @@ let sourceMode = false;
  */
 let cmView: EditorView | null = null;
 
+// ── M6a: Link tooltip state ────────────────────────────────────────────────────
+
+let linkTooltip: HTMLDivElement | null = null;
+
+/**
+ * Timer handle for debouncing anchor ID updates after editor transactions.
+ */
+let anchorUpdateTimer: ReturnType<typeof setTimeout> | undefined;
+
 // ── M15: Frontmatter state ─────────────────────────────────────────────────────
 
 /**
@@ -112,6 +126,20 @@ function extractFrontmatter(markdown: string): { frontmatter: string; body: stri
 function restoreFrontmatter(frontmatter: string, body: string): string {
   if (!frontmatter) return body;
   return `---\n${frontmatter}\n---\n${body}`;
+}
+
+// ── M6a: Anchor ID generation helpers ─────────────────────────────────────────
+
+/**
+ * Generate a GitHub-style anchor ID from a heading's text content.
+ */
+function githubAnchorId(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')    // remove non-alphanumeric except hyphens
+    .replace(/\s+/g, '-')        // spaces → hyphens
+    .replace(/-+/g, '-')         // collapse consecutive hyphens
+    .replace(/^-|-$/g, '');      // trim leading/trailing hyphens
 }
 
 // ── M3: Link and image dialog helpers ─────────────────────────────────────────
@@ -346,6 +374,14 @@ if (!editorContainer) {
         transformPastedText: false,
         transformCopiedText: false,
       }),
+
+      // ── Smart Paste (M12a) ─────────────────────────────────────────────────
+      // Intercepts paste events that carry text/html clipboard data, cleans the
+      // HTML (strips Word/Google Docs noise, converts style-based bold/italic to
+      // semantic elements) and converts it to ProseMirror nodes via PM's own
+      // DOMParser. Falls back to tiptap-markdown's built-in paste handling when
+      // no HTML data is present or when the payload exceeds 500 KB.
+      SmartPasteExtension,
     ],
     content: '',
 
@@ -581,6 +617,105 @@ if (!editorContainer) {
       imagePopover.style.display = 'none';
     }
   }, true);
+
+  // ── M6a: Anchor ID generation ───────────────────────────────────────────────
+
+  /**
+   * Scan editor DOM and assign data-anchor-id attributes to all headings
+   * using GitHub-style anchor ID generation with collision deduplication.
+   */
+  function updateHeadingAnchors(): void {
+    const seenIds = new Map<string, number>();
+    const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
+    headings.forEach(h => {
+      const base = githubAnchorId(h.textContent || '');
+      const count = seenIds.get(base) ?? 0;
+      const id = count === 0 ? base : `${base}-${count}`;
+      seenIds.set(base, count + 1);
+      h.dataset.anchorId = id;
+    });
+  }
+
+  // Debounced anchor update on every TipTap transaction.
+  editor.on('transaction', () => {
+    clearTimeout(anchorUpdateTimer);
+    anchorUpdateTimer = setTimeout(updateHeadingAnchors, 300);
+  });
+
+  // ── M6a: Link click handler (Cmd+Click to navigate) ────────────────────────
+
+  editorContainer.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const linkEl = target.closest('a[href]') as HTMLAnchorElement | null;
+    if (!linkEl) return;
+
+    // Regular click → position cursor (let ProseMirror handle it, do NOT navigate)
+    if (!event.metaKey && !event.ctrlKey) return;
+
+    // Cmd+Click or Ctrl+Click → navigate
+    event.preventDefault();
+    event.stopPropagation();
+
+    const href = linkEl.getAttribute('href') || '';
+    vscode.postMessage({ type: 'openLink', href });
+  });
+
+  // ── M6a: Heading anchor icon click handler ──────────────────────────────────
+
+  editorContainer.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const heading = target.closest<HTMLElement>('h1,h2,h3,h4,h5,h6');
+    if (!heading || !heading.dataset.anchorId) return;
+
+    // Only trigger if click is in the left margin area (before the text)
+    const rect = heading.getBoundingClientRect();
+    if (event.clientX < rect.left) {
+      const anchorId = heading.dataset.anchorId;
+      navigator.clipboard?.writeText(`#${anchorId}`).catch(() => {});
+      // Brief visual feedback
+      heading.style.outline = '1px solid var(--vscode-focusBorder)';
+      setTimeout(() => { heading.style.outline = ''; }, 600);
+    }
+  });
+
+  // ── M6a: Link tooltip on hover ──────────────────────────────────────────────
+
+  editorContainer.addEventListener('mouseover', (event) => {
+    const target = event.target as HTMLElement;
+    const linkEl = target.closest<HTMLAnchorElement>('a[href]');
+    if (!linkEl) {
+      if (linkTooltip) { linkTooltip.style.display = 'none'; }
+      return;
+    }
+
+    const href = linkEl.getAttribute('href') || '';
+    if (!linkTooltip) {
+      linkTooltip = document.createElement('div');
+      linkTooltip.id = 'link-tooltip';
+      document.body.appendChild(linkTooltip);
+    }
+    linkTooltip.textContent = href;
+    linkTooltip.style.display = 'block';
+    const r = linkEl.getBoundingClientRect();
+    linkTooltip.style.left = `${r.left}px`;
+    linkTooltip.style.top = `${r.bottom + 4}px`;
+  });
+
+  editorContainer.addEventListener('mouseout', (event) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('a[href]') && !linkTooltip?.contains(event.relatedTarget as Node)) {
+      if (linkTooltip) linkTooltip.style.display = 'none';
+    }
+  });
+
+  // ── M6a: Cmd-held class tracking (changes link cursor on hover) ─────────────
+
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey) document.body.classList.add('cmd-held');
+  });
+  document.addEventListener('keyup', (e) => {
+    if (!e.metaKey && !e.ctrlKey) document.body.classList.remove('cmd-held');
+  });
 
   // ── M15: Frontmatter UI block renderer ─────────────────────────────────────
 
