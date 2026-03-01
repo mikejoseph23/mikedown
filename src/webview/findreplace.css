@@ -1,0 +1,113 @@
+/* ============================================================
+   Find & Replace Bar
+   ============================================================ */
+
+#find-replace-bar {
+  position: fixed;
+  top: 40px; /* below toolbar */
+  right: 16px;
+  z-index: 500;
+  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-editorWidget-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 340px;
+}
+
+.fr-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#find-replace-bar input[type="text"] {
+  flex: 1;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent);
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 0.85em;
+  font-family: inherit;
+  outline: none;
+}
+#find-replace-bar input[type="text"]:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+#find-replace-bar button {
+  background: var(--vscode-button-secondaryBackground, transparent);
+  color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground));
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+#find-replace-bar button:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+
+#fr-replace-btn,
+#fr-replace-all-btn {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+#fr-replace-btn:hover,
+#fr-replace-all-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.fr-count {
+  font-size: 0.8em;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.fr-options {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.fr-options label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.8em;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  user-select: none;
+}
+.fr-options label:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.fr-options input[type="checkbox"] {
+  display: none;
+}
+.fr-options label:has(input:checked) {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-editor-foreground);
+}
+
+/* Match highlights in editor */
+.search-match {
+  background: var(--vscode-editor-findMatchHighlightBackground, rgba(255,215,0,0.3));
+  border-radius: 2px;
+}
+
+.search-match-active {
+  background: var(--vscode-editor-findMatchBackground, rgba(255,160,0,0.6));
+  border-radius: 2px;
+  outline: 1px solid var(--vscode-editor-findMatchBorder, rgba(255,140,0,0.8));
+}

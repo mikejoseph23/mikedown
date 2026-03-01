@@ -254,6 +254,108 @@ function updateToolbarState(editor: Editor): void {
   });
 }
 
+// ── M13: Find & Replace Bar ────────────────────────────────────────────────────
+
+function buildFindReplaceBar(editor: Editor): void {
+  const bar = document.createElement('div');
+  bar.id = 'find-replace-bar';
+  bar.style.display = 'none';
+  bar.innerHTML = `
+    <div class="fr-row">
+      <input id="fr-find-input" type="text" placeholder="Find…" autocomplete="off" spellcheck="false" />
+      <button id="fr-prev-btn" title="Previous (Shift+Enter)">↑</button>
+      <button id="fr-next-btn" title="Next (Enter)">↓</button>
+      <span id="fr-match-count" class="fr-count"></span>
+      <div class="fr-options">
+        <label title="Match Case"><input type="checkbox" id="fr-case" /> Aa</label>
+        <label title="Whole Word"><input type="checkbox" id="fr-word" /> |W|</label>
+        <label title="Use Regex"><input type="checkbox" id="fr-regex" /> .*</label>
+      </div>
+      <button id="fr-replace-toggle" title="Toggle replace">≡</button>
+      <button id="fr-close-btn" title="Close (Escape)">✕</button>
+    </div>
+    <div class="fr-row" id="fr-replace-row" style="display:none">
+      <input id="fr-replace-input" type="text" placeholder="Replace…" autocomplete="off" spellcheck="false" />
+      <button id="fr-replace-btn">Replace</button>
+      <button id="fr-replace-all-btn">Replace All</button>
+    </div>
+  `;
+  document.body.appendChild(bar);
+
+  const findInput = document.getElementById('fr-find-input') as HTMLInputElement;
+  const replaceInput = document.getElementById('fr-replace-input') as HTMLInputElement;
+  const matchCount = document.getElementById('fr-match-count') as HTMLSpanElement;
+
+  function getCurrentOptions() {
+    return {
+      matchCase: (document.getElementById('fr-case') as HTMLInputElement).checked,
+      wholeWord: (document.getElementById('fr-word') as HTMLInputElement).checked,
+      useRegex: (document.getElementById('fr-regex') as HTMLInputElement).checked,
+    };
+  }
+
+  function doSearch() {
+    const matches = updateSearch(editor, { query: findInput.value, ...getCurrentOptions() });
+    matchCount.textContent = matches.length > 0 ? `${matches.length} match${matches.length === 1 ? '' : 'es'}` : 'No matches';
+  }
+
+  findInput.addEventListener('input', doSearch);
+  ['fr-case', 'fr-word', 'fr-regex'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', doSearch);
+  });
+
+  document.getElementById('fr-next-btn')?.addEventListener('click', () => {
+    if (sourceMode && cmView) {
+      // Source mode: CodeMirror has its own built-in find via @codemirror/search
+    } else {
+      findNext(editor);
+    }
+  });
+  document.getElementById('fr-prev-btn')?.addEventListener('click', () => findPrev(editor));
+
+  findInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) findPrev(editor); else findNext(editor); }
+    if (e.key === 'Escape') { closeFindBar(); }
+  });
+
+  document.getElementById('fr-replace-toggle')?.addEventListener('click', () => {
+    const row = document.getElementById('fr-replace-row') as HTMLElement;
+    row.style.display = row.style.display === 'none' ? '' : 'none';
+  });
+
+  document.getElementById('fr-replace-btn')?.addEventListener('click', () => {
+    replaceCurrentMatch(editor, replaceInput.value);
+    doSearch();
+  });
+
+  document.getElementById('fr-replace-all-btn')?.addEventListener('click', () => {
+    const n = replaceAllMatches(editor, replaceInput.value);
+    matchCount.textContent = `Replaced ${n}`;
+    doSearch();
+  });
+
+  document.getElementById('fr-close-btn')?.addEventListener('click', closeFindBar);
+
+  function closeFindBar() {
+    bar.style.display = 'none';
+    clearSearch(editor);
+    matchCount.textContent = '';
+    editor.commands.focus();
+  }
+
+  // Expose openFindBar to keyboard handler
+  (window as any).__mikedownOpenFind = (replace = false) => {
+    bar.style.display = '';
+    if (replace) {
+      (document.getElementById('fr-replace-row') as HTMLElement).style.display = '';
+    }
+    findInput.focus();
+    findInput.select();
+    doSearch();
+  };
+  (window as any).__mikedownCloseFind = closeFindBar;
+}
+
 // ── TipTap Initialisation ──────────────────────────────────────────────────────
 
 const editorContainer = document.getElementById('editor-container');
@@ -382,12 +484,30 @@ if (!editorContainer) {
       // DOMParser. Falls back to tiptap-markdown's built-in paste handling when
       // no HTML data is present or when the payload exceeds 500 KB.
       SmartPasteExtension,
+
+      // ── Find & Replace (M13) ───────────────────────────────────────────────
+      // ProseMirror decoration plugin that highlights all search matches in the
+      // WYSIWYG view. Keyboard intercept (Cmd+F / Cmd+H) is wired below.
+      FindReplaceExtension,
     ],
     content: '',
 
     // ── Keyboard shortcuts ──────────────────────────────────────────────────────
     editorProps: {
       handleKeyDown(view, event) {
+        // M13 — Cmd+F / Ctrl+F: Open find bar.
+        if ((event.metaKey || event.ctrlKey) && event.key === 'f') {
+          event.preventDefault();
+          (window as any).__mikedownOpenFind?.(false);
+          return true;
+        }
+        // M13 — Cmd+H / Ctrl+H: Open find & replace bar.
+        if ((event.metaKey || event.ctrlKey) && event.key === 'h') {
+          event.preventDefault();
+          (window as any).__mikedownOpenFind?.(true);
+          return true;
+        }
+
         // M3 — Cmd+K / Ctrl+K: Insert/edit link (not inside a table).
         if ((event.metaKey || event.ctrlKey) && event.key === 'k' && !editor.isActive('table')) {
           event.preventDefault();
@@ -525,6 +645,20 @@ if (!editorContainer) {
   buildToolbar(editor);
   editor.on('selectionUpdate', () => updateToolbarState(editor));
   editor.on('transaction', () => updateToolbarState(editor));
+
+  // M13 — Build find/replace bar and wire global keyboard shortcut.
+  buildFindReplaceBar(editor);
+
+  // M13 — Global keydown listener for Cmd+F / Cmd+H when editor doesn't have focus.
+  document.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'f') {
+      event.preventDefault();
+      (window as any).__mikedownOpenFind?.(false);
+    } else if ((event.metaKey || event.ctrlKey) && event.key === 'h') {
+      event.preventDefault();
+      (window as any).__mikedownOpenFind?.(true);
+    }
+  });
 
   // M2c — Wire Tab/Shift+Tab custom events to editor commands.
   // These events are dispatched by the handleKeyDown prop above and executed
@@ -974,9 +1108,22 @@ if (!editorContainer) {
       // M15 — Render frontmatter UI block (collapsed by default above editor).
       renderFrontmatterBlock();
 
+      // M6a — Update heading anchor IDs after content is loaded.
+      updateHeadingAnchors();
+
       // M2d — Send initial stats to status bar (M14 hook).
       const plainText = editor.getText();
       vscode.postMessage({ type: 'stats', plainText });
+    }
+
+    // M6a — Scroll to an anchor in the editor (posted from openLink handler for # links).
+    if (message.type === 'scrollToAnchor') {
+      const anchor = message.anchor as string;
+      // Find the heading element with matching data-anchor-id
+      const el = document.querySelector(`[data-anchor-id="${CSS.escape(anchor)}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
   });
 
