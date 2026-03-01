@@ -28,7 +28,83 @@
         ],
         "priority": "option"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "MikeDown Editor",
+      "properties": {
+        "mikedown.defaultEditor": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether MikeDown Editor is the default editor for Markdown files. When enabled, .md files open in WYSIWYG mode by default."
+        },
+        "mikedown.fontFamily": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Font family for the WYSIWYG editing area. Leave empty to use the system default sans-serif font. Example: `\"Georgia, serif\"` or `\"Inter, sans-serif\"`."
+        },
+        "mikedown.fontSize": {
+          "type": "number",
+          "default": 16,
+          "minimum": 10,
+          "maximum": 32,
+          "description": "Font size (in pixels) for the WYSIWYG editing area."
+        },
+        "mikedown.linkClickBehavior": {
+          "type": "string",
+          "enum": ["navigateCurrentTab", "openNewTab", "showContextMenu"],
+          "enumDescriptions": [
+            "Cmd+Click navigates to the link in the current editor tab",
+            "Cmd+Click opens the link in a new editor tab",
+            "Cmd+Click always shows a context menu with navigation options"
+          ],
+          "default": "openNewTab",
+          "description": "What happens when you Cmd+Click (Mac) or Ctrl+Click (Windows/Linux) on a link in WYSIWYG mode."
+        },
+        "mikedown.autoReloadUnmodifiedFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically reload unmodified files when external changes are detected, without prompting."
+        },
+        "mikedown.markdownNormalization": {
+          "type": "string",
+          "enum": ["preserve", "normalize"],
+          "enumDescriptions": [
+            "Preserve original markdown syntax choices (default list markers, heading styles, etc.)",
+            "Normalize markdown to a consistent style on save"
+          ],
+          "default": "preserve",
+          "description": "Whether to normalize markdown syntax when saving."
+        },
+        "mikedown.normalizationStyle.boldMarker": {
+          "type": "string",
+          "enum": ["**", "__"],
+          "default": "**",
+          "description": "Which bold marker to use when normalization is enabled."
+        },
+        "mikedown.normalizationStyle.italicMarker": {
+          "type": "string",
+          "enum": ["*", "_"],
+          "default": "*",
+          "description": "Which italic marker to use when normalization is enabled."
+        },
+        "mikedown.normalizationStyle.listMarker": {
+          "type": "string",
+          "enum": ["-", "*", "+"],
+          "default": "-",
+          "description": "Which unordered list marker to use when normalization is enabled."
+        },
+        "mikedown.normalizationStyle.headingStyle": {
+          "type": "string",
+          "enum": ["atx", "setext"],
+          "enumDescriptions": [
+            "ATX-style headings: # Heading 1, ## Heading 2",
+            "Setext-style headings: Heading 1 with === underline, Heading 2 with --- underline"
+          ],
+          "default": "atx",
+          "description": "Which heading style to use when normalization is enabled."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
