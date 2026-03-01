@@ -1,0 +1,62 @@
+/* Image rendering */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  cursor: pointer;
+  border-radius: 3px;
+  margin: 0.25em 0;
+}
+.ProseMirror img:hover {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+.ProseMirror img.broken-image {
+  border: 2px dashed var(--vscode-editorWarning-foreground, #e5a003);
+  min-height: 40px;
+  min-width: 80px;
+  background: var(--vscode-editorWidget-background);
+  padding: 8px;
+  border-radius: 3px;
+}
+
+/* Image edit popover */
+#image-edit-popover {
+  display: none;
+  position: fixed;
+  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-editorWidget-border, #555);
+  padding: 10px 12px;
+  border-radius: 5px;
+  z-index: 200;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  min-width: 280px;
+}
+#image-edit-popover label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: var(--vscode-descriptionForeground);
+}
+#image-edit-popover input {
+  width: 100%;
+  padding: 4px 6px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, #555);
+  border-radius: 3px;
+  font-size: 13px;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+#image-edit-popover .popover-actions { display: flex; gap: 6px; justify-content: flex-end; }
+#image-edit-popover button {
+  padding: 4px 10px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none; border-radius: 3px; cursor: pointer; font-size: 12px;
+}
+#image-edit-popover button.secondary {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}

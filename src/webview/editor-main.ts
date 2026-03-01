@@ -312,6 +312,79 @@ if (!editorContainer) {
     void lifted;
   });
 
+  // ── M7 — Image error handling: mark broken images ──────────────────────────
+
+  if (editorContainer) {
+    editorContainer.addEventListener('error', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'IMG') {
+        const img = target as HTMLImageElement;
+        img.classList.add('broken-image');
+        img.title = `Image not found: ${img.getAttribute('src') ?? ''}`;
+      }
+    }, true);
+  }
+
+  // ── M7 — Image popover for editing alt/src on click ────────────────────────
+
+  const imagePopover = document.createElement('div');
+  imagePopover.id = 'image-edit-popover';
+  imagePopover.innerHTML = `
+  <label>Alt text</label>
+  <input id="img-alt" type="text" placeholder="Describe the image">
+  <label>Path or URL</label>
+  <input id="img-src" type="text" placeholder="./image.png or https://...">
+  <div class="popover-actions">
+    <button class="secondary" id="img-cancel">Cancel</button>
+    <button id="img-ok">Update</button>
+  </div>
+`;
+  document.body.appendChild(imagePopover);
+
+  let editingImagePos: number | null = null;
+
+  if (editorContainer) {
+    editorContainer.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName !== 'IMG') { return; }
+      const img = target as HTMLImageElement;
+      // Get the ProseMirror position of this image node
+      const pos = editor.view.posAtDOM(img, 0);
+      if (pos < 0) { return; }
+      editingImagePos = pos;
+      // Populate fields
+      (document.getElementById('img-alt') as HTMLInputElement).value = img.alt ?? '';
+      (document.getElementById('img-src') as HTMLInputElement).value = img.dataset.originalSrc ?? img.getAttribute('src') ?? '';
+      // Position popover near image
+      const rect = img.getBoundingClientRect();
+      imagePopover.style.display = 'block';
+      imagePopover.style.top = `${rect.bottom + 8}px`;
+      imagePopover.style.left = `${Math.min(rect.left, window.innerWidth - 300)}px`;
+    });
+  }
+
+  document.getElementById('img-ok')?.addEventListener('click', () => {
+    if (editingImagePos === null) { return; }
+    const src = (document.getElementById('img-src') as HTMLInputElement).value;
+    const alt = (document.getElementById('img-alt') as HTMLInputElement).value;
+    editor.commands.setNodeSelection(editingImagePos);
+    editor.commands.updateAttributes('image', { src, alt });
+    imagePopover.style.display = 'none';
+    editingImagePos = null;
+  });
+
+  document.getElementById('img-cancel')?.addEventListener('click', () => {
+    imagePopover.style.display = 'none';
+    editingImagePos = null;
+  });
+
+  // Close popover when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!imagePopover.contains(e.target as Node) && (e.target as HTMLElement).tagName !== 'IMG') {
+      imagePopover.style.display = 'none';
+    }
+  }, true);
+
   // ── Message Handling — Extension → Webview ─────────────────────────────────
 
   window.addEventListener('message', (event: MessageEvent) => {

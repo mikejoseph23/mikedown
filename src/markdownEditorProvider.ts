@@ -23,12 +23,18 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     _token: vscode.CancellationToken
   ): Promise<void> {
     // Configure the webview
+    // M7 — Include the document's parent directory (and workspace folders) in
+    // localResourceRoots so that relative image paths can be resolved and served.
+    const workspaceFolderRoots = (vscode.workspace.workspaceFolders ?? []).map(f => f.uri);
+    const docDirUri = vscode.Uri.joinPath(document.uri, '..');
     webviewPanel.webview.options = {
       enableScripts: true,
       localResourceRoots: [
         vscode.Uri.file(path.join(this.context.extensionPath, 'src', 'webview')),
         vscode.Uri.file(path.join(this.context.extensionPath, 'dist')),
-        vscode.Uri.file(path.join(this.context.extensionPath, 'out', 'webview'))
+        vscode.Uri.file(path.join(this.context.extensionPath, 'out', 'webview')),
+        docDirUri,
+        ...workspaceFolderRoots
       ]
     };
 
@@ -117,12 +123,40 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    * dirty flag on open. Do NOT apply any transformations (cleanup, normalization,
    * etc.) to the content before sending it to the webview. The webview uses the
    * raw text as the originalContent baseline for dirty-state detection.
+   *
+   * M7 — Image URIs are resolved to webview-accessible vscode-webview: URIs
+   * before sending so that relative paths like ./image.png are rendered inline.
    */
   private updateWebview(document: vscode.TextDocument, webview: vscode.Webview): void {
+    const resolvedContent = this.resolveImageUris(document.getText(), document.uri, webview);
     webview.postMessage({
       type: 'update',
-      // IMPORTANT: send raw content without modification to prevent false dirty flag on open
-      content: document.getText()
+      content: resolvedContent
+    });
+  }
+
+  /**
+   * M7 — Resolve relative image paths in markdown to webview-accessible URIs.
+   *
+   * Scans all `![alt](src)` patterns in the markdown and converts any relative
+   * or absolute local paths to `vscode-webview:` URIs using `webview.asWebviewUri`.
+   * External URLs (http/https), data URIs, and already-resolved vscode-webview
+   * URIs are left untouched.
+   */
+  private resolveImageUris(markdown: string, documentUri: vscode.Uri, webview: vscode.Webview): string {
+    return markdown.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
+      // Leave external URLs and data URIs alone
+      if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:') || src.startsWith('vscode-webview:')) {
+        return match;
+      }
+      try {
+        const docDir = vscode.Uri.joinPath(documentUri, '..');
+        const imgUri = vscode.Uri.joinPath(docDir, src);
+        const webviewUri = webview.asWebviewUri(imgUri);
+        return `![${alt}](${webviewUri.toString()})`;
+      } catch {
+        return match; // Leave as-is on error
+      }
     });
   }
 
@@ -216,7 +250,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         // Send fresh content to webview silently
         webviewPanel.webview.postMessage({
           type: 'update',
-          content: document.getText()
+          content: this.resolveImageUris(document.getText(), document.uri, webviewPanel.webview)
         });
 
         // Show a brief status-bar notification
@@ -237,7 +271,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       // VS Code has already updated the TextDocument from disk; send new content to webview
       webviewPanel.webview.postMessage({
         type: 'update',
-        content: document.getText()
+        content: this.resolveImageUris(document.getText(), document.uri, webviewPanel.webview)
       });
     }
     // 'Keep' or dismissed: do nothing — leave the webview with the user's unsaved content
