@@ -42,6 +42,24 @@ body {
   #toolbar button { forced-color-adjust: auto; }
 }
 
+/* M11 — Print / PDF export: hide editor chrome and reset layout */
+@media print {
+  #toolbar,
+  #find-replace-bar,
+  #mikedown-context-menu,
+  .cm-container {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .ProseMirror {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+}
+
 /* Source mode container */
 #source-container {
   height: 100%;

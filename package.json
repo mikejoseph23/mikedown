@@ -57,6 +57,18 @@
       {
         "command": "mikedown.toggleSourceMode",
         "title": "MikeDown: Toggle Source Mode"
+      },
+      {
+        "command": "mikedown.exportHtml",
+        "title": "MikeDown: Export as HTML"
+      },
+      {
+        "command": "mikedown.print",
+        "title": "MikeDown: Print / Export as PDF"
+      },
+      {
+        "command": "mikedown.copyAsRichText",
+        "title": "MikeDown: Copy as Rich Text"
       }
     ],
     "keybindings": [

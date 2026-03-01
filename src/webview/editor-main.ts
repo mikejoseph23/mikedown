@@ -35,6 +35,7 @@ import {
   FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
   replaceCurrentMatch, replaceAllMatches
 } from './findreplace';
+import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu } from './contextmenu';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
 import { EditorState } from '@codemirror/state';
@@ -649,6 +650,41 @@ if (!editorContainer) {
   // M13 — Build find/replace bar and wire global keyboard shortcut.
   buildFindReplaceBar(editor);
 
+  // M10 — Custom context menu: prevent browser default; show custom one.
+  editorContainer.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    const target = event.target as HTMLElement;
+
+    let items;
+    const linkEl = target.closest<HTMLAnchorElement>('a[href]');
+    const tableEl = target.closest('table');
+    const imgEl = target.closest<HTMLImageElement>('img');
+
+    if (linkEl) {
+      items = buildLinkMenu(editor, linkEl.getAttribute('href') || '');
+    } else if (imgEl) {
+      items = buildImageMenu(editor, imgEl);
+    } else if (tableEl) {
+      items = buildTableMenu(editor);
+    } else {
+      items = buildTextMenu(editor);
+    }
+
+    showContextMenu(editor, event.clientX, event.clientY, items);
+  });
+
+  // Hide context menu on click elsewhere
+  document.addEventListener('mousedown', (event) => {
+    if (!(event.target as HTMLElement).closest('#mikedown-context-menu')) {
+      hideContextMenu();
+    }
+  });
+
+  // Expose vscode for contextmenu.ts link opening
+  (window as any).__vscode = vscode;
+  (window as any).__mikedownShowLinkDialog = () => showLinkDialog(editor);
+  (window as any).__mikedownShowImageDialog = () => showImageInsertDialog(editor);
+
   // M13 — Global keydown listener for Cmd+F / Cmd+H when editor doesn't have focus.
   document.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'f') {
@@ -1114,6 +1150,38 @@ if (!editorContainer) {
       // M2d — Send initial stats to status bar (M14 hook).
       const plainText = editor.getText();
       vscode.postMessage({ type: 'stats', plainText });
+    }
+
+    // M11 — Export: get rendered HTML from the editor DOM and send to extension host.
+    if (message.type === 'requestExportHtml') {
+      const editorEl = document.querySelector('.ProseMirror') as HTMLElement;
+      if (editorEl) {
+        vscode.postMessage({ type: 'exportHtml', html: editorEl.innerHTML });
+      }
+    }
+
+    // M11 — Print: trigger the system print dialog (user can save as PDF).
+    if (message.type === 'triggerPrint') {
+      window.print();
+    }
+
+    // M11 — Copy as rich text: write HTML + plain text to clipboard.
+    if (message.type === 'copyAsRichText') {
+      const editorEl2 = document.querySelector('.ProseMirror') as HTMLElement;
+      if (editorEl2 && navigator.clipboard) {
+        (async () => {
+          try {
+            const htmlBlob = new Blob([editorEl2.innerHTML], { type: 'text/html' });
+            const textBlob = new Blob([editorEl2.innerText], { type: 'text/plain' });
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })
+            ]);
+          } catch {
+            // Fallback: copy plain text only
+            await navigator.clipboard.writeText(editorEl2.innerText).catch(() => {});
+          }
+        })().catch(() => {});
+      }
     }
 
     // M6a — Scroll to an anchor in the editor (posted from openLink handler for # links).

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { getSettings } from './settings';
+import { writeRenderedHtml } from './export';
 
 /**
  * MikeDown custom text editor provider.
@@ -135,6 +136,19 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // M4 — The webview toolbar button posts this message; forward it back
           // as a 'toggleSource' message so the webview handles the toggle.
           webviewPanel.webview.postMessage({ type: 'toggleSource' });
+          break;
+        case 'exportHtml': {
+          const suggestedName = document.fileName;
+          await writeRenderedHtml(message.html ?? '', suggestedName);
+          break;
+        }
+        case 'printReady':
+          // Print is handled by the webview's window.print() call — no host action needed.
+          console.log('MikeDown: printReady received');
+          break;
+        case 'copyRichText':
+          // Copy-as-rich-text is handled entirely in the webview via Clipboard API.
+          console.log('MikeDown: copyRichText handled in webview');
           break;
         case 'openLink': {
           // M6a — Navigate to a link from the WYSIWYG editor.
@@ -397,10 +411,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'openLink';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText';
   content?: string;
   plainText?: string;
   href?: string;
+  html?: string;
 }
 
 /**

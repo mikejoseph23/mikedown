@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { MarkdownEditorProvider } from './markdownEditorProvider';
 import { StatusBarManager } from './statusBar';
+import { exportViaPrint } from './export';
 
 /**
  * Called when the extension is activated.
@@ -45,6 +46,38 @@ export function activate(context: vscode.ExtensionContext): void {
       const panel = MarkdownEditorProvider.activePanel;
       if (panel) {
         panel.webview.postMessage({ type: 'toggleSource' });
+      }
+    })
+  );
+
+  // M11 — Export commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.exportHtml', () => {
+      const panel = MarkdownEditorProvider.activePanel;
+      if (panel) {
+        panel.webview.postMessage({ type: 'requestExportHtml' });
+      } else {
+        vscode.window.showWarningMessage('Open a markdown file in MikeDown to export.');
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.print', () => {
+      const panel = MarkdownEditorProvider.activePanel;
+      if (panel) {
+        exportViaPrint(panel);
+      } else {
+        vscode.window.showWarningMessage('Open a markdown file in MikeDown to print.');
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.copyAsRichText', () => {
+      const panel = MarkdownEditorProvider.activePanel;
+      if (panel) {
+        panel.webview.postMessage({ type: 'copyAsRichText' });
       }
     })
   );
