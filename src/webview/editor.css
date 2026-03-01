@@ -185,14 +185,73 @@ body {
   caret-color: var(--vscode-editorCursor-foreground, #aeafad);
 }
 
-/* Placeholder text shown when editor is empty */
+/* Placeholder text shown when editor is empty (M2c) */
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  float: left;
-  color: var(--vscode-editorGhostText-foreground, #666);
+  color: var(--vscode-input-placeholderForeground, var(--vscode-editorGhostText-foreground, #666));
   pointer-events: none;
+  float: left;
   height: 0;
 }
+
+/* ─── Headings (M2c) ──────────────────────────────────────────────────────── */
+
+.ProseMirror h1 { font-size: 2em; font-weight: 700; margin: 0.67em 0; }
+.ProseMirror h2 { font-size: 1.5em; font-weight: 600; margin: 0.75em 0; }
+.ProseMirror h3 { font-size: 1.25em; font-weight: 600; margin: 0.83em 0; }
+.ProseMirror h4 { font-size: 1.1em; font-weight: 600; margin: 1em 0; }
+.ProseMirror h5, .ProseMirror h6 { font-size: 1em; font-weight: 600; margin: 1em 0; }
+
+/* ─── Lists (M2c) ─────────────────────────────────────────────────────────── */
+
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.5em; margin: 0.5em 0; }
+.ProseMirror li { margin: 0.25em 0; }
+
+/* ─── Blockquote (M2c) ────────────────────────────────────────────────────── */
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--vscode-textBlockQuote-border, #aaa);
+  margin: 0.5em 0;
+  padding: 0.25em 1em;
+  color: var(--vscode-textBlockQuote-foreground);
+  background: var(--vscode-textBlockQuote-background);
+}
+
+/* ─── Code block (M2c) ────────────────────────────────────────────────────── */
+
+.ProseMirror pre {
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 4px;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+}
+
+/* ─── Inline code (M2b) ───────────────────────────────────────────────────── */
+
+.ProseMirror code {
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+}
+
+/* ─── Horizontal rule (M2c) ───────────────────────────────────────────────── */
+
+.ProseMirror hr {
+  border: none;
+  border-top: 2px solid var(--vscode-editorRuler-foreground, #aaa);
+  margin: 1.5em 0;
+}
+
+/* ─── Paragraph spacing (M2c block spacing) ──────────────────────────────── */
+
+.ProseMirror p { margin: 0; }
+
+/* Spacing between sibling block elements */
+.ProseMirror > * + * { margin-top: 0.75em; }
 
 /* ─── Task lists (GFM checkboxes) ─────────────────────────────────────────── */
 

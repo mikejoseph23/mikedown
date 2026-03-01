@@ -79,12 +79,21 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       switch (message.type) {
         case 'edit': {
           ignoreNextChange = true; // Set before applyEdit to suppress the resulting change event
-          await this.applyEdit(document, message.content ?? '');
+          // M2d — Apply cleanup normalization before writing to disk.
+          const cleaned = this.applyCleanup(message.content ?? '');
+          await this.applyEdit(document, cleaned);
           break;
         }
         case 'ready':
           // Webview signals it is ready — send current content
           this.updateWebview(document, webviewPanel.webview);
+          break;
+        case 'stats':
+          // M2d — Update status bar with plain text for word/character count.
+          // The StatusBarManager is wired in extension.ts (M3/M14 hook).
+          // For now we receive the plain text and can emit a status bar update
+          // once StatusBarManager is accessible from this provider.
+          // TODO: wire this to StatusBarManager when M3 (toolbar/status bar) is done.
           break;
         default:
           console.warn(`MikeDown: unknown message type "${(message as { type: string }).type}"`);
@@ -94,10 +103,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
   /**
    * Send the current document text to the webview.
+   *
+   * M2d — IMPORTANT: send raw content without modification to prevent false
+   * dirty flag on open. Do NOT apply any transformations (cleanup, normalization,
+   * etc.) to the content before sending it to the webview. The webview uses the
+   * raw text as the originalContent baseline for dirty-state detection.
    */
   private updateWebview(document: vscode.TextDocument, webview: vscode.Webview): void {
     webview.postMessage({
       type: 'update',
+      // IMPORTANT: send raw content without modification to prevent false dirty flag on open
       content: document.getText()
     });
   }
@@ -113,6 +128,47 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       newContent
     );
     await vscode.workspace.applyEdit(edit);
+  }
+
+  /**
+   * M2d — Apply markdown cleanup/normalization before writing to disk.
+   *
+   * Always applied:
+   *   • Collapse 3+ consecutive blank lines to 2.
+   *   • Trim trailing whitespace from each line (spaces/tabs that are not
+   *     intentional two-space line breaks).
+   *
+   * Applied only when `mikedown.markdownNormalization` is set to 'normalize':
+   *   • Bold marker:   ** → __ (if configured)
+   *   • Italic marker: * → _  (if configured)
+   *   • List marker:   - → * or + (if configured)
+   */
+  private applyCleanup(markdown: string): string {
+    const config = vscode.workspace.getConfiguration('mikedown');
+    const normalization = config.get<string>('markdownNormalization', 'preserve');
+
+    // Always: normalize blank lines between blocks and trim trailing whitespace.
+    let result = markdown
+      .replace(/\n{3,}/g, '\n\n')   // collapse 3+ blank lines to 2
+      .replace(/[ \t]+$/gm, '');     // trim trailing whitespace (not intentional line breaks)
+
+    if (normalization === 'normalize') {
+      const boldMarker = config.get<string>('normalizationStyle.boldMarker', '**');
+      const italicMarker = config.get<string>('normalizationStyle.italicMarker', '*');
+      const listMarker = config.get<string>('normalizationStyle.listMarker', '-');
+
+      if (boldMarker === '__') {
+        result = result.replace(/\*\*([^*]+)\*\*/g, '__$1__');
+      }
+      if (italicMarker === '_') {
+        result = result.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '_$1_');
+      }
+      if (listMarker !== '-') {
+        result = result.replace(/^- /gm, `${listMarker} `);
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -214,8 +270,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready';
+  type: 'edit' | 'ready' | 'stats';
   content?: string;
+  plainText?: string;
 }
 
 /**
