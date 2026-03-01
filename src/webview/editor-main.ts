@@ -317,10 +317,10 @@ function buildToolbar(editor: Editor): void {
 
   toolbar.innerHTML = buttons.map(btn => {
     if ((btn as { separator?: boolean }).separator) {
-      return '<div class="toolbar-separator"></div>';
+      return '<div class="toolbar-separator" role="separator"></div>';
     }
     const b = btn as { id: string; title: string; icon: string };
-    return `<button data-action="${b.id}" title="${b.title}" aria-label="${b.title}">${b.icon}</button>`;
+    return `<button data-action="${b.id}" title="${b.title}" aria-label="${b.title}" tabindex="0">${b.icon}</button>`;
   }).join('');
 
   // Wire click handlers
@@ -334,6 +334,15 @@ function buildToolbar(editor: Editor): void {
     }
     const btn = buttons.find(b => !('separator' in b) && (b as { id: string }).id === target.dataset.action);
     if (btn && 'action' in btn) btn.action();
+  });
+
+  // Keyboard accessibility: activate buttons via Enter or Space
+  toolbar.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const target = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null;
+    if (!target) return;
+    e.preventDefault();
+    target.click();
   });
 }
 
@@ -764,6 +773,9 @@ if (!editorContainer) {
   // M13 — Build find/replace bar and wire global keyboard shortcut.
   buildFindReplaceBar(editor);
 
+  // M5c — Initialize table drag handles and multi-cell selection
+  initTableDrag(editor);
+
   // M10 — Custom context menu: prevent browser default; show custom one.
   editorContainer.addEventListener('contextmenu', (event) => {
     event.preventDefault();
@@ -791,6 +803,10 @@ if (!editorContainer) {
   document.addEventListener('mousedown', (event) => {
     if (!(event.target as HTMLElement).closest('#mikedown-context-menu')) {
       hideContextMenu();
+    }
+    // M5c — Clear multi-cell selection when clicking outside a table
+    if (!(event.target as HTMLElement).closest('table')) {
+      clearCellSelection();
     }
   });
 
@@ -821,6 +837,10 @@ if (!editorContainer) {
 
   // M5b — Expose grid picker hide for contextmenu compatibility
   (window as any).__mikedownHideTablePicker = hideTableGridPicker;
+
+  // M5c — Expose cell selection and drag handle clear functions externally
+  (window as any).__mikedownClearCellSelection = clearCellSelection;
+  (window as any).__mikedownClearDragHandles = clearDragHandles;
 
   // M13 — Global keydown listener for Cmd+F / Cmd+H when editor doesn't have focus.
   document.addEventListener('keydown', (event) => {
@@ -1034,7 +1054,12 @@ if (!editorContainer) {
       linkTooltip.id = 'link-tooltip';
       document.body.appendChild(linkTooltip);
     }
-    linkTooltip.textContent = href;
+    // M6c — Show broken link tooltip if this link is marked as broken.
+    if (linkEl.classList.contains('mikedown-broken-link')) {
+      linkTooltip.textContent = linkEl.title || `Broken link: ${href}`;
+    } else {
+      linkTooltip.textContent = href;
+    }
     linkTooltip.style.display = 'block';
     const r = linkEl.getBoundingClientRect();
     linkTooltip.style.left = `${r.left}px`;

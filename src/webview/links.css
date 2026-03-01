@@ -65,3 +65,15 @@ body.cmd-held .ProseMirror a {
   cursor: pointer;
   user-select: none;
 }
+
+/* Broken link indicator */
+.ProseMirror a.mikedown-broken-link {
+  color: var(--vscode-errorForeground, #f44747) !important;
+  text-decoration: underline wavy var(--vscode-errorForeground, #f44747) !important;
+}
+
+.ProseMirror a.mikedown-broken-link::after {
+  content: ' ⚠';
+  font-size: 0.75em;
+  color: var(--vscode-errorForeground, #f44747);
+}

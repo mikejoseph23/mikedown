@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { MarkdownEditorProvider } from './markdownEditorProvider';
 import { StatusBarManager } from './statusBar';
 import { exportViaPrint } from './export';
+import { BacklinkProvider } from './backlinkProvider';
 
 /**
  * Called when the extension is activated.
@@ -111,6 +112,42 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   }, null, context.subscriptions);
+
+  // M6c: Backlink panel
+  const backlinkProvider = new BacklinkProvider();
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('mikedown.backlinks', backlinkProvider)
+  );
+
+  // Build backlink index on activate (in background)
+  backlinkProvider.buildIndex().catch(() => {});
+
+  // Update index when files are saved
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument(doc => {
+      if (doc.languageId === 'markdown' || doc.fileName.endsWith('.md') || doc.fileName.endsWith('.markdown')) {
+        backlinkProvider.updateFile(doc.uri);
+      }
+    })
+  );
+
+  // Update backlinks when active editor changes
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+      if (editor && (editor.document.languageId === 'markdown' || editor.document.fileName.endsWith('.md'))) {
+        backlinkProvider.setCurrentFile(editor.document.uri);
+      }
+    })
+  );
+
+  // Update index on file create/delete
+  context.subscriptions.push(
+    vscode.workspace.onDidCreateFiles(e => e.files.forEach(f => backlinkProvider.updateFile(f))),
+    vscode.workspace.onDidDeleteFiles(e => e.files.forEach(f => backlinkProvider.updateFile(f)))
+  );
+
+  // Expose backlinkProvider on MarkdownEditorProvider for checkLinks handler
+  (MarkdownEditorProvider as any)._backlinkProvider = backlinkProvider;
 }
 
 /**
