@@ -1,0 +1,6 @@
+.orchestrator/
+node_modules/
+out/
+dist/
+*.vsix
+.DS_Store

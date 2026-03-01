@@ -1,0 +1,53 @@
+{
+  "name": "mikedown-editor",
+  "displayName": "MikeDown Editor",
+  "description": "WYSIWYG Markdown editor for VS Code — Typora-style inline editing",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCustomEditor:mikedown.editor"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "mikedown.editor",
+        "displayName": "MikeDown Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          }
+        ],
+        "priority": "option"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "lint": "eslint src --ext ts",
+    "format": "prettier --write \"src/**/*.{ts,html,css,js}\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.35",
+    "@types/vscode": "^1.109.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "prettier": "^3.8.1",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.105.3",
+    "webpack-cli": "^5.1.4"
+  }
+}
