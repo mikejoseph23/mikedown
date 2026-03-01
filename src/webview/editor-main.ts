@@ -31,6 +31,13 @@ import { Markdown } from 'tiptap-markdown';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
 
+// ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
+import { EditorState } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
+import { markdown as cmMarkdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
+
 const lowlight = createLowlight(all);
 
 // ── VS Code Webview API ────────────────────────────────────────────────────────
@@ -65,6 +72,18 @@ let originalContent: string = '';
  * Tracks whether the document has unsaved changes relative to `originalContent`.
  */
 let isDirty = false;
+
+// ── M4: Source mode state ──────────────────────────────────────────────────────
+
+/**
+ * Whether the editor is currently in source (CodeMirror) mode.
+ */
+let sourceMode = false;
+
+/**
+ * The CodeMirror EditorView instance (created lazily on first toggle to source).
+ */
+let cmView: EditorView | null = null;
 
 // ── M15: Frontmatter state ─────────────────────────────────────────────────────
 
@@ -606,6 +625,144 @@ if (!editorContainer) {
     editorEl?.parentNode?.insertBefore(block, editorEl);
   }
 
+  // ── M4: CodeMirror source editor ───────────────────────────────────────────
+
+  const sourceContainer = document.getElementById('source-container') as HTMLElement;
+
+  function buildCmTheme(): EditorView.Theme {
+    // Read VS Code CSS variables for theming
+    const computedStyle = getComputedStyle(document.body);
+    const bg = computedStyle.getPropertyValue('--vscode-editor-background').trim() || '#1e1e1e';
+    const fg = computedStyle.getPropertyValue('--vscode-editor-foreground').trim() || '#d4d4d4';
+    const selBg = computedStyle.getPropertyValue('--vscode-editor-selectionBackground').trim() || '#264f78';
+    const activeLine = computedStyle.getPropertyValue('--vscode-editor-lineHighlightBackground').trim() || 'rgba(255,255,255,0.04)';
+    const gutterFg = computedStyle.getPropertyValue('--vscode-editorLineNumber-foreground').trim() || '#858585';
+
+    return EditorView.theme({
+      '&': { backgroundColor: bg, color: fg, height: '100%' },
+      '.cm-scroller': { fontFamily: 'var(--vscode-editor-font-family, monospace)', overflow: 'auto', height: '100%' },
+      '.cm-content': { padding: '8px 0' },
+      '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: selBg },
+      '.cm-activeLine': { backgroundColor: activeLine },
+      '.cm-gutters': { backgroundColor: bg, color: gutterFg, border: 'none' },
+    }, { dark: true });
+  }
+
+  function initCmView(): EditorView {
+    const state = EditorState.create({
+      doc: '',
+      extensions: [
+        history(),
+        keymap.of([...defaultKeymap, ...historyKeymap]),
+        lineNumbers(),
+        highlightActiveLine(),
+        cmMarkdown({ base: markdownLanguage }),
+        syntaxHighlighting(defaultHighlightStyle),
+        buildCmTheme(),
+        EditorView.lineWrapping,
+      ],
+    });
+    return new EditorView({ state, parent: sourceContainer });
+  }
+
+  function switchToSource(): void {
+    if (sourceMode) return;
+
+    // Serialize TipTap content (re-attach frontmatter for complete markdown)
+    const body = editor.storage.markdown.getMarkdown() as string;
+    const md = restoreFrontmatter(frontmatterContent, body);
+
+    // Record scroll percentage before hiding
+    const editorEl = document.getElementById('editor-container') as HTMLElement;
+    const scrollPct = editorEl.scrollTop / (editorEl.scrollHeight || 1);
+
+    // Init CodeMirror view lazily
+    if (!cmView) {
+      cmView = initCmView();
+    }
+
+    // Set content in CodeMirror
+    cmView.dispatch({
+      changes: { from: 0, to: cmView.state.doc.length, insert: md },
+    });
+
+    // Attempt cursor position mapping (character offset → CodeMirror position)
+    try {
+      const { from } = editor.state.selection.main;
+      const textBefore = editor.state.doc.textBetween(0, from, '\n');
+      const cmPos = Math.min(textBefore.length, cmView.state.doc.length);
+      cmView.dispatch({ selection: { anchor: cmPos } });
+    } catch (_) { /* ignore cursor mapping errors */ }
+
+    // Restore approximate scroll position
+    setTimeout(() => {
+      const scroller = cmView!.scrollDOM;
+      scroller.scrollTop = scrollPct * scroller.scrollHeight;
+    }, 10);
+
+    // Show source, hide WYSIWYG
+    editorEl.style.display = 'none';
+    sourceContainer.style.display = 'block';
+    sourceMode = true;
+
+    // Update toolbar: disable formatting buttons, keep source toggle active
+    document.querySelectorAll<HTMLButtonElement>('#toolbar button[data-action]').forEach(btn => {
+      const action = btn.dataset.action;
+      if (action === 'sourceToggle') {
+        btn.classList.add('active');
+      } else if (action !== 'undo' && action !== 'redo') {
+        btn.disabled = true;
+      }
+    });
+
+    cmView.focus();
+  }
+
+  function switchToWysiwyg(): void {
+    if (!sourceMode || !cmView) return;
+
+    const md = cmView.state.doc.toString();
+
+    // Record scroll percentage
+    const scroller = cmView.scrollDOM;
+    const scrollPct = scroller.scrollTop / (scroller.scrollHeight || 1);
+
+    // Extract frontmatter from source content
+    const { frontmatter, body } = extractFrontmatter(md);
+    frontmatterContent = frontmatter;
+
+    // Load content into TipTap (use isLoading to prevent dirty flag)
+    isLoading = true;
+    originalContent = md; // reset baseline to avoid false dirty
+    editor.commands.setContent(body);
+    isLoading = false;
+
+    // Show WYSIWYG, hide source
+    const editorEl = document.getElementById('editor-container') as HTMLElement;
+    sourceContainer.style.display = 'none';
+    editorEl.style.display = '';
+    sourceMode = false;
+
+    // Restore approximate scroll position
+    setTimeout(() => {
+      editorEl.scrollTop = scrollPct * editorEl.scrollHeight;
+    }, 10);
+
+    // Re-enable toolbar buttons
+    document.querySelectorAll<HTMLButtonElement>('#toolbar button[data-action]').forEach(btn => {
+      btn.disabled = false;
+      if (btn.dataset.action === 'sourceToggle') {
+        btn.classList.remove('active');
+      }
+    });
+
+    // Re-render frontmatter block in case it changed
+    renderFrontmatterBlock();
+
+    updateToolbarState(editor);
+    editor.commands.focus();
+  }
+
   // ── Message Handling — Extension → Webview ─────────────────────────────────
 
   window.addEventListener('message', (event: MessageEvent) => {
@@ -636,6 +793,18 @@ if (!editorContainer) {
         case 'toggleCode': editor.chain().focus().toggleCode().run(); break;
         case 'undo': editor.chain().focus().undo().run(); break;
         case 'redo': editor.chain().focus().redo().run(); break;
+        case 'toggleSource':
+          if (sourceMode) { switchToWysiwyg(); } else { switchToSource(); }
+          break;
+      }
+    }
+
+    // M4 — Handle toggleSource message (forwarded from extension host or toolbar button)
+    if (message.type === 'toggleSource') {
+      if (sourceMode) {
+        switchToWysiwyg();
+      } else {
+        switchToSource();
       }
     }
 

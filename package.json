@@ -95,6 +95,12 @@
         "key": "ctrl+shift+z",
         "mac": "cmd+shift+z",
         "when": "activeCustomEditorId == 'mikedown.editor'"
+      },
+      {
+        "command": "mikedown.toggleSourceMode",
+        "key": "ctrl+/",
+        "mac": "cmd+/",
+        "when": "activeCustomEditorId == 'mikedown.editor'"
       }
     ],
     "configuration": {
@@ -215,6 +221,12 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.8.0",
+    "@codemirror/lang-markdown": "^6.3.2",
+    "@codemirror/language": "^6.10.8",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/view": "^6.36.4",
     "@tiptap/core": "^3.20.0",
     "@tiptap/extension-code-block-lowlight": "^3.20.0",
     "@tiptap/extension-image": "^3.20.0",

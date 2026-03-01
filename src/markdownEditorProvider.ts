@@ -131,6 +131,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // once StatusBarManager is accessible from this provider.
           // TODO: wire this to StatusBarManager when M3 (toolbar/status bar) is done.
           break;
+        case 'toggleSource':
+          // M4 — The webview toolbar button posts this message; forward it back
+          // as a 'toggleSource' message so the webview handles the toggle.
+          webviewPanel.webview.postMessage({ type: 'toggleSource' });
+          break;
         default:
           console.warn(`MikeDown: unknown message type "${(message as { type: string }).type}"`);
       }
@@ -338,6 +343,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   </div>
   <!-- TipTap mounts directly into #editor-container -->
   <div id="editor-container" role="main" aria-label="Markdown editor"></div>
+  <div id="source-container" style="display:none; height:100%;"></div>
   <script src="${scriptUri}"></script>
 </body>
 </html>`;
@@ -348,7 +354,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource';
   content?: string;
   plainText?: string;
 }

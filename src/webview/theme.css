@@ -41,3 +41,15 @@ body {
   .ProseMirror a { color: LinkText; }
   #toolbar button { forced-color-adjust: auto; }
 }
+
+/* Source mode container */
+#source-container {
+  height: 100%;
+  overflow: hidden;
+}
+#source-container .cm-editor {
+  height: 100%;
+}
+#source-container .cm-editor.cm-focused {
+  outline: none;
+}
