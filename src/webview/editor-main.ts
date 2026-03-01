@@ -219,6 +219,11 @@ function buildToolbar(editor: Editor): void {
   toolbar.addEventListener('click', (e) => {
     const target = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null;
     if (!target) return;
+    // M5b — Table button opens grid picker instead of directly inserting
+    if (target.dataset.action === 'table') {
+      showTableGridPicker(editor, target);
+      return;
+    }
     const btn = buttons.find(b => !('separator' in b) && (b as { id: string }).id === target.dataset.action);
     if (btn && 'action' in btn) btn.action();
   });
@@ -685,6 +690,29 @@ if (!editorContainer) {
   (window as any).__vscode = vscode;
   (window as any).__mikedownShowLinkDialog = () => showLinkDialog(editor);
   (window as any).__mikedownShowImageDialog = () => showImageInsertDialog(editor);
+
+  // M5b — Wire table toolbar to selection updates
+  editor.on('selectionUpdate', () => {
+    updateTableToolbar(editor);
+  });
+  editor.on('blur', () => {
+    // Delay hiding to allow toolbar button clicks to register
+    setTimeout(() => {
+      if (!document.activeElement?.closest('#mikedown-table-toolbar')) {
+        hideTableToolbar();
+      }
+    }, 150);
+  });
+
+  // M5b — Hide grid picker on click outside
+  document.addEventListener('mousedown', (event) => {
+    if (!(event.target as HTMLElement).closest('#mikedown-table-picker')) {
+      hideTableGridPicker();
+    }
+  });
+
+  // M5b — Expose grid picker hide for contextmenu compatibility
+  (window as any).__mikedownHideTablePicker = hideTableGridPicker;
 
   // M13 — Global keydown listener for Cmd+F / Cmd+H when editor doesn't have focus.
   document.addEventListener('keydown', (event) => {

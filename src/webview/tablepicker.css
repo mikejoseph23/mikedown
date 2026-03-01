@@ -1,0 +1,132 @@
+/* ============================================================
+   Table Grid Picker
+   ============================================================ */
+
+#mikedown-table-picker {
+  position: fixed;
+  z-index: 1001;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.35));
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  border-radius: 4px;
+  padding: 8px;
+  user-select: none;
+}
+
+.tp-grid {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.tp-cell {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.35));
+  border-radius: 2px;
+  cursor: pointer;
+  background: var(--vscode-editor-background);
+  transition: background 0.05s, border-color 0.05s;
+}
+
+.tp-cell.tp-active {
+  background: var(--vscode-list-activeSelectionBackground, #0e639c);
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.tp-cell:hover {
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.tp-label {
+  text-align: center;
+  font-size: 0.8em;
+  color: var(--vscode-editor-foreground);
+  margin-bottom: 6px;
+}
+
+.tp-manual {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tp-input {
+  width: 40px;
+  padding: 2px 4px;
+  font-size: 0.8em;
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  border-radius: 2px;
+  text-align: center;
+}
+
+.tp-sep {
+  font-size: 0.8em;
+  color: var(--vscode-editor-foreground);
+}
+
+.tp-ok {
+  padding: 2px 8px;
+  font-size: 0.8em;
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.tp-ok:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+/* ============================================================
+   Table Contextual Toolbar
+   ============================================================ */
+
+#mikedown-table-toolbar {
+  position: fixed;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.35));
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  border-radius: 4px;
+  padding: 3px 4px;
+  user-select: none;
+}
+
+.tt-btn {
+  padding: 3px 6px;
+  font-size: 0.8em;
+  background: transparent;
+  color: var(--vscode-editor-foreground);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tt-btn:hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground, rgba(90,93,94,0.31));
+  border-color: var(--vscode-toolbar-hoverBackground, rgba(90,93,94,0.31));
+}
+
+.tt-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tt-btn.tt-active {
+  background: var(--vscode-toolbar-activeBackground, rgba(99,102,103,0.31));
+}
+
+.tt-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.35));
+  margin: 0 2px;
+}
