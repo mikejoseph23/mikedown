@@ -51,7 +51,11 @@
         },
         "mikedown.linkClickBehavior": {
           "type": "string",
-          "enum": ["navigateCurrentTab", "openNewTab", "showContextMenu"],
+          "enum": [
+            "navigateCurrentTab",
+            "openNewTab",
+            "showContextMenu"
+          ],
           "enumDescriptions": [
             "Cmd+Click navigates to the link in the current editor tab",
             "Cmd+Click opens the link in a new editor tab",
@@ -67,7 +71,10 @@
         },
         "mikedown.markdownNormalization": {
           "type": "string",
-          "enum": ["preserve", "normalize"],
+          "enum": [
+            "preserve",
+            "normalize"
+          ],
           "enumDescriptions": [
             "Preserve original markdown syntax choices (default list markers, heading styles, etc.)",
             "Normalize markdown to a consistent style on save"
@@ -77,25 +84,38 @@
         },
         "mikedown.normalizationStyle.boldMarker": {
           "type": "string",
-          "enum": ["**", "__"],
+          "enum": [
+            "**",
+            "__"
+          ],
           "default": "**",
           "description": "Which bold marker to use when normalization is enabled."
         },
         "mikedown.normalizationStyle.italicMarker": {
           "type": "string",
-          "enum": ["*", "_"],
+          "enum": [
+            "*",
+            "_"
+          ],
           "default": "*",
           "description": "Which italic marker to use when normalization is enabled."
         },
         "mikedown.normalizationStyle.listMarker": {
           "type": "string",
-          "enum": ["-", "*", "+"],
+          "enum": [
+            "-",
+            "*",
+            "+"
+          ],
           "default": "-",
           "description": "Which unordered list marker to use when normalization is enabled."
         },
         "mikedown.normalizationStyle.headingStyle": {
           "type": "string",
-          "enum": ["atx", "setext"],
+          "enum": [
+            "atx",
+            "setext"
+          ],
           "enumDescriptions": [
             "ATX-style headings: # Heading 1, ## Heading 2",
             "Setext-style headings: Heading 1 with === underline, Heading 2 with --- underline"
@@ -125,5 +145,20 @@
     "typescript": "^5.9.3",
     "webpack": "^5.105.3",
     "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "@tiptap/core": "^3.20.0",
+    "@tiptap/extension-image": "^3.20.0",
+    "@tiptap/extension-link": "^3.20.0",
+    "@tiptap/extension-placeholder": "^3.20.0",
+    "@tiptap/extension-table": "^3.20.0",
+    "@tiptap/extension-table-cell": "^3.20.0",
+    "@tiptap/extension-table-header": "^3.20.0",
+    "@tiptap/extension-table-row": "^3.20.0",
+    "@tiptap/extension-task-item": "^3.20.0",
+    "@tiptap/extension-task-list": "^3.20.0",
+    "@tiptap/pm": "^3.20.0",
+    "@tiptap/starter-kit": "^3.20.0",
+    "tiptap-markdown": "^0.9.0"
   }
 }

@@ -172,6 +172,80 @@ body {
   font-weight: 600;
 }
 
+/* ─── TipTap ProseMirror Editor ───────────────────────────────────────────── */
+
+/* TipTap renders into a .ProseMirror element inside #editor-container */
+.ProseMirror {
+  max-width: 800px;
+  margin: 0 auto;
+  min-height: calc(100vh - 40px - 64px); /* viewport minus toolbar and padding */
+  outline: none;
+  line-height: 1.7;
+  word-wrap: break-word;
+  caret-color: var(--vscode-editorCursor-foreground, #aeafad);
+}
+
+/* Placeholder text shown when editor is empty */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--vscode-editorGhostText-foreground, #666);
+  pointer-events: none;
+  height: 0;
+}
+
+/* ─── Task lists (GFM checkboxes) ─────────────────────────────────────────── */
+
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 1em;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.15em;
+}
+
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+/* ─── Tables ──────────────────────────────────────────────────────────────── */
+
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1em;
+  table-layout: fixed;
+}
+
+.ProseMirror table th,
+.ProseMirror table td {
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  padding: 0.5em 0.75em;
+  text-align: left;
+  position: relative;
+}
+
+.ProseMirror table th {
+  background-color: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+  font-weight: 600;
+}
+
+.ProseMirror table .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(100, 149, 237, 0.15);
+  pointer-events: none;
+}
+
 /* ─── Scrollbar ───────────────────────────────────────────────────────────── */
 
 #editor-container::-webkit-scrollbar {

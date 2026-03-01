@@ -26,7 +26,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       enableScripts: true,
       localResourceRoots: [
         vscode.Uri.file(path.join(this.context.extensionPath, 'src', 'webview')),
-        vscode.Uri.file(path.join(this.context.extensionPath, 'dist'))
+        vscode.Uri.file(path.join(this.context.extensionPath, 'dist')),
+        vscode.Uri.file(path.join(this.context.extensionPath, 'out', 'webview'))
       ]
     };
 
@@ -91,17 +92,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    * Build the full HTML string for the webview.
    */
   private getWebviewContent(webview: vscode.Webview): string {
-    // Build URIs for local resources
-    const webviewDir = vscode.Uri.file(
-      path.join(this.context.extensionPath, 'src', 'webview')
-    );
-
+    // CSS lives in the source webview directory (not compiled)
     const cssUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(webviewDir.fsPath, 'editor.css'))
+      vscode.Uri.file(path.join(this.context.extensionPath, 'src', 'webview', 'editor.css'))
     );
 
+    // The TipTap webview bundle is compiled by webpack to out/webview/editor-main.js
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(webviewDir.fsPath, 'editor.js'))
+      vscode.Uri.file(path.join(this.context.extensionPath, 'out', 'webview', 'editor-main.js'))
     );
 
     // Content Security Policy: fully offline, no external resources
@@ -125,18 +123,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 </head>
 <body>
   <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">
-    <!-- Toolbar buttons will be added in M2 -->
+    <!-- Toolbar buttons will be added in M2b -->
     <span class="toolbar-placeholder">MikeDown Editor</span>
   </div>
-  <div id="editor-container" role="main">
-    <div id="editor"
-         contenteditable="true"
-         spellcheck="true"
-         aria-multiline="true"
-         aria-label="Markdown editor">
-    </div>
-  </div>
-  <script src="${scriptUri}" nonce="${nonce}"></script>
+  <!-- TipTap mounts directly into #editor-container -->
+  <div id="editor-container" role="main" aria-label="Markdown editor"></div>
+  <script src="${scriptUri}"></script>
 </body>
 </html>`;
   }

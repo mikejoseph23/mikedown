@@ -55,7 +55,7 @@ If you encounter a blocker or architectural decision not covered in the planning
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [M1: Project Scaffolding & Extension Setup](#m1-project-scaffolding--extension-setup) | Sonnet | ⬜ Not Started | — | Foundation: extension manifest, build tooling, Custom Editor API |
+| [M1: Project Scaffolding & Extension Setup](#m1-project-scaffolding--extension-setup) | Sonnet | ✅ Complete | 15 | Foundation: extension manifest, build tooling, Custom Editor API |
 | [M2a: WYSIWYG Engine Setup & Markdown Round-Trip](#m2a-wysiwyg-engine-setup--markdown-round-trip) | Sonnet | ⬜ Not Started | — | Install TipTap, configure in webview, implement GFM parse/serialize |
 | [M2b: Inline Element Live Preview](#m2b-inline-element-live-preview) | Sonnet | ⬜ Not Started | — | Bold, italic, strikethrough, inline code, links |
 | [M2c: Block Element Live Preview](#m2c-block-element-live-preview) | Sonnet | ⬜ Not Started | — | Headings, lists, blockquotes, code blocks, horizontal rules |
@@ -124,27 +124,27 @@ If you encounter a blocker or architectural decision not covered in the planning
 
 ## M1: Project Scaffolding & Extension Setup
 
-**Model: Sonnet** | **Status: ⬜ Not Started**
+**Model: Sonnet** | **Status: ✅ Complete**
 
 Initialize the VS Code extension project with proper build tooling, extension manifest, and the Custom Editor API foundation that all subsequent milestones build upon.
 
 ### Tasks
 
-- [ ] Initialize project with `yo code` generator (TypeScript extension)
-- [ ] Configure `package.json` with extension metadata (name: `mikedown-editor`, display name: `MikeDown Editor`)
-- [ ] Set up TypeScript compilation with strict mode
-- [ ] Configure webpack/esbuild bundler for extension packaging
-- [ ] Register Custom Editor provider in `package.json` for `.md` and `.markdown` file types
-- [ ] Implement `CustomTextEditorProvider` with basic webview panel
-- [ ] Set up Content Security Policy (CSP) for webview (fully offline — no external resources)
-- [ ] Create basic webview HTML shell with toolbar placeholder and editor container
-- [ ] Set up message passing between extension host and webview (postMessage API)
-- [ ] Implement file read/write through VS Code's `workspace.fs` API
-- [ ] Configure `.vsixignore` for clean packaging
-- [ ] Set up ESLint and Prettier for code quality
-- [ ] Create development launch configuration (`.vscode/launch.json`)
-- [ ] Verify extension activates and opens `.md` files in the custom editor
-- [ ] Set up the preference to optionally register as default editor for `.md`/`.markdown` files
+- [x] Initialize project with `yo code` generator (TypeScript extension)
+- [x] Configure `package.json` with extension metadata (name: `mikedown-editor`, display name: `MikeDown Editor`)
+- [x] Set up TypeScript compilation with strict mode
+- [x] Configure webpack/esbuild bundler for extension packaging
+- [x] Register Custom Editor provider in `package.json` for `.md` and `.markdown` file types
+- [x] Implement `CustomTextEditorProvider` with basic webview panel
+- [x] Set up Content Security Policy (CSP) for webview (fully offline — no external resources)
+- [x] Create basic webview HTML shell with toolbar placeholder and editor container
+- [x] Set up message passing between extension host and webview (postMessage API)
+- [x] Implement file read/write through VS Code's `workspace.fs` API
+- [x] Configure `.vsixignore` for clean packaging
+- [x] Set up ESLint and Prettier for code quality
+- [x] Create development launch configuration (`.vscode/launch.json`)
+- [x] Verify extension activates and opens `.md` files in the custom editor
+- [x] Set up the preference to optionally register as default editor for `.md`/`.markdown` files
 
 > **Worker Note:** All items in this milestone must be completed. If any item seems unclear or blocked, note it in your summary for the orchestrator but still attempt the work.
 
@@ -1727,6 +1727,8 @@ When milestones have incomplete work (items skipped or partially done), gap-fill
 ## Progress Log / Notes
 
 > Reverse-chronological log — newest entries first.
+
+**2026-03-01 17:15** - M1 complete (15 min). Scaffolded full VS Code extension project: package.json with customEditors contribution, TypeScript strict mode, webpack bundler, CustomTextEditorProvider with CSP/postMessage/workspace.fs, webview HTML shell, ESLint/Prettier, launch config. tsc + webpack both pass. Git repo initialized. Next: M2a (engine) + M8/M14/M16 (independent) in parallel.
 
 **2026-03-01 16:15** - Refactored planning document to break down all Opus-rated milestones into Sonnet-digestible sub-milestones. M2 split into M2a (engine setup), M2b (inline preview), M2c (block preview), M2d (behaviors & integrity). M5 split into M5a (rendering & cell editing), M5b (grid picker & toolbar), M5c (drag handles & multi-cell). M6 split into M6a (navigation & anchors), M6b (autocomplete), M6c (broken links & backlinks). M12 split into M12a (basic HTML conversion), M12b (complex structures & source handling). M17 split into M17a (unit tests), M17b (integration tests), M17c (edge cases & performance), M17d (polish & release prep). Each sub-milestone now includes prescriptive implementation details: specific npm packages to install, exact TipTap API calls to use, CSS class names, regex patterns, and test scenarios. Total milestone count: 28 (all Sonnet). Updated dependency graph and parallel groups accordingly.
 
