@@ -1,0 +1,88 @@
+/* ============================================================
+   Table Drag Handles
+   ============================================================ */
+
+.td-handle {
+  position: absolute;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  color: var(--vscode-editor-foreground);
+  opacity: 0.5;
+  cursor: grab;
+  border-radius: 2px;
+  user-select: none;
+  background: var(--vscode-editorWidget-background, transparent);
+  transition: opacity 0.1s;
+}
+
+.td-handle:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(90,93,94,0.31));
+}
+
+.td-handle:active {
+  cursor: grabbing;
+}
+
+body.td-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+.td-drag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 899;
+  cursor: grabbing;
+}
+
+.td-drop-line {
+  position: fixed;
+  z-index: 901;
+  pointer-events: none;
+  display: none;
+  background: var(--vscode-focusBorder, #007fd4);
+}
+
+.td-drop-line-row {
+  height: 2px;
+}
+
+.td-drop-line-col {
+  width: 2px;
+}
+
+/* ============================================================
+   Multi-Cell Selection
+   ============================================================ */
+
+.ProseMirror td.mikedown-cell-selected,
+.ProseMirror th.mikedown-cell-selected {
+  background: var(--vscode-list-activeSelectionBackground, rgba(14,99,156,0.25)) !important;
+  position: relative;
+}
+
+.ProseMirror td.mikedown-cell-border-top,
+.ProseMirror th.mikedown-cell-border-top {
+  border-top: 2px solid var(--vscode-focusBorder, #007fd4) !important;
+}
+
+.ProseMirror td.mikedown-cell-border-bottom,
+.ProseMirror th.mikedown-cell-border-bottom {
+  border-bottom: 2px solid var(--vscode-focusBorder, #007fd4) !important;
+}
+
+.ProseMirror td.mikedown-cell-border-left,
+.ProseMirror th.mikedown-cell-border-left {
+  border-left: 2px solid var(--vscode-focusBorder, #007fd4) !important;
+}
+
+.ProseMirror td.mikedown-cell-border-right,
+.ProseMirror th.mikedown-cell-border-right {
+  border-right: 2px solid var(--vscode-focusBorder, #007fd4) !important;
+}
