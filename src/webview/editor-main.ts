@@ -7,11 +7,13 @@
  *
  * Extension → Webview messages:
  *   { type: 'update', content: string }  — full document markdown text to load
+ *   { type: 'command', command: string } — formatting command from extension host
  *
  * Webview → Extension messages:
  *   { type: 'ready' }                    — webview is ready to receive content
  *   { type: 'edit', content: string }    — new full markdown text after user edit
  *   { type: 'stats', plainText: string } — plain text for word/char count (M14 hook)
+ *   { type: 'toggleSource' }             — request to toggle source mode (M4 hook)
  */
 
 import { Editor } from '@tiptap/core';
@@ -59,6 +61,118 @@ let originalContent: string = '';
  * Tracks whether the document has unsaved changes relative to `originalContent`.
  */
 let isDirty = false;
+
+// ── M3: Link and image dialog helpers ─────────────────────────────────────────
+
+function showLinkDialog(editor: Editor): void {
+  const existing = editor.getAttributes('link').href as string | undefined;
+  const url = window.prompt('Link URL:', existing ?? 'https://');
+  if (url === null) return; // cancelled
+  if (url === '') {
+    editor.chain().focus().unsetLink().run();
+  } else {
+    editor.chain().focus().setLink({ href: url }).run();
+  }
+}
+
+function showImageInsertDialog(editor: Editor): void {
+  const src = window.prompt('Image path or URL:');
+  if (!src) return;
+  const alt = window.prompt('Alt text (optional):', '') ?? '';
+  editor.chain().focus().setImage({ src, alt }).run();
+}
+
+// ── M3: Toolbar builder ────────────────────────────────────────────────────────
+
+type ToolbarButtonDef =
+  | { separator: true }
+  | {
+      id: string;
+      title: string;
+      icon: string;
+      action: () => void;
+      isActive: () => boolean;
+    };
+
+function buildToolbar(editor: Editor): void {
+  const toolbar = document.getElementById('toolbar');
+  if (!toolbar) return;
+
+  const buttons: ToolbarButtonDef[] = [
+    { id: 'bold', title: 'Bold (Cmd+B)', icon: '<b>B</b>', action: () => editor.chain().focus().toggleBold().run(), isActive: () => editor.isActive('bold') },
+    { id: 'italic', title: 'Italic (Cmd+I)', icon: '<i>I</i>', action: () => editor.chain().focus().toggleItalic().run(), isActive: () => editor.isActive('italic') },
+    { id: 'strike', title: 'Strikethrough', icon: '<s>S</s>', action: () => editor.chain().focus().toggleStrike().run(), isActive: () => editor.isActive('strike') },
+    { id: 'code', title: 'Inline Code', icon: '<code>&lt;/&gt;</code>', action: () => editor.chain().focus().toggleCode().run(), isActive: () => editor.isActive('code') },
+    { separator: true },
+    { id: 'h1', title: 'Heading 1', icon: 'H1', action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), isActive: () => editor.isActive('heading', { level: 1 }) },
+    { id: 'h2', title: 'Heading 2', icon: 'H2', action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), isActive: () => editor.isActive('heading', { level: 2 }) },
+    { id: 'h3', title: 'Heading 3', icon: 'H3', action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(), isActive: () => editor.isActive('heading', { level: 3 }) },
+    { separator: true },
+    { id: 'bulletList', title: 'Bullet List', icon: '&bull; List', action: () => editor.chain().focus().toggleBulletList().run(), isActive: () => editor.isActive('bulletList') },
+    { id: 'orderedList', title: 'Ordered List', icon: '1. List', action: () => editor.chain().focus().toggleOrderedList().run(), isActive: () => editor.isActive('orderedList') },
+    { id: 'taskList', title: 'Task List', icon: '&#9744; List', action: () => editor.chain().focus().toggleTaskList().run(), isActive: () => editor.isActive('taskList') },
+    { id: 'blockquote', title: 'Blockquote', icon: '&#10077;', action: () => editor.chain().focus().toggleBlockquote().run(), isActive: () => editor.isActive('blockquote') },
+    { id: 'codeBlock', title: 'Code Block', icon: '{ }', action: () => editor.chain().focus().toggleCodeBlock().run(), isActive: () => editor.isActive('codeBlock') },
+    { separator: true },
+    { id: 'link', title: 'Insert Link (Cmd+K)', icon: '&#128279;', action: () => showLinkDialog(editor), isActive: () => editor.isActive('link') },
+    { id: 'image', title: 'Insert Image', icon: '&#128444;', action: () => showImageInsertDialog(editor), isActive: () => false },
+    { id: 'table', title: 'Insert Table', icon: '&#8862;', action: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), isActive: () => editor.isActive('table') },
+    { id: 'hr', title: 'Horizontal Rule', icon: '&mdash;', action: () => editor.chain().focus().setHorizontalRule().run(), isActive: () => false },
+    { separator: true },
+    { id: 'undo', title: 'Undo (Cmd+Z)', icon: '&#8617;', action: () => editor.chain().focus().undo().run(), isActive: () => false },
+    { id: 'redo', title: 'Redo (Cmd+Shift+Z)', icon: '&#8618;', action: () => editor.chain().focus().redo().run(), isActive: () => false },
+    { separator: true },
+    { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: '&lt;/&gt; Source', action: () => vscode.postMessage({ type: 'toggleSource' }), isActive: () => false },
+  ];
+
+  toolbar.innerHTML = buttons.map(btn => {
+    if ((btn as { separator?: boolean }).separator) {
+      return '<div class="toolbar-separator"></div>';
+    }
+    const b = btn as { id: string; title: string; icon: string };
+    return `<button data-action="${b.id}" title="${b.title}" aria-label="${b.title}">${b.icon}</button>`;
+  }).join('');
+
+  // Wire click handlers
+  toolbar.addEventListener('click', (e) => {
+    const target = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null;
+    if (!target) return;
+    const btn = buttons.find(b => !('separator' in b) && (b as { id: string }).id === target.dataset.action);
+    if (btn && 'action' in btn) btn.action();
+  });
+}
+
+function updateToolbarState(editor: Editor): void {
+  const toolbar = document.getElementById('toolbar');
+  if (!toolbar) return;
+  const inCodeBlock = editor.isActive('codeBlock');
+  toolbar.querySelectorAll('button[data-action]').forEach(el => {
+    const btn = el as HTMLButtonElement;
+    const action = btn.dataset.action!;
+    // Active state
+    btn.classList.toggle('active', (() => {
+      switch (action) {
+        case 'bold': return editor.isActive('bold');
+        case 'italic': return editor.isActive('italic');
+        case 'strike': return editor.isActive('strike');
+        case 'code': return editor.isActive('code');
+        case 'h1': return editor.isActive('heading', { level: 1 });
+        case 'h2': return editor.isActive('heading', { level: 2 });
+        case 'h3': return editor.isActive('heading', { level: 3 });
+        case 'bulletList': return editor.isActive('bulletList');
+        case 'orderedList': return editor.isActive('orderedList');
+        case 'taskList': return editor.isActive('taskList');
+        case 'blockquote': return editor.isActive('blockquote');
+        case 'codeBlock': return editor.isActive('codeBlock');
+        case 'link': return editor.isActive('link');
+        case 'table': return editor.isActive('table');
+        default: return false;
+      }
+    })());
+    // Disabled state: inline format buttons disabled inside code blocks
+    btn.disabled = inCodeBlock && ['bold', 'italic', 'strike', 'code', 'link'].includes(action);
+  });
+}
 
 // ── TipTap Initialisation ──────────────────────────────────────────────────────
 
@@ -169,6 +283,13 @@ if (!editorContainer) {
     // ── Keyboard shortcuts ──────────────────────────────────────────────────────
     editorProps: {
       handleKeyDown(view, event) {
+        // M3 — Cmd+K / Ctrl+K: Insert/edit link (not inside a table).
+        if ((event.metaKey || event.ctrlKey) && event.key === 'k' && !editor.isActive('table')) {
+          event.preventDefault();
+          showLinkDialog(editor);
+          return true;
+        }
+
         // M5a — Table keyboard navigation.
         // Tab/Shift+Tab move between cells. Tab on the last cell of the last row
         // creates a new row. Escape exits the table.
@@ -293,6 +414,11 @@ if (!editorContainer) {
     },
   });
 
+  // M3 — Build toolbar and wire active-state updates.
+  buildToolbar(editor);
+  editor.on('selectionUpdate', () => updateToolbarState(editor));
+  editor.on('transaction', () => updateToolbarState(editor));
+
   // M2c — Wire Tab/Shift+Tab custom events to editor commands.
   // These events are dispatched by the handleKeyDown prop above and executed
   // here where we have a reference to the editor instance.
@@ -388,7 +514,13 @@ if (!editorContainer) {
   // ── Message Handling — Extension → Webview ─────────────────────────────────
 
   window.addEventListener('message', (event: MessageEvent) => {
-    const message = event.data as { type: string; content?: string; fontFamily?: string; fontSize?: number };
+    const message = event.data as {
+      type: string;
+      content?: string;
+      fontFamily?: string;
+      fontSize?: number;
+      command?: string;
+    };
 
     if (message.type === 'theme') {
       document.documentElement.style.setProperty(
@@ -397,6 +529,19 @@ if (!editorContainer) {
       document.documentElement.style.setProperty(
         '--mikedown-font-size', `${message.fontSize || 16}px`
       );
+    }
+
+    // M3 — Handle formatting commands posted from the extension host
+    // (triggered by VS Code keybindings registered in package.json).
+    if (message.type === 'command') {
+      switch (message.command) {
+        case 'toggleBold': editor.chain().focus().toggleBold().run(); break;
+        case 'toggleItalic': editor.chain().focus().toggleItalic().run(); break;
+        case 'toggleStrike': editor.chain().focus().toggleStrike().run(); break;
+        case 'toggleCode': editor.chain().focus().toggleCode().run(); break;
+        case 'undo': editor.chain().focus().undo().run(); break;
+        case 'redo': editor.chain().focus().redo().run(); break;
+      }
     }
 
     if (message.type === 'update') {

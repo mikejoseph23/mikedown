@@ -29,6 +29,23 @@
         "priority": "option"
       }
     ],
+    "commands": [
+      { "command": "mikedown.toggleBold", "title": "MikeDown: Toggle Bold" },
+      { "command": "mikedown.toggleItalic", "title": "MikeDown: Toggle Italic" },
+      { "command": "mikedown.toggleStrike", "title": "MikeDown: Toggle Strikethrough" },
+      { "command": "mikedown.toggleCode", "title": "MikeDown: Toggle Inline Code" },
+      { "command": "mikedown.undo", "title": "MikeDown: Undo" },
+      { "command": "mikedown.redo", "title": "MikeDown: Redo" },
+      { "command": "mikedown.toggleSourceMode", "title": "MikeDown: Toggle Source Mode" }
+    ],
+    "keybindings": [
+      { "command": "mikedown.toggleBold", "key": "ctrl+b", "mac": "cmd+b", "when": "activeCustomEditorId == 'mikedown.editor'" },
+      { "command": "mikedown.toggleItalic", "key": "ctrl+i", "mac": "cmd+i", "when": "activeCustomEditorId == 'mikedown.editor'" },
+      { "command": "mikedown.toggleStrike", "key": "ctrl+shift+s", "mac": "cmd+shift+s", "when": "activeCustomEditorId == 'mikedown.editor'" },
+      { "command": "mikedown.toggleCode", "key": "ctrl+shift+k", "mac": "cmd+shift+k", "when": "activeCustomEditorId == 'mikedown.editor'" },
+      { "command": "mikedown.undo", "key": "ctrl+z", "mac": "cmd+z", "when": "activeCustomEditorId == 'mikedown.editor'" },
+      { "command": "mikedown.redo", "key": "ctrl+shift+z", "mac": "cmd+shift+z", "when": "activeCustomEditorId == 'mikedown.editor'" }
+    ],
     "configuration": {
       "title": "MikeDown Editor",
       "properties": {

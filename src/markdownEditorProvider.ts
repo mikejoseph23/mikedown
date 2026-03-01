@@ -12,6 +12,13 @@ import { getSettings } from './settings';
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'mikedown.editor';
 
+  /**
+   * M3 — Tracks the currently active webview panel so that extension commands
+   * (registered in extension.ts) can post messages to the active editor.
+   * Updated whenever resolveCustomTextEditor is called and the panel gains focus.
+   */
+  public static activePanel: vscode.WebviewPanel | undefined = undefined;
+
   constructor(private readonly context: vscode.ExtensionContext) {}
 
   /**
@@ -40,6 +47,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     // Set the initial HTML content
     webviewPanel.webview.html = this.getWebviewContent(webviewPanel.webview);
+
+    // M3 — Track the active panel so extension commands can post messages to it.
+    MarkdownEditorProvider.activePanel = webviewPanel;
+    webviewPanel.onDidChangeViewState(e => {
+      if (e.webviewPanel.active) {
+        MarkdownEditorProvider.activePanel = webviewPanel;
+      } else if (MarkdownEditorProvider.activePanel === webviewPanel) {
+        MarkdownEditorProvider.activePanel = undefined;
+      }
+    });
 
     // Send initial document content to the webview.
     // IMPORTANT: use document.getText() directly — no transformation that could trigger a change event.
@@ -87,6 +104,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // Clean up the listener when the panel is closed
     webviewPanel.onDidDispose(() => {
       changeSubscription.dispose();
+      // M3 — Clear active panel reference when this panel is closed.
+      if (MarkdownEditorProvider.activePanel === webviewPanel) {
+        MarkdownEditorProvider.activePanel = undefined;
+      }
     });
 
     // Handle messages from the webview

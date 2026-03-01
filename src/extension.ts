@@ -24,6 +24,31 @@ export function activate(context: vscode.ExtensionContext): void {
 
   console.log('MikeDown Editor is now active.');
 
+  // M3 — Register formatting commands for VS Code keybindings.
+  // Each command posts a message to the active webview panel so TipTap
+  // can handle the formatting action directly inside the editor.
+  const formattingCommands = ['toggleBold', 'toggleItalic', 'toggleStrike', 'toggleCode', 'undo', 'redo'];
+  for (const cmd of formattingCommands) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(`mikedown.${cmd}`, () => {
+        const panel = MarkdownEditorProvider.activePanel;
+        if (panel) {
+          panel.webview.postMessage({ type: 'command', command: cmd });
+        }
+      })
+    );
+  }
+
+  // M3 — Register toggleSourceMode command (placeholder — toggle logic in M4).
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.toggleSourceMode', () => {
+      const panel = MarkdownEditorProvider.activePanel;
+      if (panel) {
+        panel.webview.postMessage({ type: 'toggleSource' });
+      }
+    })
+  );
+
   // M14: Document stats status bar
   const statusBar = new StatusBarManager();
   context.subscriptions.push({ dispose: () => statusBar.dispose() });
