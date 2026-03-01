@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { getSettings } from './settings';
 
 /**
  * MikeDown custom text editor provider.
@@ -34,27 +35,53 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // Set the initial HTML content
     webviewPanel.webview.html = this.getWebviewContent(webviewPanel.webview);
 
-    // Send initial document content to the webview
+    // Send initial document content to the webview.
+    // IMPORTANT: use document.getText() directly — no transformation that could trigger a change event.
+    //
+    // Dirty-flag guarantee chain:
+    //   1. resolveCustomTextEditor sends 'update' with raw content (here via updateWebview)
+    //   2. Webview sets isLoading = true, calls setContent, sets isLoading = false
+    //   3. onUpdate is suppressed during load → no 'edit' message → no WorkspaceEdit → dirty flag stays clean
     this.updateWebview(document, webviewPanel.webview);
 
-    // Listen for document changes (e.g. from other editors)
-    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(event => {
-      if (event.document.uri.toString() === document.uri.toString()) {
-        this.updateWebview(document, webviewPanel.webview);
+    // Track changes triggered by our own webview to avoid reload loops.
+    // Set to true before applying a WorkspaceEdit; reset to false after the
+    // resulting onDidChangeTextDocument fires.
+    let ignoreNextChange = false;
+
+    // Listen for document changes — either from this WYSIWYG editor or an external source.
+    //
+    // Real-time sync guarantee:
+    //   - WYSIWYG → text editor: when the webview sends 'edit', we apply a WorkspaceEdit.
+    //     VS Code then updates the TextDocument and any standard text editor showing the same
+    //     file sees the change automatically — no extra subscription needed.
+    //   - Text editor → WYSIWYG: onDidChangeTextDocument fires; handleExternalChange sends
+    //     an 'update' message to the webview so it reflects the latest content.
+    const changeSubscription = vscode.workspace.onDidChangeTextDocument(event => {
+      if (event.document.uri.toString() !== document.uri.toString()) {
+        return; // Not our document
       }
+      if (ignoreNextChange) {
+        ignoreNextChange = false;
+        return; // Change was triggered by our own WorkspaceEdit — ignore to prevent reload loop
+      }
+
+      this.handleExternalChange(document, webviewPanel, event);
     });
 
     // Clean up the listener when the panel is closed
     webviewPanel.onDidDispose(() => {
-      changeDocumentSubscription.dispose();
+      changeSubscription.dispose();
     });
 
     // Handle messages from the webview
     webviewPanel.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
       switch (message.type) {
-        case 'edit':
+        case 'edit': {
+          ignoreNextChange = true; // Set before applyEdit to suppress the resulting change event
           await this.applyEdit(document, message.content ?? '');
           break;
+        }
         case 'ready':
           // Webview signals it is ready — send current content
           this.updateWebview(document, webviewPanel.webview);
@@ -86,6 +113,55 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       newContent
     );
     await vscode.workspace.applyEdit(edit);
+  }
+
+  /**
+   * Handle a change to the underlying TextDocument that was NOT triggered by
+   * this WYSIWYG editor (i.e. external edits from another editor tab, a git
+   * operation, file-system write, etc.).
+   *
+   * - If the document has no unsaved changes (not dirty) and the
+   *   autoReloadUnmodifiedFiles setting is enabled, silently reload the webview.
+   * - If the document is dirty, prompt the user to reload or keep their changes.
+   */
+  private async handleExternalChange(
+    document: vscode.TextDocument,
+    webviewPanel: vscode.WebviewPanel,
+    _event: vscode.TextDocumentChangeEvent
+  ): Promise<void> {
+    const settings = getSettings();
+
+    if (!document.isDirty) {
+      // No unsaved changes — auto-reload if the setting allows it
+      if (settings.autoReloadUnmodifiedFiles) {
+        // Send fresh content to webview silently
+        webviewPanel.webview.postMessage({
+          type: 'update',
+          content: document.getText()
+        });
+
+        // Show a brief status-bar notification
+        vscode.window.setStatusBarMessage('$(refresh) Document auto-reloaded', 5000);
+      }
+      return;
+    }
+
+    // Document has unsaved changes — prompt the user
+    const choice = await vscode.window.showInformationMessage(
+      'The file has been modified externally. Do you want to reload it? Your unsaved changes will be lost.',
+      { modal: false },
+      'Reload',
+      'Keep'
+    );
+
+    if (choice === 'Reload') {
+      // VS Code has already updated the TextDocument from disk; send new content to webview
+      webviewPanel.webview.postMessage({
+        type: 'update',
+        content: document.getText()
+      });
+    }
+    // 'Keep' or dismissed: do nothing — leave the webview with the user's unsaved content
   }
 
   /**
