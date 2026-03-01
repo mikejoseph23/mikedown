@@ -36,6 +36,7 @@ import {
   replaceCurrentMatch, replaceAllMatches
 } from './findreplace';
 import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu } from './contextmenu';
+import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
 import { EditorState } from '@codemirror/state';
