@@ -1,0 +1,62 @@
+#mikedown-link-ac {
+  position: fixed;
+  z-index: 1100;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.35));
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  border-radius: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.lac-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 0.82em;
+  white-space: nowrap;
+}
+
+.lac-item:hover,
+.lac-item.lac-active {
+  background: var(--vscode-list-activeSelectionBackground, #0e639c);
+  color: var(--vscode-list-activeSelectionForeground, #ffffff);
+}
+
+.lac-icon {
+  font-size: 0.9em;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.lac-label {
+  color: var(--vscode-editor-foreground);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.lac-item:hover .lac-label,
+.lac-item.lac-active .lac-label {
+  color: inherit;
+}
+
+.lac-href {
+  color: var(--vscode-descriptionForeground, rgba(204,204,204,0.7));
+  font-size: 0.9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.lac-item:hover .lac-href,
+.lac-item.lac-active .lac-href {
+  color: inherit;
+  opacity: 0.8;
+}

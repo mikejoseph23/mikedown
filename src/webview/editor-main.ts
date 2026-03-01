@@ -37,6 +37,8 @@ import {
 } from './findreplace';
 import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu } from './contextmenu';
 import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
+import { initTableDrag, clearCellSelection, clearDragHandles } from './tabledrag';
+import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete } from './linkautocomplete';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
 import { EditorState } from '@codemirror/state';
@@ -148,13 +150,119 @@ function githubAnchorId(text: string): string {
 
 function showLinkDialog(editor: Editor): void {
   const existing = editor.getAttributes('link').href as string | undefined;
-  const url = window.prompt('Link URL:', existing ?? 'https://');
-  if (url === null) return; // cancelled
-  if (url === '') {
-    editor.chain().focus().unsetLink().run();
-  } else {
-    editor.chain().focus().setLink({ href: url }).run();
+
+  // Build modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'mikedown-link-dialog-overlay';
+  overlay.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:1050',
+    'display:flex', 'align-items:center', 'justify-content:center',
+    'background:rgba(0,0,0,0.45)'
+  ].join(';');
+
+  const dialog = document.createElement('div');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-label', 'Insert Link');
+  dialog.style.cssText = [
+    'background:var(--vscode-editorWidget-background,var(--vscode-editor-background,#252526))',
+    'border:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.35))',
+    'border-radius:6px',
+    'padding:16px 20px',
+    'min-width:340px',
+    'box-shadow:0 8px 24px rgba(0,0,0,0.4)',
+    'display:flex',
+    'flex-direction:column',
+    'gap:10px'
+  ].join(';');
+
+  const title = document.createElement('div');
+  title.textContent = 'Insert Link';
+  title.style.cssText = 'font-weight:600;font-size:0.95em;color:var(--vscode-editor-foreground,#d4d4d4)';
+
+  const urlInput = document.createElement('input');
+  urlInput.type = 'text';
+  urlInput.placeholder = 'https:// or ./relative.md or #anchor';
+  urlInput.value = existing ?? '';
+  urlInput.style.cssText = [
+    'width:100%',
+    'padding:5px 8px',
+    'background:var(--vscode-input-background,#3c3c3c)',
+    'color:var(--vscode-input-foreground,#d4d4d4)',
+    'border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35))',
+    'border-radius:3px',
+    'font-size:0.9em',
+    'outline:none',
+    'box-sizing:border-box'
+  ].join(';');
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = [
+    'padding:4px 12px',
+    'background:transparent',
+    'color:var(--vscode-button-secondaryForeground,#d4d4d4)',
+    'border:1px solid var(--vscode-button-secondaryBackground,rgba(128,128,128,0.35))',
+    'border-radius:3px',
+    'cursor:pointer',
+    'font-size:0.9em'
+  ].join(';');
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.textContent = 'OK';
+  confirmBtn.style.cssText = [
+    'padding:4px 12px',
+    'background:var(--vscode-button-background,#0e639c)',
+    'color:var(--vscode-button-foreground,#ffffff)',
+    'border:none',
+    'border-radius:3px',
+    'cursor:pointer',
+    'font-size:0.9em'
+  ].join(';');
+
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(confirmBtn);
+  dialog.appendChild(title);
+  dialog.appendChild(urlInput);
+  dialog.appendChild(btnRow);
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  // Wire autocomplete
+  initLinkAutocomplete(urlInput, (href) => {
+    urlInput.value = href;
+  });
+
+  // Focus the input
+  setTimeout(() => urlInput.focus(), 0);
+
+  function cleanup(): void {
+    destroyLinkAutocomplete();
+    overlay.remove();
   }
+
+  function confirm(): void {
+    const url = urlInput.value.trim();
+    cleanup();
+    if (url === '') {
+      editor.chain().focus().unsetLink().run();
+    } else {
+      editor.chain().focus().setLink({ href: url }).run();
+    }
+  }
+
+  confirmBtn.addEventListener('click', confirm);
+  cancelBtn.addEventListener('click', () => { cleanup(); editor.commands.focus(); });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { cleanup(); editor.commands.focus(); }
+  });
+  urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); confirm(); }
+    if (e.key === 'Escape') { cleanup(); editor.commands.focus(); }
+  });
 }
 
 function showImageInsertDialog(editor: Editor): void {
@@ -841,6 +949,39 @@ if (!editorContainer) {
     anchorUpdateTimer = setTimeout(updateHeadingAnchors, 300);
   });
 
+  // ── M6c: Broken link scanning ───────────────────────────────────────────────
+
+  /**
+   * Scan all links in the editor and send them to the extension host for
+   * validation. The host replies with a 'brokenLinks' message listing hrefs
+   * that could not be resolved.
+   */
+  function scanAndCheckLinks(): void {
+    const links: Array<{ href: string; type: 'anchor' | 'file' | 'fileAnchor' }> = [];
+    document.querySelectorAll('.ProseMirror a[href]').forEach(el => {
+      const href = el.getAttribute('href') || '';
+      if (!href || href.startsWith('http://') || href.startsWith('https://')) return;
+      if (href.startsWith('#')) {
+        links.push({ href, type: 'anchor' });
+      } else if (href.includes('#')) {
+        links.push({ href, type: 'fileAnchor' });
+      } else {
+        links.push({ href, type: 'file' });
+      }
+    });
+    if (links.length > 0) {
+      vscode.postMessage({ type: 'checkLinks', links });
+    }
+  }
+
+  // Wire link scan on editor updates (debounced) so heading renames are caught.
+  editor.on('update', () => {
+    clearTimeout((window as any).__mikedownLinkCheckTimer);
+    (window as any).__mikedownLinkCheckTimer = setTimeout(() => {
+      scanAndCheckLinks();
+    }, 500);
+  });
+
   // ── M6a: Link click handler (Cmd+Click to navigate) ────────────────────────
 
   editorContainer.addEventListener('click', (event) => {
@@ -1176,6 +1317,12 @@ if (!editorContainer) {
       // M6a — Update heading anchor IDs after content is loaded.
       updateHeadingAnchors();
 
+      // M6c — Trigger broken link check after content loads (debounced 500ms).
+      clearTimeout((window as any).__mikedownLinkCheckTimer);
+      (window as any).__mikedownLinkCheckTimer = setTimeout(() => {
+        scanAndCheckLinks();
+      }, 500);
+
       // M2d — Send initial stats to status bar (M14 hook).
       const plainText = editor.getText();
       vscode.postMessage({ type: 'stats', plainText });
@@ -1221,6 +1368,34 @@ if (!editorContainer) {
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+    }
+
+    // M6b — Link autocomplete: receive workspace file suggestions from host.
+    if (message.type === 'linkSuggestions') {
+      receiveSuggestions((message as any).suggestions);
+    }
+
+    // M6b — Link autocomplete: receive heading anchors for a specific file.
+    if (message.type === 'fileHeadings') {
+      receiveFileHeadings((message as any).anchors);
+    }
+
+    // M6c — Broken link indicator: apply/remove CSS class to broken links.
+    if (message.type === 'brokenLinks') {
+      // Remove old broken link classes
+      document.querySelectorAll('.mikedown-broken-link').forEach(el => {
+        el.classList.remove('mikedown-broken-link');
+        (el as HTMLElement).title = '';
+      });
+      // Apply broken link class to matching anchors
+      const brokenSet = new Set<string>((message as any).hrefs || []);
+      document.querySelectorAll('.ProseMirror a[href]').forEach(el => {
+        const href = el.getAttribute('href') || '';
+        if (brokenSet.has(href)) {
+          el.classList.add('mikedown-broken-link');
+          (el as HTMLElement).title = `Broken link: ${href}`;
+        }
+      });
     }
   });
 

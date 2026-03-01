@@ -193,6 +193,97 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           }
           break;
         }
+        case 'checkLinks': {
+          const links: Array<{ href: string; type: 'anchor' | 'file' | 'fileAnchor' }> = message.links || [];
+          const currentFile = document.uri;
+          const currentDir = path.dirname(currentFile.fsPath);
+          const currentText = document.getText();
+
+          // Get anchor IDs from current document
+          const headingRegex = /^#{1,6}\s+(.+)$/gm;
+          const anchorIds = new Set<string>();
+          let m: RegExpExecArray | null;
+          while ((m = headingRegex.exec(currentText)) !== null) {
+            anchorIds.add(githubAnchorId(m[1]));
+          }
+
+          const brokenLinks: string[] = [];
+
+          for (const link of links) {
+            if (link.type === 'anchor') {
+              const anchor = link.href.slice(1); // remove '#'
+              if (!anchorIds.has(anchor)) brokenLinks.push(link.href);
+            } else if (link.type === 'file' || link.type === 'fileAnchor') {
+              const [filePart, anchorPart] = link.href.split('#');
+              const absPath = path.resolve(currentDir, filePart);
+              try {
+                await vscode.workspace.fs.stat(vscode.Uri.file(absPath));
+                if (anchorPart && link.type === 'fileAnchor') {
+                  // Check heading exists in target file
+                  const content = Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.file(absPath))).toString('utf8');
+                  const anchors = new Set<string>();
+                  const re = /^#{1,6}\s+(.+)$/gm;
+                  let r: RegExpExecArray | null;
+                  while ((r = re.exec(content)) !== null) anchors.add(githubAnchorId(r[1]));
+                  if (!anchors.has(anchorPart)) brokenLinks.push(link.href);
+                }
+              } catch {
+                brokenLinks.push(link.href);
+              }
+            }
+          }
+
+          webviewPanel.webview.postMessage({ type: 'brokenLinks', hrefs: brokenLinks });
+          break;
+        }
+        case 'getLinkSuggestions': {
+          // M6b — Scan workspace for .md/.markdown files and current document headings.
+          const currentFile = document.uri;
+          const workspaceFolder = vscode.workspace.getWorkspaceFolder(currentFile);
+
+          // Find all .md/.markdown files in workspace
+          const mdFiles = await vscode.workspace.findFiles('**/*.{md,markdown}', '**/node_modules/**', 200);
+          const suggestions: Array<{ label: string; href: string; type: 'file' | 'anchor' }> = [];
+
+          // Add file suggestions with relative paths
+          for (const fileUri of mdFiles) {
+            const fromDir = path.dirname(currentFile.fsPath);
+            const rel = path.relative(fromDir, fileUri.fsPath).replace(/\\/g, '/');
+            const href = rel.startsWith('.') ? rel : './' + rel;
+            suggestions.push({ label: path.basename(fileUri.fsPath), href, type: 'file' });
+          }
+
+          // Add heading anchors for the current document
+          const text = document.getText();
+          const headingRegex = /^#{1,6}\s+(.+)$/gm;
+          let m: RegExpExecArray | null;
+          while ((m = headingRegex.exec(text)) !== null) {
+            const anchor = '#' + githubAnchorId(m[1]);
+            suggestions.push({ label: m[1], href: anchor, type: 'anchor' });
+          }
+
+          webviewPanel.webview.postMessage({ type: 'linkSuggestions', suggestions });
+          break;
+        }
+        case 'getFileHeadings': {
+          // M6b — Read headings from a specific markdown file (resolved relative to current doc).
+          const targetPath = message.filePath as string;
+          const currentDir = path.dirname(document.uri.fsPath);
+          const absPath = path.resolve(currentDir, targetPath);
+          try {
+            const content = Buffer.from(
+              await vscode.workspace.fs.readFile(vscode.Uri.file(absPath))
+            ).toString('utf8');
+            const headingRegex = /^#{1,6}\s+(.+)$/gm;
+            const anchors: Array<{ label: string; href: string; type: 'anchor' }> = [];
+            let m: RegExpExecArray | null;
+            while ((m = headingRegex.exec(content)) !== null) {
+              anchors.push({ label: m[1], href: '#' + githubAnchorId(m[1]), type: 'anchor' });
+            }
+            webviewPanel.webview.postMessage({ type: 'fileHeadings', filePath: targetPath, anchors });
+          } catch { /* file not found — silently ignore */ }
+          break;
+        }
         default:
           console.warn(`MikeDown: unknown message type "${(message as { type: string }).type}"`);
       }
@@ -411,11 +502,21 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings';
   content?: string;
   plainText?: string;
   href?: string;
   html?: string;
+  links?: Array<{ href: string; type: 'anchor' | 'file' | 'fileAnchor' }>;
+  filePath?: string;
+}
+
+/**
+ * M6c — Generate a GitHub-style anchor ID from a heading's text content.
+ * Mirrors the same logic used in the webview (editor-main.ts).
+ */
+function githubAnchorId(text: string): string {
+  return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
 }
 
 /**
