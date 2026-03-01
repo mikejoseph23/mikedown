@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Background -->
+  <rect width="128" height="128" rx="16" fill="#1e1e2e"/>
+  <!-- M letter -->
+  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
+        font-family="Georgia, serif" font-size="72" font-weight="bold"
+        fill="#89b4fa" letter-spacing="-2">M</text>
+  <!-- Subtitle bar -->
+  <rect x="20" y="90" width="88" height="4" rx="2" fill="#cba6f7" opacity="0.8"/>
+  <rect x="32" y="100" width="64" height="3" rx="1.5" fill="#89dceb" opacity="0.6"/>
+</svg>

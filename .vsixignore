@@ -1,0 +1,17 @@
+.vscode/**
+.vscode-test.mjs
+node_modules/**
+src/**
+test/**
+.orchestrator/**
+scripts/**
+*.vsix
+.eslintrc*
+.prettierrc*
+tsconfig.json
+tsconfig.webview.json
+webpack.config.js
+vitest.config.ts
+*.map
+**/*.ts
+!dist/**
