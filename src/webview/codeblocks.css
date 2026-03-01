@@ -1,0 +1,101 @@
+/* ============================================================
+   Code Blocks (syntax highlighted via CodeBlockLowlight/lowlight)
+   ============================================================ */
+
+.ProseMirror pre.mikedown-code-block {
+  position: relative;
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 4px;
+  padding: 1em;
+  overflow-x: auto;
+  font-family: var(--vscode-editor-font-family, 'Cascadia Code', 'Fira Code', monospace);
+  font-size: 0.875em;
+  line-height: 1.5;
+  margin: 0.75em 0;
+}
+
+/* Language label */
+.ProseMirror pre.mikedown-code-block::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0.4em;
+  right: 0.75em;
+  font-size: 0.75em;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-font-family, sans-serif);
+  text-transform: lowercase;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* lowlight syntax tokens */
+.ProseMirror pre .hljs-keyword,
+.ProseMirror pre .hljs-selector-tag { color: var(--vscode-symbolIcon-keywordForeground, #569cd6); }
+.ProseMirror pre .hljs-string,
+.ProseMirror pre .hljs-attr { color: var(--vscode-debugTokenExpression-string, #ce9178); }
+.ProseMirror pre .hljs-comment { color: var(--vscode-descriptionForeground, #6a9955); font-style: italic; }
+.ProseMirror pre .hljs-number,
+.ProseMirror pre .hljs-literal { color: var(--vscode-debugTokenExpression-number, #b5cea8); }
+.ProseMirror pre .hljs-built_in,
+.ProseMirror pre .hljs-type { color: var(--vscode-symbolIcon-classForeground, #4ec9b0); }
+.ProseMirror pre .hljs-title,
+.ProseMirror pre .hljs-function { color: var(--vscode-symbolIcon-functionForeground, #dcdcaa); }
+.ProseMirror pre .hljs-variable,
+.ProseMirror pre .hljs-params { color: var(--vscode-symbolIcon-variableForeground, #9cdcfe); }
+.ProseMirror pre .hljs-meta { color: var(--vscode-descriptionForeground, #c8c8c8); }
+
+/* Inline code */
+.ProseMirror code:not(pre code) {
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.875em;
+}
+
+/* ============================================================
+   Frontmatter Block
+   ============================================================ */
+
+#frontmatter-block {
+  margin-bottom: 0.75em;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.35));
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--vscode-textCodeBlock-background);
+}
+
+.frontmatter-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.4em 0.75em;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.8em;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+
+.frontmatter-header:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.frontmatter-icon {
+  font-size: 0.75em;
+  line-height: 1;
+}
+
+.frontmatter-content {
+  margin: 0;
+  padding: 0.75em 1em;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.85em;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+  outline: none;
+  background: transparent;
+  color: var(--vscode-editor-foreground);
+  border: none;
+}

@@ -28,6 +28,10 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
+import { createLowlight, all } from 'lowlight';
+
+const lowlight = createLowlight(all);
 
 // ── VS Code Webview API ────────────────────────────────────────────────────────
 
@@ -61,6 +65,35 @@ let originalContent: string = '';
  * Tracks whether the document has unsaved changes relative to `originalContent`.
  */
 let isDirty = false;
+
+// ── M15: Frontmatter state ─────────────────────────────────────────────────────
+
+/**
+ * Stores raw YAML content between the --- delimiters of a frontmatter block.
+ * Empty string when the document has no frontmatter.
+ */
+let frontmatterContent: string = '';
+
+/**
+ * Tracks whether the frontmatter UI block is expanded or collapsed.
+ */
+let frontmatterExpanded = false;
+
+// ── M15: Frontmatter helpers ───────────────────────────────────────────────────
+
+function extractFrontmatter(markdown: string): { frontmatter: string; body: string } {
+  // Match YAML frontmatter: --- at start of file (with optional BOM)
+  const match = markdown.match(/^(?:---\n)([\s\S]*?)\n---\n?/);
+  if (match) {
+    return { frontmatter: match[1], body: markdown.slice(match[0].length) };
+  }
+  return { frontmatter: '', body: markdown };
+}
+
+function restoreFrontmatter(frontmatter: string, body: string): string {
+  if (!frontmatter) return body;
+  return `---\n${frontmatter}\n---\n${body}`;
+}
 
 // ── M3: Link and image dialog helpers ─────────────────────────────────────────
 
@@ -178,6 +211,10 @@ function updateToolbarState(editor: Editor): void {
 
 const editorContainer = document.getElementById('editor-container');
 
+// ── M15: Frontmatter UI block renderer ─────────────────────────────────────────
+// Declared here (after editorContainer) but only called after `editor` is created.
+// The actual function body is defined inside the `else` block where `editor` is in scope.
+
 if (!editorContainer) {
   console.error('MikeDown: #editor-container element not found.');
 } else {
@@ -223,6 +260,19 @@ if (!editorContainer) {
         codeBlock: false,
         // M2d: Configure History with grouping delay and stack depth.
         history: { depth: 100, newGroupDelay: 500 },
+      }),
+
+      // ── Code Blocks with Syntax Highlighting (M15) ────────────────────────────
+      // CodeBlockLowlight extends the base CodeBlock node with lowlight (highlight.js
+      // wrapper) for offline syntax highlighting. StarterKit has codeBlock: false,
+      // so this extension provides the codeBlock node type without conflict.
+      // tiptap-markdown serialises codeBlock nodes as fenced code blocks (```lang).
+      CodeBlockLowlight.configure({
+        lowlight,
+        defaultLanguage: 'plaintext',
+        HTMLAttributes: {
+          class: 'mikedown-code-block',
+        },
       }),
 
       // ── Task Lists (M2c) ──────────────────────────────────────────────────────
@@ -394,7 +444,9 @@ if (!editorContainer) {
         return;
       }
 
-      const markdown = updatedEditor.storage.markdown.getMarkdown() as string;
+      // M15 — Re-attach frontmatter when serializing so saved content is complete.
+      const body = updatedEditor.storage.markdown.getMarkdown() as string;
+      const markdown = restoreFrontmatter(frontmatterContent, body);
 
       // M2d — Dirty-state detection: compare the current serialized markdown
       // against the original content loaded from disk. This prevents false
@@ -511,6 +563,49 @@ if (!editorContainer) {
     }
   }, true);
 
+  // ── M15: Frontmatter UI block renderer ─────────────────────────────────────
+
+  function renderFrontmatterBlock(): void {
+    // Remove existing frontmatter block if any
+    const existing = document.getElementById('frontmatter-block');
+    if (existing) existing.remove();
+
+    if (!frontmatterContent) return;
+
+    const block = document.createElement('div');
+    block.id = 'frontmatter-block';
+    block.className = frontmatterExpanded ? 'frontmatter-block expanded' : 'frontmatter-block collapsed';
+
+    const header = document.createElement('div');
+    header.className = 'frontmatter-header';
+    header.innerHTML = `<span class="frontmatter-icon">${frontmatterExpanded ? '▼' : '▶'}</span> <span class="frontmatter-label">Frontmatter</span>`;
+    header.addEventListener('click', () => {
+      frontmatterExpanded = !frontmatterExpanded;
+      renderFrontmatterBlock();
+    });
+
+    block.appendChild(header);
+
+    if (frontmatterExpanded) {
+      const content = document.createElement('pre');
+      content.className = 'frontmatter-content';
+      content.contentEditable = 'true';
+      content.textContent = frontmatterContent;
+      content.addEventListener('input', () => {
+        frontmatterContent = content.textContent || '';
+        // Trigger an edit to propagate changes
+        const body = editor.storage.markdown.getMarkdown() as string;
+        const markdown = restoreFrontmatter(frontmatterContent, body);
+        vscode.postMessage({ type: 'edit', content: markdown });
+      });
+      block.appendChild(content);
+    }
+
+    // Insert frontmatter block BEFORE the editor container
+    const editorEl = document.getElementById('editor-container');
+    editorEl?.parentNode?.insertBefore(block, editorEl);
+  }
+
   // ── Message Handling — Extension → Webview ─────────────────────────────────
 
   window.addEventListener('message', (event: MessageEvent) => {
@@ -550,13 +645,18 @@ if (!editorContainer) {
       // 'edit' message, which would incorrectly mark the document as dirty.
       isLoading = true;
       originalContent = message.content ?? '';
-      editor.commands.setContent(originalContent);
+
+      // M15 — Extract frontmatter before passing body to TipTap.
+      const { frontmatter, body } = extractFrontmatter(originalContent);
+      frontmatterContent = frontmatter;
+
+      editor.commands.setContent(body);
 
       // M2d — After TipTap parses and re-sets the content, immediately serialize
       // back to check for round-trip fidelity. If the serialized form differs from
       // the original, log a warning but continue using originalContent as the
       // dirty-detection baseline so the document is not marked as modified on open.
-      const reserialized = editor.storage.markdown.getMarkdown() as string;
+      const reserialized = restoreFrontmatter(frontmatterContent, editor.storage.markdown.getMarkdown() as string);
       if (reserialized !== originalContent) {
         console.warn(
           'MikeDown: serialization round-trip mismatch — using original as baseline'
@@ -566,6 +666,9 @@ if (!editorContainer) {
 
       isDirty = false;
       isLoading = false;
+
+      // M15 — Render frontmatter UI block (collapsed by default above editor).
+      renderFrontmatterBlock();
 
       // M2d — Send initial stats to status bar (M14 hook).
       const plainText = editor.getText();
