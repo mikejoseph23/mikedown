@@ -43,6 +43,15 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     //   2. Webview sets isLoading = true, calls setContent, sets isLoading = false
     //   3. onUpdate is suppressed during load → no 'edit' message → no WorkspaceEdit → dirty flag stays clean
     this.updateWebview(document, webviewPanel.webview);
+    this.sendThemeToWebview(webviewPanel.webview);
+
+    // Listen for configuration changes and push updated theme to the webview.
+    const configListener = vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('mikedown')) {
+        this.sendThemeToWebview(webviewPanel.webview);
+      }
+    });
+    this.context.subscriptions.push(configListener);
 
     // Track changes triggered by our own webview to avoid reload loops.
     // Set to true before applying a WorkspaceEdit; reset to false after the
@@ -114,6 +123,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       type: 'update',
       // IMPORTANT: send raw content without modification to prevent false dirty flag on open
       content: document.getText()
+    });
+  }
+
+  /**
+   * Read mikedown font settings from VS Code configuration and push them to
+   * the webview as a 'theme' message.  The webview applies the values as CSS
+   * custom properties on the document root so they cascade to every element.
+   */
+  private sendThemeToWebview(webview: vscode.Webview): void {
+    const config = vscode.workspace.getConfiguration('mikedown');
+    webview.postMessage({
+      type: 'theme',
+      fontFamily: config.get<string>('fontFamily', ''),
+      fontSize: config.get<number>('fontSize', 16),
     });
   }
 

@@ -1,3 +1,5 @@
+@import "./theme.css";
+
 /* MikeDown Editor — Webview Styles */
 
 *,
@@ -323,3 +325,5 @@ body {
 #editor-container::-webkit-scrollbar-thumb:hover {
   background-color: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
 }
+
+@import "./tables.css";

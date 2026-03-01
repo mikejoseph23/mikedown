@@ -1,0 +1,43 @@
+/* MikeDown Editor — VS Code Theme Integration */
+
+body {
+  background: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--mikedown-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  font-size: var(--mikedown-font-size, 16px);
+  line-height: 1.6;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px 24px;
+}
+
+.ProseMirror a { color: var(--vscode-textLink-foreground); text-decoration: underline; cursor: pointer; }
+.ProseMirror a:hover { color: var(--vscode-textLink-activeForeground); }
+.ProseMirror ::selection { background: var(--vscode-editor-selectionBackground); }
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background, #555); border-radius: 4px; }
+
+#toolbar {
+  background: var(--vscode-editorGroupHeader-tabsBackground);
+  border-bottom: 1px solid var(--vscode-editorGroup-border);
+  padding: 4px 8px;
+  display: flex; gap: 2px; flex-wrap: wrap;
+}
+
+#toolbar button {
+  color: var(--vscode-icon-foreground); background: transparent;
+  border: 1px solid transparent; border-radius: 3px;
+  padding: 4px 6px; cursor: pointer; font-size: 13px; line-height: 1;
+}
+
+#toolbar button:hover { background: var(--vscode-toolbar-hoverBackground); }
+#toolbar button.active { background: var(--vscode-toolbar-activeBackground, rgba(255,255,255,0.15)); border-color: var(--vscode-focusBorder); }
+#toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+#toolbar .toolbar-separator { width: 1px; background: var(--vscode-editorGroup-border); margin: 2px 4px; }
+
+@media (forced-colors: active) {
+  .ProseMirror a { color: LinkText; }
+  #toolbar button { forced-color-adjust: auto; }
+}

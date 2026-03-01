@@ -279,7 +279,16 @@ if (!editorContainer) {
   // ── Message Handling — Extension → Webview ─────────────────────────────────
 
   window.addEventListener('message', (event: MessageEvent) => {
-    const message = event.data as { type: string; content?: string };
+    const message = event.data as { type: string; content?: string; fontFamily?: string; fontSize?: number };
+
+    if (message.type === 'theme') {
+      document.documentElement.style.setProperty(
+        '--mikedown-font-family', message.fontFamily || ''
+      );
+      document.documentElement.style.setProperty(
+        '--mikedown-font-size', `${message.fontSize || 16}px`
+      );
+    }
 
     if (message.type === 'update') {
       // M2d — Load content from disk and establish the originalContent baseline.
