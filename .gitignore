@@ -4,3 +4,5 @@ out/
 dist/
 *.vsix
 .DS_Store
+.vscode-test/
+.claude/settings.local.json
