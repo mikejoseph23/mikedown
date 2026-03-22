@@ -77,10 +77,27 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     });
     this.context.subscriptions.push(configListener);
 
-    // Track changes triggered by our own webview to avoid reload loops.
-    // Set to true before applying a WorkspaceEdit; reset to false after the
-    // resulting onDidChangeTextDocument fires.
-    let ignoreNextChange = false;
+    // Track in-flight webview edits to suppress their change events.
+    // Uses a counter of in-flight edits (not events): the guard stays up
+    // for the entire duration of each applyEdit() call, so even if a single
+    // WorkspaceEdit fires multiple onDidChangeTextDocument events (e.g.
+    // delete + insert for a full-document replace), all of them are suppressed.
+    let webviewEditsInFlight = 0;
+
+    // Suppress change events triggered by VS Code's own save process (e.g.
+    // trimTrailingWhitespace, insertFinalNewline) which fire
+    // onDidChangeTextDocument while the document is still dirty.
+    let isSaving = false;
+    const willSaveSubscription = vscode.workspace.onWillSaveTextDocument(e => {
+      if (e.document.uri.toString() === document.uri.toString()) {
+        isSaving = true;
+      }
+    });
+    const didSaveSubscription = vscode.workspace.onDidSaveTextDocument(savedDoc => {
+      if (savedDoc.uri.toString() === document.uri.toString()) {
+        isSaving = false;
+      }
+    });
 
     // Listen for document changes — either from this WYSIWYG editor or an external source.
     //
@@ -94,9 +111,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       if (event.document.uri.toString() !== document.uri.toString()) {
         return; // Not our document
       }
-      if (ignoreNextChange) {
-        ignoreNextChange = false;
+      if (webviewEditsInFlight > 0) {
         return; // Change was triggered by our own WorkspaceEdit — ignore to prevent reload loop
+      }
+      if (isSaving) {
+        return; // Change was triggered by VS Code's save (e.g. trim whitespace) — not external
       }
 
       this.handleExternalChange(document, webviewPanel, event);
@@ -105,6 +124,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // Clean up the listener when the panel is closed
     webviewPanel.onDidDispose(() => {
       changeSubscription.dispose();
+      willSaveSubscription.dispose();
+      didSaveSubscription.dispose();
       // M3 — Clear active panel reference when this panel is closed.
       if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
@@ -115,10 +136,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
       switch (message.type) {
         case 'edit': {
-          ignoreNextChange = true; // Set before applyEdit to suppress the resulting change event
           // M2d — Apply cleanup normalization before writing to disk.
+          // Guard stays up for the entire async operation so all change
+          // events fired by this WorkspaceEdit are suppressed.
+          webviewEditsInFlight++;
           const cleaned = this.applyCleanup(message.content ?? '');
           await this.applyEdit(document, cleaned);
+          webviewEditsInFlight--;
           break;
         }
         case 'ready':
@@ -467,10 +491,26 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    * Build the full HTML string for the webview.
    */
   private getWebviewContent(webview: vscode.Webview): string {
-    // CSS lives in the source webview directory (not compiled)
-    const cssUri = webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, 'src', 'webview', 'editor.css'))
-    );
+    // CSS lives in the source webview directory (not compiled).
+    // Each file gets its own <link> tag because CSS @import with relative
+    // paths cannot resolve in the webview's vscode-webview: URI scheme.
+    const cssDir = path.join(this.context.extensionPath, 'src', 'webview');
+    const cssFiles = [
+      'editor.css',
+      'tables.css',
+      'images.css',
+      'codeblocks.css',
+      'links.css',
+      'findreplace.css',
+      'contextmenu.css',
+      'tablepicker.css',
+      'tabledrag.css',
+      'linkautocomplete.css',
+    ];
+    const cssLinks = cssFiles.map(f => {
+      const uri = webview.asWebviewUri(vscode.Uri.file(path.join(cssDir, f)));
+      return `  <link rel="stylesheet" href="${uri}">`;
+    }).join('\n');
 
     // The TipTap webview bundle is compiled by webpack to out/webview/editor-main.js
     const scriptUri = webview.asWebviewUri(
@@ -494,7 +534,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   <meta http-equiv="Content-Security-Policy" content="${csp}">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MikeDown Editor</title>
-  <link rel="stylesheet" href="${cssUri}">
+${cssLinks}
 </head>
 <body>
   <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">

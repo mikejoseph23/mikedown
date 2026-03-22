@@ -1,4 +1,5 @@
 import { Editor } from '@tiptap/core';
+import { hideTableToolbar } from './tablepicker';
 
 export interface ContextMenuItem {
   label: string;
@@ -19,6 +20,7 @@ export function showContextMenu(
   items: ContextMenuEntry[]
 ): void {
   hideContextMenu();
+  hideTableToolbar();
 
   menuEl = document.createElement('div');
   menuEl.id = 'mikedown-context-menu';

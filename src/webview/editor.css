@@ -392,12 +392,6 @@ body {
   background-color: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
 }
 
-@import "./tables.css";
-@import "./images.css";
-@import "./codeblocks.css";
-@import "./links.css";
-@import "./findreplace.css";
-@import "./contextmenu.css";
-@import "./tablepicker.css";
-@import "./tabledrag.css";
-@import "./linkautocomplete.css";
+/* CSS files are loaded as separate <link> tags by the extension host.
+   @import with relative paths cannot resolve in the webview's
+   vscode-webview: URI scheme. See markdownEditorProvider.ts. */

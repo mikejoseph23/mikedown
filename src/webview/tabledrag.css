@@ -1,7 +1,7 @@
 /* Table Drag Handles */
 
 .td-handle {
-  position: absolute;
+  position: fixed;
   z-index: 900;
   display: flex;
   align-items: center;
@@ -16,15 +16,17 @@
   user-select: none;
   background: var(--vscode-editorWidget-background, transparent);
   transition: opacity 0.15s ease, background 0.1s ease;
+  pointer-events: none;
 }
 
-/* Show handles when hovering the table area */
-.ProseMirror table:hover ~ .td-handle,
-.td-handle:hover {
+/* Handles are on document.body, not siblings of the table, so we use a
+   class toggled by JS instead of a sibling combinator. */
+.td-handles-visible .td-handle {
   opacity: 0.5;
+  pointer-events: auto;
 }
 
-.td-handle:hover {
+.td-handles-visible .td-handle:hover {
   opacity: 1;
   background: var(--vscode-toolbar-hoverBackground, rgba(90,93,94,0.31));
 }

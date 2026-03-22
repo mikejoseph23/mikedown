@@ -46,6 +46,14 @@ export function initTableDrag(editor: Editor): void {
     setTimeout(() => clearDragHandles(), 200);
   });
 
+  // Reposition fixed handles when the editor container scrolls
+  const editorContainer = document.getElementById('editor-container');
+  if (editorContainer) {
+    editorContainer.addEventListener('scroll', () => {
+      if (handleOverlays.length > 0) repositionHandles();
+    }, { passive: true });
+  }
+
   // Global mouseup to end drags
   document.addEventListener('mouseup', () => {
     if (dragState) finalizeDrag(editor);
@@ -73,6 +81,7 @@ export function clearDragHandles(): void {
   handleOverlays.forEach(el => el.remove());
   handleOverlays = [];
   activeTableEl = null;
+  document.body.classList.remove('td-handles-visible');
 }
 
 export function clearCellSelection(): void {
@@ -113,6 +122,7 @@ function updateDragHandles(editor: Editor): void {
 
   clearDragHandles();
   activeTableEl = tableDOM;
+  document.body.classList.add('td-handles-visible');
 
   // Row drag handles (left of each non-header row)
   const rows = Array.from(tableDOM.querySelectorAll('tr'));
@@ -151,6 +161,37 @@ function updateDragHandles(editor: Editor): void {
   wireCellSelection(tableDOM, tablePos);
 }
 
+/**
+ * Reposition all fixed drag handles to match their anchor elements' current
+ * viewport positions (called on scroll).
+ */
+function repositionHandles(): void {
+  if (!activeTableEl) return;
+  const rows = Array.from(activeTableEl.querySelectorAll('tr'));
+  const headerRow = activeTableEl.querySelector('thead tr, tr:first-child');
+  const headerCells = headerRow ? Array.from(headerRow.querySelectorAll('th, td')) : [];
+
+  handleOverlays.forEach(handle => {
+    const type = handle.classList.contains('td-handle-row') ? 'row' : 'col';
+    const idx = parseInt(handle.dataset.index || '0', 10);
+    let anchorEl: Element | null = null;
+    if (type === 'row') {
+      anchorEl = rows[idx] || null;
+    } else {
+      anchorEl = headerCells[idx] || null;
+    }
+    if (!anchorEl) return;
+    const rect = anchorEl.getBoundingClientRect();
+    if (type === 'row') {
+      handle.style.top = `${rect.top + rect.height / 2 - 8}px`;
+      handle.style.left = `${rect.left - 20}px`;
+    } else {
+      handle.style.top = `${rect.bottom + 2}px`;
+      handle.style.left = `${rect.left + rect.width / 2 - 8}px`;
+    }
+  });
+}
+
 function createDragHandle(type: 'row' | 'col', index: number, anchorEl: HTMLElement): HTMLElement {
   const handle = document.createElement('div');
   handle.className = `td-handle td-handle-${type}`;
@@ -158,14 +199,14 @@ function createDragHandle(type: 'row' | 'col', index: number, anchorEl: HTMLElem
   handle.innerHTML = type === 'row' ? '⋮⋮' : '··';
   handle.title = type === 'row' ? `Drag to reorder row ${index}` : `Drag to reorder column ${index}`;
 
-  // Position
+  // Position using viewport-relative coords (handles use position: fixed)
   const rect = anchorEl.getBoundingClientRect();
   if (type === 'row') {
-    handle.style.top = `${rect.top + window.scrollY + rect.height / 2 - 8}px`;
-    handle.style.left = `${rect.left + window.scrollX - 20}px`;
+    handle.style.top = `${rect.top + rect.height / 2 - 8}px`;
+    handle.style.left = `${rect.left - 20}px`;
   } else {
-    handle.style.top = `${rect.bottom + window.scrollY + 2}px`;
-    handle.style.left = `${rect.left + window.scrollX + rect.width / 2 - 8}px`;
+    handle.style.top = `${rect.bottom + 2}px`;
+    handle.style.left = `${rect.left + rect.width / 2 - 8}px`;
   }
 
   return handle;
