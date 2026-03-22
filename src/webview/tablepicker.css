@@ -100,7 +100,9 @@
 #mikedown-table-toolbar {
   position: fixed;
   z-index: 999;
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 1px;
   background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
@@ -109,10 +111,11 @@
   border-radius: 6px;
   padding: 3px 4px;
   user-select: none;
+  white-space: nowrap;
 }
 
 .tt-btn {
-  padding: 4px 7px;
+  padding: 4px 6px;
   font-size: 12px;
   background: transparent;
   color: var(--vscode-editor-foreground);
@@ -121,6 +124,16 @@
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.08s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tt-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .tt-btn:hover:not(:disabled) {
@@ -141,4 +154,5 @@
   height: 16px;
   background: var(--vscode-editorWidget-border, rgba(128,128,128,0.2));
   margin: 0 2px;
+  flex-shrink: 0;
 }

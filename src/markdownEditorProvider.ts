@@ -284,6 +284,18 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           } catch { /* file not found — silently ignore */ }
           break;
         }
+        case 'saveSettings': {
+          const settings = (message as any).settings || {};
+          const config = vscode.workspace.getConfiguration('mikedown');
+          if (settings.fontSize) {
+            config.update('fontSize', settings.fontSize, vscode.ConfigurationTarget.Global);
+          }
+          if (settings.fontFamily !== undefined) {
+            config.update('fontFamily', settings.fontFamily, vscode.ConfigurationTarget.Global);
+          }
+          vscode.window.showInformationMessage('MikeDown settings saved.');
+          break;
+        }
         default:
           console.warn(`MikeDown: unknown message type "${(message as { type: string }).type}"`);
       }
@@ -501,7 +513,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings';
   content?: string;
   plainText?: string;
   href?: string;

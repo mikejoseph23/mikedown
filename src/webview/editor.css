@@ -28,7 +28,7 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: 36px;
+  height: 40px;
   z-index: 100;
   display: flex;
   align-items: center;
@@ -52,7 +52,7 @@ body {
 
 #editor-container {
   position: fixed;
-  top: 36px;
+  top: 40px;
   left: 0;
   right: 0;
   bottom: 0;
@@ -64,7 +64,7 @@ body {
 /* ─── Editor Content Area ─────────────────────────────────────────────────── */
 
 #editor {
-  max-width: 780px;
+  max-width: var(--mikedown-content-width, 100%);
   margin: 0 auto;
   min-height: 100%;
   outline: none;
@@ -177,10 +177,11 @@ body {
 /* ─── TipTap ProseMirror Editor ───────────────────────────────────────────── */
 
 .ProseMirror {
-  max-width: 780px;
+  max-width: var(--mikedown-content-width, 100%);
   margin: 0 auto;
-  min-height: calc(100vh - 36px - 120px);
+  min-height: calc(100vh - 40px - 120px);
   outline: none;
+  font-size: var(--mikedown-font-size, 17px);
   line-height: 1.75;
   word-wrap: break-word;
   caret-color: var(--vscode-editorCursor-foreground, #aeafad);
@@ -344,7 +345,7 @@ body {
   border-collapse: collapse;
   width: 100%;
   margin-bottom: 1em;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .ProseMirror table th,

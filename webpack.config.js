@@ -51,7 +51,19 @@ const webviewConfig = {
     filename: 'editor-main.js'
   },
   resolve: {
-    extensions: ['.ts', '.js']
+    extensions: ['.ts', '.js'],
+    // Prefer ES module entry points over UMD/CommonJS. Without this, webpack
+    // resolves tiptap-markdown's "main" field (UMD build) which has a broken
+    // UMD factory — `this` is `undefined` in webpack's web target strict mode,
+    // so the factory receives `undefined` for all its dependency parameters.
+    mainFields: ['module', 'browser', 'main'],
+    alias: {
+      '@tiptap/core': path.resolve(__dirname, 'node_modules', '@tiptap', 'core'),
+      '@tiptap/pm': path.resolve(__dirname, 'node_modules', '@tiptap', 'pm'),
+      // Force the ES module build of tiptap-markdown (the UMD build breaks
+      // because webpack's web target sets `this` to `undefined` in strict mode)
+      'tiptap-markdown': path.resolve(__dirname, 'node_modules', 'tiptap-markdown', 'dist', 'tiptap-markdown.es.js'),
+    }
   },
   module: {
     rules: [

@@ -33,7 +33,8 @@
     "url": "https://github.com/mikedown/mikedown-editor/issues"
   },
   "activationEvents": [
-    "onCustomEditor:mikedown.editor"
+    "onCustomEditor:mikedown.editor",
+    "onCommand:mikedown.openWithMikeDown"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -104,8 +105,34 @@
       {
         "command": "mikedown.copyAsRichText",
         "title": "MikeDown: Copy as Rich Text"
+      },
+      {
+        "command": "mikedown.openWithMikeDown",
+        "title": "Open with MikeDown"
       }
     ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "mikedown.openWithMikeDown",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation@100"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "mikedown.openWithMikeDown",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "1_open"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "mikedown.openWithMikeDown",
+          "when": "resourceExtname == .md || resourceExtname == .markdown"
+        }
+      ]
+    },
     "keybindings": [
       {
         "command": "mikedown.toggleBold",
@@ -165,9 +192,9 @@
         },
         "mikedown.fontSize": {
           "type": "number",
-          "default": 16,
+          "default": 17,
           "minimum": 10,
-          "maximum": 32,
+          "maximum": 36,
           "description": "Font size (in pixels) for the WYSIWYG editing area."
         },
         "mikedown.linkClickBehavior": {

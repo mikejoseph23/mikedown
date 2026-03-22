@@ -17,16 +17,16 @@
  */
 
 import { Editor } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
-import TaskList from '@tiptap/extension-task-list';
-import TaskItem from '@tiptap/extension-task-item';
-import Table from '@tiptap/extension-table';
-import TableRow from '@tiptap/extension-table-row';
-import TableHeader from '@tiptap/extension-table-header';
-import TableCell from '@tiptap/extension-table-cell';
-import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
-import Placeholder from '@tiptap/extension-placeholder';
+import { StarterKit } from '@tiptap/starter-kit';
+import { TaskList } from '@tiptap/extension-task-list';
+import { TaskItem } from '@tiptap/extension-task-item';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { Link } from '@tiptap/extension-link';
+import { Image } from '@tiptap/extension-image';
+import { Placeholder } from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
@@ -58,6 +58,8 @@ declare const acquireVsCodeApi: () => {
 };
 
 const vscode = acquireVsCodeApi();
+
+console.log('MikeDown: editor-main.ts script executing');
 
 // ── Loading flag — prevents onUpdate from firing during programmatic content load ──
 
@@ -398,6 +400,186 @@ function showImageInsertDialog(editor: Editor): void {
   });
 }
 
+// ── Settings Modal ──────────────────────────────────────────────────────────────
+
+function showSettingsModal(): void {
+  // Remove existing modal if open
+  document.getElementById('mikedown-settings-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'mikedown-settings-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:1050;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)';
+
+  const modal = document.createElement('div');
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-label', 'MikeDown Settings');
+  modal.style.cssText = [
+    'background:var(--vscode-editorWidget-background,#252526)',
+    'border:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.35))',
+    'border-radius:10px',
+    'padding:24px 28px',
+    'min-width:420px',
+    'max-width:520px',
+    'box-shadow:0 12px 40px rgba(0,0,0,0.5)',
+    'display:flex',
+    'flex-direction:column',
+    'gap:20px',
+    'max-height:80vh',
+    'overflow-y:auto',
+  ].join(';');
+
+  // Read current values from CSS custom properties
+  const computed = getComputedStyle(document.documentElement);
+  const currentFontSize = parseInt(computed.getPropertyValue('--mikedown-font-size') || '17', 10);
+  const currentFontFamily = computed.getPropertyValue('--mikedown-font-family').trim();
+  const currentMaxWidth = computed.getPropertyValue('--mikedown-content-width').trim() || '100%';
+
+  // ── Title
+  const title = document.createElement('div');
+  title.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
+  const titleText = document.createElement('h2');
+  titleText.textContent = 'Settings';
+  titleText.style.cssText = 'margin:0;font-size:18px;font-weight:600;color:var(--vscode-editor-foreground)';
+  const closeBtn = document.createElement('button');
+  closeBtn.innerHTML = '&times;';
+  closeBtn.style.cssText = 'background:none;border:none;color:var(--vscode-editor-foreground);font-size:22px;cursor:pointer;padding:0 4px;opacity:0.6';
+  closeBtn.addEventListener('click', () => overlay.remove());
+  title.appendChild(titleText);
+  title.appendChild(closeBtn);
+
+  // ── Helper to create a setting row
+  function makeRow(label: string, description: string): HTMLElement {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+    const lbl = document.createElement('label');
+    lbl.style.cssText = 'font-size:14px;font-weight:500;color:var(--vscode-editor-foreground)';
+    lbl.textContent = label;
+    const desc = document.createElement('div');
+    desc.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.4';
+    desc.textContent = description;
+    row.appendChild(lbl);
+    row.appendChild(desc);
+    return row;
+  }
+
+  const inputStyle = [
+    'padding:6px 10px',
+    'background:var(--vscode-input-background,#3c3c3c)',
+    'color:var(--vscode-input-foreground,#d4d4d4)',
+    'border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35))',
+    'border-radius:4px',
+    'font-size:14px',
+    'outline:none',
+    'box-sizing:border-box',
+    'width:100%',
+  ].join(';');
+
+  // ── Font Size
+  const fontSizeRow = makeRow('Font Size', 'Size in pixels for the editor content.');
+  const fontSizeInput = document.createElement('input');
+  fontSizeInput.type = 'range';
+  fontSizeInput.min = '12';
+  fontSizeInput.max = '28';
+  fontSizeInput.value = String(currentFontSize);
+  fontSizeInput.style.cssText = 'width:100%;accent-color:var(--vscode-focusBorder,#007fd4)';
+  const fontSizeLabel = document.createElement('span');
+  fontSizeLabel.style.cssText = 'font-size:13px;color:var(--vscode-descriptionForeground);font-variant-numeric:tabular-nums';
+  fontSizeLabel.textContent = `${currentFontSize}px`;
+  const fontSizeControl = document.createElement('div');
+  fontSizeControl.style.cssText = 'display:flex;align-items:center;gap:10px';
+  fontSizeControl.appendChild(fontSizeInput);
+  fontSizeControl.appendChild(fontSizeLabel);
+  fontSizeRow.appendChild(fontSizeControl);
+  fontSizeInput.addEventListener('input', () => {
+    fontSizeLabel.textContent = `${fontSizeInput.value}px`;
+    document.documentElement.style.setProperty('--mikedown-font-size', `${fontSizeInput.value}px`);
+  });
+
+  // ── Font Family
+  const fontFamilyRow = makeRow('Font Family', 'Custom font for the editor. Leave empty for system default.');
+  const fontFamilyInput = document.createElement('input');
+  fontFamilyInput.type = 'text';
+  fontFamilyInput.placeholder = 'e.g. Georgia, serif';
+  fontFamilyInput.value = currentFontFamily;
+  fontFamilyInput.style.cssText = inputStyle;
+  fontFamilyRow.appendChild(fontFamilyInput);
+  fontFamilyInput.addEventListener('input', () => {
+    document.documentElement.style.setProperty('--mikedown-font-family', fontFamilyInput.value);
+  });
+
+  // ── Content Width
+  const widthRow = makeRow('Content Width', 'Max width of the editor content area. Use "100%" for full width or a value like "800px".');
+  const widthSelect = document.createElement('select');
+  widthSelect.style.cssText = inputStyle + ';cursor:pointer';
+  const widthOptions = [
+    { value: '100%', label: 'Full Width' },
+    { value: '900px', label: 'Wide (900px)' },
+    { value: '780px', label: 'Medium (780px)' },
+    { value: '650px', label: 'Narrow (650px)' },
+  ];
+  widthOptions.forEach(opt => {
+    const option = document.createElement('option');
+    option.value = opt.value;
+    option.textContent = opt.label;
+    if (currentMaxWidth === opt.value || (currentMaxWidth === '' && opt.value === '100%')) option.selected = true;
+    widthSelect.appendChild(option);
+  });
+  widthRow.appendChild(widthSelect);
+  widthSelect.addEventListener('change', () => {
+    document.documentElement.style.setProperty('--mikedown-content-width', widthSelect.value);
+  });
+
+  // ── Save button + note
+  const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.2))';
+  const note = document.createElement('span');
+  note.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground)';
+  note.textContent = 'Changes apply instantly. Use VS Code settings for persistence.';
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = 'Save to Settings';
+  saveBtn.style.cssText = [
+    'padding:6px 16px',
+    'background:var(--vscode-button-background,#0e639c)',
+    'color:var(--vscode-button-foreground,#ffffff)',
+    'border:none',
+    'border-radius:4px',
+    'cursor:pointer',
+    'font-size:13px',
+    'font-weight:500',
+    'flex-shrink:0',
+  ].join(';');
+  saveBtn.addEventListener('click', () => {
+    // Send settings to extension host to persist in VS Code config
+    vscode.postMessage({
+      type: 'saveSettings',
+      settings: {
+        fontSize: parseInt(fontSizeInput.value, 10),
+        fontFamily: fontFamilyInput.value,
+        contentWidth: widthSelect.value,
+      }
+    });
+    overlay.remove();
+  });
+  footer.appendChild(note);
+  footer.appendChild(saveBtn);
+
+  // Assemble
+  modal.appendChild(title);
+  modal.appendChild(fontSizeRow);
+  modal.appendChild(fontFamilyRow);
+  modal.appendChild(widthRow);
+  modal.appendChild(footer);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  // Close on backdrop click or Escape
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.addEventListener('keydown', function escHandler(e) {
+    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+  });
+}
+
 // ── M3: Toolbar builder ────────────────────────────────────────────────────────
 
 type ToolbarButtonDef =
@@ -433,6 +615,7 @@ function buildToolbar(editor: Editor): void {
     undo: svg('<polyline points="4 7 2 5 4 3"/><path d="M2 5h8a4 4 0 0 1 0 8H7"/>'),
     redo: svg('<polyline points="12 7 14 5 12 3"/><path d="M14 5H6a4 4 0 0 0 0 8h3"/>'),
     source: svg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/><line x1="9" y1="3" x2="7" y2="13"/>'),
+    gear: svg('<circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M3.4 12.6l.85-.85M11.75 4.25l.85-.85"/>'),
   };
 
   const buttons: ToolbarButtonDef[] = [
@@ -460,6 +643,8 @@ function buildToolbar(editor: Editor): void {
     { id: 'redo', title: 'Redo (Cmd+Shift+Z)', icon: icons.redo, action: () => editor.chain().focus().redo().run(), isActive: () => false },
     { separator: true },
     { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: icons.source, action: () => vscode.postMessage({ type: 'toggleSource' }), isActive: () => false },
+    { separator: true },
+    { id: 'settings', title: 'Settings', icon: icons.gear, action: () => showSettingsModal(), isActive: () => false },
   ];
 
   toolbar.innerHTML = buttons.map(btn => {
@@ -635,6 +820,7 @@ const editorContainer = document.getElementById('editor-container');
 // Declared here (after editorContainer) but only called after `editor` is created.
 // The actual function body is defined inside the `else` block where `editor` is in scope.
 
+console.log('MikeDown: about to create TipTap editor, container:', !!editorContainer);
 if (!editorContainer) {
   console.error('MikeDown: #editor-container element not found.');
 } else {
@@ -1426,7 +1612,7 @@ if (!editorContainer) {
         '--mikedown-font-family', message.fontFamily || ''
       );
       document.documentElement.style.setProperty(
-        '--mikedown-font-size', `${message.fontSize || 16}px`
+        '--mikedown-font-size', `${message.fontSize || 17}px`
       );
     }
 

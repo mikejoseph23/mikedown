@@ -83,6 +83,18 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  // "Open with MikeDown" command — works from explorer, editor tab, and command palette
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.openWithMikeDown', async (uri?: vscode.Uri) => {
+      const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!targetUri) {
+        vscode.window.showWarningMessage('No markdown file selected.');
+        return;
+      }
+      await vscode.commands.executeCommand('vscode.openWith', targetUri, MarkdownEditorProvider.viewType);
+    })
+  );
+
   // M14: Document stats status bar
   const statusBar = new StatusBarManager();
   context.subscriptions.push({ dispose: () => statusBar.dispose() });
