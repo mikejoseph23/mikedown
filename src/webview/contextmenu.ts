@@ -2,6 +2,7 @@ import { Editor } from '@tiptap/core';
 
 export interface ContextMenuItem {
   label: string;
+  shortcut?: string;
   action: () => void;
   separator?: false;
   disabled?: boolean;
@@ -30,15 +31,28 @@ export function showContextMenu(
       menuEl!.appendChild(sep);
       return;
     }
+    const menuItem = item as ContextMenuItem;
     const el = document.createElement('div');
-    el.className = 'cm-item' + ((item as ContextMenuItem).disabled ? ' cm-disabled' : '');
-    el.textContent = (item as ContextMenuItem).label;
+    el.className = 'cm-item' + (menuItem.disabled ? ' cm-disabled' : '');
     el.setAttribute('role', 'menuitem');
-    if (!(item as ContextMenuItem).disabled) {
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'cm-item-label';
+    labelSpan.textContent = menuItem.label;
+    el.appendChild(labelSpan);
+
+    if (menuItem.shortcut) {
+      const shortcutSpan = document.createElement('span');
+      shortcutSpan.className = 'cm-item-shortcut';
+      shortcutSpan.textContent = menuItem.shortcut;
+      el.appendChild(shortcutSpan);
+    }
+
+    if (!menuItem.disabled) {
       el.addEventListener('mousedown', (e) => {
         e.preventDefault();
         hideContextMenu();
-        (item as ContextMenuItem).action();
+        menuItem.action();
       });
     }
     menuEl!.appendChild(el);
@@ -63,10 +77,11 @@ export function hideContextMenu(): void {
 }
 
 export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
+  const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+';
   return [
-    { label: `${editor.isActive('bold') ? '✓ ' : ''}Bold`, action: () => editor.chain().focus().toggleBold().run(), disabled: editor.isActive('codeBlock') },
-    { label: `${editor.isActive('italic') ? '✓ ' : ''}Italic`, action: () => editor.chain().focus().toggleItalic().run(), disabled: editor.isActive('codeBlock') },
-    { label: `${editor.isActive('strike') ? '✓ ' : ''}Strikethrough`, action: () => editor.chain().focus().toggleStrike().run(), disabled: editor.isActive('codeBlock') },
+    { label: 'Bold', shortcut: `${mod}B`, action: () => editor.chain().focus().toggleBold().run(), disabled: editor.isActive('codeBlock') },
+    { label: 'Italic', shortcut: `${mod}I`, action: () => editor.chain().focus().toggleItalic().run(), disabled: editor.isActive('codeBlock') },
+    { label: 'Strikethrough', action: () => editor.chain().focus().toggleStrike().run(), disabled: editor.isActive('codeBlock') },
     { separator: true },
     { label: 'Heading 1', action: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
     { label: 'Heading 2', action: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
@@ -78,7 +93,7 @@ export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
     { label: 'Task List', action: () => editor.chain().focus().toggleTaskList().run() },
     { label: 'Blockquote', action: () => editor.chain().focus().toggleBlockquote().run() },
     { separator: true },
-    { label: 'Insert Link…', action: () => (window as any).__mikedownShowLinkDialog?.() },
+    { label: 'Insert Link…', shortcut: `${mod}K`, action: () => (window as any).__mikedownShowLinkDialog?.() },
     { label: 'Insert Image…', action: () => (window as any).__mikedownShowImageDialog?.() },
     { label: 'Insert Table', action: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
     { label: 'Horizontal Rule', action: () => editor.chain().focus().setHorizontalRule().run() },
@@ -86,13 +101,13 @@ export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
 }
 
 export function buildLinkMenu(editor: Editor, href: string): ContextMenuEntry[] {
-  const vscode = (window as any).acquireVsCodeApi ? (window as any).__vscode : null;
+  const vscode = (window as any).__vscode ?? null;
   return [
     { label: 'Open Link', action: () => { if (vscode) vscode.postMessage({ type: 'openLink', href }); } },
     { label: 'Copy Link', action: () => navigator.clipboard?.writeText(href).catch(() => {}) },
     { label: 'Edit Link…', action: () => {
-      const newHref = window.prompt('Edit link URL:', href);
-      if (newHref !== null) editor.chain().focus().extendMarkRange('link').setLink({ href: newHref }).run();
+      // Use the link dialog instead of window.prompt
+      (window as any).__mikedownShowLinkDialog?.();
     }},
     { label: 'Remove Link', action: () => editor.chain().focus().extendMarkRange('link').unsetLink().run() },
   ];

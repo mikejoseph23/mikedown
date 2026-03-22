@@ -28,22 +28,22 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: 40px;
+  height: 36px;
   z-index: 100;
   display: flex;
   align-items: center;
-  padding: 0 12px;
-  gap: 4px;
+  padding: 0 10px;
+  gap: 1px;
   background-color: var(--vscode-editorGroupHeader-tabsBackground, #252526);
   border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
   user-select: none;
 }
 
 .toolbar-placeholder {
-  font-size: 12px;
-  font-weight: 600;
-  opacity: 0.6;
-  letter-spacing: 0.05em;
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.5;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--vscode-foreground, #cccccc);
 }
@@ -52,19 +52,19 @@ body {
 
 #editor-container {
   position: fixed;
-  top: 40px; /* below toolbar */
+  top: 36px;
   left: 0;
   right: 0;
   bottom: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 32px 48px;
+  padding: 40px 48px 80px;
 }
 
 /* ─── Editor Content Area ─────────────────────────────────────────────────── */
 
 #editor {
-  max-width: 800px;
+  max-width: 780px;
   margin: 0 auto;
   min-height: 100%;
   outline: none;
@@ -176,90 +176,139 @@ body {
 
 /* ─── TipTap ProseMirror Editor ───────────────────────────────────────────── */
 
-/* TipTap renders into a .ProseMirror element inside #editor-container */
 .ProseMirror {
-  max-width: 800px;
+  max-width: 780px;
   margin: 0 auto;
-  min-height: calc(100vh - 40px - 64px); /* viewport minus toolbar and padding */
+  min-height: calc(100vh - 36px - 120px);
   outline: none;
-  line-height: 1.7;
+  line-height: 1.75;
   word-wrap: break-word;
   caret-color: var(--vscode-editorCursor-foreground, #aeafad);
 }
 
-/* Placeholder text shown when editor is empty (M2c) */
+/* Placeholder text */
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: var(--vscode-input-placeholderForeground, var(--vscode-editorGhostText-foreground, #666));
   pointer-events: none;
   float: left;
   height: 0;
+  font-style: italic;
+  opacity: 0.7;
 }
 
-/* ─── Headings (M2c) ──────────────────────────────────────────────────────── */
+/* ─── Headings ────────────────────────────────────────────────────────────── */
 
-.ProseMirror h1 { font-size: 2em; font-weight: 700; margin: 0.67em 0; }
-.ProseMirror h2 { font-size: 1.5em; font-weight: 600; margin: 0.75em 0; }
-.ProseMirror h3 { font-size: 1.25em; font-weight: 600; margin: 0.83em 0; }
-.ProseMirror h4 { font-size: 1.1em; font-weight: 600; margin: 1em 0; }
-.ProseMirror h5, .ProseMirror h6 { font-size: 1em; font-weight: 600; margin: 1em 0; }
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 1.2em 0 0.4em;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.ProseMirror h1:first-child { margin-top: 0; }
 
-/* ─── Lists (M2c) ─────────────────────────────────────────────────────────── */
+.ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 1.1em 0 0.35em;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+}
 
-.ProseMirror ul, .ProseMirror ol { padding-left: 1.5em; margin: 0.5em 0; }
-.ProseMirror li { margin: 0.25em 0; }
+.ProseMirror h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 1em 0 0.3em;
+  line-height: 1.3;
+}
 
-/* ─── Blockquote (M2c) ────────────────────────────────────────────────────── */
+.ProseMirror h4 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 1em 0 0.25em;
+}
+
+.ProseMirror h5,
+.ProseMirror h6 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 1em 0 0.2em;
+}
+
+.ProseMirror h6 {
+  opacity: 0.75;
+  text-transform: uppercase;
+  font-size: 0.85em;
+  letter-spacing: 0.05em;
+}
+
+/* ─── Lists ───────────────────────────────────────────────────────────────── */
+
+.ProseMirror ul, .ProseMirror ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.ProseMirror li {
+  margin: 0.15em 0;
+}
+.ProseMirror li > p {
+  margin: 0;
+}
+
+/* ─── Blockquote ──────────────────────────────────────────────────────────── */
 
 .ProseMirror blockquote {
-  border-left: 3px solid var(--vscode-textBlockQuote-border, #aaa);
-  margin: 0.5em 0;
-  padding: 0.25em 1em;
+  border-left: 3px solid var(--vscode-textBlockQuote-border, rgba(150,150,150,0.5));
+  margin: 0.75em 0;
+  padding: 0.3em 1em;
   color: var(--vscode-textBlockQuote-foreground);
-  background: var(--vscode-textBlockQuote-background);
+  background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.06));
+  border-radius: 0 4px 4px 0;
 }
 
-/* ─── Code block (M2c) ────────────────────────────────────────────────────── */
+/* ─── Code block ──────────────────────────────────────────────────────────── */
 
 .ProseMirror pre {
   background: var(--vscode-textCodeBlock-background);
-  border-radius: 4px;
-  padding: 0.75em 1em;
+  border-radius: 6px;
+  padding: 0.85em 1em;
   overflow-x: auto;
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 0.9em;
 }
 
-/* ─── Inline code (M2b) ───────────────────────────────────────────────────── */
+/* ─── Inline code ─────────────────────────────────────────────────────────── */
 
 .ProseMirror code {
   background: var(--vscode-textCodeBlock-background);
-  border-radius: 3px;
-  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
   font-family: var(--vscode-editor-font-family, monospace);
-  font-size: 0.9em;
+  font-size: 0.88em;
 }
 
-/* ─── Horizontal rule (M2c) ───────────────────────────────────────────────── */
+/* ─── Horizontal rule ─────────────────────────────────────────────────────── */
 
 .ProseMirror hr {
   border: none;
-  border-top: 2px solid var(--vscode-editorRuler-foreground, #aaa);
-  margin: 1.5em 0;
+  height: 1px;
+  background: var(--vscode-editorRuler-foreground, rgba(150,150,150,0.3));
+  margin: 2em 0;
 }
 
-/* ─── Paragraph spacing (M2c block spacing) ──────────────────────────────── */
+/* ─── Paragraph spacing ──────────────────────────────────────────────────── */
 
 .ProseMirror p { margin: 0; }
-
-/* Spacing between sibling block elements */
 .ProseMirror > * + * { margin-top: 0.75em; }
 
 /* ─── Task lists (GFM checkboxes) ─────────────────────────────────────────── */
 
 .ProseMirror ul[data-type="taskList"] {
   list-style: none;
-  padding-left: 1em;
+  padding-left: 0.25em;
 }
 
 .ProseMirror ul[data-type="taskList"] li {
@@ -270,11 +319,23 @@ body {
 
 .ProseMirror ul[data-type="taskList"] li > label {
   flex-shrink: 0;
-  margin-top: 0.15em;
+  margin-top: 0.2em;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--vscode-textLink-foreground, #3794ff);
 }
 
 .ProseMirror ul[data-type="taskList"] li > div {
   flex: 1;
+}
+
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  opacity: 0.6;
+  text-decoration: line-through;
 }
 
 /* ─── Tables ──────────────────────────────────────────────────────────────── */
@@ -297,6 +358,8 @@ body {
 .ProseMirror table th {
   background-color: var(--vscode-editorGroupHeader-tabsBackground, #252526);
   font-weight: 600;
+  font-size: 0.92em;
+  text-transform: none;
 }
 
 .ProseMirror table .selectedCell::after {
@@ -310,7 +373,7 @@ body {
 /* ─── Scrollbar ───────────────────────────────────────────────────────────── */
 
 #editor-container::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 
 #editor-container::-webkit-scrollbar-track {
@@ -319,7 +382,9 @@ body {
 
 #editor-container::-webkit-scrollbar-thumb {
   background-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
-  border-radius: 4px;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 #editor-container::-webkit-scrollbar-thumb:hover {

@@ -176,56 +176,67 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
   tableToolbarEl.setAttribute('role', 'toolbar');
   tableToolbarEl.setAttribute('aria-label', 'Table toolbar');
 
+  // SVG icons for the table toolbar (12×12, matching VS Code style)
+  const tsvg = (d: string) => `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const tIcons = {
+    rowAbove: tsvg('<rect x="1" y="4" width="12" height="9" rx="1"/><line x1="1" y1="8" x2="13" y2="8"/><line x1="7" y1="4" x2="7" y2="8"/><line x1="7" y1="0.5" x2="7" y2="3"/><line x1="5.5" y1="1.5" x2="7" y2="0.5"/><line x1="8.5" y1="1.5" x2="7" y2="0.5"/>'),
+    rowBelow: tsvg('<rect x="1" y="1" width="12" height="9" rx="1"/><line x1="1" y1="5.5" x2="13" y2="5.5"/><line x1="7" y1="5.5" x2="7" y2="10"/><line x1="7" y1="10.5" x2="7" y2="13.5"/><line x1="5.5" y1="12.5" x2="7" y2="13.5"/><line x1="8.5" y1="12.5" x2="7" y2="13.5"/>'),
+    rowDel: tsvg('<rect x="1" y="3" width="12" height="8" rx="1"/><line x1="1" y1="7" x2="13" y2="7"/><line x1="3" y1="5" x2="11" y2="5" stroke="var(--vscode-errorForeground,#f44747)"/>'),
+    colLeft: tsvg('<rect x="4" y="1" width="9" height="12" rx="1"/><line x1="8" y1="1" x2="8" y2="13"/><line x1="4" y1="7" x2="8" y2="7"/><line x1="0.5" y1="7" x2="3" y2="7"/><line x1="1.5" y1="5.5" x2="0.5" y2="7"/><line x1="1.5" y1="8.5" x2="0.5" y2="7"/>'),
+    colRight: tsvg('<rect x="1" y="1" width="9" height="12" rx="1"/><line x1="5.5" y1="1" x2="5.5" y2="13"/><line x1="5.5" y1="7" x2="10" y2="7"/><line x1="10.5" y1="7" x2="13.5" y2="7"/><line x1="12.5" y1="5.5" x2="13.5" y2="7"/><line x1="12.5" y1="8.5" x2="13.5" y2="7"/>'),
+    colDel: tsvg('<rect x="3" y="1" width="8" height="12" rx="1"/><line x1="7" y1="1" x2="7" y2="13"/><line x1="5" y1="3" x2="5" y2="11" stroke="var(--vscode-errorForeground,#f44747)"/>'),
+    alignL: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="2" y1="6.5" x2="9" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
+    alignC: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="3.5" y1="6.5" x2="10.5" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
+    alignR: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="5" y1="6.5" x2="12" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
+    trash: tsvg('<polyline points="2 4 3 12 11 12 12 4"/><line x1="1" y1="4" x2="13" y2="4"/><path d="M5 4V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V4"/>'),
+  };
+
   const buttons: TableToolbarButton[] = [
     {
-      label: '↑+', title: 'Insert Row Above',
+      label: tIcons.rowAbove, title: 'Insert Row Above',
       action: () => editor.chain().focus().addRowBefore().run(),
     },
     {
-      label: '↓+', title: 'Insert Row Below',
+      label: tIcons.rowBelow, title: 'Insert Row Below',
       action: () => editor.chain().focus().addRowAfter().run(),
     },
     {
-      label: '↓−', title: 'Remove Row',
+      label: tIcons.rowDel, title: 'Remove Row',
       action: () => editor.chain().focus().deleteRow().run(),
       isDisabled: () => !editor.can().deleteRow(),
     },
     { label: '|', title: '', action: () => {} }, // separator
     {
-      label: '←+', title: 'Insert Column Left',
+      label: tIcons.colLeft, title: 'Insert Column Left',
       action: () => editor.chain().focus().addColumnBefore().run(),
     },
     {
-      label: '+→', title: 'Insert Column Right',
+      label: tIcons.colRight, title: 'Insert Column Right',
       action: () => editor.chain().focus().addColumnAfter().run(),
     },
     {
-      label: '−|', title: 'Remove Column',
+      label: tIcons.colDel, title: 'Remove Column',
       action: () => editor.chain().focus().deleteColumn().run(),
       isDisabled: () => !editor.can().deleteColumn(),
     },
     { label: '|', title: '', action: () => {} }, // separator
     {
-      label: '⬛L', title: 'Align Left',
+      label: tIcons.alignL, title: 'Align Left',
       action: () => editor.chain().focus().setCellAttribute('textAlign', 'left').run(),
-      isActive: () => false, // alignment detection is complex; skip active state for now
+      isActive: () => false,
     },
     {
-      label: '⬛C', title: 'Align Center',
+      label: tIcons.alignC, title: 'Align Center',
       action: () => editor.chain().focus().setCellAttribute('textAlign', 'center').run(),
     },
     {
-      label: '⬛R', title: 'Align Right',
+      label: tIcons.alignR, title: 'Align Right',
       action: () => editor.chain().focus().setCellAttribute('textAlign', 'right').run(),
     },
     { label: '|', title: '', action: () => {} }, // separator
     {
-      label: '🗑', title: 'Delete Table',
-      action: () => {
-        if (window.confirm('Delete this table?')) {
-          editor.chain().focus().deleteTable().run();
-        }
-      },
+      label: tIcons.trash, title: 'Delete Table',
+      action: () => editor.chain().focus().deleteTable().run(),
     },
   ];
 
@@ -238,7 +249,7 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
     }
     const el = document.createElement('button');
     el.className = 'tt-btn';
-    el.textContent = btn.label;
+    el.innerHTML = btn.label;
     el.title = btn.title;
     if (btn.isDisabled?.()) el.disabled = true;
     if (btn.isActive?.()) el.classList.add('tt-active');

@@ -1,21 +1,25 @@
-/* ============================================================
-   Find & Replace Bar
-   ============================================================ */
+/* Find & Replace Bar */
 
 #find-replace-bar {
   position: fixed;
-  top: 40px; /* below toolbar */
-  right: 16px;
+  top: 42px;
+  right: 20px;
   z-index: 500;
   background: var(--vscode-editorWidget-background);
   border: 1px solid var(--vscode-editorWidget-border);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  padding: 6px 8px;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2), 0 0 1px rgba(0,0,0,0.1);
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 340px;
+  gap: 6px;
+  min-width: 360px;
+  animation: fr-slide-in 0.12s ease-out;
+}
+
+@keyframes fr-slide-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .fr-row {
@@ -29,34 +33,45 @@
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border, transparent);
-  padding: 3px 6px;
-  border-radius: 3px;
-  font-size: 0.85em;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
   font-family: inherit;
   outline: none;
+  transition: border-color 0.1s ease;
 }
 #find-replace-bar input[type="text"]:focus {
   border-color: var(--vscode-focusBorder);
 }
+#find-replace-bar input[type="text"]::placeholder {
+  opacity: 0.5;
+}
 
 #find-replace-bar button {
-  background: var(--vscode-button-secondaryBackground, transparent);
+  background: transparent;
   color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground));
-  border: 1px solid transparent;
-  border-radius: 3px;
-  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 6px;
   cursor: pointer;
-  font-size: 0.85em;
+  font-size: 13px;
   white-space: nowrap;
+  transition: background 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
 }
 #find-replace-bar button:hover {
-  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 }
 
 #fr-replace-btn,
 #fr-replace-all-btn {
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
+  padding: 4px 10px;
+  font-weight: 500;
 }
 #fr-replace-btn:hover,
 #fr-replace-all-btn:hover {
@@ -64,15 +79,17 @@
 }
 
 .fr-count {
-  font-size: 0.8em;
+  font-size: 12px;
   color: var(--vscode-descriptionForeground);
   white-space: nowrap;
-  min-width: 80px;
+  min-width: 70px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .fr-options {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
 }
 
@@ -80,13 +97,15 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  font-size: 0.8em;
+  font-size: 12px;
   color: var(--vscode-descriptionForeground);
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 3px;
+  padding: 3px 5px;
+  border-radius: 4px;
   border: 1px solid transparent;
   user-select: none;
+  transition: background 0.1s ease, border-color 0.1s ease;
+  font-family: var(--vscode-editor-font-family, monospace);
 }
 .fr-options label:hover {
   background: var(--vscode-list-hoverBackground);
@@ -96,11 +115,11 @@
 }
 .fr-options label:has(input:checked) {
   border-color: var(--vscode-focusBorder);
-  background: var(--vscode-editorWidget-background);
+  background: color-mix(in srgb, var(--vscode-focusBorder) 15%, transparent);
   color: var(--vscode-editor-foreground);
 }
 
-/* Match highlights in editor */
+/* Match highlights */
 .search-match {
   background: var(--vscode-editor-findMatchHighlightBackground, rgba(255,215,0,0.3));
   border-radius: 2px;
@@ -109,5 +128,6 @@
 .search-match-active {
   background: var(--vscode-editor-findMatchBackground, rgba(255,160,0,0.6));
   border-radius: 2px;
-  outline: 1px solid var(--vscode-editor-findMatchBorder, rgba(255,140,0,0.8));
+  outline: 2px solid var(--vscode-editor-findMatchBorder, rgba(255,140,0,0.7));
+  outline-offset: -1px;
 }

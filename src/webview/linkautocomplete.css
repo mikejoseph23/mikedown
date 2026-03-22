@@ -1,24 +1,34 @@
+/* Link Autocomplete Dropdown */
+
 #mikedown-link-ac {
   position: fixed;
   z-index: 1100;
   background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
-  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.35));
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-  border-radius: 4px;
-  max-height: 220px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.25));
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2), 0 0 1px rgba(0,0,0,0.1);
+  border-radius: 6px;
+  max-height: 240px;
   overflow-y: auto;
-  padding: 4px 0;
+  padding: 4px;
   user-select: none;
+  animation: lac-slide-in 0.08s ease-out;
+}
+
+@keyframes lac-slide-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .lac-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
+  gap: 8px;
+  padding: 6px 10px;
   cursor: pointer;
-  font-size: 0.82em;
+  font-size: 13px;
   white-space: nowrap;
+  border-radius: 4px;
+  transition: background 0.06s ease;
 }
 
 .lac-item:hover,
@@ -28,10 +38,11 @@
 }
 
 .lac-icon {
-  font-size: 0.9em;
+  font-size: 13px;
   flex-shrink: 0;
-  width: 14px;
+  width: 16px;
   text-align: center;
+  opacity: 0.8;
 }
 
 .lac-label {
@@ -39,7 +50,7 @@
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 140px;
+  max-width: 160px;
 }
 
 .lac-item:hover .lac-label,
@@ -48,15 +59,16 @@
 }
 
 .lac-href {
-  color: var(--vscode-descriptionForeground, rgba(204,204,204,0.7));
-  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground, rgba(204,204,204,0.6));
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 180px;
+  max-width: 200px;
+  font-family: var(--vscode-editor-font-family, monospace);
 }
 
 .lac-item:hover .lac-href,
 .lac-item.lac-active .lac-href {
   color: inherit;
-  opacity: 0.8;
+  opacity: 0.75;
 }

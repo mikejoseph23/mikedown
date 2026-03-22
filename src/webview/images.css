@@ -1,15 +1,18 @@
 /* Image rendering */
+
 .ProseMirror img {
   max-width: 100%;
   height: auto;
   display: block;
   cursor: pointer;
-  border-radius: 3px;
-  margin: 0.25em 0;
+  border-radius: 6px;
+  margin: 0.5em 0;
+  transition: outline-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ProseMirror img:hover {
   outline: 2px solid var(--vscode-focusBorder);
-  outline-offset: 1px;
+  outline-offset: 2px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 .ProseMirror img.broken-image {
   border: 2px dashed var(--vscode-editorWarning-foreground, #e5a003);
@@ -17,7 +20,7 @@
   min-width: 80px;
   background: var(--vscode-editorWidget-background);
   padding: 8px;
-  border-radius: 3px;
+  border-radius: 6px;
 }
 
 /* Image edit popover */
@@ -25,38 +28,68 @@
   display: none;
   position: fixed;
   background: var(--vscode-editorWidget-background);
-  border: 1px solid var(--vscode-editorWidget-border, #555);
-  padding: 10px 12px;
-  border-radius: 5px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.3));
+  padding: 14px 16px;
+  border-radius: 8px;
   z-index: 200;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  min-width: 280px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.1);
+  min-width: 300px;
+  animation: img-pop-in 0.1s ease-out;
 }
+
+@keyframes img-pop-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 #image-edit-popover label {
   display: block;
   font-size: 12px;
+  font-weight: 500;
   margin-bottom: 4px;
   color: var(--vscode-descriptionForeground);
 }
 #image-edit-popover input {
   width: 100%;
-  padding: 4px 6px;
+  padding: 5px 8px;
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
-  border: 1px solid var(--vscode-input-border, #555);
-  border-radius: 3px;
+  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+  border-radius: 4px;
   font-size: 13px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.1s ease;
 }
-#image-edit-popover .popover-actions { display: flex; gap: 6px; justify-content: flex-end; }
+#image-edit-popover input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+#image-edit-popover .popover-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
 #image-edit-popover button {
-  padding: 4px 10px;
+  padding: 5px 14px;
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
-  border: none; border-radius: 3px; cursor: pointer; font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.1s ease;
+}
+#image-edit-popover button:hover {
+  background: var(--vscode-button-hoverBackground);
 }
 #image-edit-popover button.secondary {
-  background: var(--vscode-button-secondaryBackground);
+  background: transparent;
   color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-secondaryBackground, rgba(128,128,128,0.3));
+}
+#image-edit-popover button.secondary:hover {
+  background: var(--vscode-list-hoverBackground);
 }

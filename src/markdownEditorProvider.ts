@@ -486,8 +486,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 </head>
 <body>
   <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">
-    <!-- Toolbar buttons will be added in M2b -->
-    <span class="toolbar-placeholder">MikeDown Editor</span>
+    <span class="toolbar-placeholder">MikeDown</span>
   </div>
   <!-- TipTap mounts directly into #editor-container -->
   <div id="editor-container" role="main" aria-label="Markdown editor"></div>

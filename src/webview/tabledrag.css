@@ -1,6 +1,4 @@
-/* ============================================================
-   Table Drag Handles
-   ============================================================ */
+/* Table Drag Handles */
 
 .td-handle {
   position: absolute;
@@ -12,12 +10,18 @@
   height: 16px;
   font-size: 10px;
   color: var(--vscode-editor-foreground);
-  opacity: 0.5;
+  opacity: 0;
   cursor: grab;
-  border-radius: 2px;
+  border-radius: 3px;
   user-select: none;
   background: var(--vscode-editorWidget-background, transparent);
-  transition: opacity 0.1s;
+  transition: opacity 0.15s ease, background 0.1s ease;
+}
+
+/* Show handles when hovering the table area */
+.ProseMirror table:hover ~ .td-handle,
+.td-handle:hover {
+  opacity: 0.5;
 }
 
 .td-handle:hover {
@@ -47,6 +51,7 @@ body.td-dragging * {
   pointer-events: none;
   display: none;
   background: var(--vscode-focusBorder, #007fd4);
+  border-radius: 1px;
 }
 
 .td-drop-line-row {
@@ -57,13 +62,11 @@ body.td-dragging * {
   width: 2px;
 }
 
-/* ============================================================
-   Multi-Cell Selection
-   ============================================================ */
+/* Multi-Cell Selection */
 
 .ProseMirror td.mikedown-cell-selected,
 .ProseMirror th.mikedown-cell-selected {
-  background: var(--vscode-list-activeSelectionBackground, rgba(14,99,156,0.25)) !important;
+  background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 15%, transparent) !important;
   position: relative;
 }
 

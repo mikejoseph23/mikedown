@@ -167,18 +167,23 @@ function showLinkDialog(editor: Editor): void {
   dialog.style.cssText = [
     'background:var(--vscode-editorWidget-background,var(--vscode-editor-background,#252526))',
     'border:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.35))',
-    'border-radius:6px',
+    'border-radius:8px',
     'padding:16px 20px',
-    'min-width:340px',
+    'min-width:360px',
     'box-shadow:0 8px 24px rgba(0,0,0,0.4)',
     'display:flex',
     'flex-direction:column',
-    'gap:10px'
+    'gap:12px'
   ].join(';');
 
   const title = document.createElement('div');
   title.textContent = 'Insert Link';
-  title.style.cssText = 'font-weight:600;font-size:0.95em;color:var(--vscode-editor-foreground,#d4d4d4)';
+  title.style.cssText = 'font-weight:600;font-size:14px;color:var(--vscode-editor-foreground,#d4d4d4)';
+
+  const fieldWrapper = document.createElement('div');
+  const fieldLabel = document.createElement('label');
+  fieldLabel.textContent = 'URL';
+  fieldLabel.style.cssText = 'display:block;font-size:12px;font-weight:500;margin-bottom:4px;color:var(--vscode-descriptionForeground)';
 
   const urlInput = document.createElement('input');
   urlInput.type = 'text';
@@ -190,43 +195,47 @@ function showLinkDialog(editor: Editor): void {
     'background:var(--vscode-input-background,#3c3c3c)',
     'color:var(--vscode-input-foreground,#d4d4d4)',
     'border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35))',
-    'border-radius:3px',
-    'font-size:0.9em',
+    'border-radius:4px',
+    'font-size:13px',
     'outline:none',
     'box-sizing:border-box'
   ].join(';');
 
+  fieldWrapper.appendChild(fieldLabel);
+  fieldWrapper.appendChild(urlInput);
+
   const btnRow = document.createElement('div');
-  btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+  btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;padding-top:4px';
 
   const cancelBtn = document.createElement('button');
   cancelBtn.textContent = 'Cancel';
   cancelBtn.style.cssText = [
-    'padding:4px 12px',
+    'padding:5px 14px',
     'background:transparent',
     'color:var(--vscode-button-secondaryForeground,#d4d4d4)',
     'border:1px solid var(--vscode-button-secondaryBackground,rgba(128,128,128,0.35))',
-    'border-radius:3px',
+    'border-radius:4px',
     'cursor:pointer',
-    'font-size:0.9em'
+    'font-size:13px'
   ].join(';');
 
   const confirmBtn = document.createElement('button');
-  confirmBtn.textContent = 'OK';
+  confirmBtn.textContent = existing ? 'Update' : 'Insert';
   confirmBtn.style.cssText = [
-    'padding:4px 12px',
+    'padding:5px 14px',
     'background:var(--vscode-button-background,#0e639c)',
     'color:var(--vscode-button-foreground,#ffffff)',
     'border:none',
-    'border-radius:3px',
+    'border-radius:4px',
     'cursor:pointer',
-    'font-size:0.9em'
+    'font-size:13px',
+    'font-weight:500'
   ].join(';');
 
   btnRow.appendChild(cancelBtn);
   btnRow.appendChild(confirmBtn);
   dialog.appendChild(title);
-  dialog.appendChild(urlInput);
+  dialog.appendChild(fieldWrapper);
   dialog.appendChild(btnRow);
   overlay.appendChild(dialog);
   document.body.appendChild(overlay);
@@ -266,10 +275,127 @@ function showLinkDialog(editor: Editor): void {
 }
 
 function showImageInsertDialog(editor: Editor): void {
-  const src = window.prompt('Image path or URL:');
-  if (!src) return;
-  const alt = window.prompt('Alt text (optional):', '') ?? '';
-  editor.chain().focus().setImage({ src, alt }).run();
+  const overlay = document.createElement('div');
+  overlay.id = 'mikedown-image-dialog-overlay';
+  overlay.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:1050',
+    'display:flex', 'align-items:center', 'justify-content:center',
+    'background:rgba(0,0,0,0.45)'
+  ].join(';');
+
+  const dialog = document.createElement('div');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-label', 'Insert Image');
+  dialog.style.cssText = [
+    'background:var(--vscode-editorWidget-background,var(--vscode-editor-background,#252526))',
+    'border:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.35))',
+    'border-radius:8px',
+    'padding:16px 20px',
+    'min-width:360px',
+    'box-shadow:0 8px 24px rgba(0,0,0,0.4)',
+    'display:flex',
+    'flex-direction:column',
+    'gap:12px'
+  ].join(';');
+
+  const title = document.createElement('div');
+  title.textContent = 'Insert Image';
+  title.style.cssText = 'font-weight:600;font-size:14px;color:var(--vscode-editor-foreground,#d4d4d4)';
+
+  const makeField = (label: string, placeholder: string, value: string): { wrapper: HTMLElement; input: HTMLInputElement } => {
+    const wrapper = document.createElement('div');
+    const lbl = document.createElement('label');
+    lbl.textContent = label;
+    lbl.style.cssText = 'display:block;font-size:12px;font-weight:500;margin-bottom:4px;color:var(--vscode-descriptionForeground)';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = placeholder;
+    input.value = value;
+    input.style.cssText = [
+      'width:100%',
+      'padding:5px 8px',
+      'background:var(--vscode-input-background,#3c3c3c)',
+      'color:var(--vscode-input-foreground,#d4d4d4)',
+      'border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35))',
+      'border-radius:4px',
+      'font-size:13px',
+      'outline:none',
+      'box-sizing:border-box'
+    ].join(';');
+    wrapper.appendChild(lbl);
+    wrapper.appendChild(input);
+    return { wrapper, input };
+  };
+
+  const srcField = makeField('Path or URL', './image.png or https://...', '');
+  const altField = makeField('Alt text', 'Describe the image (optional)', '');
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;padding-top:4px';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = [
+    'padding:5px 14px',
+    'background:transparent',
+    'color:var(--vscode-button-secondaryForeground,#d4d4d4)',
+    'border:1px solid var(--vscode-button-secondaryBackground,rgba(128,128,128,0.35))',
+    'border-radius:4px',
+    'cursor:pointer',
+    'font-size:13px'
+  ].join(';');
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.textContent = 'Insert';
+  confirmBtn.style.cssText = [
+    'padding:5px 14px',
+    'background:var(--vscode-button-background,#0e639c)',
+    'color:var(--vscode-button-foreground,#ffffff)',
+    'border:none',
+    'border-radius:4px',
+    'cursor:pointer',
+    'font-size:13px',
+    'font-weight:500'
+  ].join(';');
+
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(confirmBtn);
+  dialog.appendChild(title);
+  dialog.appendChild(srcField.wrapper);
+  dialog.appendChild(altField.wrapper);
+  dialog.appendChild(btnRow);
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  setTimeout(() => srcField.input.focus(), 0);
+
+  function cleanup(): void { overlay.remove(); }
+
+  function confirm(): void {
+    const src = srcField.input.value.trim();
+    const alt = altField.input.value.trim();
+    cleanup();
+    if (src) {
+      editor.chain().focus().setImage({ src, alt }).run();
+    } else {
+      editor.commands.focus();
+    }
+  }
+
+  confirmBtn.addEventListener('click', confirm);
+  cancelBtn.addEventListener('click', () => { cleanup(); editor.commands.focus(); });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { cleanup(); editor.commands.focus(); }
+  });
+  srcField.input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); confirm(); }
+    if (e.key === 'Escape') { cleanup(); editor.commands.focus(); }
+  });
+  altField.input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); confirm(); }
+    if (e.key === 'Escape') { cleanup(); editor.commands.focus(); }
+  });
 }
 
 // ── M3: Toolbar builder ────────────────────────────────────────────────────────
@@ -288,31 +414,52 @@ function buildToolbar(editor: Editor): void {
   const toolbar = document.getElementById('toolbar');
   if (!toolbar) return;
 
+  // SVG icon helpers — 16×16 inline SVGs that match VS Code's icon style
+  const svg = (d: string, sw = 1.8) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const icons = {
+    bold: svg('<path d="M4 2.5h5a3 3 0 0 1 0 6H4zM4 8.5h6a3 3 0 0 1 0 6H4z" fill="none"/>', 2),
+    italic: svg('<line x1="10" y1="2" x2="6" y2="14"/><line x1="7" y1="2" x2="12" y2="2"/><line x1="4" y1="14" x2="9" y2="14"/>'),
+    strike: svg('<line x1="2" y1="8" x2="14" y2="8"/><path d="M10.5 3H6.5a2.5 2.5 0 0 0 0 5h3a2.5 2.5 0 0 1 0 5H5"/>'),
+    code: svg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/>'),
+    ul: svg('<line x1="6" y1="4" x2="14" y2="4"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><circle cx="3" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/>'),
+    ol: svg('<line x1="6" y1="4" x2="14" y2="4"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><text x="2" y="5.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">1</text><text x="2" y="9.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">2</text><text x="2" y="13.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">3</text>'),
+    task: svg('<rect x="2" y="4" width="5" height="5" rx="1"/><polyline points="3.5 6.5 4.5 7.5 6 5.5"/><line x1="9" y1="5" x2="14" y2="5"/><line x1="9" y1="9" x2="14" y2="9"/><line x1="9" y1="13" x2="12" y2="13"/>'),
+    quote: svg('<line x1="3" y1="3" x2="3" y2="13"/><line x1="6" y1="5" x2="13" y2="5"/><line x1="6" y1="8" x2="13" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/>'),
+    codeBlock: svg('<rect x="2" y="2" width="12" height="12" rx="2"/><polyline points="5.5 5.5 4 8 5.5 10.5"/><polyline points="10.5 5.5 12 8 10.5 10.5"/>'),
+    link: svg('<path d="M7 9l2-2m-1.5 3.5L9 9m-2.5-2L5 8.5"/><path d="M9.5 5.5l1-1a2 2 0 0 1 2.83 2.83l-1 1"/><path d="M6.5 10.5l-1 1a2 2 0 0 1-2.83-2.83l1-1"/>'),
+    image: svg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="5.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/><polyline points="14 10.5 10.5 7 6 11.5 4.5 10 2 12.5"/>'),
+    table: svg('<rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="2" y1="6" x2="14" y2="6"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="6" y1="2" x2="6" y2="14"/><line x1="10" y1="2" x2="10" y2="14"/>'),
+    hr: svg('<line x1="2" y1="8" x2="14" y2="8"/><circle cx="5" cy="8" r="0.5" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="0.5" fill="currentColor" stroke="none"/><circle cx="11" cy="8" r="0.5" fill="currentColor" stroke="none"/>'),
+    undo: svg('<polyline points="4 7 2 5 4 3"/><path d="M2 5h8a4 4 0 0 1 0 8H7"/>'),
+    redo: svg('<polyline points="12 7 14 5 12 3"/><path d="M14 5H6a4 4 0 0 0 0 8h3"/>'),
+    source: svg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/><line x1="9" y1="3" x2="7" y2="13"/>'),
+  };
+
   const buttons: ToolbarButtonDef[] = [
-    { id: 'bold', title: 'Bold (Cmd+B)', icon: '<b>B</b>', action: () => editor.chain().focus().toggleBold().run(), isActive: () => editor.isActive('bold') },
-    { id: 'italic', title: 'Italic (Cmd+I)', icon: '<i>I</i>', action: () => editor.chain().focus().toggleItalic().run(), isActive: () => editor.isActive('italic') },
-    { id: 'strike', title: 'Strikethrough', icon: '<s>S</s>', action: () => editor.chain().focus().toggleStrike().run(), isActive: () => editor.isActive('strike') },
-    { id: 'code', title: 'Inline Code', icon: '<code>&lt;/&gt;</code>', action: () => editor.chain().focus().toggleCode().run(), isActive: () => editor.isActive('code') },
+    { id: 'bold', title: 'Bold (Cmd+B)', icon: icons.bold, action: () => editor.chain().focus().toggleBold().run(), isActive: () => editor.isActive('bold') },
+    { id: 'italic', title: 'Italic (Cmd+I)', icon: icons.italic, action: () => editor.chain().focus().toggleItalic().run(), isActive: () => editor.isActive('italic') },
+    { id: 'strike', title: 'Strikethrough', icon: icons.strike, action: () => editor.chain().focus().toggleStrike().run(), isActive: () => editor.isActive('strike') },
+    { id: 'code', title: 'Inline Code', icon: icons.code, action: () => editor.chain().focus().toggleCode().run(), isActive: () => editor.isActive('code') },
     { separator: true },
-    { id: 'h1', title: 'Heading 1', icon: 'H1', action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), isActive: () => editor.isActive('heading', { level: 1 }) },
-    { id: 'h2', title: 'Heading 2', icon: 'H2', action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), isActive: () => editor.isActive('heading', { level: 2 }) },
-    { id: 'h3', title: 'Heading 3', icon: 'H3', action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(), isActive: () => editor.isActive('heading', { level: 3 }) },
+    { id: 'h1', title: 'Heading 1', icon: '<span style="font-weight:700;font-size:14px">H<sub style="font-size:9px">1</sub></span>', action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), isActive: () => editor.isActive('heading', { level: 1 }) },
+    { id: 'h2', title: 'Heading 2', icon: '<span style="font-weight:600;font-size:13px">H<sub style="font-size:9px">2</sub></span>', action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), isActive: () => editor.isActive('heading', { level: 2 }) },
+    { id: 'h3', title: 'Heading 3', icon: '<span style="font-weight:500;font-size:12px">H<sub style="font-size:8px">3</sub></span>', action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(), isActive: () => editor.isActive('heading', { level: 3 }) },
     { separator: true },
-    { id: 'bulletList', title: 'Bullet List', icon: '&bull; List', action: () => editor.chain().focus().toggleBulletList().run(), isActive: () => editor.isActive('bulletList') },
-    { id: 'orderedList', title: 'Ordered List', icon: '1. List', action: () => editor.chain().focus().toggleOrderedList().run(), isActive: () => editor.isActive('orderedList') },
-    { id: 'taskList', title: 'Task List', icon: '&#9744; List', action: () => editor.chain().focus().toggleTaskList().run(), isActive: () => editor.isActive('taskList') },
-    { id: 'blockquote', title: 'Blockquote', icon: '&#10077;', action: () => editor.chain().focus().toggleBlockquote().run(), isActive: () => editor.isActive('blockquote') },
-    { id: 'codeBlock', title: 'Code Block', icon: '{ }', action: () => editor.chain().focus().toggleCodeBlock().run(), isActive: () => editor.isActive('codeBlock') },
+    { id: 'bulletList', title: 'Bullet List', icon: icons.ul, action: () => editor.chain().focus().toggleBulletList().run(), isActive: () => editor.isActive('bulletList') },
+    { id: 'orderedList', title: 'Ordered List', icon: icons.ol, action: () => editor.chain().focus().toggleOrderedList().run(), isActive: () => editor.isActive('orderedList') },
+    { id: 'taskList', title: 'Task List', icon: icons.task, action: () => editor.chain().focus().toggleTaskList().run(), isActive: () => editor.isActive('taskList') },
+    { id: 'blockquote', title: 'Blockquote', icon: icons.quote, action: () => editor.chain().focus().toggleBlockquote().run(), isActive: () => editor.isActive('blockquote') },
+    { id: 'codeBlock', title: 'Code Block', icon: icons.codeBlock, action: () => editor.chain().focus().toggleCodeBlock().run(), isActive: () => editor.isActive('codeBlock') },
     { separator: true },
-    { id: 'link', title: 'Insert Link (Cmd+K)', icon: '&#128279;', action: () => showLinkDialog(editor), isActive: () => editor.isActive('link') },
-    { id: 'image', title: 'Insert Image', icon: '&#128444;', action: () => showImageInsertDialog(editor), isActive: () => false },
-    { id: 'table', title: 'Insert Table', icon: '&#8862;', action: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), isActive: () => editor.isActive('table') },
-    { id: 'hr', title: 'Horizontal Rule', icon: '&mdash;', action: () => editor.chain().focus().setHorizontalRule().run(), isActive: () => false },
+    { id: 'link', title: 'Insert Link (Cmd+K)', icon: icons.link, action: () => showLinkDialog(editor), isActive: () => editor.isActive('link') },
+    { id: 'image', title: 'Insert Image', icon: icons.image, action: () => showImageInsertDialog(editor), isActive: () => false },
+    { id: 'table', title: 'Insert Table', icon: icons.table, action: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), isActive: () => editor.isActive('table') },
+    { id: 'hr', title: 'Horizontal Rule', icon: icons.hr, action: () => editor.chain().focus().setHorizontalRule().run(), isActive: () => false },
     { separator: true },
-    { id: 'undo', title: 'Undo (Cmd+Z)', icon: '&#8617;', action: () => editor.chain().focus().undo().run(), isActive: () => false },
-    { id: 'redo', title: 'Redo (Cmd+Shift+Z)', icon: '&#8618;', action: () => editor.chain().focus().redo().run(), isActive: () => false },
+    { id: 'undo', title: 'Undo (Cmd+Z)', icon: icons.undo, action: () => editor.chain().focus().undo().run(), isActive: () => false },
+    { id: 'redo', title: 'Redo (Cmd+Shift+Z)', icon: icons.redo, action: () => editor.chain().focus().redo().run(), isActive: () => false },
     { separator: true },
-    { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: '&lt;/&gt; Source', action: () => vscode.postMessage({ type: 'toggleSource' }), isActive: () => false },
+    { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: icons.source, action: () => vscode.postMessage({ type: 'toggleSource' }), isActive: () => false },
   ];
 
   toolbar.innerHTML = buttons.map(btn => {
@@ -1097,7 +1244,7 @@ if (!editorContainer) {
 
     const header = document.createElement('div');
     header.className = 'frontmatter-header';
-    header.innerHTML = `<span class="frontmatter-icon">${frontmatterExpanded ? '▼' : '▶'}</span> <span class="frontmatter-label">Frontmatter</span>`;
+    header.innerHTML = `<span class="frontmatter-icon">▶</span> <span class="frontmatter-label">Frontmatter</span>`;
     header.addEventListener('click', () => {
       frontmatterExpanded = !frontmatterExpanded;
       renderFrontmatterBlock();
