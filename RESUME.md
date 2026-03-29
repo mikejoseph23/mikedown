@@ -1,144 +1,104 @@
-# Resume Prompt — MikeDown Editor
+# MikeDown Editor — Resume Prompt
 
-Paste this into a new Claude Code window to resume.
+## Project Overview
 
----
+MikeDown Editor is a Typora-style WYSIWYG Markdown editor for VS Code, built on TipTap v2 / ProseMirror with CodeMirror 6 for source mode. It uses the VS Code Custom Editor API, targets GFM spec, runs fully offline, and is MIT licensed. Published to the VS Code Marketplace under publisher "interapp" (Michael Joseph). Currently in beta (`"preview": true`).
 
-```
-Read this context first, then ask what I'd like to work on.
+## Current Status
 
-## Project State
+**v1.0.8 is live on the VS Code Marketplace.** Updated listing with new icon, 7 screenshots, corrected URLs. Published 2026-03-29 via manual .vsix upload.
 
-MikeDown Editor v1.0.x — a Typora-style WYSIWYG Markdown editor for VS Code. All core features are built and working. Currently distributed via .vsix files (Dropbox) for limited testing. Next step is publishing to the VS Code Marketplace.
+- Just finished: new logo (M + down arrow), 7 marketplace screenshots (compressed JPEGs), README audit and URL fixes, GitHub repo renamed to `mikedown`, git remote updated
+- In flight: Azure DevOps PAT setup for CLI publishing (currently using manual .vsix upload)
+- Known issue: Backlinks Explorer panel not appearing in sidebar — the `when` clause (`resourceExtname == .md`) may not fire for custom editor documents. Needs investigation.
 
-Project directory: /Users/michaeljosephwork/git/markdown-WYSIWYG-vscode-extension/
+## What's Done
 
-Built on TipTap v2 + ProseMirror, with CodeMirror 6 for source mode. Fully offline, uses VS Code Custom Editor API, targets GFM spec. MIT licensed.
-
-## What's Built
-
-- WYSIWYG editing with full GFM support (TipTap v2 + tiptap-markdown)
-- Condensed Apple Notes-style toolbar with dropdown menus (replaced the original 21-button toolbar)
-- Toolbar dropdown primitive (toolbar-dropdown.ts) — reusable popover with keyboard nav, animations
+- Full WYSIWYG editing with GFM support (TipTap v2 + tiptap-markdown)
+- Condensed Apple Notes-style toolbar with dropdown menus
 - Source mode toggle (CodeMirror 6, Cmd+/)
-- Smart paste (Google Docs, Word, Slack, web → clean Markdown)
-- Find & Replace (ProseMirror decoration plugin, regex/case/whole-word)
-- Context menu with keyboard shortcut hints
-- Table grid picker + contextual toolbar + drag handles + multi-cell selection
-- Export: HTML, print/PDF, copy-as-rich-text
-- Image handling: inline rendering, viewport scaling, click-to-edit popover
-- Link navigation: Cmd+Click opens links, right-click "Open Link" / "Open Link in New Tab"
-- Link autocomplete (fuzzy workspace file/anchor dropdown), broken link detection
-- Backlinks Explorer panel
-- Frontmatter: collapsible YAML block
-- Code blocks: syntax highlighting via lowlight (192 languages)
-- Editor-only light/dark theme toggle (persisted via mikedown.editorTheme setting, syncs across all open tabs)
-- Theme toggle scope setting: can toggle just MikeDown editors or VS Code's global theme
-- Settings modal (gear icon), 10+ VS Code settings
+- Smart paste (Google Docs, Word, Slack, web -> clean Markdown)
+- Cmd+Click link navigation, right-click "Open Link" / "Open Link in New Tab"
+- Link autocomplete (fuzzy workspace file/anchor search), broken link detection (red wavy underline)
+- Backlink Explorer panel (registered but not rendering — see Known Issue above)
+- Table editing: grid picker, contextual toolbar, drag handles, multi-cell selection
+- Find & Replace inside the WYSIWYG editor (ProseMirror decorations)
+- Code block syntax highlighting (192 languages via lowlight)
+- Frontmatter support (collapsible YAML block)
+- Editor-only light/dark theme toggle (persisted via `mikedown.editorTheme` setting)
+- Export to HTML, print, copy as rich text
+- Image support: inline rendering, click-to-edit popover
+- Settings modal (gear icon), 12+ VS Code settings
 - Unit tests: 75 pass (vitest)
-- Packaging: npm run vsix (auto-increments patch version, builds, packages)
-- .vscodeignore cleaned up, LICENSE.md (MIT)
+- Marketplace listing: new icon, 7 screenshots, corrected README
+- Landing page at `website/index.html`
+- Remotion video project scaffolded at `video/`
+- Sample docs for screenshots at `assets/sample-docs/`
 
-## Recent Work (2026-03-29)
+## What's Next
 
-1. Fixed Cmd+Click link navigation (switched from click to mousedown in capture phase)
-2. Added "Open Link" / "Open Link in New Tab" to right-click context menu with behavior override
-3. Fixed anchor scroll (data-anchor-id was being stripped by ProseMirror — now computes dynamically)
-4. Added editor-only light/dark theme toggle with CSS variable overrides
-5. Made theme toggle persist via VS Code setting and broadcast to all open panels
-6. Condensed toolbar with Apple Notes-style dropdown menus (replaced full toolbar as default)
-7. Dropdown menu primitive with keyboard nav, auto-positioning, animations
-8. Fixed settings/theme not loading on first tab open (ready handler wasn't sending them)
-9. vsix packaging improvements, MIT license added
+1. **Fix Backlinks panel** — Investigate why `when: "resourceExtname == .md"` doesn't trigger for custom editor documents. May need a different activation context.
 
-## Next Steps — Marketplace Publishing
+2. **Capture missing screenshots** — `link-autocomplete.png` and `backlinks-panel.png` were skipped. Add them once the backlinks panel is fixed and link autocomplete can be triggered reliably. See `assets/screenshots/README.md` for the capture guide.
 
-The immediate goal is to publish MikeDown as an open source extension on the VS Code Marketplace. Here's everything that needs to happen:
+3. **Set up CLI publishing** — Create an Azure DevOps PAT for `vsce publish`. Current workaround: manual .vsix upload at https://marketplace.visualstudio.com/manage.
 
-### Pre-publish checklist
+4. **Backlog features:**
+   - Mermaid diagram rendering (behind `mikedown.enableMermaid` setting)
+   - Math/LaTeX via KaTeX (behind `mikedown.enableMath` setting, off by default)
+   - Print support improvements
 
-1. **Write the README.md** — This becomes the marketplace listing page. Must include:
-   - The origin story (see below)
-   - Feature overview with screenshots
-   - Demo GIF showing WYSIWYG editing in action
-   - Installation instructions
-   - Link to the GitHub repo
-   - Feature comparison highlights (unique features no competitor has)
-   - Settings reference
-   - License (MIT)
+## Key File Paths
 
-2. **Origin story to include in README:**
-   The author (Michael Joseph) previously used VS Code's built-in Markdown Preview, which required splitting the editor — markdown source on one side, rendered preview on the other. While valuable, this was cumbersome, especially when working with multiple markdown files simultaneously. This led to exploring alternatives, and the best standalone option found was Typora — a smooth, polished product worth recommending. However, Typora is a Chinese-owned entity, and under Chinese law the government can assert control over domestic assets (the same concern behind TikTok's U.S. scrutiny). Beyond that, as a developer, VS Code offers things a standalone editor can't — Git integration, multi-language file support, extensions ecosystem. Typora is purely markdown-focused. MikeDown was built to bring a Typora-quality WYSIWYG experience directly into VS Code, allowing multiple markdown files open across panes, windows, and monitors — all while retaining VS Code's full power. A desktop product could evolve from this, but the first goal is contributing to the open source community.
-
-3. **Screenshots to capture** (in both light and dark mode):
-   - Full editor with condensed toolbar and a document open
-   - Dropdown menu open (the Aa text format dropdown)
-   - Right-click context menu on a link
-   - Split view with two markdown files side by side
-   - Backlink Explorer panel in the sidebar
-   - Source mode toggle (before/after)
-   - Link autocomplete dropdown
-   - Table editing with toolbar
-
-4. **Create a demo GIF** — Record a ~30s walkthrough: open a .md file, edit with toolbar, toggle theme, Cmd+Click a link, show source mode toggle
-
-5. **GitHub repo setup:**
-   - Push to GitHub (public repo)
-   - Add repo URL to package.json: `"repository": { "type": "git", "url": "https://github.com/OWNER/markdown-WYSIWYG-vscode-extension" }`
-   - Verify LICENSE.md is committed (it is)
-
-6. **Publisher account:**
-   - Go to https://marketplace.visualstudio.com/manage
-   - Sign in with Microsoft account
-   - Create publisher with ID "mikedown" (must match package.json "publisher" field)
-   - Create a Personal Access Token (PAT) in Azure DevOps with "Marketplace (Manage)" scope
-
-7. **Publish:**
-   - `vsce login mikedown`
-   - `vsce publish` (or `npm run vsix` first to verify the package looks right)
-   - Verify the listing appears on the marketplace
-
-8. **Post-publish:**
-   - Update README with marketplace badge (install count, rating)
-   - Share the marketplace link
-   - Add marketplace link to GitHub repo description
-
-### Market research summary
-- Space is underserved — best purpose-built WYSIWYG competitor has only ~25K installs
-- The top result (Office Viewer, 1M installs) is a general file viewer, not a focused markdown editor
-- MikeDown has unique features no competitor offers: broken link detection, link autocomplete, backlink panel, in-editor find/replace
-- Main feature gaps vs competitors: Mermaid diagrams and Math/LaTeX (both on the backlog)
-## Backlog
-
-- **Mermaid diagram rendering** — render ```mermaid code blocks as inline SVGs using the mermaid npm package (~2-3MB). Custom TipTap NodeView that shows rendered diagram, click to edit source. Most competitors have this.
-- **Math/LaTeX (KaTeX)** — render $inline$ and $$block$$ math using katex npm package (~300KB). Need inline math mark + block math node TipTap extensions. User personally wants math disabled by default but available for others. Both features should be behind settings (mikedown.enableMermaid, mikedown.enableMath).
-- **Print support** — improve/add proper print functionality
-- **Broken link detection** — already built, highlight in marketplace listing (unique feature, no competitor has this)
-- **Link autocomplete with workspace file fuzzy search** — already built, highlight in marketplace listing (unique feature)
-- **Backlink Explorer panel** — already built, highlight in marketplace listing (unique feature, positions MikeDown as lightweight Obsidian-in-VS-Code)
-- **Find/Replace inside the WYSIWYG editor** — already built, highlight in marketplace listing (only Yarkdown also does this)
-- **Apple Notes-style condensed toolbar** — already built, highlight in marketplace listing (distinct UI approach)
-
-## Key Files
-
-- src/markdownEditorProvider.ts — Custom Editor, webview message dispatch, openPanels tracking
-- src/webview/editor-main.ts — TipTap setup, condensed toolbar, theme toggle, all message handlers
-- src/webview/toolbar-dropdown.ts — Reusable dropdown/popover component
-- src/webview/contextmenu.ts — Right-click context menu
-- src/settings.ts — MikeDownSettings interface (linkClickBehavior, themeToggleScope, editorTheme, toolbarMode)
-- package.json — v1.0.x, all contributes (commands, views, configuration, settings)
-- .vscodeignore — controls what goes in the .vsix package
-- TOOLBAR-MODES-PLAN.md — completed planning doc for toolbar redesign
-
-## How to Build
-
-cd /Users/michaeljosephwork/git/markdown-WYSIWYG-vscode-extension
-npm run compile          # build both bundles (webpack)
-npm run vsix             # bump version + production build + package .vsix
-npx vitest run           # unit tests
-
-## How to Debug
-
-Cmd+Shift+P → "Debug: Select and Start Debugging" → "Run Extension"
-Or: Run and Debug sidebar (Cmd+Shift+D) → select "Run Extension" → green play button
 ```
+src/
+  extension.ts                    — Activation, command registration, BacklinkProvider
+  markdownEditorProvider.ts       — Custom Editor, webview message dispatch, openPanels tracking
+  backlinkProvider.ts             — TreeDataProvider for Backlinks panel
+  settings.ts                     — MikeDownSettings interface, getSettings()
+  export.ts                       — HTML export, print, copy as rich text
+  webview/
+    editor-main.ts                — TipTap setup, condensed toolbar, theme toggle, all handlers
+    toolbar-dropdown.ts           — Reusable dropdown/popover component
+    contextmenu.ts                — Right-click context menu
+    findreplace.ts                — Find & Replace extension
+    smartpaste.ts                 — Rich text paste conversion
+    tablepicker.ts                — Table grid picker and contextual toolbar
+    linkautocomplete.ts           — Fuzzy file/heading link suggestions
+    theme.css                     — VS Code theme integration, force-light/force-dark overrides
+    editor.css                    — Main editor styling
+images/
+  icon.svg                        — Logo source (SVG)
+  icon.png                        — Logo (128x128 transparent PNG)
+assets/
+  sample-docs/                    — Fictional docs for screenshot demos
+  screenshots/                    — Marketplace screenshots (JPEGs) + capture guide
+package.json                      — v1.0.8, publisher: interapp, preview: true
+README.md                         — Marketplace listing
+website/index.html                — Landing page
+video/                            — Remotion promo video project
+```
+
+## Recent Git Log
+
+```
+8cc335d Update marketplace listing: new icon, screenshots, fix URLs
+0eaa6ae Add .playwright-cli/ to gitignore
+4a0e5e4 Add marketplace README, landing page, promo video scaffold, and publishing prep
+3b64de8 Add MIT license, clean up vsix packaging ignore files
+eeaecff Add condensed toolbar with dropdown menus, fix settings load and split-view borders
+d84611d Fix Cmd+Click link navigation, add Open Link in New Tab context menu
+b051dd9 Fix external change detection, context menu overlap, CSS loading, and drag handles
+bb6b03e Fix webview loading, add settings modal and context menu open command
+```
+
+## Any Other Notes
+
+- Build: `npm run compile` (webpack, both bundles)
+- Package: `npm run vsix` (bumps patch version, production build, creates .vsix)
+- Tests: `npx vitest run` (75 unit tests)
+- Debug: Cmd+Shift+D -> "Run Extension" -> green play button
+- Publisher ID is "interapp" — marketplace URL: `https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor`
+- Git remote: `git@github.com:mikejoseph23/mikedown.git`
+- Screenshots use `Cmd+Shift+4` then `Space` for window capture at 1280x800. See `assets/screenshots/README.md` for full guide.
+- The `.vsix` must be rebuilt and reuploaded to update the marketplace — pushing to git alone doesn't update the listing.
