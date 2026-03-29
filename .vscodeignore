@@ -25,5 +25,10 @@ vsc-extension-quickstart.md
 **/*.ts
 !dist/extension.js
 PLANNING.md
+TOOLBAR-MODES-PLAN.md
 RESUME.md
 installation-instructions.md
+assets/**
+website/**
+video/**
+.playwright-cli/**

@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MikeDown Editor — WYSIWYG Markdown for VS Code</title>
+  <meta name="description" content="A Typora-style WYSIWYG Markdown editor for Visual Studio Code. Open source, MIT licensed.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    h1, h2, h3, h4 {
+      color: #ffffff;
+      line-height: 1.3;
+    }
+
+    a {
+      color: #4e9de0;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: #6db3f0;
+    }
+
+    /* ---- Layout ---- */
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section {
+      padding: 96px 0;
+    }
+
+    /* ---- Hero ---- */
+
+    .hero {
+      padding: 120px 0 96px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(78, 157, 224, 0.12) 0%, transparent 60%),
+        linear-gradient(180deg, #0f1114 0%, #0a0a0a 40%);
+    }
+
+    .hero__badge {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #4e9de0;
+      background: rgba(78, 157, 224, 0.1);
+      border: 1px solid rgba(78, 157, 224, 0.2);
+      border-radius: 100px;
+      padding: 6px 16px;
+      margin-bottom: 32px;
+      letter-spacing: 0.02em;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.4rem, 5.5vw, 3.8rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+
+    .hero__tagline {
+      font-size: clamp(1.05rem, 2vw, 1.25rem);
+      color: #999;
+      max-width: 560px;
+      margin: 0 auto 44px;
+      line-height: 1.6;
+    }
+
+    .hero__ctas {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 64px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 14px 28px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn--primary {
+      background: #4e9de0;
+      color: #fff;
+    }
+
+    .btn--primary:hover {
+      background: #3a8dd4;
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(78, 157, 224, 0.3);
+    }
+
+    .btn--secondary {
+      background: #1a1a1a;
+      color: #e0e0e0;
+      border: 1px solid #333;
+    }
+
+    .btn--secondary:hover {
+      background: #222;
+      color: #fff;
+      border-color: #444;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .hero__screenshot {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 12px;
+      aspect-ratio: 16 / 9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #555;
+      font-size: 15px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero__screenshot::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(135deg, rgba(78, 157, 224, 0.03) 0%, transparent 50%),
+        linear-gradient(225deg, rgba(78, 157, 224, 0.02) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    /* ---- Problem ---- */
+
+    .problem {
+      border-top: 1px solid #1a1a1a;
+    }
+
+    .problem__inner {
+      max-width: 680px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .section-label {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #4e9de0;
+      margin-bottom: 16px;
+    }
+
+    .problem h2 {
+      font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 24px;
+    }
+
+    .problem p {
+      font-size: 1.05rem;
+      color: #999;
+      line-height: 1.8;
+    }
+
+    .problem p + p {
+      margin-top: 16px;
+    }
+
+    /* ---- Features ---- */
+
+    .features {
+      border-top: 1px solid #1a1a1a;
+    }
+
+    .features__header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+
+    .features__header h2 {
+      font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+
+    .features__header p {
+      color: #888;
+      font-size: 1.05rem;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .features__grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 860px) {
+      .features__grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 560px) {
+      .features__grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .feature-card {
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 12px;
+      padding: 28px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+      border-color: #2a2a2a;
+    }
+
+    .feature-card__icon {
+      width: 40px;
+      height: 40px;
+      background: rgba(78, 157, 224, 0.08);
+      border: 1px solid rgba(78, 157, 224, 0.15);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      color: #4e9de0;
+    }
+
+    .feature-card__icon svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .feature-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 0.9rem;
+      color: #888;
+      line-height: 1.6;
+    }
+
+    /* ---- Unique ---- */
+
+    .unique {
+      border-top: 1px solid #1a1a1a;
+    }
+
+    .unique__inner {
+      background:
+        linear-gradient(135deg, rgba(78, 157, 224, 0.06) 0%, transparent 60%),
+        #111;
+      border: 1px solid rgba(78, 157, 224, 0.15);
+      border-radius: 16px;
+      padding: 56px 48px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .unique__inner::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      left: 64px;
+      right: 64px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(78, 157, 224, 0.4), transparent);
+    }
+
+    .unique__header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .unique__header h2 {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .unique__header p {
+      color: #888;
+      font-size: 1rem;
+    }
+
+    .unique__list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 600px) {
+      .unique__list {
+        grid-template-columns: 1fr;
+      }
+
+      .unique__inner {
+        padding: 40px 28px;
+      }
+    }
+
+    .unique__item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .unique__item-marker {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      background: rgba(78, 157, 224, 0.12);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+    }
+
+    .unique__item-marker svg {
+      width: 14px;
+      height: 14px;
+      stroke: #4e9de0;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .unique__item h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .unique__item p {
+      font-size: 0.85rem;
+      color: #888;
+      line-height: 1.55;
+    }
+
+    /* ---- Open Source ---- */
+
+    .opensource {
+      border-top: 1px solid #1a1a1a;
+      text-align: center;
+    }
+
+    .opensource__inner {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .opensource h2 {
+      font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+    }
+
+    .opensource p {
+      font-size: 1.05rem;
+      color: #999;
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+
+    .opensource .btn {
+      margin-top: 16px;
+    }
+
+    /* ---- Footer ---- */
+
+    footer {
+      border-top: 1px solid #1a1a1a;
+      padding: 40px 0;
+      text-align: center;
+    }
+
+    footer p {
+      font-size: 0.85rem;
+      color: #555;
+      line-height: 1.8;
+    }
+
+    footer a {
+      color: #777;
+    }
+
+    footer a:hover {
+      color: #4e9de0;
+    }
+
+    .footer__built {
+      margin-bottom: 4px;
+    }
+
+    .footer__tech {
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <span class="hero__badge">Currently in Beta</span>
+      <h1>MikeDown Editor</h1>
+      <p class="hero__tagline">A Typora-style WYSIWYG Markdown editor for Visual Studio Code</p>
+      <div class="hero__ctas">
+        <a href="https://marketplace.visualstudio.com/items?itemName=mikedown.mikedown-editor" class="btn btn--primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Install from Marketplace
+        </a>
+        <a href="https://github.com/michaeljoseph/mikedown" class="btn btn--secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <div class="hero__screenshot">
+        Screenshot coming soon
+      </div>
+    </div>
+  </section>
+
+  <!-- The Problem -->
+  <section class="problem">
+    <div class="container">
+      <div class="problem__inner">
+        <p class="section-label">The Problem</p>
+        <h2>Markdown editing in VS Code is broken</h2>
+        <p>You open a markdown file and immediately split your screen -- source on the left, preview on the right. Every edit means mentally translating between raw syntax and rendered output. Your eyes bounce between panes. Your focus fragments.</p>
+        <p>Managing multiple markdown files makes it worse. Links break silently. There is no easy way to find what references what. Simple tasks like inserting a table or pasting an image become a context-switching exercise that pulls you out of your writing flow.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features">
+    <div class="container">
+      <div class="features__header">
+        <p class="section-label">Features</p>
+        <h2>Everything you need to write Markdown</h2>
+        <p>Edit rendered Markdown directly. No split panes, no mental translation.</p>
+      </div>
+      <div class="features__grid">
+
+        <div class="feature-card">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+          <h3>WYSIWYG Editing</h3>
+          <p>Write in a fully rendered view. Bold, italic, headings, lists, and more -- all visible as you type, exactly as they will appear.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+          </div>
+          <h3>Smart Paste</h3>
+          <p>Paste URLs onto selected text to create links. Paste images directly into the document. Paste HTML and get clean Markdown.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </div>
+          <h3>Link Intelligence</h3>
+          <p>Autocomplete links to workspace files. Detect broken references automatically. View a backlinks panel showing what links to the current file.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          </div>
+          <h3>Table Editing</h3>
+          <p>Insert, resize, and edit tables visually. Add or remove rows and columns without wrestling with pipe characters and alignment syntax.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          </div>
+          <h3>Source Mode Toggle</h3>
+          <p>Switch instantly between the WYSIWYG view and raw Markdown source. Inspect and fine-tune syntax when you need precise control.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </div>
+          <h3>Theme Toggle</h3>
+          <p>Switch between light and dark themes within the editor. The preview always matches your preferred reading environment.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <h3>Find &amp; Replace</h3>
+          <p>Search through your document and replace text without leaving the editor. Full in-editor find and replace, right where you are writing.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </div>
+          <h3>Code Highlighting</h3>
+          <p>Fenced code blocks render with syntax highlighting for dozens of languages. Inline code is styled distinctly for clarity.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <h3>Export &amp; Print</h3>
+          <p>Export your document as HTML or print it directly from the editor. Share your work in formats beyond Markdown source.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-card__icon">
+            <svg viewBox="0 0 24 24"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+          </div>
+          <h3>Condensed Toolbar</h3>
+          <p>A compact, contextual formatting toolbar that stays out of your way. All the controls you need without the clutter.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Unique to MikeDown -->
+  <section class="unique">
+    <div class="container">
+      <div class="unique__inner">
+        <div class="unique__header">
+          <p class="section-label">What Sets MikeDown Apart</p>
+          <h2>Features no other VS Code Markdown editor has</h2>
+          <p>These capabilities are unique to MikeDown.</p>
+        </div>
+        <div class="unique__list">
+          <div class="unique__item">
+            <div class="unique__item-marker">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div>
+              <h4>Broken Link Detection</h4>
+              <p>Automatically scans your document for links that point to missing files or invalid targets. No more publishing pages with dead links.</p>
+            </div>
+          </div>
+          <div class="unique__item">
+            <div class="unique__item-marker">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div>
+              <h4>Link Autocomplete</h4>
+              <p>Start typing a link and MikeDown suggests matching files from your workspace. Navigate between documents without memorizing paths.</p>
+            </div>
+          </div>
+          <div class="unique__item">
+            <div class="unique__item-marker">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div>
+              <h4>Backlink Panel</h4>
+              <p>See every file that links to the document you are editing. Understand the structure and connections within your Markdown content.</p>
+            </div>
+          </div>
+          <div class="unique__item">
+            <div class="unique__item-marker">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div>
+              <h4>In-Editor Find &amp; Replace</h4>
+              <p>A full find-and-replace experience built into the WYSIWYG view. Other extensions force you to switch to source mode first.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Open Source -->
+  <section class="opensource">
+    <div class="container">
+      <div class="opensource__inner">
+        <p class="section-label">Open Source</p>
+        <h2>Free, open, and community-driven</h2>
+        <p>MikeDown Editor is MIT licensed. The source code is on GitHub, contributions are welcome, and the roadmap is public. This is a beta release -- your feedback shapes what comes next.</p>
+        <a href="https://github.com/michaeljoseph/mikedown" class="btn btn--secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          Contribute on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p class="footer__built">Built by <a href="https://github.com/michaeljoseph">Michael Joseph</a></p>
+      <p class="footer__tech">Powered by <a href="https://tiptap.dev">TipTap</a>, <a href="https://prosemirror.net">ProseMirror</a>, and <a href="https://code.visualstudio.com">VS Code</a>.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
