@@ -1,5 +1,6 @@
 .vscode/**
 .vscode-test.mjs
+.claude/**
 node_modules/**
 src/**
 test/**
@@ -15,3 +16,6 @@ vitest.config.ts
 *.map
 **/*.ts
 !dist/**
+PLANNING.md
+RESUME.md
+installation-instructions.md
