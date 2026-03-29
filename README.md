@@ -2,9 +2,9 @@
 
 **A Typora-style WYSIWYG Markdown editor for VS Code.**
 
-> **Beta** -- MikeDown Editor is under active development. It is usable today but expect rough edges. Bug reports and feedback are welcome on [GitHub](https://github.com/michaeljoseph/mikedown).
+> **Beta** -- MikeDown Editor is under active development. It is usable today but expect rough edges. Bug reports and feedback are welcome on [GitHub](https://github.com/mikejoseph23/mikedown).
 
-![Dark mode editor](assets/screenshots/dark-mode-editor.png)
+![Dark mode editor](assets/screenshots/dark-mode-editor.jpg)
 
 ## Why MikeDown?
 
@@ -18,19 +18,19 @@ MikeDown exists to close that gap. It brings a Typora-quality WYSIWYG editing ex
 
 Edit markdown visually using a TipTap/ProseMirror-based editor. What you see is what you get -- headings render as headings, lists render as lists, and you never have to look at raw syntax unless you want to.
 
-![Light mode editor](assets/screenshots/light-mode-editor.png)
+![Light mode editor](assets/screenshots/light-mode-editor.jpg)
 
 ### Source Mode Toggle
 
 Press `Cmd+/` (Mac) or `Ctrl+/` (Windows/Linux) to instantly switch between WYSIWYG and raw markdown. Useful for fine-tuning syntax or pasting raw content.
 
-![Source mode](assets/screenshots/source-mode.png)
+![Source mode](assets/screenshots/source-mode.jpg)
 
 ### Apple Notes-Style Toolbar
 
 A condensed toolbar with dropdown menus for formatting, insert, and export actions. Clean and out of the way until you need it.
 
-![Dropdown menu](assets/screenshots/dropdown-menu.png)
+![Dropdown menu](assets/screenshots/dropdown-menu.jpg)
 
 ### Smart Paste
 
@@ -46,8 +46,6 @@ Full GFM support including tables, task lists, strikethrough, and fenced code bl
 - **Right-click** any link for Open Link / Open Link in New Tab options
 - **Link autocomplete**: start typing a link and get fuzzy-matched suggestions from workspace files and headings
 
-![Link autocomplete](assets/screenshots/link-autocomplete.png)
-
 ### Broken Link Detection
 
 Links pointing to missing files or nonexistent headings get a red wavy underline, so you catch broken references before your readers do.
@@ -55,8 +53,6 @@ Links pointing to missing files or nonexistent headings get a red wavy underline
 ### Backlink Explorer
 
 A sidebar panel in the Explorer view that shows which files in your workspace link to the current document. Useful for wiki-style note collections and documentation projects.
-
-![Backlinks panel](assets/screenshots/backlinks-panel.png)
 
 ### Table Editing
 
@@ -88,9 +84,11 @@ Switch between light and dark mode inside MikeDown editor tabs without changing 
 
 Images render inline. Click an image to access an edit popover for adjusting source, alt text, and title.
 
-![Split view](assets/screenshots/split-view.png)
+![Split view with multiple markdown files](assets/screenshots/split-view-mark-down.jpg)
 
-![Context menu](assets/screenshots/context-menu.png)
+![Split view with markdown and code](assets/screenshots/split-view-code.jpg)
+
+![Context menu](assets/screenshots/context-menu.jpg)
 
 ## What Makes MikeDown Different
 
@@ -137,7 +135,7 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 
 ## Getting Started
 
-1. Install **MikeDown Editor** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=mikedown.mikedown-editor).
+1. Install **MikeDown Editor** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor).
 2. Open any `.md` or `.markdown` file.
 3. Right-click the file in the Explorer or editor tab and choose **Open with MikeDown**, or run the command `Open with MikeDown` from the Command Palette.
 4. To make MikeDown the default editor for all markdown files, enable `mikedown.defaultEditor` in Settings.
@@ -156,10 +154,10 @@ This is a beta release. Some areas that are still being refined:
 
 ## Contributing
 
-MikeDown is open source under the [MIT License](LICENSE).
+MikeDown is open source under the [MIT License](LICENSE.md).
 
-Source code, issues, and contributions: [github.com/michaeljoseph/mikedown](https://github.com/michaeljoseph/mikedown)
+Source code, issues, and contributions: [github.com/mikejoseph23/mikedown](https://github.com/mikejoseph23/mikedown)
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE.md)

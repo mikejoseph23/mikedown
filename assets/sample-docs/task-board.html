@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Task Board</title>
+  <style>
+    body {
+      font-family: -apple-system, sans-serif;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      margin: 2rem;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .board {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .column {
+      flex: 1;
+      background: #2a2a3d;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .column h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+      color: #a0a0c0;
+    }
+
+    .task {
+      background: #33334d;
+      border-radius: 6px;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .task .title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .task .meta {
+      font-size: 0.8rem;
+      color: #888;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .priority-high   { color: #f38ba8; }
+    .priority-medium { color: #f9e2af; }
+    .priority-low    { color: #a6e3a1; }
+  </style>
+</head>
+<body>
+
+  <h1>Task Board</h1>
+  <div class="board" id="board"></div>
+
+  <script>
+    // Task data matching the product spec
+    const tasks = [
+      { id: 1, title: "Design filter dropdown",   assignee: "Sarah",  priority: "high",   status: "todo"        },
+      { id: 2, title: "Set up drag-and-drop",      assignee: "Marcus", priority: "high",   status: "todo"        },
+      { id: 3, title: "Build column layout",        assignee: "Marcus", priority: "medium", status: "in-progress" },
+      { id: 4, title: "Add priority badges",        assignee: "Priya",  priority: "medium", status: "in-progress" },
+      { id: 5, title: "Create task data model",     assignee: "Sarah",  priority: "low",    status: "done"        },
+      { id: 6, title: "Wireframe board layout",     assignee: "James",  priority: "low",    status: "done"        },
+    ];
+
+    const columns = [
+      { key: "todo",        label: "To Do"       },
+      { key: "in-progress", label: "In Progress"  },
+      { key: "done",        label: "Done"         },
+    ];
+
+    // Render the board
+    const board = document.getElementById("board");
+
+    columns.forEach(col => {
+      const colEl = document.createElement("div");
+      colEl.className = "column";
+      colEl.innerHTML = `<h2>${col.label}</h2>`;
+
+      tasks
+        .filter(t => t.status === col.key)
+        .forEach(task => {
+          const card = document.createElement("div");
+          card.className = "task";
+          card.innerHTML = `
+            <div class="title">${task.title}</div>
+            <div class="meta">
+              <span>${task.assignee}</span>
+              <span class="priority-${task.priority}">● ${task.priority}</span>
+            </div>
+          `;
+          colEl.appendChild(card);
+        });
+
+      board.appendChild(colEl);
+    });
+  </script>
+
+</body>
+</html>

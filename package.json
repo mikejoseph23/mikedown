@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A Typora-style WYSIWYG Markdown editor for VS Code — live preview editing, smart paste, source mode toggle, and export.",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "license": "MIT",
   "preview": true,
   "publisher": "interapp",
@@ -32,7 +32,7 @@
     "live preview"
   ],
   "bugs": {
-    "url": "https://github.com/mikedown/mikedown-editor/issues"
+    "url": "https://github.com/mikejoseph23/mikedown/issues"
   },
   "activationEvents": [
     "onCustomEditor:mikedown.editor",

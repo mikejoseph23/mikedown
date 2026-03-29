@@ -1,11 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e1b3a"/>
+      <stop offset="100%" stop-color="#3b1f6e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8ecfff"/>
+      <stop offset="100%" stop-color="#b794f6"/>
+    </linearGradient>
+  </defs>
+
   <!-- Background -->
-  <rect width="128" height="128" rx="16" fill="#1e1e2e"/>
-  <!-- M letter -->
-  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
-        font-family="Georgia, serif" font-size="72" font-weight="bold"
-        fill="#89b4fa" letter-spacing="-2">M</text>
-  <!-- Subtitle bar -->
-  <rect x="20" y="90" width="88" height="4" rx="2" fill="#cba6f7" opacity="0.8"/>
-  <rect x="32" y="100" width="64" height="3" rx="1.5" fill="#89dceb" opacity="0.6"/>
+  <rect width="128" height="128" rx="20" fill="url(#bg)"/>
+
+  <!-- Markdown-style M, large and centered -->
+  <g fill="none" stroke="url(#accent)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="28,88 28,36 64,66 100,36 100,88"/>
+  </g>
+
+  <!-- Down arrow -->
+  <g fill="none" stroke="#8ecfff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="64" y1="92" x2="64" y2="110"/>
+    <polyline points="53,101 64,112 75,101"/>
+  </g>
 </svg>
