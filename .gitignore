@@ -6,3 +6,4 @@ dist/
 .DS_Store
 .vscode-test/
 .claude/settings.local.json
+.playwright-cli/
