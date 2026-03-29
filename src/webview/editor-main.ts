@@ -39,6 +39,7 @@ import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTa
 import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
 import { initTableDrag, clearCellSelection, clearDragHandles } from './tabledrag';
 import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete } from './linkautocomplete';
+import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates } from './toolbar-dropdown';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
 import { EditorState } from '@codemirror/state';
@@ -90,6 +91,7 @@ let isDirty = false;
  * Whether the editor is currently in source (CodeMirror) mode.
  */
 let sourceMode = false;
+
 
 /**
  * The CodeMirror EditorView instance (created lazily on first toggle to source).
@@ -600,6 +602,75 @@ function showSettingsModal(): void {
   });
 }
 
+// ── Theme toggle ────────────────────────────────────────────────────────────────
+
+let themeToggleScope: 'vscode' | 'editorOnly' = 'editorOnly';
+
+function isDarkTheme(): boolean {
+  if (document.body.classList.contains('mikedown-force-light')) return false;
+  if (document.body.classList.contains('mikedown-force-dark')) return true;
+  const kind = document.body.dataset.vscodeThemeKind ?? '';
+  return !kind.includes('light');
+}
+
+function toggleTheme(): void {
+  // Always delegate to extension host — it handles both scopes,
+  // persists the setting, and broadcasts to all open tabs.
+  vscode.postMessage({ type: 'toggleTheme' });
+}
+
+/** Apply the editorTheme setting ('auto' | 'light' | 'dark') to the body. */
+function applyEditorTheme(editorTheme: string): void {
+  document.body.classList.remove('mikedown-force-light', 'mikedown-force-dark');
+  if (editorTheme === 'light') document.body.classList.add('mikedown-force-light');
+  else if (editorTheme === 'dark') document.body.classList.add('mikedown-force-dark');
+  // 'auto' → no class override, follow VS Code theme
+  updateThemeToggleIcon();
+}
+
+function updateThemeToggleIcon(): void {
+  const btn = document.querySelector('button[data-action="themeToggle"]');
+  if (!btn) return;
+  const dark = isDarkTheme();
+  const mkSvg = (d: string, sw = 1.8) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  btn.innerHTML = dark
+    ? mkSvg('<circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/>')
+    : mkSvg('<path d="M13.5 8a5.5 5.5 0 0 1-8.38 4.68A5.5 5.5 0 0 1 8 2.5c0 .5.05 1 .16 1.47A4.5 4.5 0 0 0 13.5 8z"/>');
+  btn.title = dark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+}
+
+// Watch for VS Code theme changes (body attribute updates)
+new MutationObserver(updateThemeToggleIcon).observe(document.body, {
+  attributes: true,
+  attributeFilter: ['data-vscode-theme-kind'],
+});
+
+// ── Toolbar icons (shared across all toolbar modes) ─────────────────────────
+
+const toolbarSvg = (d: string, sw = 1.8) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const toolbarIcons = {
+  bold: toolbarSvg('<path d="M4 2.5h5a3 3 0 0 1 0 6H4zM4 8.5h6a3 3 0 0 1 0 6H4z" fill="none"/>', 2),
+  italic: toolbarSvg('<line x1="10" y1="2" x2="6" y2="14"/><line x1="7" y1="2" x2="12" y2="2"/><line x1="4" y1="14" x2="9" y2="14"/>'),
+  strike: toolbarSvg('<line x1="2" y1="8" x2="14" y2="8"/><path d="M10.5 3H6.5a2.5 2.5 0 0 0 0 5h3a2.5 2.5 0 0 1 0 5H5"/>'),
+  code: toolbarSvg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/>'),
+  ul: toolbarSvg('<line x1="6" y1="4" x2="14" y2="4"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><circle cx="3" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/>'),
+  ol: toolbarSvg('<line x1="6" y1="4" x2="14" y2="4"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><text x="2" y="5.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">1</text><text x="2" y="9.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">2</text><text x="2" y="13.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">3</text>'),
+  task: toolbarSvg('<rect x="2" y="4" width="5" height="5" rx="1"/><polyline points="3.5 6.5 4.5 7.5 6 5.5"/><line x1="9" y1="5" x2="14" y2="5"/><line x1="9" y1="9" x2="14" y2="9"/><line x1="9" y1="13" x2="12" y2="13"/>'),
+  quote: toolbarSvg('<line x1="3" y1="3" x2="3" y2="13"/><line x1="6" y1="5" x2="13" y2="5"/><line x1="6" y1="8" x2="13" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/>'),
+  codeBlock: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="2"/><polyline points="5.5 5.5 4 8 5.5 10.5"/><polyline points="10.5 5.5 12 8 10.5 10.5"/>'),
+  link: toolbarSvg('<path d="M7 9l2-2m-1.5 3.5L9 9m-2.5-2L5 8.5"/><path d="M9.5 5.5l1-1a2 2 0 0 1 2.83 2.83l-1 1"/><path d="M6.5 10.5l-1 1a2 2 0 0 1-2.83-2.83l1-1"/>'),
+  image: toolbarSvg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="5.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/><polyline points="14 10.5 10.5 7 6 11.5 4.5 10 2 12.5"/>'),
+  table: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="2" y1="6" x2="14" y2="6"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="6" y1="2" x2="6" y2="14"/><line x1="10" y1="2" x2="10" y2="14"/>'),
+  hr: toolbarSvg('<line x1="2" y1="8" x2="14" y2="8"/><circle cx="5" cy="8" r="0.5" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="0.5" fill="currentColor" stroke="none"/><circle cx="11" cy="8" r="0.5" fill="currentColor" stroke="none"/>'),
+  undo: toolbarSvg('<polyline points="4 7 2 5 4 3"/><path d="M2 5h8a4 4 0 0 1 0 8H7"/>'),
+  redo: toolbarSvg('<polyline points="12 7 14 5 12 3"/><path d="M14 5H6a4 4 0 0 0 0 8h3"/>'),
+  source: toolbarSvg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/><line x1="9" y1="3" x2="7" y2="13"/>'),
+  gear: toolbarSvg('<circle cx="8" cy="8" r="1.8"/><path d="M8 1.5l.6 2.1a4.2 4.2 0 0 1 1.6.65l1.95-.9 1.1 1.1-.9 1.95c.3.5.53 1.03.65 1.6l2.1.6v1.5l-2.1.6a4.2 4.2 0 0 1-.65 1.6l.9 1.95-1.1 1.1-1.95-.9a4.2 4.2 0 0 1-1.6.65l-.6 2.1h-1.5l-.6-2.1a4.2 4.2 0 0 1-1.6-.65l-1.95.9-1.1-1.1.9-1.95a4.2 4.2 0 0 1-.65-1.6L1.5 8.6V7.1l2.1-.6a4.2 4.2 0 0 1 .65-1.6l-.9-1.95 1.1-1.1 1.95.9A4.2 4.2 0 0 1 8 2.1z"/>', 1.4),
+  sun: toolbarSvg('<circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/>'),
+  moon: toolbarSvg('<path d="M13.5 8a5.5 5.5 0 0 1-8.38 4.68A5.5 5.5 0 0 1 8 2.5c0 .5.05 1 .16 1.47A4.5 4.5 0 0 0 13.5 8z"/>'),
+  chevron: toolbarSvg('<polyline points="5 6.5 8 9.5 11 6.5"/>', 1.6),
+};
+
 // ── M3: Toolbar builder ────────────────────────────────────────────────────────
 
 type ToolbarButtonDef =
@@ -615,28 +686,9 @@ type ToolbarButtonDef =
 function buildToolbar(editor: Editor): void {
   const toolbar = document.getElementById('toolbar');
   if (!toolbar) return;
+  toolbar.className = '';
 
-  // SVG icon helpers — 16×16 inline SVGs that match VS Code's icon style
-  const svg = (d: string, sw = 1.8) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
-  const icons = {
-    bold: svg('<path d="M4 2.5h5a3 3 0 0 1 0 6H4zM4 8.5h6a3 3 0 0 1 0 6H4z" fill="none"/>', 2),
-    italic: svg('<line x1="10" y1="2" x2="6" y2="14"/><line x1="7" y1="2" x2="12" y2="2"/><line x1="4" y1="14" x2="9" y2="14"/>'),
-    strike: svg('<line x1="2" y1="8" x2="14" y2="8"/><path d="M10.5 3H6.5a2.5 2.5 0 0 0 0 5h3a2.5 2.5 0 0 1 0 5H5"/>'),
-    code: svg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/>'),
-    ul: svg('<line x1="6" y1="4" x2="14" y2="4"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><circle cx="3" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/>'),
-    ol: svg('<line x1="6" y1="4" x2="14" y2="4"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><text x="2" y="5.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">1</text><text x="2" y="9.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">2</text><text x="2" y="13.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">3</text>'),
-    task: svg('<rect x="2" y="4" width="5" height="5" rx="1"/><polyline points="3.5 6.5 4.5 7.5 6 5.5"/><line x1="9" y1="5" x2="14" y2="5"/><line x1="9" y1="9" x2="14" y2="9"/><line x1="9" y1="13" x2="12" y2="13"/>'),
-    quote: svg('<line x1="3" y1="3" x2="3" y2="13"/><line x1="6" y1="5" x2="13" y2="5"/><line x1="6" y1="8" x2="13" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/>'),
-    codeBlock: svg('<rect x="2" y="2" width="12" height="12" rx="2"/><polyline points="5.5 5.5 4 8 5.5 10.5"/><polyline points="10.5 5.5 12 8 10.5 10.5"/>'),
-    link: svg('<path d="M7 9l2-2m-1.5 3.5L9 9m-2.5-2L5 8.5"/><path d="M9.5 5.5l1-1a2 2 0 0 1 2.83 2.83l-1 1"/><path d="M6.5 10.5l-1 1a2 2 0 0 1-2.83-2.83l1-1"/>'),
-    image: svg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="5.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/><polyline points="14 10.5 10.5 7 6 11.5 4.5 10 2 12.5"/>'),
-    table: svg('<rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="2" y1="6" x2="14" y2="6"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="6" y1="2" x2="6" y2="14"/><line x1="10" y1="2" x2="10" y2="14"/>'),
-    hr: svg('<line x1="2" y1="8" x2="14" y2="8"/><circle cx="5" cy="8" r="0.5" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="0.5" fill="currentColor" stroke="none"/><circle cx="11" cy="8" r="0.5" fill="currentColor" stroke="none"/>'),
-    undo: svg('<polyline points="4 7 2 5 4 3"/><path d="M2 5h8a4 4 0 0 1 0 8H7"/>'),
-    redo: svg('<polyline points="12 7 14 5 12 3"/><path d="M14 5H6a4 4 0 0 0 0 8h3"/>'),
-    source: svg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/><line x1="9" y1="3" x2="7" y2="13"/>'),
-    gear: svg('<circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M3.4 12.6l.85-.85M11.75 4.25l.85-.85"/>'),
-  };
+  const icons = toolbarIcons;
 
   const buttons: ToolbarButtonDef[] = [
     { id: 'bold', title: 'Bold (Cmd+B)', icon: icons.bold, action: () => editor.chain().focus().toggleBold().run(), isActive: () => editor.isActive('bold') },
@@ -664,6 +716,7 @@ function buildToolbar(editor: Editor): void {
     { separator: true },
     { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: icons.source, action: () => vscode.postMessage({ type: 'toggleSource' }), isActive: () => false },
     { separator: true },
+    { id: 'themeToggle', title: 'Toggle Light/Dark Mode', icon: icons.sun, action: () => toggleTheme(), isActive: () => false },
     { id: 'settings', title: 'Settings', icon: icons.gear, action: () => showSettingsModal(), isActive: () => false },
   ];
 
@@ -698,6 +751,159 @@ function buildToolbar(editor: Editor): void {
   });
 }
 
+// ── Condensed Toolbar (Apple Notes-style) ───────────────────────────────────
+
+function buildCondensedToolbar(editor: Editor): void {
+  const toolbar = document.getElementById('toolbar');
+  if (!toolbar) return;
+  toolbar.className = 'toolbar-condensed';
+  toolbar.innerHTML = '';
+
+  const icons = toolbarIcons;
+
+  // Helper: get current block type label for the text format button
+  function getBlockLabel(): string {
+    if (editor.isActive('heading', { level: 1 })) return 'H1';
+    if (editor.isActive('heading', { level: 2 })) return 'H2';
+    if (editor.isActive('heading', { level: 3 })) return 'H3';
+    return 'Aa';
+  }
+
+  // Helper: check if any inline mark or heading is active (for text format button highlight)
+  function isTextFormatActive(): boolean {
+    return editor.isActive('bold') || editor.isActive('italic') ||
+           editor.isActive('strike') || editor.isActive('code') ||
+           editor.isActive('heading', { level: 1 }) ||
+           editor.isActive('heading', { level: 2 }) ||
+           editor.isActive('heading', { level: 3 });
+  }
+
+  // Helper: check if any list/block type is active
+  function isBlockActive(): boolean {
+    return editor.isActive('bulletList') || editor.isActive('orderedList') ||
+           editor.isActive('taskList') || editor.isActive('blockquote') ||
+           editor.isActive('codeBlock');
+  }
+
+  // Helper to create a toolbar button
+  function makeBtn(id: string, title: string, innerHTML: string): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.dataset.action = id;
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
+    btn.tabIndex = 0;
+    btn.innerHTML = innerHTML;
+    return btn;
+  }
+
+  // Helper to make a dropdown trigger (button with chevron)
+  function makeDropdownTrigger(id: string, title: string, labelHtml: string): HTMLButtonElement {
+    const btn = makeBtn(id, title, `<span class="condensed-btn-label">${labelHtml}</span><span class="condensed-chevron">${icons.chevron}</span>`);
+    btn.classList.add('condensed-dropdown-trigger');
+    return btn;
+  }
+
+  function makeSeparator(): HTMLDivElement {
+    const sep = document.createElement('div');
+    sep.className = 'toolbar-separator';
+    sep.setAttribute('role', 'separator');
+    return sep;
+  }
+
+  // ── Text Format dropdown (Aa ▾) ─────────────────────────────────────────
+  const textFormatBtn = makeDropdownTrigger('textFormat', 'Text Format', getBlockLabel());
+  textFormatBtn.addEventListener('click', () => {
+    if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
+    showToolbarDropdown(textFormatBtn, [
+      { type: 'action', id: 'h1', label: 'Heading 1', icon: '<span style="font-weight:700;font-size:14px">H1</span>', isActive: () => editor.isActive('heading', { level: 1 }), action: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
+      { type: 'action', id: 'h2', label: 'Heading 2', icon: '<span style="font-weight:600;font-size:13px">H2</span>', isActive: () => editor.isActive('heading', { level: 2 }), action: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
+      { type: 'action', id: 'h3', label: 'Heading 3', icon: '<span style="font-weight:500;font-size:12px">H3</span>', isActive: () => editor.isActive('heading', { level: 3 }), action: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
+      { type: 'action', id: 'paragraph', label: 'Paragraph', action: () => editor.chain().focus().setParagraph().run(), isActive: () => !editor.isActive('heading') && !editor.isActive('codeBlock') },
+      { type: 'separator' },
+      { type: 'mini-row', items: [
+        { id: 'bold', icon: icons.bold, title: 'Bold', isActive: () => editor.isActive('bold'), action: () => editor.chain().focus().toggleBold().run() },
+        { id: 'italic', icon: icons.italic, title: 'Italic', isActive: () => editor.isActive('italic'), action: () => editor.chain().focus().toggleItalic().run() },
+        { id: 'strike', icon: icons.strike, title: 'Strikethrough', isActive: () => editor.isActive('strike'), action: () => editor.chain().focus().toggleStrike().run() },
+        { id: 'code', icon: icons.code, title: 'Inline Code', isActive: () => editor.isActive('code'), action: () => editor.chain().focus().toggleCode().run() },
+      ]},
+    ]);
+  });
+
+  // ── List & Block dropdown (≡ ▾) ─────────────────────────────────────────
+  const listBlockBtn = makeDropdownTrigger('listBlock', 'Lists & Blocks', icons.ul);
+  listBlockBtn.addEventListener('click', () => {
+    if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
+    showToolbarDropdown(listBlockBtn, [
+      { type: 'action', id: 'bulletList', label: 'Bullet List', icon: icons.ul, isActive: () => editor.isActive('bulletList'), action: () => editor.chain().focus().toggleBulletList().run() },
+      { type: 'action', id: 'orderedList', label: 'Ordered List', icon: icons.ol, isActive: () => editor.isActive('orderedList'), action: () => editor.chain().focus().toggleOrderedList().run() },
+      { type: 'action', id: 'taskList', label: 'Task List', icon: icons.task, isActive: () => editor.isActive('taskList'), action: () => editor.chain().focus().toggleTaskList().run() },
+      { type: 'separator' },
+      { type: 'action', id: 'blockquote', label: 'Blockquote', icon: icons.quote, isActive: () => editor.isActive('blockquote'), action: () => editor.chain().focus().toggleBlockquote().run() },
+      { type: 'action', id: 'codeBlock', label: 'Code Block', icon: icons.codeBlock, isActive: () => editor.isActive('codeBlock'), action: () => editor.chain().focus().toggleCodeBlock().run() },
+    ]);
+  });
+
+  // ── Link (direct action) ────────────────────────────────────────────────
+  const linkBtn = makeBtn('link', 'Insert Link (Cmd+K)', icons.link);
+  linkBtn.addEventListener('click', () => showLinkDialog(editor));
+
+  // ── Insert dropdown (Image, Table, HR) ──────────────────────────────────
+  const insertBtn = makeDropdownTrigger('insert', 'Insert', icons.image);
+  insertBtn.addEventListener('click', () => {
+    if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
+    showToolbarDropdown(insertBtn, [
+      { type: 'action', id: 'image', label: 'Image', icon: icons.image, action: () => showImageInsertDialog(editor) },
+      { type: 'action', id: 'table', label: 'Table', icon: icons.table, isActive: () => editor.isActive('table'), action: () => showTableGridPicker(editor, insertBtn) },
+      { type: 'action', id: 'hr', label: 'Horizontal Rule', icon: icons.hr, action: () => editor.chain().focus().setHorizontalRule().run() },
+    ]);
+  });
+
+  // ── Direct action buttons ───────────────────────────────────────────────
+  const undoBtn = makeBtn('undo', 'Undo (Cmd+Z)', icons.undo);
+  undoBtn.addEventListener('click', () => editor.chain().focus().undo().run());
+
+  const redoBtn = makeBtn('redo', 'Redo (Cmd+Shift+Z)', icons.redo);
+  redoBtn.addEventListener('click', () => editor.chain().focus().redo().run());
+
+  const sourceBtn = makeBtn('sourceToggle', 'Toggle Source Mode (Cmd+/)', icons.source);
+  sourceBtn.addEventListener('click', () => vscode.postMessage({ type: 'toggleSource' }));
+
+  const themeBtn = makeBtn('themeToggle', 'Toggle Light/Dark Mode', icons.sun);
+  themeBtn.addEventListener('click', () => toggleTheme());
+
+  const settingsBtn = makeBtn('settings', 'Settings', icons.gear);
+  settingsBtn.addEventListener('click', () => showSettingsModal());
+
+  // ── Assemble ────────────────────────────────────────────────────────────
+  toolbar.appendChild(textFormatBtn);
+  toolbar.appendChild(listBlockBtn);
+  toolbar.appendChild(linkBtn);
+  toolbar.appendChild(insertBtn);
+  toolbar.appendChild(makeSeparator());
+  toolbar.appendChild(undoBtn);
+  toolbar.appendChild(redoBtn);
+  toolbar.appendChild(makeSeparator());
+  toolbar.appendChild(sourceBtn);
+  toolbar.appendChild(makeSeparator());
+  toolbar.appendChild(themeBtn);
+  toolbar.appendChild(settingsBtn);
+
+  // ── Update dynamic label on selection changes ──────────────────────────
+  (toolbar as any).__condensedUpdate = () => {
+    // Update the text format button label to reflect current block type
+    const labelEl = textFormatBtn.querySelector('.condensed-btn-label');
+    if (labelEl) labelEl.innerHTML = getBlockLabel();
+
+    // Highlight dropdown triggers when their children are active
+    textFormatBtn.classList.toggle('active', isTextFormatActive());
+    listBlockBtn.classList.toggle('active', isBlockActive());
+    linkBtn.classList.toggle('active', editor.isActive('link'));
+
+    // Update dropdown active states if one is open
+    updateDropdownActiveStates();
+  };
+}
+
 function updateToolbarState(editor: Editor): void {
   const toolbar = document.getElementById('toolbar');
   if (!toolbar) return;
@@ -728,6 +934,10 @@ function updateToolbarState(editor: Editor): void {
     // Disabled state: inline format buttons disabled inside code blocks
     btn.disabled = inCodeBlock && ['bold', 'italic', 'strike', 'code', 'link'].includes(action);
   });
+  // Condensed mode: update dynamic labels and dropdown trigger highlights
+  if ((toolbar as any).__condensedUpdate) {
+    (toolbar as any).__condensedUpdate();
+  }
 }
 
 // ── M13: Find & Replace Bar ────────────────────────────────────────────────────
@@ -1118,8 +1328,9 @@ if (!editorContainer) {
     },
   });
 
-  // M3 — Build toolbar and wire active-state updates.
-  buildToolbar(editor);
+  // Build condensed toolbar (Apple Notes-style) and wire active-state updates.
+  buildCondensedToolbar(editor);
+  updateThemeToggleIcon();
   editor.on('selectionUpdate', () => updateToolbarState(editor));
   editor.on('transaction', () => updateToolbarState(editor));
 
@@ -1656,6 +1867,12 @@ if (!editorContainer) {
       const msg = message as any;
       if (msg.linkClickBehavior) {
         linkClickBehavior = msg.linkClickBehavior;
+      }
+      if (msg.themeToggleScope) {
+        themeToggleScope = msg.themeToggleScope;
+      }
+      if (msg.editorTheme) {
+        applyEditorTheme(msg.editorTheme);
       }
     }
 

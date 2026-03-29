@@ -9,6 +9,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* Subtle edge border so split-view panels have a visible boundary */
+  border-right: 1px solid var(--vscode-editorGroup-border);
 }
 
 /* Selection */
@@ -45,12 +47,15 @@ body {
 #toolbar {
   background: var(--vscode-editorGroupHeader-tabsBackground);
   border-bottom: 1px solid var(--vscode-editorGroup-border);
-  padding: 0 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  padding: 2px 8px;
   display: flex;
   gap: 1px;
   flex-wrap: wrap;
-  align-items: stretch;
-  min-height: 40px;
+  align-items: center;
+  align-content: flex-start;
+  position: relative;
+  z-index: 1;
 }
 
 #toolbar button {
@@ -115,6 +120,112 @@ body {
     max-width: none !important;
     padding: 0 !important;
   }
+}
+
+/* Editor-only light/dark overrides — applied when themeToggleScope is 'editorOnly'.
+   These override VS Code's injected CSS variables so the editor can run in the
+   opposite theme without changing VS Code's global appearance. */
+
+body.mikedown-force-light {
+  --vscode-editor-background: #ffffff;
+  --vscode-editor-foreground: #1e1e1e;
+  --vscode-foreground: #333333;
+  --vscode-editorGroupHeader-tabsBackground: #f0f0f0;
+  --vscode-editorGroup-border: #c8c8c8;
+  --vscode-icon-foreground: #424242;
+  --vscode-toolbar-hoverBackground: rgba(0, 0, 0, 0.07);
+  --vscode-toolbar-activeBackground: rgba(0, 0, 0, 0.12);
+  --vscode-textLink-foreground: #006ab1;
+  --vscode-textLink-activeForeground: #0078d4;
+  --vscode-scrollbarSlider-background: rgba(100, 100, 100, 0.3);
+  --vscode-scrollbarSlider-hoverBackground: rgba(100, 100, 100, 0.5);
+  --vscode-editor-selectionBackground: #add6ff;
+  --vscode-focusBorder: #0078d4;
+  --vscode-editorHoverWidget-background: #f3f3f3;
+  --vscode-editorHoverWidget-foreground: #1e1e1e;
+  --vscode-editorHoverWidget-border: #c8c8c8;
+  --vscode-errorForeground: #e51400;
+  --vscode-input-background: #ffffff;
+  --vscode-input-foreground: #1e1e1e;
+  --vscode-input-border: #cecece;
+  --vscode-textBlockQuote-background: rgba(0, 0, 0, 0.04);
+  --vscode-textBlockQuote-foreground: #1e1e1e;
+  --vscode-textBlockQuote-border: rgba(0, 0, 0, 0.15);
+  --vscode-textCodeBlock-background: rgba(0, 0, 0, 0.04);
+  --vscode-descriptionForeground: #717171;
+  --vscode-symbolIcon-keywordForeground: #0000ff;
+  --vscode-debugTokenExpression-string: #a31515;
+  --vscode-debugTokenExpression-number: #098658;
+  --vscode-symbolIcon-classForeground: #267f99;
+  --vscode-symbolIcon-functionForeground: #795e26;
+  --vscode-symbolIcon-variableForeground: #001080;
+  color-scheme: light;
+}
+
+body.mikedown-force-dark {
+  --vscode-editor-background: #1e1e1e;
+  --vscode-editor-foreground: #d4d4d4;
+  --vscode-foreground: #cccccc;
+  --vscode-editorGroupHeader-tabsBackground: #252526;
+  --vscode-editorGroup-border: #444444;
+  --vscode-icon-foreground: #c5c5c5;
+  --vscode-toolbar-hoverBackground: rgba(255, 255, 255, 0.1);
+  --vscode-toolbar-activeBackground: rgba(255, 255, 255, 0.15);
+  --vscode-textLink-foreground: #4e9de0;
+  --vscode-textLink-activeForeground: #6aafee;
+  --vscode-scrollbarSlider-background: rgba(121, 121, 121, 0.4);
+  --vscode-scrollbarSlider-hoverBackground: rgba(100, 100, 100, 0.7);
+  --vscode-editor-selectionBackground: #264f78;
+  --vscode-focusBorder: #007fd4;
+  --vscode-editorHoverWidget-background: #252526;
+  --vscode-editorHoverWidget-foreground: #cccccc;
+  --vscode-editorHoverWidget-border: #454545;
+  --vscode-errorForeground: #f44747;
+  --vscode-input-background: #3c3c3c;
+  --vscode-input-foreground: #cccccc;
+  --vscode-input-border: #3c3c3c;
+  --vscode-textBlockQuote-background: rgba(255, 255, 255, 0.05);
+  --vscode-textBlockQuote-foreground: #d4d4d4;
+  --vscode-textBlockQuote-border: rgba(255, 255, 255, 0.15);
+  --vscode-textCodeBlock-background: rgba(255, 255, 255, 0.06);
+  --vscode-descriptionForeground: #8a8a8a;
+  --vscode-symbolIcon-keywordForeground: #569cd6;
+  --vscode-debugTokenExpression-string: #ce9178;
+  --vscode-debugTokenExpression-number: #b5cea8;
+  --vscode-symbolIcon-classForeground: #4ec9b0;
+  --vscode-symbolIcon-functionForeground: #dcdcaa;
+  --vscode-symbolIcon-variableForeground: #9cdcfe;
+  color-scheme: dark;
+}
+
+/* ── Condensed Toolbar Mode (Apple Notes-style) ───────────────────────────── */
+
+#toolbar.toolbar-condensed {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.condensed-dropdown-trigger {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 2px;
+}
+
+.condensed-btn-label {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.condensed-chevron {
+  opacity: 0.5;
+  display: inline-flex;
+  align-items: center;
+}
+
+.condensed-chevron svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* Source mode container */

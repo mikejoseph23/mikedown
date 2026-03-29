@@ -1,0 +1,151 @@
+/* Toolbar Dropdown Menu */
+
+#toolbar-dropdown {
+  position: fixed;
+  z-index: 1001;
+  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-editorWidget-border));
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-radius: 6px;
+  padding: 4px;
+  min-width: 180px;
+  max-width: 280px;
+  user-select: none;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+  pointer-events: none;
+}
+
+#toolbar-dropdown.toolbar-dropdown-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Action item */
+.tdd-item {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: 4px;
+  transition: background 0.06s ease;
+  gap: 8px;
+  outline: none;
+}
+
+.tdd-item:hover,
+.tdd-item.tdd-focused {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.tdd-item.tdd-focused {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: -2px;
+}
+
+.tdd-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tdd-item-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tdd-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Active indicator — small dot on the left */
+.tdd-item-active-indicator {
+  display: none;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--vscode-focusBorder, var(--vscode-textLink-foreground));
+  flex-shrink: 0;
+}
+
+.tdd-item.tdd-active .tdd-item-active-indicator {
+  display: block;
+}
+
+.tdd-item.tdd-active {
+  background: var(--vscode-toolbar-activeBackground, rgba(255,255,255,0.07));
+}
+
+/* Separator */
+.tdd-separator {
+  height: 1px;
+  background: var(--vscode-editorHoverWidget-border, rgba(128,128,128,0.2));
+  margin: 4px 8px;
+}
+
+/* Mini-row: horizontal strip of icon buttons */
+.tdd-mini-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px 4px;
+}
+
+.tdd-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-icon-foreground));
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.06s ease;
+  outline: none;
+  padding: 0;
+}
+
+.tdd-mini-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tdd-mini-btn:hover,
+.tdd-mini-btn.tdd-focused {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.tdd-mini-btn.tdd-focused {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: -2px;
+}
+
+.tdd-mini-btn.tdd-active {
+  background: var(--vscode-toolbar-activeBackground, rgba(255,255,255,0.12));
+  color: var(--vscode-foreground);
+}
+
+/* Print: hide dropdown */
+@media print {
+  #toolbar-dropdown { display: none !important; }
+}
+
+/* High contrast */
+@media (forced-colors: active) {
+  #toolbar-dropdown { forced-color-adjust: auto; }
+}

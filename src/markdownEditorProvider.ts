@@ -19,6 +19,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    * Updated whenever resolveCustomTextEditor is called and the panel gains focus.
    */
   public static activePanel: vscode.WebviewPanel | undefined = undefined;
+  /** All open MikeDown webview panels, for broadcasting messages (e.g. theme changes). */
+  private static openPanels = new Set<vscode.WebviewPanel>();
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -51,6 +53,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     // M3 — Track the active panel so extension commands can post messages to it.
     MarkdownEditorProvider.activePanel = webviewPanel;
+    MarkdownEditorProvider.openPanels.add(webviewPanel);
     webviewPanel.onDidChangeViewState(e => {
       if (e.webviewPanel.active) {
         MarkdownEditorProvider.activePanel = webviewPanel;
@@ -70,11 +73,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     this.sendThemeToWebview(webviewPanel.webview);
     this.sendSettingsToWebview(webviewPanel.webview);
 
-    // Listen for configuration changes and push updated theme/settings to the webview.
+    // Listen for configuration changes and broadcast to ALL open panels
+    // so that e.g. toggling editor theme in one tab updates all tabs.
     const configListener = vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('mikedown')) {
-        this.sendThemeToWebview(webviewPanel.webview);
-        this.sendSettingsToWebview(webviewPanel.webview);
+        for (const panel of MarkdownEditorProvider.openPanels) {
+          this.sendThemeToWebview(panel.webview);
+          this.sendSettingsToWebview(panel.webview);
+        }
       }
     });
     this.context.subscriptions.push(configListener);
@@ -129,6 +135,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       willSaveSubscription.dispose();
       didSaveSubscription.dispose();
       // M3 — Clear active panel reference when this panel is closed.
+      MarkdownEditorProvider.openPanels.delete(webviewPanel);
       if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
       }
@@ -148,8 +155,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
         case 'ready':
-          // Webview signals it is ready — send current content
+          // Webview signals it is ready — send current content + settings
           this.updateWebview(document, webviewPanel.webview);
+          this.sendThemeToWebview(webviewPanel.webview);
+          this.sendSettingsToWebview(webviewPanel.webview);
           break;
         case 'stats':
           // M2d — Update status bar with plain text for word/character count.
@@ -163,6 +172,29 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // as a 'toggleSource' message so the webview handles the toggle.
           webviewPanel.webview.postMessage({ type: 'toggleSource' });
           break;
+        case 'toggleTheme': {
+          const toggleSettings = getSettings();
+          if (toggleSettings.themeToggleScope === 'vscode') {
+            await vscode.commands.executeCommand('workbench.action.toggleLightDarkThemes');
+          } else {
+            // Editor-only: flip the persisted editorTheme setting and broadcast
+            const config = vscode.workspace.getConfiguration('mikedown');
+            const current = toggleSettings.editorTheme;
+            // Determine effective current appearance to know what to flip to
+            let newTheme: 'light' | 'dark';
+            if (current === 'auto') {
+              // Detect VS Code's current theme kind
+              const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
+                || vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
+              newTheme = isDark ? 'light' : 'dark';
+            } else {
+              newTheme = current === 'dark' ? 'light' : 'dark';
+            }
+            await config.update('editorTheme', newTheme, vscode.ConfigurationTarget.Global);
+            // Broadcast is handled by the onDidChangeConfiguration listener
+          }
+          break;
+        }
         case 'exportHtml': {
           const suggestedName = document.fileName;
           await writeRenderedHtml(message.html ?? '', suggestedName);
@@ -396,6 +428,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webview.postMessage({
       type: 'settings',
       linkClickBehavior: settings.linkClickBehavior,
+      themeToggleScope: settings.themeToggleScope,
+      editorTheme: settings.editorTheme,
     });
   }
 
@@ -521,6 +555,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'tablepicker.css',
       'tabledrag.css',
       'linkautocomplete.css',
+      'toolbar-dropdown.css',
     ];
     const cssLinks = cssFiles.map(f => {
       const uri = webview.asWebviewUri(vscode.Uri.file(path.join(cssDir, f)));
@@ -568,7 +603,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings';
   content?: string;
   plainText?: string;
   href?: string;

@@ -5,6 +5,8 @@ export interface MikeDownSettings {
   fontFamily: string;
   fontSize: number;
   linkClickBehavior: 'navigateCurrentTab' | 'openNewTab' | 'showContextMenu';
+  themeToggleScope: 'vscode' | 'editorOnly';
+  editorTheme: 'auto' | 'light' | 'dark';
   autoReloadUnmodifiedFiles: boolean;
   markdownNormalization: 'preserve' | 'normalize';
   normalizationStyle: {
@@ -22,6 +24,8 @@ export function getSettings(): MikeDownSettings {
     fontFamily: config.get<string>('fontFamily', ''),
     fontSize: config.get<number>('fontSize', 16),
     linkClickBehavior: config.get<'navigateCurrentTab' | 'openNewTab' | 'showContextMenu'>('linkClickBehavior', 'openNewTab'),
+    themeToggleScope: config.get<'vscode' | 'editorOnly'>('themeToggleScope', 'editorOnly'),
+    editorTheme: config.get<'auto' | 'light' | 'dark'>('editorTheme', 'auto'),
     autoReloadUnmodifiedFiles: config.get<boolean>('autoReloadUnmodifiedFiles', true),
     markdownNormalization: config.get<'preserve' | 'normalize'>('markdownNormalization', 'preserve'),
     normalizationStyle: {

@@ -2,7 +2,8 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A Typora-style WYSIWYG Markdown editor for VS Code — live preview editing, smart paste, source mode toggle, and export.",
-  "version": "0.1.0",
+  "version": "1.0.5",
+  "license": "MIT",
   "publisher": "mikedown",
   "icon": "images/icon.png",
   "galleryBanner": {
@@ -10,7 +11,7 @@
     "theme": "dark"
   },
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.109.0"
   },
   "categories": [
     "Other",
@@ -192,7 +193,7 @@
         },
         "mikedown.fontSize": {
           "type": "number",
-          "default": 17,
+          "default": 15,
           "minimum": 10,
           "maximum": 36,
           "description": "Font size (in pixels) for the WYSIWYG editing area."
@@ -211,6 +212,34 @@
           ],
           "default": "openNewTab",
           "description": "What happens when you Cmd+Click (Mac) or Ctrl+Click (Windows/Linux) on a link in WYSIWYG mode."
+        },
+        "mikedown.themeToggleScope": {
+          "type": "string",
+          "enum": [
+            "editorOnly",
+            "vscode"
+          ],
+          "enumDescriptions": [
+            "Toggle light/dark mode only within MikeDown editor tabs",
+            "Toggle VS Code's global light/dark theme"
+          ],
+          "default": "editorOnly",
+          "description": "Whether the toolbar theme toggle affects only MikeDown editors or VS Code's global theme."
+        },
+        "mikedown.editorTheme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ],
+          "enumDescriptions": [
+            "Follow VS Code's current theme",
+            "Always use light mode in MikeDown editors",
+            "Always use dark mode in MikeDown editors"
+          ],
+          "default": "auto",
+          "description": "Override the editor theme for MikeDown tabs. The toolbar sun/moon button toggles this when themeToggleScope is 'editorOnly'."
         },
         "mikedown.autoReloadUnmodifiedFiles": {
           "type": "boolean",
@@ -279,6 +308,7 @@
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
+    "vsix": "npm version patch --no-git-tag-version && npm run package && vsce package",
     "lint": "eslint src --ext ts",
     "format": "prettier --write \"src/**/*.{ts,html,css,js}\"",
     "test:unit": "vitest run test/unit --reporter=verbose",
