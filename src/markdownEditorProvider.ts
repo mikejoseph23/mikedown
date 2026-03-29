@@ -68,11 +68,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     //   3. onUpdate is suppressed during load → no 'edit' message → no WorkspaceEdit → dirty flag stays clean
     this.updateWebview(document, webviewPanel.webview);
     this.sendThemeToWebview(webviewPanel.webview);
+    this.sendSettingsToWebview(webviewPanel.webview);
 
-    // Listen for configuration changes and push updated theme to the webview.
+    // Listen for configuration changes and push updated theme/settings to the webview.
     const configListener = vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('mikedown')) {
         this.sendThemeToWebview(webviewPanel.webview);
+        this.sendSettingsToWebview(webviewPanel.webview);
       }
     });
     this.context.subscriptions.push(configListener);
@@ -201,11 +203,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             filePart
           );
 
-          // TODO (M10): showContextMenu behavior not fully implementable without
-          // a custom context menu. Treat it the same as openNewTab for now.
-          const viewColumn = settings.linkClickBehavior === 'openNewTab' || settings.linkClickBehavior === 'showContextMenu'
-            ? vscode.ViewColumn.Beside
-            : vscode.ViewColumn.Active;
+          // If the webview sent an explicit behavior override (e.g. from the
+          // context menu), use that; otherwise fall back to the user setting.
+          const effectiveBehavior = message.behavior ?? settings.linkClickBehavior;
+          const viewColumn = effectiveBehavior === 'navigateCurrentTab'
+            ? vscode.ViewColumn.Active
+            : vscode.ViewColumn.Beside;
 
           await vscode.commands.executeCommand('vscode.open', resolvedUri, { viewColumn });
 
@@ -380,7 +383,19 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webview.postMessage({
       type: 'theme',
       fontFamily: config.get<string>('fontFamily', ''),
-      fontSize: config.get<number>('fontSize', 16),
+      fontSize: config.get<number>('fontSize', 15),
+    });
+  }
+
+  /**
+   * Push user-facing settings (e.g. linkClickBehavior) to the webview so it
+   * can adapt its click/context-menu behavior without round-tripping to host.
+   */
+  private sendSettingsToWebview(webview: vscode.Webview): void {
+    const settings = getSettings();
+    webview.postMessage({
+      type: 'settings',
+      linkClickBehavior: settings.linkClickBehavior,
     });
   }
 
@@ -560,6 +575,8 @@ interface WebviewMessage {
   html?: string;
   links?: Array<{ href: string; type: 'anchor' | 'file' | 'fileAnchor' }>;
   filePath?: string;
+  /** Optional override for link navigation behavior (from context menu actions). */
+  behavior?: 'navigateCurrentTab' | 'openNewTab';
 }
 
 /**

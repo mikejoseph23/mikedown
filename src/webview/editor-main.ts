@@ -148,6 +148,26 @@ function githubAnchorId(text: string): string {
     .replace(/^-|-$/g, '');      // trim leading/trailing hyphens
 }
 
+/**
+ * Compute the anchor ID for a specific heading element by walking all
+ * headings (to handle collision deduplication) up to and including it.
+ * Returns the anchor ID or empty string if the heading isn't found.
+ */
+function computeAnchorIdFor(targetHeading: HTMLElement): string {
+  const container = document.getElementById('editor-container');
+  if (!container) return '';
+  const headings = container.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
+  const seenIds = new Map<string, number>();
+  for (const h of headings) {
+    const base = githubAnchorId(h.textContent || '');
+    const count = seenIds.get(base) ?? 0;
+    const id = count === 0 ? base : `${base}-${count}`;
+    seenIds.set(base, count + 1);
+    if (h === targetHeading) return id;
+  }
+  return '';
+}
+
 // ── M3: Link and image dialog helpers ─────────────────────────────────────────
 
 function showLinkDialog(editor: Editor): void {
@@ -1336,38 +1356,52 @@ if (!editorContainer) {
   });
 
   // ── M6a: Link click handler (Cmd+Click to navigate) ────────────────────────
+  // Use mousedown in capture phase so it fires before ProseMirror's own
+  // mousedown handler (which would consume the event for cursor placement).
+  // This ensures Cmd+Click / Ctrl+Click reliably navigates links.
 
-  editorContainer.addEventListener('click', (event) => {
+  let linkClickBehavior: 'navigateCurrentTab' | 'openNewTab' | 'showContextMenu' = 'openNewTab';
+
+  editorContainer.addEventListener('mousedown', (event) => {
+    if (!event.metaKey && !event.ctrlKey) return;
+    if (event.button !== 0) return; // left-click only
+
     const target = event.target as HTMLElement;
     const linkEl = target.closest('a[href]') as HTMLAnchorElement | null;
     if (!linkEl) return;
 
-    // Regular click → position cursor (let ProseMirror handle it, do NOT navigate)
-    if (!event.metaKey && !event.ctrlKey) return;
-
-    // Cmd+Click or Ctrl+Click → navigate
     event.preventDefault();
     event.stopPropagation();
 
     const href = linkEl.getAttribute('href') || '';
-    vscode.postMessage({ type: 'openLink', href });
-  });
+
+    if (linkClickBehavior === 'showContextMenu') {
+      // Show a mini context menu with navigation options
+      const items = buildLinkMenu(editor, href);
+      showContextMenu(editor, event.clientX, event.clientY, items);
+    } else {
+      vscode.postMessage({ type: 'openLink', href });
+    }
+  }, true);
 
   // ── M6a: Heading anchor icon click handler ──────────────────────────────────
 
   editorContainer.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     const heading = target.closest<HTMLElement>('h1,h2,h3,h4,h5,h6');
-    if (!heading || !heading.dataset.anchorId) return;
+    if (!heading) return;
 
     // Only trigger if click is in the left margin area (before the text)
     const rect = heading.getBoundingClientRect();
     if (event.clientX < rect.left) {
-      const anchorId = heading.dataset.anchorId;
-      navigator.clipboard?.writeText(`#${anchorId}`).catch(() => {});
-      // Brief visual feedback
-      heading.style.outline = '1px solid var(--vscode-focusBorder)';
-      setTimeout(() => { heading.style.outline = ''; }, 600);
+      // Compute anchor ID dynamically from heading text
+      const anchorId = computeAnchorIdFor(heading);
+      if (anchorId) {
+        navigator.clipboard?.writeText(`#${anchorId}`).catch(() => {});
+        // Brief visual feedback
+        heading.style.outline = '1px solid var(--vscode-focusBorder)';
+        setTimeout(() => { heading.style.outline = ''; }, 600);
+      }
     }
   });
 
@@ -1387,11 +1421,12 @@ if (!editorContainer) {
       linkTooltip.id = 'link-tooltip';
       document.body.appendChild(linkTooltip);
     }
+    const mod = navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl';
     // M6c — Show broken link tooltip if this link is marked as broken.
     if (linkEl.classList.contains('mikedown-broken-link')) {
       linkTooltip.textContent = linkEl.title || `Broken link: ${href}`;
     } else {
-      linkTooltip.textContent = href;
+      linkTooltip.textContent = `${mod}+Click to open`;
     }
     linkTooltip.style.display = 'block';
     const r = linkEl.getBoundingClientRect();
@@ -1616,6 +1651,14 @@ if (!editorContainer) {
       );
     }
 
+    // Receive user-facing settings from the extension host.
+    if (message.type === 'settings') {
+      const msg = message as any;
+      if (msg.linkClickBehavior) {
+        linkClickBehavior = msg.linkClickBehavior;
+      }
+    }
+
     // M3 — Handle formatting commands posted from the extension host
     // (triggered by VS Code keybindings registered in package.json).
     if (message.type === 'command') {
@@ -1720,11 +1763,21 @@ if (!editorContainer) {
 
     // M6a — Scroll to an anchor in the editor (posted from openLink handler for # links).
     if (message.type === 'scrollToAnchor') {
-      const anchor = message.anchor as string;
-      // Find the heading element with matching data-anchor-id
-      const el = document.querySelector(`[data-anchor-id="${CSS.escape(anchor)}"]`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const anchor = (message as any).anchor as string;
+      // Compute anchor IDs dynamically from heading text instead of relying
+      // on data-anchor-id attributes (ProseMirror's DOM patching strips them).
+      const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
+      const seenIds = new Map<string, number>();
+      let targetEl: HTMLElement | null = null;
+      for (const h of headings) {
+        const base = githubAnchorId(h.textContent || '');
+        const count = seenIds.get(base) ?? 0;
+        const id = count === 0 ? base : `${base}-${count}`;
+        seenIds.set(base, count + 1);
+        if (id === anchor) { targetEl = h; break; }
+      }
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
 

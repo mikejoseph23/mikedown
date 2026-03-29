@@ -39,22 +39,23 @@ body.cmd-held .ProseMirror a {
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
-/* Heading hover anchor icon */
-.ProseMirror h1[data-anchor-id],
-.ProseMirror h2[data-anchor-id],
-.ProseMirror h3[data-anchor-id],
-.ProseMirror h4[data-anchor-id],
-.ProseMirror h5[data-anchor-id],
-.ProseMirror h6[data-anchor-id] {
+/* Heading hover anchor icon — no data-anchor-id dependency since
+   ProseMirror's DOM patching strips custom attributes. */
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror h4,
+.ProseMirror h5,
+.ProseMirror h6 {
   position: relative;
 }
 
-.ProseMirror h1[data-anchor-id]:hover::before,
-.ProseMirror h2[data-anchor-id]:hover::before,
-.ProseMirror h3[data-anchor-id]:hover::before,
-.ProseMirror h4[data-anchor-id]:hover::before,
-.ProseMirror h5[data-anchor-id]:hover::before,
-.ProseMirror h6[data-anchor-id]:hover::before {
+.ProseMirror h1:hover::before,
+.ProseMirror h2:hover::before,
+.ProseMirror h3:hover::before,
+.ProseMirror h4:hover::before,
+.ProseMirror h5:hover::before,
+.ProseMirror h6:hover::before {
   content: '#';
   position: absolute;
   left: -1.2em;
@@ -66,9 +67,9 @@ body.cmd-held .ProseMirror a {
   transition: opacity 0.12s ease;
 }
 
-.ProseMirror h1[data-anchor-id]:hover::before,
-.ProseMirror h2[data-anchor-id]:hover::before,
-.ProseMirror h3[data-anchor-id]:hover::before {
+.ProseMirror h1:hover::before,
+.ProseMirror h2:hover::before,
+.ProseMirror h3:hover::before {
   opacity: 0.7;
 }
 

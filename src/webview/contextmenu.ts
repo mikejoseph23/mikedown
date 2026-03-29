@@ -104,11 +104,21 @@ export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
 
 export function buildLinkMenu(editor: Editor, href: string): ContextMenuEntry[] {
   const vscode = (window as any).__vscode ?? null;
+  const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+';
+  const isExternal = href.startsWith('http://') || href.startsWith('https://');
   return [
-    { label: 'Open Link', action: () => { if (vscode) vscode.postMessage({ type: 'openLink', href }); } },
+    {
+      label: 'Open Link',
+      shortcut: `${mod}Click`,
+      action: () => { if (vscode) vscode.postMessage({ type: 'openLink', href, behavior: 'navigateCurrentTab' }); },
+    },
+    ...(isExternal ? [] : [{
+      label: 'Open Link in New Tab',
+      action: () => { if (vscode) vscode.postMessage({ type: 'openLink', href, behavior: 'openNewTab' }); },
+    } as ContextMenuItem]),
+    { separator: true } as ContextMenuSeparator,
     { label: 'Copy Link', action: () => navigator.clipboard?.writeText(href).catch(() => {}) },
     { label: 'Edit Link…', action: () => {
-      // Use the link dialog instead of window.prompt
       (window as any).__mikedownShowLinkDialog?.();
     }},
     { label: 'Remove Link', action: () => editor.chain().focus().extendMarkRange('link').unsetLink().run() },
