@@ -15,7 +15,7 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  font-family: var(--vscode-editor-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+  font-family: var(--mikedown-font-family, 'Avenir Next', Avenir, 'Segoe UI', Calibri, sans-serif);
   font-size: var(--vscode-editor-font-size, 14px);
   color: var(--vscode-editor-foreground, #d4d4d4);
   background-color: var(--vscode-editor-background, #1e1e1e);
@@ -85,6 +85,7 @@ body {
   margin-top: 1.5em;
   margin-bottom: 0.5em;
   font-weight: 600;
+  font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   line-height: 1.3;
   color: var(--vscode-editor-foreground, #d4d4d4);
 }
@@ -201,6 +202,7 @@ body {
 /* ─── Headings ────────────────────────────────────────────────────────────── */
 
 .ProseMirror h1 {
+  font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   font-size: 2em;
   font-weight: 700;
   margin: 1.2em 0 0.4em;
@@ -210,6 +212,7 @@ body {
 .ProseMirror h1:first-child { margin-top: 0; }
 
 .ProseMirror h2 {
+  font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   font-size: 1.5em;
   font-weight: 600;
   margin: 1.1em 0 0.35em;
@@ -220,6 +223,7 @@ body {
 }
 
 .ProseMirror h3 {
+  font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   font-size: 1.25em;
   font-weight: 600;
   margin: 1em 0 0.3em;
@@ -227,6 +231,7 @@ body {
 }
 
 .ProseMirror h4 {
+  font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   font-size: 1.1em;
   font-weight: 600;
   margin: 1em 0 0.25em;
@@ -234,6 +239,7 @@ body {
 
 .ProseMirror h5,
 .ProseMirror h6 {
+  font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   font-size: 1em;
   font-weight: 600;
   margin: 1em 0 0.2em;

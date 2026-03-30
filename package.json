@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — live preview editing, smart paste, source mode toggle, and export.",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "license": "MIT",
   "preview": true,
   "publisher": "interapp",
@@ -200,8 +200,33 @@
         },
         "mikedown.fontFamily": {
           "type": "string",
+          "default": "'Avenir Next', Avenir, 'Segoe UI', Calibri, sans-serif",
+          "markdownDescription": "Font family for the WYSIWYG editing area. Use the settings panel in the editor (gear icon) to preview fonts live.",
+          "enumDescriptions": [
+            "System Default — native OS font",
+            "Arial — universal sans-serif",
+            "Verdana — wide, screen-optimized",
+            "Georgia — elegant serif",
+            "Times New Roman — classic serif",
+            "Palatino — book-quality serif",
+            "Consolas / Menlo — clean monospace",
+            "Courier New — traditional monospace"
+          ],
+          "enum": [
+            "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+            "Arial, Helvetica, sans-serif",
+            "Verdana, Geneva, sans-serif",
+            "Georgia, 'Times New Roman', serif",
+            "'Times New Roman', Times, serif",
+            "'Palatino Linotype', Palatino, 'Book Antiqua', serif",
+            "Consolas, Menlo, Monaco, 'Courier New', monospace",
+            "'Courier New', Courier, monospace"
+          ]
+        },
+        "mikedown.headingFontFamily": {
+          "type": "string",
           "default": "",
-          "markdownDescription": "Font family for the WYSIWYG editing area. Leave empty to use the system default sans-serif font. Example: `\"Georgia, serif\"` or `\"Inter, sans-serif\"`."
+          "markdownDescription": "Font family for headings. Leave empty to use the same font as the body text, or use the font theme picker in the editor toolbar."
         },
         "mikedown.fontSize": {
           "type": "number",

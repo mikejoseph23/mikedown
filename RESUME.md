@@ -2,15 +2,16 @@
 
 ## Project Overview
 
-MikeDown Editor is a Typora-style WYSIWYG Markdown editor for VS Code, built on TipTap v2 / ProseMirror with CodeMirror 6 for source mode. It uses the VS Code Custom Editor API, targets GFM spec, runs fully offline, and is MIT licensed. Published to the VS Code Marketplace under publisher "interapp" (Michael Joseph). Currently in beta (`"preview": true`).
+MikeDown Editor is a WYSIWYG Markdown editor for VS Code, built on TipTap v2 / ProseMirror with CodeMirror 6 for source mode. It uses the VS Code Custom Editor API, targets GFM spec, runs fully offline, and is MIT licensed. Published to the VS Code Marketplace under publisher "interapp" (Michael Joseph). Currently in beta (`"preview": true`). All references to Typora have been removed from user-facing content — the extension is positioned as "a true WYSIWYG Markdown editor" without naming competitors.
 
 ## Current Status
 
-**v1.0.8 is live on the VS Code Marketplace.** Updated listing with new icon, 7 screenshots, corrected URLs. Published 2026-03-29 via manual .vsix upload.
+**v1.0.10 is packaged (`mikedown-editor-1.0.10.vsix`) and ready to publish.** Font theme system added with 10 curated heading+body pairings. Default is "Academic" (Palatino headings + Avenir body).
 
-- Just finished: new logo (M + down arrow), 7 marketplace screenshots (compressed JPEGs), README audit and URL fixes, GitHub repo renamed to `mikedown`, git remote updated
-- In flight: Azure DevOps PAT setup for CLI publishing (currently using manual .vsix upload)
-- Known issue: Backlinks Explorer panel not appearing in sidebar — the `when` clause (`resourceExtname == .md`) may not fire for custom editor documents. Needs investigation.
+- Just finished: font theme system (heading + body pairings with live preview in settings), Document Outline TreeView, link picker redesign, marketplace listing overhaul, activity bar sidebar icon (MikeDown logo)
+- Ready to publish: v1.0.10 vsix is built
+- Needs doing: retake all 7 marketplace screenshots — default font changed significantly from the original monospace; current screenshots in `assets/screenshots/` are stale
+- Known limitation: VS Code's built-in Outline panel says "The active editor cannot provide outline information" for custom editors — this is a VS Code API constraint. The custom "Document Outline" TreeView in the MikeDown sidebar is the workaround.
 
 ## What's Done
 
@@ -19,86 +20,64 @@ MikeDown Editor is a Typora-style WYSIWYG Markdown editor for VS Code, built on 
 - Source mode toggle (CodeMirror 6, Cmd+/)
 - Smart paste (Google Docs, Word, Slack, web -> clean Markdown)
 - Cmd+Click link navigation, right-click "Open Link" / "Open Link in New Tab"
-- Link autocomplete (fuzzy workspace file/anchor search), broken link detection (red wavy underline)
-- Backlink Explorer panel (registered but not rendering — see Known Issue above)
+- Link autocomplete redesigned: grouped sections (Headings with hierarchy, Used in Document for non-anchor links, Workspace Files, External URL), refocus on blur
+- Broken link detection (red wavy underline)
+- Backlink Explorer panel (in MikeDown sidebar)
+- Document Outline TreeView: heading hierarchy, click-to-navigate via scrollToAnchor, active heading tracking via scroll events
+- MikeDown activity bar icon (monochrome M+arrow from main logo) with Document Outline + Backlinks panels
+- DocumentSymbolProvider for VS Code Outline (works when file also open in text editor)
+- Font theme system: 10 curated heading+body font pairings (Editorial, Magazine, Notebook, Academic, Technical, Manuscript, Modern, Classic, Literary, Developer), OS-aware font stacks, live preview cards in settings, `--mikedown-heading-font-family` CSS variable, keyboard navigation, revert button
+- Default theme: "Academic" — Palatino headings + Avenir body (Mac), Palatino headings + Segoe UI body (Windows)
 - Table editing: grid picker, contextual toolbar, drag handles, multi-cell selection
 - Find & Replace inside the WYSIWYG editor (ProseMirror decorations)
 - Code block syntax highlighting (192 languages via lowlight)
 - Frontmatter support (collapsible YAML block)
-- Editor-only light/dark theme toggle (persisted via `mikedown.editorTheme` setting)
+- Editor-only light/dark theme toggle
 - Export to HTML, print, copy as rich text
 - Image support: inline rendering, click-to-edit popover
-- Settings modal (gear icon), 12+ VS Code settings
-- Unit tests: 75 pass (vitest)
-- Marketplace listing: new icon, 7 screenshots, corrected README
-- Landing page at `website/index.html`
-- Remotion video project scaffolded at `video/`
-- Sample docs for screenshots at `assets/sample-docs/`
+- Marketplace listing: 7 screenshots with captions, personal intro, no competitor references
 
 ## What's Next
 
-1. **Fix Backlinks panel** — Investigate why `when: "resourceExtname == .md"` doesn't trigger for custom editor documents. May need a different activation context.
-
-2. **Capture missing screenshots** — `link-autocomplete.png` and `backlinks-panel.png` were skipped. Add them once the backlinks panel is fixed and link autocomplete can be triggered reliably. See `assets/screenshots/README.md` for the capture guide.
-
-3. **Set up CLI publishing** — Create an Azure DevOps PAT for `vsce publish`. Current workaround: manual .vsix upload at https://marketplace.visualstudio.com/manage.
-
-4. **Backlog features:**
-   - Mermaid diagram rendering (behind `mikedown.enableMermaid` setting)
-   - Math/LaTeX via KaTeX (behind `mikedown.enableMath` setting, off by default)
-   - Print support improvements
+1. **Publish v1.0.10** to the VS Code Marketplace (manual vsix upload)
+2. **Retake all 7 marketplace screenshots** — default font is now Academic theme (Palatino headings + Avenir body). Current screenshots show old monospace default. See `assets/screenshots/README.md` for capture guide.
+3. **Test Document Outline** more thoroughly — active heading tracking, switching between files, large documents
+4. **Consider**: The built-in Outline panel limitation is worth noting in Known Limitations in README
 
 ## Key File Paths
 
 ```
 src/
-  extension.ts                    — Activation, command registration, BacklinkProvider
-  markdownEditorProvider.ts       — Custom Editor, webview message dispatch, openPanels tracking
-  backlinkProvider.ts             — TreeDataProvider for Backlinks panel
-  settings.ts                     — MikeDownSettings interface, getSettings()
-  export.ts                       — HTML export, print, copy as rich text
+  extension.ts                    — Extension activation, provider registration, command wiring
+  markdownEditorProvider.ts       — CustomTextEditorProvider, webview setup, message handling, font theme delivery
+  outlineProvider.ts              — DocumentSymbolProvider + DocumentOutlineProvider (TreeView)
+  backlinkProvider.ts             — Backlink Explorer TreeDataProvider
+  settings.ts                     — MikeDown settings interface
+  export.ts                       — HTML/PDF export
+  statusBar.ts                    — Word/character count status bar
   webview/
-    editor-main.ts                — TipTap setup, condensed toolbar, theme toggle, all handlers
-    toolbar-dropdown.ts           — Reusable dropdown/popover component
+    editor-main.ts                — TipTap editor setup, toolbar, font theme picker, settings modal (~2200 lines)
+    linkautocomplete.ts           — Grouped link picker (headings, files, in-doc, external URL)
+    linkautocomplete.css          — Link picker styles (hardcoded colors for contrast)
+    editor.css                    — Editor typography, --mikedown-heading-font-family on all heading levels
+    theme.css                     — Body font-family via --mikedown-font-family
     contextmenu.ts                — Right-click context menu
-    findreplace.ts                — Find & Replace extension
-    smartpaste.ts                 — Rich text paste conversion
-    tablepicker.ts                — Table grid picker and contextual toolbar
-    linkautocomplete.ts           — Fuzzy file/heading link suggestions
-    theme.css                     — VS Code theme integration, force-light/force-dark overrides
-    editor.css                    — Main editor styling
+    findreplace.ts                — Find & Replace UI
+    smartpaste.ts                 — Rich text paste -> markdown conversion
+    tablepicker.ts                — Table grid picker
+    toolbar-dropdown.ts           — Toolbar dropdown menus
+package.json                      — Extension manifest, views, commands, settings (fontFamily + headingFontFamily)
+README.md                         — Marketplace listing (recently overhauled)
 images/
-  icon.svg                        — Logo source (SVG)
-  icon.png                        — Logo (128x128 transparent PNG)
-assets/
-  sample-docs/                    — Fictional docs for screenshot demos
-  screenshots/                    — Marketplace screenshots (JPEGs) + capture guide
-package.json                      — v1.0.8, publisher: interapp, preview: true
-README.md                         — Marketplace listing
-website/index.html                — Landing page
-video/                            — Remotion promo video project
-```
-
-## Recent Git Log
-
-```
-8cc335d Update marketplace listing: new icon, screenshots, fix URLs
-0eaa6ae Add .playwright-cli/ to gitignore
-4a0e5e4 Add marketplace README, landing page, promo video scaffold, and publishing prep
-3b64de8 Add MIT license, clean up vsix packaging ignore files
-eeaecff Add condensed toolbar with dropdown menus, fix settings load and split-view borders
-d84611d Fix Cmd+Click link navigation, add Open Link in New Tab context menu
-b051dd9 Fix external change detection, context menu overlap, CSS loading, and drag handles
-bb6b03e Fix webview loading, add settings modal and context menu open command
+  icon.png                        — Marketplace icon
+  icon-sidebar.svg                — Activity bar sidebar icon (monochrome M+arrow)
+assets/screenshots/               — 7 marketplace screenshots (STALE — need retaking with new font default)
 ```
 
 ## Any Other Notes
 
-- Build: `npm run compile` (webpack, both bundles)
-- Package: `npm run vsix` (bumps patch version, production build, creates .vsix)
-- Tests: `npx vitest run` (75 unit tests)
-- Debug: Cmd+Shift+D -> "Run Extension" -> green play button
-- Publisher ID is "interapp" — marketplace URL: `https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor`
-- Git remote: `git@github.com:mikejoseph23/mikedown.git`
-- Screenshots use `Cmd+Shift+4` then `Space` for window capture at 1280x800. See `assets/screenshots/README.md` for full guide.
-- The `.vsix` must be rebuilt and reuploaded to update the marketplace — pushing to git alone doesn't update the listing.
+- **Publishing**: Currently using manual .vsix upload to the Marketplace. The vsix is at `mikedown-editor-1.0.10.vsix` in the project root.
+- **Font themes**: Heading and body fonts are separate CSS variables (`--mikedown-font-family`, `--mikedown-heading-font-family`). The settings panel has a themed picker with live preview cards. The toolbar "Aa" button was removed — themes are accessed via the settings gear.
+- **Contrast fix**: The link autocomplete and font picker use hardcoded colors (`#d4d4d4`, `#e0e0e0`, etc.) instead of VS Code theme variables because the webview context doesn't resolve them reliably.
+- **Custom editor limitation**: VS Code's `DocumentSymbolProvider` populates the Outline panel but `revealRange` is a no-op for custom editors. The custom TreeView with `scrollToAnchor` messaging is the workaround.
+- **Testing**: `F5` launches Extension Development Host. Open any `.md` file and right-click -> "Open with MikeDown" or set `mikedown.defaultEditor` to true.

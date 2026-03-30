@@ -370,6 +370,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (settings.fontFamily !== undefined) {
             config.update('fontFamily', settings.fontFamily, vscode.ConfigurationTarget.Global);
           }
+          if (settings.headingFontFamily !== undefined) {
+            config.update('headingFontFamily', settings.headingFontFamily, vscode.ConfigurationTarget.Global);
+          }
           vscode.window.showInformationMessage('MikeDown settings saved.');
           break;
         }
@@ -437,9 +440,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    */
   private sendThemeToWebview(webview: vscode.Webview): void {
     const config = vscode.workspace.getConfiguration('mikedown');
+    const bodyFont = config.get<string>('fontFamily', '') || "'Avenir Next', Avenir, 'Segoe UI', Calibri, sans-serif";
+    const headingFont = config.get<string>('headingFontFamily', '') || "Palatino, 'Palatino Linotype', 'Book Antiqua', serif";
     webview.postMessage({
       type: 'theme',
-      fontFamily: config.get<string>('fontFamily', ''),
+      fontFamily: bodyFont,
+      headingFontFamily: headingFont,
       fontSize: config.get<number>('fontSize', 15),
     });
   }

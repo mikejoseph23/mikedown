@@ -3,7 +3,7 @@
 body {
   background: var(--vscode-editor-background);
   color: var(--vscode-editor-foreground);
-  font-family: var(--mikedown-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+  font-family: var(--mikedown-font-family, 'Avenir Next', Avenir, 'Segoe UI', Calibri, sans-serif);
   font-size: var(--mikedown-font-size, 17px);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;

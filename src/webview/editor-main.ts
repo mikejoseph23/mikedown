@@ -432,7 +432,7 @@ function showSettingsModal(): void {
 
   const overlay = document.createElement('div');
   overlay.id = 'mikedown-settings-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:1050;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:1050;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25)';
 
   const modal = document.createElement('div');
   modal.setAttribute('role', 'dialog');
@@ -520,17 +520,181 @@ function showSettingsModal(): void {
     document.documentElement.style.setProperty('--mikedown-font-size', `${fontSizeInput.value}px`);
   });
 
-  // ── Font Family
-  const fontFamilyRow = makeRow('Font Family', 'Custom font for the editor. Leave empty for system default.');
-  const fontFamilyInput = document.createElement('input');
-  fontFamilyInput.type = 'text';
-  fontFamilyInput.placeholder = 'e.g. Georgia, serif';
-  fontFamilyInput.value = currentFontFamily;
-  fontFamilyInput.style.cssText = inputStyle;
-  fontFamilyRow.appendChild(fontFamilyInput);
-  fontFamilyInput.addEventListener('input', () => {
-    document.documentElement.style.setProperty('--mikedown-font-family', fontFamilyInput.value);
+  // ── Font Theme
+  const isMacSettings = navigator.platform?.startsWith('Mac') || navigator.userAgent.includes('Macintosh');
+
+  const macSans = "'Avenir Next', Avenir, sans-serif";
+  const macSans2 = "'Helvetica Neue', Helvetica, sans-serif";
+  const macSerif = "Charter, 'Bitstream Charter', Georgia, serif";
+  const macSerif2 = "Palatino, 'Palatino Linotype', 'Book Antiqua', serif";
+  const macMono = "'SF Mono', Menlo, Monaco, monospace";
+  const winSans = "'Segoe UI', sans-serif";
+  const winSans2 = "Calibri, sans-serif";
+  const winSerif = "Cambria, Georgia, serif";
+  const winSerif2 = "'Palatino Linotype', Palatino, 'Book Antiqua', serif";
+  const winMono = "Consolas, 'Cascadia Code', monospace";
+
+  const fontThemes = [
+    { label: 'Editorial', heading: isMacSettings ? macSans : winSans, body: isMacSettings ? macSerif : winSerif, desc: 'Sans headings, serif body' },
+    { label: 'Magazine', heading: isMacSettings ? macSans2 : winSans2, body: isMacSettings ? macSerif2 : winSerif2, desc: 'Sans headings, serif body' },
+    { label: 'Notebook', heading: "Georgia, 'Times New Roman', serif", body: isMacSettings ? macSans : winSans2, desc: 'Serif headings, sans body' },
+    { label: 'Academic', heading: isMacSettings ? macSerif2 : winSerif2, body: isMacSettings ? macSans : winSans, desc: 'Serif headings, sans body' },
+    { label: 'Technical', heading: isMacSettings ? macSans : winSans, body: isMacSettings ? macMono : winMono, desc: 'Sans headings, mono body' },
+    { label: 'Manuscript', heading: "Georgia, 'Times New Roman', serif", body: isMacSettings ? macMono : winMono, desc: 'Serif headings, mono body' },
+    { label: 'Modern', heading: isMacSettings ? macSans : winSans, body: isMacSettings ? macSans : winSans, desc: 'Clean sans throughout' },
+    { label: 'Classic', heading: "Georgia, 'Times New Roman', serif", body: "Georgia, 'Times New Roman', serif", desc: 'Traditional serif throughout' },
+    { label: 'Literary', heading: isMacSettings ? macSerif2 : winSerif2, body: isMacSettings ? macSerif : winSerif, desc: 'Two-serif pairing' },
+    { label: 'Developer', heading: isMacSettings ? macMono : winMono, body: isMacSettings ? macMono : winMono, desc: 'Monospace everything' },
+  ];
+
+  const fontThemeRow = makeRow('Font Theme', 'Choose a heading + body font pairing. Click to preview live.');
+
+  const currentBodyFont = currentFontFamily || fontThemes[0].body;
+  const currentHeadingFont = computed.getPropertyValue('--mikedown-heading-font-family').trim() || fontThemes[0].heading;
+  const originalBody = currentBodyFont;
+  const originalHeading = currentHeadingFont;
+  let selectedBody = currentBodyFont;
+  let selectedHeading = currentHeadingFont;
+
+  // Find current theme
+  const currentTheme = fontThemes.find(t => t.body === currentBodyFont && t.heading === currentHeadingFont);
+  const currentThemeLabel = currentTheme ? currentTheme.label : 'Custom';
+
+  // Current indicator + revert
+  const themeCurrentRow = document.createElement('div');
+  themeCurrentRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px';
+  const themeIndicator = document.createElement('span');
+  themeIndicator.style.cssText = 'font-size:13px;color:#cccccc';
+  themeIndicator.textContent = `Current: ${currentThemeLabel}`;
+  const themeRevertBtn = document.createElement('button');
+  themeRevertBtn.textContent = 'Revert';
+  themeRevertBtn.style.cssText = 'padding:3px 10px;background:transparent;color:#cccccc;border:1px solid rgba(128,128,128,0.4);border-radius:3px;cursor:pointer;font-size:12px;display:none';
+  themeRevertBtn.addEventListener('click', () => {
+    selectedBody = originalBody;
+    selectedHeading = originalHeading;
+    document.documentElement.style.setProperty('--mikedown-font-family', originalBody);
+    document.documentElement.style.setProperty('--mikedown-heading-font-family', originalHeading);
+    themeRevertBtn.style.display = 'none';
+    updateThemeItems();
   });
+  themeCurrentRow.appendChild(themeIndicator);
+  themeCurrentRow.appendChild(themeRevertBtn);
+  fontThemeRow.appendChild(themeCurrentRow);
+
+  // Theme list
+  const themeList = document.createElement('div');
+  themeList.setAttribute('tabindex', '0');
+  themeList.style.cssText = 'max-height:400px;overflow-y:auto;border:1px solid rgba(128,128,128,0.25);border-radius:6px;background:#1e1e1e;outline:none';
+
+  const themeItems: Array<{ el: HTMLElement; theme: typeof fontThemes[0] }> = [];
+
+  function updateThemeItems(): void {
+    themeItems.forEach(({ el, theme }) => {
+      const isActive = selectedBody === theme.body && selectedHeading === theme.heading;
+      el.style.background = isActive ? '#0e639c' : '';
+      const nameEl = el.querySelector('[data-role="name"]') as HTMLElement;
+      const descEl = el.querySelector('[data-role="desc"]') as HTMLElement;
+      const headEl = el.querySelector('[data-role="heading"]') as HTMLElement;
+      const bodyEl = el.querySelector('[data-role="body"]') as HTMLElement;
+      if (nameEl) nameEl.style.color = isActive ? '#ffffff' : '#e0e0e0';
+      if (descEl) descEl.style.color = isActive ? 'rgba(255,255,255,0.7)' : '#888';
+      if (headEl) headEl.style.color = isActive ? '#ffffff' : '#cccccc';
+      if (bodyEl) bodyEl.style.color = isActive ? 'rgba(255,255,255,0.8)' : '#999';
+    });
+  }
+
+  fontThemes.forEach(theme => {
+    const item = document.createElement('div');
+    item.style.cssText = 'padding:10px 12px;cursor:pointer;border-radius:4px;margin:2px 4px;transition:background 0.06s ease';
+
+    const topRow = document.createElement('div');
+    topRow.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px';
+    const nameSpan = document.createElement('span');
+    nameSpan.setAttribute('data-role', 'name');
+    nameSpan.textContent = theme.label;
+    nameSpan.style.cssText = 'font-size:13px;font-weight:600;color:#e0e0e0';
+    const descSpan = document.createElement('span');
+    descSpan.setAttribute('data-role', 'desc');
+    descSpan.textContent = theme.desc;
+    descSpan.style.cssText = 'font-size:11px;color:#888';
+    topRow.appendChild(nameSpan);
+    topRow.appendChild(descSpan);
+
+    const preview = document.createElement('div');
+    preview.style.cssText = 'background:rgba(0,0,0,0.2);border-radius:4px;padding:10px 12px;margin-top:4px';
+
+    const headingSample = document.createElement('div');
+    headingSample.setAttribute('data-role', 'heading');
+    headingSample.textContent = 'The Quick Brown Fox Jumps';
+    headingSample.style.cssText = `font-family:${theme.heading};font-size:18px;font-weight:700;color:#cccccc;line-height:1.3;margin-bottom:4px`;
+    const bodySample = document.createElement('div');
+    bodySample.setAttribute('data-role', 'body');
+    bodySample.textContent = 'Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump! 0123456789 — "quotes" & more.';
+    bodySample.style.cssText = `font-family:${theme.body};font-size:14px;color:#999;line-height:1.5`;
+
+    preview.appendChild(headingSample);
+    preview.appendChild(bodySample);
+
+    item.appendChild(topRow);
+    item.appendChild(preview);
+
+    item.addEventListener('mouseenter', () => {
+      if (selectedBody !== theme.body || selectedHeading !== theme.heading) {
+        item.style.background = 'rgba(255,255,255,0.08)';
+      }
+    });
+    item.addEventListener('mouseleave', () => {
+      if (selectedBody !== theme.body || selectedHeading !== theme.heading) {
+        item.style.background = '';
+      }
+    });
+    item.addEventListener('click', () => {
+      selectedBody = theme.body;
+      selectedHeading = theme.heading;
+      document.documentElement.style.setProperty('--mikedown-font-family', theme.body);
+      document.documentElement.style.setProperty('--mikedown-heading-font-family', theme.heading);
+      themeRevertBtn.style.display = (selectedBody !== originalBody || selectedHeading !== originalHeading) ? '' : 'none';
+      updateThemeItems();
+    });
+
+    themeItems.push({ el: item, theme });
+    themeList.appendChild(item);
+  });
+
+  // Keyboard navigation
+  let themeFocusIdx = themeItems.findIndex(ti => ti.theme.body === selectedBody && ti.theme.heading === selectedHeading);
+  if (themeFocusIdx < 0) themeFocusIdx = 0;
+
+  themeList.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      themeFocusIdx = e.key === 'ArrowDown'
+        ? Math.min(themeFocusIdx + 1, themeItems.length - 1)
+        : Math.max(themeFocusIdx - 1, 0);
+      const { el, theme } = themeItems[themeFocusIdx];
+      selectedBody = theme.body;
+      selectedHeading = theme.heading;
+      document.documentElement.style.setProperty('--mikedown-font-family', theme.body);
+      document.documentElement.style.setProperty('--mikedown-heading-font-family', theme.heading);
+      themeRevertBtn.style.display = (selectedBody !== originalBody || selectedHeading !== originalHeading) ? '' : 'none';
+      updateThemeItems();
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  });
+
+  themeList.addEventListener('click', () => {
+    themeList.focus();
+    themeFocusIdx = themeItems.findIndex(ti => ti.theme.body === selectedBody && ti.theme.heading === selectedHeading);
+    if (themeFocusIdx < 0) themeFocusIdx = 0;
+  });
+
+  fontThemeRow.appendChild(themeList);
+
+  // Apply initial styling
+  updateThemeItems();
+
+  // Wire selectedFontValue for save handler
+  let selectedFontValue = selectedBody;
 
   // ── Content Width
   const widthRow = makeRow('Content Width', 'Max width of the editor content area. Use "100%" for full width or a value like "800px".');
@@ -579,7 +743,8 @@ function showSettingsModal(): void {
       type: 'saveSettings',
       settings: {
         fontSize: parseInt(fontSizeInput.value, 10),
-        fontFamily: fontFamilyInput.value,
+        fontFamily: selectedBody,
+        headingFontFamily: selectedHeading,
         contentWidth: widthSelect.value,
       }
     });
@@ -591,7 +756,7 @@ function showSettingsModal(): void {
   // Assemble
   modal.appendChild(title);
   modal.appendChild(fontSizeRow);
-  modal.appendChild(fontFamilyRow);
+  modal.appendChild(fontThemeRow);
   modal.appendChild(widthRow);
   modal.appendChild(footer);
   overlay.appendChild(modal);
@@ -875,6 +1040,162 @@ function buildCondensedToolbar(editor: Editor): void {
 
   const settingsBtn = makeBtn('settings', 'Settings', icons.gear);
   settingsBtn.addEventListener('click', () => showSettingsModal());
+
+  // ── Font quick-switcher button ──────────────────────────────────────────
+  const fontIcon = toolbarSvg('<text x="3" y="12" font-size="11" font-weight="700" fill="currentColor" stroke="none" font-family="serif">A</text><text x="10" y="12" font-size="8" fill="currentColor" stroke="none" font-family="sans-serif">a</text>', 0);
+  const fontBtn = makeBtn('fontPicker', 'Font Theme', fontIcon);
+  fontBtn.addEventListener('click', () => {
+    // Remove existing dropdown if open
+    document.getElementById('mikedown-font-quick-picker')?.remove();
+
+    const isMac = navigator.platform?.startsWith('Mac') || navigator.userAgent.includes('Macintosh');
+
+    // Font themes — curated heading + body pairings with serif/sans contrast
+    const macSans = "'Avenir Next', Avenir, sans-serif";
+    const macSans2 = "'Helvetica Neue', Helvetica, sans-serif";
+    const macSerif = "Charter, 'Bitstream Charter', Georgia, serif";
+    const macSerif2 = "Palatino, 'Palatino Linotype', 'Book Antiqua', serif";
+    const macMono = "'SF Mono', Menlo, Monaco, monospace";
+    const winSans = "'Segoe UI', sans-serif";
+    const winSans2 = "Calibri, sans-serif";
+    const winSerif = "Cambria, Georgia, serif";
+    const winSerif2 = "'Palatino Linotype', Palatino, 'Book Antiqua', serif";
+    const winMono = "Consolas, 'Cascadia Code', monospace";
+
+    const fontThemes: Array<{ label: string; heading: string; body: string; desc: string }> = [
+      // ── Mixed: sans headings + serif body
+      {
+        label: 'Editorial',
+        heading: isMac ? macSans : winSans,
+        body: isMac ? macSerif : winSerif,
+        desc: 'Sans headings, serif body',
+      },
+      {
+        label: 'Magazine',
+        heading: isMac ? macSans2 : winSans2,
+        body: isMac ? macSerif2 : winSerif2,
+        desc: 'Sans headings, serif body',
+      },
+      // ── Mixed: serif headings + sans body
+      {
+        label: 'Notebook',
+        heading: "Georgia, 'Times New Roman', serif",
+        body: isMac ? macSans : winSans2,
+        desc: 'Serif headings, sans body',
+      },
+      {
+        label: 'Academic',
+        heading: isMac ? macSerif2 : winSerif2,
+        body: isMac ? macSans : winSans,
+        desc: 'Serif headings, sans body',
+      },
+      // ── Mixed: sans headings + mono body
+      {
+        label: 'Technical',
+        heading: isMac ? macSans : winSans,
+        body: isMac ? macMono : winMono,
+        desc: 'Sans headings, mono body',
+      },
+      // ── Mixed: serif headings + mono body
+      {
+        label: 'Manuscript',
+        heading: "Georgia, 'Times New Roman', serif",
+        body: isMac ? macMono : winMono,
+        desc: 'Serif headings, mono body',
+      },
+      // ── Uniform: all same family
+      {
+        label: 'Modern',
+        heading: isMac ? macSans : winSans,
+        body: isMac ? macSans : winSans,
+        desc: 'Clean sans throughout',
+      },
+      {
+        label: 'Classic',
+        heading: "Georgia, 'Times New Roman', serif",
+        body: "Georgia, 'Times New Roman', serif",
+        desc: 'Traditional serif throughout',
+      },
+      {
+        label: 'Literary',
+        heading: isMac ? macSerif2 : winSerif2,
+        body: isMac ? macSerif : winSerif,
+        desc: 'Two-serif pairing',
+      },
+      {
+        label: 'Developer',
+        heading: isMac ? macMono : winMono,
+        body: isMac ? macMono : winMono,
+        desc: 'Monospace everything',
+      },
+    ];
+
+    const dropdown = document.createElement('div');
+    dropdown.id = 'mikedown-font-quick-picker';
+    dropdown.style.cssText = 'position:absolute;top:100%;right:0;z-index:1100;background:#252526;border:1px solid rgba(128,128,128,0.3);border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,0.3);padding:4px;min-width:300px;max-height:400px;overflow-y:auto';
+
+    const currentBody = getComputedStyle(document.documentElement).getPropertyValue('--mikedown-font-family').trim();
+    const currentHeading = getComputedStyle(document.documentElement).getPropertyValue('--mikedown-heading-font-family').trim();
+
+    fontThemes.forEach(theme => {
+      const isActive = currentBody === theme.body && (currentHeading === theme.heading || (!currentHeading && theme.heading === theme.body));
+      const item = document.createElement('div');
+      item.style.cssText = `padding:10px 12px;cursor:pointer;border-radius:4px;margin:2px 0;color:${isActive ? '#ffffff' : '#e0e0e0'};background:${isActive ? '#0e639c' : 'transparent'}`;
+
+      // Theme name + description
+      const topRow = document.createElement('div');
+      topRow.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px';
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = theme.label;
+      nameSpan.style.cssText = 'font-size:13px;font-weight:600';
+      const descSpan = document.createElement('span');
+      descSpan.textContent = theme.desc;
+      descSpan.style.cssText = `font-size:11px;color:${isActive ? 'rgba(255,255,255,0.7)' : '#888'}`;
+      topRow.appendChild(nameSpan);
+      topRow.appendChild(descSpan);
+
+      // Preview: heading sample + body sample
+      const preview = document.createElement('div');
+      const headingSample = document.createElement('div');
+      headingSample.textContent = 'Heading Preview';
+      headingSample.style.cssText = `font-family:${theme.heading};font-size:15px;font-weight:600;color:${isActive ? '#ffffff' : '#cccccc'}`;
+      const bodySample = document.createElement('div');
+      bodySample.textContent = 'Body text looks like this in the editor.';
+      bodySample.style.cssText = `font-family:${theme.body};font-size:13px;color:${isActive ? 'rgba(255,255,255,0.8)' : '#999'}`;
+      preview.appendChild(headingSample);
+      preview.appendChild(bodySample);
+
+      item.appendChild(topRow);
+      item.appendChild(preview);
+
+      item.addEventListener('mouseenter', () => {
+        if (!isActive) item.style.background = 'rgba(255,255,255,0.08)';
+      });
+      item.addEventListener('mouseleave', () => {
+        if (!isActive) item.style.background = isActive ? '#0e639c' : 'transparent';
+      });
+      item.addEventListener('click', () => {
+        document.documentElement.style.setProperty('--mikedown-font-family', theme.body);
+        document.documentElement.style.setProperty('--mikedown-heading-font-family', theme.heading);
+        dropdown.remove();
+        vscode.postMessage({ type: 'saveSettings', settings: { fontFamily: theme.body, headingFontFamily: theme.heading } });
+      });
+      dropdown.appendChild(item);
+    });
+
+    // Position relative to font button
+    fontBtn.style.position = 'relative';
+    fontBtn.appendChild(dropdown);
+
+    // Close on click outside
+    const closeHandler = (e: MouseEvent) => {
+      if (!dropdown.contains(e.target as Node) && e.target !== fontBtn) {
+        dropdown.remove();
+        document.removeEventListener('click', closeHandler, true);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+  });
 
   // ── Assemble ────────────────────────────────────────────────────────────
   toolbar.appendChild(textFormatBtn);
@@ -1908,6 +2229,9 @@ if (!editorContainer) {
     if (message.type === 'theme') {
       document.documentElement.style.setProperty(
         '--mikedown-font-family', message.fontFamily || ''
+      );
+      document.documentElement.style.setProperty(
+        '--mikedown-heading-font-family', (message as any).headingFontFamily || ''
       );
       document.documentElement.style.setProperty(
         '--mikedown-font-size', `${message.fontSize || 17}px`
