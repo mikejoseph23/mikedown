@@ -6,7 +6,7 @@ All notable changes to MikeDown Editor are documented here.
 
 ### Added
 
-- **WYSIWYG Editor** — Typora-style live preview editing for Markdown files in VS Code
+- **WYSIWYG Editor** — True live preview editing for Markdown files in VS Code
 - **Full GFM Support** — Headings, bold, italic, strikethrough, links, images, tables, task lists, blockquotes, code blocks, horizontal rules
 - **Toolbar** — 21-button formatting toolbar with keyboard shortcuts (Cmd+B, Cmd+I, etc.)
 - **Source Mode Toggle** — Switch between WYSIWYG and raw Markdown (Cmd+/) with CodeMirror 6

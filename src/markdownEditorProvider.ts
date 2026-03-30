@@ -302,7 +302,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
           // Find all .md/.markdown files in workspace
           const mdFiles = await vscode.workspace.findFiles('**/*.{md,markdown}', '**/node_modules/**', 200);
-          const suggestions: Array<{ label: string; href: string; type: 'file' | 'anchor' }> = [];
+          const suggestions: Array<{ label: string; href: string; type: 'file' | 'anchor'; level?: number }> = [];
 
           // Add file suggestions with relative paths
           for (const fileUri of mdFiles) {
@@ -312,13 +312,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             suggestions.push({ label: path.basename(fileUri.fsPath), href, type: 'file' });
           }
 
-          // Add heading anchors for the current document
+          // Add heading anchors for the current document with hierarchy level
           const text = document.getText();
-          const headingRegex = /^#{1,6}\s+(.+)$/gm;
+          const headingRegex = /^(#{1,6})\s+(.+)$/gm;
           let m: RegExpExecArray | null;
           while ((m = headingRegex.exec(text)) !== null) {
-            const anchor = '#' + githubAnchorId(m[1]);
-            suggestions.push({ label: m[1], href: anchor, type: 'anchor' });
+            const level = m[1].length;
+            const anchor = '#' + githubAnchorId(m[2]);
+            suggestions.push({ label: m[2], href: anchor, type: 'anchor', level });
           }
 
           webviewPanel.webview.postMessage({ type: 'linkSuggestions', suggestions });
@@ -333,11 +334,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             const content = Buffer.from(
               await vscode.workspace.fs.readFile(vscode.Uri.file(absPath))
             ).toString('utf8');
-            const headingRegex = /^#{1,6}\s+(.+)$/gm;
-            const anchors: Array<{ label: string; href: string; type: 'anchor' }> = [];
+            const headingRegex = /^(#{1,6})\s+(.+)$/gm;
+            const anchors: Array<{ label: string; href: string; type: 'anchor'; level?: number }> = [];
             let m: RegExpExecArray | null;
             while ((m = headingRegex.exec(content)) !== null) {
-              anchors.push({ label: m[1], href: '#' + githubAnchorId(m[1]), type: 'anchor' });
+              anchors.push({ label: m[2], href: '#' + githubAnchorId(m[2]), type: 'anchor', level: m[1].length });
             }
             webviewPanel.webview.postMessage({ type: 'fileHeadings', filePath: targetPath, anchors });
           } catch { /* file not found — silently ignore */ }

@@ -7,16 +7,35 @@
   border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.25));
   box-shadow: 0 6px 20px rgba(0,0,0,0.2), 0 0 1px rgba(0,0,0,0.1);
   border-radius: 6px;
-  max-height: 240px;
+  max-height: 320px;
   overflow-y: auto;
   padding: 4px;
   user-select: none;
   animation: lac-slide-in 0.08s ease-out;
+  scroll-padding-top: 28px;
 }
 
 @keyframes lac-slide-in {
   from { opacity: 0; transform: translateY(-2px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Section headers */
+.lac-section-header {
+  padding: 6px 10px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--vscode-descriptionForeground, rgba(204,204,204,0.6));
+  user-select: none;
+  pointer-events: none;
+}
+
+.lac-section-header:not(:first-child) {
+  margin-top: 4px;
+  border-top: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.15));
+  padding-top: 8px;
 }
 
 .lac-item {
@@ -29,6 +48,7 @@
   white-space: nowrap;
   border-radius: 4px;
   transition: background 0.06s ease;
+  color: #d4d4d4;
 }
 
 .lac-item:hover,
@@ -42,15 +62,15 @@
   flex-shrink: 0;
   width: 16px;
   text-align: center;
-  opacity: 0.8;
+  color: #d4d4d4;
 }
 
 .lac-label {
-  color: var(--vscode-editor-foreground);
+  color: #d4d4d4;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 160px;
+  max-width: 200px;
 }
 
 .lac-item:hover .lac-label,
@@ -59,16 +79,26 @@
 }
 
 .lac-href {
-  color: var(--vscode-descriptionForeground, rgba(204,204,204,0.6));
+  color: #b0b0b0;
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
+  flex: 1;
+  min-width: 0;
   font-family: var(--vscode-editor-font-family, monospace);
 }
 
 .lac-item:hover .lac-href,
 .lac-item.lac-active .lac-href {
   color: inherit;
-  opacity: 0.75;
+  opacity: 0.8;
+}
+
+/* External URL entry */
+.lac-item.lac-external {
+  font-style: italic;
+}
+
+.lac-item.lac-external .lac-label {
+  font-style: italic;
 }

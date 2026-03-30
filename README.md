@@ -1,6 +1,6 @@
 # MikeDown Editor
 
-**A Typora-style WYSIWYG Markdown editor for VS Code.**
+**A true WYSIWYG Markdown editor for VS Code.**
 
 > **Beta** -- MikeDown Editor is under active development. It is usable today but expect rough edges. Bug reports and feedback are welcome on [GitHub](https://github.com/mikejoseph23/mikedown).
 
@@ -8,9 +8,19 @@
 
 ## Why MikeDown?
 
-For years I relied on VS Code's built-in Markdown Preview -- source on one side, rendered preview on the other. It works, but the split-pane workflow gets cumbersome fast, especially when you have several markdown files open at once. I went looking for something better and found [Typora](https://typora.io/), which is genuinely excellent: smooth, polished, true WYSIWYG editing. But Typora is a standalone app. Opening markdown files outside VS Code means giving up Git integration, multi-language file support, and the entire extensions ecosystem.
+Hi, I'm Mike — the creator of MikeDown, for lack of a better name. As pretty much the sole user of this extension, the name works for now.
 
-MikeDown exists to close that gap. It brings a Typora-quality WYSIWYG editing experience directly into VS Code so you can have multiple markdown files open across panes, windows, and monitors -- all without leaving the editor you already use for everything else.
+For years I relied on [Markdown Preview Enhanced](https://marketplace.visualstudio.com/items?itemName=shd101wyy.markdown-preview-enhanced) -- source on one side, rendered preview on the other. It works, but the split-pane workflow gets cumbersome fast, especially when you have several markdown files open at once. There are some excellent standalone markdown editors out there, but using a separate app means giving up Git integration, multi-language file support, and the entire VS Code extensions ecosystem.
+
+MikeDown exists to close that gap. It is an open-source, MIT-licensed WYSIWYG Markdown editor that lives entirely inside VS Code -- so you can have multiple markdown files open across panes, windows, and monitors, all without leaving the editor you already use for everything else.
+
+*Multiple markdown documents open side by side, each with full WYSIWYG editing:*
+
+![Multiple markdown documents open side by side in MikeDown](assets/screenshots/split-view-mark-down.jpg)
+
+*Markdown editing alongside code -- no separate app, no context switching:*
+
+![MikeDown editor next to a code file in split view](assets/screenshots/split-view-code.jpg)
 
 ## Features
 
@@ -18,19 +28,25 @@ MikeDown exists to close that gap. It brings a Typora-quality WYSIWYG editing ex
 
 Edit markdown visually using a TipTap/ProseMirror-based editor. What you see is what you get -- headings render as headings, lists render as lists, and you never have to look at raw syntax unless you want to.
 
-![Light mode editor](assets/screenshots/light-mode-editor.jpg)
+*WYSIWYG editing in light mode -- task lists, headings, and formatted text rendered live:*
+
+![WYSIWYG editing in light mode](assets/screenshots/light-mode-editor.jpg)
 
 ### Source Mode Toggle
 
 Press `Cmd+/` (Mac) or `Ctrl+/` (Windows/Linux) to instantly switch between WYSIWYG and raw markdown. Useful for fine-tuning syntax or pasting raw content.
 
-![Source mode](assets/screenshots/source-mode.jpg)
+*Source mode showing raw markdown with the toolbar still accessible:*
+
+![Source mode showing raw markdown](assets/screenshots/source-mode.jpg)
 
 ### Apple Notes-Style Toolbar
 
 A condensed toolbar with dropdown menus for formatting, insert, and export actions. Clean and out of the way until you need it.
 
-![Dropdown menu](assets/screenshots/dropdown-menu.jpg)
+*Toolbar dropdown for inserting lists, blockquotes, and code blocks:*
+
+![Toolbar dropdown menu](assets/screenshots/dropdown-menu.jpg)
 
 ### Smart Paste
 
@@ -45,6 +61,10 @@ Full GFM support including tables, task lists, strikethrough, and fenced code bl
 - **Cmd+Click** (or Ctrl+Click) to follow links to files, headings, or URLs
 - **Right-click** any link for Open Link / Open Link in New Tab options
 - **Link autocomplete**: start typing a link and get fuzzy-matched suggestions from workspace files and headings
+
+*Right-click context menu with formatting, link, and insert options:*
+
+![Right-click context menu in MikeDown](assets/screenshots/context-menu.jpg)
 
 ### Broken Link Detection
 
@@ -84,21 +104,12 @@ Switch between light and dark mode inside MikeDown editor tabs without changing 
 
 Images render inline. Click an image to access an edit popover for adjusting source, alt text, and title.
 
-![Split view with multiple markdown files](assets/screenshots/split-view-mark-down.jpg)
+## Getting Started
 
-![Split view with markdown and code](assets/screenshots/split-view-code.jpg)
-
-![Context menu](assets/screenshots/context-menu.jpg)
-
-## What Makes MikeDown Different
-
-Several of these features are not available in any other VS Code markdown extension:
-
-- **Broken link detection** with visual underlines for missing targets
-- **Link autocomplete** with workspace-wide fuzzy file and heading search
-- **Backlink Explorer** panel showing reverse references
-- **In-editor Find and Replace** in WYSIWYG mode
-- **Apple Notes-style condensed toolbar** with dropdown menus
+1. Install **MikeDown Editor** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor).
+2. Open any `.md` or `.markdown` file.
+3. Right-click the file in the Explorer or editor tab and choose **Open with MikeDown**, or run the command `Open with MikeDown` from the Command Palette.
+4. To make MikeDown the default editor for all markdown files, enable `mikedown.defaultEditor` in Settings.
 
 ## Keyboard Shortcuts
 
@@ -133,20 +144,11 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 | `mikedown.normalizationStyle.listMarker` | `-` | Unordered list marker when normalization is enabled |
 | `mikedown.normalizationStyle.headingStyle` | `atx` | Heading style when normalization is enabled: `atx` (`# Heading`) or `setext` (underline) |
 
-## Getting Started
-
-1. Install **MikeDown Editor** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor).
-2. Open any `.md` or `.markdown` file.
-3. Right-click the file in the Explorer or editor tab and choose **Open with MikeDown**, or run the command `Open with MikeDown` from the Command Palette.
-4. To make MikeDown the default editor for all markdown files, enable `mikedown.defaultEditor` in Settings.
-
 ## Requirements
 
 - VS Code 1.109.0 or later
 
 ## Known Limitations
-
-This is a beta release. Some areas that are still being refined:
 
 - Complex nested markdown structures may not round-trip perfectly in all cases
 - Very large files (10,000+ lines) may have slower initial load times

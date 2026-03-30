@@ -38,7 +38,7 @@ import {
 import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu } from './contextmenu';
 import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
 import { initTableDrag, clearCellSelection, clearDragHandles } from './tabledrag';
-import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete } from './linkautocomplete';
+import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks } from './linkautocomplete';
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates } from './toolbar-dropdown';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
@@ -193,7 +193,7 @@ function showLinkDialog(editor: Editor): void {
     'border:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.35))',
     'border-radius:8px',
     'padding:16px 20px',
-    'min-width:360px',
+    'min-width:420px',
     'box-shadow:0 8px 24px rgba(0,0,0,0.4)',
     'display:flex',
     'flex-direction:column',
@@ -264,10 +264,11 @@ function showLinkDialog(editor: Editor): void {
   overlay.appendChild(dialog);
   document.body.appendChild(overlay);
 
-  // Wire autocomplete
+  // Wire autocomplete with links already in the document
+  const existingDocLinks = collectDocLinks();
   initLinkAutocomplete(urlInput, (href) => {
     urlInput.value = href;
-  });
+  }, existingDocLinks);
 
   // Focus the input
   setTimeout(() => urlInput.focus(), 0);
@@ -293,8 +294,9 @@ function showLinkDialog(editor: Editor): void {
     if (e.target === overlay) { cleanup(); editor.commands.focus(); }
   });
   urlInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); confirm(); }
-    if (e.key === 'Escape') { cleanup(); editor.commands.focus(); }
+    // Let autocomplete handle Enter/Escape when its dropdown is active
+    if (e.key === 'Enter' && !isDropdownActive()) { e.preventDefault(); confirm(); }
+    if (e.key === 'Escape' && !isDropdownActive()) { cleanup(); editor.commands.focus(); }
   });
 }
 
@@ -658,7 +660,7 @@ const toolbarIcons = {
   task: toolbarSvg('<rect x="2" y="4" width="5" height="5" rx="1"/><polyline points="3.5 6.5 4.5 7.5 6 5.5"/><line x1="9" y1="5" x2="14" y2="5"/><line x1="9" y1="9" x2="14" y2="9"/><line x1="9" y1="13" x2="12" y2="13"/>'),
   quote: toolbarSvg('<line x1="3" y1="3" x2="3" y2="13"/><line x1="6" y1="5" x2="13" y2="5"/><line x1="6" y1="8" x2="13" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/>'),
   codeBlock: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="2"/><polyline points="5.5 5.5 4 8 5.5 10.5"/><polyline points="10.5 5.5 12 8 10.5 10.5"/>'),
-  link: toolbarSvg('<path d="M7 9l2-2m-1.5 3.5L9 9m-2.5-2L5 8.5"/><path d="M9.5 5.5l1-1a2 2 0 0 1 2.83 2.83l-1 1"/><path d="M6.5 10.5l-1 1a2 2 0 0 1-2.83-2.83l1-1"/>'),
+  link: toolbarSvg('<path d="M6.5 9.5l3-3"/><path d="M9 5l1.5-1.5a2.12 2.12 0 0 1 3 3L12 8"/><path d="M7 11l-1.5 1.5a2.12 2.12 0 0 1-3-3L4 8"/>'),
   image: toolbarSvg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="5.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/><polyline points="14 10.5 10.5 7 6 11.5 4.5 10 2 12.5"/>'),
   table: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="2" y1="6" x2="14" y2="6"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="6" y1="2" x2="6" y2="14"/><line x1="10" y1="2" x2="10" y2="14"/>'),
   hr: toolbarSvg('<line x1="2" y1="8" x2="14" y2="8"/><circle cx="5" cy="8" r="0.5" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="0.5" fill="currentColor" stroke="none"/><circle cx="11" cy="8" r="0.5" fill="currentColor" stroke="none"/>'),
