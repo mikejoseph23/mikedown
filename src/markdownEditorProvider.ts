@@ -440,8 +440,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    */
   private sendThemeToWebview(webview: vscode.Webview): void {
     const config = vscode.workspace.getConfiguration('mikedown');
-    const bodyFont = config.get<string>('fontFamily', '') || "'Avenir Next', Avenir, 'Segoe UI', Calibri, sans-serif";
-    const headingFont = config.get<string>('headingFontFamily', '') || "Palatino, 'Palatino Linotype', 'Book Antiqua', serif";
+    const bodyFont = config.get<string>('fontFamily', '') || "Charter, 'Bitstream Charter', Cambria, Georgia, serif";
+    const headingFont = config.get<string>('headingFontFamily', '') || "'Avenir Next', Avenir, 'Segoe UI', Calibri, sans-serif";
     webview.postMessage({
       type: 'theme',
       fontFamily: bodyFont,

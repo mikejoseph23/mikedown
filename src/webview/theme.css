@@ -3,7 +3,7 @@
 body {
   background: var(--vscode-editor-background);
   color: var(--vscode-editor-foreground);
-  font-family: var(--mikedown-font-family, 'Avenir Next', Avenir, 'Segoe UI', Calibri, sans-serif);
+  font-family: var(--mikedown-font-family, Charter, 'Bitstream Charter', Cambria, Georgia, serif);
   font-size: var(--mikedown-font-size, 17px);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;

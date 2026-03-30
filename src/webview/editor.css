@@ -15,7 +15,7 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  font-family: var(--mikedown-font-family, 'Avenir Next', Avenir, 'Segoe UI', Calibri, sans-serif);
+  font-family: var(--mikedown-font-family, Charter, 'Bitstream Charter', Cambria, Georgia, serif);
   font-size: var(--vscode-editor-font-size, 14px);
   color: var(--vscode-editor-foreground, #d4d4d4);
   background-color: var(--vscode-editor-background, #1e1e1e);

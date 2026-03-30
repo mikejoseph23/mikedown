@@ -6,11 +6,11 @@ MikeDown Editor is a WYSIWYG Markdown editor for VS Code, built on TipTap v2 / P
 
 ## Current Status
 
-**v1.0.10 is packaged (`mikedown-editor-1.0.10.vsix`) and ready to publish.** Font theme system added with 10 curated heading+body pairings. Default is "Academic" (Palatino headings + Avenir body).
+**v1.0.11 is packaged (`mikedown-editor-1.0.11.vsix`) and ready to publish.** Font theme system added with 10 curated heading+body pairings. Default is "Academic" (Palatino headings + Avenir body).
 
 - Just finished: font theme system (heading + body pairings with live preview in settings), Document Outline TreeView, link picker redesign, marketplace listing overhaul, activity bar sidebar icon (MikeDown logo)
 - Ready to publish: v1.0.10 vsix is built
-- Needs doing: retake all 7 marketplace screenshots — default font changed significantly from the original monospace; current screenshots in `assets/screenshots/` are stale
+- **BLOCKING before publish: retake all 7 marketplace screenshots.** Default font changed from monospace to Academic theme (Palatino headings + Avenir body). Every existing screenshot in `assets/screenshots/` shows the old font and will look wrong on the listing. See `assets/screenshots/README.md` for capture guide. Must repackage vsix after retaking since screenshots are bundled.
 - Known limitation: VS Code's built-in Outline panel says "The active editor cannot provide outline information" for custom editors — this is a VS Code API constraint. The custom "Document Outline" TreeView in the MikeDown sidebar is the workaround.
 
 ## What's Done
@@ -27,7 +27,7 @@ MikeDown Editor is a WYSIWYG Markdown editor for VS Code, built on TipTap v2 / P
 - MikeDown activity bar icon (monochrome M+arrow from main logo) with Document Outline + Backlinks panels
 - DocumentSymbolProvider for VS Code Outline (works when file also open in text editor)
 - Font theme system: 10 curated heading+body font pairings (Editorial, Magazine, Notebook, Academic, Technical, Manuscript, Modern, Classic, Literary, Developer), OS-aware font stacks, live preview cards in settings, `--mikedown-heading-font-family` CSS variable, keyboard navigation, revert button
-- Default theme: "Academic" — Palatino headings + Avenir body (Mac), Palatino headings + Segoe UI body (Windows)
+- Default theme: "Editorial" — Avenir headings + Charter body (Mac), Segoe UI headings + Cambria body (Windows)
 - Table editing: grid picker, contextual toolbar, drag handles, multi-cell selection
 - Find & Replace inside the WYSIWYG editor (ProseMirror decorations)
 - Code block syntax highlighting (192 languages via lowlight)
@@ -40,7 +40,7 @@ MikeDown Editor is a WYSIWYG Markdown editor for VS Code, built on TipTap v2 / P
 ## What's Next
 
 1. **Publish v1.0.10** to the VS Code Marketplace (manual vsix upload)
-2. **Retake all 7 marketplace screenshots** — default font is now Academic theme (Palatino headings + Avenir body). Current screenshots show old monospace default. See `assets/screenshots/README.md` for capture guide.
+2. **Retake all 7 marketplace screenshots** — default font is now Editorial theme (Avenir headings + Charter body). Current screenshots show old monospace default. See `assets/screenshots/README.md` for capture guide.
 3. **Test Document Outline** more thoroughly — active heading tracking, switching between files, large documents
 4. **Consider**: The built-in Outline panel limitation is worth noting in Known Limitations in README
 
@@ -76,7 +76,7 @@ assets/screenshots/               — 7 marketplace screenshots (STALE — need 
 
 ## Any Other Notes
 
-- **Publishing**: Currently using manual .vsix upload to the Marketplace. The vsix is at `mikedown-editor-1.0.10.vsix` in the project root.
+- **Publishing**: Currently using manual .vsix upload to the Marketplace. The vsix is at `mikedown-editor-1.0.11.vsix` in the project root.
 - **Font themes**: Heading and body fonts are separate CSS variables (`--mikedown-font-family`, `--mikedown-heading-font-family`). The settings panel has a themed picker with live preview cards. The toolbar "Aa" button was removed — themes are accessed via the settings gear.
 - **Contrast fix**: The link autocomplete and font picker use hardcoded colors (`#d4d4d4`, `#e0e0e0`, etc.) instead of VS Code theme variables because the webview context doesn't resolve them reliably.
 - **Custom editor limitation**: VS Code's `DocumentSymbolProvider` populates the Outline panel but `revealRange` is a no-op for custom editors. The custom TreeView with `scrollToAnchor` messaging is the workaround.

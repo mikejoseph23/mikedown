@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — live preview editing, smart paste, source mode toggle, and export.",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "license": "MIT",
   "preview": true,
   "publisher": "interapp",
@@ -200,7 +200,7 @@
         },
         "mikedown.fontFamily": {
           "type": "string",
-          "default": "'Avenir Next', Avenir, 'Segoe UI', Calibri, sans-serif",
+          "default": "Charter, 'Bitstream Charter', Cambria, Georgia, serif",
           "markdownDescription": "Font family for the WYSIWYG editing area. Use the settings panel in the editor (gear icon) to preview fonts live.",
           "enumDescriptions": [
             "System Default — native OS font",
