@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — live preview editing, smart paste, source mode toggle, and export.",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "license": "MIT",
   "preview": true,
   "publisher": "interapp",
@@ -41,7 +41,12 @@
   "main": "./dist/extension.js",
   "contributes": {
     "views": {
-      "explorer": [
+      "mikedown-sidebar": [
+        {
+          "id": "mikedown.outline",
+          "name": "Document Outline",
+          "when": "resourceExtname == .md || resourceExtname == .markdown"
+        },
         {
           "id": "mikedown.backlinks",
           "name": "Backlinks",
@@ -50,7 +55,13 @@
       ]
     },
     "viewsContainers": {
-      "activitybar": []
+      "activitybar": [
+        {
+          "id": "mikedown-sidebar",
+          "title": "MikeDown",
+          "icon": "images/icon-sidebar.svg"
+        }
+      ]
     },
     "customEditors": [
       {

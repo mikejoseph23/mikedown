@@ -1568,6 +1568,56 @@ if (!editorContainer) {
     }, 500);
   });
 
+  // ── Active heading tracking (reports scroll position for Document Outline) ──
+  {
+    const editorContainer = document.querySelector('.ProseMirror')?.parentElement;
+    let lastReportedAnchor = '';
+    let scrollTimer: number | undefined;
+
+    function reportActiveHeading(): void {
+      if (!editorContainer) return;
+      const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
+      const containerRect = editorContainer.getBoundingClientRect();
+      let activeHeading: HTMLElement | null = null;
+
+      for (const h of headings) {
+        const rect = h.getBoundingClientRect();
+        if (rect.top <= containerRect.top + 50) {
+          activeHeading = h;
+        } else {
+          break;
+        }
+      }
+
+      // If no heading has scrolled past the top, use the first one
+      if (!activeHeading && headings.length > 0) {
+        activeHeading = headings[0];
+      }
+
+      if (activeHeading) {
+        const text = activeHeading.textContent?.trim() || '';
+        const anchor = text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+        if (anchor && anchor !== lastReportedAnchor) {
+          lastReportedAnchor = anchor;
+          vscode.postMessage({ type: 'activeHeading', anchor });
+        }
+      }
+    }
+
+    if (editorContainer) {
+      editorContainer.addEventListener('scroll', () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = window.setTimeout(reportActiveHeading, 150) as unknown as number;
+      });
+    }
+
+    // Also report after content loads
+    editor.on('update', () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(reportActiveHeading, 300) as unknown as number;
+    });
+  }
+
   // ── M6a: Link click handler (Cmd+Click to navigate) ────────────────────────
   // Use mousedown in capture phase so it fires before ProseMirror's own
   // mousedown handler (which would consume the event for cursor placement).

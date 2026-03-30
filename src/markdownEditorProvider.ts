@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { getSettings } from './settings';
 import { writeRenderedHtml } from './export';
+import { parseHeadings } from './outlineProvider';
 
 /**
  * MikeDown custom text editor provider.
@@ -57,6 +58,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.onDidChangeViewState(e => {
       if (e.webviewPanel.active) {
         MarkdownEditorProvider.activePanel = webviewPanel;
+        // Update Document Outline when switching to this panel
+        const outProv = (MarkdownEditorProvider as any)._outlineProvider;
+        if (outProv) {
+          outProv.setHeadings(parseHeadings(document.getText()));
+        }
       } else if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
       }
@@ -152,14 +158,25 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           const cleaned = this.applyCleanup(message.content ?? '');
           await this.applyEdit(document, cleaned);
           webviewEditsInFlight--;
+          // Update Document Outline headings on content change
+          const editOutProv = (MarkdownEditorProvider as any)._outlineProvider;
+          if (editOutProv) {
+            editOutProv.setHeadings(parseHeadings(document.getText()));
+          }
           break;
         }
-        case 'ready':
+        case 'ready': {
           // Webview signals it is ready — send current content + settings
           this.updateWebview(document, webviewPanel.webview);
           this.sendThemeToWebview(webviewPanel.webview);
           this.sendSettingsToWebview(webviewPanel.webview);
+          // Populate Document Outline with initial headings
+          const outProv = (MarkdownEditorProvider as any)._outlineProvider;
+          if (outProv) {
+            outProv.setHeadings(parseHeadings(document.getText()));
+          }
           break;
+        }
         case 'stats':
           // M2d — Update status bar with plain text for word/character count.
           // The StatusBarManager is wired in extension.ts (M3/M14 hook).
@@ -354,6 +371,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             config.update('fontFamily', settings.fontFamily, vscode.ConfigurationTarget.Global);
           }
           vscode.window.showInformationMessage('MikeDown settings saved.');
+          break;
+        }
+        case 'activeHeading': {
+          const outlineProvider = (MarkdownEditorProvider as any)._outlineProvider;
+          if (outlineProvider && message.anchor) {
+            outlineProvider.setActiveAnchor(message.anchor);
+          }
           break;
         }
         default:
@@ -604,7 +628,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading';
   content?: string;
   plainText?: string;
   href?: string;
@@ -613,6 +637,7 @@ interface WebviewMessage {
   filePath?: string;
   /** Optional override for link navigation behavior (from context menu actions). */
   behavior?: 'navigateCurrentTab' | 'openNewTab';
+  anchor?: string;
 }
 
 /**

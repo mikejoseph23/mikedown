@@ -3,6 +3,7 @@ import { MarkdownEditorProvider } from './markdownEditorProvider';
 import { StatusBarManager } from './statusBar';
 import { exportViaPrint } from './export';
 import { BacklinkProvider } from './backlinkProvider';
+import { MarkdownOutlineSymbolProvider, DocumentOutlineProvider, parseHeadings } from './outlineProvider';
 
 /**
  * Called when the extension is activated.
@@ -160,6 +161,34 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Expose backlinkProvider on MarkdownEditorProvider for checkLinks handler
   (MarkdownEditorProvider as any)._backlinkProvider = backlinkProvider;
+
+  // Document Outline — custom TreeView with click-to-navigate
+  const outlineProvider = new DocumentOutlineProvider();
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('mikedown.outline', outlineProvider)
+  );
+
+  // DocumentSymbolProvider — populates VS Code's built-in Outline panel
+  context.subscriptions.push(
+    vscode.languages.registerDocumentSymbolProvider(
+      { language: 'markdown', scheme: 'file' },
+      new MarkdownOutlineSymbolProvider(),
+      { label: 'MikeDown Headings' }
+    )
+  );
+
+  // Reveal heading command — used by the Document Outline tree items
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.revealHeading', (anchor: string) => {
+      const panel = MarkdownEditorProvider.activePanel;
+      if (panel) {
+        panel.webview.postMessage({ type: 'scrollToAnchor', anchor });
+      }
+    })
+  );
+
+  // Expose outlineProvider so MarkdownEditorProvider can update it
+  (MarkdownEditorProvider as any)._outlineProvider = outlineProvider;
 }
 
 /**
