@@ -74,10 +74,25 @@ images/
 assets/screenshots/               — 7 marketplace screenshots (STALE — need retaking with new font default)
 ```
 
+## Recent Git Log
+
+```
+df1cf2d Update website and promo video with screenshots and new features
+11e47d0 Switch default font theme to Editorial, bump to v1.0.11
+ea2ef6b Add font theme system, Document Outline, link picker redesign (v1.0.10)
+596b30c Add Document Outline panel and activity bar sidebar (v1.0.9)
+1282a10 Update marketplace listing and redesign link picker
+e2fd4c0 Resume prompt checkin
+8cc335d Update marketplace listing: new icon, screenshots, fix URLs
+0eaa6ae Add .playwright-cli/ to gitignore
+```
+
 ## Any Other Notes
 
 - **Publishing**: Currently using manual .vsix upload to the Marketplace. The vsix is at `mikedown-editor-1.0.11.vsix` in the project root.
-- **Font themes**: Heading and body fonts are separate CSS variables (`--mikedown-font-family`, `--mikedown-heading-font-family`). The settings panel has a themed picker with live preview cards. The toolbar "Aa" button was removed — themes are accessed via the settings gear.
+- **Font themes**: Heading and body fonts are separate CSS variables (`--mikedown-font-family`, `--mikedown-heading-font-family`). The settings panel has a themed picker with live preview cards. The toolbar "Aa" button was removed — themes are accessed via the settings gear. Default is "Editorial" (Avenir headings + Charter body on Mac, Segoe UI headings + Cambria body on Windows).
 - **Contrast fix**: The link autocomplete and font picker use hardcoded colors (`#d4d4d4`, `#e0e0e0`, etc.) instead of VS Code theme variables because the webview context doesn't resolve them reliably.
 - **Custom editor limitation**: VS Code's `DocumentSymbolProvider` populates the Outline panel but `revealRange` is a no-op for custom editors. The custom TreeView with `scrollToAnchor` messaging is the workaround.
+- **Website**: `website/index.html` — hero screenshot added, Document Outline + Font Themes features added, GitHub/marketplace URLs fixed. References `../assets/screenshots/` for images.
+- **Promo video**: `video/` — Remotion project, 30s at 1080p. Screenshots integrated into feature carousel and problem scene. Render with `cd video && npm run render`. Output: `video/out/promo.mp4`.
 - **Testing**: `F5` launches Extension Development Host. Open any `.md` file and right-click -> "Open with MikeDown" or set `mikedown.defaultEditor` to true.
