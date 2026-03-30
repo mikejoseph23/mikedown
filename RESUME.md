@@ -6,11 +6,11 @@ MikeDown Editor is a WYSIWYG Markdown editor for VS Code, built on TipTap v2 / P
 
 ## Current Status
 
-**v1.0.11 is packaged (`mikedown-editor-1.0.11.vsix`) and ready to publish.** Font theme system added with 10 curated heading+body pairings. Default is "Academic" (Palatino headings + Avenir body).
+**v1.0.11 is packaged (`mikedown-editor-1.0.11.vsix`) and ready to publish.** Font theme system with 10 curated heading+body pairings. Default is "Editorial" (Avenir headings + Charter body). Website and promo video updated with screenshots and new features.
 
-- Just finished: font theme system (heading + body pairings with live preview in settings), Document Outline TreeView, link picker redesign, marketplace listing overhaul, activity bar sidebar icon (MikeDown logo)
-- Ready to publish: v1.0.10 vsix is built
-- **BLOCKING before publish: retake all 7 marketplace screenshots.** Default font changed from monospace to Academic theme (Palatino headings + Avenir body). Every existing screenshot in `assets/screenshots/` shows the old font and will look wrong on the listing. See `assets/screenshots/README.md` for capture guide. Must repackage vsix after retaking since screenshots are bundled.
+- Just finished: font theme system, Document Outline TreeView, link picker redesign, marketplace listing overhaul, activity bar sidebar icon, website update (hero screenshot, Document Outline + Font Themes features, fixed GitHub/marketplace URLs), promo video update (screenshots in feature carousel + problem scene reveal, Document Outline + Font Themes added to features)
+- Ready to publish: v1.0.11 vsix is built
+- **BLOCKING before publish: retake all 7 marketplace screenshots.** Default font changed from monospace to Editorial theme (Avenir headings + Charter body). Every existing screenshot in `assets/screenshots/` shows the old font and will look wrong on the listing. See `assets/screenshots/README.md` for capture guide. Must repackage vsix after retaking since screenshots are bundled.
 - Known limitation: VS Code's built-in Outline panel says "The active editor cannot provide outline information" for custom editors — this is a VS Code API constraint. The custom "Document Outline" TreeView in the MikeDown sidebar is the workaround.
 
 ## What's Done

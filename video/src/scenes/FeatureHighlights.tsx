@@ -1,6 +1,8 @@
 import {
   AbsoluteFill,
+  Img,
   interpolate,
+  staticFile,
   useCurrentFrame,
   spring,
   useVideoConfig,
@@ -9,12 +11,12 @@ import {
 const ACCENT = "#4e9de0";
 
 const features = [
-  { title: "Smart Paste", desc: "URLs auto-link, images embed, tables convert" },
-  { title: "Link Intelligence", desc: "Autocomplete, validation, and broken link detection" },
-  { title: "Backlink Explorer", desc: "See every file that references the current document" },
-  { title: "Table Drag Handles", desc: "Resize and reorder columns with a simple drag" },
-  { title: "Theme Toggle", desc: "Switch between light and dark themes instantly" },
-  { title: "Source Mode", desc: "Drop into raw markdown when you need full control" },
+  { title: "Smart Paste", desc: "URLs auto-link, images embed, tables convert", screenshot: "dark-mode-editor.jpg" },
+  { title: "Link Intelligence", desc: "Autocomplete, validation, and broken link detection", screenshot: "context-menu.jpg" },
+  { title: "Document Outline", desc: "Navigate heading hierarchy with click-to-jump", screenshot: "dropdown-menu.jpg" },
+  { title: "Font Themes", desc: "Curated serif + sans pairings with live preview", screenshot: "light-mode-editor.jpg" },
+  { title: "Backlink Explorer", desc: "See every file that references the current document", screenshot: "split-view-mark-down.jpg" },
+  { title: "Source Mode", desc: "Drop into raw markdown when you need full control", screenshot: "source-mode.jpg" },
 ];
 
 // Each feature gets 50 frames = ~1.67 seconds
@@ -23,6 +25,7 @@ const FRAMES_PER_FEATURE = 50;
 interface FeatureCardProps {
   title: string;
   desc: string;
+  screenshot: string;
   localFrame: number;
   fps: number;
   index: number;
@@ -31,6 +34,7 @@ interface FeatureCardProps {
 const FeatureCard: React.FC<FeatureCardProps> = ({
   title,
   desc,
+  screenshot,
   localFrame,
   fps,
   index,
@@ -62,6 +66,15 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
   // Number indicator
   const numberStr = String(index + 1).padStart(2, "0");
 
+  // Screenshot slide-in (slightly delayed)
+  const imgSpring = spring({
+    frame: localFrame - 5,
+    fps,
+    config: { damping: 14, stiffness: 60 },
+  });
+  const imgScale = interpolate(imgSpring, [0, 1], [0.85, 1]);
+  const imgOpacity = interpolate(imgSpring, [0, 1], [0, 1]);
+
   return (
     <div
       style={{
@@ -70,21 +83,23 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
         opacity,
         display: "flex",
         alignItems: "center",
-        gap: 32,
+        gap: 48,
+        width: "100%",
       }}
     >
-      {/* Accent bar */}
-      <div
-        style={{
-          width: barWidth,
-          height: 100,
-          backgroundColor: ACCENT,
-          borderRadius: 3,
-          flexShrink: 0,
-        }}
-      />
+      {/* Left: text */}
+      <div style={{ flex: "0 0 500px" }}>
+        {/* Accent bar */}
+        <div
+          style={{
+            width: barWidth,
+            height: 4,
+            backgroundColor: ACCENT,
+            borderRadius: 2,
+            marginBottom: 16,
+          }}
+        />
 
-      <div>
         {/* Feature number */}
         <div
           style={{
@@ -102,7 +117,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
         {/* Feature title */}
         <div
           style={{
-            fontSize: 64,
+            fontSize: 56,
             fontWeight: 700,
             color: "#ffffff",
             marginBottom: 12,
@@ -115,13 +130,31 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
         {/* Feature description */}
         <div
           style={{
-            fontSize: 28,
+            fontSize: 26,
             fontWeight: 400,
             color: "#999",
           }}
         >
           {desc}
         </div>
+      </div>
+
+      {/* Right: screenshot */}
+      <div
+        style={{
+          flex: 1,
+          opacity: imgOpacity * exitOpacity,
+          transform: `scale(${imgScale})`,
+        }}
+      >
+        <Img
+          src={staticFile(screenshot)}
+          style={{
+            width: "100%",
+            borderRadius: 12,
+            boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+          }}
+        />
       </div>
     </div>
   );
@@ -202,6 +235,7 @@ export const FeatureHighlights: React.FC = () => {
               key={feature.title}
               title={feature.title}
               desc={feature.desc}
+              screenshot={feature.screenshot}
               localFrame={Math.max(0, localFrame)}
               fps={fps}
               index={index}

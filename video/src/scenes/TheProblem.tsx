@@ -1,6 +1,8 @@
 import {
   AbsoluteFill,
+  Img,
   interpolate,
+  staticFile,
   useCurrentFrame,
   spring,
   useVideoConfig,
@@ -230,6 +232,36 @@ export const TheProblem: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* Hero screenshot reveal */}
+      {frame >= 185 && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 40,
+            left: "50%",
+            transform: `translateX(-50%) scale(${interpolate(
+              spring({ frame: frame - 185, fps, config: { damping: 14, stiffness: 60 } }),
+              [0, 1],
+              [0.8, 1]
+            )})`,
+            opacity: interpolate(frame, [185, 200], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            }),
+            width: 900,
+          }}
+        >
+          <Img
+            src={staticFile("dark-mode-editor.jpg")}
+            style={{
+              width: "100%",
+              borderRadius: 12,
+              boxShadow: `0 8px 60px rgba(78, 157, 224, 0.3)`,
+            }}
+          />
+        </div>
+      )}
     </AbsoluteFill>
   );
 };

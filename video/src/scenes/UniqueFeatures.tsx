@@ -115,31 +115,17 @@ const uniqueFeatures = [
     ),
   },
   {
-    title: "In-editor Find/Replace",
+    title: "Document Outline",
     icon: (
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <circle
-          cx="20"
-          cy="20"
-          r="10"
-          stroke={ACCENT}
-          strokeWidth="3"
-        />
-        <line
-          x1="28"
-          y1="28"
-          x2="38"
-          y2="38"
-          stroke={ACCENT}
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
         <path
-          d="M16 20h8M20 16v8"
+          d="M10 10h28M10 18h20M14 26h18M14 34h14"
           stroke={ACCENT}
-          strokeWidth="2"
+          strokeWidth="3"
           strokeLinecap="round"
         />
+        <circle cx="10" cy="26" r="2" fill={ACCENT} />
+        <circle cx="10" cy="34" r="2" fill={ACCENT} />
       </svg>
     ),
   },

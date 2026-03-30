@@ -128,7 +128,7 @@ export const CallToAction: React.FC = () => {
             color: "#888",
           }}
         >
-          github.com/michaeljoseph/mikedown
+          github.com/mikejoseph23/mikedown
         </div>
       </div>
     </AbsoluteFill>
