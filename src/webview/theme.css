@@ -153,6 +153,16 @@ body.mikedown-force-light {
   --vscode-textBlockQuote-border: rgba(0, 0, 0, 0.15);
   --vscode-textCodeBlock-background: rgba(0, 0, 0, 0.04);
   --vscode-descriptionForeground: #717171;
+  --vscode-editorWidget-background: #f3f3f3;
+  --vscode-editorWidget-border: #c8c8c8;
+  --vscode-menu-background: #f3f3f3;
+  --vscode-menu-foreground: #1e1e1e;
+  --vscode-menu-border: #c8c8c8;
+  --vscode-menu-selectionBackground: #e8e8e8;
+  --vscode-menu-selectionForeground: #1e1e1e;
+  --vscode-menu-separatorBackground: #d4d4d4;
+  --vscode-list-activeSelectionBackground: #e8e8e8;
+  --vscode-list-activeSelectionForeground: #1e1e1e;
   --vscode-symbolIcon-keywordForeground: #0000ff;
   --vscode-debugTokenExpression-string: #a31515;
   --vscode-debugTokenExpression-number: #098658;
