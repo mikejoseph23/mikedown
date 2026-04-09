@@ -161,6 +161,8 @@ body.mikedown-force-light {
   --vscode-menu-selectionBackground: #e8e8e8;
   --vscode-menu-selectionForeground: #1e1e1e;
   --vscode-menu-separatorBackground: #d4d4d4;
+  --vscode-editor-lineHighlightBackground: rgba(0, 0, 0, 0.06);
+  --vscode-editorLineNumber-foreground: #237893;
   --vscode-list-activeSelectionBackground: #e8e8e8;
   --vscode-list-activeSelectionForeground: #1e1e1e;
   --vscode-symbolIcon-keywordForeground: #0000ff;
@@ -186,6 +188,8 @@ body.mikedown-force-dark {
   --vscode-scrollbarSlider-background: rgba(121, 121, 121, 0.4);
   --vscode-scrollbarSlider-hoverBackground: rgba(100, 100, 100, 0.7);
   --vscode-editor-selectionBackground: #264f78;
+  --vscode-editor-lineHighlightBackground: rgba(255, 255, 255, 0.1);
+  --vscode-editorLineNumber-foreground: #858585;
   --vscode-focusBorder: #007fd4;
   --vscode-editorHoverWidget-background: #252526;
   --vscode-editorHoverWidget-foreground: #cccccc;
@@ -240,7 +244,11 @@ body.mikedown-force-dark {
 
 /* Source mode container */
 #source-container {
-  height: 100%;
+  position: fixed;
+  top: 40px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   overflow: hidden;
 }
 #source-container .cm-editor {

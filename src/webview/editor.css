@@ -345,6 +345,26 @@ body {
   text-decoration: line-through;
 }
 
+/* ─── Table Checkboxes ────────────────────────────────────────────────────── */
+
+.ProseMirror .table-checkbox {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--vscode-textLink-foreground, #3794ff);
+  vertical-align: middle;
+  margin: 0 0.15em 0 0;
+}
+
+.ProseMirror .table-checkbox-hidden {
+  position: absolute;
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  display: inline-block;
+}
+
 /* ─── Tables ──────────────────────────────────────────────────────────────── */
 
 .ProseMirror table {

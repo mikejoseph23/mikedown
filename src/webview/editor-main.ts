@@ -31,6 +31,7 @@ import { Markdown } from 'tiptap-markdown';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
 import { SmartPasteExtension } from './smartpaste';
+import { TableCheckboxExtension } from './tablecheckbox';
 import {
   FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
   replaceCurrentMatch, replaceAllMatches
@@ -47,6 +48,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirro
 import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
 import { markdown as cmMarkdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
+import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
 
 const lowlight = createLowlight(all);
 
@@ -1499,6 +1501,11 @@ if (!editorContainer) {
       // ProseMirror decoration plugin that highlights all search matches in the
       // WYSIWYG view. Keyboard intercept (Cmd+F / Cmd+H) is wired below.
       FindReplaceExtension,
+
+      // ── Table Checkboxes ──────────────────────────────────────────────────
+      // Renders [ ] and [x] inside table cells as interactive checkboxes.
+      // The underlying markdown text is preserved for round-trip fidelity.
+      TableCheckboxExtension,
     ],
     content: '',
 
@@ -2087,7 +2094,9 @@ if (!editorContainer) {
     const bg = computedStyle.getPropertyValue('--vscode-editor-background').trim() || '#1e1e1e';
     const fg = computedStyle.getPropertyValue('--vscode-editor-foreground').trim() || '#d4d4d4';
     const selBg = computedStyle.getPropertyValue('--vscode-editor-selectionBackground').trim() || '#264f78';
-    const activeLine = computedStyle.getPropertyValue('--vscode-editor-lineHighlightBackground').trim() || 'rgba(255,255,255,0.04)';
+    const isLight = document.body.classList.contains('mikedown-force-light');
+    const activeLine = computedStyle.getPropertyValue('--vscode-editor-lineHighlightBackground').trim()
+      || (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)');
     const gutterFg = computedStyle.getPropertyValue('--vscode-editorLineNumber-foreground').trim() || '#858585';
 
     return EditorView.theme({
@@ -2097,7 +2106,7 @@ if (!editorContainer) {
       '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: selBg },
       '.cm-activeLine': { backgroundColor: activeLine },
       '.cm-gutters': { backgroundColor: bg, color: gutterFg, border: 'none' },
-    }, { dark: true });
+    }, { dark: !isLight });
   }
 
   function initCmView(): EditorView {
@@ -2109,7 +2118,7 @@ if (!editorContainer) {
         lineNumbers(),
         highlightActiveLine(),
         cmMarkdown({ base: markdownLanguage }),
-        syntaxHighlighting(defaultHighlightStyle),
+        syntaxHighlighting(document.body.classList.contains('mikedown-force-light') ? defaultHighlightStyle : oneDarkHighlightStyle),
         buildCmTheme(),
         EditorView.lineWrapping,
       ],
