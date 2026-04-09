@@ -122,6 +122,10 @@
       {
         "command": "mikedown.openWithMikeDown",
         "title": "Open with MikeDown"
+      },
+      {
+        "command": "mikedown.showDiff",
+        "title": "MikeDown: Show Git Diff"
       }
     ],
     "menus": {

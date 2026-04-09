@@ -1,4 +1,7 @@
 import * as vscode from 'vscode';
+import * as cp from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import { MarkdownEditorProvider } from './markdownEditorProvider';
 import { StatusBarManager } from './statusBar';
 import { exportViaPrint } from './export';
@@ -93,6 +96,64 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       await vscode.commands.executeCommand('vscode.openWith', targetUri, MarkdownEditorProvider.viewType);
+    })
+  );
+
+  // "Show Git Diff" — virtual document provider + diff command.
+  // Uses a custom URI scheme so VS Code opens both sides with the built-in
+  // text editor (not MikeDown), giving proper green/red line-level highlighting.
+  const diffContents = new Map<string, string>();
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider('mikedown-diff', {
+      provideTextDocumentContent(uri: vscode.Uri): string {
+        return diffContents.get(uri.query) ?? '';
+      },
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.showDiff', async (fileUri?: vscode.Uri) => {
+      const uri = fileUri ?? MarkdownEditorProvider.activeDocument?.uri;
+      if (!uri) {
+        vscode.window.showWarningMessage('No MikeDown editor is active.');
+        return;
+      }
+
+      const cwd = vscode.workspace.getWorkspaceFolder(uri)?.uri.fsPath ?? path.dirname(uri.fsPath);
+      const relativePath = path.relative(cwd, uri.fsPath);
+
+      let headContent: string;
+      try {
+        headContent = cp.execSync(`git show HEAD:"${relativePath}"`, { cwd, encoding: 'utf-8' });
+      } catch {
+        vscode.window.showWarningMessage('No git history found for this file.');
+        return;
+      }
+
+      // Read current working copy from disk (not from TipTap which may normalize)
+      let workingContent: string;
+      try {
+        workingContent = fs.readFileSync(uri.fsPath, 'utf-8');
+      } catch {
+        workingContent = '';
+      }
+
+      const ts = Date.now();
+      const leftKey = `head-${ts}`;
+      const rightKey = `working-${ts}`;
+      diffContents.set(leftKey, headContent);
+      diffContents.set(rightKey, workingContent);
+
+      // Use .md.diff extension so VS Code's custom editor selector (*.md) does NOT match
+      const diffPath = uri.path + '.diff';
+      const leftUri = vscode.Uri.from({ scheme: 'mikedown-diff', path: diffPath, query: leftKey });
+      const rightUri = vscode.Uri.from({ scheme: 'mikedown-diff', path: diffPath, query: rightKey });
+      const title = `${vscode.workspace.asRelativePath(uri)} (Git Diff)`;
+
+      await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title);
+
+      // Clean up snapshot data after a delay
+      setTimeout(() => { diffContents.delete(leftKey); diffContents.delete(rightKey); }, 60000);
     })
   );
 

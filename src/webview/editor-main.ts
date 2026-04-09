@@ -100,6 +100,17 @@ let sourceMode = false;
  */
 let cmView: EditorView | null = null;
 
+// ── Diff highlighting state ───────────────────────────────────────────────────
+
+/** Whether diff highlighting is currently active in the WYSIWYG view. */
+let diffHighlightActive = false;
+
+/** Whether the current file has uncommitted git changes. */
+let fileHasGitChanges = false;
+
+/** HEAD content received from the extension host for diff computation. */
+let headContent: string | null = null;
+
 // ── M6a: Link tooltip state ────────────────────────────────────────────────────
 
 let linkTooltip: HTMLDivElement | null = null;
@@ -835,6 +846,7 @@ const toolbarIcons = {
   redo: toolbarSvg('<polyline points="12 7 14 5 12 3"/><path d="M14 5H6a4 4 0 0 0 0 8h3"/>'),
   source: toolbarSvg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/><line x1="9" y1="3" x2="7" y2="13"/>'),
   gear: toolbarSvg('<circle cx="8" cy="8" r="1.8"/><path d="M8 1.5l.6 2.1a4.2 4.2 0 0 1 1.6.65l1.95-.9 1.1 1.1-.9 1.95c.3.5.53 1.03.65 1.6l2.1.6v1.5l-2.1.6a4.2 4.2 0 0 1-.65 1.6l.9 1.95-1.1 1.1-1.95-.9a4.2 4.2 0 0 1-1.6.65l-.6 2.1h-1.5l-.6-2.1a4.2 4.2 0 0 1-1.6-.65l-1.95.9-1.1-1.1.9-1.95a4.2 4.2 0 0 1-.65-1.6L1.5 8.6V7.1l2.1-.6a4.2 4.2 0 0 1 .65-1.6l-.9-1.95 1.1-1.1 1.95.9A4.2 4.2 0 0 1 8 2.1z"/>', 1.4),
+  diff: toolbarSvg('<path d="M4 3v10"/><path d="M12 3v10"/><path d="M7 5h2" stroke-opacity="0.5"/><path d="M7 8h2"/><path d="M7 11h2" stroke-opacity="0.5"/>'),
   sun: toolbarSvg('<circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/>'),
   moon: toolbarSvg('<path d="M13.5 8a5.5 5.5 0 0 1-8.38 4.68A5.5 5.5 0 0 1 8 2.5c0 .5.05 1 .16 1.47A4.5 4.5 0 0 0 13.5 8z"/>'),
   chevron: toolbarSvg('<polyline points="5 6.5 8 9.5 11 6.5"/>', 1.6),
@@ -884,6 +896,7 @@ function buildToolbar(editor: Editor): void {
     { id: 'redo', title: 'Redo (Cmd+Shift+Z)', icon: icons.redo, action: () => editor.chain().focus().redo().run(), isActive: () => false },
     { separator: true },
     { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: icons.source, action: () => vscode.postMessage({ type: 'toggleSource' }), isActive: () => false },
+    { id: 'diffToggle', title: 'Toggle Diff Highlighting', icon: icons.diff, action: () => toggleDiffHighlight(), isActive: () => diffHighlightActive },
     { separator: true },
     { id: 'themeToggle', title: 'Toggle Light/Dark Mode', icon: icons.sun, action: () => toggleTheme(), isActive: () => false },
     { id: 'settings', title: 'Settings', icon: icons.gear, action: () => showSettingsModal(), isActive: () => false },
@@ -1036,6 +1049,11 @@ function buildCondensedToolbar(editor: Editor): void {
 
   const sourceBtn = makeBtn('sourceToggle', 'Toggle Source Mode (Cmd+/)', icons.source);
   sourceBtn.addEventListener('click', () => vscode.postMessage({ type: 'toggleSource' }));
+
+  const diffBtn = makeBtn('diffToggle', 'Toggle Diff Highlighting', icons.diff);
+  diffBtn.style.opacity = '0.3';
+  diffBtn.style.pointerEvents = 'none';
+  diffBtn.addEventListener('click', () => toggleDiffHighlight());
 
   const themeBtn = makeBtn('themeToggle', 'Toggle Light/Dark Mode', icons.sun);
   themeBtn.addEventListener('click', () => toggleTheme());
@@ -1209,6 +1227,7 @@ function buildCondensedToolbar(editor: Editor): void {
   toolbar.appendChild(redoBtn);
   toolbar.appendChild(makeSeparator());
   toolbar.appendChild(sourceBtn);
+  toolbar.appendChild(diffBtn);
   toolbar.appendChild(makeSeparator());
   toolbar.appendChild(themeBtn);
   toolbar.appendChild(settingsBtn);
@@ -2084,6 +2103,128 @@ if (!editorContainer) {
     editorEl?.parentNode?.insertBefore(block, editorEl);
   }
 
+  // ── Diff Highlighting ────────────────────────────────────────────────────────
+
+  /**
+   * Simple line-level diff: returns the set of 0-based line indices in `current`
+   * that were added or changed relative to `original`.
+   * Uses a longest-common-subsequence approach on blocks (paragraph-separated).
+   */
+  function computeChangedBlocks(original: string, current: string): Set<number> {
+    const origBlocks = original.split(/\n{2,}/);
+    const curBlocks = current.split(/\n{2,}/);
+    const origSet = new Set(origBlocks.map(b => b.trim()));
+    const changed = new Set<number>();
+
+    // Walk current blocks and mark any that don't exist in HEAD
+    let lineIdx = 0;
+    for (const block of curBlocks) {
+      const trimmed = block.trim();
+      const lineCount = block.split('\n').length;
+      if (trimmed && !origSet.has(trimmed)) {
+        for (let i = 0; i < lineCount; i++) {
+          changed.add(lineIdx + i);
+        }
+      }
+      lineIdx += lineCount + 1; // +1 for the blank separator line
+    }
+    return changed;
+  }
+
+  /**
+   * Apply or clear diff decorations on the WYSIWYG editor.
+   */
+  function applyDiffDecorations(): void {
+    // Remove existing diff classes from all top-level nodes
+    const proseMirrorEl = document.querySelector('.ProseMirror') as HTMLElement | null;
+    if (proseMirrorEl) {
+      proseMirrorEl.querySelectorAll('.mikedown-diff-changed').forEach(el => {
+        el.classList.remove('mikedown-diff-changed');
+      });
+    }
+
+    if (!diffHighlightActive || !headContent) return;
+
+    // Get current markdown from the editor
+    const currentMarkdown = editor.storage.markdown.getMarkdown();
+    const changedLines = computeChangedBlocks(headContent, currentMarkdown);
+
+    if (changedLines.size === 0) return;
+
+    // Map changed source lines to top-level ProseMirror nodes.
+    // Walk the doc's top-level children and track which markdown lines they span.
+    const lines = currentMarkdown.split('\n');
+    const doc = editor.state.doc;
+    let sourceLine = 0;
+
+    doc.forEach((node, offset) => {
+      // Serialize this node to markdown to count its lines
+      // Use a simpler approach: estimate lines from node text content
+      let nodeLineCount = 1;
+      if (node.isTextblock) {
+        nodeLineCount = 1;
+      } else if (node.type.name === 'table') {
+        // Tables span multiple lines
+        nodeLineCount = 0;
+        node.descendants((child) => {
+          if (child.type.name === 'tableRow') nodeLineCount++;
+          return true;
+        });
+        nodeLineCount += 1; // header separator line
+      } else if (node.type.name === 'bulletList' || node.type.name === 'orderedList' || node.type.name === 'taskList') {
+        nodeLineCount = 0;
+        node.descendants((child) => {
+          if (child.type.name === 'listItem' || child.type.name === 'taskItem') nodeLineCount++;
+          return true;
+        });
+      } else if (node.type.name === 'codeBlock') {
+        const text = node.textContent;
+        nodeLineCount = text.split('\n').length + 2; // +2 for fences
+      } else if (node.type.name === 'blockquote') {
+        nodeLineCount = 0;
+        node.descendants((child) => {
+          if (child.isTextblock) nodeLineCount++;
+          return true;
+        });
+      }
+
+      // Check if any of this node's source lines are in the changed set
+      let isChanged = false;
+      for (let l = sourceLine; l < sourceLine + nodeLineCount; l++) {
+        if (changedLines.has(l)) { isChanged = true; break; }
+      }
+
+      if (isChanged) {
+        // Find the DOM element for this node and add the highlight class
+        const domNode = editor.view.nodeDOM(offset);
+        if (domNode instanceof HTMLElement) {
+          domNode.classList.add('mikedown-diff-changed');
+        }
+      }
+
+      sourceLine += nodeLineCount + 1; // +1 for blank line between blocks
+    });
+  }
+
+  function toggleDiffHighlight(): void {
+    if (!fileHasGitChanges) return;
+
+    diffHighlightActive = !diffHighlightActive;
+
+    if (diffHighlightActive && !headContent) {
+      // Request HEAD content from extension host
+      vscode.postMessage({ type: 'requestDiff' });
+    } else {
+      applyDiffDecorations();
+    }
+
+    // Update toolbar button active state
+    const btn = document.querySelector('button[data-action="diffToggle"]') as HTMLButtonElement | null;
+    if (btn) {
+      btn.classList.toggle('is-active', diffHighlightActive);
+    }
+  }
+
   // ── M4: CodeMirror source editor ───────────────────────────────────────────
 
   const sourceContainer = document.getElementById('source-container') as HTMLElement;
@@ -2258,6 +2399,32 @@ if (!editorContainer) {
       }
       if (msg.editorTheme) {
         applyEditorTheme(msg.editorTheme);
+      }
+    }
+
+    // Handle diff status updates from the extension host
+    if (message.type === 'diffStatus') {
+      const msg = message as any;
+      fileHasGitChanges = msg.hasChanges;
+      const btn = document.querySelector('button[data-action="diffToggle"]') as HTMLButtonElement | null;
+      if (btn) {
+        btn.style.opacity = fileHasGitChanges ? '1' : '0.3';
+        btn.style.pointerEvents = fileHasGitChanges ? 'auto' : 'none';
+      }
+    }
+
+    // Handle diff data (HEAD content) from the extension host
+    if (message.type === 'diffData') {
+      const msg = message as any;
+      headContent = msg.headContent;
+      fileHasGitChanges = msg.hasChanges;
+      const btn = document.querySelector('button[data-action="diffToggle"]') as HTMLButtonElement | null;
+      if (btn) {
+        btn.style.opacity = fileHasGitChanges ? '1' : '0.3';
+        btn.style.pointerEvents = fileHasGitChanges ? 'auto' : 'none';
+      }
+      if (diffHighlightActive) {
+        applyDiffDecorations();
       }
     }
 

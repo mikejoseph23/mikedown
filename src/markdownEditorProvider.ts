@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as cp from 'child_process';
 import { getSettings } from './settings';
 import { writeRenderedHtml } from './export';
 import { parseHeadings } from './outlineProvider';
@@ -20,8 +21,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    * Updated whenever resolveCustomTextEditor is called and the panel gains focus.
    */
   public static activePanel: vscode.WebviewPanel | undefined = undefined;
+  /** The document associated with the currently active panel. */
+  public static activeDocument: vscode.TextDocument | undefined = undefined;
   /** All open MikeDown webview panels, for broadcasting messages (e.g. theme changes). */
   private static openPanels = new Set<vscode.WebviewPanel>();
+  /** Tracks panels by file path — when 2+ panels share a path, it's a diff view. */
+  private static panelsByPath = new Map<string, Set<{ panel: vscode.WebviewPanel; webview: vscode.Webview }>>();
+  /** Tracks file paths with a pending diff redirect to prevent duplicate opens. */
+  private static diffRedirectPending = new Set<string>();
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -54,10 +61,63 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     // M3 — Track the active panel so extension commands can post messages to it.
     MarkdownEditorProvider.activePanel = webviewPanel;
+    MarkdownEditorProvider.activeDocument = document;
     MarkdownEditorProvider.openPanels.add(webviewPanel);
+
+    // Track panels by file path for diff detection.
+    const fsPath = document.uri.fsPath;
+    const entry = { panel: webviewPanel, webview: webviewPanel.webview };
+    if (!MarkdownEditorProvider.panelsByPath.has(fsPath)) {
+      MarkdownEditorProvider.panelsByPath.set(fsPath, new Set());
+    }
+    const pathPanels = MarkdownEditorProvider.panelsByPath.get(fsPath)!;
+    pathPanels.add(entry);
+
+    // Diff detection: non-file scheme (e.g. git: from Source Control) or
+    // 2+ panels sharing the same path indicates VS Code opened a diff view.
+    // Redirect to the source text diff for proper green/red line highlighting.
+    if (document.uri.scheme !== 'file' || pathPanels.size > 1) {
+      // Register dispose handler for cleanup before returning early
+      webviewPanel.onDidDispose(() => {
+        MarkdownEditorProvider.openPanels.delete(webviewPanel);
+        if (MarkdownEditorProvider.activePanel === webviewPanel) {
+          MarkdownEditorProvider.activePanel = undefined;
+          MarkdownEditorProvider.activeDocument = undefined;
+        }
+        const panels = MarkdownEditorProvider.panelsByPath.get(fsPath);
+        if (panels) {
+          panels.delete(entry);
+          if (panels.size === 0) {
+            MarkdownEditorProvider.panelsByPath.delete(fsPath);
+          }
+        }
+      });
+
+      // Only trigger the source diff redirect once per file path
+      if (!MarkdownEditorProvider.diffRedirectPending.has(fsPath)) {
+        MarkdownEditorProvider.diffRedirectPending.add(fsPath);
+        const fileUri = vscode.Uri.file(fsPath);
+        setTimeout(async () => {
+          MarkdownEditorProvider.diffRedirectPending.delete(fsPath);
+          try {
+            await vscode.commands.executeCommand('mikedown.showDiff', fileUri);
+          } catch { /* git history unavailable */ }
+          // Close the WYSIWYG diff panels since the source diff is now open
+          const panels = MarkdownEditorProvider.panelsByPath.get(fsPath);
+          if (panels) {
+            for (const p of [...panels]) {
+              p.panel.dispose();
+            }
+          }
+        }, 0);
+      }
+
+      return; // Skip full WYSIWYG editor setup
+    }
     webviewPanel.onDidChangeViewState(e => {
       if (e.webviewPanel.active) {
         MarkdownEditorProvider.activePanel = webviewPanel;
+        MarkdownEditorProvider.activeDocument = document;
         // Update Document Outline when switching to this panel
         const outProv = (MarkdownEditorProvider as any)._outlineProvider;
         if (outProv) {
@@ -65,6 +125,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }
       } else if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
+        MarkdownEditorProvider.activeDocument = undefined;
       }
     });
 
@@ -144,6 +205,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       MarkdownEditorProvider.openPanels.delete(webviewPanel);
       if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
+        MarkdownEditorProvider.activeDocument = undefined;
+      }
+      // Clean up diff tracking; if only one panel remains, restore editability
+      const panels = MarkdownEditorProvider.panelsByPath.get(fsPath);
+      if (panels) {
+        panels.delete(entry);
+        if (panels.size === 1) {
+          for (const e of panels) {
+            e.webview.postMessage({ type: 'setReadOnly', readOnly: false });
+          }
+        }
+        if (panels.size === 0) {
+          MarkdownEditorProvider.panelsByPath.delete(fsPath);
+        }
       }
     });
 
@@ -175,6 +250,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (outProv) {
             outProv.setHeadings(parseHeadings(document.getText()));
           }
+          // Send initial git diff status so the toolbar diff button can be enabled/disabled
+          if (document.uri.scheme === 'file') {
+            this.sendDiffStatus(document, webviewPanel.webview);
+          }
           break;
         }
         case 'stats':
@@ -188,6 +267,36 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // M4 — The webview toolbar button posts this message; forward it back
           // as a 'toggleSource' message so the webview handles the toggle.
           webviewPanel.webview.postMessage({ type: 'toggleSource' });
+          break;
+        case 'requestDiff': {
+          // Get HEAD version of this file from git and send it to the webview
+          const filePath = document.uri.fsPath;
+          const cwd = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath
+            ?? path.dirname(filePath);
+          const relativePath = path.relative(cwd, filePath);
+          try {
+            const headContent = cp.execSync(
+              `git show HEAD:"${relativePath}"`,
+              { cwd, encoding: 'utf-8', timeout: 5000 }
+            );
+            webviewPanel.webview.postMessage({
+              type: 'diffData',
+              headContent,
+              hasChanges: headContent !== document.getText(),
+            });
+          } catch {
+            // File is untracked or no git repo
+            webviewPanel.webview.postMessage({
+              type: 'diffData',
+              headContent: null,
+              hasChanges: false,
+            });
+          }
+          break;
+        }
+        case 'showDiff':
+          // Webview requests to open the text-based git diff
+          await vscode.commands.executeCommand('mikedown.showDiff');
           break;
         case 'toggleTheme': {
           const toggleSettings = getSettings();
@@ -451,6 +560,28 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   /**
+   * Check whether the file has uncommitted git changes and notify the webview.
+   */
+  private sendDiffStatus(document: vscode.TextDocument, webview: vscode.Webview): void {
+    const filePath = document.uri.fsPath;
+    const cwd = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath
+      ?? path.dirname(filePath);
+    const relativePath = path.relative(cwd, filePath);
+    try {
+      const headContent = cp.execSync(
+        `git show HEAD:"${relativePath}"`,
+        { cwd, encoding: 'utf-8', timeout: 5000 }
+      );
+      webview.postMessage({
+        type: 'diffStatus',
+        hasChanges: headContent !== document.getText(),
+      });
+    } catch {
+      webview.postMessage({ type: 'diffStatus', hasChanges: false });
+    }
+  }
+
+  /**
    * Push user-facing settings (e.g. linkClickBehavior) to the webview so it
    * can adapt its click/context-menu behavior without round-tripping to host.
    */
@@ -634,7 +765,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff';
   content?: string;
   plainText?: string;
   href?: string;

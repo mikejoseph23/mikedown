@@ -345,6 +345,21 @@ body {
   text-decoration: line-through;
 }
 
+/* ─── Diff Highlighting ───────────────────────────────────────────────────── */
+
+.ProseMirror .mikedown-diff-changed {
+  background-color: rgba(40, 167, 69, 0.12);
+  border-left: 3px solid rgba(40, 167, 69, 0.6);
+  padding-left: 0.5em;
+  margin-left: -0.5em;
+  border-radius: 2px;
+}
+
+body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
+  background-color: rgba(40, 167, 69, 0.08);
+  border-left-color: rgba(40, 167, 69, 0.5);
+}
+
 /* ─── Table Checkboxes ────────────────────────────────────────────────────── */
 
 .ProseMirror .table-checkbox {
