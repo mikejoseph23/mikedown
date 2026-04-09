@@ -170,7 +170,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     });
     const didSaveSubscription = vscode.workspace.onDidSaveTextDocument(savedDoc => {
       if (savedDoc.uri.toString() === document.uri.toString()) {
-        isSaving = false;
+        // Delay clearing isSaving to the next event-loop tick so that any
+        // onDidChangeTextDocument events dispatched asynchronously after the
+        // save completes (e.g. file-watcher detecting the disk write, or
+        // deferred save-participant changes) are still suppressed.
+        setTimeout(() => { isSaving = false; }, 0);
       }
     });
 
@@ -232,7 +236,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           webviewEditsInFlight++;
           const cleaned = this.applyCleanup(message.content ?? '');
           await this.applyEdit(document, cleaned);
-          webviewEditsInFlight--;
+          // Defer decrement to the next tick — onDidChangeTextDocument events
+          // from the WorkspaceEdit may be dispatched asynchronously after the
+          // applyEdit promise resolves; the guard must stay up until they land.
+          setTimeout(() => { webviewEditsInFlight--; }, 0);
           // Update Document Outline headings on content change
           const editOutProv = (MarkdownEditorProvider as any)._outlineProvider;
           if (editOutProv) {
