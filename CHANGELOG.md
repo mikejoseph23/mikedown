@@ -2,6 +2,18 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.1.2] - 2026-04-10
+
+### Changed
+
+- Refreshed marketplace listing copy with a sharper tagline and a more confident "Why MikeDown?" pitch
+- Updated marketplace categories (added "Notebooks") and search keywords ("writing", "notes")
+- Removed "Preview" badge from the marketplace listing
+
+### Fixed
+
+- Bundled screenshot assets into the published `.vsix` so listing images render even when GitHub is unreachable
+
 ## [0.1.0] - 2026-03-01
 
 ### Added

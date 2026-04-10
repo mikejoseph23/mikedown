@@ -29,6 +29,7 @@ TOOLBAR-MODES-PLAN.md
 RESUME.md
 installation-instructions.md
 assets/**
+!assets/screenshots/**
 website/**
 video/**
 .playwright-cli/**

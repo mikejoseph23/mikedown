@@ -1,24 +1,20 @@
 # MikeDown Editor
 
-**A true WYSIWYG Markdown editor for VS Code.**
-
-> **Beta** -- MikeDown Editor is under active development. It is usable today but expect rough edges. Bug reports and feedback are welcome on [GitHub](https://github.com/mikejoseph23/mikedown).
+**A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.**
 
 ![Dark mode editor](assets/screenshots/dark-mode-editor.jpg)
 
 ## Why MikeDown?
 
-Hi, I'm Mike — the creator of MikeDown, for lack of a better name. As pretty much the sole user of this extension, the name works for now.
+The split-pane markdown preview workflow gets old fast — source on one side, rendered output on the other, constantly switching between the two. Standalone markdown editors solve the editing experience but pull you out of VS Code, away from Git integration, multi-language file support, and the extensions you already rely on.
 
-For years I relied on [Markdown Preview Enhanced](https://marketplace.visualstudio.com/items?itemName=shd101wyy.markdown-preview-enhanced) -- source on one side, rendered preview on the other. It works, but the split-pane workflow gets cumbersome fast, especially when you have several markdown files open at once. There are some excellent standalone markdown editors out there, but using a separate app means giving up Git integration, multi-language file support, and the entire VS Code extensions ecosystem.
-
-MikeDown exists to close that gap. It is an open-source, MIT-licensed WYSIWYG Markdown editor that lives entirely inside VS Code -- so you can have multiple markdown files open across panes, windows, and monitors, all without leaving the editor you already use for everything else.
+MikeDown closes that gap. It's an open-source WYSIWYG Markdown editor that lives entirely inside VS Code. Open multiple markdown files across panes, windows, and monitors — all without leaving your editor.
 
 *Multiple markdown documents open side by side, each with full WYSIWYG editing:*
 
 ![Multiple markdown documents open side by side in MikeDown](assets/screenshots/split-view-mark-down.jpg)
 
-*Markdown editing alongside code -- no separate app, no context switching:*
+*Markdown editing alongside code — no separate app, no context switching:*
 
 ![MikeDown editor next to a code file in split view](assets/screenshots/split-view-code.jpg)
 
@@ -26,7 +22,7 @@ MikeDown exists to close that gap. It is an open-source, MIT-licensed WYSIWYG Ma
 
 ### True WYSIWYG Editing
 
-Edit markdown visually using a TipTap/ProseMirror-based editor. What you see is what you get -- headings render as headings, lists render as lists, and you never have to look at raw syntax unless you want to.
+Edit markdown visually using a TipTap/ProseMirror-based editor. What you see is what you get — headings render as headings, lists render as lists, and you never have to look at raw syntax unless you want to.
 
 *WYSIWYG editing in light mode -- task lists, headings, and formatted text rendered live:*
 
@@ -80,7 +76,7 @@ Insert tables with a grid picker, edit with a contextual toolbar, drag handles f
 
 ### Find and Replace
 
-Full find-and-replace inside the WYSIWYG editor. Most WYSIWYG markdown editors skip this -- MikeDown does not.
+Full find-and-replace inside the WYSIWYG editor. Most WYSIWYG markdown editors skip this — MikeDown does not.
 
 ### Code Block Syntax Highlighting
 
@@ -156,9 +152,7 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 
 ## Contributing
 
-MikeDown is open source under the [MIT License](LICENSE.md).
-
-Source code, issues, and contributions: [github.com/mikejoseph23/mikedown](https://github.com/mikejoseph23/mikedown)
+MikeDown is open source under the [MIT License](LICENSE.md). Bug reports, feature requests, and contributions are welcome on [GitHub](https://github.com/mikejoseph23/mikedown).
 
 ## License
 
