@@ -2,6 +2,14 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.1.4] - 2026-04-10
+
+### Fixed
+
+- Find (Ctrl/Cmd+F) in WYSIWYG mode now correctly highlights every match across headings, lists, and other block types — previously, a bug in the text-offset → ProseMirror position mapping caused most matches to collapse onto the last text node so only one garbled highlight was rendered
+- Find bar Next / Previous (↑ / ↓ buttons and Enter / Shift+Enter) now scrolls the active match into view instead of moving the editor cursor, so the toolbar no longer flips its "Text Format" indicator to H1/H2/list when stepping through matches
+- Clicking the find bar's arrow buttons no longer steals focus from the find input, so keyboard navigation keeps working after a click
+
 ## [1.1.3] - 2026-04-10
 
 ### Changed

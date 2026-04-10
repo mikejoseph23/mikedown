@@ -1334,14 +1334,22 @@ function buildFindReplaceBar(editor: Editor): void {
     document.getElementById(id)?.addEventListener('change', doSearch);
   });
 
-  document.getElementById('fr-next-btn')?.addEventListener('click', () => {
+  // Prevent the ↑ / ↓ buttons from stealing focus from the find input on
+  // mousedown. Without this, clicking the arrows moves focus to the button,
+  // which breaks subsequent Enter / Shift+Enter navigation and can leave the
+  // user focused in the toolbar area.
+  const nextBtn = document.getElementById('fr-next-btn');
+  const prevBtn = document.getElementById('fr-prev-btn');
+  nextBtn?.addEventListener('mousedown', (e) => e.preventDefault());
+  prevBtn?.addEventListener('mousedown', (e) => e.preventDefault());
+  nextBtn?.addEventListener('click', () => {
     if (sourceMode && cmView) {
       // Source mode: CodeMirror has its own built-in find via @codemirror/search
     } else {
       findNext(editor);
     }
   });
-  document.getElementById('fr-prev-btn')?.addEventListener('click', () => findPrev(editor));
+  prevBtn?.addEventListener('click', () => findPrev(editor));
 
   findInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) findPrev(editor); else findNext(editor); }
