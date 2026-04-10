@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.1.3] - 2026-04-10
+
+### Changed
+
+- Expanded the Getting Started section of the marketplace listing with first-time use instructions, how to set MikeDown as the default markdown editor in VS Code, and how to set VS Code as the default `.md` handler in macOS Finder and Windows File Explorer
+
 ## [1.1.2] - 2026-04-10
 
 ### Changed

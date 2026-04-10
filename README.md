@@ -102,10 +102,42 @@ Images render inline. Click an image to access an edit popover for adjusting sou
 
 ## Getting Started
 
-1. Install **MikeDown Editor** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor).
-2. Open any `.md` or `.markdown` file.
-3. Right-click the file in the Explorer or editor tab and choose **Open with MikeDown**, or run the command `Open with MikeDown` from the Command Palette.
-4. To make MikeDown the default editor for all markdown files, enable `mikedown.defaultEditor` in Settings.
+### Install
+
+Install **MikeDown Editor** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor), or search for "MikeDown" in the VS Code Extensions panel and click Install.
+
+### Open your first file
+
+1. Open any `.md` or `.markdown` file in VS Code.
+2. Right-click the file in the Explorer (or right-click the editor tab) and choose **Open with MikeDown**. You can also open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run **Open with MikeDown**.
+3. The file opens in WYSIWYG mode. Start editing — your changes are saved back to the original markdown file, just like a normal text editor.
+4. Press `Cmd+/` (Mac) or `Ctrl+/` (Windows/Linux) any time to flip between WYSIWYG and raw markdown source.
+
+### Make MikeDown the default editor for markdown files in VS Code
+
+By default, VS Code opens `.md` files in its standard text editor. To have MikeDown open them automatically:
+
+1. Open VS Code Settings (`Cmd+,` / `Ctrl+,`).
+2. Search for `mikedown.defaultEditor`.
+3. Enable the checkbox.
+
+Now every `.md` or `.markdown` file you open in VS Code will go straight into MikeDown's WYSIWYG view. The raw source is always one keystroke away with `Cmd+/`.
+
+### Open `.md` files in VS Code from Finder or File Explorer
+
+If you want double-clicking a `.md` file in your OS file manager to launch it in VS Code (and therefore in MikeDown, once you've enabled the setting above):
+
+**macOS**
+
+1. In Finder, right-click any `.md` file and choose **Get Info**.
+2. Expand the **Open with** section and pick **Visual Studio Code** from the dropdown. If it's not listed, choose **Other...** and select VS Code from `/Applications`.
+3. Click **Change All...** and confirm. Every `.md` file will now open in VS Code by default.
+
+**Windows**
+
+1. In File Explorer, right-click any `.md` file and choose **Open with → Choose another app**.
+2. Pick **Visual Studio Code** from the list. If it's not shown, click **More apps**, scroll down, or use **Look for another app on this PC** and select `Code.exe`.
+3. Check **Always use this app to open .md files** before clicking OK.
 
 ## Keyboard Shortcuts
 
