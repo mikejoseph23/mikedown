@@ -1774,6 +1774,37 @@ if (!editorContainer) {
     }
   });
 
+  // Cmd+A / Ctrl+A: route to the WYSIWYG editor regardless of focus state.
+  //
+  // Without this, pressing Cmd+A before clicking into the document lets the
+  // browser default select the whole webview DOM (toolbar included) and then
+  // the first ProseMirror transaction wipes it. Registered in the capture
+  // phase so we win over any other listener, and we use stopImmediatePropagation
+  // to prevent the native default from running. The selection + focus is
+  // issued as a single TipTap chain so both operations dispatch atomically.
+  document.addEventListener('keydown', (event) => {
+    if (!(event.metaKey || event.ctrlKey)) return;
+    if (event.key !== 'a' && event.key !== 'A') return;
+    if (sourceMode) return; // CodeMirror has its own selectAll in source mode.
+
+    const target = event.target as HTMLElement | null;
+    const editorDom = editor.view.dom as HTMLElement;
+    // Let ProseMirror's own selectAll keymap handle it if focus is already
+    // inside the main editor.
+    if (target && editorDom.contains(target)) return;
+    // Let native Cmd+A run inside form fields (find bar, dialogs) and any
+    // other contenteditable region (e.g. the frontmatter block).
+    if (target) {
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      if (target.isContentEditable) return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    editor.chain().focus().selectAll().run();
+  }, true);
+
   // M2c — Wire Tab/Shift+Tab custom events to editor commands.
   // These events are dispatched by the handleKeyDown prop above and executed
   // here where we have a reference to the editor instance.
