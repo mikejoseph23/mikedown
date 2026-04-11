@@ -436,3 +436,62 @@ body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
 /* CSS files are loaded as separate <link> tags by the extension host.
    @import with relative paths cannot resolve in the webview's
    vscode-webview: URI scheme. See markdownEditorProvider.ts. */
+
+/* ─── Print styles ────────────────────────────────────────────────────────── */
+/* Used when the user hits Print / Export as PDF — hide chrome, let the
+   content fill the page. */
+@media print {
+  #toolbar,
+  #mikedown-find-bar,
+  #mikedown-context-menu,
+  #mikedown-link-autocomplete,
+  #mikedown-table-grid-picker,
+  .toolbar-dropdown {
+    display: none !important;
+  }
+
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  #editor-container,
+  #source-container {
+    position: static !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .ProseMirror {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #000 !important;
+  }
+
+  .ProseMirror a { color: #000 !important; text-decoration: underline; }
+  .ProseMirror pre, .ProseMirror code {
+    background: #f6f8fa !important;
+    color: #000 !important;
+  }
+
+  /* Avoid page breaks inside atomic blocks */
+  .ProseMirror h1, .ProseMirror h2, .ProseMirror h3,
+  .ProseMirror h4, .ProseMirror h5, .ProseMirror h6 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  .ProseMirror pre, .ProseMirror blockquote, .ProseMirror table, .ProseMirror img {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 0.75in;
+  }
+}

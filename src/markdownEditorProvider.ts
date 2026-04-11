@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as cp from 'child_process';
 import { getSettings } from './settings';
-import { writeRenderedHtml } from './export';
+import { writeRenderedHtml, openRenderedInBrowser } from './export';
 import { parseHeadings } from './outlineProvider';
 
 /**
@@ -331,6 +331,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         case 'exportHtml': {
           const suggestedName = document.fileName;
           await writeRenderedHtml(message.html ?? '', suggestedName);
+          break;
+        }
+        case 'viewInBrowser': {
+          await openRenderedInBrowser(message.html ?? '', document.uri.fsPath);
           break;
         }
         case 'printReady':
@@ -772,7 +776,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff';
   content?: string;
   plainText?: string;
   href?: string;

@@ -15,6 +15,7 @@ suite('Command Registration Tests', () => {
       'mikedown.toggleSourceMode',
       'mikedown.exportHtml',
       'mikedown.print',
+      'mikedown.viewInBrowser',
       'mikedown.copyAsRichText',
     ];
 

@@ -79,6 +79,17 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.viewInBrowser', () => {
+      const panel = MarkdownEditorProvider.activePanel;
+      if (panel) {
+        panel.webview.postMessage({ type: 'requestViewInBrowser' });
+      } else {
+        vscode.window.showWarningMessage('Open a markdown file in MikeDown to view in browser.');
+      }
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('mikedown.copyAsRichText', () => {
       const panel = MarkdownEditorProvider.activePanel;
       if (panel) {

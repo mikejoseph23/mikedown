@@ -1,94 +1,18 @@
 import * as vscode from 'vscode';
+import * as os from 'os';
 import * as path from 'path';
 
 /**
- * Export markdown content as a standalone HTML file.
- * The HTML file includes embedded CSS for a clean reading experience.
+ * Build a standalone HTML document around the given rendered body HTML.
+ * Shared by "Export as HTML" and "View in Browser" so styles stay in sync.
  */
-export async function exportAsHtml(
-  markdownContent: string,
-  suggestedName: string
-): Promise<void> {
-  const uri = await vscode.window.showSaveDialog({
-    defaultUri: vscode.Uri.file(suggestedName.replace(/\.md$/, '.html')),
-    filters: { 'HTML Files': ['html'] },
-    saveLabel: 'Export as HTML',
-  });
-  if (!uri) return;
-
-  const html = buildHtmlExport(markdownContent);
-  await vscode.workspace.fs.writeFile(uri, Buffer.from(html, 'utf8'));
-  vscode.window.showInformationMessage(`Exported to ${path.basename(uri.fsPath)}`);
-}
-
-/**
- * Build a standalone HTML string from markdown content.
- * Uses a simple but attractive style embedded in the file.
- */
-function buildHtmlExport(markdownContent: string): string {
-  // Escape the markdown for embedding — we'll use a simple marked-compatible approach
-  // The HTML export embeds the raw markdown and renders it client-side using marked.js CDN
-  // BUT: we must remain fully offline. So instead, we embed a minimal renderer.
-  //
-  // Approach: use the extension's own bundled rendering by requesting the webview
-  // to provide rendered HTML. For now, wrap in a <pre> with basic styling as a safe fallback.
-  // The real approach is to request rendered HTML from the webview (see markdownEditorProvider handler).
-  // This function produces a minimal standalone HTML that displays the markdown as preformatted text
-  // with a note that a proper render requires the extension.
-  //
-  // IMPLEMENTATION NOTE: A better approach is to have the webview send back its rendered innerHTML.
-  // The `requestExport` flow in markdownEditorProvider handles this properly.
-  // This function is used as a plain-text fallback.
-  const escaped = markdownContent
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+export function buildFullHtml(renderedHtml: string, title: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Exported Document</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #333; line-height: 1.6; }
-  pre { background: #f6f8fa; padding: 16px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
-</style>
-</head>
-<body>
-<pre>${escaped}</pre>
-</body>
-</html>`;
-}
-
-/**
- * Export by triggering the browser's print dialog (PDF via system print-to-PDF).
- * Sends a message to the webview to trigger window.print().
- */
-export function exportViaPrint(panel: vscode.WebviewPanel): void {
-  panel.webview.postMessage({ type: 'triggerPrint' });
-}
-
-/**
- * Write rendered HTML export to disk.
- * Called after the webview sends back rendered HTML.
- */
-export async function writeRenderedHtml(
-  renderedHtml: string,
-  suggestedName: string
-): Promise<void> {
-  const uri = await vscode.window.showSaveDialog({
-    defaultUri: vscode.Uri.file(suggestedName.replace(/\.md$/, '.html')),
-    filters: { 'HTML Files': ['html'] },
-    saveLabel: 'Export as HTML',
-  });
-  if (!uri) return;
-
-  const fullHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${path.basename(suggestedName, '.md')}</title>
+<title>${escapeHtml(title)}</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #24292e; line-height: 1.6; }
   h1, h2, h3, h4, h5, h6 { margin-top: 24px; margin-bottom: 16px; font-weight: 600; }
@@ -114,7 +38,73 @@ export async function writeRenderedHtml(
 ${renderedHtml}
 </body>
 </html>`;
+}
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * Rewrite relative src/href attribute values in an HTML string so that
+ * they resolve against `baseDir`. Absolute URLs, anchors, and data: URIs
+ * are left untouched.
+ */
+export function rewriteRelativeUrls(html: string, baseDir: string): string {
+  const isAbsolute = (v: string): boolean =>
+    /^[a-z][a-z0-9+.-]*:/i.test(v) || v.startsWith('//') || v.startsWith('#') || v.startsWith('data:');
+  return html.replace(/(\s(?:src|href)=)(["'])([^"']*)\2/gi, (match, attr, quote, value) => {
+    if (!value || isAbsolute(value)) return match;
+    const resolved = vscode.Uri.file(path.resolve(baseDir, value)).toString();
+    return `${attr}${quote}${resolved}${quote}`;
+  });
+}
+
+/**
+ * Export by triggering the browser's print dialog (PDF via system print-to-PDF).
+ * Sends a message to the webview to trigger window.print().
+ */
+export function exportViaPrint(panel: vscode.WebviewPanel): void {
+  panel.webview.postMessage({ type: 'triggerPrint' });
+}
+
+/**
+ * Write rendered HTML export to disk.
+ * Called after the webview sends back rendered HTML.
+ */
+export async function writeRenderedHtml(
+  renderedHtml: string,
+  suggestedName: string
+): Promise<void> {
+  const uri = await vscode.window.showSaveDialog({
+    defaultUri: vscode.Uri.file(suggestedName.replace(/\.md$/, '.html')),
+    filters: { 'HTML Files': ['html'] },
+    saveLabel: 'Export as HTML',
+  });
+  if (!uri) return;
+
+  const title = path.basename(suggestedName, path.extname(suggestedName));
+  const fullHtml = buildFullHtml(renderedHtml, title);
   await vscode.workspace.fs.writeFile(uri, Buffer.from(fullHtml, 'utf8'));
   vscode.window.showInformationMessage(`Exported to ${path.basename(uri.fsPath)}`);
+}
+
+/**
+ * Write rendered HTML to a temp file and open it in the system browser.
+ * Relative image/link URLs are rewritten to absolute file:// URLs so they
+ * resolve from the temp location.
+ */
+export async function openRenderedInBrowser(
+  renderedHtml: string,
+  sourceDocPath: string
+): Promise<void> {
+  const baseDir = path.dirname(sourceDocPath);
+  const rewritten = rewriteRelativeUrls(renderedHtml, baseDir);
+  const title = path.basename(sourceDocPath, path.extname(sourceDocPath));
+  const fullHtml = buildFullHtml(rewritten, title);
+
+  const safeName = title.replace(/[^a-z0-9-_]/gi, '_') || 'mikedown';
+  const tmpPath = path.join(os.tmpdir(), `mikedown-preview-${safeName}-${Date.now()}.html`);
+  const tmpUri = vscode.Uri.file(tmpPath);
+  await vscode.workspace.fs.writeFile(tmpUri, Buffer.from(fullHtml, 'utf8'));
+  await vscode.env.openExternal(tmpUri);
 }

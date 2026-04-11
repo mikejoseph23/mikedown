@@ -115,6 +115,10 @@
         "title": "MikeDown: Print / Export as PDF"
       },
       {
+        "command": "mikedown.viewInBrowser",
+        "title": "MikeDown: View in Browser"
+      },
+      {
         "command": "mikedown.copyAsRichText",
         "title": "MikeDown: Copy as Rich Text"
       },

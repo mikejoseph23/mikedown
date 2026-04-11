@@ -850,6 +850,8 @@ const toolbarIcons = {
   sun: toolbarSvg('<circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/>'),
   moon: toolbarSvg('<path d="M13.5 8a5.5 5.5 0 0 1-8.38 4.68A5.5 5.5 0 0 1 8 2.5c0 .5.05 1 .16 1.47A4.5 4.5 0 0 0 13.5 8z"/>'),
   chevron: toolbarSvg('<polyline points="5 6.5 8 9.5 11 6.5"/>', 1.6),
+  print: toolbarSvg('<path d="M4 6V2h8v4"/><rect x="2" y="6" width="12" height="6" rx="1"/><rect x="4" y="10" width="8" height="4"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/>'),
+  browser: toolbarSvg('<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><circle cx="3.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/>'),
 };
 
 // ── M3: Toolbar builder ────────────────────────────────────────────────────────
@@ -897,6 +899,9 @@ function buildToolbar(editor: Editor): void {
     { separator: true },
     { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: icons.source, action: () => vscode.postMessage({ type: 'toggleSource' }), isActive: () => false },
     { id: 'diffToggle', title: 'Toggle Diff Highlighting', icon: icons.diff, action: () => toggleDiffHighlight(), isActive: () => diffHighlightActive },
+    { separator: true },
+    { id: 'viewInBrowser', title: 'View in Browser', icon: icons.browser, action: () => vscode.postMessage({ type: 'viewInBrowser', html: (document.querySelector('.ProseMirror') as HTMLElement)?.innerHTML ?? '' }), isActive: () => false },
+    { id: 'print', title: 'Print / Export as PDF', icon: icons.print, action: () => window.print(), isActive: () => false },
     { separator: true },
     { id: 'themeToggle', title: 'Toggle Light/Dark Mode', icon: icons.sun, action: () => toggleTheme(), isActive: () => false },
     { id: 'settings', title: 'Settings', icon: icons.gear, action: () => showSettingsModal(), isActive: () => false },
@@ -1054,6 +1059,15 @@ function buildCondensedToolbar(editor: Editor): void {
   diffBtn.style.opacity = '0.3';
   diffBtn.style.pointerEvents = 'none';
   diffBtn.addEventListener('click', () => toggleDiffHighlight());
+
+  const viewInBrowserBtn = makeBtn('viewInBrowser', 'View in Browser', icons.browser);
+  viewInBrowserBtn.addEventListener('click', () => {
+    const el = document.querySelector('.ProseMirror') as HTMLElement | null;
+    vscode.postMessage({ type: 'viewInBrowser', html: el?.innerHTML ?? '' });
+  });
+
+  const printBtn = makeBtn('print', 'Print / Export as PDF', icons.print);
+  printBtn.addEventListener('click', () => window.print());
 
   const themeBtn = makeBtn('themeToggle', 'Toggle Light/Dark Mode', icons.sun);
   themeBtn.addEventListener('click', () => toggleTheme());
@@ -1228,6 +1242,9 @@ function buildCondensedToolbar(editor: Editor): void {
   toolbar.appendChild(makeSeparator());
   toolbar.appendChild(sourceBtn);
   toolbar.appendChild(diffBtn);
+  toolbar.appendChild(makeSeparator());
+  toolbar.appendChild(viewInBrowserBtn);
+  toolbar.appendChild(printBtn);
   toolbar.appendChild(makeSeparator());
   toolbar.appendChild(themeBtn);
   toolbar.appendChild(settingsBtn);
@@ -2542,6 +2559,14 @@ if (!editorContainer) {
       const editorEl = document.querySelector('.ProseMirror') as HTMLElement;
       if (editorEl) {
         vscode.postMessage({ type: 'exportHtml', html: editorEl.innerHTML });
+      }
+    }
+
+    // View in Browser: get rendered HTML from the editor DOM and send to host.
+    if (message.type === 'requestViewInBrowser') {
+      const editorEl = document.querySelector('.ProseMirror') as HTMLElement;
+      if (editorEl) {
+        vscode.postMessage({ type: 'viewInBrowser', html: editorEl.innerHTML });
       }
     }
 
