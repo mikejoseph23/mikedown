@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.2.0] - 2026-04-11
+
+### Added
+
+- Custom hover tooltips on all toolbar buttons — every non-dropdown icon now shows a labeled, themed tooltip on hover (VS Code webviews don't reliably render native HTML `title` tooltips, so the labels previously weren't visible)
+
 ## [1.1.4] - 2026-04-10
 
 ### Fixed

@@ -909,7 +909,7 @@ function buildToolbar(editor: Editor): void {
       return '<div class="toolbar-separator" role="separator"></div>';
     }
     const b = btn as { id: string; title: string; icon: string };
-    return `<button data-action="${b.id}" title="${b.title}" aria-label="${b.title}" tabindex="0">${b.icon}</button>`;
+    return `<button data-action="${b.id}" data-tip="${b.title}" aria-label="${b.title}" tabindex="0">${b.icon}</button>`;
   }).join('');
 
   // Wire click handlers
@@ -973,7 +973,7 @@ function buildCondensedToolbar(editor: Editor): void {
   function makeBtn(id: string, title: string, innerHTML: string): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.dataset.action = id;
-    btn.title = title;
+    btn.dataset.tip = title;
     btn.setAttribute('aria-label', title);
     btn.tabIndex = 0;
     btn.innerHTML = innerHTML;
