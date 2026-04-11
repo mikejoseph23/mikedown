@@ -901,7 +901,7 @@ function buildToolbar(editor: Editor): void {
     { id: 'diffToggle', title: 'Toggle Diff Highlighting', icon: icons.diff, action: () => toggleDiffHighlight(), isActive: () => diffHighlightActive },
     { separator: true },
     { id: 'viewInBrowser', title: 'View in Browser', icon: icons.browser, action: () => vscode.postMessage({ type: 'viewInBrowser', html: (document.querySelector('.ProseMirror') as HTMLElement)?.innerHTML ?? '' }), isActive: () => false },
-    { id: 'print', title: 'Print / Export as PDF', icon: icons.print, action: () => window.print(), isActive: () => false },
+    { id: 'print', title: 'Print / Export as PDF', icon: icons.print, action: () => vscode.postMessage({ type: 'printDocument', html: (document.querySelector('.ProseMirror') as HTMLElement)?.innerHTML ?? '' }), isActive: () => false },
     { separator: true },
     { id: 'themeToggle', title: 'Toggle Light/Dark Mode', icon: icons.sun, action: () => toggleTheme(), isActive: () => false },
     { id: 'settings', title: 'Settings', icon: icons.gear, action: () => showSettingsModal(), isActive: () => false },
@@ -1067,7 +1067,10 @@ function buildCondensedToolbar(editor: Editor): void {
   });
 
   const printBtn = makeBtn('print', 'Print / Export as PDF', icons.print);
-  printBtn.addEventListener('click', () => window.print());
+  printBtn.addEventListener('click', () => {
+    const el = document.querySelector('.ProseMirror') as HTMLElement | null;
+    vscode.postMessage({ type: 'printDocument', html: el?.innerHTML ?? '' });
+  });
 
   const themeBtn = makeBtn('themeToggle', 'Toggle Light/Dark Mode', icons.sun);
   themeBtn.addEventListener('click', () => toggleTheme());
@@ -2570,9 +2573,14 @@ if (!editorContainer) {
       }
     }
 
-    // M11 — Print: trigger the system print dialog (user can save as PDF).
-    if (message.type === 'triggerPrint') {
-      window.print();
+    // Print: VS Code webviews are sandboxed and cannot call window.print()
+    // directly, so we hand the rendered HTML to the host which opens it in
+    // the system browser with an auto-print script.
+    if (message.type === 'requestPrint') {
+      const editorEl = document.querySelector('.ProseMirror') as HTMLElement;
+      if (editorEl) {
+        vscode.postMessage({ type: 'printDocument', html: editorEl.innerHTML });
+      }
     }
 
     // M11 — Copy as rich text: write HTML + plain text to clipboard.

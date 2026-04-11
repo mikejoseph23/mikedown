@@ -337,6 +337,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           await openRenderedInBrowser(message.html ?? '', document.uri.fsPath);
           break;
         }
+        case 'printDocument': {
+          await openRenderedInBrowser(message.html ?? '', document.uri.fsPath, { autoPrint: true });
+          break;
+        }
         case 'printReady':
           // Print is handled by the webview's window.print() call — no host action needed.
           console.log('MikeDown: printReady received');
@@ -776,7 +780,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff';
   content?: string;
   plainText?: string;
   href?: string;

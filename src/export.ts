@@ -60,11 +60,16 @@ export function rewriteRelativeUrls(html: string, baseDir: string): string {
 }
 
 /**
- * Export by triggering the browser's print dialog (PDF via system print-to-PDF).
- * Sends a message to the webview to trigger window.print().
+ * Request the rendered HTML from the webview so the extension host can
+ * open it in the browser with an auto-print script injected.
+ *
+ * window.print() cannot be called directly from inside the webview: VS Code
+ * sandboxes webviews without the `allow-modals` flag, so the browser blocks
+ * the call. Instead we reuse the temp-file-then-openExternal flow used by
+ * "View in Browser" and inject a small auto-print script.
  */
 export function exportViaPrint(panel: vscode.WebviewPanel): void {
-  panel.webview.postMessage({ type: 'triggerPrint' });
+  panel.webview.postMessage({ type: 'requestPrint' });
 }
 
 /**
@@ -92,18 +97,30 @@ export async function writeRenderedHtml(
  * Write rendered HTML to a temp file and open it in the system browser.
  * Relative image/link URLs are rewritten to absolute file:// URLs so they
  * resolve from the temp location.
+ *
+ * When `autoPrint` is true, an inline script is injected that calls
+ * window.print() on load — this is how "Print / Export as PDF" works,
+ * since webviews themselves can't pop a print dialog.
  */
 export async function openRenderedInBrowser(
   renderedHtml: string,
-  sourceDocPath: string
+  sourceDocPath: string,
+  options: { autoPrint?: boolean } = {}
 ): Promise<void> {
   const baseDir = path.dirname(sourceDocPath);
   const rewritten = rewriteRelativeUrls(renderedHtml, baseDir);
   const title = path.basename(sourceDocPath, path.extname(sourceDocPath));
-  const fullHtml = buildFullHtml(rewritten, title);
+  let fullHtml = buildFullHtml(rewritten, title);
 
+  if (options.autoPrint) {
+    // Wait for images/fonts to settle before popping the print dialog.
+    const script = `<script>window.addEventListener('load', function(){setTimeout(function(){window.print();}, 400);});</script>`;
+    fullHtml = fullHtml.replace('</body>', `${script}\n</body>`);
+  }
+
+  const prefix = options.autoPrint ? 'mikedown-print' : 'mikedown-preview';
   const safeName = title.replace(/[^a-z0-9-_]/gi, '_') || 'mikedown';
-  const tmpPath = path.join(os.tmpdir(), `mikedown-preview-${safeName}-${Date.now()}.html`);
+  const tmpPath = path.join(os.tmpdir(), `${prefix}-${safeName}-${Date.now()}.html`);
   const tmpUri = vscode.Uri.file(tmpPath);
   await vscode.workspace.fs.writeFile(tmpUri, Buffer.from(fullHtml, 'utf8'));
   await vscode.env.openExternal(tmpUri);
