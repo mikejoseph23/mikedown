@@ -17,6 +17,7 @@
  */
 
 import { Editor } from '@tiptap/core';
+import { Selection, TextSelection } from '@tiptap/pm/state';
 import { StarterKit } from '@tiptap/starter-kit';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
@@ -114,11 +115,6 @@ let headContent: string | null = null;
 // ── M6a: Link tooltip state ────────────────────────────────────────────────────
 
 let linkTooltip: HTMLDivElement | null = null;
-
-/**
- * Timer handle for debouncing anchor ID updates after editor transactions.
- */
-let anchorUpdateTimer: ReturnType<typeof setTimeout> | undefined;
 
 // ── M15: Frontmatter state ─────────────────────────────────────────────────────
 
@@ -852,6 +848,7 @@ const toolbarIcons = {
   chevron: toolbarSvg('<polyline points="5 6.5 8 9.5 11 6.5"/>', 1.6),
   print: toolbarSvg('<path d="M4 6V2h8v4"/><rect x="2" y="6" width="12" height="6" rx="1"/><rect x="4" y="10" width="8" height="4"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/>'),
   browser: toolbarSvg('<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><circle cx="3.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/>'),
+  selectAll: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="1" stroke-dasharray="2 1.5"/><rect x="5" y="5" width="6" height="6" fill="currentColor" stroke="none"/>'),
 };
 
 // ── M3: Toolbar builder ────────────────────────────────────────────────────────
@@ -1072,6 +1069,21 @@ function buildCondensedToolbar(editor: Editor): void {
     vscode.postMessage({ type: 'printDocument', html: el?.innerHTML ?? '' });
   });
 
+  // Select All toolbar button — calls the same TextSelection helper the
+  // Cmd+A keydown handler uses. Added as a keyboard-free way to trigger
+  // select-all: if this button works but Cmd+A still fails, we know the
+  // failure is in keystroke routing (VS Code eating the event, or PM's
+  // Mod-a keymap still running behind our back), not in the select-all
+  // command itself.
+  const selectAllBtn = makeBtn('selectAll', 'Select All', icons.selectAll);
+  // Stop mousedown from stealing focus out of the editor — otherwise the
+  // click lands on the button, the editor blurs, and focus handling gets
+  // messy afterwards.
+  selectAllBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  selectAllBtn.addEventListener('click', () => {
+    selectAllDocument(editor);
+  });
+
   const themeBtn = makeBtn('themeToggle', 'Toggle Light/Dark Mode', icons.sun);
   themeBtn.addEventListener('click', () => toggleTheme());
 
@@ -1248,6 +1260,7 @@ function buildCondensedToolbar(editor: Editor): void {
   toolbar.appendChild(makeSeparator());
   toolbar.appendChild(viewInBrowserBtn);
   toolbar.appendChild(printBtn);
+  toolbar.appendChild(selectAllBtn);
   toolbar.appendChild(makeSeparator());
   toolbar.appendChild(themeBtn);
   toolbar.appendChild(settingsBtn);
@@ -1414,6 +1427,41 @@ function buildFindReplaceBar(editor: Editor): void {
   (window as any).__mikedownCloseFind = closeFindBar;
 }
 
+// ── Select-all helper ─────────────────────────────────────────────────────────
+//
+// Selects the entire rendered document as a plain TextSelection so Cmd+C
+// copies rendered HTML to the clipboard. We deliberately do NOT use
+// `editor.commands.selectAll()` (or PM's `Mod-a` keymap, which calls the
+// same thing): that command builds an `AllSelection`, which round-trips
+// badly through ProseMirror's DOM-sync pipeline inside the VS Code webview
+// and ends up collapsed inside the first heading.
+//
+// ⚠️ `TextSelection.create(doc, 0, doc.content.size)` is ALSO broken:
+// `TextSelection` endpoints must point into a textblock (a node with
+// `inlineContent: true`). Positions 0 and doc.content.size point at the
+// top-level `doc` node's boundary, which is NOT inline content. Passing
+// them to `TextSelection.create` produces the warning
+// `"TextSelection endpoint not pointing into a node with inline content
+// (doc)"` and a malformed selection. PM's view then can't DOM-sync it
+// cleanly, PM's own MutationObserver fires on the class churn from
+// `view.update()`, `readDOMChange` re-parses the broken DOM selection
+// and collapses everything to (1, 1). One frame of flash, then caret
+// lands in the first H1.
+//
+// The right way: use `Selection.atStart(doc)` / `Selection.atEnd(doc)` to
+// walk the doc to the first and last valid inline cursor positions, then
+// build a `TextSelection` between them. Those positions are guaranteed to
+// sit inside textblocks, so PM can represent them in the DOM and the
+// MutationObserver round-trip is a no-op.
+function selectAllDocument(editor: Editor): void {
+  const { state, view } = editor;
+  const start = Selection.atStart(state.doc);
+  const end = Selection.atEnd(state.doc);
+  const tr = state.tr.setSelection(new TextSelection(start.$from, end.$to));
+  view.dispatch(tr);
+  view.focus();
+}
+
 // ── TipTap Initialisation ──────────────────────────────────────────────────────
 
 const editorContainer = document.getElementById('editor-container');
@@ -1466,6 +1514,11 @@ if (!editorContainer) {
         // Disable the built-in codeBlock — tiptap-markdown provides its own code
         // fenced-block handling and conflicts with StarterKit's codeBlock node.
         codeBlock: false,
+        // Disable the built-in link — we register a standalone Link.configure
+        // below with openOnClick: false. Registering both produces a
+        // "Duplicate extension names found: ['link']" warning and double-binds
+        // ProseMirror plugins/keymaps.
+        link: false,
         // M2d: Configure History with grouping delay and stack depth.
         history: { depth: 100, newGroupDelay: 500 },
       }),
@@ -1711,6 +1764,7 @@ if (!editorContainer) {
   editor.on('selectionUpdate', () => updateToolbarState(editor));
   editor.on('transaction', () => updateToolbarState(editor));
 
+
   // M13 — Build find/replace bar and wire global keyboard shortcut.
   buildFindReplaceBar(editor);
 
@@ -1796,33 +1850,51 @@ if (!editorContainer) {
 
   // Cmd+A / Ctrl+A: route to the WYSIWYG editor regardless of focus state.
   //
-  // Without this, pressing Cmd+A before clicking into the document lets the
-  // browser default select the whole webview DOM (toolbar included) and then
-  // the first ProseMirror transaction wipes it. Registered in the capture
-  // phase so we win over any other listener, and we use stopImmediatePropagation
-  // to prevent the native default from running. The selection + focus is
-  // issued as a single TipTap chain so both operations dispatch atomically.
+  // We cannot delegate to ProseMirror's built-in Mod-a keymap because that
+  // command builds an `AllSelection`, and AllSelection round-trips badly
+  // through the view's DOM-sync pipeline inside the VS Code webview:
+  //
+  //   1. `Mod-a` dispatches AllSelection(0, doc.size).
+  //   2. PM syncs the DOM selection, but DOM text ranges can't sit on node
+  //      boundaries, so `onSelectionChange` reads it back as a TextSelection
+  //      one step inside either end and dispatches a replacement tr.
+  //   3. PM's `view.update()` then mutates the editor DOM to reflect the new
+  //      selection class state. That mutation is visible to PM's own
+  //      MutationObserver, which calls `readDOMChange`, re-parses the DOM,
+  //      and finally collapses the selection to the first text position
+  //      (inside the first heading). The editor also blurs along the way.
+  //   4. Net effect: Cmd+A flashes for one frame, then the caret lands
+  //      inside the first H1 and nothing is selected.
+  //
+  // TipTap's own StarterKit source has a comment noting that AllSelection
+  // "doesn't work well with many other commands", and provides its own
+  // alternative for the clear-document case. We sidestep the whole problem
+  // by setting a plain TextSelection spanning 0..doc.size directly, which
+  // round-trips through the DOM pipeline cleanly.
+  //
+  // Registered in the capture phase so we win over both PM's bubble-phase
+  // Mod-a keymap handler and any VS Code / browser default, and we call
+  // stopImmediatePropagation so neither of them see the event at all.
   document.addEventListener('keydown', (event) => {
     if (!(event.metaKey || event.ctrlKey)) return;
     if (event.key !== 'a' && event.key !== 'A') return;
     if (sourceMode) return; // CodeMirror has its own selectAll in source mode.
 
     const target = event.target as HTMLElement | null;
-    const editorDom = editor.view.dom as HTMLElement;
-    // Let ProseMirror's own selectAll keymap handle it if focus is already
-    // inside the main editor.
-    if (target && editorDom.contains(target)) return;
-    // Let native Cmd+A run inside form fields (find bar, dialogs) and any
-    // other contenteditable region (e.g. the frontmatter block).
+    // Let native Cmd+A run inside form fields (find bar, dialogs).
     if (target) {
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-      if (target.isContentEditable) return;
+      // Let native Cmd+A run inside other contenteditable regions (e.g. the
+      // frontmatter block), but NOT inside the main ProseMirror editor —
+      // that one must go through our TextSelection path below.
+      const editorDom = editor.view.dom as HTMLElement;
+      if (target.isContentEditable && !editorDom.contains(target)) return;
     }
 
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
-    editor.chain().focus().selectAll().run();
+    selectAllDocument(editor);
   }, true);
 
   // M2c — Wire Tab/Shift+Tab custom events to editor commands.
@@ -1918,28 +1990,21 @@ if (!editorContainer) {
   }, true);
 
   // ── M6a: Anchor ID generation ───────────────────────────────────────────────
-
-  /**
-   * Scan editor DOM and assign data-anchor-id attributes to all headings
-   * using GitHub-style anchor ID generation with collision deduplication.
-   */
-  function updateHeadingAnchors(): void {
-    const seenIds = new Map<string, number>();
-    const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
-    headings.forEach(h => {
-      const base = githubAnchorId(h.textContent || '');
-      const count = seenIds.get(base) ?? 0;
-      const id = count === 0 ? base : `${base}-${count}`;
-      seenIds.set(base, count + 1);
-      h.dataset.anchorId = id;
-    });
-  }
-
-  // Debounced anchor update on every TipTap transaction.
-  editor.on('transaction', () => {
-    clearTimeout(anchorUpdateTimer);
-    anchorUpdateTimer = setTimeout(updateHeadingAnchors, 300);
-  });
+  //
+  // There used to be an `updateHeadingAnchors` helper here that wrote
+  // `data-anchor-id` onto every H1..H6 on every transaction (debounced
+  // 300 ms). It was dead code — nothing ever read `data-anchor-id`. Both
+  // `computeAnchorIdFor` (see top of file) and the `scrollToAnchor` handler
+  // below walk the headings and compute IDs from `textContent` on demand.
+  //
+  // It was ALSO the root cause of a nasty select-all bug: writing attributes
+  // inside `editor.view.dom` poisoned ProseMirror's MutationObserver queue
+  // with mutations that weren't real content changes. On the next
+  // transaction, PM's `DOMObserver.stop()` drained those pending mutations
+  // and scheduled a 20 ms-delayed `flush()` → `readDOMChange`, which would
+  // then land *after* a select-all selection was dispatched, re-parse the
+  // now-current DOM with stale mutation data, and collapse the selection
+  // back to (1, 1). Deleting this helper is the fix.
 
   // ── M6c: Broken link scanning ───────────────────────────────────────────────
 
@@ -2542,9 +2607,6 @@ if (!editorContainer) {
 
       // M15 — Render frontmatter UI block (collapsed by default above editor).
       renderFrontmatterBlock();
-
-      // M6a — Update heading anchor IDs after content is loaded.
-      updateHeadingAnchors();
 
       // M6c — Trigger broken link check after content loads (debounced 500ms).
       clearTimeout((window as any).__mikedownLinkCheckTimer);
