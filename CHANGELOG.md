@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.2.1] - 2026-04-14
+
+### Fixed
+
+- Relative-path markdown links like `[Planning](Planning/README.md)` are no longer silently stripped on open — TipTap's default link-URI validator contained a regex bug that rejected any bare `word/word` href, which made in-repo link trees render (and re-save) as plain text
+
 ## [1.2.0] - 2026-04-11
 
 ### Added

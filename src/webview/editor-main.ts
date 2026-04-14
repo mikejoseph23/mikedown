@@ -1556,7 +1556,11 @@ if (!editorContainer) {
       // converting typed or pasted markdown link syntax to Link marks.
       // openOnClick: false keeps the editor from navigating on Ctrl+click so
       // the user can edit the link text.
-      Link.configure({ openOnClick: false }),
+      // isAllowedUri: TipTap's default validator has a regex bug where
+      // `[a-z+.-:]` treats `.-:` as a range that includes `/`, so relative
+      // paths like "Planning/README.md" are rejected and the Link mark is
+      // dropped during markdown → HTML → PM parsing. Allow any non-empty URI.
+      Link.configure({ openOnClick: false, isAllowedUri: () => true }),
 
       // ── Images (M2b) ──────────────────────────────────────────────────────────
       // tiptap-markdown handles "![alt](src)" syntax and creates Image nodes.

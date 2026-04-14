@@ -25,7 +25,7 @@ function createTestEditor(content = '') {
       TableRow,
       TableCell,
       TableHeader,
-      Link,
+      Link.configure({ isAllowedUri: () => true }),
       Image,
     ],
     content,
@@ -73,6 +73,20 @@ describe('Markdown Round-Trip', () => {
     const md = '[Link](https://example.com)\n';
     const out = roundTrip(md);
     expect(out).toContain('https://example.com');
+  });
+
+  it('preserves relative-path links (e.g. Planning/README.md)', () => {
+    // Regression: TipTap Link's default isAllowedUri regex treats `.-:` as a
+    // character range, so hrefs like "Planning/README.md" were being dropped
+    // and links rendered as plain text.
+    const md = [
+      '- [Planning](Planning/README.md)',
+      '- [Meeting](meetings/2026-04-10%20-%20Initial%20Call/README.md)',
+      '',
+    ].join('\n');
+    const out = roundTrip(md);
+    expect(out).toContain('[Planning](Planning/README.md)');
+    expect(out).toContain('meetings/2026-04-10%20-%20Initial%20Call/README.md');
   });
 
   it('preserves unordered lists', () => {
