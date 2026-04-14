@@ -406,6 +406,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           while ((m = headingRegex.exec(currentText)) !== null) {
             anchorIds.add(githubAnchorId(m[1]));
           }
+          for (const id of collectHtmlAnchorIds(currentText)) anchorIds.add(id);
 
           const brokenLinks: string[] = [];
 
@@ -419,12 +420,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               try {
                 await vscode.workspace.fs.stat(vscode.Uri.file(absPath));
                 if (anchorPart && link.type === 'fileAnchor') {
-                  // Check heading exists in target file
+                  // Check heading or HTML anchor exists in target file
                   const content = Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.file(absPath))).toString('utf8');
                   const anchors = new Set<string>();
                   const re = /^#{1,6}\s+(.+)$/gm;
                   let r: RegExpExecArray | null;
                   while ((r = re.exec(content)) !== null) anchors.add(githubAnchorId(r[1]));
+                  for (const id of collectHtmlAnchorIds(content)) anchors.add(id);
                   if (!anchors.has(anchorPart)) brokenLinks.push(link.href);
                 }
               } catch {
@@ -462,6 +464,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             const anchor = '#' + githubAnchorId(m[2]);
             suggestions.push({ label: m[2], href: anchor, type: 'anchor', level });
           }
+          for (const id of collectHtmlAnchorIds(text)) {
+            suggestions.push({ label: id, href: '#' + id, type: 'anchor' });
+          }
 
           webviewPanel.webview.postMessage({ type: 'linkSuggestions', suggestions });
           break;
@@ -480,6 +485,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             let m: RegExpExecArray | null;
             while ((m = headingRegex.exec(content)) !== null) {
               anchors.push({ label: m[2], href: '#' + githubAnchorId(m[2]), type: 'anchor', level: m[1].length });
+            }
+            for (const id of collectHtmlAnchorIds(content)) {
+              anchors.push({ label: id, href: '#' + id, type: 'anchor' });
             }
             webviewPanel.webview.postMessage({ type: 'fileHeadings', filePath: targetPath, anchors });
           } catch { /* file not found — silently ignore */ }
@@ -798,6 +806,29 @@ interface WebviewMessage {
  */
 function githubAnchorId(text: string): string {
   return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+}
+
+/**
+ * Collect fragment IDs from inline HTML anchor targets in raw markdown,
+ * e.g. `<a id="top"></a>` and `<a name="top"></a>`. Mirrors the narrow
+ * raw-HTML slice the HtmlAnchor node recognises — empty `<a>` tags with
+ * `id` or `name` and no `href`.
+ */
+function collectHtmlAnchorIds(content: string): string[] {
+  const ids: string[] = [];
+  const re = /<a\s+([^>]*?)\s*\/?\s*>\s*(?:<\/a\s*>)?/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(content)) !== null) {
+    const attrs = m[1] || '';
+    if (/\bhref\s*=/i.test(attrs)) continue;
+    const idMatch = attrs.match(/\bid\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+    const nameMatch = attrs.match(/\bname\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+    const id = idMatch ? (idMatch[1] ?? idMatch[2]) : null;
+    const name = nameMatch ? (nameMatch[1] ?? nameMatch[2]) : null;
+    if (id) ids.push(id);
+    else if (name) ids.push(name);
+  }
+  return ids;
 }
 
 /**

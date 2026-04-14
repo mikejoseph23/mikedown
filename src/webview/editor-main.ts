@@ -33,6 +33,7 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
 import { SmartPasteExtension } from './smartpaste';
 import { TableCheckboxExtension } from './tablecheckbox';
+import { HtmlAnchor } from './htmlanchor';
 import {
   FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
   replaceCurrentMatch, replaceAllMatches
@@ -1606,6 +1607,12 @@ if (!editorContainer) {
       // Renders [ ] and [x] inside table cells as interactive checkboxes.
       // The underlying markdown text is preserved for round-trip fidelity.
       TableCheckboxExtension,
+
+      // ── Inline HTML anchor targets ────────────────────────────────────────
+      // Preserves `<a id="foo"></a>` / `<a name="foo"></a>` as stable
+      // fragment identifiers (CommonMark raw-HTML slice) so `[link](#foo)`
+      // resolves even when the target isn't a heading.
+      HtmlAnchor,
     ],
     content: '',
 
@@ -2678,6 +2685,14 @@ if (!editorContainer) {
         const id = count === 0 ? base : `${base}-${count}`;
         seenIds.set(base, count + 1);
         if (id === anchor) { targetEl = h; break; }
+      }
+      // Fallback: custom HTML anchors (`<a id="foo"></a>` / `<a name="foo"></a>`)
+      // rendered by the HtmlAnchor node.
+      if (!targetEl) {
+        const cssAnchor = (window as any).CSS?.escape ? (window as any).CSS.escape(anchor) : anchor.replace(/"/g, '\\"');
+        targetEl = editorContainer.querySelector<HTMLElement>(
+          `.ProseMirror a[id="${cssAnchor}"], .ProseMirror a[name="${cssAnchor}"]`
+        );
       }
       if (targetEl) {
         targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
