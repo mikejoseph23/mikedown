@@ -34,6 +34,7 @@ import { createLowlight, all } from 'lowlight';
 import { SmartPasteExtension } from './smartpaste';
 import { TableCheckboxExtension } from './tablecheckbox';
 import { HtmlAnchor } from './htmlanchor';
+import { Emoji } from './emoji';
 import {
   FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
   replaceCurrentMatch, replaceAllMatches
@@ -1617,6 +1618,11 @@ if (!editorContainer) {
       // fragment identifiers (CommonMark raw-HTML slice) so `[link](#foo)`
       // resolves even when the target isn't a heading.
       HtmlAnchor,
+
+      // ── GitHub `:shortcode:` emoji ─────────────────────────────────────────
+      // Renders `:smile:` as 😄 in WYSIWYG while preserving the shortcode
+      // form in saved markdown for GitHub/GitLab server-side rendering.
+      Emoji,
     ],
     content: '',
 
