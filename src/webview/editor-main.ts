@@ -103,6 +103,13 @@ let sourceMode = false;
  */
 let cmView: EditorView | null = null;
 
+/**
+ * Set to `true` while programmatically replacing CodeMirror's content (during
+ * switchToSource) so that the updateListener does not echo the change back as
+ * an 'edit' message (which would dirty the document on mode toggle).
+ */
+let cmLoading = false;
+
 // ── Diff highlighting state ───────────────────────────────────────────────────
 
 /** Whether diff highlighting is currently active in the WYSIWYG view. */
@@ -2403,6 +2410,15 @@ if (!editorContainer) {
         syntaxHighlighting(document.body.classList.contains('mikedown-force-light') ? defaultHighlightStyle : oneDarkHighlightStyle),
         buildCmTheme(),
         EditorView.lineWrapping,
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged) return;
+          if (cmLoading) return;
+          const md = update.state.doc.toString();
+          const newDirty = md !== originalContent;
+          if (newDirty !== isDirty) isDirty = newDirty;
+          vscode.postMessage({ type: 'edit', content: md });
+          vscode.postMessage({ type: 'stats', plainText: md });
+        }),
       ],
     });
     return new EditorView({ state, parent: sourceContainer });
@@ -2425,9 +2441,11 @@ if (!editorContainer) {
     }
 
     // Set content in CodeMirror
+    cmLoading = true;
     cmView.dispatch({
       changes: { from: 0, to: cmView.state.doc.length, insert: md },
     });
+    cmLoading = false;
 
     // Attempt cursor position mapping (character offset → CodeMirror position)
     try {
@@ -2621,6 +2639,15 @@ if (!editorContainer) {
 
       isDirty = false;
       isLoading = false;
+
+      // Mirror external updates into CodeMirror when source mode is active.
+      if (sourceMode && cmView) {
+        cmLoading = true;
+        cmView.dispatch({
+          changes: { from: 0, to: cmView.state.doc.length, insert: originalContent },
+        });
+        cmLoading = false;
+      }
 
       // M15 — Render frontmatter UI block (collapsed by default above editor).
       renderFrontmatterBlock();
