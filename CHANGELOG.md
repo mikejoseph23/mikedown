@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.5.0] - 2026-04-22
+
+### Added
+
+- Drag-to-reorder for task-list items — hover a task item to reveal a handle to the left of the checkbox, then drag to reorder within a list or move to another task list. Dropping into a paragraph or bullet list inserts a new task list as a sibling so the task-item type is preserved
+
 ## [1.4.0] - 2026-04-22
 
 ### Added

@@ -758,6 +758,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'contextmenu.css',
       'tablepicker.css',
       'tabledrag.css',
+      'tasklist.css',
       'linkautocomplete.css',
       'toolbar-dropdown.css',
     ];

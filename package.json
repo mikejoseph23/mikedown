@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "license": "MIT",
   "preview": false,
   "publisher": "interapp",

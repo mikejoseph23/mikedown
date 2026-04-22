@@ -1,0 +1,53 @@
+/* Task list items — drag handle */
+
+ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 1em;
+}
+
+ul[data-type="taskList"] li.task-list-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35em;
+}
+
+ul[data-type="taskList"] li.task-list-item > label {
+  flex: 0 0 auto;
+  user-select: none;
+  cursor: default;
+  margin-top: 0.15em;
+}
+
+ul[data-type="taskList"] li.task-list-item > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mikedown-taskitem-handle {
+  position: absolute;
+  left: -1.2em;
+  top: 0.1em;
+  width: 1em;
+  line-height: 1.1;
+  font-size: 0.85em;
+  letter-spacing: -0.15em;
+  color: var(--vscode-descriptionForeground, #888);
+  opacity: 0;
+  cursor: grab;
+  user-select: none;
+  transition: opacity 0.12s ease-in-out;
+  text-align: center;
+}
+
+ul[data-type="taskList"] li.task-list-item:hover > .mikedown-taskitem-handle {
+  opacity: 0.55;
+}
+
+.mikedown-taskitem-handle:hover {
+  opacity: 1 !important;
+}
+
+.mikedown-taskitem-handle:active {
+  cursor: grabbing;
+}

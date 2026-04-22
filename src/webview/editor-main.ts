@@ -21,7 +21,7 @@ import { Selection, TextSelection, EditorState as PmEditorState } from '@tiptap/
 import { undoDepth as pmUndoDepth } from '@tiptap/pm/history';
 import { StarterKit } from '@tiptap/starter-kit';
 import { TaskList } from '@tiptap/extension-task-list';
-import { TaskItem } from '@tiptap/extension-task-item';
+import { DraggableTaskItem as TaskItem } from './taskitem-drag';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
