@@ -234,8 +234,22 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // Guard stays up for the entire async operation so all change
           // events fired by this WorkspaceEdit are suppressed.
           webviewEditsInFlight++;
-          const cleaned = this.applyCleanup(message.content ?? '');
-          await this.applyEdit(document, cleaned);
+          const incoming = message.content ?? '';
+          // When pristine, skip applyCleanup so the TextDocument matches disk
+          // exactly; when not pristine, normalize as usual.
+          const cleaned = message.pristine ? incoming : this.applyCleanup(incoming);
+          if (cleaned !== document.getText()) {
+            await this.applyEdit(document, cleaned);
+          }
+          // VS Code's dirty flag is version-based, not content-based, so a
+          // WorkspaceEdit that happens to make content match disk does NOT
+          // clear dirty. Only save() or revert() can. When the webview
+          // signals pristine (user has undone all changes), save() the doc
+          // — it's a no-op write (content already matches disk) that bumps
+          // the saved-version marker and clears the dot.
+          if (message.pristine && document.isDirty) {
+            await document.save();
+          }
           // Defer decrement to the next tick — onDidChangeTextDocument events
           // from the WorkspaceEdit may be dispatched asynchronously after the
           // applyEdit promise resolves; the guard must stay up until they land.
@@ -777,7 +791,7 @@ ${cssLinks}
   </div>
   <!-- TipTap mounts directly into #editor-container -->
   <div id="editor-container" role="main" aria-label="Markdown editor"></div>
-  <div id="source-container" style="display:none; height:100%;"></div>
+  <div id="source-container" style="display:none;"></div>
   <script src="${scriptUri}"></script>
 </body>
 </html>`;
@@ -790,6 +804,7 @@ ${cssLinks}
 interface WebviewMessage {
   type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff';
   content?: string;
+  pristine?: boolean;
   plainText?: string;
   href?: string;
   html?: string;

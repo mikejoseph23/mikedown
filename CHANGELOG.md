@@ -2,6 +2,26 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.4.0] - 2026-04-22
+
+### Added
+
+- Find & replace now works in source mode — same bar, same options (match case, whole word, regex), highlights and cycles matches inside CodeMirror
+- Cursor position is preserved when toggling between WYSIWYG and source mode (snippet-search based mapping handles markdown syntax characters correctly)
+
+### Fixed
+
+- Undo / redo now route to the correct editor based on current mode — previously clicking the toolbar Undo button (or using Cmd+Z in source mode) would target the hidden WYSIWYG state instead of what the user was looking at
+- Cmd+/ no longer wraps the current line with `<!-- -->` before switching modes — CodeMirror's default keymap binding for toggle-line-comment was firing alongside the mode toggle
+- Pressing Undo immediately after opening a file no longer blanks the document — TipTap's `setContent` and CodeMirror's initial load both added a history entry that the first Cmd+Z would revert through
+- Undoing every edit back to the post-open state now correctly clears the "modified" indicator so closing the file doesn't prompt to save
+
+## [1.3.2] - 2026-04-21
+
+### Fixed
+
+- Source view no longer truncates the bottom of long documents — an inline `height:100%` on the source container was combining with its `top:40px` positioning to push the scroller 40px past the viewport, hiding the last lines
+
 ## [1.2.1] - 2026-04-14
 
 ### Fixed

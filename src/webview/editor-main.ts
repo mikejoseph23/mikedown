@@ -17,7 +17,7 @@
  */
 
 import { Editor } from '@tiptap/core';
-import { Selection, TextSelection } from '@tiptap/pm/state';
+import { Selection, TextSelection, EditorState as PmEditorState } from '@tiptap/pm/state';
 import { StarterKit } from '@tiptap/starter-kit';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
@@ -37,7 +37,9 @@ import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
 import {
   FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
-  replaceCurrentMatch, replaceAllMatches
+  replaceCurrentMatch, replaceAllMatches,
+  cmFindReplaceExtension, cmUpdateSearch, cmClearSearch, cmFindNext, cmFindPrev,
+  cmReplaceCurrent, cmReplaceAll,
 } from './findreplace';
 import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu } from './contextmenu';
 import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
@@ -46,9 +48,9 @@ import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyL
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates } from './toolbar-dropdown';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
-import { EditorState } from '@codemirror/state';
+import { EditorState, Transaction as CmTransaction } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
-import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
+import { defaultKeymap, historyKeymap, history, undo as cmUndo, redo as cmRedo } from '@codemirror/commands';
 import { markdown as cmMarkdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
@@ -109,6 +111,50 @@ let cmView: EditorView | null = null;
  * an 'edit' message (which would dirty the document on mode toggle).
  */
 let cmLoading = false;
+
+// ── Undo / redo routing ───────────────────────────────────────────────────────
+//
+// Cmd+Z / Cmd+Shift+Z are registered as VS Code keybindings (see package.json)
+// that post `command` messages into the webview. The toolbar Undo/Redo buttons
+// call the same path. We MUST route to the editor that owns the visible doc,
+// otherwise Cmd+Z in source mode would silently undo against the (invisible)
+// TipTap history and desync the two views.
+function doUndo(editor: Editor): void {
+  if (sourceMode && cmView) {
+    cmUndo({ state: cmView.state, dispatch: cmView.dispatch });
+    cmView.focus();
+  } else {
+    editor.chain().focus().undo().run();
+  }
+}
+// Reinitialize the PM state with the current doc and plugins so the undo
+// history starts empty. Called after full-document loads (initial open,
+// external reloads, and source→WYSIWYG switch with changes) so the first
+// Cmd+Z doesn't revert the document to blank.
+function resetPmHistory(editor: Editor): void {
+  // Place the selection at the start of the doc instead of preserving it —
+  // TipTap's setContent leaves the cursor at the end of the document, and a
+  // subsequent `.focus()` (e.g. from the toolbar Undo button) would scroll
+  // the viewport to the bottom on an otherwise no-op undo.
+  const { doc } = editor.state;
+  const startSel = TextSelection.atStart(doc);
+  editor.view.updateState(
+    PmEditorState.create({
+      doc,
+      plugins: editor.state.plugins,
+      selection: startSel,
+    })
+  );
+}
+
+function doRedo(editor: Editor): void {
+  if (sourceMode && cmView) {
+    cmRedo({ state: cmView.state, dispatch: cmView.dispatch });
+    cmView.focus();
+  } else {
+    editor.chain().focus().redo().run();
+  }
+}
 
 // ── Diff highlighting state ───────────────────────────────────────────────────
 
@@ -900,8 +946,8 @@ function buildToolbar(editor: Editor): void {
     { id: 'table', title: 'Insert Table', icon: icons.table, action: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), isActive: () => editor.isActive('table') },
     { id: 'hr', title: 'Horizontal Rule', icon: icons.hr, action: () => editor.chain().focus().setHorizontalRule().run(), isActive: () => false },
     { separator: true },
-    { id: 'undo', title: 'Undo (Cmd+Z)', icon: icons.undo, action: () => editor.chain().focus().undo().run(), isActive: () => false },
-    { id: 'redo', title: 'Redo (Cmd+Shift+Z)', icon: icons.redo, action: () => editor.chain().focus().redo().run(), isActive: () => false },
+    { id: 'undo', title: 'Undo (Cmd+Z)', icon: icons.undo, action: () => doUndo(editor), isActive: () => false },
+    { id: 'redo', title: 'Redo (Cmd+Shift+Z)', icon: icons.redo, action: () => doRedo(editor), isActive: () => false },
     { separator: true },
     { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: icons.source, action: () => vscode.postMessage({ type: 'toggleSource' }), isActive: () => false },
     { id: 'diffToggle', title: 'Toggle Diff Highlighting', icon: icons.diff, action: () => toggleDiffHighlight(), isActive: () => diffHighlightActive },
@@ -1053,10 +1099,10 @@ function buildCondensedToolbar(editor: Editor): void {
 
   // ── Direct action buttons ───────────────────────────────────────────────
   const undoBtn = makeBtn('undo', 'Undo (Cmd+Z)', icons.undo);
-  undoBtn.addEventListener('click', () => editor.chain().focus().undo().run());
+  undoBtn.addEventListener('click', () => doUndo(editor));
 
   const redoBtn = makeBtn('redo', 'Redo (Cmd+Shift+Z)', icons.redo);
-  redoBtn.addEventListener('click', () => editor.chain().focus().redo().run());
+  redoBtn.addEventListener('click', () => doRedo(editor));
 
   const sourceBtn = makeBtn('sourceToggle', 'Toggle Source Mode (Cmd+/)', icons.source);
   sourceBtn.addEventListener('click', () => vscode.postMessage({ type: 'toggleSource' }));
@@ -1339,9 +1385,9 @@ function buildFindReplaceBar(editor: Editor): void {
       <button id="fr-next-btn" title="Next (Enter)">↓</button>
       <span id="fr-match-count" class="fr-count"></span>
       <div class="fr-options">
-        <label title="Match Case"><input type="checkbox" id="fr-case" /> Aa</label>
-        <label title="Whole Word"><input type="checkbox" id="fr-word" /> |W|</label>
-        <label title="Use Regex"><input type="checkbox" id="fr-regex" /> .*</label>
+        <label title="Match Case" aria-label="Match Case"><input type="checkbox" id="fr-case" /><span title="Match Case">Aa</span></label>
+        <label title="Whole Word" aria-label="Whole Word"><input type="checkbox" id="fr-word" /><span title="Whole Word">|W|</span></label>
+        <label title="Use Regex" aria-label="Use Regex"><input type="checkbox" id="fr-regex" /><span title="Use Regex">.*</span></label>
       </div>
       <button id="fr-replace-toggle" title="Toggle replace">≡</button>
       <button id="fr-close-btn" title="Close (Escape)">✕</button>
@@ -1367,9 +1413,15 @@ function buildFindReplaceBar(editor: Editor): void {
   }
 
   function doSearch() {
-    const matches = updateSearch(editor, { query: findInput.value, ...getCurrentOptions() });
+    const opts = { query: findInput.value, ...getCurrentOptions() };
+    const matches = sourceMode && cmView
+      ? cmUpdateSearch(cmView, opts)
+      : updateSearch(editor, opts);
     matchCount.textContent = matches.length > 0 ? `${matches.length} match${matches.length === 1 ? '' : 'es'}` : 'No matches';
   }
+
+  function doNext() { if (sourceMode && cmView) cmFindNext(cmView); else findNext(editor); }
+  function doPrev() { if (sourceMode && cmView) cmFindPrev(cmView); else findPrev(editor); }
 
   findInput.addEventListener('input', doSearch);
   ['fr-case', 'fr-word', 'fr-regex'].forEach(id => {
@@ -1384,17 +1436,11 @@ function buildFindReplaceBar(editor: Editor): void {
   const prevBtn = document.getElementById('fr-prev-btn');
   nextBtn?.addEventListener('mousedown', (e) => e.preventDefault());
   prevBtn?.addEventListener('mousedown', (e) => e.preventDefault());
-  nextBtn?.addEventListener('click', () => {
-    if (sourceMode && cmView) {
-      // Source mode: CodeMirror has its own built-in find via @codemirror/search
-    } else {
-      findNext(editor);
-    }
-  });
-  prevBtn?.addEventListener('click', () => findPrev(editor));
+  nextBtn?.addEventListener('click', doNext);
+  prevBtn?.addEventListener('click', doPrev);
 
   findInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) findPrev(editor); else findNext(editor); }
+    if (e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) doPrev(); else doNext(); }
     if (e.key === 'Escape') { closeFindBar(); }
   });
 
@@ -1404,12 +1450,15 @@ function buildFindReplaceBar(editor: Editor): void {
   });
 
   document.getElementById('fr-replace-btn')?.addEventListener('click', () => {
-    replaceCurrentMatch(editor, replaceInput.value);
+    if (sourceMode && cmView) cmReplaceCurrent(cmView, replaceInput.value);
+    else replaceCurrentMatch(editor, replaceInput.value);
     doSearch();
   });
 
   document.getElementById('fr-replace-all-btn')?.addEventListener('click', () => {
-    const n = replaceAllMatches(editor, replaceInput.value);
+    const n = sourceMode && cmView
+      ? cmReplaceAll(cmView, replaceInput.value)
+      : replaceAllMatches(editor, replaceInput.value);
     matchCount.textContent = `Replaced ${n}`;
     doSearch();
   });
@@ -1418,9 +1467,9 @@ function buildFindReplaceBar(editor: Editor): void {
 
   function closeFindBar() {
     bar.style.display = 'none';
-    clearSearch(editor);
+    if (sourceMode && cmView) { cmClearSearch(cmView); cmView.focus(); }
+    else { clearSearch(editor); editor.commands.focus(); }
     matchCount.textContent = '';
-    editor.commands.focus();
   }
 
   // Expose openFindBar to keyboard handler
@@ -1764,17 +1813,19 @@ if (!editorContainer) {
       const body = updatedEditor.storage.markdown.getMarkdown() as string;
       const markdown = restoreFrontmatter(frontmatterContent, body);
 
-      // M2d — Dirty-state detection: compare the current serialized markdown
-      // against the original content loaded from disk. This prevents false
-      // "unsaved changes" prompts caused by round-trip serialization differences.
-      const newDirty = markdown !== originalContent;
-      if (newDirty !== isDirty) {
-        isDirty = newDirty;
-        // Dirty state changed — extension host is implicitly notified via the
-        // 'edit' message below (host tracks dirty state through TextDocument).
-      }
+      // If the PM undo stack is empty the doc is at its post-load state
+      // (resetPmHistory clears history on every full load). Send
+      // `originalContent` verbatim and flag the message pristine so the
+      // extension host can clear VS Code's dirty flag via document.save() —
+      // VS Code tracks dirty by internal version counter, not content, so
+      // there's no content-only way to clear it.
+      const isPristine = !editor.can().undo();
+      const contentToSend = isPristine ? originalContent : markdown;
 
-      vscode.postMessage({ type: 'edit', content: markdown });
+      const newDirty = contentToSend !== originalContent;
+      if (newDirty !== isDirty) isDirty = newDirty;
+
+      vscode.postMessage({ type: 'edit', content: contentToSend, pristine: isPristine });
 
       // M2d — Send plain text to status bar (M14 hook: word/character count).
       const plainText = updatedEditor.getText();
@@ -1919,6 +1970,23 @@ if (!editorContainer) {
     event.stopPropagation();
     event.stopImmediatePropagation();
     selectAllDocument(editor);
+  }, true);
+
+  // Cmd+F / Cmd+H — open the find (replace) bar. PM's handleKeyDown covers
+  // WYSIWYG; this capture-phase listener handles source mode, where CodeMirror
+  // owns the keyboard.
+  document.addEventListener('keydown', (event) => {
+    if (!(event.metaKey || event.ctrlKey)) return;
+    if (event.key !== 'f' && event.key !== 'h' && event.key !== 'F' && event.key !== 'H') return;
+    if (!sourceMode) return; // WYSIWYG path is handled by PM.
+    const target = event.target as HTMLElement | null;
+    // Don't hijack the shortcut when focus is already in a form field (e.g.
+    // the find bar itself) — native behavior there is fine.
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const replace = event.key === 'h' || event.key === 'H';
+    (window as any).__mikedownOpenFind?.(replace);
   }, true);
 
   // M2c — Wire Tab/Shift+Tab custom events to editor commands.
@@ -2403,7 +2471,15 @@ if (!editorContainer) {
       doc: '',
       extensions: [
         history(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        // Strip Mod-/ from the default keymap — VS Code binds Cmd+/ to
+        // `mikedown.toggleSourceMode`, and CM's own toggleLineComment would
+        // otherwise ALSO run on the same keystroke, wrapping the current line
+        // with <!-- --> before the mode switch fires.
+        keymap.of([
+          ...defaultKeymap.filter(b => b.key !== 'Mod-/' && b.mac !== 'Mod-/'),
+          ...historyKeymap,
+        ]),
+        ...cmFindReplaceExtension,
         lineNumbers(),
         highlightActiveLine(),
         cmMarkdown({ base: markdownLanguage }),
@@ -2414,9 +2490,10 @@ if (!editorContainer) {
           if (!update.docChanged) return;
           if (cmLoading) return;
           const md = update.state.doc.toString();
-          const newDirty = md !== originalContent;
+          const isPristine = md === originalContent;
+          const newDirty = !isPristine;
           if (newDirty !== isDirty) isDirty = newDirty;
-          vscode.postMessage({ type: 'edit', content: md });
+          vscode.postMessage({ type: 'edit', content: md, pristine: isPristine });
           vscode.postMessage({ type: 'stats', plainText: md });
         }),
       ],
@@ -2440,19 +2517,64 @@ if (!editorContainer) {
       cmView = initCmView();
     }
 
-    // Set content in CodeMirror
-    cmLoading = true;
-    cmView.dispatch({
-      changes: { from: 0, to: cmView.state.doc.length, insert: md },
-    });
-    cmLoading = false;
+    // Only replace CodeMirror's content if it differs from the WYSIWYG-serialized
+    // markdown. Skipping the dispatch on a no-op roundtrip (WYSIWYG → source →
+    // WYSIWYG with no source-side edits) preserves CM's undo history.
+    if (cmView.state.doc.toString() !== md) {
+      cmLoading = true;
+      // Exclude the full-content load from CM's undo history so Cmd+Z right
+      // after entering source mode doesn't revert the doc to empty.
+      cmView.dispatch({
+        changes: { from: 0, to: cmView.state.doc.length, insert: md },
+        annotations: CmTransaction.addToHistory.of(false),
+      });
+      cmLoading = false;
+    }
 
-    // Attempt cursor position mapping (character offset → CodeMirror position)
+    // Map PM cursor → CM offset. Counting plain-text chars underestimates
+    // because markdown syntax (##, **, [link](url), `code`) isn't present
+    // in PM's text. Instead, grab the last ~40 plain-text chars before the
+    // cursor and locate that snippet in the markdown source; position CM
+    // just past the match. This places the cursor at the correct column
+    // even inside headings, bold, links, code, etc.
     try {
-      const { from } = editor.state.selection.main;
-      const textBefore = editor.state.doc.textBetween(0, from, '\n');
-      const cmPos = Math.min(textBefore.length, cmView.state.doc.length);
-      cmView.dispatch({ selection: { anchor: cmPos } });
+      const from = editor.state.selection.from;
+      const plainBefore = editor.state.doc.textBetween(0, from, '\n');
+      let cmPos = 0;
+      if (plainBefore.length > 0) {
+        const snippet = plainBefore.slice(-40);
+        const docText = cmView.state.doc.toString();
+        // Expected md offset ≈ plainBefore.length + (syntax chars before cursor).
+        // We don't know the exact syntax count, but using plainBefore.length as
+        // the expected offset biases matches toward the earliest viable region
+        // and lets the closest-occurrence logic compensate.
+        const expected = plainBefore.length;
+        let bestEnd = -1;
+        let bestDist = Infinity;
+        let searchFrom = 0;
+        while (searchFrom <= docText.length && snippet.length > 0) {
+          const found = docText.indexOf(snippet, searchFrom);
+          if (found === -1) break;
+          const end = found + snippet.length;
+          // Bias toward matches AT OR AFTER expected (markdown offset is
+          // always >= plaintext offset because of syntax chars).
+          const dist = end >= expected ? (end - expected) : (expected - end) * 2;
+          if (dist < bestDist) { bestDist = dist; bestEnd = end; }
+          searchFrom = found + 1;
+        }
+        if (bestEnd >= 0) {
+          cmPos = bestEnd;
+        } else {
+          // Fallback: shorter snippet
+          const shorter = plainBefore.slice(-10);
+          const idx2 = shorter ? docText.lastIndexOf(shorter) : -1;
+          cmPos = idx2 >= 0 ? idx2 + shorter.length : Math.min(plainBefore.length, docText.length);
+        }
+      }
+      cmView.dispatch({
+        selection: { anchor: cmPos },
+        effects: EditorView.scrollIntoView(cmPos, { y: 'center' }),
+      });
     } catch (_) { /* ignore cursor mapping errors */ }
 
     // Restore approximate scroll position
@@ -2488,15 +2610,32 @@ if (!editorContainer) {
     const scroller = cmView.scrollDOM;
     const scrollPct = scroller.scrollTop / (scroller.scrollHeight || 1);
 
+    // Capture CM cursor before we potentially swap content so we can place
+    // PM's selection at a comparable location after the switch.
+    const cmCursorOffset = cmView.state.selection.main.from;
+
     // Extract frontmatter from source content
     const { frontmatter, body } = extractFrontmatter(md);
-    frontmatterContent = frontmatter;
 
-    // Load content into TipTap (use isLoading to prevent dirty flag)
-    isLoading = true;
-    originalContent = md; // reset baseline to avoid false dirty
-    editor.commands.setContent(body);
-    isLoading = false;
+    // Only reload TipTap if the source markdown actually diverged from what
+    // TipTap currently holds. Skipping setContent on a no-op roundtrip
+    // (source → WYSIWYG with no source-side edits) preserves PM's undo history
+    // so Cmd+Z can still reach edits made before the last mode toggle.
+    const currentPmBody = editor.storage.markdown.getMarkdown() as string;
+    if (body !== currentPmBody || frontmatter !== frontmatterContent) {
+      frontmatterContent = frontmatter;
+      isLoading = true;
+      originalContent = md; // reset baseline to avoid false dirty
+      editor.commands.setContent(body);
+      // The setContent above is on the undo stack by default; clear it so
+      // Cmd+Z after switching from source can't undo past the full reload.
+      resetPmHistory(editor);
+      isLoading = false;
+    } else {
+      // Content matches — still refresh originalContent so the dirty-state
+      // baseline tracks the current markdown verbatim (trailing-newline etc).
+      originalContent = md;
+    }
 
     // Show WYSIWYG, hide source
     const editorEl = document.getElementById('editor-container') as HTMLElement;
@@ -2504,9 +2643,75 @@ if (!editorContainer) {
     editorEl.style.display = '';
     sourceMode = false;
 
-    // Restore approximate scroll position
+    // Map CM cursor (markdown char offset) → PM position using snippet search.
+    // Grab the last ~40 chars of markdown before the cursor, strip out common
+    // syntax (headings, emphasis, links, etc.) to approximate what PM's plain
+    // text holds, and find that snippet in PM's full plain text. Walking PM's
+    // doc to the matched plain-text offset lands the cursor accurately even
+    // when markdown syntax chars shift column positions.
+    try {
+      const mdPrefix = md.substring(0, cmCursorOffset);
+      // Strip the frontmatter block entirely — it isn't in the PM doc.
+      const frontmatterStripped = mdPrefix.replace(/^---\n[\s\S]*?\n---\n?/, '');
+      const syntaxStripped = frontmatterStripped
+        .replace(/^#{1,6}\s+/gm, '')
+        .replace(/^>\s?/gm, '')
+        .replace(/^[*+-]\s+/gm, '')
+        .replace(/^\d+\.\s+/gm, '')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1')
+        .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '$1')
+        .replace(/(?<!_)_([^_\n]+)_(?!_)/g, '$1')
+        .replace(/`([^`\n]+)`/g, '$1')
+        .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+      const snippet = syntaxStripped.slice(-40);
+      const docSize = editor.state.doc.content.size;
+      const pmPlain = editor.state.doc.textBetween(0, docSize, '\n');
+      const expectedPt = syntaxStripped.length;
+
+      let targetPt: number;
+      if (snippet.length === 0) {
+        targetPt = 0;
+      } else {
+        // Pick the occurrence whose end is closest to our expected plaintext
+        // offset — `lastIndexOf` alone can match an earlier duplicate.
+        let bestEnd = -1;
+        let bestDist = Infinity;
+        let searchFrom = 0;
+        while (searchFrom <= pmPlain.length) {
+          const found = pmPlain.indexOf(snippet, searchFrom);
+          if (found === -1) break;
+          const end = found + snippet.length;
+          const dist = Math.abs(end - expectedPt);
+          if (dist < bestDist) { bestDist = dist; bestEnd = end; }
+          searchFrom = found + 1;
+        }
+        targetPt = bestEnd >= 0 ? bestEnd : Math.min(expectedPt, pmPlain.length);
+      }
+
+      // Binary-search for the smallest PM position whose textBetween prefix
+      // length reaches targetPt. This matches `textBetween`'s own block-join
+      // semantics exactly, so we don't drift at block boundaries.
+      let lo = 0, hi = docSize;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        const len = editor.state.doc.textBetween(0, mid, '\n').length;
+        if (len < targetPt) lo = mid + 1;
+        else hi = mid;
+      }
+      const safePos = Math.max(1, Math.min(lo, docSize));
+      const sel = TextSelection.near(editor.state.doc.resolve(safePos));
+      editor.view.dispatch(editor.state.tr.setSelection(sel).scrollIntoView());
+    } catch (_) { /* ignore cursor mapping errors */ }
+
+    // Restore approximate scroll position only if cursor mapping didn't
+    // already scroll us — the scrollIntoView above is preferable when it works.
     setTimeout(() => {
-      editorEl.scrollTop = scrollPct * editorEl.scrollHeight;
+      if (cmCursorOffset === 0) {
+        editorEl.scrollTop = scrollPct * editorEl.scrollHeight;
+      }
     }, 10);
 
     // Re-enable toolbar buttons
@@ -2595,8 +2800,8 @@ if (!editorContainer) {
         case 'toggleItalic': editor.chain().focus().toggleItalic().run(); break;
         case 'toggleStrike': editor.chain().focus().toggleStrike().run(); break;
         case 'toggleCode': editor.chain().focus().toggleCode().run(); break;
-        case 'undo': editor.chain().focus().undo().run(); break;
-        case 'redo': editor.chain().focus().redo().run(); break;
+        case 'undo': doUndo(editor); break;
+        case 'redo': doRedo(editor); break;
         case 'toggleSource':
           if (sourceMode) { switchToWysiwyg(); } else { switchToSource(); }
           break;
@@ -2625,6 +2830,11 @@ if (!editorContainer) {
 
       editor.commands.setContent(body);
 
+      // Clear the undo history so pressing Cmd+Z right after opening a file
+      // doesn't revert the document to empty (setContent adds to history by
+      // default).
+      resetPmHistory(editor);
+
       // M2d — After TipTap parses and re-sets the content, immediately serialize
       // back to check for round-trip fidelity. If the serialized form differs from
       // the original, log a warning but continue using originalContent as the
@@ -2645,6 +2855,7 @@ if (!editorContainer) {
         cmLoading = true;
         cmView.dispatch({
           changes: { from: 0, to: cmView.state.doc.length, insert: originalContent },
+          annotations: CmTransaction.addToHistory.of(false),
         });
         cmLoading = false;
       }

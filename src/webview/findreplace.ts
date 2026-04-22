@@ -1,6 +1,8 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, EditorState, Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { StateEffect, StateField } from '@codemirror/state';
+import { EditorView as CmEditorView, Decoration as CmDecoration, DecorationSet as CmDecorationSet } from '@codemirror/view';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -212,5 +214,123 @@ export function replaceAllMatches(editor: any, replaceWith: string): number {
   });
   editor.view.dispatch(tr);
   updateSearch(editor, {});
+  return count;
+}
+
+// ─── CodeMirror (source mode) integration ────────────────────────────────────
+//
+// A separate StateField renders match decorations inside the CodeMirror view.
+// Match detection reuses `currentSearchState` so options (case / word / regex)
+// stay in sync with the shared find bar UI.
+
+const setCmSearchEffect = StateEffect.define<{ matches: SearchMatch[]; activeIndex: number }>();
+
+const cmSearchField = StateField.define<CmDecorationSet>({
+  create() {
+    return CmDecoration.none;
+  },
+  update(value, tr) {
+    value = value.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setCmSearchEffect)) {
+        const { matches, activeIndex } = e.value;
+        if (matches.length === 0) {
+          value = CmDecoration.none;
+        } else {
+          const decos = matches.map((m, i) =>
+            CmDecoration.mark({
+              class: i === activeIndex ? 'search-match-active' : 'search-match',
+            }).range(m.from, m.to)
+          );
+          value = CmDecoration.set(decos, true);
+        }
+      }
+    }
+    return value;
+  },
+  provide: f => CmEditorView.decorations.from(f),
+});
+
+export const cmFindReplaceExtension = [cmSearchField];
+
+let cmMatches: SearchMatch[] = [];
+
+function findMatchesInCm(view: CmEditorView, state: SearchState): SearchMatch[] {
+  const rx = buildRegex(state);
+  if (!rx) return [];
+  const text = view.state.doc.toString();
+  const matches: SearchMatch[] = [];
+  rx.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = rx.exec(text)) !== null) {
+    const from = m.index;
+    const to = from + m[0].length;
+    if (to > from) matches.push({ from, to });
+    if (m[0].length === 0) rx.lastIndex++;
+  }
+  return matches;
+}
+
+function cmScrollActive(view: CmEditorView): void {
+  const m = cmMatches[currentSearchState.currentIndex];
+  if (!m) return;
+  view.dispatch({ effects: CmEditorView.scrollIntoView(m.from, { y: 'nearest' }) });
+}
+
+export function cmUpdateSearch(view: CmEditorView, partial: Partial<SearchState>): SearchMatch[] {
+  currentSearchState = { ...currentSearchState, ...partial };
+  currentSearchState.currentIndex = currentSearchState.query ? 0 : -1;
+  cmMatches = findMatchesInCm(view, currentSearchState);
+  if (currentSearchState.currentIndex >= cmMatches.length) {
+    currentSearchState.currentIndex = cmMatches.length > 0 ? 0 : -1;
+  }
+  view.dispatch({
+    effects: setCmSearchEffect.of({ matches: cmMatches, activeIndex: currentSearchState.currentIndex }),
+  });
+  if (cmMatches.length > 0) cmScrollActive(view);
+  return cmMatches;
+}
+
+export function cmClearSearch(view: CmEditorView): void {
+  currentSearchState = { ...currentSearchState, query: '', currentIndex: -1 };
+  cmMatches = [];
+  view.dispatch({ effects: setCmSearchEffect.of({ matches: [], activeIndex: -1 }) });
+}
+
+export function cmFindNext(view: CmEditorView): void {
+  if (cmMatches.length === 0) return;
+  currentSearchState.currentIndex =
+    (currentSearchState.currentIndex + 1) % cmMatches.length;
+  view.dispatch({
+    effects: setCmSearchEffect.of({ matches: cmMatches, activeIndex: currentSearchState.currentIndex }),
+  });
+  cmScrollActive(view);
+}
+
+export function cmFindPrev(view: CmEditorView): void {
+  if (cmMatches.length === 0) return;
+  currentSearchState.currentIndex =
+    (currentSearchState.currentIndex - 1 + cmMatches.length) % cmMatches.length;
+  view.dispatch({
+    effects: setCmSearchEffect.of({ matches: cmMatches, activeIndex: currentSearchState.currentIndex }),
+  });
+  cmScrollActive(view);
+}
+
+export function cmReplaceCurrent(view: CmEditorView, replaceWith: string): void {
+  if (cmMatches.length === 0) return;
+  const m = cmMatches[currentSearchState.currentIndex];
+  if (!m) return;
+  view.dispatch({ changes: { from: m.from, to: m.to, insert: replaceWith } });
+  cmUpdateSearch(view, {});
+}
+
+export function cmReplaceAll(view: CmEditorView, replaceWith: string): number {
+  if (cmMatches.length === 0) return 0;
+  const count = cmMatches.length;
+  // Changes must be sorted ascending & non-overlapping; our matches already are.
+  const changes = cmMatches.map(m => ({ from: m.from, to: m.to, insert: replaceWith }));
+  view.dispatch({ changes });
+  cmUpdateSearch(view, {});
   return count;
 }
