@@ -1494,6 +1494,19 @@ function buildFindReplaceBar(editor: Editor): void {
     doSearch();
   };
   (window as any).__mikedownCloseFind = closeFindBar;
+
+  // Called by switchToSource / switchToWysiwyg after a mode toggle. Clears
+  // decorations left on the now-hidden editor and re-runs the current query
+  // against the newly active one so matches stay in sync with the visible view.
+  (window as any).__mikedownResyncFind = () => {
+    // Always clear both sides first — only the side that just became active
+    // should show highlights after the resync.
+    clearSearch(editor);
+    if (cmView) cmClearSearch(cmView);
+    if (bar.style.display === 'none') return; // Bar closed; no query to reapply.
+    if (!findInput.value) { matchCount.textContent = ''; return; }
+    doSearch();
+  };
 }
 
 // ── Select-all helper ─────────────────────────────────────────────────────────
@@ -2610,6 +2623,7 @@ if (!editorContainer) {
     });
 
     cmView.focus();
+    (window as any).__mikedownResyncFind?.();
   }
 
   function switchToWysiwyg(): void {
@@ -2742,6 +2756,7 @@ if (!editorContainer) {
 
     updateToolbarState(editor);
     editor.commands.focus();
+    (window as any).__mikedownResyncFind?.();
   }
 
   // ── Message Handling — Extension → Webview ─────────────────────────────────
