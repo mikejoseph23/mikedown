@@ -18,6 +18,7 @@
 
 import { Editor } from '@tiptap/core';
 import { Selection, TextSelection, EditorState as PmEditorState } from '@tiptap/pm/state';
+import { undoDepth as pmUndoDepth } from '@tiptap/pm/history';
 import { StarterKit } from '@tiptap/starter-kit';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
@@ -91,6 +92,16 @@ let originalContent: string = '';
  * Tracks whether the document has unsaved changes relative to `originalContent`.
  */
 let isDirty = false;
+
+/**
+ * PM undo-stack depth at the moment the document was last saved. Compared
+ * against the current undo depth to detect the "pristine" state (i.e. PM
+ * content matches whatever is currently on disk). `null` means there is no
+ * valid saved baseline for the current PM history (e.g. after switching
+ * modes with unsaved changes, which reset history but didn't save). Updated
+ * on load (→ 0) and every time the extension host reports a successful save.
+ */
+let lastSavedUndoDepth: number | null = 0;
 
 // ── M4: Source mode state ──────────────────────────────────────────────────────
 
@@ -1813,13 +1824,13 @@ if (!editorContainer) {
       const body = updatedEditor.storage.markdown.getMarkdown() as string;
       const markdown = restoreFrontmatter(frontmatterContent, body);
 
-      // If the PM undo stack is empty the doc is at its post-load state
-      // (resetPmHistory clears history on every full load). Send
-      // `originalContent` verbatim and flag the message pristine so the
-      // extension host can clear VS Code's dirty flag via document.save() —
-      // VS Code tracks dirty by internal version counter, not content, so
-      // there's no content-only way to clear it.
-      const isPristine = !editor.can().undo();
+      // "Pristine" = PM's current undo depth matches the depth captured at
+      // the last save (0 at initial load). When pristine we send the
+      // `originalContent` baseline verbatim so the extension host can
+      // restore the TextDocument to an exact byte-match of the saved file
+      // and clear the dirty flag via document.save().
+      const isPristine = lastSavedUndoDepth !== null
+        && pmUndoDepth(editor.state) === lastSavedUndoDepth;
       const contentToSend = isPristine ? originalContent : markdown;
 
       const newDirty = contentToSend !== originalContent;
@@ -2630,6 +2641,10 @@ if (!editorContainer) {
       // The setContent above is on the undo stack by default; clear it so
       // Cmd+Z after switching from source can't undo past the full reload.
       resetPmHistory(editor);
+      // History is back to depth 0 but the doc doesn't match the last saved
+      // state — it matches unsaved source-mode edits. Invalidate the baseline
+      // so isPristine can't falsely fire and overwrite disk via save().
+      lastSavedUndoDepth = null;
       isLoading = false;
     } else {
       // Content matches — still refresh originalContent so the dirty-state
@@ -2792,6 +2807,18 @@ if (!editorContainer) {
       }
     }
 
+    // Host reports the document has been saved to disk. Rebaseline our
+    // pristine-detection state so subsequent undos compare against the
+    // newly saved content instead of the pre-load content — otherwise
+    // undoing back to the old load state would silently revert the saved
+    // file on disk (because we'd send the stale `originalContent` with
+    // pristine:true and the host would save() over the real saved state).
+    if (message.type === 'saved') {
+      const msg = message as any;
+      originalContent = msg.content ?? '';
+      lastSavedUndoDepth = pmUndoDepth(editor.state);
+    }
+
     // M3 — Handle formatting commands posted from the extension host
     // (triggered by VS Code keybindings registered in package.json).
     if (message.type === 'command') {
@@ -2834,6 +2861,7 @@ if (!editorContainer) {
       // doesn't revert the document to empty (setContent adds to history by
       // default).
       resetPmHistory(editor);
+      lastSavedUndoDepth = 0;
 
       // M2d — After TipTap parses and re-sets the content, immediately serialize
       // back to check for round-trip fidelity. If the serialized form differs from

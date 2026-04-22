@@ -175,6 +175,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         // save completes (e.g. file-watcher detecting the disk write, or
         // deferred save-participant changes) are still suppressed.
         setTimeout(() => { isSaving = false; }, 0);
+        // Tell the webview to rebaseline its pristine-detection state to the
+        // newly saved content. Without this, an undo after save would be
+        // treated as "pristine" relative to the pre-load content and our
+        // dirty-clearing save() would overwrite the real saved state on disk.
+        webviewPanel.webview.postMessage({ type: 'saved', content: savedDoc.getText() });
       }
     });
 
