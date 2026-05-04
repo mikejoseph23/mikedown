@@ -1670,7 +1670,11 @@ if (!editorContainer) {
         tightListClass: 'tight',
         bulletListMarker: '-',
         linkify: false,
-        breaks: false,
+        // breaks: true treats a single newline within a paragraph as a hard
+        // line break (rendered as <br>) rather than a CommonMark soft break
+        // (rendered as a space). This matches the behavior most users expect
+        // from editors like Typora, Obsidian, and GitHub-flavored renderers.
+        breaks: true,
         transformPastedText: false,
         transformCopiedText: false,
       }),
@@ -2528,9 +2532,15 @@ if (!editorContainer) {
   function switchToSource(): void {
     if (sourceMode) return;
 
-    // Serialize TipTap content (re-attach frontmatter for complete markdown)
+    // Serialize TipTap content (re-attach frontmatter for complete markdown).
+    // When the document is pristine (no PM edits since last load/save), prefer
+    // the verbatim originalContent so soft breaks and other syntax that doesn't
+    // round-trip through PM are preserved in source view.
     const body = editor.storage.markdown.getMarkdown() as string;
-    const md = restoreFrontmatter(frontmatterContent, body);
+    const serialized = restoreFrontmatter(frontmatterContent, body);
+    const isPristine = lastSavedUndoDepth !== null
+      && pmUndoDepth(editor.state) === lastSavedUndoDepth;
+    const md = isPristine ? originalContent : serialized;
 
     // Record scroll percentage before hiding
     const editorEl = document.getElementById('editor-container') as HTMLElement;
@@ -2646,8 +2656,15 @@ if (!editorContainer) {
     // TipTap currently holds. Skipping setContent on a no-op roundtrip
     // (source → WYSIWYG with no source-side edits) preserves PM's undo history
     // so Cmd+Z can still reach edits made before the last mode toggle.
+    //
+    // When source still equals originalContent verbatim (user hasn't edited
+    // source), skip the PM reload even if PM's serialized form differs — that
+    // difference is just round-trip lossiness (e.g. soft-break newlines), not
+    // a real edit, and reloading would needlessly discard PM's undo history
+    // and invalidate the saved-state baseline.
     const currentPmBody = editor.storage.markdown.getMarkdown() as string;
-    if (body !== currentPmBody || frontmatter !== frontmatterContent) {
+    const sourceUnchanged = md === originalContent;
+    if (!sourceUnchanged && (body !== currentPmBody || frontmatter !== frontmatterContent)) {
       frontmatterContent = frontmatter;
       isLoading = true;
       originalContent = md; // reset baseline to avoid false dirty

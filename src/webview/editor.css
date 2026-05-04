@@ -309,7 +309,17 @@ body {
 /* ─── Paragraph spacing ──────────────────────────────────────────────────── */
 
 .ProseMirror p { margin: 0; }
-.ProseMirror > * + * { margin-top: 0.75em; }
+/* Spacing between top-level blocks. The per-element selectors below match
+   `.ProseMirror p`'s (0,1,1) specificity so paragraphs don't override the
+   margin via the universal `> * + *` rule (which is only (0,1,0)). */
+.ProseMirror > * + * { margin-top: 1em; }
+.ProseMirror > p + p,
+.ProseMirror > p + ul,
+.ProseMirror > p + ol,
+.ProseMirror > ul + p,
+.ProseMirror > ol + p,
+.ProseMirror > ul + ul,
+.ProseMirror > ol + ol { margin-top: 1em; }
 
 /* ─── Task lists (GFM checkboxes) ─────────────────────────────────────────── */
 

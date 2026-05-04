@@ -2,6 +2,18 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.5.1] - 2026-05-04
+
+### Changed
+
+- Single newlines inside a paragraph now render as visible line breaks (matches Typora / Obsidian / GitHub-flavored rendering). Previously a single `\n` was treated as a CommonMark soft break and collapsed to a space, so a three-line block like `**To:** … / **From:** … / **Subject:** …` rendered as one wrapped line
+- Increased paragraph spacing in the WYSIWYG view from 0.75em to 1em for clearer separation between blocks
+
+### Fixed
+
+- Toggling to source mode on an unmodified file now shows the file's bytes verbatim instead of the round-tripped serialization. Soft-break newlines, trailing whitespace, and other markdown details that don't survive the ProseMirror parse/serialize cycle are preserved
+- Toggling source → WYSIWYG with no source-side edits no longer needlessly reloads the WYSIWYG editor when the only difference is round-trip lossiness — preserves PM's undo history and keeps the saved-state baseline intact
+
 ## [1.5.0] - 2026-04-22
 
 ### Added
