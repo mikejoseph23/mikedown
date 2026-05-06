@@ -9,6 +9,7 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import Link from '@tiptap/extension-link';
+import { LinkWithAutolink } from '../../src/webview/linkAutolink';
 import Image from '@tiptap/extension-image';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -73,6 +74,58 @@ describe('Markdown Round-Trip', () => {
     const md = '[Link](https://example.com)\n';
     const out = roundTrip(md);
     expect(out).toContain('https://example.com');
+  });
+
+  it('preserves email autolinks (`<user@host>`)', () => {
+    // Regression: opening a file containing `<bob@example.com>` was rewriting
+    // it to `[bob@example.com](mailto:bob@example.com)` and marking the file
+    // dirty. The custom LinkWithAutolink serializer keeps the `<…>` form when
+    // the link text matches the email portion of a mailto: href.
+    const editor = new Editor({
+      extensions: [
+        StarterKit,
+        Markdown.configure({ html: false, tightLists: true }),
+        LinkWithAutolink.configure({ isAllowedUri: () => true }),
+      ],
+      content: '**To:** Bob Walck <Bob.Walck@amtote.com>\n',
+      element: document.createElement('div'),
+    });
+    const out = editor.storage.markdown.getMarkdown();
+    editor.destroy();
+    expect(out).toContain('<Bob.Walck@amtote.com>');
+    expect(out).not.toContain('[Bob.Walck@amtote.com](mailto:');
+  });
+
+  it('preserves URL autolinks (`<https://...>`)', () => {
+    const editor = new Editor({
+      extensions: [
+        StarterKit,
+        Markdown.configure({ html: false, tightLists: true }),
+        LinkWithAutolink.configure({ isAllowedUri: () => true }),
+      ],
+      content: 'See <https://example.com> for details.\n',
+      element: document.createElement('div'),
+    });
+    const out = editor.storage.markdown.getMarkdown();
+    editor.destroy();
+    expect(out).toContain('<https://example.com>');
+  });
+
+  it('keeps explicit mailto link with custom text as `[text](mailto:…)`', () => {
+    // When the link text differs from the email, it's not an autolink — must
+    // serialize as the standard inline form.
+    const editor = new Editor({
+      extensions: [
+        StarterKit,
+        Markdown.configure({ html: false, tightLists: true }),
+        LinkWithAutolink.configure({ isAllowedUri: () => true }),
+      ],
+      content: '[Email Bob](mailto:bob@example.com)\n',
+      element: document.createElement('div'),
+    });
+    const out = editor.storage.markdown.getMarkdown();
+    editor.destroy();
+    expect(out).toContain('[Email Bob](mailto:bob@example.com)');
   });
 
   it('preserves relative-path links (e.g. Planning/README.md)', () => {

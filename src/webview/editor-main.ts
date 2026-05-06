@@ -26,7 +26,7 @@ import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
-import { Link } from '@tiptap/extension-link';
+import { LinkWithAutolink } from './linkAutolink';
 import { Image } from '@tiptap/extension-image';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
@@ -1641,7 +1641,13 @@ if (!editorContainer) {
       // `[a-z+.-:]` treats `.-:` as a range that includes `/`, so relative
       // paths like "Planning/README.md" are rejected and the Link mark is
       // dropped during markdown → HTML → PM parsing. Allow any non-empty URI.
-      Link.configure({ openOnClick: false, isAllowedUri: () => true }),
+      // addStorage: override the default markdown serializer so CommonMark
+      // email autolinks (`<user@host>`) round-trip cleanly. The default only
+      // emits `<…>` form when the link text equals the href verbatim, which
+      // misses mailto: links whose text is the email without the prefix —
+      // those would otherwise be re-serialized as `[user@host](mailto:user@host)`,
+      // marking the file dirty on open.
+      LinkWithAutolink.configure({ openOnClick: false, isAllowedUri: () => true }),
 
       // ── Images (M2b) ──────────────────────────────────────────────────────────
       // tiptap-markdown handles "![alt](src)" syntax and creates Image nodes.
@@ -2138,6 +2144,8 @@ if (!editorContainer) {
     document.querySelectorAll('.ProseMirror a[href]').forEach(el => {
       const href = el.getAttribute('href') || '';
       if (!href || href.startsWith('http://') || href.startsWith('https://')) return;
+      // Non-resolvable schemes — let the OS handle them, don't flag as broken.
+      if (/^(mailto|tel|sms|ftp|ftps|news|nntp|magnet|irc|xmpp|skype|callto|geo|bitcoin):/i.test(href)) return;
       if (href.startsWith('#')) {
         links.push({ href, type: 'anchor' });
       } else if (href.includes('#')) {

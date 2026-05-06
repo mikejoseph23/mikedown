@@ -388,6 +388,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             break;
           }
 
+          // Other URL schemes that should be handed to the OS (mail client,
+          // dialer, etc.) rather than resolved as a relative file path.
+          if (/^(mailto|tel|sms|ftp|ftps|news|nntp|magnet|irc|xmpp|skype|callto|geo|bitcoin):/i.test(href)) {
+            vscode.env.openExternal(vscode.Uri.parse(href));
+            break;
+          }
+
           // Relative file link (may include anchor: ./other.md#section)
           const [filePart, anchor] = href.split('#');
           const resolvedUri = vscode.Uri.joinPath(

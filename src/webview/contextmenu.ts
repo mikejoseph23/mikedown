@@ -106,18 +106,24 @@ export function buildLinkMenu(editor: Editor, href: string): ContextMenuEntry[] 
   const vscode = (window as any).__vscode ?? null;
   const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+';
   const isExternal = href.startsWith('http://') || href.startsWith('https://');
+  const isMailto = /^mailto:/i.test(href);
+  const isTel = /^tel:/i.test(href);
+  const isUriScheme = isExternal || isMailto || isTel || /^(sms|ftp|ftps|news|nntp|magnet|irc|xmpp|skype|callto|geo|bitcoin):/i.test(href);
+  const openLabel = isMailto ? 'Send Email' : isTel ? 'Call' : 'Open Link';
+  const copyLabel = isMailto ? 'Copy Email Address' : isTel ? 'Copy Phone Number' : 'Copy Link';
+  const copyValue = isMailto ? href.slice(7) : isTel ? href.slice(4) : href;
   return [
     {
-      label: 'Open Link',
+      label: openLabel,
       shortcut: `${mod}Click`,
       action: () => { if (vscode) vscode.postMessage({ type: 'openLink', href, behavior: 'navigateCurrentTab' }); },
     },
-    ...(isExternal ? [] : [{
+    ...(isUriScheme ? [] : [{
       label: 'Open Link in New Tab',
       action: () => { if (vscode) vscode.postMessage({ type: 'openLink', href, behavior: 'openNewTab' }); },
     } as ContextMenuItem]),
     { separator: true } as ContextMenuSeparator,
-    { label: 'Copy Link', action: () => navigator.clipboard?.writeText(href).catch(() => {}) },
+    { label: copyLabel, action: () => navigator.clipboard?.writeText(copyValue).catch(() => {}) },
     { label: 'Edit Link…', action: () => {
       (window as any).__mikedownShowLinkDialog?.();
     }},

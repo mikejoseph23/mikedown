@@ -2,6 +2,15 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.5.2] - 2026-05-06
+
+### Fixed
+
+- Email autolinks (`<user@example.com>`) no longer get rewritten as `[user@example.com](mailto:user@example.com)` on open, which had been marking unmodified files dirty
+- Email and other non-HTTP scheme links (`mailto:`, `tel:`, etc.) are no longer flagged with a red "Broken link" squiggle — they're handed to the OS instead of validated as relative file paths
+- Cmd/Ctrl+Click on a `mailto:` link now opens the user's default mail client; `tel:` links open the dialer
+- Right-click menu on email links shows "Send Email" / "Copy Email Address" (with the `mailto:` prefix stripped) instead of generic "Open Link" / "Copy Link"
+
 ## [1.5.1] - 2026-05-04
 
 ### Changed
