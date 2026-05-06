@@ -159,6 +159,8 @@ export function hideTableGridPicker(): void {
 // ================================================================
 
 let tableToolbarEl: HTMLElement | null = null;
+let tableToolbarAnchor: HTMLElement | null = null;
+let tableToolbarScrollHandler: (() => void) | null = null;
 
 interface TableToolbarButton {
   label: string;
@@ -261,7 +263,24 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
   });
 
   document.body.appendChild(tableToolbarEl);
+  tableToolbarAnchor = tableEl;
   positionTableToolbar(tableEl);
+
+  // Reposition (or hide) on scroll/resize so the toolbar stays anchored to the
+  // table instead of floating in the viewport while the user scrolls.
+  tableToolbarScrollHandler = () => {
+    if (!tableToolbarAnchor) return;
+    const rect = tableToolbarAnchor.getBoundingClientRect();
+    const vh = window.innerHeight;
+    if (rect.bottom < 0 || rect.top > vh) {
+      if (tableToolbarEl) tableToolbarEl.style.visibility = 'hidden';
+    } else {
+      if (tableToolbarEl) tableToolbarEl.style.visibility = '';
+      positionTableToolbar(tableToolbarAnchor);
+    }
+  };
+  window.addEventListener('scroll', tableToolbarScrollHandler, true);
+  window.addEventListener('resize', tableToolbarScrollHandler);
 }
 
 function positionTableToolbar(tableEl: HTMLElement): void {
@@ -279,6 +298,12 @@ function positionTableToolbar(tableEl: HTMLElement): void {
 }
 
 export function hideTableToolbar(): void {
+  if (tableToolbarScrollHandler) {
+    window.removeEventListener('scroll', tableToolbarScrollHandler, true);
+    window.removeEventListener('resize', tableToolbarScrollHandler);
+    tableToolbarScrollHandler = null;
+  }
+  tableToolbarAnchor = null;
   if (tableToolbarEl) {
     tableToolbarEl.remove();
     tableToolbarEl = null;
@@ -313,6 +338,7 @@ export function updateTableToolbar(editor: Editor): void {
     if (!tableToolbarEl) {
       showTableToolbar(editor, tableNode);
     } else {
+      tableToolbarAnchor = tableNode;
       positionTableToolbar(tableNode);
     }
   }
