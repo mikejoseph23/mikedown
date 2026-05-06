@@ -2246,6 +2246,11 @@ if (!editorContainer) {
 
   let editingImagePos: number | null = null;
 
+  function hideImagePopover(): void {
+    imagePopover.style.display = 'none';
+    editingImagePos = null;
+  }
+
   if (editorContainer) {
     editorContainer.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -2272,6 +2277,17 @@ if (!editorContainer) {
     });
   }
 
+  // Close the popover if the image being edited is deleted (e.g. backspace
+  // on a NodeSelection), or if the doc mutates such that the position no
+  // longer points to an image.
+  editor.on('update', () => {
+    if (editingImagePos === null) return;
+    const node = editor.state.doc.nodeAt(editingImagePos);
+    if (!node || node.type.name !== 'image') {
+      hideImagePopover();
+    }
+  });
+
   document.getElementById('img-ok')?.addEventListener('click', () => {
     if (editingImagePos === null) { return; }
     const rawSrc = (document.getElementById('img-src') as HTMLInputElement).value;
@@ -2279,19 +2295,17 @@ if (!editorContainer) {
     const src = resolveSrcForEditor(rawSrc, imagePathMappings, docDirFsPath);
     editor.commands.setNodeSelection(editingImagePos);
     editor.commands.updateAttributes('image', { src, alt });
-    imagePopover.style.display = 'none';
-    editingImagePos = null;
+    hideImagePopover();
   });
 
   document.getElementById('img-cancel')?.addEventListener('click', () => {
-    imagePopover.style.display = 'none';
-    editingImagePos = null;
+    hideImagePopover();
   });
 
   // Close popover when clicking outside
   document.addEventListener('click', (e) => {
     if (!imagePopover.contains(e.target as Node) && (e.target as HTMLElement).tagName !== 'IMG') {
-      imagePopover.style.display = 'none';
+      hideImagePopover();
     }
   }, true);
 
