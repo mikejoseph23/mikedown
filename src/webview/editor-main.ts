@@ -33,6 +33,7 @@ import { Markdown } from 'tiptap-markdown';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
 import { SmartPasteExtension } from './smartpaste';
+import { ImagePasteExtension, handlePastedImageResult, setPostMessage as setImagePastePostMessage } from './imagepaste';
 import { TableCheckboxExtension } from './tablecheckbox';
 import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
@@ -47,6 +48,7 @@ import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTable
 import { initTableDrag, clearCellSelection, clearDragHandles } from './tabledrag';
 import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks } from './linkautocomplete';
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates } from './toolbar-dropdown';
+import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from '../imageDisplayPath';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
 import { EditorState, Transaction as CmTransaction } from '@codemirror/state';
@@ -67,6 +69,10 @@ declare const acquireVsCodeApi: () => {
 };
 
 const vscode = acquireVsCodeApi();
+// Hand the same vscode handle to the image-paste module so it doesn't try to
+// call acquireVsCodeApi() a second time (which throws — only one call per
+// webview is allowed).
+setImagePastePostMessage(vscode.postMessage.bind(vscode));
 
 console.log('MikeDown: editor-main.ts script executing');
 
@@ -771,6 +777,134 @@ function showSettingsModal(): void {
   // Wire selectedFontValue for save handler
   let selectedFontValue = selectedBody;
 
+  // ── Image Paste
+  const ip = currentImagePasteSettings;
+  const ipState: ImagePasteSettings = { ...ip };
+
+  const ipSectionRow = makeRow('Image Paste', 'Save pasted or drag-dropped images automatically and insert a markdown link at the caret.');
+
+  const ipGrid = document.createElement('div');
+  ipGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-top:4px';
+
+  const labelStyle = 'display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--vscode-descriptionForeground)';
+  const subStyle = 'font-size:11px;color:var(--vscode-descriptionForeground);line-height:1.3;opacity:0.8';
+
+  function makeFieldLabel(text: string, hint: string): HTMLLabelElement {
+    const l = document.createElement('label');
+    l.style.cssText = labelStyle;
+    const top = document.createElement('span');
+    top.textContent = text;
+    top.style.cssText = 'font-weight:500;color:var(--vscode-editor-foreground)';
+    const sub = document.createElement('span');
+    sub.style.cssText = subStyle;
+    sub.textContent = hint;
+    l.appendChild(top);
+    l.appendChild(sub);
+    return l;
+  }
+
+  // enabled (full width row)
+  const enabledRow = document.createElement('div');
+  enabledRow.style.cssText = 'grid-column:1 / -1;display:flex;align-items:center;gap:8px';
+  const enabledInput = document.createElement('input');
+  enabledInput.type = 'checkbox';
+  enabledInput.checked = ipState.enabled;
+  enabledInput.id = 'mikedown-ip-enabled';
+  enabledInput.addEventListener('change', () => { ipState.enabled = enabledInput.checked; });
+  const enabledLabel = document.createElement('label');
+  enabledLabel.htmlFor = 'mikedown-ip-enabled';
+  enabledLabel.textContent = 'Enable image paste & drop';
+  enabledLabel.style.cssText = 'font-size:13px;color:var(--vscode-editor-foreground);cursor:pointer';
+  enabledRow.appendChild(enabledInput);
+  enabledRow.appendChild(enabledLabel);
+  ipGrid.appendChild(enabledRow);
+
+  // folder (text)
+  const folderField = makeFieldLabel('Folder', 'Where to save images, e.g. "images" or "assets/screens".');
+  const folderInput = document.createElement('input');
+  folderInput.type = 'text';
+  folderInput.value = ipState.folder;
+  folderInput.style.cssText = inputStyle;
+  folderInput.addEventListener('input', () => { ipState.folder = folderInput.value; });
+  folderField.appendChild(folderInput);
+  ipGrid.appendChild(folderField);
+
+  // folderRelativeTo (select)
+  const relField = makeFieldLabel('Resolve folder against', 'Document directory or workspace root.');
+  const relSelect = document.createElement('select');
+  relSelect.style.cssText = inputStyle + ';cursor:pointer';
+  for (const [v, t] of [['document', 'Document folder'], ['workspace', 'Workspace root']] as const) {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = t;
+    if (ipState.folderRelativeTo === v) o.selected = true;
+    relSelect.appendChild(o);
+  }
+  relSelect.addEventListener('change', () => {
+    ipState.folderRelativeTo = relSelect.value as ImagePasteSettings['folderRelativeTo'];
+  });
+  relField.appendChild(relSelect);
+  ipGrid.appendChild(relField);
+
+  // filenamePattern (text)
+  const patField = makeFieldLabel('Filename pattern', 'Tokens: ${docName} ${date} ${time} ${timestamp} ${hash} ${index}');
+  const patInput = document.createElement('input');
+  patInput.type = 'text';
+  patInput.value = ipState.filenamePattern;
+  patInput.style.cssText = inputStyle;
+  patInput.addEventListener('input', () => { ipState.filenamePattern = patInput.value; });
+  patField.appendChild(patInput);
+  patField.style.gridColumn = '1 / -1';
+  ipGrid.appendChild(patField);
+
+  // pathStyle (select)
+  const psField = makeFieldLabel('Path style', 'Form of the path written into the markdown.');
+  const psSelect = document.createElement('select');
+  psSelect.style.cssText = inputStyle + ';cursor:pointer';
+  for (const [v, t] of [['relative', 'Relative to document'], ['workspace-absolute', 'Workspace-absolute (/...)']] as const) {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = t;
+    if (ipState.pathStyle === v) o.selected = true;
+    psSelect.appendChild(o);
+  }
+  psSelect.addEventListener('change', () => {
+    ipState.pathStyle = psSelect.value as ImagePasteSettings['pathStyle'];
+  });
+  psField.appendChild(psSelect);
+  ipGrid.appendChild(psField);
+
+  // altText (select)
+  const altField = makeFieldLabel('Alt text', 'How alt text is populated on insert.');
+  const altSelect = document.createElement('select');
+  altSelect.style.cssText = inputStyle + ';cursor:pointer';
+  for (const [v, t] of [['empty', 'Empty'], ['filename', 'Filename'], ['prompt', 'Prompt on each paste']] as const) {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = t;
+    if (ipState.altText === v) o.selected = true;
+    altSelect.appendChild(o);
+  }
+  altSelect.addEventListener('change', () => {
+    ipState.altText = altSelect.value as ImagePasteSettings['altText'];
+  });
+  altField.appendChild(altSelect);
+  ipGrid.appendChild(altField);
+
+  // maxSizeMB (number)
+  const sizeField = makeFieldLabel('Max size (MB)', 'Reject pastes larger than this.');
+  const sizeInput = document.createElement('input');
+  sizeInput.type = 'number';
+  sizeInput.min = '1';
+  sizeInput.max = '200';
+  sizeInput.value = String(ipState.maxSizeMB);
+  sizeInput.style.cssText = inputStyle;
+  sizeInput.addEventListener('input', () => {
+    const n = parseFloat(sizeInput.value);
+    if (Number.isFinite(n) && n > 0) ipState.maxSizeMB = n;
+  });
+  sizeField.appendChild(sizeInput);
+  ipGrid.appendChild(sizeField);
+
+  ipSectionRow.appendChild(ipGrid);
+
   // ── Content Width
   const widthRow = makeRow('Content Width', 'Max width of the editor content area. Use "100%" for full width or a value like "800px".');
   const widthSelect = document.createElement('select');
@@ -821,8 +955,12 @@ function showSettingsModal(): void {
         fontFamily: selectedBody,
         headingFontFamily: selectedHeading,
         contentWidth: widthSelect.value,
+        imagePaste: ipState,
       }
     });
+    // Persist locally so subsequent pastes use the new values without
+    // round-tripping the broadcast.
+    currentImagePasteSettings = { ...ipState };
     overlay.remove();
   });
   footer.appendChild(note);
@@ -832,6 +970,7 @@ function showSettingsModal(): void {
   modal.appendChild(title);
   modal.appendChild(fontSizeRow);
   modal.appendChild(fontThemeRow);
+  modal.appendChild(ipSectionRow);
   modal.appendChild(widthRow);
   modal.appendChild(footer);
   overlay.appendChild(modal);
@@ -847,6 +986,32 @@ function showSettingsModal(): void {
 // ── Theme toggle ────────────────────────────────────────────────────────────────
 
 let themeToggleScope: 'vscode' | 'editorOnly' = 'editorOnly';
+
+// ── Image paste settings (broadcast from extension host) ───────────────────
+interface ImagePasteSettings {
+  enabled: boolean;
+  folder: string;
+  folderRelativeTo: 'document' | 'workspace';
+  filenamePattern: string;
+  pathStyle: 'relative' | 'workspace-absolute';
+  altText: 'empty' | 'filename' | 'prompt';
+  maxSizeMB: number;
+}
+let currentImagePasteSettings: ImagePasteSettings = {
+  enabled: true,
+  folder: 'images',
+  folderRelativeTo: 'document',
+  filenamePattern: '${docName}-${timestamp}',
+  pathStyle: 'relative',
+  altText: 'empty',
+  maxSizeMB: 10,
+};
+
+// Webview-URI → fs-path mappings broadcast by the host with each 'settings'
+// message. Used to display image srcs in their on-disk relative form (the
+// image popover in particular). Empty until the first broadcast lands.
+let imagePathMappings: ImagePathPrefix[] = [];
+let docDirFsPath = '';
 
 function isDarkTheme(): boolean {
   if (document.body.classList.contains('mikedown-force-light')) return false;
@@ -1685,6 +1850,14 @@ if (!editorContainer) {
         transformCopiedText: false,
       }),
 
+      // ── Image Paste (v1.6.0) ──────────────────────────────────────────────
+      // Intercepts paste/drop events with image bytes, sends them to the
+      // extension host which writes the file to <docDir>/images/ (per
+      // mikedown.imagePaste.* settings) and returns the resolved path. Higher
+      // priority than SmartPaste so it wins when the clipboard carries both
+      // image bytes and HTML (some screenshot apps include both).
+      ImagePasteExtension,
+
       // ── Smart Paste (M12a) ─────────────────────────────────────────────────
       // Intercepts paste events that carry text/html clipboard data, cleans the
       // HTML (strips Word/Google Docs noise, converts style-based bold/italic to
@@ -2084,7 +2257,13 @@ if (!editorContainer) {
       editingImagePos = pos;
       // Populate fields
       (document.getElementById('img-alt') as HTMLInputElement).value = img.alt ?? '';
-      (document.getElementById('img-src') as HTMLInputElement).value = img.dataset.originalSrc ?? img.getAttribute('src') ?? '';
+      // Show the on-disk relative form (e.g. `images/foo.png`) rather than
+      // the session-scoped webview URI. The Update handler re-resolves it
+      // back to a webview URI before writing — done via a PM transaction so
+      // PM's MutationObserver isn't poisoned by an out-of-band DOM write.
+      const rawSrc = img.getAttribute('src') ?? '';
+      (document.getElementById('img-src') as HTMLInputElement).value =
+        unresolveSrcForDisplay(rawSrc, imagePathMappings, docDirFsPath);
       // Position popover near image
       const rect = img.getBoundingClientRect();
       imagePopover.style.display = 'block';
@@ -2095,8 +2274,9 @@ if (!editorContainer) {
 
   document.getElementById('img-ok')?.addEventListener('click', () => {
     if (editingImagePos === null) { return; }
-    const src = (document.getElementById('img-src') as HTMLInputElement).value;
+    const rawSrc = (document.getElementById('img-src') as HTMLInputElement).value;
     const alt = (document.getElementById('img-alt') as HTMLInputElement).value;
+    const src = resolveSrcForEditor(rawSrc, imagePathMappings, docDirFsPath);
     editor.commands.setNodeSelection(editingImagePos);
     editor.commands.updateAttributes('image', { src, alt });
     imagePopover.style.display = 'none';
@@ -2819,6 +2999,15 @@ if (!editorContainer) {
       if (msg.editorTheme) {
         applyEditorTheme(msg.editorTheme);
       }
+      if (msg.imagePaste && typeof msg.imagePaste === 'object') {
+        currentImagePasteSettings = { ...currentImagePasteSettings, ...msg.imagePaste };
+      }
+      if (Array.isArray(msg.imagePastePathMappings)) {
+        imagePathMappings = msg.imagePastePathMappings as ImagePathPrefix[];
+      }
+      if (typeof msg.docDirFs === 'string') {
+        docDirFsPath = msg.docDirFs;
+      }
     }
 
     // Handle diff status updates from the extension host
@@ -3023,6 +3212,53 @@ if (!editorContainer) {
     // M6b — Link autocomplete: receive heading anchors for a specific file.
     if (message.type === 'fileHeadings') {
       receiveFileHeadings((message as any).anchors);
+    }
+
+    // v1.6.0 — Image paste host response: insert the saved image at the
+    // position recorded when the request was sent.
+    if (message.type === 'pastedImageResult') {
+      handlePastedImageResult(message as any);
+    }
+
+    // v1.6.0 — Filesystem watcher reports an image file went missing while the
+    // editor is open. Flag any <img> rendered from that URI as broken so the
+    // user sees the warning treatment without having to reload the document.
+    if (message.type === 'imageFileMissing') {
+      const targetUri = (message as any).uri as string | undefined;
+      console.log('MikeDown:DIAG-WEBVIEW-V1: imageFileMissing received uri=', targetUri, 'fsPath=', (message as any).fsPath);
+      if (!targetUri) return;
+      const imgs = document.querySelectorAll<HTMLImageElement>('.ProseMirror img');
+      console.log('MikeDown:DIAG-WEBVIEW-V1: scanning', imgs.length, 'imgs in editor');
+      let matched = 0;
+      imgs.forEach(img => {
+        const src = img.getAttribute('src') ?? '';
+        const isMatch = src === targetUri || src.startsWith(targetUri + '?');
+        console.log('MikeDown:DIAG-WEBVIEW-V1: compare match=', isMatch, 'src=', src);
+        if (isMatch) {
+          matched++;
+          img.classList.add('broken-image');
+          img.title = `Image not found on disk: ${(message as any).fsPath ?? src}`;
+        }
+      });
+      console.log('MikeDown:DIAG-WEBVIEW-V1: total matches=', matched);
+    }
+
+    // v1.6.0 — Image file came back. We only clear the broken-image class
+    // (no src mutation: writing to an <img> attribute inside ProseMirror's
+    // managed DOM poisons its MutationObserver). The browser keeps its
+    // failed-fetch state, so the rendered image won't actually re-appear
+    // until the user reloads the document — but at least the warning
+    // chrome stops showing once the file is back.
+    if (message.type === 'imageFileFound') {
+      const targetUri = (message as any).uri as string | undefined;
+      if (!targetUri) return;
+      document.querySelectorAll<HTMLImageElement>('.ProseMirror img.broken-image').forEach(img => {
+        const src = img.getAttribute('src') ?? '';
+        if (src === targetUri || src.startsWith(targetUri + '?')) {
+          img.classList.remove('broken-image');
+          img.title = '';
+        }
+      });
     }
 
     // M6c — Broken link indicator: apply/remove CSS class to broken links.

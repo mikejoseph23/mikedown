@@ -98,7 +98,7 @@ Switch between light and dark mode inside MikeDown editor tabs without changing 
 
 ### Image Support
 
-Images render inline. Click an image to access an edit popover for adjusting source, alt text, and title.
+Images render inline. Click an image to access an edit popover for adjusting source, alt text, and title. Paste a screenshot (Cmd/Ctrl+V) or drag an image file into the editor to save it to a sibling `images/` folder and insert the markdown link automatically — destination, filename pattern, path style, and alt-text behavior are all configurable via `mikedown.imagePaste.*` settings.
 
 ## Getting Started
 
@@ -171,6 +171,13 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 | `mikedown.normalizationStyle.italicMarker` | `*` | Italic marker when normalization is enabled |
 | `mikedown.normalizationStyle.listMarker` | `-` | Unordered list marker when normalization is enabled |
 | `mikedown.normalizationStyle.headingStyle` | `atx` | Heading style when normalization is enabled: `atx` (`# Heading`) or `setext` (underline) |
+| `mikedown.imagePaste.enabled` | `true` | Save pasted/dropped images automatically. Disable to fall back to VS Code's default paste behavior |
+| `mikedown.imagePaste.folder` | `images` | Folder name (or relative path) where pasted images are saved; auto-created |
+| `mikedown.imagePaste.folderRelativeTo` | `document` | Resolve `folder` relative to the document directory or the workspace root |
+| `mikedown.imagePaste.filenamePattern` | `${docName}-${timestamp}` | Pattern with tokens `${docName}`, `${date}`, `${time}`, `${timestamp}`, `${hash}` (8-char SHA-1, enables dedupe), `${index}` |
+| `mikedown.imagePaste.pathStyle` | `relative` | Insert path relative to the document, or workspace-absolute (leading `/`) |
+| `mikedown.imagePaste.altText` | `empty` | Alt text source: `empty`, `filename`, or `prompt` (asks on each paste) |
+| `mikedown.imagePaste.maxSizeMB` | `10` | Reject pastes larger than this (1--200) |
 
 ## Requirements
 

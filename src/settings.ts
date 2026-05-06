@@ -15,6 +15,17 @@ export interface MikeDownSettings {
     listMarker: '-' | '*' | '+';
     headingStyle: 'atx' | 'setext';
   };
+  imagePaste: ImagePasteSettings;
+}
+
+export interface ImagePasteSettings {
+  enabled: boolean;
+  folder: string;
+  folderRelativeTo: 'document' | 'workspace';
+  filenamePattern: string;
+  pathStyle: 'relative' | 'workspace-absolute';
+  altText: 'empty' | 'filename' | 'prompt';
+  maxSizeMB: number;
 }
 
 export function getSettings(): MikeDownSettings {
@@ -33,6 +44,15 @@ export function getSettings(): MikeDownSettings {
       italicMarker: config.get<'*' | '_'>('normalizationStyle.italicMarker', '*'),
       listMarker: config.get<'-' | '*' | '+'>('normalizationStyle.listMarker', '-'),
       headingStyle: config.get<'atx' | 'setext'>('normalizationStyle.headingStyle', 'atx'),
+    },
+    imagePaste: {
+      enabled: config.get<boolean>('imagePaste.enabled', true),
+      folder: config.get<string>('imagePaste.folder', 'images'),
+      folderRelativeTo: config.get<'document' | 'workspace'>('imagePaste.folderRelativeTo', 'document'),
+      filenamePattern: config.get<string>('imagePaste.filenamePattern', '${docName}-${timestamp}'),
+      pathStyle: config.get<'relative' | 'workspace-absolute'>('imagePaste.pathStyle', 'relative'),
+      altText: config.get<'empty' | 'filename' | 'prompt'>('imagePaste.altText', 'empty'),
+      maxSizeMB: config.get<number>('imagePaste.maxSizeMB', 10),
     },
   };
 }

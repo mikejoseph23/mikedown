@@ -1,10 +1,18 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import * as cp from 'child_process';
 import { getSettings } from './settings';
 import { writeRenderedHtml, openRenderedInBrowser } from './export';
 import { parseHeadings } from './outlineProvider';
+import {
+  extensionFromMime,
+  formatInsertPath,
+  resolveAltText,
+  resolveFilename,
+  resolveTargetFolder,
+} from './imagePaste';
 
 /**
  * MikeDown custom text editor provider.
@@ -23,8 +31,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static activePanel: vscode.WebviewPanel | undefined = undefined;
   /** The document associated with the currently active panel. */
   public static activeDocument: vscode.TextDocument | undefined = undefined;
-  /** All open MikeDown webview panels, for broadcasting messages (e.g. theme changes). */
-  private static openPanels = new Set<vscode.WebviewPanel>();
+  /** All open MikeDown webview panels mapped to their document, for broadcasting messages (e.g. theme changes). */
+  private static openPanels = new Map<vscode.WebviewPanel, vscode.TextDocument>();
   /** Tracks panels by file path — when 2+ panels share a path, it's a diff view. */
   private static panelsByPath = new Map<string, Set<{ panel: vscode.WebviewPanel; webview: vscode.Webview }>>();
   /** Tracks file paths with a pending diff redirect to prevent duplicate opens. */
@@ -62,7 +70,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // M3 — Track the active panel so extension commands can post messages to it.
     MarkdownEditorProvider.activePanel = webviewPanel;
     MarkdownEditorProvider.activeDocument = document;
-    MarkdownEditorProvider.openPanels.add(webviewPanel);
+    MarkdownEditorProvider.openPanels.set(webviewPanel, document);
 
     // Track panels by file path for diff detection.
     const fsPath = document.uri.fsPath;
@@ -138,19 +146,45 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     //   3. onUpdate is suppressed during load → no 'edit' message → no WorkspaceEdit → dirty flag stays clean
     this.updateWebview(document, webviewPanel.webview);
     this.sendThemeToWebview(webviewPanel.webview);
-    this.sendSettingsToWebview(webviewPanel.webview);
+    this.sendSettingsToWebview(webviewPanel.webview, document);
 
     // Listen for configuration changes and broadcast to ALL open panels
     // so that e.g. toggling editor theme in one tab updates all tabs.
     const configListener = vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('mikedown')) {
-        for (const panel of MarkdownEditorProvider.openPanels) {
+        for (const [panel, doc] of MarkdownEditorProvider.openPanels) {
           this.sendThemeToWebview(panel.webview);
-          this.sendSettingsToWebview(panel.webview);
+          this.sendSettingsToWebview(panel.webview, doc);
         }
       }
     });
     this.context.subscriptions.push(configListener);
+
+    // v1.6.0 — Watch image files in the document directory tree so the webview
+    // can flag images as broken the moment their on-disk file is deleted (or
+    // un-flag them when the file reappears). Without this, a deleted image
+    // keeps rendering its last-loaded bytes until the document is reloaded.
+    const imageWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(docDirUri, '**/*.{png,jpg,jpeg,gif,webp,svg,bmp,avif,ico,tiff,tif}')
+    );
+    console.log('MikeDown:DIAG-WATCHER-V1: created image watcher for docDir', docDirUri.fsPath);
+    const broadcastImageStatus = (uri: vscode.Uri, exists: boolean): void => {
+      const broadcastUri = webviewPanel.webview.asWebviewUri(uri).toString();
+      console.log('MikeDown:DIAG-WATCHER-V1: broadcastImageStatus exists=', exists, 'fsPath=', uri.fsPath, 'broadcastUri=', broadcastUri);
+      webviewPanel.webview.postMessage({
+        type: exists ? 'imageFileFound' : 'imageFileMissing',
+        uri: broadcastUri,
+        fsPath: uri.fsPath,
+      });
+    };
+    const imageWatcherDeleteSub = imageWatcher.onDidDelete(uri => {
+      console.log('MikeDown:DIAG-WATCHER-V1: onDidDelete fired uri=', uri.fsPath);
+      broadcastImageStatus(uri, false);
+    });
+    const imageWatcherCreateSub = imageWatcher.onDidCreate(uri => {
+      console.log('MikeDown:DIAG-WATCHER-V1: onDidCreate fired uri=', uri.fsPath);
+      broadcastImageStatus(uri, true);
+    });
 
     // Track in-flight webview edits to suppress their change events.
     // Uses a counter of in-flight edits (not events): the guard stays up
@@ -179,7 +213,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         // newly saved content. Without this, an undo after save would be
         // treated as "pristine" relative to the pre-load content and our
         // dirty-clearing save() would overwrite the real saved state on disk.
-        webviewPanel.webview.postMessage({ type: 'saved', content: savedDoc.getText() });
+        // v1.6.0 — Send the resolved form so it matches the editor's serialized
+        // output (image URIs are in webview-resolved form inside the editor).
+        webviewPanel.webview.postMessage({
+          type: 'saved',
+          content: this.resolveImageUris(savedDoc.getText(), savedDoc.uri, webviewPanel.webview)
+        });
       }
     });
 
@@ -210,6 +249,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       changeSubscription.dispose();
       willSaveSubscription.dispose();
       didSaveSubscription.dispose();
+      imageWatcherDeleteSub.dispose();
+      imageWatcherCreateSub.dispose();
+      imageWatcher.dispose();
       // M3 — Clear active panel reference when this panel is closed.
       MarkdownEditorProvider.openPanels.delete(webviewPanel);
       if (MarkdownEditorProvider.activePanel === webviewPanel) {
@@ -239,7 +281,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // Guard stays up for the entire async operation so all change
           // events fired by this WorkspaceEdit are suppressed.
           webviewEditsInFlight++;
-          const incoming = message.content ?? '';
+          // v1.6.0 — Reverse the resolve step we applied on `update` so any
+          // image whose src was rewritten to a webview URI for display goes
+          // back to its on-disk relative path before saving.
+          const incoming = this.unresolveImageUris(
+            message.content ?? '',
+            document.uri,
+            webviewPanel.webview
+          );
           // When pristine, skip applyCleanup so the TextDocument matches disk
           // exactly; when not pristine, normalize as usual.
           const cleaned = message.pristine ? incoming : this.applyCleanup(incoming);
@@ -270,7 +319,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // Webview signals it is ready — send current content + settings
           this.updateWebview(document, webviewPanel.webview);
           this.sendThemeToWebview(webviewPanel.webview);
-          this.sendSettingsToWebview(webviewPanel.webview);
+          this.sendSettingsToWebview(webviewPanel.webview, document);
           // Populate Document Outline with initial headings
           const outProv = (MarkdownEditorProvider as any)._outlineProvider;
           if (outProv) {
@@ -531,6 +580,23 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (settings.headingFontFamily !== undefined) {
             config.update('headingFontFamily', settings.headingFontFamily, vscode.ConfigurationTarget.Global);
           }
+          if (settings.imagePaste && typeof settings.imagePaste === 'object') {
+            const ip = settings.imagePaste;
+            const pairs: Array<[string, unknown]> = [
+              ['imagePaste.enabled', ip.enabled],
+              ['imagePaste.folder', ip.folder],
+              ['imagePaste.folderRelativeTo', ip.folderRelativeTo],
+              ['imagePaste.filenamePattern', ip.filenamePattern],
+              ['imagePaste.pathStyle', ip.pathStyle],
+              ['imagePaste.altText', ip.altText],
+              ['imagePaste.maxSizeMB', ip.maxSizeMB],
+            ];
+            for (const [key, value] of pairs) {
+              if (value !== undefined) {
+                config.update(key, value, vscode.ConfigurationTarget.Global);
+              }
+            }
+          }
           vscode.window.showInformationMessage('MikeDown settings saved.');
           break;
         }
@@ -539,6 +605,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (outlineProvider && message.anchor) {
             outlineProvider.setActiveAnchor(message.anchor);
           }
+          break;
+        }
+        case 'savePastedImage': {
+          await this.handleSavePastedImage(document, webviewPanel.webview, message);
           break;
         }
         default:
@@ -576,8 +646,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    */
   private resolveImageUris(markdown: string, documentUri: vscode.Uri, webview: vscode.Webview): string {
     return markdown.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
-      // Leave external URLs and data URIs alone
-      if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:') || src.startsWith('vscode-webview:')) {
+      if (isExternalOrDataUri(src) || isWebviewResolvedUri(src)) {
         return match;
       }
       try {
@@ -586,9 +655,75 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         const webviewUri = webview.asWebviewUri(imgUri);
         return `![${alt}](${webviewUri.toString()})`;
       } catch {
-        return match; // Leave as-is on error
+        return match;
       }
     });
+  }
+
+  /**
+   * Reverse of `resolveImageUris`: converts webview-resolved image URIs back to
+   * a path that's safe to write to disk (relative to the document directory,
+   * or an absolute path if the file lives outside both the document tree and
+   * any workspace folder). Applied to every `edit` payload before we hit
+   * `applyCleanup` so a round-trip through the editor preserves the original
+   * markdown source — without this, vscode-webview/vscode-cdn URIs leak into
+   * saved files and break the next time the document is opened (the URIs are
+   * session-scoped).
+   */
+  private unresolveImageUris(markdown: string, documentUri: vscode.Uri, webview: vscode.Webview): string {
+    const { prefixes, docDirFs } = this.buildImagePathMappings(documentUri, webview);
+
+    return markdown.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
+      // Skip true external/data URIs, but NOT webview-resolved URIs — those
+      // start with https:// (modern VS Code emits https://*.vscode-cdn.net/...
+      // from asWebviewUri) and are exactly what we're trying to reverse here.
+      if (isExternalOrDataUri(src) && !isWebviewResolvedUri(src)) return match;
+      for (const { prefix, fsPath } of prefixes) {
+        if (src.startsWith(prefix + '/')) {
+          const tail = decodePathPart(src.slice(prefix.length + 1));
+          const absPath = path.join(fsPath, tail);
+          const rel = path.relative(docDirFs, absPath).split(path.sep).join('/');
+          return `![${alt}](${rel})`;
+        }
+        if (src === prefix) {
+          // No tail — degenerate case; leave alone.
+          return match;
+        }
+      }
+      return match;
+    });
+  }
+
+  /**
+   * Build the prefix-to-fsPath mapping the webview needs to mirror
+   * `unresolveImageUris`. Returned in posix form (forward-slash separators)
+   * so the webview can do straight string operations regardless of host OS,
+   * sorted longest-prefix-first so the more-specific docDir match wins.
+   */
+  private buildImagePathMappings(
+    documentUri: vscode.Uri,
+    webview: vscode.Webview
+  ): { prefixes: Array<{ prefix: string; fsPath: string }>; docDirFs: string } {
+    const docDir = vscode.Uri.joinPath(documentUri, '..');
+    const toPosix = (p: string): string => p.split(path.sep).join('/');
+    const docDirFs = toPosix(docDir.fsPath);
+    const prefixes: Array<{ prefix: string; fsPath: string }> = [];
+
+    const pushPrefix = (uri: vscode.Uri): void => {
+      try {
+        const resolved = webview.asWebviewUri(uri).toString();
+        const trimmed = resolved.endsWith('/') ? resolved.slice(0, -1) : resolved;
+        prefixes.push({ prefix: trimmed, fsPath: toPosix(uri.fsPath) });
+      } catch { /* ignore */ }
+    };
+
+    pushPrefix(docDir);
+    for (const wf of vscode.workspace.workspaceFolders ?? []) {
+      pushPrefix(wf.uri);
+    }
+    prefixes.sort((a, b) => b.prefix.length - a.prefix.length);
+
+    return { prefixes, docDirFs };
   }
 
   /**
@@ -634,13 +769,22 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    * Push user-facing settings (e.g. linkClickBehavior) to the webview so it
    * can adapt its click/context-menu behavior without round-tripping to host.
    */
-  private sendSettingsToWebview(webview: vscode.Webview): void {
+  private sendSettingsToWebview(webview: vscode.Webview, document: vscode.TextDocument): void {
     const settings = getSettings();
+    // Image-path mappings let the webview show on-disk relative paths (e.g.
+    // `images/foo.png`) instead of session-scoped webview URIs in surfaces
+    // like the image-edit popover. Trade-off: the webview only mirrors what
+    // the host computes, so any new prefix added here must also update its
+    // local copy via the next 'settings' broadcast.
+    const { prefixes, docDirFs } = this.buildImagePathMappings(document.uri, webview);
     webview.postMessage({
       type: 'settings',
       linkClickBehavior: settings.linkClickBehavior,
       themeToggleScope: settings.themeToggleScope,
       editorTheme: settings.editorTheme,
+      imagePaste: settings.imagePaste,
+      imagePastePathMappings: prefixes,
+      docDirFs,
     });
   }
 
@@ -748,6 +892,129 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   /**
+   * Handle a 'savePastedImage' request from the webview: write the image bytes
+   * to disk per `mikedown.imagePaste.*` settings and reply with the resolved
+   * insert path, the webview-display URI, and the alt text.
+   */
+  private async handleSavePastedImage(
+    document: vscode.TextDocument,
+    webview: vscode.Webview,
+    message: WebviewMessage
+  ): Promise<void> {
+    const requestId = message.requestId ?? '';
+    const reply = (payload: Record<string, unknown>): void => {
+      webview.postMessage({ type: 'pastedImageResult', requestId, ...payload });
+    };
+
+    const settings = getSettings().imagePaste;
+    if (!settings.enabled) {
+      reply({ error: 'imagePaste.enabled is false' });
+      return;
+    }
+
+    if (document.uri.scheme !== 'file') {
+      const pick = await vscode.window.showWarningMessage(
+        'MikeDown: save the document before pasting an image so the file can be written next to it.',
+        'Save As…',
+        'Cancel'
+      );
+      if (pick === 'Save As…') {
+        await vscode.commands.executeCommand('workbench.action.files.saveAs');
+      }
+      reply({ error: 'document not saved' });
+      return;
+    }
+
+    const mime = (message.mime ?? '').toLowerCase();
+    const ext = extensionFromMime(mime);
+    if (!ext) {
+      reply({ error: `unsupported MIME type: ${mime}` });
+      return;
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(message.dataBase64 ?? '', 'base64');
+    } catch (err) {
+      reply({ error: 'invalid image data' });
+      return;
+    }
+
+    if (buffer.length === 0) {
+      reply({ error: 'empty image data' });
+      return;
+    }
+
+    const sizeMB = buffer.length / (1024 * 1024);
+    if (sizeMB > settings.maxSizeMB) {
+      const msg = `Pasted image is ${sizeMB.toFixed(1)} MB, exceeds the ${settings.maxSizeMB} MB limit (mikedown.imagePaste.maxSizeMB).`;
+      vscode.window.showErrorMessage(msg);
+      reply({ error: msg });
+      return;
+    }
+
+    const docPath = document.uri.fsPath;
+    const docName = path.basename(docPath, path.extname(docPath));
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const workspaceRoot = workspaceFolder?.uri.fsPath;
+
+    const targetFolder = resolveTargetFolder(settings, docPath, workspaceRoot);
+    try {
+      await fs.promises.mkdir(targetFolder, { recursive: true });
+    } catch (err) {
+      const msg = `Failed to create folder ${targetFolder}: ${(err as Error).message}`;
+      vscode.window.showErrorMessage(msg);
+      reply({ error: msg });
+      return;
+    }
+
+    const data = new Uint8Array(buffer);
+    const resolution = resolveFilename(
+      settings.filenamePattern,
+      targetFolder,
+      { docName, extension: ext, data, timestamp: new Date() },
+      (p: string) => fs.existsSync(p),
+      (p: string) => sha1HexFile(p)
+    );
+
+    if (!resolution.reused) {
+      try {
+        await fs.promises.writeFile(resolution.absPath, buffer);
+      } catch (err) {
+        const msg = `Failed to write ${resolution.absPath}: ${(err as Error).message}`;
+        vscode.window.showErrorMessage(msg);
+        reply({ error: msg });
+        return;
+      }
+    }
+
+    const insertPath = formatInsertPath(resolution.absPath, docPath, workspaceRoot, settings.pathStyle);
+    const filenameNoExt = path.basename(resolution.absPath, path.extname(resolution.absPath));
+
+    let alt = '';
+    if (settings.altText === 'prompt') {
+      const prompted = await vscode.window.showInputBox({
+        prompt: 'Alt text for pasted image (leave empty for none)',
+        value: '',
+        placeHolder: 'Describe the image for screen readers',
+      });
+      alt = resolveAltText('prompt', filenameNoExt, prompted ?? '');
+    } else {
+      alt = resolveAltText(settings.altText, filenameNoExt, undefined);
+    }
+
+    const webviewUri = webview.asWebviewUri(vscode.Uri.file(resolution.absPath)).toString();
+
+    reply({
+      success: true,
+      insertPath,
+      webviewUri,
+      alt,
+      reused: resolution.reused,
+    });
+  }
+
+  /**
    * Build the full HTML string for the webview.
    */
   private getWebviewContent(webview: vscode.Webview): string {
@@ -815,7 +1082,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff' | 'savePastedImage';
   content?: string;
   pristine?: boolean;
   plainText?: string;
@@ -826,6 +1093,10 @@ interface WebviewMessage {
   /** Optional override for link navigation behavior (from context menu actions). */
   behavior?: 'navigateCurrentTab' | 'openNewTab';
   anchor?: string;
+  /** savePastedImage payload — base64-encoded image bytes and metadata. */
+  requestId?: string;
+  mime?: string;
+  dataBase64?: string;
 }
 
 /**
@@ -857,6 +1128,47 @@ function collectHtmlAnchorIds(content: string): string[] {
     else if (name) ids.push(name);
   }
   return ids;
+}
+
+/**
+ * True for URIs that are not local filesystem references — http(s), data: URIs,
+ * and other non-resolvable schemes. Used to skip image-URI rewriting.
+ */
+function isExternalOrDataUri(src: string): boolean {
+  return src.startsWith('http://')
+    || src.startsWith('https://')
+    || src.startsWith('data:')
+    || /^(mailto|tel|sms|ftp|ftps):/i.test(src);
+}
+
+/**
+ * True for already-resolved webview URIs. Modern VS Code emits
+ * `https://*.vscode-cdn.net/...` from `asWebviewUri`, but older builds use
+ * `vscode-webview:` and `vscode-resource:` — accept all three.
+ */
+function isWebviewResolvedUri(src: string): boolean {
+  return src.startsWith('vscode-webview:')
+    || src.startsWith('vscode-resource:')
+    || /^https:\/\/[^/]*\.vscode-(?:cdn|resource)\./i.test(src);
+}
+
+/** Decode percent-encoded path segments without choking on a malformed input. */
+function decodePathPart(input: string): string {
+  try { return decodeURI(input); } catch { return input; }
+}
+
+/**
+ * Read an existing file from disk and return its SHA-1 hex digest.
+ * Used by `resolveFilename` for the `${hash}` dedupe path. Returns an empty
+ * string on read errors so the caller falls back to the collision-suffix path.
+ */
+function sha1HexFile(absPath: string): string {
+  try {
+    const data = fs.readFileSync(absPath);
+    return crypto.createHash('sha1').update(data).digest('hex');
+  } catch {
+    return '';
+  }
 }
 
 /**

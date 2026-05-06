@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "license": "MIT",
   "preview": false,
   "publisher": "interapp",
@@ -343,6 +343,69 @@
           ],
           "default": "atx",
           "description": "Which heading style to use when normalization is enabled."
+        },
+        "mikedown.imagePaste.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Save pasted or drag-dropped images to the workspace and insert a markdown image link automatically. When disabled, falls back to VS Code's default paste behavior."
+        },
+        "mikedown.imagePaste.folder": {
+          "type": "string",
+          "default": "images",
+          "description": "Folder name (or relative path) where pasted images are saved. Created if it does not exist."
+        },
+        "mikedown.imagePaste.folderRelativeTo": {
+          "type": "string",
+          "enum": [
+            "document",
+            "workspace"
+          ],
+          "enumDescriptions": [
+            "Folder is resolved relative to the markdown document's directory",
+            "Folder is resolved relative to the workspace root"
+          ],
+          "default": "document",
+          "description": "Where the imagePaste.folder is resolved from."
+        },
+        "mikedown.imagePaste.filenamePattern": {
+          "type": "string",
+          "default": "${docName}-${timestamp}",
+          "markdownDescription": "Pattern for generated image filenames (extension is appended automatically). Tokens: `${docName}`, `${date}` (YYYYMMDD), `${time}` (HHmmss), `${timestamp}` (date+time), `${hash}` (8-char content hash, enables dedupe), `${index}` (auto-increment)."
+        },
+        "mikedown.imagePaste.pathStyle": {
+          "type": "string",
+          "enum": [
+            "relative",
+            "workspace-absolute"
+          ],
+          "enumDescriptions": [
+            "Insert path relative to the markdown document",
+            "Insert path relative to the workspace root, prefixed with /"
+          ],
+          "default": "relative",
+          "description": "Path style written into the inserted markdown image link."
+        },
+        "mikedown.imagePaste.altText": {
+          "type": "string",
+          "enum": [
+            "empty",
+            "filename",
+            "prompt"
+          ],
+          "enumDescriptions": [
+            "Insert images with empty alt text",
+            "Use the filename (without extension) as alt text",
+            "Prompt for alt text on every paste"
+          ],
+          "default": "empty",
+          "description": "How to populate alt text for pasted images."
+        },
+        "mikedown.imagePaste.maxSizeMB": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 200,
+          "description": "Maximum size (in MB) for a single pasted image. Larger pastes are rejected with an error."
         }
       }
     }

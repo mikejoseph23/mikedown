@@ -2,6 +2,18 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.6.0] - 2026-05-06
+
+### Added
+
+- Paste an image (Cmd/Ctrl+V) or drag an image file into the editor to save it next to your document and insert a markdown image link automatically. Closes [#1](https://github.com/mikejoseph23/mikedown/issues/1)
+- Seven `mikedown.imagePaste.*` settings to control the destination folder, filename pattern, path style, alt-text behavior, and max size limit. Defaults: save to `images/` next to the document, name as `${docName}-${timestamp}.${ext}`, insert a relative path with empty alt text, reject pastes over 10 MB
+- Drag-and-drop image files into the editor uses the same pipeline as paste
+
+### Fixed
+
+- Image paths in saved markdown no longer leak the session-scoped `https://*.vscode-cdn.net/...` URI used for in-editor display — round-tripping a file with relative image paths now preserves the original `images/foo.png` form on disk
+
 ## [1.5.2] - 2026-05-06
 
 ### Fixed
