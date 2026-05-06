@@ -9,10 +9,14 @@ All notable changes to MikeDown Editor are documented here.
 - Paste an image (Cmd/Ctrl+V) or drag an image file into the editor to save it next to your document and insert a markdown image link automatically. Closes [#1](https://github.com/mikejoseph23/mikedown/issues/1)
 - Seven `mikedown.imagePaste.*` settings to control the destination folder, filename pattern, path style, alt-text behavior, and max size limit. Defaults: save to `images/` next to the document, name as `${docName}-${timestamp}.${ext}`, insert a relative path with empty alt text, reject pastes over 10 MB
 - Drag-and-drop image files into the editor uses the same pipeline as paste
+- Right-click an image to access Resize 75% / 50% / 25% presets — useful for downscaling Mac high-DPI screenshots that paste in at 2× physical size. Resizes happen client-side via `<canvas>` and write through to disk. SVG and GIF are excluded (canvas can't preserve animation/vector form)
+- New `mikedown.imageResize.overwrite` setting (default `true`) controls whether resizes overwrite the original file or write a sibling like `foo-50pct.png` and update the markdown link to point at it. Exposed in both VS Code's Settings UI and the in-editor settings modal
+- On save, MikeDown now deletes images that fell out of the document and live inside the configured `imagePaste.folder` — but only if (a) the file was pasted in this session OR its filename matches the configured `filenamePattern` shape (so user-curated assets like `logo.png` are never touched), and (b) no other markdown file in the workspace still references it. Helps keep `images/` folders from accumulating committed-but-unused screenshots. Toggle off with `mikedown.imagePaste.cleanupUnreferenced`
 
 ### Fixed
 
 - Image paths in saved markdown no longer leak the session-scoped `https://*.vscode-cdn.net/...` URI used for in-editor display — round-tripping a file with relative image paths now preserves the original `images/foo.png` form on disk
+- Cache-bust query strings appended to webview image URIs (used to force the browser to re-fetch an overwritten file after resize) are stripped before path resolution so they never leak into the saved markdown
 
 ## [1.5.2] - 2026-05-06
 

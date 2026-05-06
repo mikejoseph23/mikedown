@@ -8,10 +8,15 @@ import { writeRenderedHtml, openRenderedInBrowser } from './export';
 import { parseHeadings } from './outlineProvider';
 import {
   extensionFromMime,
+  extractLocalImageRefs,
   formatInsertPath,
+  isInsideManagedFolder,
+  looksLikeAutoPastedImage,
   resolveAltText,
   resolveFilename,
+  resolveLocalImagePaths,
   resolveTargetFolder,
+  resizeSiblingPath,
 } from './imagePaste';
 
 /**
@@ -37,6 +42,22 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private static panelsByPath = new Map<string, Set<{ panel: vscode.WebviewPanel; webview: vscode.Webview }>>();
   /** Tracks file paths with a pending diff redirect to prevent duplicate opens. */
   private static diffRedirectPending = new Set<string>();
+
+  /**
+   * Per-document baselines for orphan-image cleanup. Keyed by document fsPath.
+   *
+   * `imagePathsBaseline` is the set of absolute on-disk image paths that were
+   * referenced by the document at last save (or initial open). On each save we
+   * compute what's currently referenced and delete anything that fell out of
+   * the set — provided it's inside the configured imagePaste folder and no
+   * other markdown file in the workspace references it.
+   *
+   * `sessionPastedAbsPaths` covers the paste-then-delete-before-save case:
+   * images written this session that haven't been part of any saved baseline
+   * yet, but should be cleaned up if the user removes them before saving.
+   */
+  private imagePathsBaseline = new Map<string, Set<string>>();
+  private sessionPastedAbsPaths = new Map<string, Set<string>>();
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -148,6 +169,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     this.sendThemeToWebview(webviewPanel.webview);
     this.sendSettingsToWebview(webviewPanel.webview, document);
 
+    // Snapshot the set of images this doc references at open time. Orphan
+    // cleanup compares against this baseline on save to figure out what was
+    // removed. Subsequent saves replace it with the new set.
+    if (!this.imagePathsBaseline.has(document.uri.fsPath)) {
+      this.imagePathsBaseline.set(
+        document.uri.fsPath,
+        this.computeReferencedImagePaths(document.uri, document.getText())
+      );
+    }
+
     // Listen for configuration changes and broadcast to ALL open panels
     // so that e.g. toggling editor theme in one tab updates all tabs.
     const configListener = vscode.workspace.onDidChangeConfiguration(e => {
@@ -219,6 +250,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           type: 'saved',
           content: this.resolveImageUris(savedDoc.getText(), savedDoc.uri, webviewPanel.webview)
         });
+        // v1.6.0 — orphan-image cleanup: delete images that fell out of the
+        // doc since last save (or were pasted this session and never linked),
+        // gated to the configured imagePaste folder + a workspace-wide
+        // reference check so we never delete an image still in use.
+        void this.cleanupOrphanedImages(savedDoc).catch(err => {
+          console.warn('MikeDown: orphan-image cleanup failed —', (err as Error).message);
+        });
       }
     });
 
@@ -257,6 +295,15 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
         MarkdownEditorProvider.activeDocument = undefined;
+      }
+      // Drop per-doc orphan-cleanup state once no panel still has the doc open.
+      let stillOpen = false;
+      for (const otherDoc of MarkdownEditorProvider.openPanels.values()) {
+        if (otherDoc.uri.fsPath === document.uri.fsPath) { stillOpen = true; break; }
+      }
+      if (!stillOpen) {
+        this.imagePathsBaseline.delete(document.uri.fsPath);
+        this.sessionPastedAbsPaths.delete(document.uri.fsPath);
       }
       // Clean up diff tracking; if only one panel remains, restore editability
       const panels = MarkdownEditorProvider.panelsByPath.get(fsPath);
@@ -590,11 +637,18 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               ['imagePaste.pathStyle', ip.pathStyle],
               ['imagePaste.altText', ip.altText],
               ['imagePaste.maxSizeMB', ip.maxSizeMB],
+              ['imagePaste.cleanupUnreferenced', ip.cleanupUnreferenced],
             ];
             for (const [key, value] of pairs) {
               if (value !== undefined) {
                 config.update(key, value, vscode.ConfigurationTarget.Global);
               }
+            }
+          }
+          if (settings.imageResize && typeof settings.imageResize === 'object') {
+            const ir = settings.imageResize;
+            if (ir.overwrite !== undefined) {
+              config.update('imageResize.overwrite', ir.overwrite, vscode.ConfigurationTarget.Global);
             }
           }
           vscode.window.showInformationMessage('MikeDown settings saved.');
@@ -609,6 +663,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }
         case 'savePastedImage': {
           await this.handleSavePastedImage(document, webviewPanel.webview, message);
+          break;
+        }
+        case 'resizeImage': {
+          await this.handleResizeImage(document, webviewPanel.webview, message);
           break;
         }
         default:
@@ -678,15 +736,19 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       // start with https:// (modern VS Code emits https://*.vscode-cdn.net/...
       // from asWebviewUri) and are exactly what we're trying to reverse here.
       if (isExternalOrDataUri(src) && !isWebviewResolvedUri(src)) return match;
+      // Strip cache-bust queries / fragments (added by the resize popover so
+      // the browser re-fetches an overwritten file). They're meaningless on a
+      // local-disk path and would otherwise leak into the saved markdown.
+      const queryStart = src.search(/[?#]/);
+      const cleanSrc = queryStart >= 0 ? src.slice(0, queryStart) : src;
       for (const { prefix, fsPath } of prefixes) {
-        if (src.startsWith(prefix + '/')) {
-          const tail = decodePathPart(src.slice(prefix.length + 1));
+        if (cleanSrc.startsWith(prefix + '/')) {
+          const tail = decodePathPart(cleanSrc.slice(prefix.length + 1));
           const absPath = path.join(fsPath, tail);
           const rel = path.relative(docDirFs, absPath).split(path.sep).join('/');
           return `![${alt}](${rel})`;
         }
-        if (src === prefix) {
-          // No tail — degenerate case; leave alone.
+        if (cleanSrc === prefix) {
           return match;
         }
       }
@@ -783,6 +845,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       themeToggleScope: settings.themeToggleScope,
       editorTheme: settings.editorTheme,
       imagePaste: settings.imagePaste,
+      imageResize: settings.imageResize,
       imagePastePathMappings: prefixes,
       docDirFs,
     });
@@ -988,6 +1051,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       }
     }
 
+    // Track this paste so orphan-cleanup can remove it on save if the user
+    // deletes the image before persisting (it wouldn't be in the open-time
+    // baseline otherwise).
+    const pastedSet = this.sessionPastedAbsPaths.get(docPath) ?? new Set<string>();
+    pastedSet.add(resolution.absPath);
+    this.sessionPastedAbsPaths.set(docPath, pastedSet);
+
     const insertPath = formatInsertPath(resolution.absPath, docPath, workspaceRoot, settings.pathStyle);
     const filenameNoExt = path.basename(resolution.absPath, path.extname(resolution.absPath));
 
@@ -1012,6 +1082,265 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       alt,
       reused: resolution.reused,
     });
+  }
+
+  /**
+   * Handle a 'resizeImage' request from the webview popover. The webview has
+   * already downscaled the image bytes via canvas; here we just figure out
+   * where on disk to write them (overwrite the original file or write a
+   * sibling like `foo-50pct.png`) and reply with paths the webview can use.
+   */
+  private async handleResizeImage(
+    document: vscode.TextDocument,
+    webview: vscode.Webview,
+    message: WebviewMessage
+  ): Promise<void> {
+    const requestId = message.requestId ?? '';
+    const reply = (payload: Record<string, unknown>): void => {
+      webview.postMessage({ type: 'resizeImageResult', requestId, ...payload });
+    };
+
+    if (document.uri.scheme !== 'file') {
+      reply({ error: 'document is not a saved file' });
+      return;
+    }
+
+    const currentSrc = (message.currentSrc ?? '').trim();
+    if (!currentSrc) {
+      reply({ error: 'currentSrc missing' });
+      return;
+    }
+
+    const absImagePath = this.resolveSrcToAbsPath(currentSrc, document.uri, webview);
+    if (!absImagePath) {
+      reply({ error: 'cannot resolve image to a workspace file (external URLs and data URIs cannot be resized in place)' });
+      return;
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(message.dataBase64 ?? '', 'base64');
+    } catch {
+      reply({ error: 'invalid image data' });
+      return;
+    }
+    if (buffer.length === 0) {
+      reply({ error: 'empty image data' });
+      return;
+    }
+
+    const settings = getSettings().imageResize;
+    const overwrite = settings.overwrite;
+    const percent = Math.max(1, Math.min(200, Math.round(message.percent ?? 0)));
+    const targetAbsPath = overwrite
+      ? absImagePath
+      : resizeSiblingPath(absImagePath, percent, (p) => fs.existsSync(p));
+
+    let originalSize = 0;
+    try {
+      originalSize = (await fs.promises.stat(absImagePath)).size;
+    } catch { /* original missing — still let the write proceed */ }
+
+    try {
+      await fs.promises.writeFile(targetAbsPath, buffer);
+    } catch (err) {
+      const msg = `Failed to write ${targetAbsPath}: ${(err as Error).message}`;
+      vscode.window.showErrorMessage(msg);
+      reply({ error: msg });
+      return;
+    }
+
+    const docPath = document.uri.fsPath;
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const workspaceRoot = workspaceFolder?.uri.fsPath;
+    const insertPath = formatInsertPath(targetAbsPath, docPath, workspaceRoot, 'relative');
+    const webviewUri = webview.asWebviewUri(vscode.Uri.file(targetAbsPath)).toString();
+
+    const fmt = (n: number): string => `${(n / 1024).toFixed(1)} KB`;
+    const savedKB = originalSize > 0 ? `${fmt(originalSize)} → ${fmt(buffer.length)}` : fmt(buffer.length);
+    vscode.window.setStatusBarMessage(
+      `MikeDown: resized to ${percent}% (${savedKB})`,
+      4000
+    );
+
+    reply({
+      success: true,
+      insertPath,
+      webviewUri,
+      overwritten: overwrite,
+    });
+  }
+
+  /**
+   * Parse a markdown string for `![alt](src)` image links and resolve each
+   * local-file `src` to an absolute path on disk. External URLs and data URIs
+   * are skipped. Returns the set of absolute paths the document references.
+   */
+  private computeReferencedImagePaths(
+    documentUri: vscode.Uri,
+    markdownText: string
+  ): Set<string> {
+    const docDir = path.dirname(documentUri.fsPath);
+    const wsRoot = vscode.workspace.getWorkspaceFolder(documentUri)?.uri.fsPath;
+    const refs = extractLocalImageRefs(markdownText);
+    const absPaths = resolveLocalImagePaths(refs, docDir, wsRoot);
+    return new Set(absPaths.map(p => path.normalize(p)));
+  }
+
+  /**
+   * Orphan-image cleanup pass triggered by every save. Diff the in-doc image
+   * set against the open-time baseline (plus any session pastes the user
+   * removed before saving), then delete files that:
+   *
+   *   1. live inside the configured imagePaste folder (default `images/`
+   *      next to the document, or under the workspace root depending on
+   *      `folderRelativeTo`);
+   *   2. are no longer referenced by any markdown file in the workspace.
+   *
+   * Disabled via `mikedown.imagePaste.cleanupUnreferenced = false`.
+   */
+  private async cleanupOrphanedImages(savedDoc: vscode.TextDocument): Promise<void> {
+    const settings = getSettings().imagePaste;
+    if (!settings.cleanupUnreferenced) return;
+
+    const docPath = savedDoc.uri.fsPath;
+    const previous = this.imagePathsBaseline.get(docPath) ?? new Set<string>();
+    const current = this.computeReferencedImagePaths(savedDoc.uri, savedDoc.getText());
+    // Update the baseline immediately — even if cleanup fails for some files,
+    // the doc has been saved and we don't want stale entries.
+    this.imagePathsBaseline.set(docPath, current);
+
+    const removed = new Set<string>();
+    for (const p of previous) if (!current.has(p)) removed.add(p);
+    const sessionPasted = this.sessionPastedAbsPaths.get(docPath);
+    if (sessionPasted) {
+      for (const p of sessionPasted) if (!current.has(p)) removed.add(path.normalize(p));
+      // Anything that survived (= still referenced) is now part of the saved
+      // baseline; anything else we're about to delete. Either way, drop it.
+      this.sessionPastedAbsPaths.delete(docPath);
+    }
+    if (removed.size === 0) return;
+
+    const wsRoot = vscode.workspace.getWorkspaceFolder(savedDoc.uri)?.uri.fsPath;
+    const docName = path.basename(docPath, path.extname(docPath));
+    const candidates: string[] = [];
+    for (const absPath of removed) {
+      if (!isInsideManagedFolder(absPath, settings, docPath, wsRoot)) continue;
+      // Only auto-delete files that came from the paste pipeline. Files this
+      // session pasted are known-ours; for older files we fall back to a
+      // filename-shape match against the configured paste pattern. A
+      // user-curated asset like `logo.png` won't match either check and is
+      // left on disk untouched.
+      const wasSessionPasted = sessionPasted?.has(absPath) ?? false;
+      if (!wasSessionPasted) {
+        const filename = path.basename(absPath);
+        if (!looksLikeAutoPastedImage(filename, settings.filenamePattern, docName)) continue;
+      }
+      try {
+        if (!fs.existsSync(absPath)) continue;
+      } catch { continue; }
+      candidates.push(absPath);
+    }
+    if (candidates.length === 0) return;
+
+    // Workspace-wide cross-reference check. Skip the saved doc itself (we
+    // already know its current refs are in `current`).
+    const referencedElsewhere = await this.findImagesReferencedByOtherDocs(
+      candidates,
+      savedDoc.uri
+    );
+
+    let deletedCount = 0;
+    for (const absPath of candidates) {
+      if (referencedElsewhere.has(absPath)) continue;
+      try {
+        await fs.promises.unlink(absPath);
+        deletedCount += 1;
+      } catch (err) {
+        console.warn(`MikeDown: failed to delete unreferenced image ${absPath} —`, (err as Error).message);
+      }
+    }
+    if (deletedCount > 0) {
+      vscode.window.setStatusBarMessage(
+        `MikeDown: removed ${deletedCount} unreferenced image${deletedCount === 1 ? '' : 's'}`,
+        4000
+      );
+    }
+  }
+
+  /**
+   * Scan all `*.md` / `*.markdown` files in the workspace (excluding the
+   * provided `excludeDoc`) and return the subset of `candidates` that are
+   * still referenced somewhere.
+   */
+  private async findImagesReferencedByOtherDocs(
+    candidates: string[],
+    excludeDoc: vscode.Uri
+  ): Promise<Set<string>> {
+    const referenced = new Set<string>();
+    if (candidates.length === 0) return referenced;
+    if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+      // No workspace — nothing else to check against.
+      return referenced;
+    }
+    const candidateSet = new Set(candidates);
+    const excludePath = path.normalize(excludeDoc.fsPath);
+    // Cap at 2000 markdown files to avoid runaway scans on huge monorepos.
+    const files = await vscode.workspace.findFiles(
+      '**/*.{md,markdown}',
+      '**/node_modules/**',
+      2000
+    );
+    for (const fileUri of files) {
+      if (path.normalize(fileUri.fsPath) === excludePath) continue;
+      try {
+        const bytes = await vscode.workspace.fs.readFile(fileUri);
+        const text = Buffer.from(bytes).toString('utf8');
+        const refs = extractLocalImageRefs(text);
+        const fileDir = path.dirname(fileUri.fsPath);
+        const wsRoot = vscode.workspace.getWorkspaceFolder(fileUri)?.uri.fsPath;
+        const absRefs = resolveLocalImagePaths(refs, fileDir, wsRoot);
+        for (const absRef of absRefs) {
+          const norm = path.normalize(absRef);
+          if (candidateSet.has(norm)) referenced.add(norm);
+        }
+        if (referenced.size === candidateSet.size) break; // all accounted for
+      } catch {
+        // Unreadable file — skip and continue. We bias toward NOT deleting
+        // when in doubt, but a single read failure shouldn't block the rest
+        // of the scan.
+      }
+    }
+    return referenced;
+  }
+
+  /**
+   * Reverse a webview src (typically `https://*.vscode-cdn.net/...`) back to
+   * an absolute on-disk path using the same prefix table as
+   * `unresolveImageUris`. Returns null when the src points outside any known
+   * prefix (external URL, data URI, or just a relative path that the webview
+   * forgot to resolve).
+   */
+  private resolveSrcToAbsPath(
+    src: string,
+    documentUri: vscode.Uri,
+    webview: vscode.Webview
+  ): string | null {
+    // Strip the cache-bust query/fragment the webview appends after a resize.
+    const queryStart = src.search(/[?#]/);
+    const cleanSrc = queryStart >= 0 ? src.slice(0, queryStart) : src;
+    const { prefixes, docDirFs } = this.buildImagePathMappings(documentUri, webview);
+    if (isWebviewResolvedUri(cleanSrc)) {
+      for (const { prefix, fsPath } of prefixes) {
+        if (cleanSrc.startsWith(prefix + '/')) {
+          const tail = decodePathPart(cleanSrc.slice(prefix.length + 1));
+          return path.join(fsPath, tail);
+        }
+      }
+      return null;
+    }
+    if (isExternalOrDataUri(cleanSrc)) return null;
+    return path.resolve(docDirFs, cleanSrc);
   }
 
   /**
@@ -1082,7 +1411,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff' | 'savePastedImage';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage';
   content?: string;
   pristine?: boolean;
   plainText?: string;
@@ -1093,11 +1422,16 @@ interface WebviewMessage {
   /** Optional override for link navigation behavior (from context menu actions). */
   behavior?: 'navigateCurrentTab' | 'openNewTab';
   anchor?: string;
-  /** savePastedImage payload — base64-encoded image bytes and metadata. */
+  /** savePastedImage / resizeImage payload — base64-encoded image bytes and metadata. */
   requestId?: string;
   mime?: string;
   dataBase64?: string;
+  /** resizeImage: webview-resolved URI of the image being replaced. */
+  currentSrc?: string;
+  /** resizeImage: percentage of the original size, e.g. 50 means half-resolution. */
+  percent?: number;
 }
+
 
 /**
  * M6c — Generate a GitHub-style anchor ID from a heading's text content.

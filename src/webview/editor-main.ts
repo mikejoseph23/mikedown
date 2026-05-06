@@ -903,7 +903,41 @@ function showSettingsModal(): void {
   sizeField.appendChild(sizeInput);
   ipGrid.appendChild(sizeField);
 
+  // cleanupUnreferenced (full-width row)
+  const cleanupRow = document.createElement('div');
+  cleanupRow.style.cssText = 'grid-column:1 / -1;display:flex;align-items:center;gap:8px;margin-top:2px';
+  const cleanupInput = document.createElement('input');
+  cleanupInput.type = 'checkbox';
+  cleanupInput.id = 'mikedown-cleanup-unreferenced';
+  cleanupInput.checked = ipState.cleanupUnreferenced;
+  cleanupInput.addEventListener('change', () => { ipState.cleanupUnreferenced = cleanupInput.checked; });
+  const cleanupLabel = document.createElement('label');
+  cleanupLabel.htmlFor = cleanupInput.id;
+  cleanupLabel.style.cssText = 'font-size:12px;color:var(--vscode-editor-foreground);cursor:pointer';
+  cleanupLabel.textContent = 'Delete unreferenced images on save (only inside the configured images folder)';
+  cleanupRow.appendChild(cleanupInput);
+  cleanupRow.appendChild(cleanupLabel);
+  ipGrid.appendChild(cleanupRow);
+
   ipSectionRow.appendChild(ipGrid);
+
+  // ── Image Resize
+  const irState: ImageResizeSettings = { ...currentImageResizeSettings };
+  const irSectionRow = makeRow('Image Resize', 'Right-click an image and use the popover to downscale it. Useful for trimming high-DPI screenshots.');
+  const irRow = document.createElement('div');
+  irRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:4px';
+  const irOverwriteInput = document.createElement('input');
+  irOverwriteInput.type = 'checkbox';
+  irOverwriteInput.id = 'mikedown-img-resize-overwrite';
+  irOverwriteInput.checked = irState.overwrite;
+  irOverwriteInput.addEventListener('change', () => { irState.overwrite = irOverwriteInput.checked; });
+  const irOverwriteLabel = document.createElement('label');
+  irOverwriteLabel.htmlFor = irOverwriteInput.id;
+  irOverwriteLabel.style.cssText = 'font-size:13px;color:var(--vscode-editor-foreground);cursor:pointer';
+  irOverwriteLabel.textContent = 'Overwrite original file when resizing';
+  irRow.appendChild(irOverwriteInput);
+  irRow.appendChild(irOverwriteLabel);
+  irSectionRow.appendChild(irRow);
 
   // ── Content Width
   const widthRow = makeRow('Content Width', 'Max width of the editor content area. Use "100%" for full width or a value like "800px".');
@@ -956,11 +990,13 @@ function showSettingsModal(): void {
         headingFontFamily: selectedHeading,
         contentWidth: widthSelect.value,
         imagePaste: ipState,
+        imageResize: irState,
       }
     });
     // Persist locally so subsequent pastes use the new values without
     // round-tripping the broadcast.
     currentImagePasteSettings = { ...ipState };
+    currentImageResizeSettings = { ...irState };
     overlay.remove();
   });
   footer.appendChild(note);
@@ -971,6 +1007,7 @@ function showSettingsModal(): void {
   modal.appendChild(fontSizeRow);
   modal.appendChild(fontThemeRow);
   modal.appendChild(ipSectionRow);
+  modal.appendChild(irSectionRow);
   modal.appendChild(widthRow);
   modal.appendChild(footer);
   overlay.appendChild(modal);
@@ -996,6 +1033,7 @@ interface ImagePasteSettings {
   pathStyle: 'relative' | 'workspace-absolute';
   altText: 'empty' | 'filename' | 'prompt';
   maxSizeMB: number;
+  cleanupUnreferenced: boolean;
 }
 let currentImagePasteSettings: ImagePasteSettings = {
   enabled: true,
@@ -1005,7 +1043,13 @@ let currentImagePasteSettings: ImagePasteSettings = {
   pathStyle: 'relative',
   altText: 'empty',
   maxSizeMB: 10,
+  cleanupUnreferenced: true,
 };
+
+interface ImageResizeSettings {
+  overwrite: boolean;
+}
+let currentImageResizeSettings: ImageResizeSettings = { overwrite: true };
 
 // Webview-URI → fs-path mappings broadcast by the host with each 'settings'
 // message. Used to display image srcs in their on-disk relative form (the
@@ -2066,7 +2110,7 @@ if (!editorContainer) {
     if (linkEl) {
       items = buildLinkMenu(editor, linkEl.getAttribute('href') || '');
     } else if (imgEl) {
-      items = buildImageMenu(editor, imgEl);
+      items = buildImageMenu(editor, imgEl, (window as any).mikedownImageActions);
     } else if (tableEl) {
       items = buildTableMenu(editor);
     } else {
@@ -2230,6 +2274,21 @@ if (!editorContainer) {
 
   // ── M7 — Image popover for editing alt/src on click ────────────────────────
 
+  // v1.6.0 — pending resize-image requests (popover → host → reply).
+  interface PendingResize { pos: number; percent: number; }
+  const pendingResizeRequests = new Map<string, PendingResize>();
+
+  function arrayBufferToBase64Webview(buf: ArrayBuffer): string {
+    const bytes = new Uint8Array(buf);
+    const chunkSize = 0x8000;
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize) as unknown as number[];
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary);
+  }
+
   const imagePopover = document.createElement('div');
   imagePopover.id = 'image-edit-popover';
   imagePopover.innerHTML = `
@@ -2256,11 +2315,9 @@ if (!editorContainer) {
       const target = e.target as HTMLElement;
       if (target.tagName !== 'IMG') { return; }
       const img = target as HTMLImageElement;
-      // Get the ProseMirror position of this image node
       const pos = editor.view.posAtDOM(img, 0);
       if (pos < 0) { return; }
       editingImagePos = pos;
-      // Populate fields
       (document.getElementById('img-alt') as HTMLInputElement).value = img.alt ?? '';
       // Show the on-disk relative form (e.g. `images/foo.png`) rather than
       // the session-scoped webview URI. The Update handler re-resolves it
@@ -2269,7 +2326,6 @@ if (!editorContainer) {
       const rawSrc = img.getAttribute('src') ?? '';
       (document.getElementById('img-src') as HTMLInputElement).value =
         unresolveSrcForDisplay(rawSrc, imagePathMappings, docDirFsPath);
-      // Position popover near image
       const rect = img.getBoundingClientRect();
       imagePopover.style.display = 'block';
       imagePopover.style.top = `${rect.bottom + 8}px`;
@@ -2301,6 +2357,100 @@ if (!editorContainer) {
   document.getElementById('img-cancel')?.addEventListener('click', () => {
     hideImagePopover();
   });
+
+  // ── Image resize: canvas downscale + host write ────────────────────────────
+
+  function inferOutputMime(src: string): string {
+    const ext = (src.split('?')[0].split('#')[0].split('.').pop() || '').toLowerCase();
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+    if (ext === 'webp') return 'image/webp';
+    return 'image/png';
+  }
+
+  function isUnsupportedForCanvasResize(src: string): string | null {
+    const ext = (src.split('?')[0].split('#')[0].split('.').pop() || '').toLowerCase();
+    if (ext === 'svg') return 'SVG';
+    if (ext === 'gif') return 'GIF';
+    return null;
+  }
+
+  function showTransientToast(msg: string, isError = false): void {
+    let host = document.getElementById('mikedown-toast');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'mikedown-toast';
+      document.body.appendChild(host);
+    }
+    host.textContent = msg;
+    host.classList.toggle('error', isError);
+    host.classList.add('visible');
+    window.clearTimeout((host as any).__t);
+    (host as any).__t = window.setTimeout(() => {
+      host!.classList.remove('visible');
+    }, 3000);
+  }
+
+  async function applyResizeFromMenu(img: HTMLImageElement, percent: number): Promise<void> {
+    if (!Number.isFinite(percent) || percent < 1 || percent > 200) return;
+    const pos = editor.view.posAtDOM(img, 0);
+    if (pos < 0) return;
+    const rawSrc = img.getAttribute('src') ?? '';
+    const unsupported = isUnsupportedForCanvasResize(rawSrc);
+    if (unsupported) {
+      showTransientToast(`Cannot resize ${unsupported} images in place.`, true);
+      return;
+    }
+    const naturalW = img.naturalWidth;
+    const naturalH = img.naturalHeight;
+    if (!naturalW || !naturalH) {
+      showTransientToast('Image has not finished loading yet.', true);
+      return;
+    }
+    const targetW = Math.max(1, Math.round(naturalW * (percent / 100)));
+    const targetH = Math.max(1, Math.round(naturalH * (percent / 100)));
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      showTransientToast('Canvas unavailable.', true);
+      return;
+    }
+    try {
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+    } catch (err) {
+      showTransientToast(`Render failed: ${(err as Error).message}`, true);
+      return;
+    }
+    const mime = inferOutputMime(rawSrc);
+    const quality = mime === 'image/jpeg' ? 0.92 : undefined;
+    const blob: Blob | null = await new Promise(resolve => {
+      canvas.toBlob(b => resolve(b), mime, quality);
+    });
+    if (!blob) {
+      showTransientToast('Failed to encode resized image.', true);
+      return;
+    }
+    const buf = await blob.arrayBuffer();
+    const dataBase64 = arrayBufferToBase64Webview(buf);
+    const requestId = `imgresize-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    pendingResizeRequests.set(requestId, { pos, percent });
+    vscode.postMessage({
+      type: 'resizeImage',
+      requestId,
+      currentSrc: rawSrc,
+      mime,
+      dataBase64,
+      percent,
+    });
+  }
+
+  // Exposed via a window-level dispatcher so contextmenu.ts can call back.
+  // Keeping the actual canvas/postMessage logic here lets us reuse the
+  // pendingResizeRequests map and the resizeImageResult handler below.
+  (window as any).mikedownImageActions = {
+    resize: (img: HTMLImageElement, percent: number) => { void applyResizeFromMenu(img, percent); },
+  };
 
   // Close popover when clicking outside
   document.addEventListener('click', (e) => {
@@ -3016,6 +3166,9 @@ if (!editorContainer) {
       if (msg.imagePaste && typeof msg.imagePaste === 'object') {
         currentImagePasteSettings = { ...currentImagePasteSettings, ...msg.imagePaste };
       }
+      if (msg.imageResize && typeof msg.imageResize === 'object') {
+        currentImageResizeSettings = { ...currentImageResizeSettings, ...msg.imageResize };
+      }
       if (Array.isArray(msg.imagePastePathMappings)) {
         imagePathMappings = msg.imagePastePathMappings as ImagePathPrefix[];
       }
@@ -3232,6 +3385,31 @@ if (!editorContainer) {
     // position recorded when the request was sent.
     if (message.type === 'pastedImageResult') {
       handlePastedImageResult(message as any);
+    }
+
+    // v1.6.0 — Image resize host response: replace the in-editor image's src
+    // (via PM transaction, never direct DOM writes) so the new bytes render.
+    // For overwrite, append a `?v=…` cache-bust so the browser re-fetches;
+    // unresolveImageUris on the host strips the query before saving.
+    if (message.type === 'resizeImageResult') {
+      const m = message as any;
+      const req = pendingResizeRequests.get(m.requestId);
+      if (req) pendingResizeRequests.delete(m.requestId);
+      if (!m.success) {
+        showTransientToast(`Resize failed: ${m.error || 'unknown error'}`, true);
+        return;
+      }
+      if (!req || typeof m.webviewUri !== 'string') return;
+      const newSrc = m.overwritten ? `${m.webviewUri}?v=${Date.now()}` : m.webviewUri;
+      try {
+        editor.commands.setNodeSelection(req.pos);
+        editor.commands.updateAttributes('image', { src: newSrc });
+      } catch { /* node may have been removed */ }
+      showTransientToast(
+        m.overwritten
+          ? `Resized to ${req.percent}% — original overwritten.`
+          : `Resized to ${req.percent}% — saved as a new file.`
+      );
     }
 
     // v1.6.0 — Filesystem watcher reports an image file went missing while the

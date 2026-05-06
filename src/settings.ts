@@ -16,6 +16,7 @@ export interface MikeDownSettings {
     headingStyle: 'atx' | 'setext';
   };
   imagePaste: ImagePasteSettings;
+  imageResize: ImageResizeSettings;
 }
 
 export interface ImagePasteSettings {
@@ -26,6 +27,11 @@ export interface ImagePasteSettings {
   pathStyle: 'relative' | 'workspace-absolute';
   altText: 'empty' | 'filename' | 'prompt';
   maxSizeMB: number;
+  cleanupUnreferenced: boolean;
+}
+
+export interface ImageResizeSettings {
+  overwrite: boolean;
 }
 
 export function getSettings(): MikeDownSettings {
@@ -53,6 +59,10 @@ export function getSettings(): MikeDownSettings {
       pathStyle: config.get<'relative' | 'workspace-absolute'>('imagePaste.pathStyle', 'relative'),
       altText: config.get<'empty' | 'filename' | 'prompt'>('imagePaste.altText', 'empty'),
       maxSizeMB: config.get<number>('imagePaste.maxSizeMB', 10),
+      cleanupUnreferenced: config.get<boolean>('imagePaste.cleanupUnreferenced', true),
+    },
+    imageResize: {
+      overwrite: config.get<boolean>('imageResize.overwrite', true),
     },
   };
 }

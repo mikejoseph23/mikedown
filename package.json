@@ -406,6 +406,16 @@
           "minimum": 1,
           "maximum": 200,
           "description": "Maximum size (in MB) for a single pasted image. Larger pastes are rejected with an error."
+        },
+        "mikedown.imagePaste.cleanupUnreferenced": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "When you save the document, delete images inside the `imagePaste.folder` that were previously referenced (or pasted in this session) and are no longer referenced by **any** markdown file in the workspace. Files outside the configured folder are never touched."
+        },
+        "mikedown.imageResize.overwrite": {
+          "type": "boolean",
+          "default": true,
+          "description": "When resizing an image from the popover, overwrite the original file. When disabled, write a sibling file (e.g. foo-50pct.png) and update the markdown link to point at it."
         }
       }
     }

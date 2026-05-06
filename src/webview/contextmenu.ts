@@ -149,13 +149,32 @@ export function buildTableMenu(editor: Editor): ContextMenuEntry[] {
   ];
 }
 
-export function buildImageMenu(editor: Editor, imgEl: HTMLImageElement): ContextMenuEntry[] {
-  return [
+export interface ImageMenuActions {
+  resize: (img: HTMLImageElement, percent: number) => void;
+}
+
+export function buildImageMenu(
+  editor: Editor,
+  imgEl: HTMLImageElement,
+  actions?: ImageMenuActions
+): ContextMenuEntry[] {
+  const entries: ContextMenuEntry[] = [
     { label: 'Edit Image…', action: () => imgEl.click() }, // triggers M7 popover
-    { label: 'Remove Image', action: () => {
-      const pos = editor.view.posAtDOM(imgEl, 0);
-      editor.view.dispatch(editor.view.state.tr.delete(pos, pos + 1));
-    }},
     { label: 'Copy Image Path', action: () => navigator.clipboard?.writeText(imgEl.getAttribute('src') || '').catch(() => {}) },
   ];
+  if (actions) {
+    entries.push({ separator: true });
+    entries.push({ label: 'Resize 75%', action: () => actions.resize(imgEl, 75) });
+    entries.push({ label: 'Resize 50%', action: () => actions.resize(imgEl, 50) });
+    entries.push({ label: 'Resize 25%', action: () => actions.resize(imgEl, 25) });
+  }
+  entries.push({ separator: true });
+  entries.push({
+    label: 'Remove Image',
+    action: () => {
+      const pos = editor.view.posAtDOM(imgEl, 0);
+      editor.view.dispatch(editor.view.state.tr.delete(pos, pos + 1));
+    },
+  });
+  return entries;
 }

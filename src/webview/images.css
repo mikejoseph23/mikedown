@@ -93,3 +93,30 @@
 #image-edit-popover button.secondary:hover {
   background: var(--vscode-list-hoverBackground);
 }
+
+/* Transient toast used for image-resize feedback (no popover anymore). */
+#mikedown-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: var(--vscode-notifications-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-notifications-foreground, var(--vscode-editor-foreground));
+  border: 1px solid var(--vscode-notifications-border, var(--vscode-editorWidget-border, rgba(128,128,128,0.3)));
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1000;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+#mikedown-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+#mikedown-toast.error {
+  border-color: var(--vscode-errorForeground, #f48771);
+  color: var(--vscode-errorForeground, #f48771);
+}

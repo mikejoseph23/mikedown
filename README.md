@@ -100,6 +100,10 @@ Switch between light and dark mode inside MikeDown editor tabs without changing 
 
 Images render inline. Click an image to access an edit popover for adjusting source, alt text, and title. Paste a screenshot (Cmd/Ctrl+V) or drag an image file into the editor to save it to a sibling `images/` folder and insert the markdown link automatically — destination, filename pattern, path style, and alt-text behavior are all configurable via `mikedown.imagePaste.*` settings.
 
+Right-click an image to access **Resize 75% / 50% / 25%** presets — handy for halving Mac high-DPI screenshots that come in at 2× physical size. By default the resize overwrites the original file in place; flip `mikedown.imageResize.overwrite` to write a sibling like `foo-50pct.png` and update the link instead.
+
+When you save, MikeDown also cleans up unreferenced images. To keep this safe, three conditions must all hold before a file is deleted: it must live inside the configured `imagePaste.folder`, it must look like a MikeDown-generated paste (the filename matches the configured `filenamePattern` shape — so user-curated assets like `logo.png` or `hero-banner.png` are never touched), and no other markdown file in the workspace can reference it. Disable with `mikedown.imagePaste.cleanupUnreferenced` if you'd rather manage the folder yourself.
+
 ## Getting Started
 
 ### Install
@@ -178,6 +182,8 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 | `mikedown.imagePaste.pathStyle` | `relative` | Insert path relative to the document, or workspace-absolute (leading `/`) |
 | `mikedown.imagePaste.altText` | `empty` | Alt text source: `empty`, `filename`, or `prompt` (asks on each paste) |
 | `mikedown.imagePaste.maxSizeMB` | `10` | Reject pastes larger than this (1--200) |
+| `mikedown.imagePaste.cleanupUnreferenced` | `true` | Delete unreferenced images on save (only inside the configured `imagePaste.folder` and only when no other markdown file references them) |
+| `mikedown.imageResize.overwrite` | `true` | When resizing from the image popover, overwrite the original file. When `false`, write a sibling like `foo-50pct.png` and update the markdown link |
 
 ## Requirements
 
