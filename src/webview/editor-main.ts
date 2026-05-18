@@ -43,11 +43,12 @@ import {
   cmFindReplaceExtension, cmUpdateSearch, cmClearSearch, cmFindNext, cmFindPrev,
   cmReplaceCurrent, cmReplaceAll,
 } from './findreplace';
-import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu } from './contextmenu';
+import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu, buildCodeBlockMenu } from './contextmenu';
 import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
 import { initTableDrag, clearCellSelection, clearDragHandles } from './tabledrag';
 import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks } from './linkautocomplete';
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates } from './toolbar-dropdown';
+import { showLanguagePicker } from './languagepicker';
 import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from '../imageDisplayPath';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
@@ -2121,11 +2122,20 @@ if (!editorContainer) {
     const linkEl = target.closest<HTMLAnchorElement>('a[href]');
     const tableEl = target.closest('table');
     const imgEl = target.closest<HTMLImageElement>('img');
+    const preEl = target.closest<HTMLElement>('pre.mikedown-code-block');
 
     if (linkEl) {
       items = buildLinkMenu(editor, linkEl.getAttribute('href') || '');
     } else if (imgEl) {
       items = buildImageMenu(editor, imgEl, (window as any).mikedownImageActions);
+    } else if (preEl || editor.isActive('codeBlock')) {
+      if (preEl && !editor.isActive('codeBlock')) {
+        const pos = editor.view.posAtDOM(preEl, 0);
+        if (typeof pos === 'number' && pos >= 0) {
+          editor.commands.setTextSelection(pos + 1);
+        }
+      }
+      items = buildCodeBlockMenu(editor);
     } else if (tableEl) {
       items = buildTableMenu(editor);
     } else {
@@ -2137,11 +2147,12 @@ if (!editorContainer) {
 
   // Hide context menu on click elsewhere
   document.addEventListener('mousedown', (event) => {
-    if (!(event.target as HTMLElement).closest('#mikedown-context-menu')) {
+    const targetEl = event.target as HTMLElement;
+    if (!targetEl.closest('#mikedown-context-menu') && !targetEl.closest('#mikedown-context-submenu')) {
       hideContextMenu();
     }
     // M5c — Clear multi-cell selection when clicking outside a table
-    if (!(event.target as HTMLElement).closest('table')) {
+    if (!targetEl.closest('table')) {
       clearCellSelection();
     }
   });
@@ -2662,19 +2673,38 @@ if (!editorContainer) {
     }
   });
 
-  // ── Code block copy button ──────────────────────────────────────────────────
-  // Floating button that appears in the top-right of a hovered code block.
-  // Lives in document.body to avoid mutating ProseMirror's managed DOM.
+  // ── Code block floating overlay (copy + language pill) ───────────────────
+  // Floating buttons that appear in the top-right of a hovered code block.
+  // Live in document.body to avoid mutating ProseMirror's managed DOM.
   {
     let copyBtn: HTMLButtonElement | null = null;
+    let langBtn: HTMLButtonElement | null = null;
     let hoveredPre: HTMLElement | null = null;
     let hideTimer: number | null = null;
 
-    // Inline SVGs — two overlapping rectangles for copy, check for copied.
     const copyIconSvg = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/></svg>';
     const checkIconSvg = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 8.5 6.5 12 13 4"/></svg>';
 
-    const ensureBtn = (): HTMLButtonElement => {
+    const openPickerForPre = (pre: HTMLElement): void => {
+      if (!editor.isActive('codeBlock')) {
+        const pos = editor.view.posAtDOM(pre, 0);
+        if (typeof pos === 'number' && pos >= 0) {
+          editor.commands.setTextSelection(pos + 1);
+        }
+      }
+      const currentLanguage = pre.getAttribute('data-language') || '';
+      const allLanguages = lowlight.listLanguages();
+      const anchorRect = (langBtn && langBtn.classList.contains('visible')
+        ? langBtn.getBoundingClientRect()
+        : pre.getBoundingClientRect());
+      showLanguagePicker(editor, {
+        anchorRect,
+        currentLanguage,
+        allLanguages,
+      });
+    };
+
+    const ensureCopyBtn = (): HTMLButtonElement => {
       if (copyBtn) return copyBtn;
       copyBtn = document.createElement('button');
       copyBtn.id = 'mikedown-code-copy-btn';
@@ -2710,31 +2740,50 @@ if (!editorContainer) {
       return copyBtn;
     };
 
-    // Approximate label width from the data-language attribute. The label
-    // pseudo-element is right-aligned in the corner; we sit just to its
-    // left with a small gap. ~7px/char + 22px for padding handles the
-    // common cases (json, typescript, javascript, etc.) without needing
-    // to measure the pseudo-element at runtime.
-    const labelOffsetFor = (pre: HTMLElement): number => {
-      const lang = pre.getAttribute('data-language') || '';
-      if (!lang || lang === 'plaintext' || lang === 'null') return 0;
-      return lang.length * 7 + 22;
+    const ensureLangBtn = (): HTMLButtonElement => {
+      if (langBtn) return langBtn;
+      langBtn = document.createElement('button');
+      langBtn.id = 'mikedown-code-language-btn';
+      langBtn.type = 'button';
+      langBtn.title = 'Change language';
+      langBtn.setAttribute('aria-label', 'Change code block language');
+      langBtn.addEventListener('mouseenter', () => {
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      });
+      langBtn.addEventListener('mouseleave', () => scheduleHide());
+      langBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!hoveredPre) return;
+        openPickerForPre(hoveredPre);
+      });
+      document.body.appendChild(langBtn);
+      return langBtn;
     };
 
-    const positionBtn = (pre: HTMLElement): void => {
-      const btn = ensureBtn();
-      // Make the button visible BEFORE measuring — display:none would
-      // make offsetWidth 0 and place the button incorrectly on first show.
-      btn.classList.add('visible');
+    const positionFor = (pre: HTMLElement): void => {
+      const lBtn = ensureLangBtn();
+      const cBtn = ensureCopyBtn();
+
+      const lang = (pre.getAttribute('data-language') || '').trim();
+      const hasLang = lang && lang !== 'plaintext' && lang !== 'null';
+      lBtn.textContent = hasLang ? lang : 'plaintext';
+      lBtn.classList.toggle('placeholder', !hasLang);
+      lBtn.classList.add('visible');
+      cBtn.classList.add('visible');
+
       const r = pre.getBoundingClientRect();
-      btn.style.top = `${r.top + 4}px`;
-      btn.style.left = `${r.right - btn.offsetWidth - labelOffsetFor(pre) - 4}px`;
+      lBtn.style.top = `${r.top}px`;
+      lBtn.style.left = `${r.right - lBtn.offsetWidth}px`;
+      cBtn.style.top = `${r.top + 4}px`;
+      cBtn.style.left = `${r.right - cBtn.offsetWidth - lBtn.offsetWidth - 4}px`;
     };
 
     const scheduleHide = (): void => {
       if (hideTimer) clearTimeout(hideTimer);
       hideTimer = window.setTimeout(() => {
         if (copyBtn) copyBtn.classList.remove('visible');
+        if (langBtn) langBtn.classList.remove('visible');
         hoveredPre = null;
         hideTimer = null;
       }, 150);
@@ -2746,7 +2795,7 @@ if (!editorContainer) {
       if (!pre) return;
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       hoveredPre = pre;
-      positionBtn(pre);
+      positionFor(pre);
     });
 
     editorContainer.addEventListener('mouseout', (event) => {
@@ -2754,15 +2803,48 @@ if (!editorContainer) {
       const pre = target.closest<HTMLElement>('pre.mikedown-code-block');
       if (!pre) return;
       const related = event.relatedTarget as Node | null;
-      if (related && (pre.contains(related) || copyBtn?.contains(related))) return;
+      if (related && (pre.contains(related) || copyBtn?.contains(related) || langBtn?.contains(related))) return;
       scheduleHide();
     });
 
     // Hide when the code block scrolls or the window resizes (position would be stale).
     window.addEventListener('scroll', () => {
       if (copyBtn) copyBtn.classList.remove('visible');
+      if (langBtn) langBtn.classList.remove('visible');
       hoveredPre = null;
     }, true);
+
+    // Reposition pill after editor updates (language attr may have changed).
+    editor.on('transaction', () => {
+      if (hoveredPre && hoveredPre.isConnected) positionFor(hoveredPre);
+    });
+
+    // Expose entry point for the context menu "Set language…" action.
+    (window as any).__mikedownShowLanguagePicker = () => {
+      let pre: HTMLElement | null = hoveredPre;
+      if (!pre) {
+        // Fall back to the code block at the current selection.
+        const $from = editor.state.selection.$from;
+        for (let depth = $from.depth; depth > 0; depth--) {
+          const node = $from.node(depth);
+          if (node.type.name === 'codeBlock') {
+            const start = $from.before(depth);
+            const dom = editor.view.nodeDOM(start) as HTMLElement | null;
+            if (dom) pre = dom.closest('pre.mikedown-code-block') || (dom as HTMLElement);
+            break;
+          }
+        }
+      }
+      if (pre) {
+        openPickerForPre(pre);
+      } else {
+        // Last resort: open centered with no anchor.
+        showLanguagePicker(editor, {
+          currentLanguage: '',
+          allLanguages: lowlight.listLanguages(),
+        });
+      }
+    };
   }
 
   // ── M6a: Cmd-held class tracking (changes link cursor on hover) ─────────────

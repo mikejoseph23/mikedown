@@ -7,6 +7,9 @@ All notable changes to MikeDown Editor are documented here.
 ### Added
 
 - Hover over a code block to reveal a **Copy** button in the top-right corner — one click copies the block's contents to the clipboard, with a brief "Copied!" confirmation. Works for every fenced code block regardless of language
+- Click the language pill in the top-right of any code block to open a searchable language picker. Lists ~190 lowlight-supported languages with a curated top set (json, javascript, typescript, python, bash, etc.), accepts free-text input for any identifier, and offers "Clear language" to remove the fence tag. Round-trips cleanly to source mode
+- Right-click inside a code block now shows a tailored menu (Set language…, Copy code, Delete code block) instead of the generic formatting menu — useful for blocks with no language yet (no pill to click)
+- Right-click context menu on regular content is now compact: Heading, List, and Insert are grouped into hover submenus so it fits on smaller windows. Submenus mark the currently active heading level / list type and auto-flip when they would overflow the viewport
 
 ## [1.6.0] - 2026-05-06
 

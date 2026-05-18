@@ -13,31 +13,44 @@
   border: 1px solid rgba(128,128,128,0.1);
 }
 
-/* Language label — top-right corner. Always visible so the reader can see
-   the fence language; the floating Copy button covers it on hover. */
-.ProseMirror pre.mikedown-code-block::before {
-  content: attr(data-language);
-  position: absolute;
-  top: 0;
-  right: 0;
+/* Floating clickable language pill — appears in the top-right corner of a
+   hovered code block. Click to open the language picker. Lives in
+   document.body to avoid mutating ProseMirror's managed DOM. */
+#mikedown-code-language-btn {
+  position: fixed;
+  z-index: 1000;
   font-size: 11px;
   font-weight: 500;
   color: var(--vscode-descriptionForeground);
   font-family: var(--vscode-font-family, sans-serif);
   text-transform: lowercase;
-  pointer-events: none;
   padding: 3px 10px;
   background: rgba(128,128,128,0.12);
+  border: none;
   border-radius: 0 6px 0 6px;
   letter-spacing: 0.03em;
-}
-
-/* Suppress the empty pill chrome when there's no language to display. */
-.ProseMirror pre.mikedown-code-block:not([data-language])::before,
-.ProseMirror pre.mikedown-code-block[data-language=""]::before,
-.ProseMirror pre.mikedown-code-block[data-language="plaintext"]::before,
-.ProseMirror pre.mikedown-code-block[data-language="null"]::before {
+  cursor: pointer;
   display: none;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.1s ease, background 0.1s ease, color 0.1s ease;
+}
+#mikedown-code-language-btn.visible {
+  display: inline-flex;
+  align-items: center;
+  opacity: 1;
+}
+#mikedown-code-language-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.25));
+  color: var(--vscode-foreground);
+}
+#mikedown-code-language-btn.placeholder {
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+  font-style: italic;
+}
+#mikedown-code-language-btn.placeholder:hover {
+  opacity: 1;
 }
 
 /* Floating copy icon — appears on hover over a code block, just to the
@@ -78,6 +91,103 @@
   width: 14px;
   height: 14px;
   pointer-events: none;
+}
+
+/* Language picker popover */
+#mikedown-language-picker {
+  position: fixed;
+  z-index: 1100;
+  width: 260px;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-menu-background, var(--vscode-editorWidget-background, #252526));
+  border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border, #454545));
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35), 0 0 1px rgba(0,0,0,0.2);
+  border-radius: 6px;
+  padding: 6px;
+  user-select: none;
+  animation: cm-fade-in 0.08s ease-out;
+}
+
+#mikedown-language-picker .lp-input {
+  font-size: 12px;
+  padding: 5px 8px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, var(--vscode-editorWidget-border, transparent));
+  border-radius: 4px;
+  outline: none;
+  margin-bottom: 4px;
+}
+
+#mikedown-language-picker .lp-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+#mikedown-language-picker .lp-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 60px;
+}
+
+#mikedown-language-picker .lp-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--vscode-menu-foreground, var(--vscode-editor-foreground));
+  cursor: pointer;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: nowrap;
+  gap: 12px;
+}
+
+#mikedown-language-picker .lp-item:hover,
+#mikedown-language-picker .lp-item.lp-focused {
+  background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground));
+  color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground));
+}
+
+#mikedown-language-picker .lp-item.lp-item-current::after {
+  content: '✓';
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+#mikedown-language-picker .lp-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#mikedown-language-picker .lp-item-hint {
+  font-size: 10px;
+  opacity: 0.55;
+  font-family: var(--vscode-font-family, sans-serif);
+}
+
+#mikedown-language-picker .lp-item-clear {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+#mikedown-language-picker .lp-section-header {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.55;
+  padding: 6px 8px 3px;
+  font-family: var(--vscode-font-family, sans-serif);
+}
+
+#mikedown-language-picker .lp-empty {
+  padding: 8px;
+  font-size: 12px;
+  opacity: 0.6;
+  text-align: center;
 }
 
 /* lowlight syntax tokens */
