@@ -16,7 +16,7 @@
  *   { type: 'toggleSource' }             — request to toggle source mode (M4 hook)
  */
 
-import { Editor } from '@tiptap/core';
+import { Editor, mergeAttributes } from '@tiptap/core';
 import { Selection, TextSelection, EditorState as PmEditorState } from '@tiptap/pm/state';
 import { undoDepth as pmUndoDepth } from '@tiptap/pm/history';
 import { StarterKit } from '@tiptap/starter-kit';
@@ -1819,7 +1819,22 @@ if (!editorContainer) {
       // wrapper) for offline syntax highlighting. StarterKit has codeBlock: false,
       // so this extension provides the codeBlock node type without conflict.
       // tiptap-markdown serialises codeBlock nodes as fenced code blocks (```lang).
-      CodeBlockLowlight.configure({
+      // .extend() adds a `data-language` attribute to the rendered <pre> so the
+      // CSS ::before label can show the language (CodeBlockLowlight's default
+      // renderHTML only puts the language on the inner <code> as a class).
+      // mergeAttributes() is critical — without it the configured
+      // HTMLAttributes ({ class: 'mikedown-code-block' }) is dropped, which
+      // breaks the copy-button hover selector and the language-label ::before.
+      CodeBlockLowlight.extend({
+        renderHTML({ node, HTMLAttributes }) {
+          const lang = node.attrs.language || '';
+          return [
+            'pre',
+            mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, { 'data-language': lang }),
+            ['code', { class: lang ? `language-${lang}` : null }, 0],
+          ];
+        },
+      }).configure({
         lowlight,
         defaultLanguage: 'plaintext',
         HTMLAttributes: {
@@ -2646,6 +2661,109 @@ if (!editorContainer) {
       if (linkTooltip) linkTooltip.style.display = 'none';
     }
   });
+
+  // ── Code block copy button ──────────────────────────────────────────────────
+  // Floating button that appears in the top-right of a hovered code block.
+  // Lives in document.body to avoid mutating ProseMirror's managed DOM.
+  {
+    let copyBtn: HTMLButtonElement | null = null;
+    let hoveredPre: HTMLElement | null = null;
+    let hideTimer: number | null = null;
+
+    // Inline SVGs — two overlapping rectangles for copy, check for copied.
+    const copyIconSvg = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/></svg>';
+    const checkIconSvg = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 8.5 6.5 12 13 4"/></svg>';
+
+    const ensureBtn = (): HTMLButtonElement => {
+      if (copyBtn) return copyBtn;
+      copyBtn = document.createElement('button');
+      copyBtn.id = 'mikedown-code-copy-btn';
+      copyBtn.type = 'button';
+      copyBtn.title = 'Copy code';
+      copyBtn.setAttribute('aria-label', 'Copy code');
+      copyBtn.innerHTML = copyIconSvg;
+      copyBtn.addEventListener('mouseenter', () => {
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      });
+      copyBtn.addEventListener('mouseleave', () => scheduleHide());
+      copyBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!hoveredPre) return;
+        const codeEl = hoveredPre.querySelector('code') ?? hoveredPre;
+        const text = codeEl.textContent ?? '';
+        try {
+          await navigator.clipboard.writeText(text);
+          copyBtn!.innerHTML = checkIconSvg;
+          copyBtn!.classList.add('copied');
+          setTimeout(() => {
+            if (copyBtn) {
+              copyBtn.innerHTML = copyIconSvg;
+              copyBtn.classList.remove('copied');
+            }
+          }, 1200);
+        } catch {
+          // Clipboard write failed (permissions, etc.) — silent.
+        }
+      });
+      document.body.appendChild(copyBtn);
+      return copyBtn;
+    };
+
+    // Approximate label width from the data-language attribute. The label
+    // pseudo-element is right-aligned in the corner; we sit just to its
+    // left with a small gap. ~7px/char + 22px for padding handles the
+    // common cases (json, typescript, javascript, etc.) without needing
+    // to measure the pseudo-element at runtime.
+    const labelOffsetFor = (pre: HTMLElement): number => {
+      const lang = pre.getAttribute('data-language') || '';
+      if (!lang || lang === 'plaintext' || lang === 'null') return 0;
+      return lang.length * 7 + 22;
+    };
+
+    const positionBtn = (pre: HTMLElement): void => {
+      const btn = ensureBtn();
+      // Make the button visible BEFORE measuring — display:none would
+      // make offsetWidth 0 and place the button incorrectly on first show.
+      btn.classList.add('visible');
+      const r = pre.getBoundingClientRect();
+      btn.style.top = `${r.top + 4}px`;
+      btn.style.left = `${r.right - btn.offsetWidth - labelOffsetFor(pre) - 4}px`;
+    };
+
+    const scheduleHide = (): void => {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => {
+        if (copyBtn) copyBtn.classList.remove('visible');
+        hoveredPre = null;
+        hideTimer = null;
+      }, 150);
+    };
+
+    editorContainer.addEventListener('mouseover', (event) => {
+      const target = event.target as HTMLElement;
+      const pre = target.closest<HTMLElement>('pre.mikedown-code-block');
+      if (!pre) return;
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      hoveredPre = pre;
+      positionBtn(pre);
+    });
+
+    editorContainer.addEventListener('mouseout', (event) => {
+      const target = event.target as HTMLElement;
+      const pre = target.closest<HTMLElement>('pre.mikedown-code-block');
+      if (!pre) return;
+      const related = event.relatedTarget as Node | null;
+      if (related && (pre.contains(related) || copyBtn?.contains(related))) return;
+      scheduleHide();
+    });
+
+    // Hide when the code block scrolls or the window resizes (position would be stale).
+    window.addEventListener('scroll', () => {
+      if (copyBtn) copyBtn.classList.remove('visible');
+      hoveredPre = null;
+    }, true);
+  }
 
   // ── M6a: Cmd-held class tracking (changes link cursor on hover) ─────────────
 

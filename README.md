@@ -80,7 +80,7 @@ Full find-and-replace inside the WYSIWYG editor. Most WYSIWYG markdown editors s
 
 ### Code Block Syntax Highlighting
 
-192 languages supported via lowlight/highlight.js. Code blocks render with proper syntax coloring in the editor.
+192 languages supported via lowlight/highlight.js. Code blocks render with proper syntax coloring in the editor. Hover any code block to reveal a **Copy** button in the top-right corner — one click copies the block's contents to your clipboard.
 
 ### Frontmatter Support
 

@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.7.0] - 2026-05-17
+
+### Added
+
+- Hover over a code block to reveal a **Copy** button in the top-right corner — one click copies the block's contents to the clipboard, with a brief "Copied!" confirmation. Works for every fenced code block regardless of language
+
 ## [1.6.0] - 2026-05-06
 
 ### Added

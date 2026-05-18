@@ -13,22 +13,71 @@
   border: 1px solid rgba(128,128,128,0.1);
 }
 
-/* Language label */
+/* Language label — top-right corner. Always visible so the reader can see
+   the fence language; the floating Copy button covers it on hover. */
 .ProseMirror pre.mikedown-code-block::before {
   content: attr(data-language);
   position: absolute;
   top: 0;
   right: 0;
   font-size: 11px;
+  font-weight: 500;
   color: var(--vscode-descriptionForeground);
   font-family: var(--vscode-font-family, sans-serif);
   text-transform: lowercase;
-  opacity: 0.6;
   pointer-events: none;
-  padding: 4px 10px;
-  background: rgba(128,128,128,0.08);
+  padding: 3px 10px;
+  background: rgba(128,128,128,0.12);
   border-radius: 0 6px 0 6px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+}
+
+/* Suppress the empty pill chrome when there's no language to display. */
+.ProseMirror pre.mikedown-code-block:not([data-language])::before,
+.ProseMirror pre.mikedown-code-block[data-language=""]::before,
+.ProseMirror pre.mikedown-code-block[data-language="plaintext"]::before,
+.ProseMirror pre.mikedown-code-block[data-language="null"]::before {
+  display: none;
+}
+
+/* Floating copy icon — appears on hover over a code block, just to the
+   left of the language label. Lives in document.body (not the editor DOM)
+   to avoid mutating ProseMirror's managed tree. */
+#mikedown-code-copy-btn {
+  position: fixed;
+  z-index: 1000;
+  width: 22px;
+  height: 22px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.1s ease, background 0.1s ease, color 0.1s ease;
+}
+#mikedown-code-copy-btn.visible {
+  display: inline-flex;
+  opacity: 0.7;
+}
+#mikedown-code-copy-btn:hover {
+  opacity: 1;
+  color: var(--vscode-foreground);
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+}
+#mikedown-code-copy-btn.copied {
+  opacity: 1;
+  color: var(--vscode-charts-green, #4caf50);
+}
+#mikedown-code-copy-btn svg {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
 }
 
 /* lowlight syntax tokens */
