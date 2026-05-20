@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.",
-  "version": "2.1.0",
+  "version": "2.3.0",
   "license": "MIT",
   "preview": false,
   "publisher": "interapp",
@@ -86,8 +86,16 @@
         "title": "MikeDown: Toggle Strikethrough"
       },
       {
+        "command": "mikedown.toggleHighlight",
+        "title": "MikeDown: Toggle Highlight"
+      },
+      {
         "command": "mikedown.toggleCode",
         "title": "MikeDown: Toggle Inline Code"
+      },
+      {
+        "command": "mikedown.openEmojiPicker",
+        "title": "MikeDown: Insert Emoji…"
       },
       {
         "command": "mikedown.undo",
@@ -168,9 +176,21 @@
         "when": "activeCustomEditorId == 'mikedown.editor'"
       },
       {
+        "command": "mikedown.toggleHighlight",
+        "key": "ctrl+shift+h",
+        "mac": "cmd+shift+h",
+        "when": "activeCustomEditorId == 'mikedown.editor'"
+      },
+      {
         "command": "mikedown.toggleCode",
         "key": "ctrl+shift+k",
         "mac": "cmd+shift+k",
+        "when": "activeCustomEditorId == 'mikedown.editor'"
+      },
+      {
+        "command": "mikedown.openEmojiPicker",
+        "key": "ctrl+;",
+        "mac": "cmd+;",
         "when": "activeCustomEditorId == 'mikedown.editor'"
       },
       {
@@ -473,6 +493,7 @@
     "@codemirror/view": "^6.36.4",
     "@tiptap/core": "^3.20.0",
     "@tiptap/extension-code-block-lowlight": "^3.20.0",
+    "@tiptap/extension-highlight": "^3.23.5",
     "@tiptap/extension-image": "^3.20.0",
     "@tiptap/extension-link": "^3.20.0",
     "@tiptap/extension-placeholder": "^3.20.0",
@@ -486,6 +507,7 @@
     "@tiptap/starter-kit": "^3.20.0",
     "lowlight": "^3.3.0",
     "markdown-it-emoji": "^3.0.0",
+    "markdown-it-mark": "^4.0.0",
     "tiptap-markdown": "^0.9.0"
   }
 }

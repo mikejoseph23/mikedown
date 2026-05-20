@@ -2,6 +2,13 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.3.0] - 2026-05-20
+
+### Added
+
+- **Highlight / mark.** Surround text with `==…==` to render it with a yellow highlight (`<mark>`). New toolbar button (highlighter icon), right-click → **Highlight**, and **Cmd+Shift+H** / **Ctrl+Shift+H** all toggle it on the current selection. Round-trips cleanly to `==text==` in saved markdown so GitHub renders it the same way. Light and dark mode each get a tuned background tint
+- **Emoji shortcodes + picker.** Type `:smi` and an inline autocomplete popup shows up to 8 matching shortcodes — arrow keys + Enter inserts; Esc dismisses. A new top-level **Emoji** button on the toolbar (and **Cmd+;** / **Ctrl+;**, and right-click → **Insert Emoji…**) opens a searchable picker with category sections (Smileys, People, Animals, Food, etc.) and a Recents row pinned at the top, persisted in localStorage. Full GitHub shortcode set supported
+
 ## [2.1.0] - 2026-05-20
 
 ### Added

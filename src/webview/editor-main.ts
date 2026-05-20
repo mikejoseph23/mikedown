@@ -37,6 +37,8 @@ import { ImagePasteExtension, handlePastedImageResult, setPostMessage as setImag
 import { TableCheckboxExtension } from './tablecheckbox';
 import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
+import { EmojiAutocomplete } from './emojiautocomplete';
+import { Highlight } from './highlight';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
 import { initOutlineSidebar, applyOutlineState } from './outlineSidebar';
 import {
@@ -51,6 +53,7 @@ import { initTableDrag, clearCellSelection, clearDragHandles } from './tabledrag
 import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks } from './linkautocomplete';
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates } from './toolbar-dropdown';
 import { showLanguagePicker } from './languagepicker';
+import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
 import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from '../imageDisplayPath';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
@@ -1129,6 +1132,7 @@ const toolbarIcons = {
   bold: toolbarSvg('<path d="M4 2.5h5a3 3 0 0 1 0 6H4zM4 8.5h6a3 3 0 0 1 0 6H4z" fill="none"/>', 2),
   italic: toolbarSvg('<line x1="10" y1="2" x2="6" y2="14"/><line x1="7" y1="2" x2="12" y2="2"/><line x1="4" y1="14" x2="9" y2="14"/>'),
   strike: toolbarSvg('<line x1="2" y1="8" x2="14" y2="8"/><path d="M10.5 3H6.5a2.5 2.5 0 0 0 0 5h3a2.5 2.5 0 0 1 0 5H5"/>'),
+  highlight: toolbarSvg('<path d="M4 12h8" stroke-width="2.4"/><path d="M5 9.5l2-6h2l2 6"/><line x1="6" y1="7" x2="10" y2="7"/>'),
   code: toolbarSvg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/>'),
   ul: toolbarSvg('<line x1="6" y1="4" x2="14" y2="4"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><circle cx="3" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/>'),
   ol: toolbarSvg('<line x1="6" y1="4" x2="14" y2="4"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><text x="2" y="5.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">1</text><text x="2" y="9.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">2</text><text x="2" y="13.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">3</text>'),
@@ -1151,6 +1155,7 @@ const toolbarIcons = {
   print: toolbarSvg('<path d="M4 6V2h8v4"/><rect x="2" y="6" width="12" height="6" rx="1"/><rect x="4" y="10" width="8" height="4"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/>'),
   browser: toolbarSvg('<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><circle cx="3.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/>'),
   selectAll: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="1" stroke-dasharray="2 1.5"/><rect x="5" y="5" width="6" height="6" fill="currentColor" stroke="none"/>'),
+  emoji: toolbarSvg('<circle cx="8" cy="8" r="6"/><circle cx="6" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="10" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><path d="M5.5 9.5c.7 1.2 1.7 1.8 2.5 1.8s1.8-.6 2.5-1.8"/>'),
 };
 
 // ── Callout helpers ────────────────────────────────────────────────────────────
@@ -1209,7 +1214,13 @@ function buildToolbar(editor: Editor): void {
     { id: 'bold', title: 'Bold (Cmd+B)', icon: icons.bold, action: () => editor.chain().focus().toggleBold().run(), isActive: () => editor.isActive('bold') },
     { id: 'italic', title: 'Italic (Cmd+I)', icon: icons.italic, action: () => editor.chain().focus().toggleItalic().run(), isActive: () => editor.isActive('italic') },
     { id: 'strike', title: 'Strikethrough', icon: icons.strike, action: () => editor.chain().focus().toggleStrike().run(), isActive: () => editor.isActive('strike') },
+    { id: 'highlight', title: 'Highlight (Cmd+Shift+H)', icon: icons.highlight, action: () => editor.chain().focus().toggleHighlight().run(), isActive: () => editor.isActive('highlight') },
     { id: 'code', title: 'Inline Code', icon: icons.code, action: () => editor.chain().focus().toggleCode().run(), isActive: () => editor.isActive('code') },
+    { id: 'emoji', title: 'Insert Emoji (Cmd+;)', icon: icons.emoji, action: () => {
+      const btn = document.querySelector('button[data-action="emoji"]') as HTMLElement | null;
+      if (isEmojiPickerOpen()) { hideEmojiPicker(); return; }
+      showEmojiPicker(editor, btn ? { anchorRect: btn.getBoundingClientRect() } : {});
+    }, isActive: () => isEmojiPickerOpen() },
     { separator: true },
     { id: 'h1', title: 'Heading 1', icon: '<span style="font-weight:700;font-size:14px">H<sub style="font-size:9px">1</sub></span>', action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), isActive: () => editor.isActive('heading', { level: 1 }) },
     { id: 'h2', title: 'Heading 2', icon: '<span style="font-weight:600;font-size:13px">H<sub style="font-size:9px">2</sub></span>', action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), isActive: () => editor.isActive('heading', { level: 2 }) },
@@ -1343,6 +1354,7 @@ function buildCondensedToolbar(editor: Editor): void {
         { id: 'bold', icon: icons.bold, title: 'Bold', isActive: () => editor.isActive('bold'), action: () => editor.chain().focus().toggleBold().run() },
         { id: 'italic', icon: icons.italic, title: 'Italic', isActive: () => editor.isActive('italic'), action: () => editor.chain().focus().toggleItalic().run() },
         { id: 'strike', icon: icons.strike, title: 'Strikethrough', isActive: () => editor.isActive('strike'), action: () => editor.chain().focus().toggleStrike().run() },
+        { id: 'highlight', icon: icons.highlight, title: 'Highlight', isActive: () => editor.isActive('highlight'), action: () => editor.chain().focus().toggleHighlight().run() },
         { id: 'code', icon: icons.code, title: 'Inline Code', isActive: () => editor.isActive('code'), action: () => editor.chain().focus().toggleCode().run() },
       ]},
     ]);
@@ -1593,11 +1605,20 @@ function buildCondensedToolbar(editor: Editor): void {
     setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
   });
 
+  // ── Emoji picker (top-level, separate from Insert) ──────────────────────
+  const emojiBtn = makeBtn('emoji', 'Insert Emoji (Cmd+;)', icons.emoji);
+  emojiBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  emojiBtn.addEventListener('click', () => {
+    if (isEmojiPickerOpen()) { hideEmojiPicker(); return; }
+    showEmojiPicker(editor, { anchorRect: emojiBtn.getBoundingClientRect() });
+  });
+
   // ── Assemble ────────────────────────────────────────────────────────────
   toolbar.appendChild(textFormatBtn);
   toolbar.appendChild(listBlockBtn);
   toolbar.appendChild(linkBtn);
   toolbar.appendChild(insertBtn);
+  toolbar.appendChild(emojiBtn);
   toolbar.appendChild(makeSeparator());
   toolbar.appendChild(undoBtn);
   toolbar.appendChild(redoBtn);
@@ -2017,6 +2038,11 @@ if (!editorContainer) {
       // Renders `:smile:` as 😄 in WYSIWYG while preserving the shortcode
       // form in saved markdown for GitHub/GitLab server-side rendering.
       Emoji,
+      EmojiAutocomplete,
+
+      // ── Highlight / mark (==text==) ────────────────────────────────────────
+      // Inline `<mark>` mark; round-trips to `==text==` via markdown-it-mark.
+      Highlight,
 
       // ── GitHub-style callouts / admonitions ────────────────────────────────
       // `> [!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]`
@@ -2239,6 +2265,7 @@ if (!editorContainer) {
   (window as any).__vscode = vscode;
   (window as any).__mikedownShowLinkDialog = () => showLinkDialog(editor);
   (window as any).__mikedownShowImageDialog = () => showImageInsertDialog(editor);
+  (window as any).__mikedownShowEmojiPicker = () => showEmojiPicker(editor, {});
 
   // M5b — Wire table toolbar to selection updates
   editor.on('selectionUpdate', () => {
@@ -3452,7 +3479,11 @@ if (!editorContainer) {
         case 'toggleBold': editor.chain().focus().toggleBold().run(); break;
         case 'toggleItalic': editor.chain().focus().toggleItalic().run(); break;
         case 'toggleStrike': editor.chain().focus().toggleStrike().run(); break;
+        case 'toggleHighlight': editor.chain().focus().toggleHighlight().run(); break;
         case 'toggleCode': editor.chain().focus().toggleCode().run(); break;
+        case 'openEmojiPicker':
+          if (isEmojiPickerOpen()) { hideEmojiPicker(); } else { showEmojiPicker(editor, {}); }
+          break;
         case 'undo': doUndo(editor); break;
         case 'redo': doRedo(editor); break;
         case 'toggleSource':

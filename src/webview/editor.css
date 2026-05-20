@@ -355,6 +355,27 @@ body.mikedown-force-dark .ProseMirror .mikedown-callout--caution { --mikedown-ca
 .mikedown-callout-badge--warning   { background: #9a6700; }
 .mikedown-callout-badge--caution   { background: #cf222e; }
 
+/* ─── Highlight / mark (==text==) ─────────────────────────────────────────── */
+
+.ProseMirror mark {
+  background: #fff3a0;
+  color: inherit;
+  padding: 0 0.15em;
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+body.mikedown-force-dark .ProseMirror mark {
+  background: rgba(255, 213, 79, 0.28);
+  color: inherit;
+}
+@media (prefers-color-scheme: dark) {
+  body:not(.mikedown-force-light) .ProseMirror mark {
+    background: rgba(255, 213, 79, 0.28);
+    color: inherit;
+  }
+}
+
 /* ─── Code block ──────────────────────────────────────────────────────────── */
 
 .ProseMirror pre {

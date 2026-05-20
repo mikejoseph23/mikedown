@@ -1401,6 +1401,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'linkautocomplete.css',
       'toolbar-dropdown.css',
       'outline-sidebar.css',
+      'emojipicker.css',
     ];
     const cssLinks = cssFiles.map(f => {
       const uri = webview.asWebviewUri(vscode.Uri.file(path.join(cssDir, f)));

@@ -66,6 +66,18 @@ Paste content from Google Docs, Microsoft Word, Slack, web pages, and other rich
 
 Full GFM support including tables, task lists, strikethrough, and fenced code blocks.
 
+### Highlight *(new in 2.3)*
+
+Surround text with `==…==` to mark it with a yellow highlight, like a paper highlighter pen. Available from the toolbar (highlighter icon), right-click → **Highlight**, or **Cmd+Shift+H** / **Ctrl+Shift+H**. Round-trips to `==text==` in the saved markdown so GitHub renders it the same way.
+
+<!-- TODO: screenshot of highlighted text in editor -->
+
+### Emoji *(new in 2.3)*
+
+Type `:smi` and an autocomplete popup shows matching shortcodes — Enter inserts. The full GitHub shortcode set is supported (`:tada:`, `:rocket:`, `:eyes:`, etc.). Click the smiley icon on the toolbar (or **Cmd+;** / **Ctrl+;**, or right-click → **Insert Emoji…**) for a searchable picker with category sections and recently-used emoji.
+
+<!-- TODO: screenshot of emoji picker / autocomplete -->
+
 ### Callouts / Admonitions *(new in 2.1)*
 
 GitHub-style alert blocks render as styled, icon-prefixed panels. Five kinds are recognized: `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`.

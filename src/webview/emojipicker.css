@@ -1,0 +1,162 @@
+/* Emoji autocomplete dropdown — inline popup that opens while typing `:abc`. */
+
+#mikedown-emoji-ac {
+  position: fixed;
+  z-index: 1100;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.25));
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2), 0 0 1px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  padding: 4px;
+  user-select: none;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.eac-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 4px;
+  color: var(--vscode-foreground, #d4d4d4);
+}
+
+.eac-item.eac-active,
+.eac-item:hover {
+  background: var(--vscode-list-activeSelectionBackground, #0e639c);
+  color: var(--vscode-list-activeSelectionForeground, #ffffff);
+}
+
+.eac-emoji {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+}
+
+.eac-label {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Emoji picker modal — full-featured searchable grid. */
+
+#mikedown-emoji-picker {
+  position: fixed;
+  z-index: 1200;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.3));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32), 0 2px 4px rgba(0, 0, 0, 0.18);
+  border-radius: 8px;
+  width: 360px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--vscode-foreground, #d4d4d4);
+}
+
+.emoji-picker-search {
+  flex-shrink: 0;
+  padding: 8px;
+  border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.18));
+}
+
+.emoji-picker-search input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 4px;
+  border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.3));
+  background: var(--vscode-input-background, #1e1e1e);
+  color: var(--vscode-input-foreground, #d4d4d4);
+  outline: none;
+}
+
+.emoji-picker-search input:focus {
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.emoji-picker-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.emoji-picker-section-header {
+  padding: 6px 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--vscode-descriptionForeground, rgba(204, 204, 204, 0.6));
+  user-select: none;
+  position: sticky;
+  top: 0;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526));
+  z-index: 1;
+}
+
+.emoji-picker-row {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1px;
+}
+
+.emoji-picker-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 20px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+  outline: none;
+}
+
+.emoji-picker-cell:hover,
+.emoji-picker-cell.emoji-picker-active {
+  background: var(--vscode-list-activeSelectionBackground, #0e639c);
+}
+
+.emoji-picker-cell:focus {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.15));
+}
+
+.emoji-picker-empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, rgba(204, 204, 204, 0.6));
+}
+
+/* Light-mode tweaks via the force class — same pattern as other pickers. */
+body.mikedown-force-light #mikedown-emoji-ac,
+body.mikedown-force-light #mikedown-emoji-picker {
+  background: #ffffff;
+  color: #1f1f1f;
+}
+
+body.mikedown-force-light .emoji-picker-section-header {
+  background: #ffffff;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+body.mikedown-force-light .emoji-picker-search input {
+  background: #ffffff;
+  color: #1f1f1f;
+  border-color: rgba(0, 0, 0, 0.18);
+}

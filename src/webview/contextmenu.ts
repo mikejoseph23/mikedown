@@ -219,6 +219,7 @@ export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
     { label: 'Bold', shortcut: `${mod}B`, action: () => editor.chain().focus().toggleBold().run(), isActive: () => editor.isActive('bold') },
     { label: 'Italic', shortcut: `${mod}I`, action: () => editor.chain().focus().toggleItalic().run(), isActive: () => editor.isActive('italic') },
     { label: 'Strikethrough', shortcut: `${mod}${shift}S`, action: () => editor.chain().focus().toggleStrike().run(), isActive: () => editor.isActive('strike') },
+    { label: 'Highlight', shortcut: `${mod}${shift}H`, action: () => editor.chain().focus().toggleHighlight().run(), isActive: () => editor.isActive('highlight') },
     { separator: true },
     {
       submenu: true,
@@ -262,6 +263,8 @@ export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
         { label: 'Horizontal Rule', action: () => editor.chain().focus().setHorizontalRule().run() },
       ],
     },
+    { separator: true },
+    { label: 'Insert Emoji…', shortcut: `${mod};`, action: () => (window as any).__mikedownShowEmojiPicker?.() },
   ];
 }
 

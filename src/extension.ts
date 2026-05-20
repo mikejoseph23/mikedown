@@ -33,7 +33,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // M3 — Register formatting commands for VS Code keybindings.
   // Each command posts a message to the active webview panel so TipTap
   // can handle the formatting action directly inside the editor.
-  const formattingCommands = ['toggleBold', 'toggleItalic', 'toggleStrike', 'toggleCode', 'undo', 'redo'];
+  const formattingCommands = ['toggleBold', 'toggleItalic', 'toggleStrike', 'toggleHighlight', 'toggleCode', 'openEmojiPicker', 'undo', 'redo'];
   for (const cmd of formattingCommands) {
     context.subscriptions.push(
       vscode.commands.registerCommand(`mikedown.${cmd}`, () => {
