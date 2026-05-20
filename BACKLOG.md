@@ -7,7 +7,6 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 - **Math / LaTeX rendering** — inline `$...$` and block `$$...$$` via KaTeX. GitHub renders this now, so it's basically table stakes for a markdown editor.
 - **Mermaid diagrams** — render ```` ```mermaid ```` fenced blocks (flowcharts, sequence, gantt, etc.). Also GitHub-rendered.
 - **Footnotes** — `[^1]` reference syntax (CommonMark extension, not strictly GFM).
-- **Outline panel** — VS Code Outline view populated from heading hierarchy. Already noted in memory as a planned feature.
 - **Callouts / admonitions** — GitHub-style `> [!NOTE]`, `> [!WARNING]`, `> [!TIP]` alert blocks.
 
 ## Nice-to-have
@@ -25,4 +24,8 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## Polish
 
-- Word count / reading time in status bar — _scaffolding exists in `src/statusBar.ts` but isn't wired to the webview yet._ ✅ Shipping in 1.7.2.
+- Word count / reading time in status bar — _scaffolding exists in `src/statusBar.ts` but isn't wired to the webview yet._ ✅ Shipped in 1.8.0.
+
+## Recently shipped
+
+- **Document outline sidebar** — in-editor pane with cursor + scroll tracking, click-to-jump, drag-resize, three-way visibility preference. ✅ Shipped in 2.0.0.
