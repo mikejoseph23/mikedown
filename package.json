@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "license": "MIT",
   "preview": false,
   "publisher": "interapp",
@@ -35,17 +35,22 @@
   },
   "activationEvents": [
     "onCustomEditor:mikedown.editor",
-    "onCommand:mikedown.openWithMikeDown"
+    "onCommand:mikedown.openWithMikeDown",
+    "onLanguage:markdown"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "views": {
-      "mikedown-sidebar": [
+      "explorer": [
         {
           "id": "mikedown.outline",
-          "name": "Document Outline",
-          "when": "resourceExtname == .md || resourceExtname == .markdown"
-        },
+          "name": "MikeDown Outline",
+          "contextualTitle": "MikeDown Outline",
+          "visibility": "visible",
+          "when": "mikedown.hasMarkdownOpen"
+        }
+      ],
+      "mikedown-sidebar": [
         {
           "id": "mikedown.backlinks",
           "name": "Backlinks",

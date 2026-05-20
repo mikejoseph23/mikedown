@@ -105,7 +105,7 @@ export class DocumentOutlineProvider implements vscode.TreeDataProvider<OutlineI
     }
 
     if (this.headings.length === 0) {
-      return [new OutlineItem('No headings', '', -1, false, vscode.TreeItemCollapsibleState.None)];
+      return [new OutlineItem('Open a MikeDown file to see its outline', '', -1, false, vscode.TreeItemCollapsibleState.None)];
     }
 
     // Return top-level headings (those at the minimum level in the document)

@@ -2585,6 +2585,29 @@ if (!editorContainer) {
       clearTimeout(scrollTimer);
       scrollTimer = window.setTimeout(reportActiveHeading, 300) as unknown as number;
     });
+
+    // Cursor-driven tracking: find the heading whose section contains the cursor
+    // and report it. Walks the top-level PM nodes and picks the last heading at
+    // or before the cursor position.
+    function reportHeadingAtCursor(): void {
+      const state = editor.state;
+      const from = state.selection.from;
+      let currentHeading: any = null;
+      state.doc.forEach((node: any, offset: number) => {
+        if (offset <= from && node.type.name === 'heading') {
+          currentHeading = node;
+        }
+      });
+      if (!currentHeading) return;
+      const text = (currentHeading.textContent as string).trim();
+      if (!text) return;
+      const anchor = text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+      if (anchor && anchor !== lastReportedAnchor) {
+        lastReportedAnchor = anchor;
+        vscode.postMessage({ type: 'activeHeading', anchor });
+      }
+    }
+    editor.on('selectionUpdate', reportHeadingAtCursor);
   }
 
   // ── M6a: Link click handler (Cmd+Click to navigate) ────────────────────────

@@ -2,6 +2,16 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.8.1] - 2026-05-19
+
+### Changed
+
+- The document outline now lives in the built-in **Explorer** panel as a section titled **MikeDown Outline** (sits alongside Open Editors / Folders / Timeline / Outline) instead of the separate MikeDown activity-bar sidebar, so you don't have to leave the Explorer to glance at the structure of the document you're editing. The pane only shows when at least one markdown file is open in any tab. The MikeDown activity-bar sidebar still hosts Backlinks
+
+### Notes
+
+- VS Code's truly built-in **Outline** pane binds to `activeTextEditor`, which is `undefined` whenever a custom editor (like MikeDown) is the focused tab — so the registered `DocumentSymbolProvider` cannot populate it. Tracked upstream as microsoft/vscode#105448. Until that lands, the MikeDown Outline section in the Explorer is the closest UX we can deliver
+
 ## [1.8.0] - 2026-05-19
 
 ### Added

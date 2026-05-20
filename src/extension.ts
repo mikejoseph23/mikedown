@@ -260,6 +260,25 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Expose outlineProvider so MarkdownEditorProvider can update it
   (MarkdownEditorProvider as any)._outlineProvider = outlineProvider;
+
+  // Track whether any markdown file is open in any tab — used by the
+  // `mikedown.outline` view's `when` clause so the Explorer pane only
+  // appears when there's actually something to outline.
+  const updateMarkdownOpenContext = (): void => {
+    const open = vscode.window.tabGroups.all.some(group =>
+      group.tabs.some(tab => {
+        const input = tab.input as { uri?: vscode.Uri } | undefined;
+        const fsPath = input?.uri?.fsPath;
+        if (!fsPath) return false;
+        return fsPath.endsWith('.md') || fsPath.endsWith('.markdown');
+      })
+    );
+    vscode.commands.executeCommand('setContext', 'mikedown.hasMarkdownOpen', open);
+  };
+  updateMarkdownOpenContext();
+  context.subscriptions.push(
+    vscode.window.tabGroups.onDidChangeTabs(updateMarkdownOpenContext)
+  );
 }
 
 /**
