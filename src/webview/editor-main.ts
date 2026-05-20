@@ -37,6 +37,7 @@ import { ImagePasteExtension, handlePastedImageResult, setPostMessage as setImag
 import { TableCheckboxExtension } from './tablecheckbox';
 import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
+import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
 import { initOutlineSidebar, applyOutlineState } from './outlineSidebar';
 import {
   FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
@@ -1133,6 +1134,7 @@ const toolbarIcons = {
   ol: toolbarSvg('<line x1="6" y1="4" x2="14" y2="4"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><text x="2" y="5.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">1</text><text x="2" y="9.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">2</text><text x="2" y="13.5" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">3</text>'),
   task: toolbarSvg('<rect x="2" y="4" width="5" height="5" rx="1"/><polyline points="3.5 6.5 4.5 7.5 6 5.5"/><line x1="9" y1="5" x2="14" y2="5"/><line x1="9" y1="9" x2="14" y2="9"/><line x1="9" y1="13" x2="12" y2="13"/>'),
   quote: toolbarSvg('<line x1="3" y1="3" x2="3" y2="13"/><line x1="6" y1="5" x2="13" y2="5"/><line x1="6" y1="8" x2="13" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/>'),
+  callout: toolbarSvg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><line x1="5" y1="6.5" x2="11" y2="6.5"/><line x1="5" y1="9.5" x2="9" y2="9.5"/><circle cx="3.5" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="3.5" cy="9.5" r="0.6" fill="currentColor" stroke="none"/>'),
   codeBlock: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="2"/><polyline points="5.5 5.5 4 8 5.5 10.5"/><polyline points="10.5 5.5 12 8 10.5 10.5"/>'),
   link: toolbarSvg('<path d="M6.5 9.5l3-3"/><path d="M9 5l1.5-1.5a2.12 2.12 0 0 1 3 3L12 8"/><path d="M7 11l-1.5 1.5a2.12 2.12 0 0 1-3-3L4 8"/>'),
   image: toolbarSvg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="5.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/><polyline points="14 10.5 10.5 7 6 11.5 4.5 10 2 12.5"/>'),
@@ -1150,6 +1152,39 @@ const toolbarIcons = {
   browser: toolbarSvg('<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><circle cx="3.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/>'),
   selectAll: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="1" stroke-dasharray="2 1.5"/><rect x="5" y="5" width="6" height="6" fill="currentColor" stroke="none"/>'),
 };
+
+// ── Callout helpers ────────────────────────────────────────────────────────────
+// Tiny utilities shared by the toolbar Lists & Blocks dropdown and the
+// editor-canvas right-click menu so both surface the five GFM kinds the
+// same way.
+
+const CALLOUT_KIND_LABEL: Record<CalloutKind, string> = {
+  note: 'Note',
+  tip: 'Tip',
+  important: 'Important',
+  warning: 'Warning',
+  caution: 'Caution',
+};
+
+const CALLOUT_KIND_ICON_CHAR: Record<CalloutKind, string> = {
+  note: 'i',
+  tip: '★',
+  important: '!',
+  warning: '!',
+  caution: '×',
+};
+
+function calloutKindLabel(kind: CalloutKind): string {
+  return CALLOUT_KIND_LABEL[kind];
+}
+
+function calloutBadgeIcon(kind: CalloutKind): string {
+  // Render each kind as a small colored circle badge with a glyph so the
+  // mini-row reads at a glance ("blue ⓘ", "amber ⚠", etc.) without needing
+  // a separate dropdown level.
+  const char = CALLOUT_KIND_ICON_CHAR[kind];
+  return `<span class="mikedown-callout-badge mikedown-callout-badge--${kind}" aria-hidden="true">${char}</span>`;
+}
 
 // ── M3: Toolbar builder ────────────────────────────────────────────────────────
 
@@ -1324,6 +1359,18 @@ function buildCondensedToolbar(editor: Editor): void {
       { type: 'separator' },
       { type: 'action', id: 'blockquote', label: 'Blockquote', icon: icons.quote, isActive: () => editor.isActive('blockquote'), action: () => editor.chain().focus().toggleBlockquote().run() },
       { type: 'action', id: 'codeBlock', label: 'Code Block', icon: icons.codeBlock, isActive: () => editor.isActive('codeBlock'), action: () => editor.chain().focus().toggleCodeBlock().run() },
+      { type: 'separator' },
+      // Five GitHub-style callouts — one click each, kind picked via the
+      // mini-row of badge-style buttons so the user doesn't have to remember
+      // the marker syntax.
+      { type: 'action', id: 'callout', label: 'Callout', icon: icons.callout, isActive: () => editor.isActive('callout'), action: () => editor.chain().focus().toggleCallout('note').run() },
+      { type: 'mini-row', items: CALLOUT_KINDS.map((kind) => ({
+        id: `callout-${kind}`,
+        icon: calloutBadgeIcon(kind),
+        title: calloutKindLabel(kind),
+        isActive: () => editor.isActive('callout', { kind }),
+        action: () => editor.chain().focus().toggleCallout(kind).run(),
+      })) },
     ]);
   });
 
@@ -1970,6 +2017,13 @@ if (!editorContainer) {
       // Renders `:smile:` as 😄 in WYSIWYG while preserving the shortcode
       // form in saved markdown for GitHub/GitLab server-side rendering.
       Emoji,
+
+      // ── GitHub-style callouts / admonitions ────────────────────────────────
+      // `> [!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]`
+      // render as styled, icon-prefixed panels. Round-trips to canonical GFM
+      // source on save. Registered after StarterKit so its parseHTML priority
+      // (70) wins for `<blockquote data-callout>` over the bare blockquote rule.
+      Callout,
     ],
     content: '',
 

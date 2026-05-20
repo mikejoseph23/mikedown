@@ -7,7 +7,6 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 - **Math / LaTeX rendering** — inline `$...$` and block `$$...$$` via KaTeX. GitHub renders this now, so it's basically table stakes for a markdown editor.
 - **Mermaid diagrams** — render ```` ```mermaid ```` fenced blocks (flowcharts, sequence, gantt, etc.). Also GitHub-rendered.
 - **Footnotes** — `[^1]` reference syntax (CommonMark extension, not strictly GFM).
-- **Callouts / admonitions** — GitHub-style `> [!NOTE]`, `> [!WARNING]`, `> [!TIP]` alert blocks.
 
 ## Nice-to-have
 
@@ -28,4 +27,5 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## Recently shipped
 
+- **Callouts / admonitions** — GitHub-style `> [!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]` rendered as styled panels; toolbar + right-click insert with kind picker; round-trips to canonical GFM. ✅ Shipped in 2.1.0.
 - **Document outline sidebar** — in-editor pane with cursor + scroll tracking, click-to-jump, drag-resize, three-way visibility preference. ✅ Shipped in 2.0.0.

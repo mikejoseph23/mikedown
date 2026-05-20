@@ -66,6 +66,18 @@ Paste content from Google Docs, Microsoft Word, Slack, web pages, and other rich
 
 Full GFM support including tables, task lists, strikethrough, and fenced code blocks.
 
+### Callouts / Admonitions *(new in 2.1)*
+
+GitHub-style alert blocks render as styled, icon-prefixed panels. Five kinds are recognized: `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`.
+
+```markdown
+> [!WARNING]
+> This action cannot be undone.
+> Make sure you have a backup first.
+```
+
+Insert one from the toolbar **Lists & Blocks** dropdown (or right-click → **Callout**) — the five kinds are exposed as a row of color-coded badges so you don't have to remember the marker syntax. Toggling between kinds is one click, and saving writes the canonical `> [!KIND]` GFM source back to disk.
+
 ### Link Navigation and Autocomplete
 
 - **Cmd+Click** (or Ctrl+Click) to follow links to files, headings, or URLs

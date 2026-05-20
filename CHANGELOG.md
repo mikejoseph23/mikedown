@@ -2,6 +2,15 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.1.0] - 2026-05-20
+
+### Added
+
+- **GitHub-style callouts / admonitions.** Blockquotes whose first line is `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, or `[!CAUTION]` now render as styled, icon-prefixed panels in WYSIWYG mode. Each kind has its own accent color and icon (light + dark mode); the marker line is hidden from the editing surface so the body reads as normal blockquote content
+- Insert a callout from the toolbar **Lists & Blocks** dropdown — a row of color-coded badges lets you pick the kind directly, no need to remember the marker syntax
+- Right-click anywhere in the editor and choose **Callout → Note / Tip / Important / Warning / Caution** for the same picker from the canvas
+- Round-trips cleanly: opening a file with `> [!WARNING]` parses to a callout, saving writes the canonical GFM marker back. Lowercase markers like `[!note]` are accepted on parse and normalized to uppercase on save. Unknown kinds (`[!FOOBAR]`) fall back to a plain blockquote so no content is lost
+
 ## [2.0.0] - 2026-05-20
 
 ### Added

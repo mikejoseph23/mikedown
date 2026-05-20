@@ -240,6 +240,17 @@ export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
       ],
     },
     { label: 'Quote', action: () => editor.chain().focus().toggleBlockquote().run(), isActive: () => editor.isActive('blockquote') },
+    {
+      submenu: true,
+      label: 'Callout',
+      items: [
+        { label: 'Note', action: () => editor.chain().focus().toggleCallout('note').run(), isActive: () => editor.isActive('callout', { kind: 'note' }) },
+        { label: 'Tip', action: () => editor.chain().focus().toggleCallout('tip').run(), isActive: () => editor.isActive('callout', { kind: 'tip' }) },
+        { label: 'Important', action: () => editor.chain().focus().toggleCallout('important').run(), isActive: () => editor.isActive('callout', { kind: 'important' }) },
+        { label: 'Warning', action: () => editor.chain().focus().toggleCallout('warning').run(), isActive: () => editor.isActive('callout', { kind: 'warning' }) },
+        { label: 'Caution', action: () => editor.chain().focus().toggleCallout('caution').run(), isActive: () => editor.isActive('callout', { kind: 'caution' }) },
+      ],
+    },
     { separator: true },
     {
       submenu: true,

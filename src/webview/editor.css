@@ -276,6 +276,85 @@ body {
   border-radius: 0 4px 4px 0;
 }
 
+/* ─── Callouts (GitHub-style alerts) ─────────────────────────────────────── */
+/* Five GFM kinds: note / tip / important / warning / caution. Rendered as a
+   styled, icon-prefixed panel via a CSS ::before pseudo-element so the label
+   never becomes part of the document content. */
+
+.ProseMirror .mikedown-callout {
+  border-left: 4px solid var(--mikedown-callout-accent, #888);
+  background: var(--mikedown-callout-bg, rgba(128, 128, 128, 0.08));
+  color: var(--vscode-editor-foreground);
+  margin: 0.75em 0;
+  padding: 0.5em 1em 0.6em 1em;
+  border-radius: 0 6px 6px 0;
+}
+
+.ProseMirror .mikedown-callout::before {
+  content: var(--mikedown-callout-icon, "ⓘ") "  " var(--mikedown-callout-label, "Note");
+  display: block;
+  font-weight: 600;
+  font-size: 0.88em;
+  letter-spacing: 0.01em;
+  color: var(--mikedown-callout-accent, #555);
+  margin-bottom: 0.35em;
+  white-space: pre;
+  user-select: none;
+}
+
+.ProseMirror .mikedown-callout > :first-child {
+  margin-top: 0;
+}
+.ProseMirror .mikedown-callout > :last-child {
+  margin-bottom: 0;
+}
+
+/* Per-kind accent / icon / label tokens — kept generic enough that the
+   ::before rule above can render any kind without per-kind selectors. */
+
+.ProseMirror .mikedown-callout--note    { --mikedown-callout-accent: #0969da; --mikedown-callout-bg: rgba(9, 105, 218, 0.08);   --mikedown-callout-icon: "ⓘ"; --mikedown-callout-label: "Note"; }
+.ProseMirror .mikedown-callout--tip     { --mikedown-callout-accent: #1a7f37; --mikedown-callout-bg: rgba(26, 127, 55, 0.08);   --mikedown-callout-icon: "★"; --mikedown-callout-label: "Tip"; }
+.ProseMirror .mikedown-callout--important { --mikedown-callout-accent: #8250df; --mikedown-callout-bg: rgba(130, 80, 223, 0.08); --mikedown-callout-icon: "❗"; --mikedown-callout-label: "Important"; }
+.ProseMirror .mikedown-callout--warning { --mikedown-callout-accent: #9a6700; --mikedown-callout-bg: rgba(212, 167, 44, 0.12); --mikedown-callout-icon: "⚠"; --mikedown-callout-label: "Warning"; }
+.ProseMirror .mikedown-callout--caution { --mikedown-callout-accent: #cf222e; --mikedown-callout-bg: rgba(207, 34, 46, 0.10);  --mikedown-callout-icon: "⛔"; --mikedown-callout-label: "Caution"; }
+
+/* Dark-mode accents pull a slightly lighter hue so the foreground label
+   stays readable against the editor's dark background. */
+body.mikedown-force-dark .ProseMirror .mikedown-callout--note    { --mikedown-callout-accent: #58a6ff; --mikedown-callout-bg: rgba(56, 139, 253, 0.15); }
+body.mikedown-force-dark .ProseMirror .mikedown-callout--tip     { --mikedown-callout-accent: #3fb950; --mikedown-callout-bg: rgba(46, 160, 67, 0.15); }
+body.mikedown-force-dark .ProseMirror .mikedown-callout--important { --mikedown-callout-accent: #a371f7; --mikedown-callout-bg: rgba(163, 113, 247, 0.15); }
+body.mikedown-force-dark .ProseMirror .mikedown-callout--warning { --mikedown-callout-accent: #d29922; --mikedown-callout-bg: rgba(187, 128, 9, 0.20); }
+body.mikedown-force-dark .ProseMirror .mikedown-callout--caution { --mikedown-callout-accent: #f85149; --mikedown-callout-bg: rgba(248, 81, 73, 0.15); }
+
+/* When following VS Code's theme (no force-light/force-dark class), match
+   the active scheme via prefers-color-scheme so the colors track. */
+@media (prefers-color-scheme: dark) {
+  body:not(.mikedown-force-light) .ProseMirror .mikedown-callout--note    { --mikedown-callout-accent: #58a6ff; --mikedown-callout-bg: rgba(56, 139, 253, 0.15); }
+  body:not(.mikedown-force-light) .ProseMirror .mikedown-callout--tip     { --mikedown-callout-accent: #3fb950; --mikedown-callout-bg: rgba(46, 160, 67, 0.15); }
+  body:not(.mikedown-force-light) .ProseMirror .mikedown-callout--important { --mikedown-callout-accent: #a371f7; --mikedown-callout-bg: rgba(163, 113, 247, 0.15); }
+  body:not(.mikedown-force-light) .ProseMirror .mikedown-callout--warning { --mikedown-callout-accent: #d29922; --mikedown-callout-bg: rgba(187, 128, 9, 0.20); }
+  body:not(.mikedown-force-light) .ProseMirror .mikedown-callout--caution { --mikedown-callout-accent: #f85149; --mikedown-callout-bg: rgba(248, 81, 73, 0.15); }
+}
+
+/* Small badges used in the toolbar Lists & Blocks mini-row picker. */
+.mikedown-callout-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+.mikedown-callout-badge--note      { background: #0969da; }
+.mikedown-callout-badge--tip       { background: #1a7f37; }
+.mikedown-callout-badge--important { background: #8250df; }
+.mikedown-callout-badge--warning   { background: #9a6700; }
+.mikedown-callout-badge--caution   { background: #cf222e; }
+
 /* ─── Code block ──────────────────────────────────────────────────────────── */
 
 .ProseMirror pre {
