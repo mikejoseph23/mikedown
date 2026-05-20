@@ -1,10 +1,14 @@
-// In-editor outline sidebar. Renders a compact heading list to the left of
-// the editor, tracks the active heading as the cursor moves, supports
-// click-to-navigate, drag-to-resize, and a discovery toggle.
+// In-editor document sidebar. As of 2.3.0 hosts three stacked sections —
+// Properties (when frontmatter is present), Outline, Backlinks — plus a
+// footer strip with modified time / word count / reading time.
 //
-// State persistence (width, visibility preference, per-document last state)
-// is round-tripped to the extension via postMessage; this module just emits
-// the intent and applies updates when they come back.
+// State persistence (width, visibility preference, per-document last state,
+// per-document section-collapsed state) is round-tripped to the extension
+// via postMessage; this module just emits the intent and applies updates
+// when they come back.
+
+import { countWords, readingMinutes } from '../wordCount';
+import { formatRelativeTime } from './relativeTime';
 
 type VsApi = { postMessage(msg: any): void };
 
@@ -15,6 +19,19 @@ interface Heading {
   text: string;
   anchor: string;
   pos: number;
+}
+
+interface BacklinkItem {
+  uri: string;
+  displayPath: string;
+  line: number;
+  lineText?: string;
+}
+
+interface FrontmatterEntry {
+  key: string;
+  /** Either a scalar string or an array of strings (for `tags: [a, b]`-style). */
+  value: string | string[];
 }
 
 interface InitOptions {
@@ -37,10 +54,28 @@ let activeAnchor = '';
 let lastHeadingsKey = '';
 
 let sidebarEl: HTMLElement | null = null;
-let listEl: HTMLElement | null = null;
+let outlineListEl: HTMLElement | null = null;
+let backlinksListEl: HTMLElement | null = null;
+let backlinksCountEl: HTMLElement | null = null;
+let backlinksSectionEl: HTMLElement | null = null;
+let propertiesSectionEl: HTMLElement | null = null;
+let propertiesListEl: HTMLElement | null = null;
+let footerEl: HTMLElement | null = null;
 let toggleEl: HTMLButtonElement | null = null;
 let closeEl: HTMLButtonElement | null = null;
 let handleEl: HTMLElement | null = null;
+
+// Per-document section collapse state (mirrored from host).
+const collapsedSections = new Set<string>(); // 'properties' | 'outline' | 'backlinks'
+
+let currentBacklinks: BacklinkItem[] = [];
+let lastBacklinksKey = '';
+let currentProperties: FrontmatterEntry[] = [];
+
+// Footer state — updates whenever any input changes.
+let docMtimeMs: number | null = null;
+let docPlainText = '';
+let footerTickTimer: number | null = null;
 
 export function initOutlineSidebar(opts: InitOptions): void {
   editorRef = opts.editor;
@@ -51,7 +86,8 @@ export function initOutlineSidebar(opts: InitOptions): void {
   toggleEl = document.getElementById('mikedown-outline-toggle') as HTMLButtonElement | null;
   if (!sidebarEl || !toggleEl) return;
 
-  listEl = sidebarEl.querySelector<HTMLElement>('.outline-list');
+  buildSidebarSkeleton(sidebarEl);
+
   closeEl = sidebarEl.querySelector<HTMLButtonElement>('.outline-close');
   handleEl = sidebarEl.querySelector<HTMLElement>('.outline-resize-handle');
 
@@ -67,8 +103,147 @@ export function initOutlineSidebar(opts: InitOptions): void {
   wireScrollSpy();
   rebuildHeadings();
 
+  // Footer refreshes the "modified X ago" string once a minute so it stays
+  // accurate without spamming layout work.
+  startFooterTick();
+
   // Ask the extension for our persisted prefs/state.
   vscodeRef.postMessage({ type: 'outlineRequestState' });
+}
+
+/**
+ * Reconstruct the sidebar's inner DOM so multi-section layout markup lives
+ * here (and not bloating the HTML template in markdownEditorProvider.ts).
+ * Preserves the close button + resize handle that were declared inline.
+ */
+function buildSidebarSkeleton(root: HTMLElement): void {
+  // Wipe any prior children — the host HTML only contains a top header and
+  // an .outline-list / .outline-resize-handle stub we want to replace.
+  root.replaceChildren();
+
+  // Properties (hidden when no frontmatter)
+  propertiesSectionEl = document.createElement('section');
+  propertiesSectionEl.className = 'sidebar-section properties-section';
+  propertiesSectionEl.dataset.section = 'properties';
+  propertiesSectionEl.hidden = true;
+  propertiesSectionEl.appendChild(buildSectionHeader('Properties', 'properties'));
+  propertiesListEl = document.createElement('div');
+  propertiesListEl.className = 'sidebar-section-body properties-list';
+  propertiesSectionEl.appendChild(propertiesListEl);
+  root.appendChild(propertiesSectionEl);
+
+  // Outline
+  const outlineSection = document.createElement('section');
+  outlineSection.className = 'sidebar-section outline-section';
+  outlineSection.dataset.section = 'outline';
+  outlineSection.appendChild(buildSectionHeader('Outline', 'outline', /* withClose */ true));
+  outlineListEl = document.createElement('nav');
+  outlineListEl.className = 'sidebar-section-body outline-list';
+  outlineListEl.setAttribute('role', 'navigation');
+  outlineSection.appendChild(outlineListEl);
+  root.appendChild(outlineSection);
+
+  // Backlinks
+  backlinksSectionEl = document.createElement('section');
+  backlinksSectionEl.className = 'sidebar-section backlinks-section';
+  backlinksSectionEl.dataset.section = 'backlinks';
+  const blHeader = buildSectionHeader('Backlinks', 'backlinks');
+  backlinksCountEl = document.createElement('span');
+  backlinksCountEl.className = 'section-count';
+  backlinksCountEl.hidden = true;
+  blHeader.querySelector('.section-title')?.appendChild(backlinksCountEl);
+  backlinksSectionEl.appendChild(blHeader);
+  backlinksListEl = document.createElement('div');
+  backlinksListEl.className = 'sidebar-section-body backlinks-list';
+  backlinksSectionEl.appendChild(backlinksListEl);
+  root.appendChild(backlinksSectionEl);
+
+  // Footer
+  footerEl = document.createElement('div');
+  footerEl.className = 'sidebar-footer';
+  root.appendChild(footerEl);
+
+  // Resize handle — same role as before
+  const handle = document.createElement('div');
+  handle.className = 'outline-resize-handle';
+  handle.setAttribute('role', 'separator');
+  handle.setAttribute('aria-orientation', 'vertical');
+  handle.setAttribute('aria-label', 'Resize sidebar');
+  root.appendChild(handle);
+
+  renderBacklinksEmpty();
+  renderFooter();
+}
+
+function buildSectionHeader(label: string, section: string, withClose = false): HTMLElement {
+  const header = document.createElement('div');
+  header.className = 'sidebar-section-header';
+  header.tabIndex = 0;
+  header.setAttribute('role', 'button');
+  header.setAttribute('aria-controls', `mikedown-section-${section}`);
+
+  const chevron = document.createElement('span');
+  chevron.className = 'section-chevron';
+  chevron.setAttribute('aria-hidden', 'true');
+  chevron.textContent = '▾';
+  header.appendChild(chevron);
+
+  const title = document.createElement('span');
+  title.className = 'section-title';
+  title.textContent = label;
+  header.appendChild(title);
+
+  // The close (×) button only lives on the Outline header for legacy reasons —
+  // it dismisses the whole sidebar, not the section. Keeps the affordance
+  // exactly where users learned it in 2.0.
+  if (withClose) {
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'outline-close';
+    close.setAttribute('aria-label', 'Close sidebar');
+    close.title = 'Hide sidebar';
+    close.textContent = '×';
+    header.appendChild(close);
+    close.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      setVisible(false);
+    });
+  }
+
+  const toggle = (): void => toggleSectionCollapsed(section);
+  header.addEventListener('click', (ev) => {
+    if ((ev.target as HTMLElement).closest('.outline-close')) return;
+    toggle();
+  });
+  header.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      toggle();
+    }
+  });
+  return header;
+}
+
+function toggleSectionCollapsed(section: string): void {
+  if (collapsedSections.has(section)) collapsedSections.delete(section);
+  else collapsedSections.add(section);
+  applySectionCollapsedDom();
+  vscodeRef?.postMessage({
+    type: 'sidebarSectionCollapsed',
+    section,
+    collapsed: collapsedSections.has(section),
+  });
+}
+
+function applySectionCollapsedDom(): void {
+  if (!sidebarEl) return;
+  sidebarEl.querySelectorAll<HTMLElement>('.sidebar-section').forEach((el) => {
+    const name = el.dataset.section || '';
+    el.classList.toggle('collapsed', collapsedSections.has(name));
+    el.querySelector('.sidebar-section-header')?.setAttribute(
+      'aria-expanded', collapsedSections.has(name) ? 'false' : 'true'
+    );
+  });
 }
 
 // ── External hooks (called from editor-main's message handler) ─────────────
@@ -77,13 +252,45 @@ export function applyOutlineState(state: {
   pref?: OutlineVisibilityPref;
   width?: number;
   rememberedVisible?: boolean;
+  collapsedSections?: string[];
 }): void {
   if (typeof state.width === 'number') setWidth(state.width);
   if (state.pref) pref = state.pref;
   if (typeof state.rememberedVisible === 'boolean') {
     perDocRememberedVisible = state.rememberedVisible;
   }
+  if (Array.isArray(state.collapsedSections)) {
+    collapsedSections.clear();
+    for (const s of state.collapsedSections) collapsedSections.add(s);
+    applySectionCollapsedDom();
+  }
   applyVisibilityFromPref();
+}
+
+export function applyBacklinks(items: BacklinkItem[]): void {
+  currentBacklinks = items || [];
+  // Open the Backlinks section by default when there's something to show;
+  // collapse it if empty (unless the user has an explicit preference saved).
+  if (currentBacklinks.length === 0 && !collapsedSections.has('backlinks')) {
+    // soft-default — do not persist
+  }
+  renderBacklinks();
+}
+
+export function applyProperties(entries: FrontmatterEntry[]): void {
+  currentProperties = entries || [];
+  renderProperties();
+}
+
+export function applyDocMeta(meta: { mtimeMs?: number | null }): void {
+  if (typeof meta.mtimeMs === 'number') docMtimeMs = meta.mtimeMs;
+  else if (meta.mtimeMs === null) docMtimeMs = null;
+  renderFooter();
+}
+
+export function applyPlainText(plainText: string): void {
+  docPlainText = plainText || '';
+  renderFooter();
 }
 
 // ── Visibility ─────────────────────────────────────────────────────────────
@@ -100,6 +307,7 @@ function setVisible(visible: boolean, opts: { silent?: boolean } = {}): void {
   if (visible) {
     rebuildHeadings();
     updateActiveFromCursor();
+    renderFooter();
   }
 }
 
@@ -107,7 +315,7 @@ function applyVisibilityFromPref(): void {
   let visible: boolean;
   if (pref === 'always') visible = true;
   else if (pref === 'never') visible = false;
-  else visible = perDocRememberedVisible; // 'remember'
+  else visible = perDocRememberedVisible;
   setVisible(visible, { silent: true });
 }
 
@@ -168,7 +376,7 @@ function collectHeadings(): Heading[] {
 }
 
 function rebuildHeadings(): void {
-  if (!listEl || sidebarEl?.hidden) return;
+  if (!outlineListEl || sidebarEl?.hidden) return;
   const headings = collectHeadings();
   const key = headings.map(h => `${h.level}|${h.anchor}|${h.text}`).join('\n');
   if (key === lastHeadingsKey) {
@@ -177,12 +385,12 @@ function rebuildHeadings(): void {
   }
   lastHeadingsKey = key;
 
-  listEl.replaceChildren();
+  outlineListEl.replaceChildren();
   if (headings.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'outline-empty';
     empty.textContent = 'No headings yet';
-    listEl.appendChild(empty);
+    outlineListEl.appendChild(empty);
     return;
   }
   for (const h of headings) {
@@ -193,7 +401,7 @@ function rebuildHeadings(): void {
     item.title = h.text;
     item.textContent = h.text;
     item.addEventListener('click', () => scrollEditorToAnchor(h.anchor));
-    listEl.appendChild(item);
+    outlineListEl.appendChild(item);
   }
   updateActiveFromCursor();
 }
@@ -201,7 +409,7 @@ function rebuildHeadings(): void {
 // ── Active-item tracking ───────────────────────────────────────────────────
 
 function updateActiveFromCursor(): void {
-  if (!editorRef || !listEl || sidebarEl?.hidden) return;
+  if (!editorRef || !outlineListEl || sidebarEl?.hidden) return;
   const from = editorRef.state.selection.from;
   let currentAnchor = '';
   const seen = new Map<string, number>();
@@ -221,8 +429,8 @@ function updateActiveFromCursor(): void {
 }
 
 function highlightActive(): void {
-  if (!listEl) return;
-  const items = listEl.querySelectorAll<HTMLElement>('.outline-item');
+  if (!outlineListEl) return;
+  const items = outlineListEl.querySelectorAll<HTMLElement>('.outline-item');
   let activeEl: HTMLElement | null = null;
   items.forEach((el) => {
     const on = el.dataset.anchor === activeAnchor;
@@ -233,19 +441,19 @@ function highlightActive(): void {
 }
 
 function scrollActiveIntoView(el: HTMLElement): void {
-  if (!listEl) return;
+  if (!outlineListEl) return;
   const itemTop = el.offsetTop;
   const itemBottom = itemTop + el.offsetHeight;
-  const viewTop = listEl.scrollTop;
-  const viewBottom = viewTop + listEl.clientHeight;
+  const viewTop = outlineListEl.scrollTop;
+  const viewBottom = viewTop + outlineListEl.clientHeight;
   if (itemTop < viewTop) {
-    listEl.scrollTo({ top: itemTop - 4, behavior: 'smooth' });
+    outlineListEl.scrollTo({ top: itemTop - 4, behavior: 'smooth' });
   } else if (itemBottom > viewBottom) {
-    listEl.scrollTo({ top: itemBottom - listEl.clientHeight + 4, behavior: 'smooth' });
+    outlineListEl.scrollTo({ top: itemBottom - outlineListEl.clientHeight + 4, behavior: 'smooth' });
   }
 }
 
-// ── Scroll spy: update active item when the editor scrolls (e.g. anchor-link clicks) ──
+// ── Scroll spy ─────────────────────────────────────────────────────────────
 
 function wireScrollSpy(): void {
   const editorContainer = document.getElementById('editor-container');
@@ -259,7 +467,7 @@ function wireScrollSpy(): void {
 }
 
 function updateActiveFromScroll(): void {
-  if (!listEl || sidebarEl?.hidden) return;
+  if (!outlineListEl || sidebarEl?.hidden) return;
   const editorContainer = document.getElementById('editor-container');
   if (!editorContainer) return;
   const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
@@ -287,8 +495,6 @@ function updateActiveFromScroll(): void {
   highlightActive();
 }
 
-// ── Click → scroll editor ──────────────────────────────────────────────────
-
 function scrollEditorToAnchor(anchor: string): void {
   const editorContainer = document.getElementById('editor-container');
   if (!editorContainer) return;
@@ -304,4 +510,121 @@ function scrollEditorToAnchor(anchor: string): void {
       return;
     }
   }
+}
+
+// ── Backlinks rendering ────────────────────────────────────────────────────
+
+function renderBacklinks(): void {
+  if (!backlinksListEl || !backlinksCountEl) return;
+
+  // Refresh the count badge
+  const count = currentBacklinks.length;
+  if (count > 0) {
+    backlinksCountEl.hidden = false;
+    backlinksCountEl.textContent = ` (${count})`;
+  } else {
+    backlinksCountEl.hidden = true;
+    backlinksCountEl.textContent = '';
+  }
+
+  // Avoid rebuilding identical content (rapid resaves elsewhere in workspace).
+  const key = currentBacklinks
+    .map(b => `${b.uri}|${b.line}|${b.displayPath}|${b.lineText ?? ''}`)
+    .join('\n');
+  if (key === lastBacklinksKey) return;
+  lastBacklinksKey = key;
+
+  backlinksListEl.replaceChildren();
+  if (count === 0) {
+    renderBacklinksEmpty();
+    return;
+  }
+
+  for (const item of currentBacklinks) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'backlinks-item';
+    row.title = item.lineText
+      ? `${item.displayPath} (line ${item.line})\n${item.lineText}`
+      : `${item.displayPath} (line ${item.line})`;
+    row.textContent = item.displayPath;
+    row.addEventListener('click', () => {
+      vscodeRef?.postMessage({
+        type: 'openLink',
+        href: item.uri,
+        behavior: 'navigateCurrentTab',
+      });
+    });
+    backlinksListEl.appendChild(row);
+  }
+}
+
+function renderBacklinksEmpty(): void {
+  if (!backlinksListEl) return;
+  backlinksListEl.replaceChildren();
+  const empty = document.createElement('div');
+  empty.className = 'backlinks-empty';
+  empty.textContent = 'No backlinks.';
+  backlinksListEl.appendChild(empty);
+}
+
+// ── Properties rendering ───────────────────────────────────────────────────
+
+function renderProperties(): void {
+  if (!propertiesListEl || !propertiesSectionEl) return;
+  propertiesListEl.replaceChildren();
+
+  if (currentProperties.length === 0) {
+    propertiesSectionEl.hidden = true;
+    return;
+  }
+  propertiesSectionEl.hidden = false;
+
+  for (const entry of currentProperties) {
+    const row = document.createElement('div');
+    row.className = 'properties-row';
+
+    const key = document.createElement('span');
+    key.className = 'properties-key';
+    key.textContent = entry.key;
+    row.appendChild(key);
+
+    const value = document.createElement('span');
+    value.className = 'properties-value';
+    if (Array.isArray(entry.value)) {
+      for (const v of entry.value) {
+        const pill = document.createElement('span');
+        pill.className = 'properties-pill';
+        pill.textContent = v;
+        pill.title = v;
+        value.appendChild(pill);
+      }
+    } else {
+      value.textContent = entry.value;
+      value.title = entry.value;
+    }
+    row.appendChild(value);
+
+    propertiesListEl.appendChild(row);
+  }
+}
+
+// ── Footer rendering ───────────────────────────────────────────────────────
+
+function renderFooter(): void {
+  if (!footerEl) return;
+  const wc = countWords(docPlainText);
+  const rt = readingMinutes(wc);
+  const modPart = docMtimeMs !== null
+    ? `Modified ${formatRelativeTime(docMtimeMs)}`
+    : 'Modified —';
+  const wordsLabel = wc === 1 ? 'word' : 'words';
+  footerEl.textContent = `${modPart} · ${wc.toLocaleString()} ${wordsLabel} · ${rt} min read`;
+}
+
+function startFooterTick(): void {
+  if (footerTickTimer !== null) return;
+  // Once a minute, refresh the relative-time string. Cheap — it's a single
+  // textContent write.
+  footerTickTimer = window.setInterval(() => renderFooter(), 60_000) as unknown as number;
 }

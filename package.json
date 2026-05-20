@@ -39,24 +39,6 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "views": {
-      "mikedown-sidebar": [
-        {
-          "id": "mikedown.backlinks",
-          "name": "Backlinks",
-          "when": "resourceExtname == .md || resourceExtname == .markdown"
-        }
-      ]
-    },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "mikedown-sidebar",
-          "title": "MikeDown",
-          "icon": "images/icon-sidebar.svg"
-        }
-      ]
-    },
     "customEditors": [
       {
         "viewType": "mikedown.editor",
@@ -223,7 +205,11 @@
         "mikedown.outline.visibility": {
           "type": "string",
           "default": "never",
-          "enum": ["always", "never", "remember"],
+          "enum": [
+            "always",
+            "never",
+            "remember"
+          ],
           "enumDescriptions": [
             "Always show the outline sidebar when a document opens",
             "Never show the outline sidebar (the toggle still surfaces it on demand)",

@@ -45,6 +45,48 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static statusBar: import('./statusBar').StatusBarManager | undefined = undefined;
   /** Last plain text received per panel — re-applied when the panel regains focus. */
   private static lastStatsByPanel = new WeakMap<vscode.WebviewPanel, string>();
+  /** BacklinkProvider (assigned by extension.ts) — backs the sidebar Backlinks section. */
+  public static backlinkProvider: import('./backlinkProvider').BacklinkProvider | undefined = undefined;
+
+  /**
+   * Broadcast the current backlink list to every open MikeDown panel. Called
+   * by extension.ts whenever the workspace-wide index changes (save / create /
+   * delete) so all visible sidebars stay in sync.
+   */
+  public static broadcastBacklinks(): void {
+    if (!MarkdownEditorProvider.backlinkProvider) return;
+    for (const [panel, doc] of MarkdownEditorProvider.openPanels) {
+      MarkdownEditorProvider.sendBacklinksToWebview(panel.webview, doc);
+    }
+  }
+
+  private static sendBacklinksToWebview(
+    webview: vscode.Webview,
+    document: vscode.TextDocument
+  ): void {
+    if (!MarkdownEditorProvider.backlinkProvider) return;
+    const entries = MarkdownEditorProvider.backlinkProvider.getBacklinksFor(document.uri);
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const items = entries.map(e => {
+      const fsPath = e.sourceFile.fsPath;
+      const displayPath = workspaceFolder
+        ? path.relative(workspaceFolder.uri.fsPath, fsPath).split(path.sep).join('/')
+        : path.basename(fsPath);
+      // openLink resolves hrefs relative to the current document. We use the
+      // source file's path relative to the current doc's directory so the
+      // existing 'openLink' handler can navigate to it without a new code path.
+      const fromDir = path.dirname(document.uri.fsPath);
+      const rel = path.relative(fromDir, fsPath).split(path.sep).join('/');
+      const href = rel.startsWith('.') ? rel : './' + rel;
+      return {
+        uri: href,
+        displayPath,
+        line: e.lineNumber,
+        lineText: e.lineText,
+      };
+    });
+    webview.postMessage({ type: 'backlinks', items });
+  }
 
   /**
    * Per-document baselines for orphan-image cleanup. Keyed by document fsPath.
@@ -256,6 +298,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           type: 'saved',
           content: this.resolveImageUris(savedDoc.getText(), savedDoc.uri, webviewPanel.webview)
         });
+        // 2.3.0 — Refresh the sidebar footer's "Modified X ago" so it reflects
+        // the on-disk mtime that just changed.
+        void this.sendDocMetaToWebview(webviewPanel.webview, document);
         // v1.6.0 — orphan-image cleanup: delete images that fell out of the
         // doc since last save (or were pasted this session and never linked),
         // gated to the configured imagePaste folder + a workspace-wide
@@ -380,6 +425,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           this.sendThemeToWebview(webviewPanel.webview);
           this.sendSettingsToWebview(webviewPanel.webview, document);
           this.sendOutlineStateToWebview(webviewPanel.webview, document);
+          MarkdownEditorProvider.sendBacklinksToWebview(webviewPanel.webview, document);
+          void this.sendDocMetaToWebview(webviewPanel.webview, document);
           // Send initial git diff status so the toolbar diff button can be enabled/disabled
           if (document.uri.scheme === 'file') {
             this.sendDiffStatus(document, webviewPanel.webview);
@@ -683,6 +730,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           await this.context.globalState.update(key, map);
           break;
         }
+        case 'sidebarSectionCollapsed': {
+          const section = String((message as any).section ?? '');
+          const collapsed = (message as any).collapsed === true;
+          if (section) {
+            const key = 'mikedown.sidebar.collapsedSections';
+            const map = this.context.globalState.get<Record<string, string[]>>(key, {});
+            const docKey = document.uri.toString();
+            const set = new Set<string>(map[docKey] ?? []);
+            if (collapsed) set.add(section); else set.delete(section);
+            map[docKey] = [...set];
+            await this.context.globalState.update(key, map);
+          }
+          break;
+        }
         case 'savePastedImage': {
           await this.handleSavePastedImage(document, webviewPanel.webview, message);
           break;
@@ -879,12 +940,30 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const width = config.get<number>('outline.width', 200);
     const remembered = this.context.globalState.get<Record<string, boolean>>('mikedown.outline.rememberedVisible', {});
     const rememberedVisible = remembered[document.uri.toString()] === true;
+    const collapsedMap = this.context.globalState.get<Record<string, string[]>>('mikedown.sidebar.collapsedSections', {});
+    const collapsedSections = collapsedMap[document.uri.toString()] ?? [];
     webview.postMessage({
       type: 'outlineState',
       pref,
       width,
       rememberedVisible,
+      collapsedSections,
     });
+  }
+
+  /** Send modified-time + initial backlink list. Called on open and on save. */
+  private async sendDocMetaToWebview(
+    webview: vscode.Webview,
+    document: vscode.TextDocument
+  ): Promise<void> {
+    let mtimeMs: number | null = null;
+    if (document.uri.scheme === 'file') {
+      try {
+        const stat = await vscode.workspace.fs.stat(document.uri);
+        mtimeMs = stat.mtime;
+      } catch { /* untracked or missing — leave null */ }
+    }
+    webview.postMessage({ type: 'docMeta', mtimeMs });
   }
 
   /**
@@ -1436,15 +1515,8 @@ ${cssLinks}
   <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">
     <span class="toolbar-placeholder">MikeDown</span>
   </div>
-  <aside id="mikedown-outline-sidebar" aria-label="Document outline" hidden>
-    <div class="outline-header">
-      <span class="outline-title">Outline</span>
-      <button type="button" class="outline-close" aria-label="Close outline" title="Hide outline">×</button>
-    </div>
-    <nav class="outline-list" role="navigation"></nav>
-    <div class="outline-resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize outline"></div>
-  </aside>
-  <button type="button" id="mikedown-outline-toggle" aria-label="Show outline" title="Show outline" aria-expanded="false">
+  <aside id="mikedown-outline-sidebar" aria-label="Document sidebar" hidden></aside>
+  <button type="button" id="mikedown-outline-toggle" aria-label="Show sidebar" title="Show sidebar" aria-expanded="false">
     <span aria-hidden="true">≡</span>
   </button>
   <!-- TipTap mounts directly into #editor-container -->
@@ -1460,7 +1532,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'outlineRequestState' | 'outlineSetWidth' | 'outlineSetVisible' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'outlineRequestState' | 'outlineSetWidth' | 'outlineSetVisible' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage';
   content?: string;
   pristine?: boolean;
   plainText?: string;

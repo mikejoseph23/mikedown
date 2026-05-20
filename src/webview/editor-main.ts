@@ -40,7 +40,15 @@ import { Emoji } from './emoji';
 import { EmojiAutocomplete } from './emojiautocomplete';
 import { Highlight } from './highlight';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
-import { initOutlineSidebar, applyOutlineState } from './outlineSidebar';
+import {
+  initOutlineSidebar,
+  applyOutlineState,
+  applyBacklinks,
+  applyProperties,
+  applyDocMeta,
+  applyPlainText,
+} from './outlineSidebar';
+import { parseFrontmatter } from './frontmatterParse';
 import {
   FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
   replaceCurrentMatch, replaceAllMatches,
@@ -2201,6 +2209,10 @@ if (!editorContainer) {
       // M2d — Send plain text to status bar (M14 hook: word/character count).
       const plainText = updatedEditor.getText();
       vscode.postMessage({ type: 'stats', plainText });
+
+      // 2.3.0 — Mirror plain text into the sidebar footer so its word count
+      // and reading time update live without an extra round-trip.
+      applyPlainText(plainText);
     },
   });
 
@@ -3548,6 +3560,9 @@ if (!editorContainer) {
       // M15 — Render frontmatter UI block (collapsed by default above editor).
       renderFrontmatterBlock();
 
+      // 2.3.0 — Push parsed frontmatter entries to the sidebar Properties section.
+      applyProperties(parseFrontmatter(frontmatterContent));
+
       // M6c — Trigger broken link check after content loads (debounced 500ms).
       clearTimeout((window as any).__mikedownLinkCheckTimer);
       (window as any).__mikedownLinkCheckTimer = setTimeout(() => {
@@ -3557,6 +3572,9 @@ if (!editorContainer) {
       // M2d — Send initial stats to status bar (M14 hook).
       const plainText = editor.getText();
       vscode.postMessage({ type: 'stats', plainText });
+
+      // 2.3.0 — Seed the sidebar footer with the initial word count.
+      applyPlainText(plainText);
     }
 
     // M11 — Export: get rendered HTML from the editor DOM and send to extension host.
@@ -3650,7 +3668,18 @@ if (!editorContainer) {
         pref: m.pref,
         width: m.width,
         rememberedVisible: m.rememberedVisible,
+        collapsedSections: m.collapsedSections,
       });
+    }
+
+    // Sidebar Backlinks section — extension push of the current doc's backlinks.
+    if (message.type === 'backlinks') {
+      applyBacklinks((message as any).items || []);
+    }
+
+    // Sidebar footer — modified time + initial mtime push.
+    if (message.type === 'docMeta') {
+      applyDocMeta({ mtimeMs: (message as any).mtimeMs });
     }
 
     // v1.6.0 — Image paste host response: insert the saved image at the

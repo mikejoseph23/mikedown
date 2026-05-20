@@ -104,9 +104,17 @@ Insert one from the toolbar **Lists & Blocks** dropdown (or right-click → **Ca
 
 Links pointing to missing files or nonexistent headings get a red wavy underline, so you catch broken references before your readers do.
 
-### Backlink Explorer
+### Backlinks *(in-editor in 2.3)*
 
-A sidebar panel in the Explorer view that shows which files in your workspace link to the current document. Useful for wiki-style note collections and documentation projects.
+The list of files that link to the current document now lives in the in-editor sidebar — open the sidebar with the `≡` toggle and look for the **Backlinks** section under the outline. Click any entry to jump to it. The dedicated MikeDown activity-bar icon has been retired; everything per-document lives in one panel.
+
+### Properties Panel *(new in 2.3)*
+
+Documents with YAML frontmatter get a **Properties** section at the top of the sidebar with key:value rows pulled straight from the frontmatter (tags render as inline pills). The section disappears entirely when the document has no frontmatter — no empty state.
+
+### Document Metadata Footer *(new in 2.3)*
+
+A thin strip at the bottom of the sidebar shows the file's modified time (relative — "5 minutes ago", "yesterday"), live word count, and estimated reading time at 225 WPM.
 
 ### Table Editing
 

@@ -4,10 +4,18 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [2.3.0] - 2026-05-20
 
+### Changed
+
+- **Sidebar consolidation.** Every per-document surface now lives in the in-editor sidebar (the panel you open with the `≡` toggle), in this order top-to-bottom: Properties → Outline → Backlinks → metadata footer
+- The dedicated MikeDown activity-bar icon has been removed. The Backlinks tree-view that lived there is gone — the same list now renders inline in the in-editor sidebar. One panel per document, no extra activity-bar real estate consumed
+
 ### Added
 
 - **Highlight / mark.** Surround text with `==…==` to render it with a yellow highlight (`<mark>`). New toolbar button (highlighter icon), right-click → **Highlight**, and **Cmd+Shift+H** / **Ctrl+Shift+H** all toggle it on the current selection. Round-trips cleanly to `==text==` in saved markdown so GitHub renders it the same way. Light and dark mode each get a tuned background tint
 - **Emoji shortcodes + picker.** Type `:smi` and an inline autocomplete popup shows up to 8 matching shortcodes — arrow keys + Enter inserts; Esc dismisses. A new top-level **Emoji** button on the toolbar (and **Cmd+;** / **Ctrl+;**, and right-click → **Insert Emoji…**) opens a searchable picker with category sections (Smileys, People, Animals, Food, etc.) and a Recents row pinned at the top, persisted in localStorage. Full GitHub shortcode set supported
+- **Backlinks section in the in-editor sidebar.** Stacks below the outline as a collapsible section with a header count badge (e.g. `Backlinks (3)`). Click any entry to jump to that file. Updates live as the workspace-wide backlink index changes (save / create / delete) — no manual refresh
+- **Properties section** rendered from YAML frontmatter when present. Keys in muted color, values normal; arrays like `tags: [foo, bar]` render as inline pills; dates show literally as written. The section is absent — not just empty — when the document has no frontmatter, placed above the Outline so it mirrors the document order. Collapsed state is persisted per-document
+- **Sidebar footer metadata strip** showing relative modified time, word count, and estimated reading time (e.g. `Modified 2 days ago · 1,245 words · 6 min read`). Word count + reading time update live as you type, modified time refreshes on save and ticks once a minute. Reuses the same word-counting helper as the status bar so the numbers always match
 
 ## [2.1.0] - 2026-05-20
 

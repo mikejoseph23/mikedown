@@ -197,11 +197,11 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }, null, context.subscriptions);
 
-  // M6c: Backlink panel
+  // Backlink index — backs the in-editor sidebar's Backlinks section.
+  // Previously also registered as a TreeDataProvider for the (now-removed)
+  // MikeDown activity-bar icon; the index itself stays, just headless now.
   const backlinkProvider = new BacklinkProvider();
-  context.subscriptions.push(
-    vscode.window.registerTreeDataProvider('mikedown.backlinks', backlinkProvider)
-  );
+  MarkdownEditorProvider.backlinkProvider = backlinkProvider;
 
   // Build backlink index on activate (in background)
   backlinkProvider.buildIndex().catch(() => {});
@@ -210,28 +210,18 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(doc => {
       if (doc.languageId === 'markdown' || doc.fileName.endsWith('.md') || doc.fileName.endsWith('.markdown')) {
-        backlinkProvider.updateFile(doc.uri);
-      }
-    })
-  );
-
-  // Update backlinks when active editor changes
-  context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor(editor => {
-      if (editor && (editor.document.languageId === 'markdown' || editor.document.fileName.endsWith('.md'))) {
-        backlinkProvider.setCurrentFile(editor.document.uri);
+        backlinkProvider.updateFile(doc.uri).then(() => {
+          MarkdownEditorProvider.broadcastBacklinks();
+        }).catch(() => {});
       }
     })
   );
 
   // Update index on file create/delete
   context.subscriptions.push(
-    vscode.workspace.onDidCreateFiles(e => e.files.forEach(f => backlinkProvider.updateFile(f))),
-    vscode.workspace.onDidDeleteFiles(e => e.files.forEach(f => backlinkProvider.updateFile(f)))
+    vscode.workspace.onDidCreateFiles(e => Promise.all(e.files.map(f => backlinkProvider.updateFile(f))).then(() => MarkdownEditorProvider.broadcastBacklinks()).catch(() => {})),
+    vscode.workspace.onDidDeleteFiles(e => Promise.all(e.files.map(f => backlinkProvider.updateFile(f))).then(() => MarkdownEditorProvider.broadcastBacklinks()).catch(() => {}))
   );
-
-  // Expose backlinkProvider on MarkdownEditorProvider for checkLinks handler
-  (MarkdownEditorProvider as any)._backlinkProvider = backlinkProvider;
 
   // DocumentSymbolProvider — populates VS Code's built-in Outline panel for
   // markdown files opened in the plain-text editor (the built-in pane is

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { countWords, readingMinutes } from './wordCount';
 
 export class StatusBarManager {
   private wordCountItem: vscode.StatusBarItem;
@@ -17,9 +18,9 @@ export class StatusBarManager {
   }
 
   update(plainText: string): void {
-    const wordCount = this.countWords(plainText);
+    const wordCount = countWords(plainText);
     const charCount = plainText.length;
-    const readingTime = Math.max(1, Math.ceil(wordCount / 225)); // 225 WPM average
+    const readingTime = readingMinutes(wordCount);
 
     this.wordCountItem.text = `$(symbol-string) ${wordCount} words`;
     this.charCountItem.text = `${charCount} chars`;
@@ -53,24 +54,6 @@ export class StatusBarManager {
     this.readingTimeItem.dispose();
   }
 
-  private countWords(text: string): number {
-    // Strip markdown syntax before counting
-    const stripped = text
-      .replace(/^#+\s+/gm, '') // headings
-      .replace(/\*\*|__|\*|_|~~|`/g, '') // inline marks
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links — keep display text
-      .replace(/!\[[^\]]*\]\([^)]+\)/g, '') // images
-      .replace(/```[\s\S]*?```/g, '') // fenced code blocks
-      .replace(/`[^`]+`/g, '') // inline code
-      .replace(/^[-*+]\s+/gm, '') // list markers
-      .replace(/^\d+\.\s+/gm, '') // ordered list markers
-      .replace(/^>\s+/gm, '') // blockquote markers
-      .replace(/^---+$/gm, '') // horizontal rules
-      .trim();
-
-    if (!stripped) { return 0; }
-    return stripped.split(/\s+/).filter(w => w.length > 0).length;
-  }
 }
 
 // TODO (M2a): When the MikeDown webview sends a 'stats' message of the form

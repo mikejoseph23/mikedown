@@ -1,4 +1,6 @@
-/* ─── In-Editor Outline Sidebar ──────────────────────────────────────────── */
+/* ─── In-Editor Document Sidebar ─────────────────────────────────────────── */
+/* Hosts (top-to-bottom): optional Properties section, Outline, Backlinks,
+   then a footer strip with modified time / word count / reading time. */
 
 #mikedown-outline-sidebar {
   position: fixed;
@@ -21,24 +23,99 @@
   display: none;
 }
 
-#mikedown-outline-sidebar .outline-header {
+/* ─── Section header ─────────────────────────────────────────────────────── */
+
+.sidebar-section {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px 6px;
-  border-bottom: 1px solid var(--vscode-editorGroup-border, #3c3c3c);
+  flex-direction: column;
+  min-height: 0;
 }
 
-#mikedown-outline-sidebar .outline-title {
+.sidebar-section.outline-section {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sidebar-section.properties-section,
+.sidebar-section.backlinks-section {
+  flex: 0 0 auto;
+  max-height: 35vh;
+}
+
+.sidebar-section + .sidebar-section {
+  border-top: 1px solid var(--vscode-editorGroup-border, #3c3c3c);
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px 6px;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.sidebar-section-header:focus-visible {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
+}
+
+.sidebar-section-header .section-chevron {
+  display: inline-block;
+  width: 10px;
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.7;
+  transition: transform 120ms ease-out;
+}
+
+.sidebar-section.collapsed .sidebar-section-header .section-chevron {
+  transform: rotate(-90deg);
+}
+
+.sidebar-section-header .section-title {
+  flex: 1 1 auto;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 0.7;
   color: var(--vscode-editor-foreground, #d4d4d4);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  min-width: 0;
 }
 
-#mikedown-outline-sidebar .outline-close {
+.sidebar-section-header .section-count {
+  font-weight: 500;
+  opacity: 0.85;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.sidebar-section.collapsed .sidebar-section-body {
+  display: none;
+}
+
+.sidebar-section-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.outline-section .sidebar-section-body {
+  flex: 1 1 auto;
+  padding: 4px 0 10px;
+}
+
+.properties-section .sidebar-section-body,
+.backlinks-section .sidebar-section-body {
+  padding: 4px 0 8px;
+}
+
+/* ─── Close (×) button (lives on Outline header for legacy reasons) ──────── */
+
+.outline-close {
   background: transparent;
   border: 0;
   color: var(--vscode-editor-foreground, #d4d4d4);
@@ -48,28 +125,25 @@
   line-height: 1;
   padding: 2px 6px;
   border-radius: 3px;
+  margin-left: auto;
 }
 
-#mikedown-outline-sidebar .outline-close:hover {
+.outline-close:hover {
   opacity: 1;
   background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
 }
 
-#mikedown-outline-sidebar .outline-list {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 6px 0 12px;
-}
+/* ─── Outline items ──────────────────────────────────────────────────────── */
 
-#mikedown-outline-sidebar .outline-empty {
-  padding: 12px 14px;
+.outline-empty,
+.backlinks-empty {
+  padding: 10px 14px;
   font-size: 11px;
   opacity: 0.55;
   font-style: italic;
 }
 
-#mikedown-outline-sidebar .outline-item {
+.outline-item {
   display: block;
   width: 100%;
   text-align: left;
@@ -88,23 +162,114 @@
   opacity: 0.85;
 }
 
-#mikedown-outline-sidebar .outline-item:hover {
+.outline-item:hover {
   background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
   opacity: 1;
 }
 
-#mikedown-outline-sidebar .outline-item.active {
+.outline-item.active {
   border-left-color: var(--vscode-focusBorder, #007fd4);
   font-weight: 600;
   opacity: 1;
 }
 
-#mikedown-outline-sidebar .outline-item.level-1 { padding-left: 10px; }
-#mikedown-outline-sidebar .outline-item.level-2 { padding-left: 22px; }
-#mikedown-outline-sidebar .outline-item.level-3 { padding-left: 34px; }
-#mikedown-outline-sidebar .outline-item.level-4 { padding-left: 46px; }
-#mikedown-outline-sidebar .outline-item.level-5 { padding-left: 58px; }
-#mikedown-outline-sidebar .outline-item.level-6 { padding-left: 70px; }
+.outline-item.level-1 { padding-left: 10px; }
+.outline-item.level-2 { padding-left: 22px; }
+.outline-item.level-3 { padding-left: 34px; }
+.outline-item.level-4 { padding-left: 46px; }
+.outline-item.level-5 { padding-left: 58px; }
+.outline-item.level-6 { padding-left: 70px; }
+
+/* ─── Backlink items ─────────────────────────────────────────────────────── */
+
+.backlinks-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl; /* puts the ellipsis on the left so the filename stays visible */
+  text-align: left;
+  opacity: 0.85;
+}
+
+.backlinks-item:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
+  opacity: 1;
+}
+
+/* ─── Properties rows ────────────────────────────────────────────────────── */
+
+.properties-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.properties-key {
+  flex: 0 0 auto;
+  max-width: 45%;
+  color: var(--vscode-descriptionForeground, #a0a0a0);
+  opacity: 0.75;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.properties-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.properties-pill {
+  display: inline-block;
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.18));
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  border-radius: 8px;
+  font-size: 10.5px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Footer strip ───────────────────────────────────────────────────────── */
+
+.sidebar-footer {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-top: 1px solid var(--vscode-editorGroup-border, #3c3c3c);
+  font-size: 10.5px;
+  opacity: 0.65;
+  color: var(--vscode-descriptionForeground, #a0a0a0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ─── Resize handle ──────────────────────────────────────────────────────── */
 
