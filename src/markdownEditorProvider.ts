@@ -42,6 +42,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private static panelsByPath = new Map<string, Set<{ panel: vscode.WebviewPanel; webview: vscode.Webview }>>();
   /** Tracks file paths with a pending diff redirect to prevent duplicate opens. */
   private static diffRedirectPending = new Set<string>();
+  /** StatusBarManager (assigned by extension.ts) for word/char/reading-time stats. */
+  public static statusBar: import('./statusBar').StatusBarManager | undefined = undefined;
+  /** Last plain text received per panel — re-applied when the panel regains focus. */
+  private static lastStatsByPanel = new WeakMap<vscode.WebviewPanel, string>();
 
   /**
    * Per-document baselines for orphan-image cleanup. Keyed by document fsPath.
@@ -151,6 +155,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         const outProv = (MarkdownEditorProvider as any)._outlineProvider;
         if (outProv) {
           outProv.setHeadings(parseHeadings(document.getText()));
+        }
+        // Re-show last-known stats for this panel
+        const cached = MarkdownEditorProvider.lastStatsByPanel.get(webviewPanel);
+        if (cached !== undefined && MarkdownEditorProvider.statusBar) {
+          MarkdownEditorProvider.statusBar.update(cached);
         }
       } else if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
@@ -292,9 +301,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       imageWatcher.dispose();
       // M3 — Clear active panel reference when this panel is closed.
       MarkdownEditorProvider.openPanels.delete(webviewPanel);
+      MarkdownEditorProvider.lastStatsByPanel.delete(webviewPanel);
       if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
         MarkdownEditorProvider.activeDocument = undefined;
+        // Hide stats if no other MikeDown panel is taking over and no plain-text markdown editor is active.
+        const activeEditor = vscode.window.activeTextEditor;
+        const stillMarkdown = activeEditor && (
+          activeEditor.document.languageId === 'markdown' ||
+          activeEditor.document.fileName.endsWith('.md') ||
+          activeEditor.document.fileName.endsWith('.markdown')
+        );
+        if (!stillMarkdown && MarkdownEditorProvider.statusBar) {
+          MarkdownEditorProvider.statusBar.hide();
+        }
       }
       // Drop per-doc orphan-cleanup state once no panel still has the doc open.
       let stillOpen = false;
@@ -378,13 +398,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           }
           break;
         }
-        case 'stats':
-          // M2d — Update status bar with plain text for word/character count.
-          // The StatusBarManager is wired in extension.ts (M3/M14 hook).
-          // For now we receive the plain text and can emit a status bar update
-          // once StatusBarManager is accessible from this provider.
-          // TODO: wire this to StatusBarManager when M3 (toolbar/status bar) is done.
+        case 'stats': {
+          const plainText = (message as { plainText?: string }).plainText ?? '';
+          MarkdownEditorProvider.lastStatsByPanel.set(webviewPanel, plainText);
+          if (MarkdownEditorProvider.activePanel === webviewPanel && MarkdownEditorProvider.statusBar) {
+            MarkdownEditorProvider.statusBar.updateDebounced(plainText);
+          }
           break;
+        }
         case 'toggleSource':
           // M4 — The webview toolbar button posts this message; forward it back
           // as a 'toggleSource' message so the webview handles the toggle.

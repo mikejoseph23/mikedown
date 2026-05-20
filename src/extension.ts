@@ -171,18 +171,20 @@ export function activate(context: vscode.ExtensionContext): void {
   // M14: Document stats status bar
   const statusBar = new StatusBarManager();
   context.subscriptions.push({ dispose: () => statusBar.dispose() });
+  // Expose to MarkdownEditorProvider so the WYSIWYG webview can drive it via 'stats' messages.
+  MarkdownEditorProvider.statusBar = statusBar;
 
-  // Show/hide stats when the active editor changes
+  const isMarkdownDoc = (doc: vscode.TextDocument): boolean =>
+    doc.languageId === 'markdown' || doc.fileName.endsWith('.md') || doc.fileName.endsWith('.markdown');
+
+  // Show/hide stats when the active editor changes (plain text editor path).
   vscode.window.onDidChangeActiveTextEditor((editor) => {
-    if (!editor) {
-      statusBar.hide();
+    if (editor && isMarkdownDoc(editor.document)) {
+      statusBar.update(editor.document.getText());
       return;
     }
-    // Show only for .md/.markdown files
-    const doc = editor.document;
-    if (doc.languageId === 'markdown' || doc.fileName.endsWith('.md') || doc.fileName.endsWith('.markdown')) {
-      statusBar.update(doc.getText());
-    } else {
+    // No active text editor — but a MikeDown custom editor might still be focused.
+    if (!MarkdownEditorProvider.activePanel) {
       statusBar.hide();
     }
   }, null, context.subscriptions);
@@ -190,11 +192,8 @@ export function activate(context: vscode.ExtensionContext): void {
   // Update stats in real-time as the document changes (debounced for performance)
   vscode.workspace.onDidChangeTextDocument((event) => {
     const activeEditor = vscode.window.activeTextEditor;
-    if (activeEditor && event.document === activeEditor.document) {
-      const doc = event.document;
-      if (doc.languageId === 'markdown' || doc.fileName.endsWith('.md') || doc.fileName.endsWith('.markdown')) {
-        statusBar.updateDebounced(doc.getText());
-      }
+    if (activeEditor && event.document === activeEditor.document && isMarkdownDoc(event.document)) {
+      statusBar.updateDebounced(event.document.getText());
     }
   }, null, context.subscriptions);
 

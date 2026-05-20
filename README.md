@@ -195,6 +195,10 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 - Very large files (10,000+ lines) may have slower initial load times
 - Some VS Code extensions that modify markdown files may conflict with the custom editor
 
+## Enjoying MikeDown?
+
+If this free extension is making your markdown workflow better, please **tell a friend or co-worker** or **[leave a review on the VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details)**. Ratings and word of mouth are what get the word out — it genuinely helps.
+
 ## Contributing
 
 MikeDown is open source under the [MIT License](LICENSE.md). Bug reports, feature requests, and contributions are welcome on [GitHub](https://github.com/mikejoseph23/mikedown).

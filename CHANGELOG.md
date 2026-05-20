@@ -2,6 +2,14 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [1.8.0] - 2026-05-19
+
+### Added
+
+- Word count, character count, and estimated reading time now appear in VS Code's status bar while a MikeDown editor tab is focused. Stats update live as you type and follow you across panels — reading time assumes a 225 WPM reading pace
+- A README "Enjoying MikeDown?" section nudging happy users to tell a friend or co-worker, or [leave a review on the Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details)
+- New top-level `BACKLOG.md` capturing future feature ideas (math/LaTeX, Mermaid diagrams, footnotes, callouts, slash commands, wiki-links, and more) so the parking lot is visible to anyone browsing the repo
+
 ## [1.7.1] - 2026-05-18
 
 ### Added
