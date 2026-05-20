@@ -5,7 +5,6 @@ import * as crypto from 'crypto';
 import * as cp from 'child_process';
 import { getSettings } from './settings';
 import { writeRenderedHtml, openRenderedInBrowser } from './export';
-import { parseHeadings } from './outlineProvider';
 import {
   extensionFromMime,
   extractLocalImageRefs,
@@ -151,11 +150,6 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       if (e.webviewPanel.active) {
         MarkdownEditorProvider.activePanel = webviewPanel;
         MarkdownEditorProvider.activeDocument = document;
-        // Update Document Outline when switching to this panel
-        const outProv = (MarkdownEditorProvider as any)._outlineProvider;
-        if (outProv) {
-          outProv.setHeadings(parseHeadings(document.getText()));
-        }
         // Re-show last-known stats for this panel
         const cached = MarkdownEditorProvider.lastStatsByPanel.get(webviewPanel);
         if (cached !== undefined && MarkdownEditorProvider.statusBar) {
@@ -195,6 +189,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         for (const [panel, doc] of MarkdownEditorProvider.openPanels) {
           this.sendThemeToWebview(panel.webview);
           this.sendSettingsToWebview(panel.webview, doc);
+          if (e.affectsConfiguration('mikedown.outline')) {
+            this.sendOutlineStateToWebview(panel.webview, doc);
+          }
         }
       }
     });
@@ -375,11 +372,6 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // from the WorkspaceEdit may be dispatched asynchronously after the
           // applyEdit promise resolves; the guard must stay up until they land.
           setTimeout(() => { webviewEditsInFlight--; }, 0);
-          // Update Document Outline headings on content change
-          const editOutProv = (MarkdownEditorProvider as any)._outlineProvider;
-          if (editOutProv) {
-            editOutProv.setHeadings(parseHeadings(document.getText()));
-          }
           break;
         }
         case 'ready': {
@@ -387,11 +379,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           this.updateWebview(document, webviewPanel.webview);
           this.sendThemeToWebview(webviewPanel.webview);
           this.sendSettingsToWebview(webviewPanel.webview, document);
-          // Populate Document Outline with initial headings
-          const outProv = (MarkdownEditorProvider as any)._outlineProvider;
-          if (outProv) {
-            outProv.setHeadings(parseHeadings(document.getText()));
-          }
+          this.sendOutlineStateToWebview(webviewPanel.webview, document);
           // Send initial git diff status so the toolbar diff button can be enabled/disabled
           if (document.uri.scheme === 'file') {
             this.sendDiffStatus(document, webviewPanel.webview);
@@ -672,14 +660,27 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               config.update('imageResize.overwrite', ir.overwrite, vscode.ConfigurationTarget.Global);
             }
           }
+          if (settings.outlineVisibility === 'always' || settings.outlineVisibility === 'never' || settings.outlineVisibility === 'remember') {
+            config.update('outline.visibility', settings.outlineVisibility, vscode.ConfigurationTarget.Global);
+          }
           vscode.window.showInformationMessage('MikeDown settings saved.');
           break;
         }
-        case 'activeHeading': {
-          const outlineProvider = (MarkdownEditorProvider as any)._outlineProvider;
-          if (outlineProvider && message.anchor) {
-            outlineProvider.setActiveAnchor(message.anchor);
-          }
+        case 'outlineRequestState': {
+          this.sendOutlineStateToWebview(webviewPanel.webview, document);
+          break;
+        }
+        case 'outlineSetWidth': {
+          const w = Math.max(160, Math.min(360, Math.round(Number((message as any).width) || 200)));
+          await vscode.workspace.getConfiguration('mikedown').update('outline.width', w, vscode.ConfigurationTarget.Global);
+          break;
+        }
+        case 'outlineSetVisible': {
+          const visible = (message as any).visible === true;
+          const key = 'mikedown.outline.rememberedVisible';
+          const map = this.context.globalState.get<Record<string, boolean>>(key, {});
+          map[document.uri.toString()] = visible;
+          await this.context.globalState.update(key, map);
           break;
         }
         case 'savePastedImage': {
@@ -869,6 +870,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       imageResize: settings.imageResize,
       imagePastePathMappings: prefixes,
       docDirFs,
+    });
+  }
+
+  private sendOutlineStateToWebview(webview: vscode.Webview, document: vscode.TextDocument): void {
+    const config = vscode.workspace.getConfiguration('mikedown');
+    const pref = config.get<'always' | 'never' | 'remember'>('outline.visibility', 'never');
+    const width = config.get<number>('outline.width', 200);
+    const remembered = this.context.globalState.get<Record<string, boolean>>('mikedown.outline.rememberedVisible', {});
+    const rememberedVisible = remembered[document.uri.toString()] === true;
+    webview.postMessage({
+      type: 'outlineState',
+      pref,
+      width,
+      rememberedVisible,
     });
   }
 
@@ -1385,6 +1400,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'tasklist.css',
       'linkautocomplete.css',
       'toolbar-dropdown.css',
+      'outline-sidebar.css',
     ];
     const cssLinks = cssFiles.map(f => {
       const uri = webview.asWebviewUri(vscode.Uri.file(path.join(cssDir, f)));
@@ -1419,6 +1435,17 @@ ${cssLinks}
   <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">
     <span class="toolbar-placeholder">MikeDown</span>
   </div>
+  <aside id="mikedown-outline-sidebar" aria-label="Document outline" hidden>
+    <div class="outline-header">
+      <span class="outline-title">Outline</span>
+      <button type="button" class="outline-close" aria-label="Close outline" title="Hide outline">×</button>
+    </div>
+    <nav class="outline-list" role="navigation"></nav>
+    <div class="outline-resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize outline"></div>
+  </aside>
+  <button type="button" id="mikedown-outline-toggle" aria-label="Show outline" title="Show outline" aria-expanded="false">
+    <span aria-hidden="true">≡</span>
+  </button>
   <!-- TipTap mounts directly into #editor-container -->
   <div id="editor-container" role="main" aria-label="Markdown editor"></div>
   <div id="source-container" style="display:none;"></div>
@@ -1432,7 +1459,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'activeHeading' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'outlineRequestState' | 'outlineSetWidth' | 'outlineSetVisible' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage';
   content?: string;
   pristine?: boolean;
   plainText?: string;

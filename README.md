@@ -16,6 +16,10 @@ If this free extension is making your markdown workflow better, please **tell a 
 
 ## Screenshots
 
+*New in 2.0 — an in-editor document outline pane that follows your cursor and scroll position. Click any heading to jump there:*
+
+![Document outline sidebar showing nested headings with the active section highlighted](assets/screenshots/outline-feature-dark.jpg)
+
 *Multiple markdown documents open side by side, each with full WYSIWYG editing:*
 
 ![Multiple markdown documents open side by side in MikeDown](assets/screenshots/split-view-mark-down.jpg)
@@ -25,6 +29,10 @@ If this free extension is making your markdown workflow better, please **tell a 
 ![MikeDown editor next to a code file in split view](assets/screenshots/split-view-code.jpg)
 
 ## Features
+
+### Document Outline *(new in 2.0)*
+
+Click the small `≡` icon in the top-left of any MikeDown tab to reveal a compact, per-document outline. The active section follows both your cursor *and* the scroll position — so jumping via an in-document anchor link keeps the outline in sync. Click any heading to jump straight to it. Drag the right edge to resize (160–360px). Hidden by default; control with **Always show / Always hide / Remember per document** in the in-editor settings modal or via `mikedown.outline.visibility`.
 
 ### True WYSIWYG Editing
 

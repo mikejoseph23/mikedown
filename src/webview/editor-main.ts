@@ -37,6 +37,7 @@ import { ImagePasteExtension, handlePastedImageResult, setPostMessage as setImag
 import { TableCheckboxExtension } from './tablecheckbox';
 import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
+import { initOutlineSidebar, applyOutlineState } from './outlineSidebar';
 import {
   FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
   replaceCurrentMatch, replaceAllMatches,
@@ -962,6 +963,24 @@ function showSettingsModal(): void {
     document.documentElement.style.setProperty('--mikedown-content-width', widthSelect.value);
   });
 
+  // ── Document Outline
+  const outlineRow = makeRow('Document Outline', 'When the in-editor outline sidebar is visible. The handle on the right edge of the sidebar resizes it.');
+  const outlineSelect = document.createElement('select');
+  outlineSelect.style.cssText = inputStyle + ';cursor:pointer';
+  const outlineOptions: Array<{ value: 'always' | 'never' | 'remember'; label: string }> = [
+    { value: 'remember', label: 'Remember per document' },
+    { value: 'always', label: 'Always show' },
+    { value: 'never', label: 'Always hide' },
+  ];
+  outlineOptions.forEach(opt => {
+    const option = document.createElement('option');
+    option.value = opt.value;
+    option.textContent = opt.label;
+    if (currentOutlineVisibilityPref === opt.value) option.selected = true;
+    outlineSelect.appendChild(option);
+  });
+  outlineRow.appendChild(outlineSelect);
+
   // ── Save button + note
   const footer = document.createElement('div');
   footer.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.2))';
@@ -992,8 +1011,10 @@ function showSettingsModal(): void {
         contentWidth: widthSelect.value,
         imagePaste: ipState,
         imageResize: irState,
+        outlineVisibility: outlineSelect.value as 'always' | 'never' | 'remember',
       }
     });
+    currentOutlineVisibilityPref = outlineSelect.value as 'always' | 'never' | 'remember';
     // Persist locally so subsequent pastes use the new values without
     // round-tripping the broadcast.
     currentImagePasteSettings = { ...ipState };
@@ -1010,6 +1031,7 @@ function showSettingsModal(): void {
   modal.appendChild(ipSectionRow);
   modal.appendChild(irSectionRow);
   modal.appendChild(widthRow);
+  modal.appendChild(outlineRow);
   modal.appendChild(footer);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
@@ -1046,6 +1068,8 @@ let currentImagePasteSettings: ImagePasteSettings = {
   maxSizeMB: 10,
   cleanupUnreferenced: true,
 };
+
+let currentOutlineVisibilityPref: 'always' | 'never' | 'remember' = 'never';
 
 interface ImageResizeSettings {
   overwrite: boolean;
@@ -2537,78 +2561,7 @@ if (!editorContainer) {
     }, 500);
   });
 
-  // ── Active heading tracking (reports scroll position for Document Outline) ──
-  {
-    const editorContainer = document.querySelector('.ProseMirror')?.parentElement;
-    let lastReportedAnchor = '';
-    let scrollTimer: number | undefined;
-
-    function reportActiveHeading(): void {
-      if (!editorContainer) return;
-      const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
-      const containerRect = editorContainer.getBoundingClientRect();
-      let activeHeading: HTMLElement | null = null;
-
-      for (const h of headings) {
-        const rect = h.getBoundingClientRect();
-        if (rect.top <= containerRect.top + 50) {
-          activeHeading = h;
-        } else {
-          break;
-        }
-      }
-
-      // If no heading has scrolled past the top, use the first one
-      if (!activeHeading && headings.length > 0) {
-        activeHeading = headings[0];
-      }
-
-      if (activeHeading) {
-        const text = activeHeading.textContent?.trim() || '';
-        const anchor = text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
-        if (anchor && anchor !== lastReportedAnchor) {
-          lastReportedAnchor = anchor;
-          vscode.postMessage({ type: 'activeHeading', anchor });
-        }
-      }
-    }
-
-    if (editorContainer) {
-      editorContainer.addEventListener('scroll', () => {
-        clearTimeout(scrollTimer);
-        scrollTimer = window.setTimeout(reportActiveHeading, 150) as unknown as number;
-      });
-    }
-
-    // Also report after content loads
-    editor.on('update', () => {
-      clearTimeout(scrollTimer);
-      scrollTimer = window.setTimeout(reportActiveHeading, 300) as unknown as number;
-    });
-
-    // Cursor-driven tracking: find the heading whose section contains the cursor
-    // and report it. Walks the top-level PM nodes and picks the last heading at
-    // or before the cursor position.
-    function reportHeadingAtCursor(): void {
-      const state = editor.state;
-      const from = state.selection.from;
-      let currentHeading: any = null;
-      state.doc.forEach((node: any, offset: number) => {
-        if (offset <= from && node.type.name === 'heading') {
-          currentHeading = node;
-        }
-      });
-      if (!currentHeading) return;
-      const text = (currentHeading.textContent as string).trim();
-      if (!text) return;
-      const anchor = text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
-      if (anchor && anchor !== lastReportedAnchor) {
-        lastReportedAnchor = anchor;
-        vscode.postMessage({ type: 'activeHeading', anchor });
-      }
-    }
-    editor.on('selectionUpdate', reportHeadingAtCursor);
-  }
+  initOutlineSidebar({ editor, vscode, anchorFn: githubAnchorId });
 
   // ── M6a: Link click handler (Cmd+Click to navigate) ────────────────────────
   // Use mousedown in capture phase so it fires before ProseMirror's own
@@ -3602,6 +3555,17 @@ if (!editorContainer) {
     // M6b — Link autocomplete: receive heading anchors for a specific file.
     if (message.type === 'fileHeadings') {
       receiveFileHeadings((message as any).anchors);
+    }
+
+    // Outline sidebar — extension push of width/pref/per-doc state
+    if (message.type === 'outlineState') {
+      const m = message as any;
+      if (m.pref) currentOutlineVisibilityPref = m.pref;
+      applyOutlineState({
+        pref: m.pref,
+        width: m.width,
+        rememberedVisible: m.rememberedVisible,
+      });
     }
 
     // v1.6.0 — Image paste host response: insert the saved image at the

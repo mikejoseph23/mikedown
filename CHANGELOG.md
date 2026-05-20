@@ -2,15 +2,18 @@
 
 All notable changes to MikeDown Editor are documented here.
 
-## [1.8.1] - 2026-05-19
+## [2.0.0] - 2026-05-20
 
-### Changed
+### Added
 
-- The document outline now lives in the built-in **Explorer** panel as a section titled **MikeDown Outline** (sits alongside Open Editors / Folders / Timeline / Outline) instead of the separate MikeDown activity-bar sidebar, so you don't have to leave the Explorer to glance at the structure of the document you're editing. The pane only shows when at least one markdown file is open in any tab. The MikeDown activity-bar sidebar still hosts Backlinks
+- **In-editor document outline sidebar — the headline 2.0 feature.** Click the small `≡` icon in the top-left of any MikeDown tab to reveal a compact, per-document outline that lists every heading in the file. The active section follows your cursor *and* the scroll position (so jumping via an in-document anchor link keeps the outline in sync), with a left accent bar + bold styling for the current heading and auto-scroll inside the sidebar to keep it visible. Click any heading to jump straight to it
+- Drag the right edge of the outline to resize it (160–360px, persisted globally so the width sticks across files and themes)
+- New **Document Outline** preference in the in-editor settings modal: *Always show* · *Always hide* (default) · *Remember per document*. Also exposed as `mikedown.outline.visibility` and `mikedown.outline.width` in VS Code settings
 
 ### Notes
 
-- VS Code's truly built-in **Outline** pane binds to `activeTextEditor`, which is `undefined` whenever a custom editor (like MikeDown) is the focused tab — so the registered `DocumentSymbolProvider` cannot populate it. Tracked upstream as microsoft/vscode#105448. Until that lands, the MikeDown Outline section in the Explorer is the closest UX we can deliver
+- Why a major version bump? The outline reshapes how you navigate long documents inside MikeDown and is the first surface in the editor that mounts a sibling pane alongside the editing area — it's a genuinely new mode of working with the editor, not a tweak
+- VS Code's built-in **Outline** view still can't be populated for custom editors (it binds to `activeTextEditor`, which is `undefined` for webview-based editors — tracked upstream as `microsoft/vscode#105448`). An in-editor sidebar sidesteps the limitation entirely, gives each open document its own outline, and unlocks the per-file scroll-spy and active-item auto-scroll behavior that wouldn't be possible inside VS Code's pane
 
 ## [1.8.0] - 2026-05-19
 

@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.",
-  "version": "1.8.1",
+  "version": "2.0.0",
   "license": "MIT",
   "preview": false,
   "publisher": "interapp",
@@ -35,21 +35,11 @@
   },
   "activationEvents": [
     "onCustomEditor:mikedown.editor",
-    "onCommand:mikedown.openWithMikeDown",
-    "onLanguage:markdown"
+    "onCommand:mikedown.openWithMikeDown"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "views": {
-      "explorer": [
-        {
-          "id": "mikedown.outline",
-          "name": "MikeDown Outline",
-          "contextualTitle": "MikeDown Outline",
-          "visibility": "visible",
-          "when": "mikedown.hasMarkdownOpen"
-        }
-      ],
       "mikedown-sidebar": [
         {
           "id": "mikedown.backlinks",
@@ -209,6 +199,24 @@
           "type": "boolean",
           "default": false,
           "description": "Whether MikeDown Editor is the default editor for Markdown files. When enabled, .md files open in WYSIWYG mode by default."
+        },
+        "mikedown.outline.visibility": {
+          "type": "string",
+          "default": "never",
+          "enum": ["always", "never", "remember"],
+          "enumDescriptions": [
+            "Always show the outline sidebar when a document opens",
+            "Never show the outline sidebar (the toggle still surfaces it on demand)",
+            "Remember whether the outline was open the last time you used this document"
+          ],
+          "description": "When the in-editor document outline sidebar is visible."
+        },
+        "mikedown.outline.width": {
+          "type": "number",
+          "default": 200,
+          "minimum": 160,
+          "maximum": 360,
+          "description": "Width of the in-editor document outline sidebar, in pixels."
         },
         "mikedown.fontFamily": {
           "type": "string",

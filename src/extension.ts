@@ -6,7 +6,7 @@ import { MarkdownEditorProvider } from './markdownEditorProvider';
 import { StatusBarManager } from './statusBar';
 import { exportViaPrint } from './export';
 import { BacklinkProvider } from './backlinkProvider';
-import { MarkdownOutlineSymbolProvider, DocumentOutlineProvider, parseHeadings } from './outlineProvider';
+import { MarkdownOutlineSymbolProvider } from './outlineProvider';
 
 /**
  * Called when the extension is activated.
@@ -233,51 +233,15 @@ export function activate(context: vscode.ExtensionContext): void {
   // Expose backlinkProvider on MarkdownEditorProvider for checkLinks handler
   (MarkdownEditorProvider as any)._backlinkProvider = backlinkProvider;
 
-  // Document Outline — custom TreeView with click-to-navigate
-  const outlineProvider = new DocumentOutlineProvider();
-  context.subscriptions.push(
-    vscode.window.registerTreeDataProvider('mikedown.outline', outlineProvider)
-  );
-
-  // DocumentSymbolProvider — populates VS Code's built-in Outline panel
+  // DocumentSymbolProvider — populates VS Code's built-in Outline panel for
+  // markdown files opened in the plain-text editor (the built-in pane is
+  // unreachable from custom editors, so this only benefits non-MikeDown views).
   context.subscriptions.push(
     vscode.languages.registerDocumentSymbolProvider(
       { language: 'markdown', scheme: 'file' },
       new MarkdownOutlineSymbolProvider(),
       { label: 'MikeDown Headings' }
     )
-  );
-
-  // Reveal heading command — used by the Document Outline tree items
-  context.subscriptions.push(
-    vscode.commands.registerCommand('mikedown.revealHeading', (anchor: string) => {
-      const panel = MarkdownEditorProvider.activePanel;
-      if (panel) {
-        panel.webview.postMessage({ type: 'scrollToAnchor', anchor });
-      }
-    })
-  );
-
-  // Expose outlineProvider so MarkdownEditorProvider can update it
-  (MarkdownEditorProvider as any)._outlineProvider = outlineProvider;
-
-  // Track whether any markdown file is open in any tab — used by the
-  // `mikedown.outline` view's `when` clause so the Explorer pane only
-  // appears when there's actually something to outline.
-  const updateMarkdownOpenContext = (): void => {
-    const open = vscode.window.tabGroups.all.some(group =>
-      group.tabs.some(tab => {
-        const input = tab.input as { uri?: vscode.Uri } | undefined;
-        const fsPath = input?.uri?.fsPath;
-        if (!fsPath) return false;
-        return fsPath.endsWith('.md') || fsPath.endsWith('.markdown');
-      })
-    );
-    vscode.commands.executeCommand('setContext', 'mikedown.hasMarkdownOpen', open);
-  };
-  updateMarkdownOpenContext();
-  context.subscriptions.push(
-    vscode.window.tabGroups.onDidChangeTabs(updateMarkdownOpenContext)
   );
 }
 
