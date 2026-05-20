@@ -10,6 +10,12 @@ The split-pane markdown preview workflow gets old fast — source on one side, r
 
 MikeDown closes that gap. It's an open-source WYSIWYG Markdown editor that lives entirely inside VS Code. Open multiple markdown files across panes, windows, and monitors — all without leaving your editor.
 
+## Enjoying MikeDown?
+
+If this free extension is making your markdown workflow better, please **tell a friend or co-worker** or **[leave a review on the VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details)**. Ratings and word of mouth are what get the word out — it genuinely helps.
+
+## Screenshots
+
 *Multiple markdown documents open side by side, each with full WYSIWYG editing:*
 
 ![Multiple markdown documents open side by side in MikeDown](assets/screenshots/split-view-mark-down.jpg)
@@ -194,10 +200,6 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 - Complex nested markdown structures may not round-trip perfectly in all cases
 - Very large files (10,000+ lines) may have slower initial load times
 - Some VS Code extensions that modify markdown files may conflict with the custom editor
-
-## Enjoying MikeDown?
-
-If this free extension is making your markdown workflow better, please **tell a friend or co-worker** or **[leave a review on the VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details)**. Ratings and word of mouth are what get the word out — it genuinely helps.
 
 ## Contributing
 
