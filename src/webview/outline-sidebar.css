@@ -31,6 +31,13 @@
   min-height: 0;
 }
 
+/* `display: flex` above outranks the user-agent rule for [hidden], so we
+   restore it explicitly — without this the Properties section keeps its
+   header visible on documents that have no frontmatter. */
+.sidebar-section[hidden] {
+  display: none;
+}
+
 .sidebar-section.outline-section {
   flex: 1 1 auto;
   min-height: 0;
