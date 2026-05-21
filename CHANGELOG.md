@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.3.1] - 2026-05-21
+
+### Fixed
+
+- **Percent-encoded relative links now resolve.** Clicking a markdown link like `[x](../folder/My%20File%20%28v2%29.md)` opens the file instead of silently failing. The host was passing the encoded href straight to the filesystem, so it looked for a file literally named `My%20File%20%28v2%29.md`. The angle-bracket form `<...>` was the only workaround. The broken-link checker had the same bug and would false-positive on encoded paths
+
 ## [2.3.0] - 2026-05-20
 
 ### Changed

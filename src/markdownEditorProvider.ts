@@ -547,11 +547,15 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             break;
           }
 
-          // Relative file link (may include anchor: ./other.md#section)
+          // Relative file link (may include anchor: ./other.md#section).
+          // The href comes through verbatim from the markdown source, so percent-
+          // encoded paths (e.g. `_SQL%20Files/...%28DEV%20DRAFT%29.sql`) must be
+          // decoded before being handed to the filesystem, which has the literal
+          // characters on disk.
           const [filePart, anchor] = href.split('#');
           const resolvedUri = vscode.Uri.joinPath(
             vscode.Uri.file(path.dirname(document.uri.fsPath)),
-            filePart
+            decodePathPart(filePart)
           );
 
           // If the webview sent an explicit behavior override (e.g. from the
@@ -594,7 +598,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               if (!anchorIds.has(anchor)) brokenLinks.push(link.href);
             } else if (link.type === 'file' || link.type === 'fileAnchor') {
               const [filePart, anchorPart] = link.href.split('#');
-              const absPath = path.resolve(currentDir, filePart);
+              const absPath = path.resolve(currentDir, decodePathPart(filePart));
               try {
                 await vscode.workspace.fs.stat(vscode.Uri.file(absPath));
                 if (anchorPart && link.type === 'fileAnchor') {
