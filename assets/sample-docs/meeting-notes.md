@@ -1,4 +1,4 @@
-# Engineering Standup — March 28, 2026
+# Engineering Standup — May 22, 2026
 
 **Attendees:** Sarah Chen, Marcus Rivera, Priya Patel, James O'Brien
 
@@ -16,19 +16,25 @@
 ### Completed
 
 - [x] User authentication flow redesign (Sarah)
+
 - [x] API rate limiting middleware (Marcus)
+
 - [x] Dashboard performance optimization (Priya)
+
 - [x] Database connection pooling fix (James)
 
 ### In Progress
 
 - [ ] Real-time collaboration backend — *70% complete, targeting Friday*
+
 - [ ] Mobile responsive layout — *blocked on design review*
+
 - [ ] Search indexing pipeline — *waiting on infrastructure migration*
 
 ### Blocked
 
 - [ ] CDN cache invalidation — needs DevOps review
+
 - [ ] SSO integration with Okta — waiting on enterprise license key
 
 ## Q2 Planning Update
@@ -45,7 +51,7 @@
 ## Infrastructure Migration
 
 | Component | Old Stack | New Stack | Status |
-|-----------|-----------|-----------|--------|
+| --- | --- | --- | --- |
 | Compute | EC2 | EKS (Kubernetes) | ✅ Complete |
 | Database | RDS MySQL | Aurora PostgreSQL | 🔄 In Progress |
 | Cache | Memcached | Redis Cluster | ✅ Complete |
@@ -57,8 +63,11 @@
 ## Action Items
 
 - [ ] **Sarah** — Schedule design review for mobile layouts by Wednesday
+
 - [ ] **Marcus** — Write RFC for API v3 GraphQL schema
+
 - [ ] **Priya** — Benchmark Aurora PostgreSQL read replica latency
+
 - [ ] **James** — Coordinate with DevOps on CDN cache invalidation strategy
 
 ## Notes
