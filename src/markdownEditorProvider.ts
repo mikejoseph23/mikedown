@@ -1009,13 +1009,19 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const width = config.get<number>('sidebar.width', 200);
     const position = config.get<'left' | 'right'>('sidebar.position', 'right');
     const collapsedMap = this.context.globalState.get<Record<string, string[]>>('mikedown.sidebar.collapsedSections', {});
-    const collapsedSections = collapsedMap[document.uri.toString()] ?? [];
+    const docKey = document.uri.toString();
+    const collapsedSections = collapsedMap[docKey] ?? [];
+    // Distinguish "user has saved preferences for this doc" from "no preferences
+    // recorded yet" so the webview can apply auto-collapse-when-empty rules
+    // only for sections the user hasn't explicitly toggled.
+    const hasUserCollapsePreference = Object.prototype.hasOwnProperty.call(collapsedMap, docKey);
     webview.postMessage({
       type: 'sidebarState',
       pref,
       width,
       position,
       collapsedSections,
+      hasUserCollapsePreference,
     });
   }
 

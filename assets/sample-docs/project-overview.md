@@ -21,7 +21,7 @@ Acme Cloud Platform is a next-generation infrastructure service that provides de
 ### Key Metrics
 
 | Service | Uptime SLA | Avg Latency | Max Throughput |
-|---------|-----------|-------------|----------------|
+| --- | --- | --- | --- |
 | API Gateway | 99.99% | 12ms | 50K req/s |
 | Auth Service | 99.95% | 8ms | 30K req/s |
 | Data Store | 99.99% | 3ms | 100K ops/s |
@@ -42,9 +42,13 @@ The platform follows a **microservices architecture** with event-driven communic
 ### Design Principles
 
 - [ ] Zero-trust networking between all services
+
 - [ ] Immutable infrastructure (no SSH access to production)
+
 - [x] Blue-green deployments with automated rollback
+
 - [x] Observability: structured logging, distributed tracing, metrics
+
 - [x] Infrastructure as Code (Terraform + Helm)
 
 ## API Gateway
@@ -80,7 +84,7 @@ All requests pass through the following middleware chain:
 The platform uses a **polyglot persistence** strategy — each service chooses the database best suited to its access patterns.
 
 | Service | Database | Reason |
-|---------|----------|--------|
+| --- | --- | --- |
 | Auth | PostgreSQL | ACID compliance for user records |
 | Compute | etcd | Consistent key-value for orchestration state |
 | Object Store | Custom B-tree | Optimized for large binary blobs |

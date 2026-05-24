@@ -92,6 +92,13 @@ const SIDEBAR_ICON_RIGHT = '<svg width="16" height="16" viewBox="0 0 16 16" fill
 // Per-document section collapse state (mirrored from host).
 const collapsedSections = new Set<string>(); // 'properties' | 'outline' | 'backlinks'
 
+// True once the user has saved a collapse preference for this document (i.e.
+// the host's per-doc map has an entry). While false, applyBacklinks /
+// applyProperties auto-collapse their section when empty — the moment the
+// user toggles anything, that auto behavior turns off for the rest of the
+// session and the saved state takes over.
+let hasUserCollapsePreference = false;
+
 let currentBacklinks: BacklinkItem[] = [];
 let lastBacklinksKey = '';
 let currentProperties: FrontmatterEntry[] = [];
@@ -286,6 +293,9 @@ function buildSectionHeader(label: string, section: string, withClose = false, w
 function toggleSectionCollapsed(section: string): void {
   if (collapsedSections.has(section)) collapsedSections.delete(section);
   else collapsedSections.add(section);
+  // Any manual toggle counts as the user expressing a preference — disable
+  // auto-collapse-when-empty for the rest of this session.
+  hasUserCollapsePreference = true;
   applySectionCollapsedDom();
   vscodeRef?.postMessage({
     type: 'sidebarSectionCollapsed',
@@ -312,10 +322,14 @@ export function applyOutlineState(state: {
   width?: number;
   position?: OutlinePosition;
   collapsedSections?: string[];
+  hasUserCollapsePreference?: boolean;
 }): void {
   if (typeof state.width === 'number') setWidth(state.width);
   if (state.position === 'left' || state.position === 'right') setPosition(state.position);
   if (state.pref === 'always' || state.pref === 'never') pref = state.pref;
+  if (typeof state.hasUserCollapsePreference === 'boolean') {
+    hasUserCollapsePreference = state.hasUserCollapsePreference;
+  }
   if (Array.isArray(state.collapsedSections)) {
     collapsedSections.clear();
     for (const s of state.collapsedSections) collapsedSections.add(s);
@@ -324,6 +338,22 @@ export function applyOutlineState(state: {
   applyVisibilityFromPref();
   updatePinState();
   updatePositionToggle();
+}
+
+/**
+ * Apply the "collapse when empty" default for a section, but only if the user
+ * hasn't yet saved a collapse preference for this document. Called from
+ * applyBacklinks / applyProperties once the actual content is known.
+ */
+function autoCollapseIfEmpty(section: string, isEmpty: boolean): void {
+  if (hasUserCollapsePreference) return;
+  const wasCollapsed = collapsedSections.has(section);
+  const shouldCollapse = isEmpty;
+  if (wasCollapsed !== shouldCollapse) {
+    if (shouldCollapse) collapsedSections.add(section);
+    else collapsedSections.delete(section);
+    applySectionCollapsedDom();
+  }
 }
 
 // ── Pin toggle ─────────────────────────────────────────────────────────────
@@ -371,11 +401,7 @@ function updatePositionToggle(): void {
 
 export function applyBacklinks(items: BacklinkItem[]): void {
   currentBacklinks = items || [];
-  // Open the Backlinks section by default when there's something to show;
-  // collapse it if empty (unless the user has an explicit preference saved).
-  if (currentBacklinks.length === 0 && !collapsedSections.has('backlinks')) {
-    // soft-default — do not persist
-  }
+  autoCollapseIfEmpty('backlinks', currentBacklinks.length === 0);
   renderBacklinks();
 }
 
@@ -385,6 +411,12 @@ export function applyProperties(
 ): void {
   currentProperties = entries || [];
   propertiesEditable = opts?.editable !== false && propertiesChangeCb !== null;
+  // Auto-collapse purely on actual property count. The editable "+ Add property"
+  // affordance doesn't count as content — when the doc has no frontmatter,
+  // collapse the section so the user can expand it on demand if they want to
+  // add one. Once they manually toggle (or add anything), hasUserCollapsePreference
+  // takes over and the auto rule stops applying.
+  autoCollapseIfEmpty('properties', currentProperties.length === 0);
   renderProperties();
 }
 

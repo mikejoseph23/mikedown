@@ -4158,6 +4158,7 @@ if (!editorContainer) {
         width: m.width,
         position: m.position,
         collapsedSections: m.collapsedSections,
+        hasUserCollapsePreference: m.hasUserCollapsePreference,
       });
     }
 
