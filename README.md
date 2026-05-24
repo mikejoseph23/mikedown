@@ -16,23 +16,27 @@ If this free extension is making your markdown workflow better, please **tell a 
 
 ## Screenshots
 
-*New in 2.0 — an in-editor document outline pane that follows your cursor and scroll position. Click any heading to jump there:*
+*The in-editor sidebar — Properties (from YAML frontmatter), a per-document outline that follows your cursor, Backlinks, and a metadata footer, all in one pinnable pane:*
 
-![Document outline sidebar showing nested headings with the active section highlighted](assets/screenshots/outline-feature-dark.jpg)
+![Sidebar in dark mode showing Properties, Outline, and Backlinks sections](assets/screenshots/sidebar-dark.jpg)
+
+![Sidebar in light mode showing Properties, Outline, and Backlinks sections](assets/screenshots/sidebar-light.jpg)
 
 *Multiple markdown documents open side by side, each with full WYSIWYG editing:*
 
-![Multiple markdown documents open side by side in MikeDown](assets/screenshots/split-view-mark-down.jpg)
+![Multiple markdown documents open side by side in MikeDown — dark mode](assets/screenshots/multi-doc-dark.jpg)
+
+![Multiple markdown documents open side by side in MikeDown — light mode](assets/screenshots/multi-doc-light.jpg)
 
 *Markdown editing alongside code — no separate app, no context switching:*
 
-![MikeDown editor next to a code file in split view](assets/screenshots/split-view-code.jpg)
+![MikeDown editor next to a code file in split view](assets/screenshots/markdown-and-code.jpg)
 
 ## Features
 
-### Document Outline *(new in 2.0)*
+### In-Editor Sidebar
 
-Click the small `≡` icon in the top-left of any MikeDown tab to reveal a compact, per-document outline. The active section follows both your cursor *and* the scroll position — so jumping via an in-document anchor link keeps the outline in sync. Click any heading to jump straight to it. Drag the right edge to resize (160–360px). Hidden by default; control with **Always show / Always hide / Remember per document** in the in-editor settings modal or via `mikedown.outline.visibility`.
+Click the layout-pane icon in the corner of any MikeDown tab to reveal a per-document sidebar containing **Properties** (from YAML frontmatter), **Outline** (every heading, with the active section following your cursor and scroll position — click any heading to jump there), **Backlinks**, and a metadata footer with modified time, word count, and reading time. Pin the sidebar open with the pin button in its header (filled blue pill = pinned), flip it left↔right with the arrow next to the pin, and drag the inner edge to resize. Defaults are controlled via `mikedown.sidebar.visibility` / `.position` / `.width`, with a "Apply to open documents" button in the Settings modal to push new defaults onto every open tab.
 
 ### True WYSIWYG Editing
 
@@ -50,13 +54,13 @@ Press `Cmd+/` (Mac) or `Ctrl+/` (Windows/Linux) to instantly switch between WYSI
 
 ![Source mode showing raw markdown](assets/screenshots/source-mode.jpg)
 
-### Apple Notes-Style Toolbar
+### Clean WYSIWYG Toolbar
 
-A condensed toolbar with dropdown menus for formatting, insert, and export actions. Clean and out of the way until you need it.
+A condensed toolbar with dropdown menus for formatting, insert, and export actions. Stays out of the way until you need it.
 
 *Toolbar dropdown for inserting lists, blockquotes, and code blocks:*
 
-![Toolbar dropdown menu](assets/screenshots/dropdown-menu.jpg)
+![Toolbar dropdown menu](assets/screenshots/toolbar-dropdown.jpg)
 
 ### Smart Paste
 
@@ -95,10 +99,6 @@ Insert one from the toolbar **Lists & Blocks** dropdown (or right-click → **Ca
 - **Cmd+Click** (or Ctrl+Click) to follow links to files, headings, or URLs
 - **Right-click** any link for Open Link / Open Link in New Tab options
 - **Link autocomplete**: start typing a link and get fuzzy-matched suggestions from workspace files and headings
-
-*Right-click context menu with formatting, link, and insert options:*
-
-![Right-click context menu in MikeDown](assets/screenshots/context-menu.jpg)
 
 ### Broken Link Detection
 
