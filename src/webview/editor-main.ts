@@ -2085,6 +2085,17 @@ function buildCondensedToolbar(editor: Editor): void {
   };
 }
 
+// Editing actions disabled in source mode — the WYSIWYG operates on the
+// (hidden) ProseMirror doc, so firing these while CodeMirror is showing would
+// mutate the wrong view. Anything that produces a doc change belongs here.
+const SOURCE_MODE_DISABLED_ACTIONS = new Set([
+  'textFormat', 'listBlock', 'link', 'insert',           // condensed dropdowns
+  'bold', 'italic', 'strike', 'highlight', 'code', 'emoji',
+  'h1', 'h2', 'h3',
+  'bulletList', 'orderedList', 'taskList', 'blockquote', 'codeBlock',
+  'image', 'table', 'hr',
+]);
+
 function updateToolbarState(editor: Editor): void {
   const toolbar = document.getElementById('toolbar');
   if (!toolbar) return;
@@ -2094,6 +2105,7 @@ function updateToolbarState(editor: Editor): void {
     const action = btn.dataset.action!;
     // Active state
     btn.classList.toggle('active', (() => {
+      if (action === 'sourceToggle') return sourceMode;
       switch (action) {
         case 'bold': return editor.isActive('bold');
         case 'italic': return editor.isActive('italic');
@@ -2112,8 +2124,11 @@ function updateToolbarState(editor: Editor): void {
         default: return false;
       }
     })());
-    // Disabled state: inline format buttons disabled inside code blocks
-    btn.disabled = inCodeBlock && ['bold', 'italic', 'strike', 'code', 'link'].includes(action);
+    // Disabled state: in source mode, lock out anything that edits the doc;
+    // otherwise, only disable inline formatting inside a code block.
+    btn.disabled = sourceMode
+      ? SOURCE_MODE_DISABLED_ACTIONS.has(action)
+      : inCodeBlock && ['bold', 'italic', 'strike', 'code', 'link'].includes(action);
   });
   // Condensed mode: update dynamic labels and dropdown trigger highlights
   if ((toolbar as any).__condensedUpdate) {
@@ -3711,15 +3726,8 @@ if (!editorContainer) {
     sourceContainer.style.display = 'block';
     sourceMode = true;
 
-    // Update toolbar: disable formatting buttons, keep source toggle active
-    document.querySelectorAll<HTMLButtonElement>('#toolbar button[data-action]').forEach(btn => {
-      const action = btn.dataset.action;
-      if (action === 'sourceToggle') {
-        btn.classList.add('active');
-      } else if (action !== 'undo' && action !== 'redo') {
-        btn.disabled = true;
-      }
-    });
+    // Lock out doc-editing toolbar buttons + mark source toggle active.
+    updateToolbarState(editor);
 
     cmView.focus();
     (window as any).__mikedownResyncFind?.();
@@ -3850,18 +3858,12 @@ if (!editorContainer) {
       }
     }, 10);
 
-    // Re-enable toolbar buttons
-    document.querySelectorAll<HTMLButtonElement>('#toolbar button[data-action]').forEach(btn => {
-      btn.disabled = false;
-      if (btn.dataset.action === 'sourceToggle') {
-        btn.classList.remove('active');
-      }
-    });
-
     // Re-render frontmatter block in case it changed
     renderFrontmatterBlock();
     refreshPropertiesSidebar();
 
+    // Re-enables toolbar buttons (sourceMode is now false) and clears the
+    // sourceToggle active class.
     updateToolbarState(editor);
     editor.commands.focus();
     (window as any).__mikedownResyncFind?.();

@@ -12,6 +12,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 - **Slash commands** — `/` menu for inserting blocks (Notion-style).
 - **Wiki-links** — `[[Page Name]]` syntax with autocomplete (Obsidian-style).
+- **Tags** — first-class support for `#tag` inline syntax and/or frontmatter `tags:` arrays: render as clickable pills in the editor, aggregate workspace-wide with a sidebar section showing all tags + their documents, autocomplete on `#`.
 - **Definition lists** — `term\n: definition` (pandoc / PHP Markdown Extra).
 - **Table of contents** — auto-generated `[[toc]]` block.
 - **Custom containers** — `:::note ... :::` style (VuePress / MkDocs).
@@ -23,6 +24,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 - Word count / reading time in status bar — _scaffolding exists in `src/statusBar.ts` but isn't wired to the webview yet._ ✅ Shipped in 1.8.0.
 - **Buy Me A Coffee link in Settings → About tab.** Needs a final BMAC URL. The About panel in `src/webview/editor-main.ts#buildAboutPanel` already has GitHub / changelog / issue links — add a BMAC link there once the URL exists.
+- **Consolidate toolbar utility buttons.** Items like Select All, Print, View in Browser, Export, Source toggle, etc. have been accumulating and the toolbar is getting busy. Roll them into a single overflow / "more actions" dropdown (or split into Format / Insert / Export / View groups) so the main toolbar stays focused on the high-frequency formatting actions. See `src/webview/editor-main.ts#buildCondensedToolbar`.
 
 ## Recently shipped
 

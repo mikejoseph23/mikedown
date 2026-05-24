@@ -2,7 +2,7 @@
 
 All notable changes to MikeDown Editor are documented here.
 
-## [2.4.0] - 2026-05-24
+## [2.5.0] - 2026-05-24
 
 ### Added
 
@@ -13,14 +13,19 @@ All notable changes to MikeDown Editor are documented here.
 - **Sidebar footer is now two lines.** Top line: `Modified … ago`. Bottom line: `N words · N chars · N min read`. Footer text is more legible in light mode.
 - **"Apply to open documents" button.** In Settings → Appearance, a subtle button next to the sidebar defaults pushes the saved defaults onto every open MikeDown panel on demand — without reloading them.
 - **Selection word/char count in the status bar.** When you select text, a status-bar item shows `N words · N chars selected` alongside the document totals.
+- **Editable Properties section.** Frontmatter rows in the sidebar Properties section are now inline-editable — click a key or value to edit, hit Enter to commit, Esc to cancel; a "+ Add property" affordance lives at the bottom. Round-trips to YAML in the document's frontmatter via a shared parser/serializer (`src/frontmatterYaml.ts`), so the source markdown stays clean.
+- **Smart section defaults on open.** When a document opens with no saved collapse preference, Properties and Backlinks each auto-collapse if empty and auto-expand if they have content. The moment you manually toggle any section, your preference takes over and persists per-doc.
 
 ### Changed
 
-- **Status bar stats are always-on again for markdown documents.** Word count, character count, and reading-time items are shown whenever a markdown doc is the active editor (custom or plain text), and follow focus across MikeDown tabs. Earlier in 2.4 development they were briefly removed in favor of the sidebar footer alone, but the sidebar is now per-instance and can be hidden, so the status bar is back as the always-visible fallback.
+- **Sidebar section order: Outline / Backlinks / Properties / Footer.** Outline anchors the top so its header controls (position toggle, pin, close) sit where they're easy to reach. Properties is always present at the bottom (even with no frontmatter — shows a subtle "No properties." placeholder or the "+ Add property" affordance in editable mode).
+- **Source-mode toolbar lockout.** Switching to raw-markdown view (`Cmd+/`) now disables every toolbar action that would mutate the underlying ProseMirror doc — bold/italic/lists/headings/images/etc. — so they don't silently apply to the hidden WYSIWYG view. The `sourceToggle` button itself shows as active in source mode.
+- **Status bar stats are always-on again for markdown documents.** Word count, character count, and reading-time items are shown whenever a markdown doc is the active editor (custom or plain text), and follow focus across MikeDown tabs. Earlier in 2.5 development they were briefly removed in favor of the sidebar footer alone, but the sidebar is now per-instance and can be hidden, so the status bar is back as the always-visible fallback.
 - **Sidebar state is now per-instance.** Position and width changes made via the sidebar header / resize handle stay local to that document instead of broadcasting to every open MikeDown tab. Persisted settings act as seeds for newly-opened documents.
 - **Sidebar visibility went binary.** `mikedown.sidebar.visibility` now accepts `always` | `never` only — the `remember` (per-document last-known) mode and its globalState map were removed because they produced confusing cross-document behavior. Existing user configs storing `remember` are auto-migrated to `never` on first launch.
 - **Outline sidebar now defaults to the right side.** Existing installs with no explicit `mikedown.sidebar.position` saved will see the sidebar move to the right on next open — set it back to `left` in the Settings modal if you prefer the previous position.
 - **Settings renamed: `mikedown.outline.*` → `mikedown.sidebar.*`.** The sidebar hosts more than the outline now (Properties, Backlinks, footer), so the keys were renamed to match. Existing values (`mikedown.outline.visibility`, `.width`, `.position`) are auto-migrated to the new keys on first launch — no action needed.
+- **Marketplace screenshots refreshed for 2.5.** The README and the bundled `.vsix` assets now reflect the redesigned sidebar, toolbar, and status bar — the previous shots were from 1.x.
 
 ## [2.3.3] - 2026-05-23
 
