@@ -19,6 +19,13 @@
   overflow: hidden;
 }
 
+body.mikedown-outline-right #mikedown-outline-sidebar {
+  left: auto;
+  right: 0;
+  border-right: 0;
+  border-left: 1px solid var(--vscode-editorGroup-border, #3c3c3c);
+}
+
 #mikedown-outline-sidebar[hidden] {
   display: none;
 }
@@ -290,6 +297,11 @@
   z-index: 1;
 }
 
+body.mikedown-outline-right #mikedown-outline-sidebar .outline-resize-handle {
+  right: auto;
+  left: -3px;
+}
+
 #mikedown-outline-sidebar .outline-resize-handle:hover,
 #mikedown-outline-sidebar.resizing .outline-resize-handle {
   background-color: var(--vscode-focusBorder, #007fd4);
@@ -324,6 +336,11 @@ body.mikedown-outline-resizing {
   transition: opacity 120ms ease-out, background-color 120ms ease-out;
 }
 
+body.mikedown-outline-right #mikedown-outline-toggle {
+  left: auto;
+  right: 8px;
+}
+
 #mikedown-outline-toggle:hover {
   opacity: 1;
   background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
@@ -337,6 +354,11 @@ body.mikedown-outline-resizing {
 
 body.mikedown-outline-open #editor-container {
   left: var(--mikedown-outline-width, 200px);
+}
+
+body.mikedown-outline-open.mikedown-outline-right #editor-container {
+  left: 0;
+  right: var(--mikedown-outline-width, 200px);
 }
 
 body.mikedown-outline-open #mikedown-outline-toggle {

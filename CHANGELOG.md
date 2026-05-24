@@ -2,6 +2,28 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Outline sidebar position setting.** New `mikedown.outline.position` (`left` | `right`, default `right`) chooses which side of the editor the in-editor outline sidebar anchors to. Available in the editor's Settings modal (Editor tab → Outline position) and applies live without reloading the document. The resize handle moves to the inner edge so dragging "inward" still shrinks the sidebar
+
+### Changed
+
+- **Outline sidebar now defaults to the right side.** Existing installs with no explicit `mikedown.outline.position` saved will see the sidebar move to the right on next open — set it back to `left` in the Settings modal if you prefer the previous position
+
+## [2.3.3] - 2026-05-23
+
+### Fixed
+
+- **Inline images on the same line stay on the same line.** Multiple `![]()` images separated by spaces on one markdown line (e.g. a row of shields.io badges) now render side-by-side in one paragraph, matching GitHub. Previously each image was promoted to its own block — the TipTap Image extension defaults to block-level, and a `display: block` CSS rule reinforced it. Image nodes are now configured `inline: true` and styled `display: inline-block`
+
+## [2.3.2] - 2026-05-23
+
+### Fixed
+
+- **External `https:` images now render.** Shields.io badges, raw GitHub images, and any other remote image referenced with an `https://…` URL render in the editor instead of showing as broken-image placeholders. The webview's Content-Security-Policy only listed `${webview.cspSource} data:` for `img-src`, which is enough for local images (rewritten to the cdn host by `asWebviewUri`) but blocked everything else. CSP now includes `https:`, matching VS Code's built-in markdown preview
+
 ## [2.3.1] - 2026-05-21
 
 ### Fixed

@@ -714,6 +714,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (settings.outlineVisibility === 'always' || settings.outlineVisibility === 'never' || settings.outlineVisibility === 'remember') {
             config.update('outline.visibility', settings.outlineVisibility, vscode.ConfigurationTarget.Global);
           }
+          if (settings.outlinePosition === 'left' || settings.outlinePosition === 'right') {
+            config.update('outline.position', settings.outlinePosition, vscode.ConfigurationTarget.Global);
+          }
           vscode.window.showInformationMessage('MikeDown settings saved.');
           break;
         }
@@ -942,6 +945,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const config = vscode.workspace.getConfiguration('mikedown');
     const pref = config.get<'always' | 'never' | 'remember'>('outline.visibility', 'never');
     const width = config.get<number>('outline.width', 200);
+    const position = config.get<'left' | 'right'>('outline.position', 'right');
     const remembered = this.context.globalState.get<Record<string, boolean>>('mikedown.outline.rememberedVisible', {});
     const rememberedVisible = remembered[document.uri.toString()] === true;
     const collapsedMap = this.context.globalState.get<Record<string, string[]>>('mikedown.sidebar.collapsedSections', {});
@@ -950,6 +954,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       type: 'outlineState',
       pref,
       width,
+      position,
       rememberedVisible,
       collapsedSections,
     });
@@ -1499,7 +1504,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // Content Security Policy: fully offline, no external resources
     const csp = [
       `default-src 'none'`,
-      `img-src ${webview.cspSource} data:`,
+      `img-src ${webview.cspSource} https: data:`,
       `script-src ${webview.cspSource}`,
       `style-src ${webview.cspSource} 'unsafe-inline'`
     ].join('; ');

@@ -3,7 +3,8 @@
 .ProseMirror img {
   max-width: 100%;
   height: auto;
-  display: block;
+  display: inline-block;
+  vertical-align: middle;
   cursor: pointer;
   border-radius: 6px;
   margin: 0.5em 0;

@@ -13,6 +13,7 @@ import { formatRelativeTime } from './relativeTime';
 type VsApi = { postMessage(msg: any): void };
 
 export type OutlineVisibilityPref = 'always' | 'never' | 'remember';
+export type OutlinePosition = 'left' | 'right';
 
 interface Heading {
   level: number;
@@ -45,6 +46,7 @@ const MAX_WIDTH = 360;
 const DEFAULT_WIDTH = 200;
 
 let pref: OutlineVisibilityPref = 'never';
+let position: OutlinePosition = 'right';
 let perDocRememberedVisible = false;
 let width = DEFAULT_WIDTH;
 let editorRef: any = null;
@@ -92,6 +94,7 @@ export function initOutlineSidebar(opts: InitOptions): void {
   handleEl = sidebarEl.querySelector<HTMLElement>('.outline-resize-handle');
 
   setWidth(width);
+  setPosition(position);
   setVisible(false, { silent: true });
 
   toggleEl.addEventListener('click', () => setVisible(true));
@@ -251,10 +254,12 @@ function applySectionCollapsedDom(): void {
 export function applyOutlineState(state: {
   pref?: OutlineVisibilityPref;
   width?: number;
+  position?: OutlinePosition;
   rememberedVisible?: boolean;
   collapsedSections?: string[];
 }): void {
   if (typeof state.width === 'number') setWidth(state.width);
+  if (state.position === 'left' || state.position === 'right') setPosition(state.position);
   if (state.pref) pref = state.pref;
   if (typeof state.rememberedVisible === 'boolean') {
     perDocRememberedVisible = state.rememberedVisible;
@@ -326,6 +331,12 @@ function setWidth(px: number): void {
   document.documentElement.style.setProperty('--mikedown-outline-width', `${width}px`);
 }
 
+function setPosition(next: OutlinePosition): void {
+  position = next;
+  document.body.classList.toggle('mikedown-outline-left', position === 'left');
+  document.body.classList.toggle('mikedown-outline-right', position === 'right');
+}
+
 function wireResize(handle: HTMLElement): void {
   handle.addEventListener('pointerdown', (e) => {
     e.preventDefault();
@@ -336,7 +347,10 @@ function wireResize(handle: HTMLElement): void {
     const startWidth = width;
 
     const onMove = (ev: PointerEvent): void => {
-      setWidth(startWidth + (ev.clientX - startX));
+      const delta = ev.clientX - startX;
+      // On a right-anchored sidebar the handle lives on its left edge, so
+      // dragging right (positive delta) shrinks the sidebar instead of growing it.
+      setWidth(position === 'right' ? startWidth - delta : startWidth + delta);
     };
     const onUp = (ev: PointerEvent): void => {
       handle.releasePointerCapture(ev.pointerId);

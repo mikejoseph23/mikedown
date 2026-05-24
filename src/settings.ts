@@ -17,6 +17,13 @@ export interface MikeDownSettings {
   };
   imagePaste: ImagePasteSettings;
   imageResize: ImageResizeSettings;
+  outline: OutlineSettings;
+}
+
+export interface OutlineSettings {
+  visibility: 'always' | 'never' | 'remember';
+  width: number;
+  position: 'left' | 'right';
 }
 
 export interface ImagePasteSettings {
@@ -63,6 +70,11 @@ export function getSettings(): MikeDownSettings {
     },
     imageResize: {
       overwrite: config.get<boolean>('imageResize.overwrite', true),
+    },
+    outline: {
+      visibility: config.get<'always' | 'never' | 'remember'>('outline.visibility', 'never'),
+      width: config.get<number>('outline.width', 200),
+      position: config.get<'left' | 'right'>('outline.position', 'right'),
     },
   };
 }

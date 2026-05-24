@@ -521,6 +521,9 @@ function showImageInsertDialog(editor: Editor): void {
 
 // ── Settings Modal ──────────────────────────────────────────────────────────────
 
+type SettingsTabId = 'appearance' | 'images' | 'editor';
+let lastSettingsTab: SettingsTabId = 'appearance';
+
 function showSettingsModal(): void {
   // Remove existing modal if open
   document.getElementById('mikedown-settings-overlay')?.remove();
@@ -537,15 +540,13 @@ function showSettingsModal(): void {
     'background:var(--vscode-editorWidget-background,#252526)',
     'border:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.35))',
     'border-radius:10px',
-    'padding:24px 28px',
-    'min-width:420px',
-    'max-width:520px',
+    'min-width:640px',
+    'max-width:760px',
     'box-shadow:0 12px 40px rgba(0,0,0,0.5)',
     'display:flex',
     'flex-direction:column',
-    'gap:20px',
     'max-height:80vh',
-    'overflow-y:auto',
+    'overflow:hidden',
   ].join(';');
 
   // Read current values from CSS custom properties
@@ -556,7 +557,7 @@ function showSettingsModal(): void {
 
   // ── Title
   const title = document.createElement('div');
-  title.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
+  title.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:20px 24px 14px;flex-shrink:0';
   const titleText = document.createElement('h2');
   titleText.textContent = 'Settings';
   titleText.style.cssText = 'margin:0;font-size:18px;font-weight:600;color:var(--vscode-editor-foreground)';
@@ -976,7 +977,7 @@ function showSettingsModal(): void {
   });
 
   // ── Document Outline
-  const outlineRow = makeRow('Document Outline', 'When the in-editor outline sidebar is visible. The handle on the right edge of the sidebar resizes it.');
+  const outlineRow = makeRow('Document Outline', 'When the in-editor outline sidebar is visible. Drag the inner edge of the sidebar to resize it.');
   const outlineSelect = document.createElement('select');
   outlineSelect.style.cssText = inputStyle + ';cursor:pointer';
   const outlineOptions: Array<{ value: 'always' | 'never' | 'remember'; label: string }> = [
@@ -993,9 +994,31 @@ function showSettingsModal(): void {
   });
   outlineRow.appendChild(outlineSelect);
 
+  // ── Outline Position
+  const outlinePositionRow = makeRow('Outline position', 'Which side of the editor the outline sidebar renders on.');
+  const outlinePositionSelect = document.createElement('select');
+  outlinePositionSelect.style.cssText = inputStyle + ';cursor:pointer';
+  const outlinePositionOptions: Array<{ value: 'left' | 'right'; label: string }> = [
+    { value: 'right', label: 'Right' },
+    { value: 'left', label: 'Left' },
+  ];
+  outlinePositionOptions.forEach(opt => {
+    const option = document.createElement('option');
+    option.value = opt.value;
+    option.textContent = opt.label;
+    if (currentOutlinePositionPref === opt.value) option.selected = true;
+    outlinePositionSelect.appendChild(option);
+  });
+  outlinePositionRow.appendChild(outlinePositionSelect);
+  outlinePositionSelect.addEventListener('change', () => {
+    const value = outlinePositionSelect.value as 'left' | 'right';
+    currentOutlinePositionPref = value;
+    applyOutlineState({ position: value });
+  });
+
   // ── Save button + note
   const footer = document.createElement('div');
-  footer.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.2))';
+  footer.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.2));flex-shrink:0';
   const note = document.createElement('span');
   note.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground)';
   note.textContent = 'Changes apply instantly. Use VS Code settings for persistence.';
@@ -1024,9 +1047,11 @@ function showSettingsModal(): void {
         imagePaste: ipState,
         imageResize: irState,
         outlineVisibility: outlineSelect.value as 'always' | 'never' | 'remember',
+        outlinePosition: outlinePositionSelect.value as 'left' | 'right',
       }
     });
     currentOutlineVisibilityPref = outlineSelect.value as 'always' | 'never' | 'remember';
+    currentOutlinePositionPref = outlinePositionSelect.value as 'left' | 'right';
     // Persist locally so subsequent pastes use the new values without
     // round-tripping the broadcast.
     currentImagePasteSettings = { ...ipState };
@@ -1036,14 +1061,109 @@ function showSettingsModal(): void {
   footer.appendChild(note);
   footer.appendChild(saveBtn);
 
+  // ── Tabs scaffold ────────────────────────────────────────────────────────────
+  const body = document.createElement('div');
+  body.style.cssText = 'display:flex;flex:1;min-height:0';
+
+  const nav = document.createElement('div');
+  nav.setAttribute('role', 'tablist');
+  nav.setAttribute('aria-orientation', 'vertical');
+  nav.style.cssText = 'width:140px;flex-shrink:0;padding:8px;border-right:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.2));display:flex;flex-direction:column;gap:2px;overflow-y:auto';
+
+  const content = document.createElement('div');
+  content.style.cssText = 'flex:1;min-width:0;overflow-y:auto;padding:16px 24px';
+
+  function makePanel(): HTMLDivElement {
+    const p = document.createElement('div');
+    p.setAttribute('role', 'tabpanel');
+    p.style.cssText = 'display:flex;flex-direction:column;gap:20px';
+    return p;
+  }
+
+  const appearancePanel = makePanel();
+  appearancePanel.append(fontSizeRow, fontThemeRow, widthRow);
+  const imagesPanel = makePanel();
+  imagesPanel.append(ipSectionRow, irSectionRow);
+  const editorPanel = makePanel();
+  editorPanel.append(outlineRow, outlinePositionRow);
+
+  const panels: Record<SettingsTabId, HTMLElement> = {
+    appearance: appearancePanel,
+    images: imagesPanel,
+    editor: editorPanel,
+  };
+
+  const tabDefs: Array<{ id: SettingsTabId; label: string }> = [
+    { id: 'appearance', label: 'Appearance' },
+    { id: 'images', label: 'Images' },
+    { id: 'editor', label: 'Editor' },
+  ];
+
+  const tabButtons: HTMLButtonElement[] = [];
+  let activeTab: SettingsTabId = panels[lastSettingsTab] ? lastSettingsTab : 'appearance';
+
+  function setActiveTab(id: SettingsTabId): void {
+    activeTab = id;
+    lastSettingsTab = id;
+    tabButtons.forEach((btn) => {
+      const isActive = btn.dataset.tabId === id;
+      btn.setAttribute('aria-selected', String(isActive));
+      btn.tabIndex = isActive ? 0 : -1;
+      btn.style.background = isActive ? 'var(--vscode-list-activeSelectionBackground,#0e639c)' : 'transparent';
+      btn.style.color = isActive
+        ? 'var(--vscode-list-activeSelectionForeground,#ffffff)'
+        : 'var(--vscode-foreground,#cccccc)';
+    });
+    (Object.keys(panels) as SettingsTabId[]).forEach((pid) => {
+      panels[pid].style.display = pid === id ? '' : 'none';
+    });
+    content.scrollTop = 0;
+  }
+
+  tabDefs.forEach((tab, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('role', 'tab');
+    btn.dataset.tabId = tab.id;
+    btn.textContent = tab.label;
+    btn.style.cssText = 'text-align:left;padding:7px 12px;background:transparent;border:none;color:var(--vscode-foreground,#cccccc);cursor:pointer;border-radius:4px;font-size:13px;font-family:inherit;outline:none';
+    btn.addEventListener('click', () => { setActiveTab(tab.id); btn.focus(); });
+    btn.addEventListener('mouseenter', () => {
+      if (tab.id !== activeTab) btn.style.background = 'var(--vscode-list-hoverBackground,rgba(255,255,255,0.06))';
+    });
+    btn.addEventListener('mouseleave', () => {
+      if (tab.id !== activeTab) btn.style.background = 'transparent';
+    });
+    btn.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const next = e.key === 'ArrowDown'
+          ? Math.min(idx + 1, tabDefs.length - 1)
+          : Math.max(idx - 1, 0);
+        setActiveTab(tabDefs[next].id);
+        tabButtons[next].focus();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        setActiveTab(tabDefs[0].id);
+        tabButtons[0].focus();
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        setActiveTab(tabDefs[tabDefs.length - 1].id);
+        tabButtons[tabDefs.length - 1].focus();
+      }
+    });
+    tabButtons.push(btn);
+    nav.appendChild(btn);
+  });
+
+  content.append(appearancePanel, imagesPanel, editorPanel);
+  body.append(nav, content);
+
+  setActiveTab(activeTab);
+
   // Assemble
   modal.appendChild(title);
-  modal.appendChild(fontSizeRow);
-  modal.appendChild(fontThemeRow);
-  modal.appendChild(ipSectionRow);
-  modal.appendChild(irSectionRow);
-  modal.appendChild(widthRow);
-  modal.appendChild(outlineRow);
+  modal.appendChild(body);
   modal.appendChild(footer);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
@@ -1082,6 +1202,7 @@ let currentImagePasteSettings: ImagePasteSettings = {
 };
 
 let currentOutlineVisibilityPref: 'always' | 'never' | 'remember' = 'never';
+let currentOutlinePositionPref: 'left' | 'right' = 'right';
 
 interface ImageResizeSettings {
   overwrite: boolean;
@@ -1155,7 +1276,7 @@ const toolbarIcons = {
   undo: toolbarSvg('<polyline points="4 7 2 5 4 3"/><path d="M2 5h8a4 4 0 0 1 0 8H7"/>'),
   redo: toolbarSvg('<polyline points="12 7 14 5 12 3"/><path d="M14 5H6a4 4 0 0 0 0 8h3"/>'),
   source: toolbarSvg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/><line x1="9" y1="3" x2="7" y2="13"/>'),
-  gear: toolbarSvg('<circle cx="8" cy="8" r="1.8"/><path d="M8 1.5l.6 2.1a4.2 4.2 0 0 1 1.6.65l1.95-.9 1.1 1.1-.9 1.95c.3.5.53 1.03.65 1.6l2.1.6v1.5l-2.1.6a4.2 4.2 0 0 1-.65 1.6l.9 1.95-1.1 1.1-1.95-.9a4.2 4.2 0 0 1-1.6.65l-.6 2.1h-1.5l-.6-2.1a4.2 4.2 0 0 1-1.6-.65l-1.95.9-1.1-1.1.9-1.95a4.2 4.2 0 0 1-.65-1.6L1.5 8.6V7.1l2.1-.6a4.2 4.2 0 0 1 .65-1.6l-.9-1.95 1.1-1.1 1.95.9A4.2 4.2 0 0 1 8 2.1z"/>', 1.4),
+  gear: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`,
   diff: toolbarSvg('<path d="M4 3v10"/><path d="M12 3v10"/><path d="M7 5h2" stroke-opacity="0.5"/><path d="M7 8h2"/><path d="M7 11h2" stroke-opacity="0.5"/>'),
   sun: toolbarSvg('<circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/>'),
   moon: toolbarSvg('<path d="M13.5 8a5.5 5.5 0 0 1-8.38 4.68A5.5 5.5 0 0 1 8 2.5c0 .5.05 1 .16 1.47A4.5 4.5 0 0 0 13.5 8z"/>'),
@@ -1976,7 +2097,10 @@ if (!editorContainer) {
 
       // ── Images (M2b) ──────────────────────────────────────────────────────────
       // tiptap-markdown handles "![alt](src)" syntax and creates Image nodes.
-      Image,
+      // `inline: true` matches CommonMark — multiple `![]()` on one line stay in
+      // a single paragraph (e.g. shields.io badge rows) instead of each becoming
+      // its own block. A solo image on its own paragraph still renders the same.
+      Image.configure({ inline: true }),
 
       // ── Placeholder (M2c) ─────────────────────────────────────────────────────
       // "Start writing…" is displayed when the document contains no content.
@@ -3660,13 +3784,15 @@ if (!editorContainer) {
       receiveFileHeadings((message as any).anchors);
     }
 
-    // Outline sidebar — extension push of width/pref/per-doc state
+    // Outline sidebar — extension push of width/pref/position/per-doc state
     if (message.type === 'outlineState') {
       const m = message as any;
       if (m.pref) currentOutlineVisibilityPref = m.pref;
+      if (m.position === 'left' || m.position === 'right') currentOutlinePositionPref = m.position;
       applyOutlineState({
         pref: m.pref,
         width: m.width,
+        position: m.position,
         rememberedVisible: m.rememberedVisible,
         collapsedSections: m.collapsedSections,
       });

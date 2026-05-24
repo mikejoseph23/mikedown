@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.",
-  "version": "2.3.1",
+  "version": "2.3.3",
   "license": "MIT",
   "preview": false,
   "publisher": "interapp",
@@ -223,6 +223,19 @@
           "minimum": 160,
           "maximum": 360,
           "description": "Width of the in-editor document outline sidebar, in pixels."
+        },
+        "mikedown.outline.position": {
+          "type": "string",
+          "default": "right",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "enumDescriptions": [
+            "Show the outline sidebar on the left side of the editor",
+            "Show the outline sidebar on the right side of the editor"
+          ],
+          "description": "Which side of the editor the in-editor outline sidebar renders on."
         },
         "mikedown.fontFamily": {
           "type": "string",
