@@ -4159,8 +4159,7 @@ if (!editorContainer) {
         pref: m.pref,
         width: m.width,
         position: m.position,
-        collapsedSections: m.collapsedSections,
-        hasUserCollapsePreference: m.hasUserCollapsePreference,
+        sectionPrefs: m.sectionPrefs,
       });
     }
 

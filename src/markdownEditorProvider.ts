@@ -793,12 +793,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           const collapsed = (message as any).collapsed === true;
           if (section) {
             const key = 'mikedown.sidebar.collapsedSections';
-            const map = this.context.globalState.get<Record<string, string[]>>(key, {});
+            const raw = this.context.globalState.get<Record<string, unknown>>(key, {});
             const docKey = document.uri.toString();
-            const set = new Set<string>(map[docKey] ?? []);
-            if (collapsed) set.add(section); else set.delete(section);
-            map[docKey] = [...set];
-            await this.context.globalState.update(key, map);
+            const prefs = readSectionPrefs(raw[docKey]);
+            prefs[section] = collapsed;
+            raw[docKey] = prefs;
+            await this.context.globalState.update(key, raw);
           }
           break;
         }
@@ -1008,20 +1008,19 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const pref: 'always' | 'never' = rawPref === 'always' ? 'always' : 'never';
     const width = config.get<number>('sidebar.width', 200);
     const position = config.get<'left' | 'right'>('sidebar.position', 'right');
-    const collapsedMap = this.context.globalState.get<Record<string, string[]>>('mikedown.sidebar.collapsedSections', {});
+    const collapsedMap = this.context.globalState.get<Record<string, unknown>>('mikedown.sidebar.collapsedSections', {});
     const docKey = document.uri.toString();
-    const collapsedSections = collapsedMap[docKey] ?? [];
-    // Distinguish "user has saved preferences for this doc" from "no preferences
-    // recorded yet" so the webview can apply auto-collapse-when-empty rules
-    // only for sections the user hasn't explicitly toggled.
-    const hasUserCollapsePreference = Object.prototype.hasOwnProperty.call(collapsedMap, docKey);
+    // sectionPrefs is a per-section map (section → collapsed bool). A section
+    // absent from the map means "user hasn't touched this section on this doc"
+    // and the webview's auto-collapse-when-empty rule applies independently
+    // per section.
+    const sectionPrefs = readSectionPrefs(collapsedMap[docKey]);
     webview.postMessage({
       type: 'sidebarState',
       pref,
       width,
       position,
-      collapsedSections,
-      hasUserCollapsePreference,
+      sectionPrefs,
     });
   }
 
@@ -1626,6 +1625,29 @@ interface WebviewMessage {
   percent?: number;
 }
 
+
+/**
+ * Coerce the per-doc entry from `mikedown.sidebar.collapsedSections` into the
+ * current `Record<string, boolean>` shape. The pre-2.5.x format was a
+ * `string[]` of collapsed section names — those are treated as user-touched
+ * collapses; sections not listed remain "untouched" so the webview's per-
+ * section auto-collapse rule applies.
+ */
+function readSectionPrefs(raw: unknown): Record<string, boolean> {
+  if (Array.isArray(raw)) {
+    const out: Record<string, boolean> = {};
+    for (const name of raw) if (typeof name === 'string') out[name] = true;
+    return out;
+  }
+  if (raw && typeof raw === 'object') {
+    const out: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (typeof v === 'boolean') out[k] = v;
+    }
+    return out;
+  }
+  return {};
+}
 
 /**
  * M6c — Generate a GitHub-style anchor ID from a heading's text content.

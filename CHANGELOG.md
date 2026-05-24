@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.5.1] - 2026-05-24
+
+### Fixed
+
+- **Sidebar auto-collapse on empty Properties.** Opening a document with no frontmatter now correctly initializes the Properties section as collapsed (matching the Backlinks behavior). Previously, a message-order race between `update` and `sidebarState` caused Properties to render expanded with the "+ Add property" affordance visible even on docs with no saved collapse preference. The auto-collapse rule is also now genuinely per-section — toggling Outline no longer silences the empty-state auto-collapse for Properties or Backlinks.
+
 ## [2.5.0] - 2026-05-24
 
 ### Added
