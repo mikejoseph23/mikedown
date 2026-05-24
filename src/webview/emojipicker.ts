@@ -20,6 +20,7 @@ const MAX_RECENTS = 16;
 
 interface Category {
   label: string;
+  icon: string;
   codes: string[];
 }
 
@@ -29,6 +30,7 @@ interface Category {
 const CATEGORIES: Category[] = [
   {
     label: 'Smileys',
+    icon: '😀',
     codes: [
       'grinning', 'smiley', 'smile', 'grin', 'laughing', 'sweat_smile',
       'rofl', 'joy', 'slightly_smiling_face', 'upside_down_face',
@@ -47,6 +49,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: 'People',
+    icon: '👋',
     codes: [
       'wave', 'raised_back_of_hand', 'raised_hand', 'vulcan_salute',
       'ok_hand', 'pinching_hand', 'v', 'crossed_fingers', 'love_you_gesture',
@@ -59,6 +62,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: 'Animals & Nature',
+    icon: '🐶',
     codes: [
       'dog', 'cat', 'mouse', 'hamster', 'rabbit', 'fox_face', 'bear',
       'panda_face', 'koala', 'tiger', 'lion', 'cow', 'pig', 'pig_nose',
@@ -75,6 +79,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: 'Food & Drink',
+    icon: '🍎',
     codes: [
       'green_apple', 'apple', 'pear', 'tangerine', 'lemon', 'banana',
       'watermelon', 'grapes', 'strawberry', 'melon', 'cherries', 'peach',
@@ -91,6 +96,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: 'Activity',
+    icon: '⚽',
     codes: [
       'soccer', 'basketball', 'football', 'baseball', 'tennis', 'volleyball',
       'rugby_football', '8ball', 'ping_pong', 'badminton', 'hockey',
@@ -104,6 +110,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: 'Travel & Places',
+    icon: '🚗',
     codes: [
       'car', 'taxi', 'blue_car', 'bus', 'trolleybus', 'racing_car',
       'police_car', 'ambulance', 'fire_engine', 'minibus', 'truck',
@@ -120,6 +127,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: 'Objects',
+    icon: '💡',
     codes: [
       'computer', 'desktop_computer', 'printer', 'keyboard', 'computer_mouse',
       'iphone', 'calling', 'phone', 'pager', 'fax', 'tv', 'camera',
@@ -136,6 +144,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: 'Symbols',
+    icon: '❤️',
     codes: [
       'heart', 'orange_heart', 'yellow_heart', 'green_heart', 'blue_heart',
       'purple_heart', 'black_heart', 'broken_heart', 'two_hearts',
@@ -246,12 +255,19 @@ export function showEmojiPicker(editor: Editor, opts: ShowOptions = {}): void {
   searchWrap.appendChild(input);
   pickerEl.appendChild(searchWrap);
 
+  const tabsEl = document.createElement('div');
+  tabsEl.className = 'emoji-picker-tabs';
+  tabsEl.setAttribute('role', 'tablist');
+  pickerEl.appendChild(tabsEl);
+
   const grid = document.createElement('div');
   grid.className = 'emoji-picker-grid';
   pickerEl.appendChild(grid);
 
   let cells: HTMLButtonElement[] = [];
   let activeIndex = 0;
+  // -1 == Recent tab, 0..n == CATEGORIES[i]
+  let activeTab = loadRecents().length > 0 ? -1 : 0;
 
   const setActive = (i: number): void => {
     if (cells.length === 0) return;
@@ -294,19 +310,54 @@ export function showEmojiPicker(editor: Editor, opts: ShowOptions = {}): void {
     grid.appendChild(row);
   };
 
+  const renderTabs = (): void => {
+    tabsEl.innerHTML = '';
+    const recents = loadRecents();
+    const makeTab = (idx: number, icon: string, label: string, disabled = false): void => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'emoji-picker-tab';
+      btn.title = label;
+      btn.setAttribute('aria-label', label);
+      btn.setAttribute('role', 'tab');
+      btn.textContent = icon;
+      if (idx === activeTab) btn.classList.add('emoji-picker-tab-active');
+      if (disabled) {
+        btn.disabled = true;
+        btn.classList.add('emoji-picker-tab-disabled');
+      } else {
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          activeTab = idx;
+          render(input.value);
+          input.focus();
+        });
+      }
+      tabsEl.appendChild(btn);
+    };
+    makeTab(-1, '🕒', 'Recent', recents.length === 0);
+    CATEGORIES.forEach((cat, i) => makeTab(i, cat.icon, cat.label));
+  };
+
   const render = (filter: string): void => {
     grid.innerHTML = '';
     cells = [];
     const q = filter.trim().toLowerCase();
 
     if (!q) {
-      const recents = loadRecents();
-      if (recents.length > 0) appendSection('Recent', recents);
-      for (const cat of CATEGORIES) {
+      tabsEl.style.display = '';
+      // Auto-skip the Recent tab if it's empty.
+      if (activeTab === -1 && loadRecents().length === 0) activeTab = 0;
+      renderTabs();
+      if (activeTab === -1) {
+        appendSection('Recent', loadRecents());
+      } else {
+        const cat = CATEGORIES[activeTab] ?? CATEGORIES[0];
         const filtered = cat.codes.filter((c) => c in EMOJI_MAP);
         appendSection(cat.label, filtered);
       }
     } else {
+      tabsEl.style.display = 'none';
       const matches: string[] = [];
       const starts: string[] = [];
       const contains: string[] = [];

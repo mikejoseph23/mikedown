@@ -85,6 +85,48 @@
   border-color: var(--vscode-focusBorder, #007fd4);
 }
 
+.emoji-picker-tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: 1px;
+  padding: 4px 6px 0;
+  border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.18));
+}
+
+.emoji-picker-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 3px 3px 0 0;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  color: inherit;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+  outline: none;
+  opacity: 0.7;
+}
+
+.emoji-picker-tab:hover:not(.emoji-picker-tab-disabled) {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.15));
+  opacity: 1;
+}
+
+.emoji-picker-tab-active {
+  opacity: 1;
+  border-bottom-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.emoji-picker-tab-disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .emoji-picker-grid {
   flex: 1;
   overflow-y: auto;
