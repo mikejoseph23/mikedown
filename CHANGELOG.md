@@ -6,12 +6,21 @@ All notable changes to MikeDown Editor are documented here.
 
 ### Added
 
-- **Settings modal tabs.** The in-editor Settings modal (toolbar gear) is now organized into vertical tabs — **Appearance** (font size, font theme, content width), **Images** (paste + resize), **Editor** (outline) — instead of one long scrolling list. Active tab is remembered for the session
-- **Outline sidebar position setting.** New `mikedown.outline.position` (`left` | `right`, default `right`) chooses which side of the editor the in-editor outline sidebar anchors to. Available in the editor's Settings modal (Editor tab → Outline position) and applies live without reloading the document. The resize handle moves to the inner edge so dragging "inward" still shrinks the sidebar
+- **Settings modal: five tabs.** The in-editor Settings modal (toolbar gear) is now organized into vertical tabs — **Appearance** (font, content width, sidebar defaults), **Behavior** (default editor, link click behavior, auto-reload, theme toggle scope), **Markdown** (normalization + bold/italic/list/heading marker styles), **Images** (paste + resize), **About** (version, license, GitHub / changelog / issue links) — instead of one long scrolling list. Active tab is remembered for the session.
+- **Sidebar pin button.** A pin icon in the sidebar header toggles "pinned open" vs "start hidden." Pinned state shows a filled blue pill background; unpinned shows an outlined/tilted icon. Clicking the pin persists the new default to `mikedown.sidebar.visibility` so newly-opened documents inherit it.
+- **Sidebar position toggle in the header.** A small arrow button next to the pin flips the sidebar to the opposite side instantly (per-document; the Settings tab still controls the default for new documents).
+- **Sidebar discovery toggle now uses a layout icon.** The collapsed-state toggle in the corner renders as a sidebar-pane SVG (with the active side filled) instead of a hamburger glyph.
+- **Sidebar footer is now two lines.** Top line: `Modified … ago`. Bottom line: `N words · N chars · N min read`. Footer text is more legible in light mode.
+- **"Apply to open documents" button.** In Settings → Appearance, a subtle button next to the sidebar defaults pushes the saved defaults onto every open MikeDown panel on demand — without reloading them.
+- **Selection word/char count in the status bar.** When you select text, a status-bar item shows `N words · N chars selected` alongside the document totals.
 
 ### Changed
 
-- **Outline sidebar now defaults to the right side.** Existing installs with no explicit `mikedown.outline.position` saved will see the sidebar move to the right on next open — set it back to `left` in the Settings modal if you prefer the previous position
+- **Status bar stats are always-on again for markdown documents.** Word count, character count, and reading-time items are shown whenever a markdown doc is the active editor (custom or plain text), and follow focus across MikeDown tabs. Earlier in 2.4 development they were briefly removed in favor of the sidebar footer alone, but the sidebar is now per-instance and can be hidden, so the status bar is back as the always-visible fallback.
+- **Sidebar state is now per-instance.** Position and width changes made via the sidebar header / resize handle stay local to that document instead of broadcasting to every open MikeDown tab. Persisted settings act as seeds for newly-opened documents.
+- **Sidebar visibility went binary.** `mikedown.sidebar.visibility` now accepts `always` | `never` only — the `remember` (per-document last-known) mode and its globalState map were removed because they produced confusing cross-document behavior. Existing user configs storing `remember` are auto-migrated to `never` on first launch.
+- **Outline sidebar now defaults to the right side.** Existing installs with no explicit `mikedown.sidebar.position` saved will see the sidebar move to the right on next open — set it back to `left` in the Settings modal if you prefer the previous position.
+- **Settings renamed: `mikedown.outline.*` → `mikedown.sidebar.*`.** The sidebar hosts more than the outline now (Properties, Backlinks, footer), so the keys were renamed to match. Existing values (`mikedown.outline.visibility`, `.width`, `.position`) are auto-migrated to the new keys on first launch — no action needed.
 
 ## [2.3.3] - 2026-05-23
 

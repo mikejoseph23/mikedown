@@ -22,6 +22,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 ## Polish
 
 - Word count / reading time in status bar — _scaffolding exists in `src/statusBar.ts` but isn't wired to the webview yet._ ✅ Shipped in 1.8.0.
+- **Buy Me A Coffee link in Settings → About tab.** Needs a final BMAC URL. The About panel in `src/webview/editor-main.ts#buildAboutPanel` already has GitHub / changelog / issue links — add a BMAC link there once the URL exists.
 
 ## Recently shipped
 

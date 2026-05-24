@@ -12,7 +12,7 @@
  * Webview → Extension messages:
  *   { type: 'ready' }                    — webview is ready to receive content
  *   { type: 'edit', content: string }    — new full markdown text after user edit
- *   { type: 'stats', plainText: string } — plain text for word/char count (M14 hook)
+ *   { type: 'stats', selection: { words, chars } | null } — selection stats for status bar (null = no selection)
  *   { type: 'toggleSource' }             — request to toggle source mode (M4 hook)
  */
 
@@ -49,6 +49,7 @@ import {
   applyPlainText,
 } from './outlineSidebar';
 import { parseFrontmatter } from './frontmatterParse';
+import { countWords } from '../wordCount';
 import {
   FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
   replaceCurrentMatch, replaceAllMatches,
@@ -142,6 +143,27 @@ let cmView: EditorView | null = null;
  * an 'edit' message (which would dirty the document on mode toggle).
  */
 let cmLoading = false;
+
+/**
+ * Post the latest stats to the host status bar. Either or both fields may be
+ * present:
+ *   document — full plaintext for word/char/read-time
+ *   selection — selected text; `null` (or empty string) hides the selection item
+ */
+function postStats(opts: { document?: string; selection?: string | null }): void {
+  const payload: { type: 'stats'; document?: string; selection?: { words: number; chars: number } | null } = {
+    type: 'stats',
+  };
+  if (typeof opts.document === 'string') payload.document = opts.document;
+  if (opts.selection !== undefined) {
+    if (opts.selection === null || opts.selection === '') {
+      payload.selection = null;
+    } else {
+      payload.selection = { words: countWords(opts.selection), chars: opts.selection.length };
+    }
+  }
+  vscode.postMessage(payload);
+}
 
 // ── Undo / redo routing ───────────────────────────────────────────────────────
 //
@@ -521,8 +543,63 @@ function showImageInsertDialog(editor: Editor): void {
 
 // ── Settings Modal ──────────────────────────────────────────────────────────────
 
-type SettingsTabId = 'appearance' | 'images' | 'editor';
+type SettingsTabId = 'appearance' | 'behavior' | 'markdown' | 'images' | 'about';
 let lastSettingsTab: SettingsTabId = 'appearance';
+
+/**
+ * Build the About settings tab. Static metadata + a few outbound links; opens
+ * external URLs via the host's existing 'openLink' message so VS Code handles
+ * them in the user's default browser.
+ */
+function buildAboutPanel(): HTMLDivElement {
+  const panel = document.createElement('div');
+  panel.setAttribute('role', 'tabpanel');
+  panel.style.cssText = 'display:flex;flex-direction:column;gap:16px;align-items:flex-start';
+
+  const titleRow = document.createElement('div');
+  titleRow.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+  const name = document.createElement('div');
+  name.textContent = 'MikeDown';
+  name.style.cssText = 'font-size:18px;font-weight:600;color:var(--vscode-editor-foreground)';
+  const tagline = document.createElement('div');
+  tagline.textContent = 'A WYSIWYG markdown editor for VS Code.';
+  tagline.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground)';
+  titleRow.append(name, tagline);
+
+  const meta = document.createElement('div');
+  meta.style.cssText = 'font-size:13px;color:var(--vscode-editor-foreground);display:flex;flex-direction:column;gap:4px';
+  const versionLine = document.createElement('div');
+  versionLine.textContent = currentExtensionVersion ? `Version ${currentExtensionVersion}` : 'Version —';
+  const licenseLine = document.createElement('div');
+  licenseLine.textContent = 'License: MIT';
+  meta.append(versionLine, licenseLine);
+
+  const linksRow = document.createElement('div');
+  linksRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:4px';
+
+  function makeLink(label: string, href: string): HTMLAnchorElement {
+    const a = document.createElement('a');
+    a.href = href;
+    a.textContent = label;
+    a.style.cssText = 'color:var(--vscode-textLink-foreground,#3794ff);text-decoration:none;font-size:13px';
+    a.addEventListener('mouseenter', () => { a.style.textDecoration = 'underline'; });
+    a.addEventListener('mouseleave', () => { a.style.textDecoration = 'none'; });
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      vscode.postMessage({ type: 'openLink', href, behavior: 'openNewTab' });
+    });
+    return a;
+  }
+
+  linksRow.append(
+    makeLink('GitHub repository →', 'https://github.com/mikejoseph23/mikedown'),
+    makeLink('Changelog →', 'https://github.com/mikejoseph23/mikedown/blob/main/CHANGELOG.md'),
+    makeLink('Report an issue →', 'https://github.com/mikejoseph23/mikedown/issues'),
+  );
+
+  panel.append(titleRow, meta, linksRow);
+  return panel;
+}
 
 function showSettingsModal(): void {
   // Remove existing modal if open
@@ -976,45 +1053,197 @@ function showSettingsModal(): void {
     document.documentElement.style.setProperty('--mikedown-content-width', widthSelect.value);
   });
 
-  // ── Document Outline
-  const outlineRow = makeRow('Document Outline', 'When the in-editor outline sidebar is visible. Drag the inner edge of the sidebar to resize it.');
-  const outlineSelect = document.createElement('select');
-  outlineSelect.style.cssText = inputStyle + ';cursor:pointer';
-  const outlineOptions: Array<{ value: 'always' | 'never' | 'remember'; label: string }> = [
-    { value: 'remember', label: 'Remember per document' },
-    { value: 'always', label: 'Always show' },
-    { value: 'never', label: 'Always hide' },
-  ];
-  outlineOptions.forEach(opt => {
-    const option = document.createElement('option');
-    option.value = opt.value;
-    option.textContent = opt.label;
-    if (currentOutlineVisibilityPref === opt.value) option.selected = true;
-    outlineSelect.appendChild(option);
-  });
-  outlineRow.appendChild(outlineSelect);
+  // ── Helper to build a labeled <select> populated from a list of options.
+  // Returns the row element and the select element so callers can read its
+  // value on save and wire change listeners.
+  function makeSelectRow<T extends string>(
+    label: string,
+    description: string,
+    current: T,
+    options: Array<{ value: T; label: string }>,
+  ): { row: HTMLElement; select: HTMLSelectElement } {
+    const row = makeRow(label, description);
+    const select = document.createElement('select');
+    select.style.cssText = inputStyle + ';cursor:pointer';
+    for (const opt of options) {
+      const o = document.createElement('option');
+      o.value = opt.value;
+      o.textContent = opt.label;
+      if (current === opt.value) o.selected = true;
+      select.appendChild(o);
+    }
+    row.appendChild(select);
+    return { row, select };
+  }
 
-  // ── Outline Position
-  const outlinePositionRow = makeRow('Outline position', 'Which side of the editor the outline sidebar renders on.');
-  const outlinePositionSelect = document.createElement('select');
-  outlinePositionSelect.style.cssText = inputStyle + ';cursor:pointer';
-  const outlinePositionOptions: Array<{ value: 'left' | 'right'; label: string }> = [
-    { value: 'right', label: 'Right' },
-    { value: 'left', label: 'Left' },
-  ];
-  outlinePositionOptions.forEach(opt => {
-    const option = document.createElement('option');
-    option.value = opt.value;
-    option.textContent = opt.label;
-    if (currentOutlinePositionPref === opt.value) option.selected = true;
-    outlinePositionSelect.appendChild(option);
+  function makeCheckboxRow(label: string, description: string, current: boolean): { row: HTMLElement; input: HTMLInputElement } {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:flex-start;gap:10px';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = current;
+    input.style.cssText = 'margin-top:3px;flex-shrink:0';
+    const labelWrap = document.createElement('label');
+    labelWrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;cursor:pointer;flex:1';
+    const lbl = document.createElement('span');
+    lbl.style.cssText = 'font-size:14px;font-weight:500;color:var(--vscode-editor-foreground)';
+    lbl.textContent = label;
+    const desc = document.createElement('span');
+    desc.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.4';
+    desc.textContent = description;
+    labelWrap.append(lbl, desc);
+    labelWrap.addEventListener('click', (e) => {
+      // Native label-for would be cleaner but we'd need unique ids; cheaper to
+      // forward clicks manually (and we still want the entire row clickable).
+      if (e.target !== input) {
+        e.preventDefault();
+        input.checked = !input.checked;
+        input.dispatchEvent(new Event('change'));
+      }
+    });
+    row.append(input, labelWrap);
+    return { row, input };
+  }
+
+  // ── Behavior tab fields
+  const defaultEditorField = makeCheckboxRow(
+    'Use MikeDown as default markdown editor',
+    'When on, opening a .md file uses MikeDown instead of the plain text editor.',
+    currentDefaultEditor,
+  );
+  const autoReloadField = makeCheckboxRow(
+    'Auto-reload unmodified files',
+    'When the file changes on disk and you have no unsaved edits, reload silently instead of showing a conflict prompt.',
+    currentAutoReloadUnmodifiedFiles,
+  );
+  const linkClickField = makeSelectRow<'navigateCurrentTab' | 'openNewTab' | 'showContextMenu'>(
+    'Link click behavior',
+    'What happens when you Cmd/Ctrl+click a link in the editor.',
+    currentLinkClickBehavior,
+    [
+      { value: 'openNewTab', label: 'Open in new tab' },
+      { value: 'navigateCurrentTab', label: 'Navigate in current tab' },
+      { value: 'showContextMenu', label: 'Show context menu' },
+    ],
+  );
+  const themeScopeField = makeSelectRow<'vscode' | 'editorOnly'>(
+    'Theme toggle scope',
+    'Whether the editor theme button flips just MikeDown’s editor, or all of VS Code.',
+    themeToggleScope,
+    [
+      { value: 'editorOnly', label: 'Editor only (recommended)' },
+      { value: 'vscode', label: 'Whole VS Code window' },
+    ],
+  );
+
+  // ── Markdown tab fields
+  const normalizationField = makeSelectRow<'preserve' | 'normalize'>(
+    'Markdown normalization',
+    'Preserve keeps the source markdown verbatim where possible. Normalize rewrites markers to the styles below on save.',
+    currentMarkdownNormalization,
+    [
+      { value: 'preserve', label: 'Preserve original (recommended)' },
+      { value: 'normalize', label: 'Normalize to chosen style' },
+    ],
+  );
+  const boldMarkerField = makeSelectRow<'**' | '__'>(
+    'Bold marker',
+    'Character pair used to wrap bold text when normalizing.',
+    currentNormalizationStyle.boldMarker,
+    [
+      { value: '**', label: '** (double asterisks)' },
+      { value: '__', label: '__ (double underscores)' },
+    ],
+  );
+  const italicMarkerField = makeSelectRow<'*' | '_'>(
+    'Italic marker',
+    'Character used to wrap italic text when normalizing.',
+    currentNormalizationStyle.italicMarker,
+    [
+      { value: '*', label: '* (asterisk)' },
+      { value: '_', label: '_ (underscore)' },
+    ],
+  );
+  const listMarkerField = makeSelectRow<'-' | '*' | '+'>(
+    'List bullet marker',
+    'Character used for unordered list bullets when normalizing.',
+    currentNormalizationStyle.listMarker,
+    [
+      { value: '-', label: '- (hyphen)' },
+      { value: '*', label: '* (asterisk)' },
+      { value: '+', label: '+ (plus)' },
+    ],
+  );
+  const headingStyleField = makeSelectRow<'atx' | 'setext'>(
+    'Heading style',
+    'ATX uses # prefixes (always). Setext underlines H1/H2 with === / ---.',
+    currentNormalizationStyle.headingStyle,
+    [
+      { value: 'atx', label: 'ATX (# Heading)' },
+      { value: 'setext', label: 'Setext (underlined H1/H2)' },
+    ],
+  );
+
+  // ── Sidebar defaults (Appearance tab) ───────────────────────────────────
+  // These are *defaults for newly-opened documents*. The pin / position /
+  // resize controls in each open sidebar are per-instance session state and
+  // intentionally don't write back here. The "Apply to open documents" button
+  // below pushes these defaults onto every open panel on demand.
+  const sidebarVisibilityField = makeSelectRow<'always' | 'never'>(
+    'Default sidebar visibility',
+    'Whether the sidebar starts pinned open or hidden when a document is first opened.',
+    currentSidebarVisibilityDefault,
+    [
+      { value: 'never', label: 'Start hidden' },
+      { value: 'always', label: 'Pinned open' },
+    ],
+  );
+  const sidebarPositionField = makeSelectRow<'left' | 'right'>(
+    'Default sidebar side',
+    'Which side of the editor the sidebar appears on when a document is first opened.',
+    currentSidebarPositionDefault,
+    [
+      { value: 'right', label: 'Right' },
+      { value: 'left', label: 'Left' },
+    ],
+  );
+
+  const sidebarWidthRow = makeRow(
+    'Default sidebar width',
+    'Width in pixels (160–360) for newly-opened sidebars. Drag the resize handle in an open sidebar to adjust just that instance.',
+  );
+  const sidebarWidthInput = document.createElement('input');
+  sidebarWidthInput.type = 'number';
+  sidebarWidthInput.min = '160';
+  sidebarWidthInput.max = '360';
+  sidebarWidthInput.step = '10';
+  sidebarWidthInput.value = String(currentSidebarWidthDefault);
+  sidebarWidthInput.style.cssText = inputStyle;
+  sidebarWidthRow.appendChild(sidebarWidthInput);
+
+  // Note + Apply button — wires together below the sidebar default rows.
+  const sidebarApplyRow = document.createElement('div');
+  sidebarApplyRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:11.5px;color:var(--vscode-descriptionForeground);line-height:1.4;padding:4px 0';
+  const sidebarApplyNote = document.createElement('span');
+  sidebarApplyNote.textContent = 'Applies to documents opened after saving. Open documents keep their current sidebar state.';
+  sidebarApplyNote.style.cssText = 'flex:1';
+  const sidebarApplyBtn = document.createElement('button');
+  sidebarApplyBtn.type = 'button';
+  sidebarApplyBtn.textContent = 'Apply to open documents';
+  sidebarApplyBtn.style.cssText = 'background:transparent;border:1px solid var(--vscode-button-border,var(--vscode-input-border,rgba(128,128,128,0.4)));color:var(--vscode-foreground);padding:4px 10px;border-radius:3px;font-size:11.5px;cursor:pointer;font-family:inherit;flex-shrink:0';
+  sidebarApplyBtn.title = 'Reset every open sidebar to the saved defaults above.';
+  sidebarApplyBtn.addEventListener('mouseenter', () => {
+    sidebarApplyBtn.style.background = 'var(--vscode-button-hoverBackground,rgba(255,255,255,0.05))';
   });
-  outlinePositionRow.appendChild(outlinePositionSelect);
-  outlinePositionSelect.addEventListener('change', () => {
-    const value = outlinePositionSelect.value as 'left' | 'right';
-    currentOutlinePositionPref = value;
-    applyOutlineState({ position: value });
+  sidebarApplyBtn.addEventListener('mouseleave', () => {
+    sidebarApplyBtn.style.background = 'transparent';
   });
+  sidebarApplyBtn.addEventListener('click', () => {
+    vscode.postMessage({ type: 'sidebarApplyDefaults' });
+    sidebarApplyBtn.textContent = 'Applied ✓';
+    setTimeout(() => { sidebarApplyBtn.textContent = 'Apply to open documents'; }, 1400);
+  });
+  sidebarApplyRow.append(sidebarApplyNote, sidebarApplyBtn);
 
   // ── Save button + note
   const footer = document.createElement('div');
@@ -1036,7 +1265,13 @@ function showSettingsModal(): void {
     'flex-shrink:0',
   ].join(';');
   saveBtn.addEventListener('click', () => {
-    // Send settings to extension host to persist in VS Code config
+    const normalizationStyle: NormalizationStyleSettings = {
+      boldMarker: boldMarkerField.select.value as '**' | '__',
+      italicMarker: italicMarkerField.select.value as '*' | '_',
+      listMarker: listMarkerField.select.value as '-' | '*' | '+',
+      headingStyle: headingStyleField.select.value as 'atx' | 'setext',
+    };
+    const parsedSidebarWidth = Math.max(160, Math.min(360, Math.round(parseFloat(sidebarWidthInput.value) || 200)));
     vscode.postMessage({
       type: 'saveSettings',
       settings: {
@@ -1046,16 +1281,32 @@ function showSettingsModal(): void {
         contentWidth: widthSelect.value,
         imagePaste: ipState,
         imageResize: irState,
-        outlineVisibility: outlineSelect.value as 'always' | 'never' | 'remember',
-        outlinePosition: outlinePositionSelect.value as 'left' | 'right',
+        // Behavior
+        defaultEditor: defaultEditorField.input.checked,
+        autoReloadUnmodifiedFiles: autoReloadField.input.checked,
+        linkClickBehavior: linkClickField.select.value,
+        themeToggleScope: themeScopeField.select.value,
+        // Markdown
+        markdownNormalization: normalizationField.select.value,
+        normalizationStyle,
+        // Sidebar defaults (seed values for newly-opened documents)
+        sidebarVisibility: sidebarVisibilityField.select.value,
+        sidebarPosition: sidebarPositionField.select.value,
+        sidebarWidth: parsedSidebarWidth,
       }
     });
-    currentOutlineVisibilityPref = outlineSelect.value as 'always' | 'never' | 'remember';
-    currentOutlinePositionPref = outlinePositionSelect.value as 'left' | 'right';
-    // Persist locally so subsequent pastes use the new values without
-    // round-tripping the broadcast.
+    // Mirror into local state so subsequent reads don't wait on the broadcast.
     currentImagePasteSettings = { ...ipState };
     currentImageResizeSettings = { ...irState };
+    currentDefaultEditor = defaultEditorField.input.checked;
+    currentAutoReloadUnmodifiedFiles = autoReloadField.input.checked;
+    currentLinkClickBehavior = linkClickField.select.value as typeof currentLinkClickBehavior;
+    themeToggleScope = themeScopeField.select.value as typeof themeToggleScope;
+    currentMarkdownNormalization = normalizationField.select.value as typeof currentMarkdownNormalization;
+    currentNormalizationStyle = normalizationStyle;
+    currentSidebarVisibilityDefault = sidebarVisibilityField.select.value as typeof currentSidebarVisibilityDefault;
+    currentSidebarPositionDefault = sidebarPositionField.select.value as typeof currentSidebarPositionDefault;
+    currentSidebarWidthDefault = parsedSidebarWidth;
     overlay.remove();
   });
   footer.appendChild(note);
@@ -1081,22 +1332,48 @@ function showSettingsModal(): void {
   }
 
   const appearancePanel = makePanel();
-  appearancePanel.append(fontSizeRow, fontThemeRow, widthRow);
+  appearancePanel.append(
+    fontSizeRow,
+    fontThemeRow,
+    widthRow,
+    sidebarVisibilityField.row,
+    sidebarPositionField.row,
+    sidebarWidthRow,
+    sidebarApplyRow,
+  );
+  const behaviorPanel = makePanel();
+  behaviorPanel.append(
+    defaultEditorField.row,
+    autoReloadField.row,
+    linkClickField.row,
+    themeScopeField.row,
+  );
+  const markdownPanel = makePanel();
+  markdownPanel.append(
+    normalizationField.row,
+    boldMarkerField.row,
+    italicMarkerField.row,
+    listMarkerField.row,
+    headingStyleField.row,
+  );
   const imagesPanel = makePanel();
   imagesPanel.append(ipSectionRow, irSectionRow);
-  const editorPanel = makePanel();
-  editorPanel.append(outlineRow, outlinePositionRow);
+  const aboutPanel = buildAboutPanel();
 
   const panels: Record<SettingsTabId, HTMLElement> = {
     appearance: appearancePanel,
+    behavior: behaviorPanel,
+    markdown: markdownPanel,
     images: imagesPanel,
-    editor: editorPanel,
+    about: aboutPanel,
   };
 
   const tabDefs: Array<{ id: SettingsTabId; label: string }> = [
     { id: 'appearance', label: 'Appearance' },
+    { id: 'behavior', label: 'Behavior' },
+    { id: 'markdown', label: 'Markdown' },
     { id: 'images', label: 'Images' },
-    { id: 'editor', label: 'Editor' },
+    { id: 'about', label: 'About' },
   ];
 
   const tabButtons: HTMLButtonElement[] = [];
@@ -1156,7 +1433,7 @@ function showSettingsModal(): void {
     nav.appendChild(btn);
   });
 
-  content.append(appearancePanel, imagesPanel, editorPanel);
+  content.append(appearancePanel, behaviorPanel, markdownPanel, imagesPanel, aboutPanel);
   body.append(nav, content);
 
   setActiveTab(activeTab);
@@ -1201,8 +1478,33 @@ let currentImagePasteSettings: ImagePasteSettings = {
   cleanupUnreferenced: true,
 };
 
-let currentOutlineVisibilityPref: 'always' | 'never' | 'remember' = 'never';
-let currentOutlinePositionPref: 'left' | 'right' = 'right';
+// Sidebar defaults (persisted, seed-only for newly-opened documents).
+// Updated from the 'sidebarState' broadcast and editable in Settings →
+// Appearance. The currently-displayed sidebar's pin/position/width is
+// per-instance session state inside outlineSidebar.ts and intentionally
+// disconnected from these values.
+let currentSidebarVisibilityDefault: 'always' | 'never' = 'never';
+let currentSidebarPositionDefault: 'left' | 'right' = 'right';
+let currentSidebarWidthDefault = 200;
+
+// Behavior + Markdown tab state (seeded from the host's 'settings' broadcast).
+let currentLinkClickBehavior: 'navigateCurrentTab' | 'openNewTab' | 'showContextMenu' = 'openNewTab';
+let currentExtensionVersion = '';
+let currentDefaultEditor = false;
+let currentAutoReloadUnmodifiedFiles = true;
+let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
+interface NormalizationStyleSettings {
+  boldMarker: '**' | '__';
+  italicMarker: '*' | '_';
+  listMarker: '-' | '*' | '+';
+  headingStyle: 'atx' | 'setext';
+}
+let currentNormalizationStyle: NormalizationStyleSettings = {
+  boldMarker: '**',
+  italicMarker: '*',
+  listMarker: '-',
+  headingStyle: 'atx',
+};
 
 interface ImageResizeSettings {
   overwrite: boolean;
@@ -2330,13 +2632,11 @@ if (!editorContainer) {
 
       vscode.postMessage({ type: 'edit', content: contentToSend, pristine: isPristine });
 
-      // M2d — Send plain text to status bar (M14 hook: word/character count).
-      const plainText = updatedEditor.getText();
-      vscode.postMessage({ type: 'stats', plainText });
-
-      // 2.3.0 — Mirror plain text into the sidebar footer so its word count
+      // Mirror plain text into the sidebar footer + status bar so word count
       // and reading time update live without an extra round-trip.
+      const plainText = updatedEditor.getText();
       applyPlainText(plainText);
+      postStats({ document: plainText });
     },
   });
 
@@ -2406,6 +2706,9 @@ if (!editorContainer) {
   // M5b — Wire table toolbar to selection updates
   editor.on('selectionUpdate', () => {
     updateTableToolbar(editor);
+    if (sourceMode) return; // CM listener handles selection in source mode.
+    const { from, to } = editor.state.selection;
+    postStats({ selection: from === to ? null : editor.state.doc.textBetween(from, to, '\n') });
   });
   editor.on('blur', () => {
     // Delay hiding to allow toolbar button clicks to register
@@ -3260,14 +3563,20 @@ if (!editorContainer) {
         buildCmTheme(),
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
-          if (!update.docChanged) return;
-          if (cmLoading) return;
-          const md = update.state.doc.toString();
-          const isPristine = md === originalContent;
-          const newDirty = !isPristine;
-          if (newDirty !== isDirty) isDirty = newDirty;
-          vscode.postMessage({ type: 'edit', content: md, pristine: isPristine });
-          vscode.postMessage({ type: 'stats', plainText: md });
+          if (update.docChanged && !cmLoading) {
+            const md = update.state.doc.toString();
+            const isPristine = md === originalContent;
+            const newDirty = !isPristine;
+            if (newDirty !== isDirty) isDirty = newDirty;
+            vscode.postMessage({ type: 'edit', content: md, pristine: isPristine });
+            // Source mode is markdown text directly — fine to send as document
+            // stats. ATX symbols/etc. get stripped by countWords on the host.
+            postStats({ document: md });
+          }
+          if (update.selectionSet || update.docChanged) {
+            const sel = update.state.selection.main;
+            postStats({ selection: sel.empty ? null : update.state.sliceDoc(sel.from, sel.to) });
+          }
         }),
       ],
     });
@@ -3549,12 +3858,28 @@ if (!editorContainer) {
       const msg = message as any;
       if (msg.linkClickBehavior) {
         linkClickBehavior = msg.linkClickBehavior;
+        currentLinkClickBehavior = msg.linkClickBehavior;
       }
       if (msg.themeToggleScope) {
         themeToggleScope = msg.themeToggleScope;
       }
       if (msg.editorTheme) {
         applyEditorTheme(msg.editorTheme);
+      }
+      if (typeof msg.extensionVersion === 'string') {
+        currentExtensionVersion = msg.extensionVersion;
+      }
+      if (typeof msg.defaultEditor === 'boolean') {
+        currentDefaultEditor = msg.defaultEditor;
+      }
+      if (typeof msg.autoReloadUnmodifiedFiles === 'boolean') {
+        currentAutoReloadUnmodifiedFiles = msg.autoReloadUnmodifiedFiles;
+      }
+      if (msg.markdownNormalization === 'preserve' || msg.markdownNormalization === 'normalize') {
+        currentMarkdownNormalization = msg.markdownNormalization;
+      }
+      if (msg.normalizationStyle && typeof msg.normalizationStyle === 'object') {
+        currentNormalizationStyle = { ...currentNormalizationStyle, ...msg.normalizationStyle };
       }
       if (msg.imagePaste && typeof msg.imagePaste === 'object') {
         currentImagePasteSettings = { ...currentImagePasteSettings, ...msg.imagePaste };
@@ -3693,12 +4018,11 @@ if (!editorContainer) {
         scanAndCheckLinks();
       }, 500);
 
-      // M2d — Send initial stats to status bar (M14 hook).
-      const plainText = editor.getText();
-      vscode.postMessage({ type: 'stats', plainText });
-
-      // 2.3.0 — Seed the sidebar footer with the initial word count.
-      applyPlainText(plainText);
+      // Seed the sidebar footer + status bar with the initial document text.
+      // No selection on first load.
+      const initialText = editor.getText();
+      applyPlainText(initialText);
+      postStats({ document: initialText, selection: null });
     }
 
     // M11 — Export: get rendered HTML from the editor DOM and send to extension host.
@@ -3784,16 +4108,16 @@ if (!editorContainer) {
       receiveFileHeadings((message as any).anchors);
     }
 
-    // Outline sidebar — extension push of width/pref/position/per-doc state
-    if (message.type === 'outlineState') {
+    // Sidebar — extension push of width/pref/position/per-doc state
+    if (message.type === 'sidebarState') {
       const m = message as any;
-      if (m.pref) currentOutlineVisibilityPref = m.pref;
-      if (m.position === 'left' || m.position === 'right') currentOutlinePositionPref = m.position;
+      if (m.pref === 'always' || m.pref === 'never') currentSidebarVisibilityDefault = m.pref;
+      if (m.position === 'left' || m.position === 'right') currentSidebarPositionDefault = m.position;
+      if (typeof m.width === 'number') currentSidebarWidthDefault = m.width;
       applyOutlineState({
         pref: m.pref,
         width: m.width,
         position: m.position,
-        rememberedVisible: m.rememberedVisible,
         collapsedSections: m.collapsedSections,
       });
     }

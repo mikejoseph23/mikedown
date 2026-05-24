@@ -202,29 +202,27 @@
           "default": false,
           "description": "Whether MikeDown Editor is the default editor for Markdown files. When enabled, .md files open in WYSIWYG mode by default."
         },
-        "mikedown.outline.visibility": {
+        "mikedown.sidebar.visibility": {
           "type": "string",
           "default": "never",
           "enum": [
             "always",
-            "never",
-            "remember"
+            "never"
           ],
           "enumDescriptions": [
-            "Always show the outline sidebar when a document opens",
-            "Never show the outline sidebar (the toggle still surfaces it on demand)",
-            "Remember whether the outline was open the last time you used this document"
+            "Always show the sidebar when a document opens (matches pinning the sidebar in the header)",
+            "Start hidden; use the toggle button to surface it for the current document"
           ],
-          "description": "When the in-editor document outline sidebar is visible."
+          "description": "Whether the in-editor sidebar starts visible. Toggle the pin button in the sidebar header to change this."
         },
-        "mikedown.outline.width": {
+        "mikedown.sidebar.width": {
           "type": "number",
           "default": 200,
           "minimum": 160,
           "maximum": 360,
-          "description": "Width of the in-editor document outline sidebar, in pixels."
+          "description": "Width of the in-editor sidebar, in pixels."
         },
-        "mikedown.outline.position": {
+        "mikedown.sidebar.position": {
           "type": "string",
           "default": "right",
           "enum": [
@@ -232,10 +230,10 @@
             "right"
           ],
           "enumDescriptions": [
-            "Show the outline sidebar on the left side of the editor",
-            "Show the outline sidebar on the right side of the editor"
+            "Show the sidebar on the left side of the editor",
+            "Show the sidebar on the right side of the editor"
           ],
-          "description": "Which side of the editor the in-editor outline sidebar renders on."
+          "description": "Which side of the editor the sidebar renders on."
         },
         "mikedown.fontFamily": {
           "type": "string",

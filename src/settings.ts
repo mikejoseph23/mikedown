@@ -17,11 +17,11 @@ export interface MikeDownSettings {
   };
   imagePaste: ImagePasteSettings;
   imageResize: ImageResizeSettings;
-  outline: OutlineSettings;
+  sidebar: SidebarSettings;
 }
 
-export interface OutlineSettings {
-  visibility: 'always' | 'never' | 'remember';
+export interface SidebarSettings {
+  visibility: 'always' | 'never';
   width: number;
   position: 'left' | 'right';
 }
@@ -71,10 +71,12 @@ export function getSettings(): MikeDownSettings {
     imageResize: {
       overwrite: config.get<boolean>('imageResize.overwrite', true),
     },
-    outline: {
-      visibility: config.get<'always' | 'never' | 'remember'>('outline.visibility', 'never'),
-      width: config.get<number>('outline.width', 200),
-      position: config.get<'left' | 'right'>('outline.position', 'right'),
+    sidebar: {
+      // Legacy 'remember' value collapses to 'never' — per-doc memory was
+      // dropped when visibility went binary (pin on/off).
+      visibility: config.get<string>('sidebar.visibility', 'never') === 'always' ? 'always' : 'never',
+      width: config.get<number>('sidebar.width', 200),
+      position: config.get<'left' | 'right'>('sidebar.position', 'right'),
     },
   };
 }

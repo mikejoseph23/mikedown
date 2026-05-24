@@ -26,17 +26,20 @@ For every screenshot: **Cmd+Shift+4**, then press **Space** to switch to window 
 
 ## Screenshots
 
+Files are saved as `.jpg` (smaller bundle size for the marketplace listing); use Preview's Export-As to convert PNG captures.
+
 Capture in this order:
 
 | # | File | What to show |
 |---|------|-------------|
-| 1 | `dark-mode-editor.png` | Editor in dark theme, sidebar hidden (`Cmd+B`), WYSIWYG content visible |
-| 2 | `light-mode-editor.png` | Same content, toggle to light theme via MikeDown theme toggle |
-| 3 | `source-mode.png` | Press `Cmd+/` to switch to raw markdown source mode |
-| 4 | `dropdown-menu.png` | Switch back to WYSIWYG (`Cmd+/`), click a toolbar dropdown menu (Format/Insert/Export) so it's open |
-| 5 | `split-view-mark-down.png` | Two markdown files open side by side in MikeDown (split with `Cmd+\`) |
-| 6 | `split-view-code.png` | Markdown in MikeDown on one side, a code file (e.g. `assets/sample-docs/task-board.html`) on the other |
-| 7 | `context-menu.png` | Right-click on a link in the editor to show the context menu |
+| 1 | `dark-mode-editor.jpg` | Editor in dark theme, sidebar hidden (sidebar toggle in corner), WYSIWYG content visible |
+| 2 | `light-mode-editor.jpg` | Same content, toggle to light theme via MikeDown theme toggle |
+| 3 | `source-mode.jpg` | Press `Cmd+/` to switch to raw markdown source mode |
+| 4 | `dropdown-menu.jpg` | Switch back to WYSIWYG (`Cmd+/`), click a toolbar dropdown menu (Format/Insert/Export) so it's open |
+| 5 | `split-view-mark-down.jpg` | Two markdown files open side by side in MikeDown (split with `Cmd+\`) |
+| 6 | `split-view-code.jpg` | Markdown in MikeDown on one side, a code file (e.g. `assets/sample-docs/task-board.html`) on the other |
+| 7 | `context-menu.jpg` | Right-click on a link in the editor to show the context menu |
+| 8 | `outline-feature-dark.jpg` | Sidebar fully open on the right side — pin button visible in the **on** state (filled blue pill), position-toggle arrow next to it, all three sections expanded (Properties + Outline + Backlinks), and the two-row footer at the bottom (`Modified … ago` / `N words · N chars · N min read`). Also visible: the four status-bar items at bottom-right (words / chars / read time, plus selection if you have text selected). Pick a doc with frontmatter so Properties has content — `assets/sample-docs/product-spec.md` works. |
 
 ## Notes
 

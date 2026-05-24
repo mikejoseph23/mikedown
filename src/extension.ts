@@ -9,10 +9,67 @@ import { BacklinkProvider } from './backlinkProvider';
 import { MarkdownOutlineSymbolProvider } from './outlineProvider';
 
 /**
+ * One-shot migration: rename `mikedown.outline.*` settings + globalState key
+ * to `mikedown.sidebar.*`. Runs on every activation but no-ops once the old
+ * keys are cleared. Cheap enough to leave in place.
+ */
+async function migrateOutlineSettings(context: vscode.ExtensionContext): Promise<void> {
+  const config = vscode.workspace.getConfiguration('mikedown');
+  const keys = [
+    ['outline.visibility', 'sidebar.visibility'],
+    ['outline.width', 'sidebar.width'],
+    ['outline.position', 'sidebar.position'],
+  ] as const;
+  for (const [oldKey, newKey] of keys) {
+    const inspected = config.inspect(oldKey);
+    if (!inspected) continue;
+    const newInspected = config.inspect(newKey);
+    const writeIfUnset = async (scope: vscode.ConfigurationTarget, oldVal: unknown, newVal: unknown): Promise<void> => {
+      if (oldVal !== undefined && newVal === undefined) {
+        await config.update(newKey, oldVal, scope);
+      }
+      if (oldVal !== undefined) {
+        await config.update(oldKey, undefined, scope);
+      }
+    };
+    await writeIfUnset(vscode.ConfigurationTarget.Global, inspected.globalValue, newInspected?.globalValue);
+    await writeIfUnset(vscode.ConfigurationTarget.Workspace, inspected.workspaceValue, newInspected?.workspaceValue);
+    await writeIfUnset(vscode.ConfigurationTarget.WorkspaceFolder, inspected.workspaceFolderValue, newInspected?.workspaceFolderValue);
+  }
+  // GlobalState key rename
+  const oldRem = context.globalState.get<Record<string, boolean>>('mikedown.outline.rememberedVisible');
+  const newRem = context.globalState.get<Record<string, boolean>>('mikedown.sidebar.rememberedVisible');
+  if (oldRem && !newRem) {
+    await context.globalState.update('mikedown.sidebar.rememberedVisible', oldRem);
+    await context.globalState.update('mikedown.outline.rememberedVisible', undefined);
+  }
+
+  // 2.4.x — visibility went binary (pin on/off). Drop the orphaned per-doc
+  // visibility map, and collapse any leftover 'remember' value to 'never'.
+  if (context.globalState.get('mikedown.sidebar.rememberedVisible') !== undefined) {
+    await context.globalState.update('mikedown.sidebar.rememberedVisible', undefined);
+  }
+  const visInspect = config.inspect('sidebar.visibility');
+  const fixIfRemember = async (scope: vscode.ConfigurationTarget, val: unknown): Promise<void> => {
+    if (val === 'remember') {
+      await config.update('sidebar.visibility', 'never', scope);
+    }
+  };
+  if (visInspect) {
+    await fixIfRemember(vscode.ConfigurationTarget.Global, visInspect.globalValue);
+    await fixIfRemember(vscode.ConfigurationTarget.Workspace, visInspect.workspaceValue);
+    await fixIfRemember(vscode.ConfigurationTarget.WorkspaceFolder, visInspect.workspaceFolderValue);
+  }
+}
+
+/**
  * Called when the extension is activated.
  * Registers the MikeDown custom text editor provider.
  */
 export function activate(context: vscode.ExtensionContext): void {
+  // Fire-and-forget — runs every activation but no-ops once migrated.
+  migrateOutlineSettings(context).catch(() => {});
+
   const provider = new MarkdownEditorProvider(context);
 
   const registration = vscode.window.registerCustomEditorProvider(
@@ -168,33 +225,42 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  // M14: Document stats status bar
+  // Status bar — shows document word/char/read-time + selection counts for
+  // markdown documents. Driven by 'stats' messages from MikeDown webviews and
+  // by direct watchers for plain-text markdown editors.
   const statusBar = new StatusBarManager();
   context.subscriptions.push({ dispose: () => statusBar.dispose() });
-  // Expose to MarkdownEditorProvider so the WYSIWYG webview can drive it via 'stats' messages.
   MarkdownEditorProvider.statusBar = statusBar;
 
   const isMarkdownDoc = (doc: vscode.TextDocument): boolean =>
     doc.languageId === 'markdown' || doc.fileName.endsWith('.md') || doc.fileName.endsWith('.markdown');
 
-  // Show/hide stats when the active editor changes (plain text editor path).
+  // Plain-text markdown editor path — MikeDown webviews drive the status bar
+  // via 'stats' messages; this branch covers .md files opened in the standard
+  // text editor (e.g. via "Open With… → Text Editor").
   vscode.window.onDidChangeActiveTextEditor((editor) => {
     if (editor && isMarkdownDoc(editor.document)) {
-      statusBar.update(editor.document.getText());
+      statusBar.hideSelection();
+      statusBar.showDocument(editor.document.getText());
       return;
     }
-    // No active text editor — but a MikeDown custom editor might still be focused.
+    // No plain-text markdown editor active — let the custom-editor provider's
+    // onDidChangeViewState handler decide whether to keep stats showing.
     if (!MarkdownEditorProvider.activePanel) {
       statusBar.hide();
     }
   }, null, context.subscriptions);
 
-  // Update stats in real-time as the document changes (debounced for performance)
+  // Debounce per-keystroke updates on large docs.
+  let plainTextDebounce: NodeJS.Timeout | undefined;
   vscode.workspace.onDidChangeTextDocument((event) => {
     const activeEditor = vscode.window.activeTextEditor;
-    if (activeEditor && event.document === activeEditor.document && isMarkdownDoc(event.document)) {
-      statusBar.updateDebounced(event.document.getText());
-    }
+    if (!activeEditor || event.document !== activeEditor.document) return;
+    if (!isMarkdownDoc(event.document)) return;
+    if (plainTextDebounce) clearTimeout(plainTextDebounce);
+    plainTextDebounce = setTimeout(() => {
+      statusBar.showDocument(event.document.getText());
+    }, 250);
   }, null, context.subscriptions);
 
   // Backlink index — backs the in-editor sidebar's Backlinks section.

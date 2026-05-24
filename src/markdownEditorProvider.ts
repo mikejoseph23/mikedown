@@ -41,10 +41,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private static panelsByPath = new Map<string, Set<{ panel: vscode.WebviewPanel; webview: vscode.Webview }>>();
   /** Tracks file paths with a pending diff redirect to prevent duplicate opens. */
   private static diffRedirectPending = new Set<string>();
-  /** StatusBarManager (assigned by extension.ts) for word/char/reading-time stats. */
+  /** StatusBarManager (assigned by extension.ts) — doc + selection word/char counts. */
   public static statusBar: import('./statusBar').StatusBarManager | undefined = undefined;
-  /** Last plain text received per panel — re-applied when the panel regains focus. */
-  private static lastStatsByPanel = new WeakMap<vscode.WebviewPanel, string>();
+  /** Last plain text per panel so we can re-show document stats on focus change. */
+  private static lastDocTextByPanel = new WeakMap<vscode.WebviewPanel, string>();
   /** BacklinkProvider (assigned by extension.ts) — backs the sidebar Backlinks section. */
   public static backlinkProvider: import('./backlinkProvider').BacklinkProvider | undefined = undefined;
 
@@ -192,10 +192,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       if (e.webviewPanel.active) {
         MarkdownEditorProvider.activePanel = webviewPanel;
         MarkdownEditorProvider.activeDocument = document;
-        // Re-show last-known stats for this panel
-        const cached = MarkdownEditorProvider.lastStatsByPanel.get(webviewPanel);
-        if (cached !== undefined && MarkdownEditorProvider.statusBar) {
-          MarkdownEditorProvider.statusBar.update(cached);
+        // Re-show document stats for this panel immediately from cache.
+        // Selection stats are ephemeral — webview re-posts on selectionUpdate.
+        const sb = MarkdownEditorProvider.statusBar;
+        if (sb) {
+          sb.hideSelection();
+          const cached = MarkdownEditorProvider.lastDocTextByPanel.get(webviewPanel);
+          if (cached !== undefined) sb.showDocument(cached);
+          else sb.hide();
         }
       } else if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
@@ -231,9 +235,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         for (const [panel, doc] of MarkdownEditorProvider.openPanels) {
           this.sendThemeToWebview(panel.webview);
           this.sendSettingsToWebview(panel.webview, doc);
-          if (e.affectsConfiguration('mikedown.outline')) {
-            this.sendOutlineStateToWebview(panel.webview, doc);
-          }
+          // Sidebar config changes are *defaults* for newly-opened panels.
+          // Existing panels keep their session state (pin/position/width set
+          // via the header). Users can re-apply via Settings → Apply button.
         }
       }
     });
@@ -343,20 +347,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       imageWatcher.dispose();
       // M3 — Clear active panel reference when this panel is closed.
       MarkdownEditorProvider.openPanels.delete(webviewPanel);
-      MarkdownEditorProvider.lastStatsByPanel.delete(webviewPanel);
+      MarkdownEditorProvider.lastDocTextByPanel.delete(webviewPanel);
       if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
         MarkdownEditorProvider.activeDocument = undefined;
-        // Hide stats if no other MikeDown panel is taking over and no plain-text markdown editor is active.
-        const activeEditor = vscode.window.activeTextEditor;
-        const stillMarkdown = activeEditor && (
-          activeEditor.document.languageId === 'markdown' ||
-          activeEditor.document.fileName.endsWith('.md') ||
-          activeEditor.document.fileName.endsWith('.markdown')
-        );
-        if (!stillMarkdown && MarkdownEditorProvider.statusBar) {
-          MarkdownEditorProvider.statusBar.hide();
-        }
+        MarkdownEditorProvider.statusBar?.hide();
       }
       // Drop per-doc orphan-cleanup state once no panel still has the doc open.
       let stillOpen = false;
@@ -434,10 +429,25 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
         case 'stats': {
-          const plainText = (message as { plainText?: string }).plainText ?? '';
-          MarkdownEditorProvider.lastStatsByPanel.set(webviewPanel, plainText);
-          if (MarkdownEditorProvider.activePanel === webviewPanel && MarkdownEditorProvider.statusBar) {
-            MarkdownEditorProvider.statusBar.updateDebounced(plainText);
+          // Two pieces, sent together or independently:
+          //   document: plain text → status bar shows word/char/read-time
+          //   selection: { words, chars } | null → shown when non-empty
+          const msg = message as {
+            document?: string;
+            selection?: { words: number; chars: number } | null;
+          };
+          if (typeof msg.document === 'string') {
+            MarkdownEditorProvider.lastDocTextByPanel.set(webviewPanel, msg.document);
+          }
+          if (MarkdownEditorProvider.activePanel !== webviewPanel || !MarkdownEditorProvider.statusBar) break;
+          const sb = MarkdownEditorProvider.statusBar;
+          if (typeof msg.document === 'string') {
+            sb.showDocument(msg.document);
+          }
+          if (msg.selection === null || (msg.selection && msg.selection.words === 0 && msg.selection.chars === 0)) {
+            sb.hideSelection();
+          } else if (msg.selection) {
+            sb.showSelection(msg.selection.words, msg.selection.chars);
           }
           break;
         }
@@ -711,30 +721,71 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               config.update('imageResize.overwrite', ir.overwrite, vscode.ConfigurationTarget.Global);
             }
           }
-          if (settings.outlineVisibility === 'always' || settings.outlineVisibility === 'never' || settings.outlineVisibility === 'remember') {
-            config.update('outline.visibility', settings.outlineVisibility, vscode.ConfigurationTarget.Global);
+          // Sidebar defaults — only seed values for newly-opened panels.
+          // Use "Apply to open documents" in the modal to push to open panels.
+          if (settings.sidebarVisibility === 'always' || settings.sidebarVisibility === 'never') {
+            config.update('sidebar.visibility', settings.sidebarVisibility, vscode.ConfigurationTarget.Global);
           }
-          if (settings.outlinePosition === 'left' || settings.outlinePosition === 'right') {
-            config.update('outline.position', settings.outlinePosition, vscode.ConfigurationTarget.Global);
+          if (settings.sidebarPosition === 'left' || settings.sidebarPosition === 'right') {
+            config.update('sidebar.position', settings.sidebarPosition, vscode.ConfigurationTarget.Global);
+          }
+          if (typeof settings.sidebarWidth === 'number' && settings.sidebarWidth >= 160 && settings.sidebarWidth <= 360) {
+            config.update('sidebar.width', Math.round(settings.sidebarWidth), vscode.ConfigurationTarget.Global);
+          }
+          // Behavior tab
+          if (typeof settings.defaultEditor === 'boolean') {
+            config.update('defaultEditor', settings.defaultEditor, vscode.ConfigurationTarget.Global);
+          }
+          if (settings.linkClickBehavior === 'navigateCurrentTab' || settings.linkClickBehavior === 'openNewTab' || settings.linkClickBehavior === 'showContextMenu') {
+            config.update('linkClickBehavior', settings.linkClickBehavior, vscode.ConfigurationTarget.Global);
+          }
+          if (typeof settings.autoReloadUnmodifiedFiles === 'boolean') {
+            config.update('autoReloadUnmodifiedFiles', settings.autoReloadUnmodifiedFiles, vscode.ConfigurationTarget.Global);
+          }
+          if (settings.themeToggleScope === 'vscode' || settings.themeToggleScope === 'editorOnly') {
+            config.update('themeToggleScope', settings.themeToggleScope, vscode.ConfigurationTarget.Global);
+          }
+          // Markdown tab
+          if (settings.markdownNormalization === 'preserve' || settings.markdownNormalization === 'normalize') {
+            config.update('markdownNormalization', settings.markdownNormalization, vscode.ConfigurationTarget.Global);
+          }
+          if (settings.normalizationStyle && typeof settings.normalizationStyle === 'object') {
+            const ns = settings.normalizationStyle;
+            if (ns.boldMarker === '**' || ns.boldMarker === '__') {
+              config.update('normalizationStyle.boldMarker', ns.boldMarker, vscode.ConfigurationTarget.Global);
+            }
+            if (ns.italicMarker === '*' || ns.italicMarker === '_') {
+              config.update('normalizationStyle.italicMarker', ns.italicMarker, vscode.ConfigurationTarget.Global);
+            }
+            if (ns.listMarker === '-' || ns.listMarker === '*' || ns.listMarker === '+') {
+              config.update('normalizationStyle.listMarker', ns.listMarker, vscode.ConfigurationTarget.Global);
+            }
+            if (ns.headingStyle === 'atx' || ns.headingStyle === 'setext') {
+              config.update('normalizationStyle.headingStyle', ns.headingStyle, vscode.ConfigurationTarget.Global);
+            }
           }
           vscode.window.showInformationMessage('MikeDown settings saved.');
           break;
         }
-        case 'outlineRequestState': {
+        case 'sidebarRequestState': {
           this.sendOutlineStateToWebview(webviewPanel.webview, document);
           break;
         }
-        case 'outlineSetWidth': {
-          const w = Math.max(160, Math.min(360, Math.round(Number((message as any).width) || 200)));
-          await vscode.workspace.getConfiguration('mikedown').update('outline.width', w, vscode.ConfigurationTarget.Global);
+        case 'sidebarSetPref': {
+          // Pin click — persist as the global default. Other open panels are
+          // NOT auto-updated; user can push via the Apply button in Settings.
+          const next = (message as any).pref;
+          if (next === 'always' || next === 'never') {
+            await vscode.workspace.getConfiguration('mikedown').update('sidebar.visibility', next, vscode.ConfigurationTarget.Global);
+          }
           break;
         }
-        case 'outlineSetVisible': {
-          const visible = (message as any).visible === true;
-          const key = 'mikedown.outline.rememberedVisible';
-          const map = this.context.globalState.get<Record<string, boolean>>(key, {});
-          map[document.uri.toString()] = visible;
-          await this.context.globalState.update(key, map);
+        case 'sidebarApplyDefaults': {
+          // User clicked "Apply to open documents" — reset every open panel's
+          // sidebar to the current saved defaults.
+          for (const [p, doc] of MarkdownEditorProvider.openPanels) {
+            this.sendOutlineStateToWebview(p.webview, doc);
+          }
           break;
         }
         case 'sidebarSectionCollapsed': {
@@ -929,11 +980,19 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // the host computes, so any new prefix added here must also update its
     // local copy via the next 'settings' broadcast.
     const { prefixes, docDirFs } = this.buildImagePathMappings(document.uri, webview);
+    const extensionVersion = vscode.extensions.getExtension('interapp.mikedown-editor')?.packageJSON?.version
+      ?? this.context.extension?.packageJSON?.version
+      ?? '';
     webview.postMessage({
       type: 'settings',
+      extensionVersion,
+      defaultEditor: settings.defaultEditor,
       linkClickBehavior: settings.linkClickBehavior,
       themeToggleScope: settings.themeToggleScope,
       editorTheme: settings.editorTheme,
+      autoReloadUnmodifiedFiles: settings.autoReloadUnmodifiedFiles,
+      markdownNormalization: settings.markdownNormalization,
+      normalizationStyle: settings.normalizationStyle,
       imagePaste: settings.imagePaste,
       imageResize: settings.imageResize,
       imagePastePathMappings: prefixes,
@@ -943,19 +1002,19 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
   private sendOutlineStateToWebview(webview: vscode.Webview, document: vscode.TextDocument): void {
     const config = vscode.workspace.getConfiguration('mikedown');
-    const pref = config.get<'always' | 'never' | 'remember'>('outline.visibility', 'never');
-    const width = config.get<number>('outline.width', 200);
-    const position = config.get<'left' | 'right'>('outline.position', 'right');
-    const remembered = this.context.globalState.get<Record<string, boolean>>('mikedown.outline.rememberedVisible', {});
-    const rememberedVisible = remembered[document.uri.toString()] === true;
+    const rawPref = config.get<string>('sidebar.visibility', 'never');
+    // Legacy 'remember' value falls back to 'never' — the per-doc memory was
+    // removed when visibility went binary; nothing to recover.
+    const pref: 'always' | 'never' = rawPref === 'always' ? 'always' : 'never';
+    const width = config.get<number>('sidebar.width', 200);
+    const position = config.get<'left' | 'right'>('sidebar.position', 'right');
     const collapsedMap = this.context.globalState.get<Record<string, string[]>>('mikedown.sidebar.collapsedSections', {});
     const collapsedSections = collapsedMap[document.uri.toString()] ?? [];
     webview.postMessage({
-      type: 'outlineState',
+      type: 'sidebarState',
       pref,
       width,
       position,
-      rememberedVisible,
       collapsedSections,
     });
   }
@@ -1525,9 +1584,7 @@ ${cssLinks}
     <span class="toolbar-placeholder">MikeDown</span>
   </div>
   <aside id="mikedown-outline-sidebar" aria-label="Document sidebar" hidden></aside>
-  <button type="button" id="mikedown-outline-toggle" aria-label="Show sidebar" title="Show sidebar" aria-expanded="false">
-    <span aria-hidden="true">≡</span>
-  </button>
+  <button type="button" id="mikedown-outline-toggle" aria-label="Show sidebar" title="Show sidebar" aria-expanded="false"></button>
   <!-- TipTap mounts directly into #editor-container -->
   <div id="editor-container" role="main" aria-label="Markdown editor"></div>
   <div id="source-container" style="display:none;"></div>
@@ -1541,10 +1598,11 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'outlineRequestState' | 'outlineSetWidth' | 'outlineSetVisible' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage';
   content?: string;
   pristine?: boolean;
-  plainText?: string;
+  /** stats payload — selection word/char counts; `null` = nothing selected. */
+  selection?: { words: number; chars: number } | null;
   href?: string;
   html?: string;
   links?: Array<{ href: string; type: 'anchor' | 'file' | 'fileAnchor' }>;

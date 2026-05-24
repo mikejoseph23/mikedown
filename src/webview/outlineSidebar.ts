@@ -2,17 +2,17 @@
 // Properties (when frontmatter is present), Outline, Backlinks — plus a
 // footer strip with modified time / word count / reading time.
 //
-// State persistence (width, visibility preference, per-document last state,
-// per-document section-collapsed state) is round-tripped to the extension
-// via postMessage; this module just emits the intent and applies updates
-// when they come back.
+// Visibility is binary across documents: pin on (`always`) shows the sidebar
+// for every document; pin off (`never`) starts every document hidden. The
+// toggle button can still surface it for the current session; nothing about
+// that ad-hoc visibility persists.
 
 import { countWords, readingMinutes } from '../wordCount';
 import { formatRelativeTime } from './relativeTime';
 
 type VsApi = { postMessage(msg: any): void };
 
-export type OutlineVisibilityPref = 'always' | 'never' | 'remember';
+export type OutlineVisibilityPref = 'always' | 'never';
 export type OutlinePosition = 'left' | 'right';
 
 interface Heading {
@@ -47,7 +47,6 @@ const DEFAULT_WIDTH = 200;
 
 let pref: OutlineVisibilityPref = 'never';
 let position: OutlinePosition = 'right';
-let perDocRememberedVisible = false;
 let width = DEFAULT_WIDTH;
 let editorRef: any = null;
 let vscodeRef: VsApi | null = null;
@@ -66,6 +65,24 @@ let footerEl: HTMLElement | null = null;
 let toggleEl: HTMLButtonElement | null = null;
 let closeEl: HTMLButtonElement | null = null;
 let handleEl: HTMLElement | null = null;
+let pinButtonEl: HTMLButtonElement | null = null;
+let positionToggleEl: HTMLButtonElement | null = null;
+
+// Two pin states so the on/off difference is obvious:
+//   PIN_SVG_OFF — outlined pin, tilted (looks loose / "about to fall out")
+//   PIN_SVG_ON  — filled pin, upright (firmly stuck in)
+// Combined with the .pinned CSS pill background, on/off is unmistakable.
+const PIN_SVG_OFF = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform:rotate(45deg)"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+const PIN_SVG_ON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.5 2.5a1 1 0 0 0-1.7-.7l-1.4 1.4a2 2 0 0 0-.5 2l.3 1-3.8 3.8-1.2-.3a2 2 0 0 0-1.9.5l-1 1a1 1 0 0 0 0 1.4l4 4-4.5 4.5a1 1 0 1 0 1.4 1.4l4.5-4.5 4 4a1 1 0 0 0 1.4 0l1-1a2 2 0 0 0 .5-1.9l-.3-1.2 3.8-3.8 1 .3a2 2 0 0 0 2-.5l1.4-1.4a1 1 0 0 0-.7-1.7L14.5 2.5z"/></svg>';
+
+// Side arrow icons — point to the *opposite* side (i.e. where clicking will move the sidebar to).
+const SIDEBAR_ARROW_LEFT  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>';
+const SIDEBAR_ARROW_RIGHT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>';
+
+// Discovery-toggle icon — outline rect + a filled pane on the side the sidebar
+// lives on. Mirrors VS Code's own layout-sidebar codicons.
+const SIDEBAR_ICON_LEFT  = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1"/><rect x="3" y="4" width="3" height="8" fill="currentColor" stroke="none"/></svg>';
+const SIDEBAR_ICON_RIGHT = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1"/><rect x="10" y="4" width="3" height="8" fill="currentColor" stroke="none"/></svg>';
 
 // Per-document section collapse state (mirrored from host).
 const collapsedSections = new Set<string>(); // 'properties' | 'outline' | 'backlinks'
@@ -95,7 +112,7 @@ export function initOutlineSidebar(opts: InitOptions): void {
 
   setWidth(width);
   setPosition(position);
-  setVisible(false, { silent: true });
+  setVisible(false);
 
   toggleEl.addEventListener('click', () => setVisible(true));
   closeEl?.addEventListener('click', () => setVisible(false));
@@ -111,7 +128,7 @@ export function initOutlineSidebar(opts: InitOptions): void {
   startFooterTick();
 
   // Ask the extension for our persisted prefs/state.
-  vscodeRef.postMessage({ type: 'outlineRequestState' });
+  vscodeRef.postMessage({ type: 'sidebarRequestState' });
 }
 
 /**
@@ -139,7 +156,7 @@ function buildSidebarSkeleton(root: HTMLElement): void {
   const outlineSection = document.createElement('section');
   outlineSection.className = 'sidebar-section outline-section';
   outlineSection.dataset.section = 'outline';
-  outlineSection.appendChild(buildSectionHeader('Outline', 'outline', /* withClose */ true));
+  outlineSection.appendChild(buildSectionHeader('Outline', 'outline', /* withClose */ true, /* withPin */ true));
   outlineListEl = document.createElement('nav');
   outlineListEl.className = 'sidebar-section-body outline-list';
   outlineListEl.setAttribute('role', 'navigation');
@@ -178,7 +195,7 @@ function buildSidebarSkeleton(root: HTMLElement): void {
   renderFooter();
 }
 
-function buildSectionHeader(label: string, section: string, withClose = false): HTMLElement {
+function buildSectionHeader(label: string, section: string, withClose = false, withPin = false): HTMLElement {
   const header = document.createElement('div');
   header.className = 'sidebar-section-header';
   header.tabIndex = 0;
@@ -195,6 +212,34 @@ function buildSectionHeader(label: string, section: string, withClose = false): 
   title.className = 'section-title';
   title.textContent = label;
   header.appendChild(title);
+
+  // Position toggle + pin live on the Outline header (the sidebar's de-facto
+  // master header). Position toggle flips left↔right; pin toggles between
+  // 'always' (pinned open) and 'remember' (per-document) visibility.
+  if (withPin) {
+    const posBtn = document.createElement('button');
+    posBtn.type = 'button';
+    posBtn.className = 'outline-position-toggle';
+    posBtn.style.marginLeft = 'auto';
+    header.appendChild(posBtn);
+    positionToggleEl = posBtn;
+    posBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      togglePosition();
+    });
+    updatePositionToggle();
+
+    const pin = document.createElement('button');
+    pin.type = 'button';
+    pin.className = 'outline-pin';
+    header.appendChild(pin);
+    pinButtonEl = pin;
+    pin.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      togglePin();
+    });
+    updatePinState();
+  }
 
   // The close (×) button only lives on the Outline header for legacy reasons —
   // it dismisses the whole sidebar, not the section. Keeps the affordance
@@ -215,7 +260,8 @@ function buildSectionHeader(label: string, section: string, withClose = false): 
 
   const toggle = (): void => toggleSectionCollapsed(section);
   header.addEventListener('click', (ev) => {
-    if ((ev.target as HTMLElement).closest('.outline-close')) return;
+    const target = ev.target as HTMLElement;
+    if (target.closest('.outline-close') || target.closest('.outline-pin') || target.closest('.outline-position-toggle')) return;
     toggle();
   });
   header.addEventListener('keydown', (ev) => {
@@ -255,21 +301,62 @@ export function applyOutlineState(state: {
   pref?: OutlineVisibilityPref;
   width?: number;
   position?: OutlinePosition;
-  rememberedVisible?: boolean;
   collapsedSections?: string[];
 }): void {
   if (typeof state.width === 'number') setWidth(state.width);
   if (state.position === 'left' || state.position === 'right') setPosition(state.position);
-  if (state.pref) pref = state.pref;
-  if (typeof state.rememberedVisible === 'boolean') {
-    perDocRememberedVisible = state.rememberedVisible;
-  }
+  if (state.pref === 'always' || state.pref === 'never') pref = state.pref;
   if (Array.isArray(state.collapsedSections)) {
     collapsedSections.clear();
     for (const s of state.collapsedSections) collapsedSections.add(s);
     applySectionCollapsedDom();
   }
   applyVisibilityFromPref();
+  updatePinState();
+  updatePositionToggle();
+}
+
+// ── Pin toggle ─────────────────────────────────────────────────────────────
+
+function togglePin(): void {
+  // Pin writes to the global default so new documents inherit the state.
+  // Other already-open panels aren't auto-updated — use "Apply to open
+  // documents" in Settings to push to all open instances.
+  const next: OutlineVisibilityPref = pref === 'always' ? 'never' : 'always';
+  pref = next;
+  updatePinState();
+  setVisible(next === 'always');
+  vscodeRef?.postMessage({ type: 'sidebarSetPref', pref: next });
+}
+
+function updatePinState(): void {
+  if (!pinButtonEl) return;
+  const pinned = pref === 'always';
+  pinButtonEl.classList.toggle('pinned', pinned);
+  pinButtonEl.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+  pinButtonEl.innerHTML = pinned ? PIN_SVG_ON : PIN_SVG_OFF;
+  pinButtonEl.title = pinned
+    ? 'Pinned open — click to unpin (also updates the default for new documents)'
+    : 'Click to pin sidebar open (also updates the default for new documents)';
+  pinButtonEl.setAttribute('aria-label', pinButtonEl.title);
+}
+
+// ── Position toggle ────────────────────────────────────────────────────────
+
+function togglePosition(): void {
+  // Per-instance only — same rationale as togglePin.
+  const next: OutlinePosition = position === 'right' ? 'left' : 'right';
+  setPosition(next);
+  updatePositionToggle();
+}
+
+function updatePositionToggle(): void {
+  if (!positionToggleEl) return;
+  // The arrow points to the *other* side — i.e. where clicking will move the sidebar.
+  const movingTo: OutlinePosition = position === 'right' ? 'left' : 'right';
+  positionToggleEl.innerHTML = movingTo === 'left' ? SIDEBAR_ARROW_LEFT : SIDEBAR_ARROW_RIGHT;
+  positionToggleEl.title = `Move sidebar to ${movingTo}`;
+  positionToggleEl.setAttribute('aria-label', positionToggleEl.title);
 }
 
 export function applyBacklinks(items: BacklinkItem[]): void {
@@ -300,15 +387,13 @@ export function applyPlainText(plainText: string): void {
 
 // ── Visibility ─────────────────────────────────────────────────────────────
 
-function setVisible(visible: boolean, opts: { silent?: boolean } = {}): void {
+function setVisible(visible: boolean): void {
+  // Visibility is session-only when manually toggled; the pin pref is what
+  // persists. Nothing posted back to the host on a manual show/hide.
   if (!sidebarEl || !toggleEl) return;
   sidebarEl.hidden = !visible;
   document.body.classList.toggle('mikedown-outline-open', visible);
   toggleEl.setAttribute('aria-expanded', visible ? 'true' : 'false');
-  if (!opts.silent) {
-    perDocRememberedVisible = visible;
-    vscodeRef?.postMessage({ type: 'outlineSetVisible', visible });
-  }
   if (visible) {
     rebuildHeadings();
     updateActiveFromCursor();
@@ -317,11 +402,7 @@ function setVisible(visible: boolean, opts: { silent?: boolean } = {}): void {
 }
 
 function applyVisibilityFromPref(): void {
-  let visible: boolean;
-  if (pref === 'always') visible = true;
-  else if (pref === 'never') visible = false;
-  else visible = perDocRememberedVisible;
-  setVisible(visible, { silent: true });
+  setVisible(pref === 'always');
 }
 
 // ── Width / resize ─────────────────────────────────────────────────────────
@@ -335,6 +416,9 @@ function setPosition(next: OutlinePosition): void {
   position = next;
   document.body.classList.toggle('mikedown-outline-left', position === 'left');
   document.body.classList.toggle('mikedown-outline-right', position === 'right');
+  if (toggleEl) {
+    toggleEl.innerHTML = position === 'left' ? SIDEBAR_ICON_LEFT : SIDEBAR_ICON_RIGHT;
+  }
 }
 
 function wireResize(handle: HTMLElement): void {
@@ -353,12 +437,13 @@ function wireResize(handle: HTMLElement): void {
       setWidth(position === 'right' ? startWidth - delta : startWidth + delta);
     };
     const onUp = (ev: PointerEvent): void => {
+      // Width is per-instance session state — the global default lives in
+      // Settings → Appearance and only seeds newly-opened documents.
       handle.releasePointerCapture(ev.pointerId);
       sidebarEl?.classList.remove('resizing');
       document.body.classList.remove('mikedown-outline-resizing');
       handle.removeEventListener('pointermove', onMove);
       handle.removeEventListener('pointerup', onUp);
-      vscodeRef?.postMessage({ type: 'outlineSetWidth', width });
     };
     handle.addEventListener('pointermove', onMove);
     handle.addEventListener('pointerup', onUp);
@@ -628,12 +713,23 @@ function renderProperties(): void {
 function renderFooter(): void {
   if (!footerEl) return;
   const wc = countWords(docPlainText);
+  const cc = docPlainText.length;
   const rt = readingMinutes(wc);
   const modPart = docMtimeMs !== null
     ? `Modified ${formatRelativeTime(docMtimeMs)}`
     : 'Modified —';
   const wordsLabel = wc === 1 ? 'word' : 'words';
-  footerEl.textContent = `${modPart} · ${wc.toLocaleString()} ${wordsLabel} · ${rt} min read`;
+  const charsLabel = cc === 1 ? 'char' : 'chars';
+  const metricsPart = `${wc.toLocaleString()} ${wordsLabel} · ${cc.toLocaleString()} ${charsLabel} · ${rt} min read`;
+  footerEl.replaceChildren();
+  const row1 = document.createElement('div');
+  row1.className = 'sidebar-footer-row';
+  row1.textContent = modPart;
+  const row2 = document.createElement('div');
+  row2.className = 'sidebar-footer-row';
+  row2.textContent = metricsPart;
+  footerEl.appendChild(row1);
+  footerEl.appendChild(row2);
 }
 
 function startFooterTick(): void {
