@@ -39,6 +39,11 @@ interface InitOptions {
   editor: any;
   vscode: VsApi;
   anchorFn: (text: string) => string;
+  /**
+   * Invoked when the user edits properties inline. The callback owns the
+   * serialize-and-post step; the sidebar just produces the new entries list.
+   */
+  onPropertiesChange?: (entries: FrontmatterEntry[]) => void;
 }
 
 const MIN_WIDTH = 160;
@@ -90,6 +95,8 @@ const collapsedSections = new Set<string>(); // 'properties' | 'outline' | 'back
 let currentBacklinks: BacklinkItem[] = [];
 let lastBacklinksKey = '';
 let currentProperties: FrontmatterEntry[] = [];
+let propertiesEditable = false;
+let propertiesChangeCb: ((entries: FrontmatterEntry[]) => void) | null = null;
 
 // Footer state — updates whenever any input changes.
 let docMtimeMs: number | null = null;
@@ -100,6 +107,7 @@ export function initOutlineSidebar(opts: InitOptions): void {
   editorRef = opts.editor;
   vscodeRef = opts.vscode;
   anchorFnRef = opts.anchorFn;
+  propertiesChangeCb = opts.onPropertiesChange ?? null;
 
   sidebarEl = document.getElementById('mikedown-outline-sidebar');
   toggleEl = document.getElementById('mikedown-outline-toggle') as HTMLButtonElement | null;
@@ -141,18 +149,8 @@ function buildSidebarSkeleton(root: HTMLElement): void {
   // an .outline-list / .outline-resize-handle stub we want to replace.
   root.replaceChildren();
 
-  // Properties (hidden when no frontmatter)
-  propertiesSectionEl = document.createElement('section');
-  propertiesSectionEl.className = 'sidebar-section properties-section';
-  propertiesSectionEl.dataset.section = 'properties';
-  propertiesSectionEl.hidden = true;
-  propertiesSectionEl.appendChild(buildSectionHeader('Properties', 'properties'));
-  propertiesListEl = document.createElement('div');
-  propertiesListEl.className = 'sidebar-section-body properties-list';
-  propertiesSectionEl.appendChild(propertiesListEl);
-  root.appendChild(propertiesSectionEl);
-
-  // Outline
+  // Outline — anchors the top of the stack so its header controls (position
+  // toggle, pin, close) sit at the top of the sidebar where users expect.
   const outlineSection = document.createElement('section');
   outlineSection.className = 'sidebar-section outline-section';
   outlineSection.dataset.section = 'outline';
@@ -177,6 +175,18 @@ function buildSidebarSkeleton(root: HTMLElement): void {
   backlinksListEl.className = 'sidebar-section-body backlinks-list';
   backlinksSectionEl.appendChild(backlinksListEl);
   root.appendChild(backlinksSectionEl);
+
+  // Properties — always visible (renders an empty-state placeholder when no
+  // frontmatter exists). Lives below Backlinks so the editor's primary
+  // navigation (Outline + Backlinks) gets priority at the top.
+  propertiesSectionEl = document.createElement('section');
+  propertiesSectionEl.className = 'sidebar-section properties-section';
+  propertiesSectionEl.dataset.section = 'properties';
+  propertiesSectionEl.appendChild(buildSectionHeader('Properties', 'properties'));
+  propertiesListEl = document.createElement('div');
+  propertiesListEl.className = 'sidebar-section-body properties-list';
+  propertiesSectionEl.appendChild(propertiesListEl);
+  root.appendChild(propertiesSectionEl);
 
   // Footer
   footerEl = document.createElement('div');
@@ -369,8 +379,12 @@ export function applyBacklinks(items: BacklinkItem[]): void {
   renderBacklinks();
 }
 
-export function applyProperties(entries: FrontmatterEntry[]): void {
+export function applyProperties(
+  entries: FrontmatterEntry[],
+  opts?: { editable?: boolean }
+): void {
   currentProperties = entries || [];
+  propertiesEditable = opts?.editable !== false && propertiesChangeCb !== null;
   renderProperties();
 }
 
@@ -672,40 +686,376 @@ function renderBacklinksEmpty(): void {
 function renderProperties(): void {
   if (!propertiesListEl || !propertiesSectionEl) return;
   propertiesListEl.replaceChildren();
+  propertiesSectionEl.hidden = false;
+  propertiesListEl.classList.toggle('editable', propertiesEditable);
 
-  if (currentProperties.length === 0) {
-    propertiesSectionEl.hidden = true;
+  if (currentProperties.length === 0 && !propertiesEditable) {
+    const empty = document.createElement('div');
+    empty.className = 'properties-empty';
+    empty.textContent = 'No properties.';
+    propertiesListEl.appendChild(empty);
     return;
   }
-  propertiesSectionEl.hidden = false;
 
-  for (const entry of currentProperties) {
-    const row = document.createElement('div');
-    row.className = 'properties-row';
+  for (let i = 0; i < currentProperties.length; i++) {
+    propertiesListEl.appendChild(buildPropertyRow(currentProperties[i], i));
+  }
 
-    const key = document.createElement('span');
-    key.className = 'properties-key';
-    key.textContent = entry.key;
-    row.appendChild(key);
+  if (propertiesEditable) {
+    propertiesListEl.appendChild(buildAddPropertyRow());
+  }
+}
 
-    const value = document.createElement('span');
-    value.className = 'properties-value';
-    if (Array.isArray(entry.value)) {
-      for (const v of entry.value) {
-        const pill = document.createElement('span');
-        pill.className = 'properties-pill';
-        pill.textContent = v;
-        pill.title = v;
-        value.appendChild(pill);
-      }
-    } else {
+function buildPropertyRow(entry: FrontmatterEntry, index: number): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'properties-row';
+  row.dataset.idx = String(index);
+
+  const key = document.createElement('span');
+  key.className = 'properties-key';
+  key.textContent = entry.key;
+  key.title = entry.key;
+  if (propertiesEditable) {
+    key.classList.add('editable');
+    key.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      beginEditKey(row, index);
+    });
+  }
+  row.appendChild(key);
+
+  const value = document.createElement('span');
+  value.className = 'properties-value';
+  if (Array.isArray(entry.value)) {
+    value.classList.add('array');
+    for (let pi = 0; pi < entry.value.length; pi++) {
+      value.appendChild(buildPill(entry.value[pi], index, pi));
+    }
+    if (propertiesEditable) {
+      value.appendChild(buildAddPillButton(index));
+    }
+  } else {
+    if (entry.value) {
       value.textContent = entry.value;
       value.title = entry.value;
+    } else if (propertiesEditable) {
+      value.textContent = '—';
+      value.classList.add('empty');
     }
-    row.appendChild(value);
-
-    propertiesListEl.appendChild(row);
+    if (propertiesEditable) {
+      value.classList.add('editable');
+      value.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        beginEditValue(row, index);
+      });
+    }
   }
+  row.appendChild(value);
+
+  if (propertiesEditable) {
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'properties-delete';
+    del.title = `Delete "${entry.key}"`;
+    del.setAttribute('aria-label', del.title);
+    del.textContent = '×';
+    del.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const next = currentProperties.filter((_, i) => i !== index);
+      commitProperties(next);
+    });
+    row.appendChild(del);
+  }
+
+  return row;
+}
+
+function buildPill(text: string, rowIdx: number, pillIdx: number): HTMLElement {
+  const pill = document.createElement('span');
+  pill.className = 'properties-pill';
+  pill.dataset.pillIdx = String(pillIdx);
+
+  const label = document.createElement('span');
+  label.className = 'properties-pill-text';
+  label.textContent = text;
+  label.title = text;
+  pill.appendChild(label);
+
+  if (propertiesEditable) {
+    pill.classList.add('editable');
+    label.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      beginEditPill(pill, rowIdx, pillIdx);
+    });
+
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'properties-pill-x';
+    x.textContent = '×';
+    x.title = `Remove "${text}"`;
+    x.setAttribute('aria-label', x.title);
+    x.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const entry = currentProperties[rowIdx];
+      if (!entry || !Array.isArray(entry.value)) return;
+      const newArr = entry.value.filter((_, i) => i !== pillIdx);
+      const next = currentProperties.map((e, i) =>
+        i === rowIdx ? { ...e, value: newArr } : e
+      );
+      commitProperties(next);
+    });
+    pill.appendChild(x);
+  }
+  return pill;
+}
+
+function buildAddPillButton(rowIdx: number): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'properties-pill-add';
+  btn.title = 'Add item';
+  btn.setAttribute('aria-label', 'Add item');
+  btn.textContent = '+';
+  btn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    beginAddPill(btn, rowIdx);
+  });
+  return btn;
+}
+
+function buildAddPropertyRow(): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'properties-row properties-add-row';
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'properties-add-trigger';
+  trigger.textContent = '+ Add property';
+  trigger.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    beginAddProperty(row);
+  });
+  row.appendChild(trigger);
+
+  return row;
+}
+
+// ── Inline edit transitions ────────────────────────────────────────────────
+
+function beginEditValue(row: HTMLElement, index: number): void {
+  const valueEl = row.querySelector('.properties-value') as HTMLElement | null;
+  const entry = currentProperties[index];
+  if (!valueEl || !entry || Array.isArray(entry.value)) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'properties-input';
+  input.value = entry.value;
+  valueEl.classList.remove('empty');
+  valueEl.replaceChildren(input);
+  input.focus();
+  input.select();
+
+  wireCommitCancel(input, {
+    commit: () => {
+      const next = currentProperties.map((e, i) =>
+        i === index ? { ...e, value: input.value } : e
+      );
+      commitProperties(next);
+    },
+    cancel: () => renderProperties(),
+  });
+}
+
+function beginEditKey(row: HTMLElement, index: number): void {
+  const keyEl = row.querySelector('.properties-key') as HTMLElement | null;
+  const entry = currentProperties[index];
+  if (!keyEl || !entry) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'properties-input properties-input-key';
+  input.value = entry.key;
+  keyEl.replaceChildren(input);
+  input.focus();
+  input.select();
+
+  wireCommitCancel(input, {
+    commit: () => {
+      const newKey = input.value.trim();
+      if (!newKey || newKey === entry.key) {
+        renderProperties();
+        return;
+      }
+      const next = currentProperties.map((e, i) =>
+        i === index ? { ...e, key: newKey } : e
+      );
+      commitProperties(next);
+    },
+    cancel: () => renderProperties(),
+  });
+}
+
+function beginEditPill(pillEl: HTMLElement, rowIdx: number, pillIdx: number): void {
+  const entry = currentProperties[rowIdx];
+  if (!entry || !Array.isArray(entry.value)) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'properties-input properties-input-pill';
+  input.value = entry.value[pillIdx];
+  pillEl.replaceChildren(input);
+  // Size the input roughly to its content (chip width grows with text).
+  input.style.width = `${Math.max(40, input.value.length * 7 + 16)}px`;
+  input.focus();
+  input.select();
+
+  wireCommitCancel(input, {
+    commit: () => {
+      const trimmed = input.value.trim();
+      const arr = Array.isArray(entry.value) ? entry.value.slice() : [];
+      if (!trimmed) {
+        arr.splice(pillIdx, 1);
+      } else {
+        arr[pillIdx] = trimmed;
+      }
+      const next = currentProperties.map((e, i) =>
+        i === rowIdx ? { ...e, value: arr } : e
+      );
+      commitProperties(next);
+    },
+    cancel: () => renderProperties(),
+  });
+}
+
+function beginAddPill(triggerEl: HTMLElement, rowIdx: number): void {
+  const entry = currentProperties[rowIdx];
+  if (!entry || !Array.isArray(entry.value)) return;
+
+  const wrap = document.createElement('span');
+  wrap.className = 'properties-pill editable';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'properties-input properties-input-pill';
+  input.placeholder = 'value';
+  input.style.width = '60px';
+  wrap.appendChild(input);
+  triggerEl.replaceWith(wrap);
+  input.focus();
+
+  wireCommitCancel(input, {
+    commit: () => {
+      const trimmed = input.value.trim();
+      if (!trimmed) {
+        renderProperties();
+        return;
+      }
+      const arr = Array.isArray(entry.value) ? entry.value.slice() : [];
+      arr.push(trimmed);
+      const next = currentProperties.map((e, i) =>
+        i === rowIdx ? { ...e, value: arr } : e
+      );
+      commitProperties(next);
+    },
+    cancel: () => renderProperties(),
+  });
+}
+
+function beginAddProperty(rowEl: HTMLElement): void {
+  rowEl.replaceChildren();
+  rowEl.classList.add('editing');
+
+  const keyInput = document.createElement('input');
+  keyInput.type = 'text';
+  keyInput.className = 'properties-input properties-input-key';
+  keyInput.placeholder = 'key';
+  rowEl.appendChild(keyInput);
+
+  const sep = document.createElement('span');
+  sep.className = 'properties-add-sep';
+  sep.textContent = ':';
+  rowEl.appendChild(sep);
+
+  const valueInput = document.createElement('input');
+  valueInput.type = 'text';
+  valueInput.className = 'properties-input';
+  valueInput.placeholder = 'value';
+  rowEl.appendChild(valueInput);
+
+  keyInput.focus();
+
+  const tryCommit = (): void => {
+    const k = keyInput.value.trim();
+    if (!k) {
+      renderProperties();
+      return;
+    }
+    if (currentProperties.some(e => e.key === k)) {
+      // Duplicate key — just bail to existing entry; keep UX simple.
+      renderProperties();
+      return;
+    }
+    const next: FrontmatterEntry[] = [
+      ...currentProperties,
+      { key: k, value: valueInput.value },
+    ];
+    commitProperties(next);
+  };
+
+  const onKey = (ev: KeyboardEvent): void => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      if (document.activeElement === keyInput) {
+        valueInput.focus();
+      } else {
+        tryCommit();
+      }
+    } else if (ev.key === 'Escape') {
+      ev.preventDefault();
+      renderProperties();
+    }
+  };
+  keyInput.addEventListener('keydown', onKey);
+  valueInput.addEventListener('keydown', onKey);
+
+  // Commit on focus leaving the row entirely (clicking outside).
+  const onFocusOut = (ev: FocusEvent): void => {
+    const next = ev.relatedTarget as Node | null;
+    if (next && rowEl.contains(next)) return;
+    rowEl.removeEventListener('focusout', onFocusOut);
+    tryCommit();
+  };
+  rowEl.addEventListener('focusout', onFocusOut);
+}
+
+function wireCommitCancel(
+  input: HTMLInputElement,
+  opts: { commit: () => void; cancel: () => void }
+): void {
+  let settled = false;
+  const commit = (): void => {
+    if (settled) return;
+    settled = true;
+    opts.commit();
+  };
+  const cancel = (): void => {
+    if (settled) return;
+    settled = true;
+    opts.cancel();
+  };
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+  });
+  input.addEventListener('blur', () => commit());
+}
+
+function commitProperties(next: FrontmatterEntry[]): void {
+  if (!propertiesChangeCb) return;
+  // Update local snapshot immediately so a re-render between now and the
+  // host round-trip doesn't blink the old values.
+  currentProperties = next;
+  propertiesChangeCb(next);
 }
 
 // ── Footer rendering ───────────────────────────────────────────────────────

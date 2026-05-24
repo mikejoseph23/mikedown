@@ -188,7 +188,8 @@ body.mikedown-outline-right #mikedown-outline-sidebar {
 /* ─── Outline items ──────────────────────────────────────────────────────── */
 
 .outline-empty,
-.backlinks-empty {
+.backlinks-empty,
+.properties-empty {
   padding: 10px 14px;
   font-size: 11px;
   opacity: 0.55;
@@ -269,6 +270,11 @@ body.mikedown-outline-right #mikedown-outline-sidebar {
   font-size: 12px;
   line-height: 1.4;
   min-width: 0;
+  position: relative;
+}
+
+.properties-list.editable .properties-row:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.06));
 }
 
 .properties-key {
@@ -292,10 +298,130 @@ body.mikedown-outline-right #mikedown-outline-sidebar {
   display: inline-flex;
   flex-wrap: nowrap;
   gap: 4px;
+  align-items: center;
+}
+
+.properties-value.array {
+  flex-wrap: wrap;
+}
+
+.properties-key.editable,
+.properties-value.editable {
+  cursor: text;
+  border-radius: 3px;
+}
+
+.properties-key.editable:hover,
+.properties-value.editable:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.16));
+}
+
+.properties-value.empty {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* ─── Inline edit inputs + per-row delete + add affordance ───────────────── */
+
+.properties-input {
+  font: inherit;
+  font-size: 12px;
+  color: var(--vscode-input-foreground, var(--vscode-editor-foreground, #d4d4d4));
+  background-color: var(--vscode-input-background, rgba(127, 127, 127, 0.16));
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 3px;
+  padding: 1px 4px;
+  outline: 0;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.properties-input:focus {
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.properties-value > .properties-input {
+  width: 100%;
+}
+
+.properties-input-key {
+  width: 100%;
+  max-width: 100%;
+}
+
+.properties-input-pill {
+  font-size: 10.5px;
+  padding: 0 4px;
+}
+
+.properties-delete {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: 0;
+  color: var(--vscode-descriptionForeground, #a0a0a0);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background-color 0.12s ease, color 0.12s ease;
+}
+
+.properties-row:hover .properties-delete,
+.properties-row:focus-within .properties-delete {
+  opacity: 0.8;
+}
+
+.properties-delete:hover {
+  opacity: 1;
+  color: var(--vscode-errorForeground, #f48771);
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.18));
+}
+
+/* ─── Add-property row at bottom ─────────────────────────────────────────── */
+
+.properties-add-row {
+  padding: 4px 10px 6px;
+  gap: 4px;
+}
+
+.properties-add-trigger {
+  background: transparent;
+  border: 0;
+  padding: 2px 0;
+  color: var(--vscode-descriptionForeground, #a0a0a0);
+  cursor: pointer;
+  font-size: 11px;
+  opacity: 0.7;
+  text-align: left;
+  font-family: inherit;
+}
+
+.properties-add-trigger:hover {
+  opacity: 1;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+}
+
+.properties-add-row.editing {
+  align-items: center;
+}
+
+.properties-add-row.editing .properties-input {
+  flex: 1 1 0;
+}
+
+.properties-add-sep {
+  opacity: 0.6;
+  font-size: 11px;
 }
 
 .properties-pill {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
   padding: 1px 6px;
   background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.18));
@@ -304,8 +430,71 @@ body.mikedown-outline-right #mikedown-outline-sidebar {
   font-size: 10.5px;
   max-width: 100%;
   overflow: hidden;
+  white-space: nowrap;
+  gap: 2px;
+}
+
+.properties-pill .properties-pill-text {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
+}
+
+.properties-pill.editable .properties-pill-text {
+  cursor: text;
+}
+
+.properties-pill-x {
+  display: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.properties-pill.editable:hover .properties-pill-x,
+.properties-pill:focus-within .properties-pill-x {
+  display: inline-block;
+}
+
+.properties-pill-x:hover {
+  opacity: 1;
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.properties-pill-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  background: transparent;
+  border: 1px dashed var(--vscode-editorGroup-border, rgba(127, 127, 127, 0.5));
+  border-radius: 8px;
+  color: var(--vscode-descriptionForeground, #a0a0a0);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.properties-row:hover .properties-pill-add,
+.properties-value:focus-within .properties-pill-add {
+  opacity: 0.8;
+}
+
+.properties-pill-add:hover {
+  opacity: 1;
+  border-color: var(--vscode-focusBorder, #007fd4);
+  color: var(--vscode-editor-foreground, #d4d4d4);
 }
 
 /* ─── Footer strip ───────────────────────────────────────────────────────── */

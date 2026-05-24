@@ -48,7 +48,12 @@ import {
   applyDocMeta,
   applyPlainText,
 } from './outlineSidebar';
-import { parseFrontmatter } from './frontmatterParse';
+import {
+  parseFrontmatter,
+  serializeFrontmatter,
+  isSimpleFrontmatter,
+  type ParsedEntry,
+} from '../frontmatterYaml';
 import { countWords } from '../wordCount';
 import {
   FindReplaceExtension, updateSearch, clearSearch, findNext, findPrev,
@@ -3081,7 +3086,37 @@ if (!editorContainer) {
     }, 500);
   });
 
-  initOutlineSidebar({ editor, vscode, anchorFn: githubAnchorId });
+  initOutlineSidebar({
+    editor,
+    vscode,
+    anchorFn: githubAnchorId,
+    onPropertiesChange: applyFrontmatterEdit,
+  });
+
+  // 2.4.0 — Sidebar inline editing: serialize the new entries back to YAML,
+  // splice into the full doc, and post via the existing `edit` channel.
+  // The WYSIWYG frontmatter block + sidebar both re-render off the same
+  // refreshed frontmatterContent so they stay in lockstep. In source mode
+  // the user edits YAML directly in CodeMirror; the sidebar reflects but
+  // doesn't drive (see refreshPropertiesEditable below).
+  function applyFrontmatterEdit(entries: ParsedEntry[]): void {
+    if (sourceMode) return;
+    const newYaml = serializeFrontmatter(entries);
+    if (newYaml === frontmatterContent) return;
+    frontmatterContent = newYaml;
+    const body = editor.storage.markdown.getMarkdown() as string;
+    const markdown = restoreFrontmatter(frontmatterContent, body);
+    isDirty = markdown !== originalContent;
+    vscode.postMessage({ type: 'edit', content: markdown, pristine: false });
+    renderFrontmatterBlock();
+    refreshPropertiesSidebar();
+  }
+
+  function refreshPropertiesSidebar(): void {
+    applyProperties(parseFrontmatter(frontmatterContent), {
+      editable: !sourceMode && isSimpleFrontmatter(frontmatterContent),
+    });
+  }
 
   // ── M6a: Link click handler (Cmd+Click to navigate) ────────────────────────
   // Use mousedown in capture phase so it fires before ProseMirror's own
@@ -3688,6 +3723,7 @@ if (!editorContainer) {
 
     cmView.focus();
     (window as any).__mikedownResyncFind?.();
+    refreshPropertiesSidebar();
   }
 
   function switchToWysiwyg(): void {
@@ -3824,6 +3860,7 @@ if (!editorContainer) {
 
     // Re-render frontmatter block in case it changed
     renderFrontmatterBlock();
+    refreshPropertiesSidebar();
 
     updateToolbarState(editor);
     editor.commands.focus();
@@ -4010,7 +4047,9 @@ if (!editorContainer) {
       renderFrontmatterBlock();
 
       // 2.3.0 — Push parsed frontmatter entries to the sidebar Properties section.
-      applyProperties(parseFrontmatter(frontmatterContent));
+      // 2.4.0 — Gate inline editing on whether the YAML round-trips cleanly;
+      // anything we'd silently drop on save stays read-only.
+      refreshPropertiesSidebar();
 
       // M6c — Trigger broken link check after content loads (debounced 500ms).
       clearTimeout((window as any).__mikedownLinkCheckTimer);
