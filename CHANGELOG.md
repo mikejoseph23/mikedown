@@ -2,10 +2,11 @@
 
 All notable changes to MikeDown Editor are documented here.
 
-## [Unreleased]
+## [2.4.0] - 2026-05-24
 
 ### Added
 
+- **Settings modal tabs.** The in-editor Settings modal (toolbar gear) is now organized into vertical tabs — **Appearance** (font size, font theme, content width), **Images** (paste + resize), **Editor** (outline) — instead of one long scrolling list. Active tab is remembered for the session
 - **Outline sidebar position setting.** New `mikedown.outline.position` (`left` | `right`, default `right`) chooses which side of the editor the in-editor outline sidebar anchors to. Available in the editor's Settings modal (Editor tab → Outline position) and applies live without reloading the document. The resize handle moves to the inner edge so dragging "inward" still shrinks the sidebar
 
 ### Changed
