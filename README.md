@@ -12,7 +12,7 @@ MikeDown closes that gap. It's an open-source WYSIWYG Markdown editor that lives
 
 ## Enjoying MikeDown?
 
-If this free extension is making your markdown workflow better, please **tell a friend or co-worker** or **[leave a review on the VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details)**. Ratings and word of mouth are what get the word out — it genuinely helps.
+If this free extension is making your markdown workflow better, please **tell a friend or co-worker** or [**leave a review on the VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details). Ratings and word of mouth are what get the word out — it genuinely helps.
 
 ## Screenshots
 
@@ -74,13 +74,9 @@ Full GFM support including tables, task lists, strikethrough, and fenced code bl
 
 Surround text with `==…==` to mark it with a yellow highlight, like a paper highlighter pen. Available from the toolbar (highlighter icon), right-click → **Highlight**, or **Cmd+Shift+H** / **Ctrl+Shift+H**. Round-trips to `==text==` in the saved markdown so GitHub renders it the same way.
 
-<!-- TODO: screenshot of highlighted text in editor -->
-
 ### Emoji *(new in 2.3)*
 
 Type `:smi` and an autocomplete popup shows matching shortcodes — Enter inserts. The full GitHub shortcode set is supported (`:tada:`, `:rocket:`, `:eyes:`, etc.). Click the smiley icon on the toolbar (or **Cmd+;** / **Ctrl+;**, or right-click → **Insert Emoji…**) for a searchable picker with category sections and recently-used emoji.
-
-<!-- TODO: screenshot of emoji picker / autocomplete -->
 
 ### Callouts / Admonitions *(new in 2.1)*
 
@@ -194,7 +190,7 @@ If you want double-clicking a `.md` file in your OS file manager to launch it in
 All shortcuts are active when a MikeDown editor tab is focused.
 
 | Action | Mac | Windows / Linux |
-|---|---|---|
+| --- | --- | --- |
 | Toggle Bold | `Cmd+B` | `Ctrl+B` |
 | Toggle Italic | `Cmd+I` | `Ctrl+I` |
 | Toggle Strikethrough | `Cmd+Shift+S` | `Ctrl+Shift+S` |
@@ -208,7 +204,7 @@ All shortcuts are active when a MikeDown editor tab is focused.
 MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings UI:
 
 | Setting | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `mikedown.defaultEditor` | `false` | Open `.md` files in MikeDown by default |
 | `mikedown.fontFamily` | (system sans-serif) | Font family for the editing area |
 | `mikedown.fontSize` | `15` | Font size in pixels (10--36) |
