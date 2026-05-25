@@ -24,10 +24,9 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 - Word count / reading time in status bar — _scaffolding exists in `src/statusBar.ts` but isn't wired to the webview yet._ ✅ Shipped in 1.8.0.
 - **Buy Me A Coffee link in Settings → About tab.** Needs a final BMAC URL. The About panel in `src/webview/editor-main.ts#buildAboutPanel` already has GitHub / changelog / issue links — add a BMAC link there once the URL exists.
-- **Consolidate toolbar utility buttons.** Items like Select All, Print, View in Browser, Export, Source toggle, etc. have been accumulating and the toolbar is getting busy. Roll them into a single overflow / "more actions" dropdown (or split into Format / Insert / Export / View groups) so the main toolbar stays focused on the high-frequency formatting actions. See `src/webview/editor-main.ts#buildCondensedToolbar`.
-
 ## Recently shipped
 
+- **Consolidate toolbar utility buttons.** Folded View in Browser + Print/PDF into a single Share dropdown; removed the inert Diff toggle (palette command still works); Select All stays standalone as a diagnostic. ✅ Shipped (post-2.5.1).
 - **Mark / highlight** — `==highlighted==` syntax; toolbar button + Cmd+Shift+H + right-click; round-trips cleanly. ✅ Shipped in 2.3.0.
 - **Emoji shortcodes** — `:smile:` → 😄 with inline autocomplete and a searchable picker (toolbar button, Cmd+;, right-click → Insert Emoji…) including recents and category sections. ✅ Shipped in 2.3.0.
 - **Callouts / admonitions** — GitHub-style `> [!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]` rendered as styled panels; toolbar + right-click insert with kind picker; round-trips to canonical GFM. ✅ Shipped in 2.1.0.

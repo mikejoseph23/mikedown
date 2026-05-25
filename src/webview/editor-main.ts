@@ -1591,6 +1591,7 @@ const toolbarIcons = {
   print: toolbarSvg('<path d="M4 6V2h8v4"/><rect x="2" y="6" width="12" height="6" rx="1"/><rect x="4" y="10" width="8" height="4"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/>'),
   browser: toolbarSvg('<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><circle cx="3.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/>'),
   selectAll: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="1" stroke-dasharray="2 1.5"/><rect x="5" y="5" width="6" height="6" fill="currentColor" stroke="none"/>'),
+  share: toolbarSvg('<path d="M8 2v9"/><polyline points="5 5 8 2 11 5"/><path d="M3.5 8.5v4a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-4"/>'),
   emoji: toolbarSvg('<circle cx="8" cy="8" r="6"/><circle cx="6" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="10" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><path d="M5.5 9.5c.7 1.2 1.7 1.8 2.5 1.8s1.8-.6 2.5-1.8"/>'),
 };
 
@@ -1677,7 +1678,6 @@ function buildToolbar(editor: Editor): void {
     { id: 'redo', title: 'Redo (Cmd+Shift+Z)', icon: icons.redo, action: () => doRedo(editor), isActive: () => false },
     { separator: true },
     { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: icons.source, action: () => vscode.postMessage({ type: 'toggleSource' }), isActive: () => false },
-    { id: 'diffToggle', title: 'Toggle Diff Highlighting', icon: icons.diff, action: () => toggleDiffHighlight(), isActive: () => diffHighlightActive },
     { separator: true },
     { id: 'viewInBrowser', title: 'View in Browser', icon: icons.browser, action: () => vscode.postMessage({ type: 'viewInBrowser', html: (document.querySelector('.ProseMirror') as HTMLElement)?.innerHTML ?? '' }), isActive: () => false },
     { id: 'print', title: 'Print / Export as PDF', icon: icons.print, action: () => vscode.postMessage({ type: 'printDocument', html: (document.querySelector('.ProseMirror') as HTMLElement)?.innerHTML ?? '' }), isActive: () => false },
@@ -1847,21 +1847,20 @@ function buildCondensedToolbar(editor: Editor): void {
   const sourceBtn = makeBtn('sourceToggle', 'Toggle Source Mode (Cmd+/)', icons.source);
   sourceBtn.addEventListener('click', () => vscode.postMessage({ type: 'toggleSource' }));
 
-  const diffBtn = makeBtn('diffToggle', 'Toggle Diff Highlighting', icons.diff);
-  diffBtn.style.opacity = '0.3';
-  diffBtn.style.pointerEvents = 'none';
-  diffBtn.addEventListener('click', () => toggleDiffHighlight());
-
-  const viewInBrowserBtn = makeBtn('viewInBrowser', 'View in Browser', icons.browser);
-  viewInBrowserBtn.addEventListener('click', () => {
-    const el = document.querySelector('.ProseMirror') as HTMLElement | null;
-    vscode.postMessage({ type: 'viewInBrowser', html: el?.innerHTML ?? '' });
-  });
-
-  const printBtn = makeBtn('print', 'Print / Export as PDF', icons.print);
-  printBtn.addEventListener('click', () => {
-    const el = document.querySelector('.ProseMirror') as HTMLElement | null;
-    vscode.postMessage({ type: 'printDocument', html: el?.innerHTML ?? '' });
+  // ── Share dropdown (View in Browser, Print / Export as PDF) ─────────────
+  const shareBtn = makeDropdownTrigger('share', 'Share', icons.share);
+  shareBtn.addEventListener('click', () => {
+    if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
+    showToolbarDropdown(shareBtn, [
+      { type: 'action', id: 'viewInBrowser', label: 'View in Browser', icon: icons.browser, action: () => {
+        const el = document.querySelector('.ProseMirror') as HTMLElement | null;
+        vscode.postMessage({ type: 'viewInBrowser', html: el?.innerHTML ?? '' });
+      }},
+      { type: 'action', id: 'print', label: 'Print / Export as PDF', icon: icons.print, action: () => {
+        const el = document.querySelector('.ProseMirror') as HTMLElement | null;
+        vscode.postMessage({ type: 'printDocument', html: el?.innerHTML ?? '' });
+      }},
+    ]);
   });
 
   // Select All toolbar button — calls the same TextSelection helper the
@@ -2060,10 +2059,8 @@ function buildCondensedToolbar(editor: Editor): void {
   toolbar.appendChild(redoBtn);
   toolbar.appendChild(makeSeparator());
   toolbar.appendChild(sourceBtn);
-  toolbar.appendChild(diffBtn);
   toolbar.appendChild(makeSeparator());
-  toolbar.appendChild(viewInBrowserBtn);
-  toolbar.appendChild(printBtn);
+  toolbar.appendChild(shareBtn);
   toolbar.appendChild(selectAllBtn);
   toolbar.appendChild(makeSeparator());
   toolbar.appendChild(themeBtn);
