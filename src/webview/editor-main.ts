@@ -3556,12 +3556,6 @@ if (!editorContainer) {
     } else {
       applyDiffDecorations();
     }
-
-    // Update toolbar button active state
-    const btn = document.querySelector('button[data-action="diffToggle"]') as HTMLButtonElement | null;
-    if (btn) {
-      btn.classList.toggle('is-active', diffHighlightActive);
-    }
   }
 
   // ── M4: CodeMirror source editor ───────────────────────────────────────────
@@ -3935,11 +3929,6 @@ if (!editorContainer) {
     if (message.type === 'diffStatus') {
       const msg = message as any;
       fileHasGitChanges = msg.hasChanges;
-      const btn = document.querySelector('button[data-action="diffToggle"]') as HTMLButtonElement | null;
-      if (btn) {
-        btn.style.opacity = fileHasGitChanges ? '1' : '0.3';
-        btn.style.pointerEvents = fileHasGitChanges ? 'auto' : 'none';
-      }
     }
 
     // Handle diff data (HEAD content) from the extension host
@@ -3947,11 +3936,6 @@ if (!editorContainer) {
       const msg = message as any;
       headContent = msg.headContent;
       fileHasGitChanges = msg.hasChanges;
-      const btn = document.querySelector('button[data-action="diffToggle"]') as HTMLButtonElement | null;
-      if (btn) {
-        btn.style.opacity = fileHasGitChanges ? '1' : '0.3';
-        btn.style.pointerEvents = fileHasGitChanges ? 'auto' : 'none';
-      }
       if (diffHighlightActive) {
         applyDiffDecorations();
       }
