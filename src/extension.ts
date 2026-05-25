@@ -7,6 +7,7 @@ import { StatusBarManager } from './statusBar';
 import { exportViaPrint } from './export';
 import { BacklinkProvider } from './backlinkProvider';
 import { MarkdownOutlineSymbolProvider } from './outlineProvider';
+import { NagPrompt } from './nagPrompt';
 
 /**
  * One-shot migration: rename `mikedown.outline.*` settings + globalState key
@@ -299,6 +300,15 @@ export function activate(context: vscode.ExtensionContext): void {
       { label: 'MikeDown Headings' }
     )
   );
+
+  // Periodic "enjoying MikeDown?" toast. Backed by globalState — fires only
+  // after 7d install + ≥3 doc opens, then backs off 14→30→60→90d on dismiss
+  // (30d after a CTA click). See src/nagPrompt.ts for the full schedule.
+  const nag = new NagPrompt(context);
+  nag.recordActivation();
+  MarkdownEditorProvider.onDocOpen = () => nag.recordDocOpen();
+  // Idle delay before first check — don't ambush the user during startup.
+  setTimeout(() => nag.maybeShow(), 60_000);
 }
 
 /**

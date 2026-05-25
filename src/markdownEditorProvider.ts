@@ -47,6 +47,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private static lastDocTextByPanel = new WeakMap<vscode.WebviewPanel, string>();
   /** BacklinkProvider (assigned by extension.ts) — backs the sidebar Backlinks section. */
   public static backlinkProvider: import('./backlinkProvider').BacklinkProvider | undefined = undefined;
+  /** Nag-prompt engagement hook (assigned by extension.ts) — fires on each doc open. */
+  public static onDocOpen: (() => void) | undefined = undefined;
 
   /**
    * Broadcast the current backlink list to every open MikeDown panel. Called
@@ -137,6 +139,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     MarkdownEditorProvider.activePanel = webviewPanel;
     MarkdownEditorProvider.activeDocument = document;
     MarkdownEditorProvider.openPanels.set(webviewPanel, document);
+
+    // Nag-prompt engagement signal — count each document open.
+    MarkdownEditorProvider.onDocOpen?.();
 
     // Track panels by file path for diff detection.
     const fsPath = document.uri.fsPath;
