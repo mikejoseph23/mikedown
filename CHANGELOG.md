@@ -2,6 +2,18 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.5.2] - 2026-05-25
+
+### Added
+
+- **Share dropdown in the toolbar.** View in Browser and Print / Export as PDF are now grouped under a single Share button to keep the right-side utility cluster focused. Select All stays standalone — it's a selection action, not export.
+- **Periodic "enjoying MikeDown?" toast.** A single low-frequency information toast (Review · Share · Feedback · Stop asking) that only appears after ≥7 days of install and ≥3 documents opened in MikeDown. Dismissal backs off on a 14 → 30 → 60 → 90 day ladder; any call-to-action click resets the schedule to 30 days; Stop-asking is permanent. State persists per-install in `globalState`.
+
+### Removed
+
+- **Inert Diff toggle button** in the toolbar (it had been disabled — opacity 0.3 / no pointer events). The underlying `MikeDown: Show Git Diff` command stays available from the command palette and the editor-title context menu.
+- Three orphaned `button[data-action="diffToggle"]` DOM lookups that were running on every diffStatus / diffData broadcast.
+
 ## [2.5.1] - 2026-05-24
 
 ### Fixed
