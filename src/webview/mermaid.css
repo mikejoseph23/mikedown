@@ -1,0 +1,47 @@
+/* Mermaid diagram preview (rendered from ```mermaid code blocks). */
+
+/* The rendered diagram, inserted as a widget decoration just after the block. */
+.ProseMirror .mikedown-mermaid-preview {
+  margin: 0.75em 0;
+  padding: 1em 1.2em;
+  border: 1px solid rgba(128, 128, 128, 0.15);
+  border-radius: 6px;
+  background: var(--vscode-textCodeBlock-background);
+  text-align: center;
+  cursor: pointer;
+  overflow-x: auto;
+}
+
+.ProseMirror .mikedown-mermaid-preview svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.ProseMirror .mikedown-mermaid-preview.is-empty,
+.ProseMirror .mikedown-mermaid-preview.is-loading {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.875em;
+  font-style: italic;
+  text-align: center;
+}
+
+.ProseMirror .mikedown-mermaid-preview.has-error {
+  text-align: left;
+  white-space: pre-wrap;
+  color: var(--vscode-errorForeground, #f48771);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.8125em;
+  border-color: var(--vscode-errorForeground, #f48771);
+  cursor: text;
+}
+
+/* Hide the source <pre> while the cursor is elsewhere — the diagram stands in
+   for it. Show it again when editing, or when the diagram failed to render so
+   the user can fix the syntax. */
+.ProseMirror pre.mikedown-mermaid-source {
+  display: none;
+}
+.ProseMirror pre.mikedown-mermaid-source.is-editing,
+.ProseMirror pre.mikedown-mermaid-source.has-error {
+  display: block;
+}

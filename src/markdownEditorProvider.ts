@@ -747,6 +747,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (typeof settings.autoReloadUnmodifiedFiles === 'boolean') {
             config.update('autoReloadUnmodifiedFiles', settings.autoReloadUnmodifiedFiles, vscode.ConfigurationTarget.Global);
           }
+          if (typeof settings.renderMermaidDiagrams === 'boolean') {
+            config.update('renderMermaidDiagrams', settings.renderMermaidDiagrams, vscode.ConfigurationTarget.Global);
+          }
           if (settings.themeToggleScope === 'vscode' || settings.themeToggleScope === 'editorOnly') {
             config.update('themeToggleScope', settings.themeToggleScope, vscode.ConfigurationTarget.Global);
           }
@@ -996,6 +999,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       themeToggleScope: settings.themeToggleScope,
       editorTheme: settings.editorTheme,
       autoReloadUnmodifiedFiles: settings.autoReloadUnmodifiedFiles,
+      renderMermaidDiagrams: settings.renderMermaidDiagrams,
       markdownNormalization: settings.markdownNormalization,
       normalizationStyle: settings.normalizationStyle,
       imagePaste: settings.imagePaste,
@@ -1549,6 +1553,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'tables.css',
       'images.css',
       'codeblocks.css',
+      'mermaid.css',
       'links.css',
       'findreplace.css',
       'contextmenu.css',

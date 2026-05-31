@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.",
-  "version": "2.5.2",
+  "version": "2.6.0",
   "license": "MIT",
   "preview": false,
   "publisher": "interapp",
@@ -320,6 +320,11 @@
           "default": true,
           "description": "Automatically reload unmodified files when external changes are detected, without prompting."
         },
+        "mikedown.renderMermaidDiagrams": {
+          "type": "boolean",
+          "default": true,
+          "description": "Render ```mermaid code blocks as diagrams in the editor. Click a diagram to edit its source."
+        },
         "mikedown.markdownNormalization": {
           "type": "string",
           "enum": [
@@ -505,6 +510,7 @@
     "lowlight": "^3.3.0",
     "markdown-it-emoji": "^3.0.0",
     "markdown-it-mark": "^4.0.0",
+    "mermaid": "^11.15.0",
     "tiptap-markdown": "^0.9.0"
   }
 }
