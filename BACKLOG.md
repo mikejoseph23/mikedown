@@ -5,7 +5,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 ## High-value features
 
 - **Math / LaTeX rendering** — inline `$...$` and block `$$...$$` via KaTeX. GitHub renders this now, so it's basically table stakes for a markdown editor.
-- **Mermaid diagrams** — render ```` ```mermaid ```` fenced blocks (flowcharts, sequence, gantt, etc.). Also GitHub-rendered.
+- ~~**Mermaid diagrams** — render ```` ```mermaid ```` fenced blocks (flowcharts, sequence, gantt, etc.). Also GitHub-rendered.~~ ✅ Shipped — diagrams render live; click to edit source. Toggle: `mikedown.renderMermaidDiagrams`.
 - **Footnotes** — `[^1]` reference syntax (CommonMark extension, not strictly GFM).
 
 ## Nice-to-have

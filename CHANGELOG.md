@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.6.0] - 2026-05-31
+
+### Added
+
+- **Mermaid diagram rendering.** ```` ```mermaid ```` fenced blocks render as live SVG diagrams in the WYSIWYG view (flowcharts, sequence, class, state, gantt, pie, ER, and more). Click a diagram to reveal and edit its source; click away to re-render. Invalid syntax shows the source with an inline error so nothing is lost. Honors the editor light/dark theme. Toggle via the gear menu (Markdown tab) or `mikedown.renderMermaidDiagrams` (default on). Rendering is fully offline — mermaid is bundled, no network access.
+
 ## [2.5.2] - 2026-05-25
 
 ### Added

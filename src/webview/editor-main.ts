@@ -40,6 +40,7 @@ import { Emoji } from './emoji';
 import { EmojiAutocomplete } from './emojiautocomplete';
 import { Highlight } from './highlight';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
+import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import {
   initOutlineSidebar,
   applyOutlineState,
@@ -1121,6 +1122,11 @@ function showSettingsModal(): void {
     'When the file changes on disk and you have no unsaved edits, reload silently instead of showing a conflict prompt.',
     currentAutoReloadUnmodifiedFiles,
   );
+  const mermaidField = makeCheckboxRow(
+    'Render Mermaid diagrams',
+    'Display ```mermaid code blocks as rendered diagrams. Click a diagram to edit its source.',
+    currentRenderMermaidDiagrams,
+  );
   const linkClickField = makeSelectRow<'navigateCurrentTab' | 'openNewTab' | 'showContextMenu'>(
     'Link click behavior',
     'What happens when you Cmd/Ctrl+click a link in the editor.',
@@ -1289,6 +1295,7 @@ function showSettingsModal(): void {
         // Behavior
         defaultEditor: defaultEditorField.input.checked,
         autoReloadUnmodifiedFiles: autoReloadField.input.checked,
+        renderMermaidDiagrams: mermaidField.input.checked,
         linkClickBehavior: linkClickField.select.value,
         themeToggleScope: themeScopeField.select.value,
         // Markdown
@@ -1305,6 +1312,7 @@ function showSettingsModal(): void {
     currentImageResizeSettings = { ...irState };
     currentDefaultEditor = defaultEditorField.input.checked;
     currentAutoReloadUnmodifiedFiles = autoReloadField.input.checked;
+    currentRenderMermaidDiagrams = mermaidField.input.checked;
     currentLinkClickBehavior = linkClickField.select.value as typeof currentLinkClickBehavior;
     themeToggleScope = themeScopeField.select.value as typeof themeToggleScope;
     currentMarkdownNormalization = normalizationField.select.value as typeof currentMarkdownNormalization;
@@ -1355,6 +1363,7 @@ function showSettingsModal(): void {
   );
   const markdownPanel = makePanel();
   markdownPanel.append(
+    mermaidField.row,
     normalizationField.row,
     boldMarkerField.row,
     italicMarkerField.row,
@@ -1497,6 +1506,7 @@ let currentLinkClickBehavior: 'navigateCurrentTab' | 'openNewTab' | 'showContext
 let currentExtensionVersion = '';
 let currentDefaultEditor = false;
 let currentAutoReloadUnmodifiedFiles = true;
+let currentRenderMermaidDiagrams = true;
 let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
 interface NormalizationStyleSettings {
   boldMarker: '**' | '__';
@@ -2383,6 +2393,11 @@ if (!editorContainer) {
         },
       }),
 
+      // ── Mermaid diagrams ──────────────────────────────────────────────────────
+      // Renders ```mermaid blocks as live SVG diagrams via decoration widgets,
+      // leaving every other code block on the default CodeBlockLowlight path.
+      MermaidPreview,
+
       // ── Task Lists (M2c) ──────────────────────────────────────────────────────
       // "- [ ] " and "- [x] " input rules convert to checkable task list items.
       // TaskItem is configured with nested: true to allow sub-tasks.
@@ -2656,6 +2671,19 @@ if (!editorContainer) {
       postStats({ document: plainText });
     },
   });
+
+  // Re-render Mermaid diagrams when the color theme flips (VS Code light↔dark
+  // toggles the <body> class). Mermaid bakes theme colors into the SVG, so
+  // cached output would otherwise keep stale colors. Debounced to coalesce the
+  // burst of class mutations VS Code emits during a theme switch.
+  let mermaidThemeTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastBodyClass = document.body.className;
+  new MutationObserver(() => {
+    if (document.body.className === lastBodyClass) return;
+    lastBodyClass = document.body.className;
+    if (mermaidThemeTimer) clearTimeout(mermaidThemeTimer);
+    mermaidThemeTimer = setTimeout(() => refreshMermaidTheme(editor), 120);
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
   // Build condensed toolbar (Apple Notes-style) and wire active-state updates.
   buildCondensedToolbar(editor);
@@ -3895,6 +3923,11 @@ if (!editorContainer) {
       }
       if (msg.editorTheme) {
         applyEditorTheme(msg.editorTheme);
+        refreshMermaidTheme(editor);
+      }
+      if (typeof msg.renderMermaidDiagrams === 'boolean') {
+        currentRenderMermaidDiagrams = msg.renderMermaidDiagrams;
+        setMermaidEnabled(editor, msg.renderMermaidDiagrams);
       }
       if (typeof msg.extensionVersion === 'string') {
         currentExtensionVersion = msg.extensionVersion;

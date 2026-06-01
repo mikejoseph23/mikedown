@@ -66,6 +66,15 @@ const webviewConfig = {
     }
   },
   module: {
+    // mermaid lazy-loads its diagram types via dynamic import(). The webview is
+    // a single <script> under a strict CSP (script-src self only) with no
+    // publicPath, so runtime chunk loading can't work. Force every dynamic
+    // import to be inlined into the one bundle instead of code-split.
+    parser: {
+      javascript: {
+        dynamicImportMode: 'eager'
+      }
+    },
     rules: [
       {
         test: /\.ts$/,

@@ -8,6 +8,7 @@ export interface MikeDownSettings {
   themeToggleScope: 'vscode' | 'editorOnly';
   editorTheme: 'auto' | 'light' | 'dark';
   autoReloadUnmodifiedFiles: boolean;
+  renderMermaidDiagrams: boolean;
   markdownNormalization: 'preserve' | 'normalize';
   normalizationStyle: {
     boldMarker: '**' | '__';
@@ -51,6 +52,7 @@ export function getSettings(): MikeDownSettings {
     themeToggleScope: config.get<'vscode' | 'editorOnly'>('themeToggleScope', 'editorOnly'),
     editorTheme: config.get<'auto' | 'light' | 'dark'>('editorTheme', 'auto'),
     autoReloadUnmodifiedFiles: config.get<boolean>('autoReloadUnmodifiedFiles', true),
+    renderMermaidDiagrams: config.get<boolean>('renderMermaidDiagrams', true),
     markdownNormalization: config.get<'preserve' | 'normalize'>('markdownNormalization', 'preserve'),
     normalizationStyle: {
       boldMarker: config.get<'**' | '__'>('normalizationStyle.boldMarker', '**'),
