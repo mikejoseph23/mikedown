@@ -2,6 +2,16 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.6.1] - 2026-06-11
+
+### Fixed
+
+- **Table-of-contents links to headings with special characters now scroll correctly.** The internal anchor-ID generator now matches GitHub exactly: consecutive hyphens are preserved and trailing hyphens are kept. Previously, headings containing stripped punctuation between words (e.g. `Memory & Hardware`, `Instruct / Chat`, `MXFP4 / MXFP8`) generated a single hyphen instead of GitHub's double hyphen, so any GitHub-style `#anchor` link to them silently failed to navigate.
+
+### Changed
+
+- **Faster anchor-link scrolling in long documents.** Jumping to a heading now eases over a fixed, distance-capped duration instead of the browser's native smooth scroll, whose duration grew with distance and made long-document jumps crawl. Respects `prefers-reduced-motion`.
+
 ## [2.6.0] - 2026-05-31
 
 ### Added

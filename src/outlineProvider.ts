@@ -10,7 +10,10 @@ export interface HeadingInfo {
 }
 
 function githubAnchorId(text: string): string {
-  return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+  // Match GitHub exactly: strip punctuation, then turn each whitespace char into
+  // a hyphen. Do NOT collapse consecutive hyphens or trim trailing ones — GitHub
+  // keeps them (e.g. "Memory & Hardware" → "memory--hardware", "UD-" → "ud-").
+  return text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/\s/g, '-');
 }
 
 export function parseHeadings(text: string): HeadingInfo[] {

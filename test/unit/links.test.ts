@@ -3,7 +3,7 @@ import * as path from 'path';
 
 // Replicate the githubAnchorId function from editor-main.ts
 function githubAnchorId(text: string): string {
-  return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+  return text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/\s/g, '-');
 }
 
 // Replicate decodePathPart from markdownEditorProvider.ts — the openLink and
@@ -24,8 +24,20 @@ describe('GitHub Anchor ID Generation', () => {
     expect(githubAnchorId('Hello! World?')).toBe('hello-world');
   });
 
-  it('collapses multiple spaces to single hyphen', () => {
-    expect(githubAnchorId('Hello   World')).toBe('hello-world');
+  // GitHub does NOT collapse consecutive hyphens; each whitespace char becomes
+  // its own hyphen. Matching this is what makes TOC links land correctly.
+  it('preserves consecutive hyphens from runs of whitespace', () => {
+    expect(githubAnchorId('Hello   World')).toBe('hello---world');
+  });
+
+  it('produces a double hyphen where stripped punctuation sat between spaces', () => {
+    expect(githubAnchorId('Memory & Hardware')).toBe('memory--hardware');
+    expect(githubAnchorId('Instruct / Chat')).toBe('instruct--chat');
+    expect(githubAnchorId('Tokens, Inference, & Generation')).toBe('tokens-inference--generation');
+  });
+
+  it('keeps a trailing hyphen when the heading ends in one', () => {
+    expect(githubAnchorId('Algorithm prefix (`Q`, `IQ`, `UD-`)')).toBe('algorithm-prefix-q-iq-ud-');
   });
 
   it('handles numbered headings', () => {

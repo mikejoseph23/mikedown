@@ -265,12 +265,14 @@ function restoreFrontmatter(frontmatter: string, body: string): string {
  * Generate a GitHub-style anchor ID from a heading's text content.
  */
 function githubAnchorId(text: string): string {
+  // Match GitHub exactly: strip punctuation, then turn each whitespace char into
+  // a hyphen. Do NOT collapse consecutive hyphens or trim trailing ones — GitHub
+  // keeps them (e.g. "Memory & Hardware" → "memory--hardware", "UD-" → "ud-").
   return text
     .toLowerCase()
-    .replace(/[^\w\s-]/g, '')    // remove non-alphanumeric except hyphens
-    .replace(/\s+/g, '-')        // spaces → hyphens
-    .replace(/-+/g, '-')         // collapse consecutive hyphens
-    .replace(/^-|-$/g, '');      // trim leading/trailing hyphens
+    .trim()
+    .replace(/[^\w\s-]/g, '')    // remove punctuation (keep word chars, whitespace, hyphens)
+    .replace(/\s/g, '-');        // each whitespace char → hyphen (preserve consecutive)
 }
 
 /**
@@ -291,6 +293,49 @@ function computeAnchorIdFor(targetHeading: HTMLElement): string {
     if (h === targetHeading) return id;
   }
   return '';
+}
+
+/**
+ * Smoothly scroll a heading to the top of the editor viewport.
+ *
+ * Native `scrollIntoView({ behavior: 'smooth' })` picks its own duration that
+ * grows with distance, so jumping to the bottom of a long document crawls.
+ * This eases over a fixed, distance-capped duration instead, so the animation
+ * feels the same whether the target is one screen away or fifty. Honors
+ * `prefers-reduced-motion` by jumping instantly.
+ */
+function smoothScrollHeadingIntoView(target: HTMLElement): void {
+  const container = document.getElementById('editor-container');
+  if (!container) { target.scrollIntoView({ block: 'start' }); return; }
+
+  const TOP_PADDING = 8; // small breathing room above the heading
+  const destination = Math.max(
+    0,
+    Math.min(
+      container.scrollTop + target.getBoundingClientRect().top - container.getBoundingClientRect().top - TOP_PADDING,
+      container.scrollHeight - container.clientHeight,
+    ),
+  );
+  const start = container.scrollTop;
+  const distance = destination - start;
+  if (Math.abs(distance) < 1) return;
+
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) { container.scrollTop = destination; return; }
+
+  // Duration scales with distance but is clamped so long jumps stay snappy.
+  const duration = Math.min(420, Math.max(180, Math.abs(distance) * 0.4));
+  const easeInOutQuad = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+  let startTime: number | null = null;
+  const step = (now: number) => {
+    if (startTime === null) startTime = now;
+    const elapsed = now - startTime;
+    const t = Math.min(1, elapsed / duration);
+    container.scrollTop = start + distance * easeInOutQuad(t);
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 // ── M3: Link and image dialog helpers ─────────────────────────────────────────
@@ -4149,7 +4194,7 @@ if (!editorContainer) {
         );
       }
       if (targetEl) {
-        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        smoothScrollHeadingIntoView(targetEl);
       }
     }
 
