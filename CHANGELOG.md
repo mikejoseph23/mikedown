@@ -7,7 +7,6 @@ All notable changes to MikeDown Editor are documented here.
 ### Fixed
 
 - **Table-of-contents links to headings with special characters now scroll correctly.** The internal anchor-ID generator now matches GitHub exactly: consecutive hyphens are preserved and trailing hyphens are kept. Previously, headings containing stripped punctuation between words (e.g. `Memory & Hardware`, `Instruct / Chat`, `MXFP4 / MXFP8`) generated a single hyphen instead of GitHub's double hyphen, so any GitHub-style `#anchor` link to them silently failed to navigate.
-- **First line of a multi-line code block no longer looks indented** ([#2](https://github.com/mikejoseph23/mikedown/issues/2)). The inline-code style was unscoped, so its left padding also applied to the `<code>` inside a code block; because that element is inline, the padding landed only at the start of the first line, nudging it ~one character to the right of the lines below. The rule is now scoped to inline code only.
 
 ### Changed
 

@@ -389,12 +389,7 @@ body.mikedown-force-dark .ProseMirror mark {
 
 /* ─── Inline code ─────────────────────────────────────────────────────────── */
 
-/* Scope to inline code only. Without `:not(pre code)` the padding leaks onto the
-   <code> inside a code block; because <code> is inline, the left padding lands
-   only at the start of the first line, indenting it ~one character relative to
-   the rest (GitHub issue #2). The <pre> already supplies the block's padding
-   and background. */
-.ProseMirror code:not(pre code) {
+.ProseMirror code {
   background: var(--vscode-textCodeBlock-background);
   border-radius: 4px;
   padding: 0.15em 0.4em;
