@@ -397,6 +397,16 @@ body.mikedown-force-dark .ProseMirror mark {
   font-size: 0.88em;
 }
 
+/* The <code> inside a code block keeps the inline background (the per-line
+   highlight) but must drop its horizontal padding: <code> is inline, so the
+   0.4em padding-left lands only at the start of the very first line and indents
+   it ~one character relative to the rest (GitHub issue #2). Vertical padding and
+   background stay, so the highlight look is unchanged. */
+.ProseMirror pre code {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 /* ─── Horizontal rule ─────────────────────────────────────────────────────── */
 
 .ProseMirror hr {
