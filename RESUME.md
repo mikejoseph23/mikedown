@@ -6,15 +6,20 @@ MikeDown Editor is a true WYSIWYG Markdown editor for VS Code built on TipTap v2
 
 ## Current Status
 
-**2.3.0 is built, committed, pushed (`5fbcf0e`), and the vsix is ready to upload.** Highlight + emoji + sidebar consolidation all rode the same minor.
+**2.6.1 is built, committed, pushed (`667d718`), and PUBLISHED to the Marketplace.** It was a hotfix bundling three fixes; all shipped and live.
 
-- Just finished: highlight (`==text==`), emoji shortcodes + picker, sidebar consolidation (Backlinks + Properties + footer strip moved into the in-editor sidebar), MikeDown activity-bar icon removed
-- Ready to publish: `mikedown-editor-2.3.0.vsix` at repo root, 197 tests passing
-- Not yet uploaded to the Marketplace — manual vsix upload still pending
-- Two loose ends flagged before publish: (1) verify `Cmd+Shift+H` keybinding actually wins over VS Code's default toggle-replace inside MikeDown tabs (scoped via `activeCustomEditorId`); (2) confirm the `.sidebar-section[hidden] { display: none }` defensive rule isn't also needed on `.backlinks-section` or other collapsible sections
+This session (2.6.1 hotfix):
+
+- **GitHub-exact anchor IDs.** `githubAnchorId` no longer collapses consecutive hyphens or trims trailing ones, so TOC links to headings with stripped punctuation (e.g. `Memory & Hardware` → `memory--hardware`, `UD-` → `ud-`) resolve. Fixed in all three copies (`outlineProvider`, `markdownEditorProvider`, `webview/editor-main`) plus the test replica, with regression cases.
+- **Faster anchor-link scrolling.** New `smoothScrollHeadingIntoView` (webview/editor-main) eases over a fixed, distance-capped duration (180–420ms) instead of native smooth scroll, so long-doc jumps stay snappy. Honors `prefers-reduced-motion`.
+- **Code-block first-line indent (issue #2, now closed).** The inner `<code>` is inline and inherited `0.4em` horizontal padding from the inline-code style; inline left-padding lands only at the start of line 1, indenting it ~1 char. Fixed by zeroing horizontal padding on `.ProseMirror pre code` only — background/highlight/colors untouched. First (over-scoped) attempt stripped the line-highlight background and was reverted; the history is bad-fix → revert → correct-fix (`0b92c99` → `c05373d` → `667d718`). Verified visually with a browser before/after repro.
+- 226 unit tests passing.
 
 ## What's Done (2.x highlights)
 
+- **2.6.1** — Hotfix: GitHub-exact TOC anchor IDs, faster/distance-capped anchor scrolling, code-block first-line indent fix (issue #2)
+- **2.6.0** — Mermaid diagram rendering (```` ```mermaid ```` fenced blocks → live SVG; click to edit source, theme-aware, fully offline/bundled)
+- **2.5.x** — Settings modal reorganized into five tabs; sidebar pin + position toggle + per-instance state; Share dropdown (View in Browser / Print-Export PDF); periodic "enjoying MikeDown?" engagement toast; editable Properties section
 - **2.3.0** — `==highlight==` mark, emoji shortcodes (`:smile:`) + autocomplete + searchable picker modal (`Cmd+;`), sidebar consolidation: Properties (frontmatter) + Backlinks + footer metadata strip ("Modified 2 days ago · 1,245 words · 6 min read") all in the in-editor sidebar; MikeDown activity-bar icon removed
 - **2.1.0** — GitHub-style callouts (`> [!NOTE]` / TIP / IMPORTANT / WARNING / CAUTION) with kind picker in toolbar + right-click
 - **2.0.0** — In-editor document outline sidebar inside the WYSIWYG panel; cursor + scroll tracking, click-to-jump, drag-resize, three-way visibility (Always show / Always hide / Remember per doc)
@@ -25,13 +30,11 @@ MikeDown Editor is a true WYSIWYG Markdown editor for VS Code built on TipTap v2
 
 ## What's Next
 
-1. **Smoke-test 2.3.0** — install `mikedown-editor-2.3.0.vsix` locally; verify Cmd+Shift+H wins inside MikeDown tabs; confirm Backlinks/Properties hide correctly when empty; check footer relative time ticks
-2. **Upload to Marketplace** once smoke test passes
-3. **Pick the next feature from BACKLOG.md** — top remaining high-value bullets:
-   - **Math / LaTeX rendering** (`$...$` and `$$...$$` via KaTeX) — table stakes, GitHub renders it
-   - **Mermaid diagrams** (```` ```mermaid ```` fenced blocks) — also GitHub-rendered
+1. **Pick the next feature from BACKLOG.md** — top remaining high-value bullets:
+   - **Math / LaTeX rendering** (`$...$` and `$$...$$` via KaTeX) — table stakes, GitHub renders it. Has bundle-size + re-render gotchas; give it a dedicated session, not the "low-hanging fruit" treatment.
    - **Footnotes** (`[^1]`) — markdown-it-footnote exists, mature
-   - Math and Mermaid both have bundle-size and re-render gotchas — give them a dedicated session each, not the "low-hanging fruit" treatment
+   - Nice-to-haves: slash commands, wiki-links, definition lists, ToC, image captions, spell check, PlantUML
+2. **Optional cleanup** (noticed during the #2 fix, not done): the `#editor pre code` rule in `editor.css` is dead — it targets `#editor`, but the real container id is `editor-container`. Harmless, but it was the intended reset that never fired.
 
 ## Planning Docs
 
@@ -56,6 +59,8 @@ src/
     outlineSidebar.ts             — In-editor sidebar (Outline + Backlinks + Properties + footer)
     outline-sidebar.css           — Sidebar styles, theme-aware
     callout-node.ts               — GFM callout TipTap node (2.1.0)
+    mermaid.ts + .css             — Mermaid fenced-block → live SVG (2.6.0)
+    codeblocks.css                — Code-block styles (language pill, copy btn, hljs token colors)
     highlight.ts                  — Highlight mark extension + markdown-it-mark glue (2.3.0)
     emojiautocomplete.ts          — `:abc` inline autocomplete popup (2.3.0)
     emojipicker.ts + .css         — Searchable emoji modal w/ recents (2.3.0)
@@ -68,26 +73,24 @@ src/
     smartpaste.ts                 — Rich-text → markdown conversion
     imagepaste.ts                 — Image paste/drag pipeline
     editor.css / theme.css        — Editor + theme styles
-test/unit/                        — Vitest suite (197 tests across callout, highlight, emoji,
-                                    outline, backlinks, frontmatter, relative-time, etc.)
-package.json                      — Manifest (2.3.0). No more `mikedown-sidebar` view container.
+test/unit/                        — Vitest suite (226 tests; links.test.ts covers githubAnchorId)
+package.json                      — Manifest (2.6.1)
 BACKLOG.md                        — Future features + recently shipped
 CHANGELOG.md                      — Per-version release notes
 README.md                         — Marketplace listing
-mikedown-editor-2.3.0.vsix        — Ready to upload
+mikedown-editor-2.6.1.vsix        — Published build (.vsix is gitignored)
 ```
 
 ## Recent Git Log
 
 ```
-5fbcf0e fix(sidebar): hide Properties section when document has no frontmatter
-ad55c50 2.3: in-editor sidebar consolidation (Properties / Backlinks / footer)
-c37f8b1 2.3: highlight (==text==) + emoji shortcodes & picker
-8c2aae7 2.1: GitHub-style callouts / admonitions
-d4199bd BACKLOG: remove shipped outline entry; correct word-count version
-d684fba 2.0: in-editor document outline sidebar
-341477f Add MikeDown Outline pane in Explorer; cursor-driven highlight
-e9a6f58 Move review-nudge above the fold; add Screenshots heading
+667d718 Fix first line of code block appearing indented (#2)
+c05373d Revert "Fix first line of code block appearing indented (#2)"
+0b92c99 Fix first line of code block appearing indented (#2)
+661ce64 Fix GitHub-anchor TOC links and speed up anchor scrolling (2.6.1)
+1df5bd9 Merge branch 'feat/mermaid-diagrams'
+945104c 2.6.0: Mermaid diagram rendering
+c9ec17c 2.5.2: Share dropdown + periodic engagement toast
 ```
 
 ## Any Other Notes
@@ -97,5 +100,8 @@ e9a6f58 Move review-nudge above the fold; add Screenshots heading
 - **Sidebar visibility default is "Always hide"** — users opt in via the toggle. Don't flip the default without explicit user direction.
 - **No mocks of VS Code APIs in unit tests** — the tests use DOM scaffolding directly. See `test/unit/sidebarBacklinks.test.ts` for the pattern.
 - **Build**: `npm run package && npx vsce package` (do NOT use the `npm run vsix` script — it auto-bumps the patch version).
+- **CSS ships raw, not bundled.** Webview CSS is loaded via `<link>` from `extensionPath/src/webview/*.css` at runtime (see `getWebviewContent` in `markdownEditorProvider.ts`). Editing a `.css` file needs no webpack rebuild, but it must stay under `src/webview/` and be in the vsix.
+- **`githubAnchorId` must match GitHub exactly** — no hyphen collapsing, no trailing trim. Three copies are kept in sync (`outlineProvider`, `markdownEditorProvider`, `webview/editor-main`); `test/unit/links.test.ts` has a replica + regression cases. Change all of them together.
+- **Env gotcha (this session): rollup arch mismatch.** `npm run test:unit` died with `Cannot find module @rollup/rollup-darwin-arm64` because `node_modules` held the x64 binary on an arm64 Mac. Fix: `rm -rf node_modules && npm install` in a native arm64 shell (Volta node is arm64). Don't reinstall under Rosetta.
 - **Testing**: `F5` launches Extension Development Host. Use `assets/sample-docs/engineering-handbook.md` for realistic outline/backlinks/frontmatter testing.
 - **Permanent root fixtures**: `CLAUDE.md` (none yet here), `RESUME.md`, `BACKLOG.md` — never archive/rename/delete.
