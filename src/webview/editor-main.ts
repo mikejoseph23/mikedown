@@ -124,6 +124,7 @@ import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
 import { EmojiAutocomplete } from './emojiautocomplete';
 import { Highlight } from './highlight';
+import { TagDecorator } from './tag';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
 import { Wikilink } from './wikilink-node';
 import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
@@ -3205,6 +3206,12 @@ if (!editorContainer) {
       // Inline `<mark>` mark; round-trips to `==text==` via markdown-it-mark.
       Highlight,
 
+      // ── Inline #tags ───────────────────────────────────────────────────────
+      // Decoration-only: paints `.mikedown-tag` spans over `#tag` text without
+      // touching the doc model, so markdown round-trips untouched. Cmd/Ctrl+
+      // click navigation is wired in the link mousedown handler below.
+      TagDecorator,
+
       // ── GitHub-style callouts / admonitions ────────────────────────────────
       // `> [!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]`
       // render as styled, icon-prefixed panels. Round-trips to canonical GFM
@@ -4139,6 +4146,16 @@ if (!editorContainer) {
     if (event.button !== 0) {return;} // left-click only
 
     const target = event.target as HTMLElement;
+
+    // Inline #tag → find documents carrying it (Cmd/Ctrl+click, like links).
+    const tagEl = target.closest<HTMLElement>('.mikedown-tag');
+    if (tagEl) {
+      event.preventDefault();
+      event.stopPropagation();
+      const tag = tagEl.getAttribute('data-tag');
+      if (tag) {vscode.postMessage({ type: 'openTag', tag });}
+      return;
+    }
 
     // Phase 6 — Unresolved wikilink (no href): ask the host to create the
     // target file (Obsidian-style). The host no-ops unless the user has opted
