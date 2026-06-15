@@ -78,16 +78,18 @@ describe('Sidebar Backlinks rendering', () => {
     expect(badge.textContent).toContain('3');
   });
 
-  it('clicking a row posts openLink with navigateCurrentTab behavior', () => {
+  it('clicking a row opens the source to the side and passes reveal info', () => {
     applyBacklinks([
-      { uri: './a.md', displayPath: 'a.md', line: 1 },
+      { uri: './a.md', displayPath: 'a.md', line: 1, linkHref: './current.md', occurrence: 0 },
     ]);
     const row = document.querySelector('.backlinks-item') as HTMLButtonElement;
     row.click();
     expect(postMessageSpy).toHaveBeenCalledWith(expect.objectContaining({
       type: 'openLink',
       href: './a.md',
-      behavior: 'navigateCurrentTab',
+      behavior: 'openNewTab',
+      revealHref: './current.md',
+      revealOccurrence: 0,
     }));
   });
 

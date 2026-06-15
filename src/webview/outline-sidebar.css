@@ -260,6 +260,83 @@ body.mikedown-outline-right #mikedown-outline-sidebar {
   opacity: 1;
 }
 
+/* ─── Grouped backlinks (a source doc with >1 link) ──────────────────────── */
+
+.backlinks-group-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  /* Same left padding as a single-link row so the filename lines up exactly —
+     the chevron is floated into the gutter below and adds no indentation. */
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  opacity: 0.85;
+}
+
+.backlinks-group-header:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
+  opacity: 1;
+}
+
+.backlinks-group-chevron {
+  position: absolute;
+  left: 1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 9px;
+  text-align: center;
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.backlinks-group-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl; /* keep the filename visible, ellipsize the leading path */
+  text-align: left;
+}
+
+.backlinks-group-count {
+  flex: 0 0 auto;
+  opacity: 0.55;
+  font-size: 11px;
+}
+
+.backlinks-child {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  padding: 2px 10px 2px 24px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.7;
+}
+
+.backlinks-child:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
+  opacity: 1;
+}
+
 /* ─── Properties rows ────────────────────────────────────────────────────── */
 
 .properties-row {

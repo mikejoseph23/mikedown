@@ -110,6 +110,14 @@ body {
   text-decoration: underline;
 }
 
+/* Brief highlight when a backlink scrolls the rendered body to its `<a>`. */
+.ProseMirror a.mikedown-backlink-flash {
+  border-radius: 3px;
+  background-color: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 38%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 38%, transparent);
+  transition: background-color 0.4s ease, box-shadow 0.4s ease;
+}
+
 #editor code {
   font-family: var(--vscode-editor-font-family, 'Courier New', monospace);
   font-size: 0.9em;

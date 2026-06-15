@@ -270,8 +270,13 @@ export function activate(context: vscode.ExtensionContext): void {
   const backlinkProvider = new BacklinkProvider();
   MarkdownEditorProvider.backlinkProvider = backlinkProvider;
 
-  // Build backlink index on activate (in background)
-  backlinkProvider.buildIndex().catch(() => {});
+  // Build backlink index on activate (in background). Re-broadcast when the
+  // scan finishes — a webview that became ready mid-build got an empty index
+  // and would otherwise show no backlinks until the next save (notably after a
+  // window reload, where the doc reopens before the scan completes).
+  backlinkProvider.buildIndex()
+    .then(() => MarkdownEditorProvider.broadcastBacklinks())
+    .catch(() => {});
 
   // Update index when files are saved
   context.subscriptions.push(

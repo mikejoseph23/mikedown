@@ -12,7 +12,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 - **Slash commands** — `/` menu for inserting blocks (Notion-style).
 - **Wiki-links** — `[[Page Name]]` syntax with autocomplete (Obsidian-style).
-- **Tags** — first-class support for `#tag` inline syntax and/or frontmatter `tags:` arrays: render as clickable pills in the editor, aggregate workspace-wide with a sidebar section showing all tags + their documents, autocomplete on `#`.
+- **Tags** — first-class support for `#tag` inline syntax and/or frontmatter `tags:` arrays: render as clickable pills in the editor, aggregate workspace-wide with a sidebar section showing all tags + their documents, autocomplete on `#`. _🚧 In progress on branch `feature/inline-tags` (parked for a later release): inline `#tag` decorations + frontmatter `tags:` pills, merged workspace index, click → QuickPick of tagged docs (nested tags supported). Still TODO before shipping: `#` autocomplete, a dedicated all-tags sidebar section, and possibly a VS Code-search click target instead of the QuickPick._
 - **Definition lists** — `term\n: definition` (pandoc / PHP Markdown Extra).
 - **Table of contents** — auto-generated `[[toc]]` block.
 - **Custom containers** — `:::note ... :::` style (VuePress / MkDocs).
@@ -22,6 +22,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## Polish
 
+- **Backlinks: jump to the line, not just the file.** Clicking a backlink (or an expanded child row) in the sidebar opens the source doc but lands at the top. It should navigate to the link's line number. The line is already indexed (`BacklinkProvider` stores `lineNumber`, and the webview `BacklinkItem` carries `line`); the `openLink` host handler just needs to scroll/reveal that line after opening (similar to the existing `#anchor` → `scrollToAnchor` path). _Requested 2026-06-14._
 - Word count / reading time in status bar — _scaffolding exists in `src/statusBar.ts` but isn't wired to the webview yet._ ✅ Shipped in 1.8.0.
 - **Buy Me A Coffee link in Settings → About tab.** Needs a final BMAC URL. The About panel in `src/webview/editor-main.ts#buildAboutPanel` already has GitHub / changelog / issue links — add a BMAC link there once the URL exists.
 ## Recently shipped

@@ -27,6 +27,11 @@ interface BacklinkItem {
   displayPath: string;
   line: number;
   lineText?: string;
+  /** Href of the link in the source doc, so the opened doc can scroll to it. */
+  linkHref?: string;
+  /** Which occurrence of linkHref this is (0-based), for docs that link back
+   *  more than once. */
+  occurrence?: number;
 }
 
 interface FrontmatterEntry {
@@ -101,6 +106,9 @@ const userTouchedSections = new Set<string>();
 
 let currentBacklinks: BacklinkItem[] = [];
 let lastBacklinksKey = '';
+// Source docs (by uri) whose multi-link group the user has expanded. Persists
+// across re-renders so a workspace resave elsewhere doesn't collapse the view.
+const expandedBacklinkGroups = new Set<string>();
 let currentProperties: FrontmatterEntry[] = [];
 let propertiesEditable = false;
 let propertiesChangeCb: ((entries: FrontmatterEntry[]) => void) | null = null;
@@ -669,11 +677,19 @@ function scrollEditorToAnchor(anchor: string): void {
 function renderBacklinks(): void {
   if (!backlinksListEl || !backlinksCountEl) return;
 
-  // Refresh the count badge
-  const count = currentBacklinks.length;
-  if (count > 0) {
+  // Group occurrences by source document, preserving first-seen order.
+  const groups = new Map<string, BacklinkItem[]>();
+  for (const item of currentBacklinks) {
+    const arr = groups.get(item.uri);
+    if (arr) arr.push(item);
+    else groups.set(item.uri, [item]);
+  }
+
+  // Badge shows the number of distinct source docs (one per top-level row).
+  const docCount = groups.size;
+  if (docCount > 0) {
     backlinksCountEl.hidden = false;
-    backlinksCountEl.textContent = ` (${count})`;
+    backlinksCountEl.textContent = ` (${docCount})`;
   } else {
     backlinksCountEl.hidden = true;
     backlinksCountEl.textContent = '';
@@ -687,28 +703,106 @@ function renderBacklinks(): void {
   lastBacklinksKey = key;
 
   backlinksListEl.replaceChildren();
-  if (count === 0) {
+  if (docCount === 0) {
     renderBacklinksEmpty();
     return;
   }
 
-  for (const item of currentBacklinks) {
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = 'backlinks-item';
-    row.title = item.lineText
+  for (const [uri, items] of groups) {
+    if (items.length === 1) {
+      backlinksListEl.appendChild(buildBacklinkRow(items[0]));
+    } else {
+      backlinksListEl.appendChild(buildBacklinkGroup(uri, items));
+    }
+  }
+}
+
+/**
+ * Open a backlink's source. A backlinks panel is a reference tool, so we open
+ * the source beside the current doc ('openNewTab' → ViewColumn.Beside) — you
+ * keep your place.
+ */
+function attachBacklinkOpenHandlers(el: HTMLElement, item: BacklinkItem): void {
+  el.addEventListener('click', () => {
+    vscodeRef?.postMessage({
+      type: 'openLink',
+      href: item.uri,
+      behavior: 'openNewTab',
+      revealHref: item.linkHref,
+      revealOccurrence: item.occurrence,
+    });
+  });
+}
+
+/** A single backlink occurrence: navigates to the source on click. */
+function buildBacklinkRow(item: BacklinkItem): HTMLElement {
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'backlinks-item';
+  row.title = item.lineText
+    ? `${item.displayPath} (line ${item.line})\n${item.lineText}`
+    : `${item.displayPath} (line ${item.line})`;
+  row.textContent = item.displayPath;
+  attachBacklinkOpenHandlers(row, item);
+  return row;
+}
+
+/** A source doc with >1 backlink: a collapsible header + per-link children. */
+function buildBacklinkGroup(uri: string, items: BacklinkItem[]): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'backlinks-group';
+
+  const header = document.createElement('button');
+  header.type = 'button';
+  header.className = 'backlinks-group-header';
+
+  const chevron = document.createElement('span');
+  chevron.className = 'backlinks-group-chevron';
+  chevron.textContent = '▸';
+
+  const path = document.createElement('span');
+  path.className = 'backlinks-group-path';
+  path.textContent = items[0].displayPath;
+
+  const count = document.createElement('span');
+  count.className = 'backlinks-group-count';
+  count.textContent = `(${items.length})`;
+
+  header.append(chevron, path, count);
+  header.title = `${items[0].displayPath} — ${items.length} links`;
+
+  const children = document.createElement('div');
+  children.className = 'backlinks-group-children';
+
+  for (const item of items) {
+    const child = document.createElement('button');
+    child.type = 'button';
+    child.className = 'backlinks-child';
+    const text = item.lineText ? `L${item.line}: ${item.lineText}` : `Line ${item.line}`;
+    child.textContent = text;
+    child.title = item.lineText
       ? `${item.displayPath} (line ${item.line})\n${item.lineText}`
       : `${item.displayPath} (line ${item.line})`;
-    row.textContent = item.displayPath;
-    row.addEventListener('click', () => {
-      vscodeRef?.postMessage({
-        type: 'openLink',
-        href: item.uri,
-        behavior: 'navigateCurrentTab',
-      });
-    });
-    backlinksListEl.appendChild(row);
+    attachBacklinkOpenHandlers(child, item);
+    children.appendChild(child);
   }
+
+  const setExpanded = (expanded: boolean) => {
+    wrap.classList.toggle('expanded', expanded);
+    chevron.textContent = expanded ? '▾' : '▸';
+    children.hidden = !expanded;
+  };
+  setExpanded(expandedBacklinkGroups.has(uri));
+
+  header.addEventListener('click', () => {
+    const next = !expandedBacklinkGroups.has(uri);
+    if (next) expandedBacklinkGroups.add(uri);
+    else expandedBacklinkGroups.delete(uri);
+    setExpanded(next);
+  });
+
+  wrap.append(header, children);
+  return wrap;
 }
 
 function renderBacklinksEmpty(): void {

@@ -69,6 +69,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     if (!MarkdownEditorProvider.backlinkProvider) return;
     const entries = MarkdownEditorProvider.backlinkProvider.getBacklinksFor(document.uri);
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    // Occurrence index per (source file + link href): entries arrive in line
+    // order, matching the document order of the rendered `<a>` elements, so the
+    // Nth backlink here scrolls to the Nth matching link in the opened doc.
+    const occurrenceCounts = new Map<string, number>();
     const items = entries.map(e => {
       const fsPath = e.sourceFile.fsPath;
       const displayPath = workspaceFolder
@@ -80,11 +84,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       const fromDir = path.dirname(document.uri.fsPath);
       const rel = path.relative(fromDir, fsPath).split(path.sep).join('/');
       const href = rel.startsWith('.') ? rel : './' + rel;
+      const occKey = `${fsPath}\n${e.linkHref}`;
+      const occurrence = occurrenceCounts.get(occKey) ?? 0;
+      occurrenceCounts.set(occKey, occurrence + 1);
       return {
         uri: href,
         displayPath,
         line: e.lineNumber,
         lineText: e.lineText,
+        linkHref: e.linkHref,
+        occurrence,
       };
     });
     webview.postMessage({ type: 'backlinks', items });
@@ -587,6 +596,27 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             setTimeout(() => {
               webviewPanel.webview.postMessage({ type: 'scrollToAnchor', anchor });
             }, 300);
+          }
+
+          // Backlink reveal — scroll the opened doc's rendered body to the
+          // `<a>` that links back here. Retries until the target webview has
+          // registered itself (it resolves asynchronously after vscode.open).
+          if (message.revealHref) {
+            const targetPath = resolvedUri.fsPath;
+            const revealHref = message.revealHref;
+            const occurrence = message.revealOccurrence ?? 0;
+            let attempts = 0;
+            const tryReveal = (): void => {
+              const panels = MarkdownEditorProvider.panelsByPath.get(targetPath);
+              if (panels && panels.size > 0) {
+                for (const p of panels) {
+                  p.webview.postMessage({ type: 'revealLinkHref', href: revealHref, occurrence });
+                }
+              } else if (attempts++ < 8) {
+                setTimeout(tryReveal, 150);
+              }
+            };
+            setTimeout(tryReveal, 200);
           }
           break;
         }
@@ -1619,6 +1649,12 @@ interface WebviewMessage {
   /** stats payload — selection word/char counts; `null` = nothing selected. */
   selection?: { words: number; chars: number } | null;
   href?: string;
+  /** openLink payload — when opening a backlink, the href of the `<a>` in the
+   *  opened doc to scroll to (so its rendered body lands on the link). */
+  revealHref?: string;
+  /** openLink payload — which occurrence of `revealHref` to scroll to (0-based)
+   *  when the source doc links back more than once. */
+  revealOccurrence?: number;
   html?: string;
   links?: Array<{ href: string; type: 'anchor' | 'file' | 'fileAnchor' }>;
   filePath?: string;

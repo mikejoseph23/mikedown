@@ -6,6 +6,9 @@ export interface BacklinkEntry {
   lineNumber: number;
   lineText: string;
   targetFile: string;
+  /** The href exactly as written in the source link (path + any #anchor). Lets
+   *  the opened doc scroll its rendered body to this `<a>`. */
+  linkHref: string;
 }
 
 /**
@@ -59,6 +62,7 @@ export class BacklinkProvider {
             lineNumber: lineIdx + 1,
             lineText: line.trim().slice(0, 120),
             targetFile: absTarget,
+            linkHref: href + (m[3] ?? ''),
           });
           this.index.set(absTarget, existing);
         }

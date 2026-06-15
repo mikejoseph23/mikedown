@@ -2,6 +2,18 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.6.2] - 2026-06-15
+
+### Fixed
+
+- **Backlinks no longer come up empty after a window reload.** The workspace backlink scan runs in the background on activation; a reopened editor could finish loading before the scan completed and would then show no backlinks until the next save. The index now refreshes every open editor as soon as the scan finishes.
+
+### Changed
+
+- **Backlinks from the same document are grouped.** A source document that links here more than once now shows as a single collapsible row with a count (e.g. `notes.md (4)`) instead of repeating the filename; expand it to see each individual link. The section badge counts distinct documents.
+- **Clicking a backlink keeps your place.** Backlinks now open the source document to the side rather than replacing the current tab.
+- **Clicking a backlink jumps to that exact link.** The opened document scrolls its rendered body to the specific link that points back here — including the correct one when a document links back several times — and briefly highlights it.
+
 ## [2.6.1] - 2026-06-11
 
 ### Fixed

@@ -6,17 +6,29 @@ MikeDown Editor is a true WYSIWYG Markdown editor for VS Code built on TipTap v2
 
 ## Current Status
 
-**2.6.1 is built, committed, pushed (`667d718`), and PUBLISHED to the Marketplace.** It was a hotfix bundling three fixes; all shipped and live.
+**2.6.2 is built and committed on `main`; the `.vsix` is packaged and ready for you to upload to the Marketplace.** It's a hotfix release centered on backlinks.
 
-This session (2.6.1 hotfix):
+This session (2.6.2 hotfix — backlinks):
 
-- **GitHub-exact anchor IDs.** `githubAnchorId` no longer collapses consecutive hyphens or trims trailing ones, so TOC links to headings with stripped punctuation (e.g. `Memory & Hardware` → `memory--hardware`, `UD-` → `ud-`) resolve. Fixed in all three copies (`outlineProvider`, `markdownEditorProvider`, `webview/editor-main`) plus the test replica, with regression cases.
-- **Faster anchor-link scrolling.** New `smoothScrollHeadingIntoView` (webview/editor-main) eases over a fixed, distance-capped duration (180–420ms) instead of native smooth scroll, so long-doc jumps stay snappy. Honors `prefers-reduced-motion`.
-- **Code-block first-line indent (issue #2, now closed).** The inner `<code>` is inline and inherited `0.4em` horizontal padding from the inline-code style; inline left-padding lands only at the start of line 1, indenting it ~1 char. Fixed by zeroing horizontal padding on `.ProseMirror pre code` only — background/highlight/colors untouched. First (over-scoped) attempt stripped the line-highlight background and was reverted; the history is bad-fix → revert → correct-fix (`0b92c99` → `c05373d` → `667d718`). Verified visually with a browser before/after repro.
-- 226 unit tests passing.
+- **Backlinks empty after reload (the headline fix).** The workspace scan runs in the background on activation; a reopened editor could become ready before the scan finished and show no backlinks until the next save. `buildIndex()` now re-broadcasts to every open editor on completion (`extension.ts`). This is the "should have worked like this to begin with" bug.
+- **Grouped backlinks.** A source doc that links here more than once collapses to one row with a count (`notes.md (4)`); expand to see each link. Section badge counts distinct docs. Chevron is absolutely positioned in the left gutter so grouped rows line up flush with single-link rows (no false hierarchy). `outlineSidebar.ts` / `outline-sidebar.css`.
+- **Open to the side.** Backlink click opens the source beside the current doc (`behavior: 'openNewTab'`) instead of replacing the tab.
+- **Jump to the exact link.** Each backlink carries its source link `linkHref` + an `occurrence` index. On open, the host waits for the target webview to register, then posts `revealLinkHref`; the webview finds the Nth matching `<a>` and `smoothScroll`s to it with a brief amber flash (`mikedown-backlink-flash`). The occurrence index disambiguates docs that link back multiple times — clicking the 3rd backlink lands on the 3rd link, not the first.
+
+### Parked: inline tags feature (branch `feature/inline-tags`)
+
+Built this session but **deliberately parked off `main` for a later release** (something new to ship in a few days; no one's asking for it yet — it's an iterative attempt). Committed on the branch (`ad2cec6`), not merged. Hybrid tags, modeled on popular note apps:
+
+- **Sources merged into one workspace index:** frontmatter `tags:` (array or scalar) **and** inline `#tag` tokens in the body. Nested tags via slash (`#project/active`); a query for `#project` also matches its children. Charset letters/digits/`_`/`-`; pure-number tags rejected.
+- **Click → QuickPick** of every doc carrying the tag; the pick opens to the side. Inline tags navigate on Cmd/Ctrl+click (like links); read-only Properties tag pills navigate on plain click.
+- **Inline tags are decoration-only** (`webview/tag.ts`) — no node/mark, so the markdown model keeps literal `#tag` text and round-trips untouched. Code spans/blocks + link targets excluded from indexing.
+- New files: `src/tagSyntax.ts`, `src/tagExtract.ts`, `src/tagProvider.ts`, `src/webview/tag.ts`, `test/unit/tags.test.ts` (12 tests). Touches `extension.ts`, `markdownEditorProvider.ts`, `editor-main.ts`, `outlineSidebar.ts`, `editor.css`, `outline-sidebar.css`.
+- **Before shipping (see BACKLOG Tags bullet):** `#` autocomplete, a dedicated all-tags sidebar section, possibly a VS Code-search click target instead of the QuickPick. To resume: `git switch feature/inline-tags && npm run compile`, then rebase onto `main` to pick up the 2.6.2 backlinks work (likely small conflicts in `outlineSidebar.ts` / `outline-sidebar.css`, different regions).
+- 238 unit tests passing (226 + 12 tag tests on the branch; `main` has 226).
 
 ## What's Done (2.x highlights)
 
+- **2.6.2** — Hotfix (backlinks): empty-after-reload fixed; grouped multi-link docs; open-to-side; click jumps to the exact link (occurrence-aware). Inline-tags feature built but parked on `feature/inline-tags`.
 - **2.6.1** — Hotfix: GitHub-exact TOC anchor IDs, faster/distance-capped anchor scrolling, code-block first-line indent fix (issue #2)
 - **2.6.0** — Mermaid diagram rendering (```` ```mermaid ```` fenced blocks → live SVG; click to edit source, theme-aware, fully offline/bundled)
 - **2.5.x** — Settings modal reorganized into five tabs; sidebar pin + position toggle + per-instance state; Share dropdown (View in Browser / Print-Export PDF); periodic "enjoying MikeDown?" engagement toast; editable Properties section
@@ -74,11 +86,11 @@ src/
     imagepaste.ts                 — Image paste/drag pipeline
     editor.css / theme.css        — Editor + theme styles
 test/unit/                        — Vitest suite (226 tests; links.test.ts covers githubAnchorId)
-package.json                      — Manifest (2.6.1)
+package.json                      — Manifest (2.6.2)
 BACKLOG.md                        — Future features + recently shipped
 CHANGELOG.md                      — Per-version release notes
 README.md                         — Marketplace listing
-mikedown-editor-2.6.1.vsix        — Published build (.vsix is gitignored)
+mikedown-editor-2.6.2.vsix        — Packaged build, ready to upload (.vsix is gitignored)
 ```
 
 ## Recent Git Log

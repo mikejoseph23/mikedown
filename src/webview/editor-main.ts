@@ -4198,6 +4198,42 @@ if (!editorContainer) {
       }
     }
 
+    // Backlink reveal — scroll the rendered body to the `<a>` that links back
+    // to the doc the user came from. The href matches what's written in source
+    // (TipTap preserves it), so we match on the raw `href` attribute. Retries a
+    // few times because the doc may still be rendering right after open.
+    if (message.type === 'revealLinkHref') {
+      const want = (message as any).href as string;
+      const occurrence = (message as any).occurrence as number | undefined;
+      if (want) {
+        const norm = (h: string) => h.replace(/^\.\//, '');
+        const want0 = occurrence ?? 0;
+        let tries = 0;
+        const tryFind = (): void => {
+          const anchors = editorContainer.querySelectorAll<HTMLElement>('.ProseMirror a[href]');
+          const matches: HTMLElement[] = [];
+          for (const a of anchors) {
+            const raw = a.getAttribute('href') || '';
+            if (raw === want || norm(raw) === norm(want)) matches.push(a);
+          }
+          // Wait until the wanted occurrence has rendered; only after retries
+          // run out do we settle for whatever's available (fall back to first).
+          const exhausted = tries++ >= 6;
+          if (matches.length <= want0 && !exhausted) {
+            setTimeout(tryFind, 150);
+            return;
+          }
+          const hit: HTMLElement | null = matches[want0] ?? matches[0] ?? null;
+          if (hit) {
+            smoothScrollHeadingIntoView(hit);
+            hit.classList.add('mikedown-backlink-flash');
+            setTimeout(() => hit?.classList.remove('mikedown-backlink-flash'), 1600);
+          }
+        };
+        tryFind();
+      }
+    }
+
     // M6b — Link autocomplete: receive workspace file suggestions from host.
     if (message.type === 'linkSuggestions') {
       receiveSuggestions((message as any).suggestions);
