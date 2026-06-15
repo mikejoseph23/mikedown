@@ -376,6 +376,23 @@ body.mikedown-force-dark .ProseMirror mark {
   }
 }
 
+/* ─── Inline #tags ────────────────────────────────────────────────────────── */
+/* Decoration spans painted over `#tag` text (see webview/tag.ts). Cmd/Ctrl+
+   click navigates to the tag's documents; plain click still edits the text. */
+
+.ProseMirror .mikedown-tag {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  background: color-mix(in srgb, var(--vscode-textLink-foreground, #3794ff) 12%, transparent);
+  border-radius: 4px;
+  padding: 0 0.2em;
+  cursor: pointer;
+}
+
+.ProseMirror .mikedown-tag:hover {
+  background: color-mix(in srgb, var(--vscode-textLink-foreground, #3794ff) 24%, transparent);
+  text-decoration: underline;
+}
+
 /* ─── Code block ──────────────────────────────────────────────────────────── */
 
 .ProseMirror pre {

@@ -6,6 +6,7 @@ import { MarkdownEditorProvider } from './markdownEditorProvider';
 import { StatusBarManager } from './statusBar';
 import { exportViaPrint } from './export';
 import { BacklinkProvider } from './backlinkProvider';
+import { TagProvider } from './tagProvider';
 import { MarkdownOutlineSymbolProvider } from './outlineProvider';
 import { NagPrompt } from './nagPrompt';
 
@@ -270,24 +271,33 @@ export function activate(context: vscode.ExtensionContext): void {
   const backlinkProvider = new BacklinkProvider();
   MarkdownEditorProvider.backlinkProvider = backlinkProvider;
 
-  // Build backlink index on activate (in background)
-  backlinkProvider.buildIndex().catch(() => {});
+  // Tag index — backs the in-editor tag click → QuickPick flow. Same lifecycle
+  // as the backlink index (build on activate, refresh on save/create/delete).
+  const tagProvider = new TagProvider();
+  MarkdownEditorProvider.tagProvider = tagProvider;
 
-  // Update index when files are saved
+  // Build indexes on activate (in background)
+  backlinkProvider.buildIndex().catch(() => {});
+  tagProvider.buildIndex().catch(() => {});
+
+  // Update indexes when files are saved
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(doc => {
       if (doc.languageId === 'markdown' || doc.fileName.endsWith('.md') || doc.fileName.endsWith('.markdown')) {
         backlinkProvider.updateFile(doc.uri).then(() => {
           MarkdownEditorProvider.broadcastBacklinks();
         }).catch(() => {});
+        tagProvider.updateFile(doc.uri).catch(() => {});
       }
     })
   );
 
-  // Update index on file create/delete
+  // Update indexes on file create/delete
   context.subscriptions.push(
     vscode.workspace.onDidCreateFiles(e => Promise.all(e.files.map(f => backlinkProvider.updateFile(f))).then(() => MarkdownEditorProvider.broadcastBacklinks()).catch(() => {})),
-    vscode.workspace.onDidDeleteFiles(e => Promise.all(e.files.map(f => backlinkProvider.updateFile(f))).then(() => MarkdownEditorProvider.broadcastBacklinks()).catch(() => {}))
+    vscode.workspace.onDidDeleteFiles(e => Promise.all(e.files.map(f => backlinkProvider.updateFile(f))).then(() => MarkdownEditorProvider.broadcastBacklinks()).catch(() => {})),
+    vscode.workspace.onDidCreateFiles(e => Promise.all(e.files.map(f => tagProvider.updateFile(f))).catch(() => {})),
+    vscode.workspace.onDidDeleteFiles(e => Promise.all(e.files.map(f => tagProvider.updateFile(f))).catch(() => {}))
   );
 
   // DocumentSymbolProvider — populates VS Code's built-in Outline panel for

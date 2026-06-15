@@ -445,6 +445,22 @@ body.mikedown-outline-right #mikedown-outline-sidebar {
   cursor: text;
 }
 
+/* Tag pills (read-only mode) — clickable, link-colored, find tagged docs. */
+.properties-pill.tag {
+  cursor: pointer;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  background-color: color-mix(in srgb, var(--vscode-textLink-foreground, #3794ff) 14%, transparent);
+}
+
+.properties-pill.tag::before {
+  content: '#';
+  opacity: 0.6;
+}
+
+.properties-pill.tag:hover {
+  background-color: color-mix(in srgb, var(--vscode-textLink-foreground, #3794ff) 28%, transparent);
+}
+
 .properties-pill-x {
   display: none;
   background: transparent;

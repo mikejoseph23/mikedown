@@ -47,6 +47,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private static lastDocTextByPanel = new WeakMap<vscode.WebviewPanel, string>();
   /** BacklinkProvider (assigned by extension.ts) — backs the sidebar Backlinks section. */
   public static backlinkProvider: import('./backlinkProvider').BacklinkProvider | undefined = undefined;
+  /** TagProvider (assigned by extension.ts) — backs the tag click → QuickPick flow. */
+  public static tagProvider: import('./tagProvider').TagProvider | undefined = undefined;
   /** Nag-prompt engagement hook (assigned by extension.ts) — fires on each doc open. */
   public static onDocOpen: (() => void) | undefined = undefined;
 
@@ -587,6 +589,37 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             setTimeout(() => {
               webviewPanel.webview.postMessage({ type: 'scrollToAnchor', anchor });
             }, 300);
+          }
+          break;
+        }
+        case 'openTag': {
+          // Tag click (inline #tag or a Properties tag pill) — show every
+          // document carrying this tag (or a nested child) in a QuickPick;
+          // the chosen doc opens to the side so the user keeps their place.
+          const tag = (message.tag ?? '').trim();
+          if (!tag) break;
+          const provider = MarkdownEditorProvider.tagProvider;
+          const paths = provider ? provider.getDocsForTag(tag) : [];
+          if (paths.length === 0) {
+            vscode.window.showInformationMessage(`No documents tagged #${tag}.`);
+            break;
+          }
+          const picks = paths.map(fsPath => {
+            const wf = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(fsPath));
+            const rel = wf
+              ? path.relative(wf.uri.fsPath, fsPath).split(path.sep).join('/')
+              : fsPath;
+            return { label: path.basename(fsPath), description: rel, fsPath };
+          });
+          const chosen = await vscode.window.showQuickPick(picks, {
+            title: `Documents tagged #${tag}`,
+            placeHolder: `${picks.length} document${picks.length === 1 ? '' : 's'}`,
+            matchOnDescription: true,
+          });
+          if (chosen) {
+            await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(chosen.fsPath), {
+              viewColumn: vscode.ViewColumn.Beside,
+            });
           }
           break;
         }
@@ -1613,12 +1646,14 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'openTag' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage';
   content?: string;
   pristine?: boolean;
   /** stats payload — selection word/char counts; `null` = nothing selected. */
   selection?: { words: number; chars: number } | null;
   href?: string;
+  /** openTag payload — the tag (without leading #) to find documents for. */
+  tag?: string;
   html?: string;
   links?: Array<{ href: string; type: 'anchor' | 'file' | 'fileAnchor' }>;
   filePath?: string;

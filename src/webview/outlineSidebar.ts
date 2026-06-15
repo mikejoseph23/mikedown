@@ -763,12 +763,17 @@ function buildPropertyRow(entry: FrontmatterEntry, index: number): HTMLElement {
   }
   row.appendChild(key);
 
+  // Tag keys (`tags` / `tag`) get clickable pills in read-only mode — clicking
+  // finds documents sharing that tag. In edit mode the pill stays editable.
+  const keyLower = entry.key.trim().toLowerCase();
+  const isTag = (keyLower === 'tags' || keyLower === 'tag') && !propertiesEditable;
+
   const value = document.createElement('span');
   value.className = 'properties-value';
   if (Array.isArray(entry.value)) {
     value.classList.add('array');
     for (let pi = 0; pi < entry.value.length; pi++) {
-      value.appendChild(buildPill(entry.value[pi], index, pi));
+      value.appendChild(buildPill(entry.value[pi], index, pi, isTag));
     }
     if (propertiesEditable) {
       value.appendChild(buildAddPillButton(index));
@@ -809,7 +814,7 @@ function buildPropertyRow(entry: FrontmatterEntry, index: number): HTMLElement {
   return row;
 }
 
-function buildPill(text: string, rowIdx: number, pillIdx: number): HTMLElement {
+function buildPill(text: string, rowIdx: number, pillIdx: number, isTag = false): HTMLElement {
   const pill = document.createElement('span');
   pill.className = 'properties-pill';
   pill.dataset.pillIdx = String(pillIdx);
@@ -819,6 +824,19 @@ function buildPill(text: string, rowIdx: number, pillIdx: number): HTMLElement {
   label.textContent = text;
   label.title = text;
   pill.appendChild(label);
+
+  if (isTag) {
+    const tag = text.replace(/^#/, '');
+    label.textContent = tag; // the `#` is supplied by CSS ::before
+    label.title = `#${tag}`;
+    pill.classList.add('tag');
+    pill.title = `Find documents tagged #${tag}`;
+    pill.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      vscodeRef?.postMessage({ type: 'openTag', tag });
+    });
+    return pill;
+  }
 
   if (propertiesEditable) {
     pill.classList.add('editable');
