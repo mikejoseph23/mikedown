@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.",
-  "version": "2.6.2",
+  "version": "2.7.0",
   "license": "MIT",
   "preview": false,
   "publisher": "interapp",
@@ -337,6 +337,21 @@
           ],
           "default": "preserve",
           "description": "Whether to normalize markdown syntax when saving."
+        },
+        "mikedown.headingRename.updateLinks": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "Prompt before updating cross-file links when a heading is renamed (in-document table-of-contents links are fixed automatically)",
+            "Update all affected links automatically when a heading is renamed (still undoable)",
+            "Never update links when a heading is renamed"
+          ],
+          "default": "ask",
+          "description": "When you rename a heading, links that point at its anchor (#slug) break. This controls whether MikeDown fixes them. In-document links are always fixed silently; this setting governs cross-file links in other markdown files."
         },
         "mikedown.normalizationStyle.boldMarker": {
           "type": "string",

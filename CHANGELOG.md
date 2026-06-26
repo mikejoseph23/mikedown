@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.7.0] - 2026-06-26
+
+### Added
+
+- **Renaming a heading fixes the links that pointed at it.** When you rename a heading, links that referenced its old `#anchor` would silently break. MikeDown now detects the rename and repairs the references: in-document table-of-contents links are fixed automatically inside the editor, and cross-file links in other markdown files are updated too. A new setting, `mikedown.headingRename.updateLinks` (`ask` / `always` / `never`, default `ask`), controls whether cross-file links are fixed automatically or after a prompt that names the affected files. Renames where the heading name is duplicated in the document are left alone (with a warning), since the right target is ambiguous.
+
 ## [2.6.2] - 2026-06-15
 
 ### Fixed
