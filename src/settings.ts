@@ -10,6 +10,9 @@ export interface MikeDownSettings {
   autoReloadUnmodifiedFiles: boolean;
   renderMermaidDiagrams: boolean;
   markdownNormalization: 'preserve' | 'normalize';
+  headingRename: {
+    updateLinks: 'ask' | 'always' | 'never';
+  };
   normalizationStyle: {
     boldMarker: '**' | '__';
     italicMarker: '*' | '_';
@@ -54,6 +57,9 @@ export function getSettings(): MikeDownSettings {
     autoReloadUnmodifiedFiles: config.get<boolean>('autoReloadUnmodifiedFiles', true),
     renderMermaidDiagrams: config.get<boolean>('renderMermaidDiagrams', true),
     markdownNormalization: config.get<'preserve' | 'normalize'>('markdownNormalization', 'preserve'),
+    headingRename: {
+      updateLinks: config.get<'ask' | 'always' | 'never'>('headingRename.updateLinks', 'ask'),
+    },
     normalizationStyle: {
       boldMarker: config.get<'**' | '__'>('normalizationStyle.boldMarker', '**'),
       italicMarker: config.get<'*' | '_'>('normalizationStyle.italicMarker', '*'),

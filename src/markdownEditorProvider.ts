@@ -17,6 +17,8 @@ import {
   resolveTargetFolder,
   resizeSiblingPath,
 } from './imagePaste';
+import { githubAnchorId } from './anchoring';
+import { BacklinkEntry } from './backlinkProvider';
 
 /**
  * MikeDown custom text editor provider.
@@ -720,6 +722,25 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           } catch { /* file not found — silently ignore */ }
           break;
         }
+        case 'headingRenamed': {
+          // 2.7.0 — A heading's anchor slug changed. The webview already fixed
+          // in-doc TOC links; here we find + (per preference) fix cross-file
+          // backlinks in OTHER markdown files that target this file's #oldSlug.
+          const oldSlug = message.oldSlug;
+          const newSlug = message.newSlug;
+          if (!oldSlug || !newSlug) break;
+          await this.fixCrossFileHeadingLinks(document, oldSlug, newSlug);
+          break;
+        }
+        case 'headingRenameAmbiguous': {
+          // The renamed heading's base slug is duplicated — anchors are
+          // ambiguous, so we refuse to rewrite and warn instead (v1 scope).
+          const baseName = message.baseName || 'this heading';
+          vscode.window.showWarningMessage(
+            `"#${baseName}" appears multiple times in this document — links may need manual review after renaming.`
+          );
+          break;
+        }
         case 'saveSettings': {
           const settings = (message as any).settings || {};
           const config = vscode.workspace.getConfiguration('mikedown');
@@ -786,6 +807,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // Markdown tab
           if (settings.markdownNormalization === 'preserve' || settings.markdownNormalization === 'normalize') {
             config.update('markdownNormalization', settings.markdownNormalization, vscode.ConfigurationTarget.Global);
+          }
+          if (
+            settings.headingRenameUpdateLinks === 'ask' ||
+            settings.headingRenameUpdateLinks === 'always' ||
+            settings.headingRenameUpdateLinks === 'never'
+          ) {
+            config.update('headingRename.updateLinks', settings.headingRenameUpdateLinks, vscode.ConfigurationTarget.Global);
           }
           if (settings.normalizationStyle && typeof settings.normalizationStyle === 'object') {
             const ns = settings.normalizationStyle;
@@ -1031,6 +1059,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       autoReloadUnmodifiedFiles: settings.autoReloadUnmodifiedFiles,
       renderMermaidDiagrams: settings.renderMermaidDiagrams,
       markdownNormalization: settings.markdownNormalization,
+      headingRenameUpdateLinks: settings.headingRename.updateLinks,
       normalizationStyle: settings.normalizationStyle,
       imagePaste: settings.imagePaste,
       imageResize: settings.imageResize,
@@ -1076,6 +1105,94 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       } catch { /* untracked or missing — leave null */ }
     }
     webview.postMessage({ type: 'docMeta', mtimeMs });
+  }
+
+  /**
+   * 2.7.0 — Heading Rename → Fix Links (cross-file half).
+   *
+   * Given the just-renamed heading's document and its old/new anchor slugs,
+   * find every backlink in OTHER markdown files that targets `thisFile#oldSlug`
+   * and (per `mikedown.headingRename.updateLinks`) rewrite them to `#newSlug`
+   * via a single WorkspaceEdit (one undo step). In-doc links are handled in the
+   * webview; this only touches cross-file references.
+   */
+  private async fixCrossFileHeadingLinks(
+    document: vscode.TextDocument,
+    oldSlug: string,
+    newSlug: string,
+  ): Promise<void> {
+    const provider = MarkdownEditorProvider.backlinkProvider;
+    if (!provider) return;
+
+    // The index keys hrefs by resolved target path and stores the fragment
+    // verbatim. Keep only entries whose fragment is exactly `oldSlug`.
+    const fragmentOf = (href: string): string => {
+      const i = href.indexOf('#');
+      return i >= 0 ? href.slice(i + 1) : '';
+    };
+    const entries = provider
+      .getBacklinksFor(document.uri)
+      .filter(e => fragmentOf(e.linkHref) === oldSlug);
+    if (entries.length === 0) return;
+
+    const fileCount = new Set(entries.map(e => e.sourceFile.fsPath)).size;
+    const pref = getSettings().headingRename.updateLinks;
+
+    if (pref === 'ask') {
+      const fileWord = fileCount === 1 ? 'file' : 'files';
+      const linkWord = entries.length === 1 ? 'link' : 'links';
+      const choice = await vscode.window.showInformationMessage(
+        `This heading is referenced by ${entries.length} ${linkWord} across ${fileCount} ${fileWord}. Update them to the new anchor?`,
+        { modal: true },
+        'Update Links'
+      );
+      if (choice !== 'Update Links') return;
+    }
+    // pref === 'always' falls through and applies silently; 'never' never
+    // reaches here (the webview suppresses the message entirely).
+
+    const edit = new vscode.WorkspaceEdit();
+    // Group entries by source file so each file is opened once.
+    const byFile = new Map<string, BacklinkEntry[]>();
+    for (const e of entries) {
+      const list = byFile.get(e.sourceFile.fsPath) || [];
+      list.push(e);
+      byFile.set(e.sourceFile.fsPath, list);
+    }
+
+    let rewritten = 0;
+    for (const [, fileEntries] of byFile) {
+      const srcUri = fileEntries[0].sourceFile;
+      let srcDoc: vscode.TextDocument;
+      try {
+        srcDoc = await vscode.workspace.openTextDocument(srcUri);
+      } catch {
+        continue; // file vanished since indexing — skip it
+      }
+      for (const e of fileEntries) {
+        const oldHref = e.linkHref; // e.g. ./other.md#old-slug
+        const newHref = oldHref.slice(0, oldHref.indexOf('#') + 1) + newSlug;
+        const lineIdx = e.lineNumber - 1;
+        if (lineIdx < 0 || lineIdx >= srcDoc.lineCount) continue;
+        const lineText = srcDoc.lineAt(lineIdx).text;
+        // Replace every occurrence of this exact href on the line (duplicates
+        // all point at the same anchor, so they all move together).
+        let from = lineText.indexOf(oldHref);
+        while (from !== -1) {
+          edit.replace(
+            srcUri,
+            new vscode.Range(lineIdx, from, lineIdx, from + oldHref.length),
+            newHref
+          );
+          rewritten++;
+          from = lineText.indexOf(oldHref, from + oldHref.length);
+        }
+      }
+    }
+
+    if (rewritten > 0) {
+      await vscode.workspace.applyEdit(edit);
+    }
   }
 
   /**
@@ -1643,7 +1760,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'headingRenamed' | 'headingRenameAmbiguous';
   content?: string;
   pristine?: boolean;
   /** stats payload — selection word/char counts; `null` = nothing selected. */
@@ -1669,6 +1786,11 @@ interface WebviewMessage {
   currentSrc?: string;
   /** resizeImage: percentage of the original size, e.g. 50 means half-resolution. */
   percent?: number;
+  /** headingRenamed payload — anchor slugs before/after a heading rename. */
+  oldSlug?: string;
+  newSlug?: string;
+  /** headingRenameAmbiguous payload — the duplicated base slug to warn about. */
+  baseName?: string;
 }
 
 
@@ -1693,17 +1815,6 @@ function readSectionPrefs(raw: unknown): Record<string, boolean> {
     return out;
   }
   return {};
-}
-
-/**
- * M6c — Generate a GitHub-style anchor ID from a heading's text content.
- * Mirrors the same logic used in the webview (editor-main.ts).
- */
-function githubAnchorId(text: string): string {
-  // Match GitHub exactly: strip punctuation, then turn each whitespace char into
-  // a hyphen. Do NOT collapse consecutive hyphens or trim trailing ones — GitHub
-  // keeps them (e.g. "Memory & Hardware" → "memory--hardware", "UD-" → "ud-").
-  return text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/\s/g, '-');
 }
 
 /**

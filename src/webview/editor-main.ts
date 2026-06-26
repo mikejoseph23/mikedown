@@ -14,6 +14,14 @@
  *   { type: 'edit', content: string }    — new full markdown text after user edit
  *   { type: 'stats', selection: { words, chars } | null } — selection stats for status bar (null = no selection)
  *   { type: 'toggleSource' }             — request to toggle source mode (M4 hook)
+ *
+ * Heading Rename → Fix Links (2.7.0):
+ *   Webview → Extension:
+ *     { type: 'headingRenamed', oldSlug, newSlug } — a heading's anchor slug
+ *         changed; the webview has already fixed in-doc TOC links, the host
+ *         should find + (per pref) fix cross-file backlinks targeting this file.
+ *     { type: 'headingRenameAmbiguous', baseName } — the renamed heading's base
+ *         slug is duplicated in the document; host shows a warning, no auto-fix.
  */
 
 import { Editor, mergeAttributes } from '@tiptap/core';
@@ -70,6 +78,8 @@ import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, update
 import { showLanguagePicker } from './languagepicker';
 import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
 import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from '../imageDisplayPath';
+import { githubAnchorId } from '../anchoring';
+import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
 import { EditorState, Transaction as CmTransaction } from '@codemirror/state';
@@ -260,20 +270,6 @@ function restoreFrontmatter(frontmatter: string, body: string): string {
 }
 
 // ── M6a: Anchor ID generation helpers ─────────────────────────────────────────
-
-/**
- * Generate a GitHub-style anchor ID from a heading's text content.
- */
-function githubAnchorId(text: string): string {
-  // Match GitHub exactly: strip punctuation, then turn each whitespace char into
-  // a hyphen. Do NOT collapse consecutive hyphens or trim trailing ones — GitHub
-  // keeps them (e.g. "Memory & Hardware" → "memory--hardware", "UD-" → "ud-").
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')    // remove punctuation (keep word chars, whitespace, hyphens)
-    .replace(/\s/g, '-');        // each whitespace char → hyphen (preserve consecutive)
-}
 
 /**
  * Compute the anchor ID for a specific heading element by walking all
@@ -1191,6 +1187,16 @@ function showSettingsModal(): void {
       { value: 'vscode', label: 'Whole VS Code window' },
     ],
   );
+  const headingRenameField = makeSelectRow<'ask' | 'always' | 'never'>(
+    'Fix links on heading rename',
+    'When you rename a heading, links pointing at its #anchor break. In-document links are always fixed; this controls cross-file links in other files.',
+    currentHeadingRenameUpdateLinks,
+    [
+      { value: 'ask', label: 'Ask before fixing cross-file links' },
+      { value: 'always', label: 'Fix all links automatically' },
+      { value: 'never', label: 'Never fix links' },
+    ],
+  );
 
   // ── Markdown tab fields
   const normalizationField = makeSelectRow<'preserve' | 'normalize'>(
@@ -1343,6 +1349,7 @@ function showSettingsModal(): void {
         renderMermaidDiagrams: mermaidField.input.checked,
         linkClickBehavior: linkClickField.select.value,
         themeToggleScope: themeScopeField.select.value,
+        headingRenameUpdateLinks: headingRenameField.select.value,
         // Markdown
         markdownNormalization: normalizationField.select.value,
         normalizationStyle,
@@ -1360,6 +1367,7 @@ function showSettingsModal(): void {
     currentRenderMermaidDiagrams = mermaidField.input.checked;
     currentLinkClickBehavior = linkClickField.select.value as typeof currentLinkClickBehavior;
     themeToggleScope = themeScopeField.select.value as typeof themeToggleScope;
+    currentHeadingRenameUpdateLinks = headingRenameField.select.value as typeof currentHeadingRenameUpdateLinks;
     currentMarkdownNormalization = normalizationField.select.value as typeof currentMarkdownNormalization;
     currentNormalizationStyle = normalizationStyle;
     currentSidebarVisibilityDefault = sidebarVisibilityField.select.value as typeof currentSidebarVisibilityDefault;
@@ -1405,6 +1413,7 @@ function showSettingsModal(): void {
     autoReloadField.row,
     linkClickField.row,
     themeScopeField.row,
+    headingRenameField.row,
   );
   const markdownPanel = makePanel();
   markdownPanel.append(
@@ -1553,6 +1562,7 @@ let currentDefaultEditor = false;
 let currentAutoReloadUnmodifiedFiles = true;
 let currentRenderMermaidDiagrams = true;
 let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
+let currentHeadingRenameUpdateLinks: 'ask' | 'always' | 'never' = 'ask';
 interface NormalizationStyleSettings {
   boldMarker: '**' | '__';
   italicMarker: '*' | '_';
@@ -3178,6 +3188,138 @@ if (!editorContainer) {
     onPropertiesChange: applyFrontmatterEdit,
   });
 
+  // ── Heading Rename → Fix Links (2.7.0) ─────────────────────────────────────
+  // Detect heading renames via selection-scoped baselining: snapshot the slug
+  // when the cursor enters a heading, recompute when it leaves (or after an
+  // ~800ms idle debounce). A changed slug emits a single rename event — keystroke
+  // noise collapses because we only compare at the boundaries. See
+  // planning/HEADING-RENAME-LINKS.md and src/webview/headingRename.ts.
+
+  // Preference broadcast from the host (mikedown.headingRename.updateLinks).
+  // Gates the whole detector: `never` means we never touch links.
+  let headingRenamePref: 'ask' | 'always' | 'never' = 'ask';
+
+  // The heading currently under the cursor. `startPos` is the node's start
+  // position — stable while editing within the heading (only content *before*
+  // it shifts it, which can't happen while the cursor is inside).
+  let trackedHeading: { startPos: number; baselineText: string } | null = null;
+  let headingIdleTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Find the heading node containing the selection head, if any.
+  function headingAtSelection(): { startPos: number; text: string } | null {
+    const { $head } = editor.state.selection;
+    for (let depth = $head.depth; depth > 0; depth--) {
+      const node = $head.node(depth);
+      if (node.type.name === 'heading') {
+        return { startPos: $head.before(depth), text: node.textContent };
+      }
+    }
+    return null;
+  }
+
+  // Read the current text of the heading node that starts at `pos`, or null if
+  // it is no longer a heading there (e.g. the heading was deleted).
+  function headingTextAt(pos: number): string | null {
+    if (pos < 0 || pos > editor.state.doc.content.size) return null;
+    const node = editor.state.doc.nodeAt(pos);
+    return node && node.type.name === 'heading' ? node.textContent : null;
+  }
+
+  // Every heading's text in document order — for the duplicate-slug guard.
+  function allHeadingTexts(): string[] {
+    const texts: string[] = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'heading') {
+        texts.push(node.textContent);
+        return false;
+      }
+      return true;
+    });
+    return texts;
+  }
+
+  // Rewrite every in-doc link whose href is `#oldSlug` → `#newSlug` in a single
+  // ProseMirror transaction. (Never mutate editor.view.dom directly — see
+  // feedback_prosemirror_dom_writes.) Returns the number of links rewritten.
+  function rewriteInDocLinks(oldSlug: string, newSlug: string): number {
+    const { state } = editor;
+    const linkType = state.schema.marks.link;
+    if (!linkType) return 0;
+    const oldHref = `#${oldSlug}`;
+    const newHref = `#${newSlug}`;
+    let tr = state.tr;
+    let count = 0;
+    state.doc.descendants((node, pos) => {
+      if (!node.isText) return;
+      for (const mark of node.marks) {
+        if (mark.type === linkType && mark.attrs.href === oldHref) {
+          const end = pos + node.nodeSize;
+          tr = tr
+            .removeMark(pos, end, linkType)
+            .addMark(pos, end, linkType.create({ ...mark.attrs, href: newHref }));
+          count++;
+        }
+      }
+    });
+    if (tr.docChanged) editor.view.dispatch(tr);
+    return count;
+  }
+
+  // A settled rename: fix in-doc links, guard duplicates, ask host for cross-file.
+  function handleHeadingRename(oldSlug: string, newSlug: string): void {
+    if (headingRenamePref === 'never') return;
+    // Duplicate-slug guard — refuse to guess when anchors are ambiguous.
+    if (isRenameAmbiguous(allHeadingTexts(), oldSlug, newSlug)) {
+      vscode.postMessage({ type: 'headingRenameAmbiguous', baseName: oldSlug });
+      return;
+    }
+    // In-doc TOC links are low-risk and self-contained: fix them immediately.
+    rewriteInDocLinks(oldSlug, newSlug);
+    // Cross-file backlinks live in files the host owns — hand off for the
+    // count + (per pref) the prompt + WorkspaceEdit.
+    vscode.postMessage({ type: 'headingRenamed', oldSlug, newSlug });
+  }
+
+  // Compare the tracked heading's current text against its baseline; if the slug
+  // changed, emit a rename and re-baseline so chained renames keep working.
+  function settleTrackedHeading(): void {
+    if (!trackedHeading) return;
+    const current = headingTextAt(trackedHeading.startPos);
+    if (current === null) {
+      trackedHeading = null;
+      return;
+    }
+    const event = detectHeadingRename(trackedHeading.baselineText, current);
+    if (event) {
+      handleHeadingRename(event.oldSlug, event.newSlug);
+      trackedHeading.baselineText = current; // re-baseline for the next rename
+    }
+  }
+
+  // Keep `trackedHeading` in sync with the selection: settle on leave/move,
+  // baseline on enter.
+  function syncHeadingTracking(): void {
+    if (headingRenamePref === 'never') {
+      trackedHeading = null;
+      return;
+    }
+    const here = headingAtSelection();
+    if (trackedHeading && (!here || here.startPos !== trackedHeading.startPos)) {
+      settleTrackedHeading(); // left this heading (or moved to another)
+      trackedHeading = null;
+    }
+    if (here && !trackedHeading) {
+      trackedHeading = { startPos: here.startPos, baselineText: here.text };
+    }
+  }
+
+  editor.on('selectionUpdate', syncHeadingTracking);
+  editor.on('update', () => {
+    // Idle-settle so a rename applies promptly even without moving the cursor.
+    if (headingIdleTimer) clearTimeout(headingIdleTimer);
+    headingIdleTimer = setTimeout(settleTrackedHeading, 800);
+  });
+
   // 2.4.0 — Sidebar inline editing: serialize the new entries back to YAML,
   // splice into the full doc, and post via the existing `edit` channel.
   // The WYSIWYG frontmatter block + sidebar both re-render off the same
@@ -3965,6 +4107,10 @@ if (!editorContainer) {
       }
       if (msg.themeToggleScope) {
         themeToggleScope = msg.themeToggleScope;
+      }
+      if (msg.headingRenameUpdateLinks) {
+        headingRenamePref = msg.headingRenameUpdateLinks;
+        currentHeadingRenameUpdateLinks = msg.headingRenameUpdateLinks;
       }
       if (msg.editorTheme) {
         applyEditorTheme(msg.editorTheme);
