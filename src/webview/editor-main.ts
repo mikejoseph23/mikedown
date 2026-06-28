@@ -30,10 +30,8 @@ import { undoDepth as pmUndoDepth } from '@tiptap/pm/history';
 import { StarterKit } from '@tiptap/starter-kit';
 import { TaskList } from '@tiptap/extension-task-list';
 import { DraggableTaskItem as TaskItem } from './taskitem-drag';
-import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
-import { TableHeader } from '@tiptap/extension-table-header';
-import { TableCell } from '@tiptap/extension-table-cell';
+import { TableAligned, TableCellAligned, TableHeaderAligned } from './table-align';
 import { LinkWithAutolink } from './linkAutolink';
 import { Image } from '@tiptap/extension-image';
 import { Placeholder } from '@tiptap/extension-placeholder';
@@ -2462,10 +2460,10 @@ if (!editorContainer) {
       TaskItem.configure({ nested: true }),
 
       // ── Tables ────────────────────────────────────────────────────────────────
-      Table.configure({ resizable: false }),
+      TableAligned.configure({ resizable: false }),
       TableRow,
-      TableHeader,
-      TableCell,
+      TableHeaderAligned,
+      TableCellAligned,
 
       // ── Links (M2b) ───────────────────────────────────────────────────────────
       // tiptap-markdown handles "[text](url)" syntax via its paste/input rules,

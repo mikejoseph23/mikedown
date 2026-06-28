@@ -1,5 +1,6 @@
 import { Editor } from '@tiptap/core';
 import { hideTableToolbar } from './tablepicker';
+import { setColumnAlign } from './table-align';
 
 export interface ContextMenuItem {
   label: string;
@@ -350,9 +351,12 @@ export function buildTableMenu(editor: Editor): ContextMenuEntry[] {
     { label: 'Insert Column Right', action: () => editor.chain().focus().addColumnAfter().run() },
     { label: 'Remove Column', action: () => editor.chain().focus().deleteColumn().run() },
     { separator: true },
-    { label: 'Align Left', action: () => editor.chain().focus().setCellAttribute('textAlign', 'left').run() },
-    { label: 'Align Center', action: () => editor.chain().focus().setCellAttribute('textAlign', 'center').run() },
-    { label: 'Align Right', action: () => editor.chain().focus().setCellAttribute('textAlign', 'right').run() },
+    { label: 'Align Column Left', action: () => setColumnAlign(editor, 'left') },
+    { label: 'Align Column Center', action: () => setColumnAlign(editor, 'center') },
+    { label: 'Align Column Right', action: () => setColumnAlign(editor, 'right') },
+    { separator: true },
+    { label: 'Toggle Header Row', action: () => editor.chain().focus().toggleHeaderRow().run() },
+    { label: 'Merge / Split Cells', action: () => editor.chain().focus().mergeOrSplit().run() },
     { separator: true },
     { label: 'Delete Table', action: () => editor.chain().focus().deleteTable().run() },
   ];
