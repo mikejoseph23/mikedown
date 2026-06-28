@@ -1,4 +1,5 @@
 import { Editor } from '@tiptap/core';
+import { setColumnAlign, getColumnAlign } from './table-align';
 
 // ================================================================
 // TABLE GRID PICKER
@@ -161,6 +162,7 @@ export function hideTableGridPicker(): void {
 let tableToolbarEl: HTMLElement | null = null;
 let tableToolbarAnchor: HTMLElement | null = null;
 let tableToolbarScrollHandler: (() => void) | null = null;
+let tableTooltipEl: HTMLElement | null = null;
 
 interface TableToolbarButton {
   label: string;
@@ -168,6 +170,33 @@ interface TableToolbarButton {
   action: () => void;
   isActive?: () => boolean;
   isDisabled?: () => boolean;
+}
+
+// Live button registry so updateTableToolbar() can refresh active/disabled
+// state as the selection moves between columns without rebuilding the toolbar.
+let toolbarButtons: Array<{ el: HTMLButtonElement; def: TableToolbarButton }> = [];
+
+function showTableTooltip(anchor: HTMLElement, text: string): void {
+  if (!text) return;
+  if (!tableTooltipEl) {
+    tableTooltipEl = document.createElement('div');
+    tableTooltipEl.id = 'mikedown-table-tooltip';
+    document.body.appendChild(tableTooltipEl);
+  }
+  tableTooltipEl.textContent = text;
+  tableTooltipEl.style.visibility = 'hidden';
+  tableTooltipEl.style.display = 'block';
+  const a = anchor.getBoundingClientRect();
+  const t = tableTooltipEl.getBoundingClientRect();
+  let left = a.left + a.width / 2 - t.width / 2;
+  left = Math.max(4, Math.min(left, window.innerWidth - t.width - 4));
+  tableTooltipEl.style.left = `${left}px`;
+  tableTooltipEl.style.top = `${a.bottom + 6}px`;
+  tableTooltipEl.style.visibility = 'visible';
+}
+
+function hideTableTooltip(): void {
+  if (tableTooltipEl) tableTooltipEl.style.display = 'none';
 }
 
 export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
@@ -178,8 +207,8 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
   tableToolbarEl.setAttribute('role', 'toolbar');
   tableToolbarEl.setAttribute('aria-label', 'Table toolbar');
 
-  // SVG icons for the table toolbar (12×12, matching VS Code style)
-  const tsvg = (d: string) => `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  // SVG icons for the table toolbar (drawn on a 14×14 grid, scaled up via CSS).
+  const tsvg = (d: string) => `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   const tIcons = {
     rowAbove: tsvg('<rect x="1" y="4" width="12" height="9" rx="1"/><line x1="1" y1="8" x2="13" y2="8"/><line x1="7" y1="4" x2="7" y2="8"/><line x1="7" y1="0.5" x2="7" y2="3"/><line x1="5.5" y1="1.5" x2="7" y2="0.5"/><line x1="8.5" y1="1.5" x2="7" y2="0.5"/>'),
     rowBelow: tsvg('<rect x="1" y="1" width="12" height="9" rx="1"/><line x1="1" y1="5.5" x2="13" y2="5.5"/><line x1="7" y1="5.5" x2="7" y2="10"/><line x1="7" y1="10.5" x2="7" y2="13.5"/><line x1="5.5" y1="12.5" x2="7" y2="13.5"/><line x1="8.5" y1="12.5" x2="7" y2="13.5"/>'),
@@ -190,58 +219,77 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
     alignL: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="2" y1="6.5" x2="9" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
     alignC: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="3.5" y1="6.5" x2="10.5" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
     alignR: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="5" y1="6.5" x2="12" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
+    header: tsvg('<rect x="1" y="1" width="12" height="12" rx="1"/><line x1="1" y1="5" x2="13" y2="5"/><line x1="5" y1="5" x2="5" y2="13"/><line x1="9" y1="5" x2="9" y2="13"/><rect x="1" y="1" width="12" height="4" fill="currentColor" opacity="0.35" stroke="none"/>'),
+    merge: tsvg('<rect x="1" y="2" width="12" height="10" rx="1"/><line x1="5" y1="2" x2="5" y2="5"/><line x1="5" y1="9" x2="5" y2="12"/><line x1="9" y1="2" x2="9" y2="5"/><line x1="9" y1="9" x2="9" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/><polyline points="6.5 5.5 8 7 6.5 8.5"/><polyline points="7.5 5.5 6 7 7.5 8.5"/>'),
     trash: tsvg('<polyline points="2 4 3 12 11 12 12 4"/><line x1="1" y1="4" x2="13" y2="4"/><path d="M5 4V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V4"/>'),
   };
 
   const buttons: TableToolbarButton[] = [
     {
-      label: tIcons.rowAbove, title: 'Insert Row Above',
+      label: tIcons.rowAbove, title: 'Insert row above',
       action: () => editor.chain().focus().addRowBefore().run(),
     },
     {
-      label: tIcons.rowBelow, title: 'Insert Row Below',
+      label: tIcons.rowBelow, title: 'Insert row below',
       action: () => editor.chain().focus().addRowAfter().run(),
     },
     {
-      label: tIcons.rowDel, title: 'Remove Row',
+      label: tIcons.rowDel, title: 'Delete row',
       action: () => editor.chain().focus().deleteRow().run(),
       isDisabled: () => !editor.can().deleteRow(),
     },
     { label: '|', title: '', action: () => {} }, // separator
     {
-      label: tIcons.colLeft, title: 'Insert Column Left',
+      label: tIcons.colLeft, title: 'Insert column left',
       action: () => editor.chain().focus().addColumnBefore().run(),
     },
     {
-      label: tIcons.colRight, title: 'Insert Column Right',
+      label: tIcons.colRight, title: 'Insert column right',
       action: () => editor.chain().focus().addColumnAfter().run(),
     },
     {
-      label: tIcons.colDel, title: 'Remove Column',
+      label: tIcons.colDel, title: 'Delete column',
       action: () => editor.chain().focus().deleteColumn().run(),
       isDisabled: () => !editor.can().deleteColumn(),
     },
     { label: '|', title: '', action: () => {} }, // separator
     {
-      label: tIcons.alignL, title: 'Align Left',
-      action: () => editor.chain().focus().setCellAttribute('textAlign', 'left').run(),
-      isActive: () => false,
+      label: tIcons.alignL, title: 'Align column left',
+      action: () => setColumnAlign(editor, 'left'),
+      isActive: () => {
+        const a = getColumnAlign(editor);
+        return a === 'left' || a == null;
+      },
     },
     {
-      label: tIcons.alignC, title: 'Align Center',
-      action: () => editor.chain().focus().setCellAttribute('textAlign', 'center').run(),
+      label: tIcons.alignC, title: 'Align column center',
+      action: () => setColumnAlign(editor, 'center'),
+      isActive: () => getColumnAlign(editor) === 'center',
     },
     {
-      label: tIcons.alignR, title: 'Align Right',
-      action: () => editor.chain().focus().setCellAttribute('textAlign', 'right').run(),
+      label: tIcons.alignR, title: 'Align column right',
+      action: () => setColumnAlign(editor, 'right'),
+      isActive: () => getColumnAlign(editor) === 'right',
     },
     { label: '|', title: '', action: () => {} }, // separator
     {
-      label: tIcons.trash, title: 'Delete Table',
+      label: tIcons.header, title: 'Toggle header row',
+      action: () => editor.chain().focus().toggleHeaderRow().run(),
+      isDisabled: () => !editor.can().toggleHeaderRow(),
+    },
+    {
+      label: tIcons.merge, title: 'Merge / split cells',
+      action: () => editor.chain().focus().mergeOrSplit().run(),
+      isDisabled: () => !editor.can().mergeOrSplit(),
+    },
+    { label: '|', title: '', action: () => {} }, // separator
+    {
+      label: tIcons.trash, title: 'Delete table',
       action: () => editor.chain().focus().deleteTable().run(),
     },
   ];
 
+  toolbarButtons = [];
   buttons.forEach(btn => {
     if (btn.label === '|' && !btn.title) {
       const sep = document.createElement('div');
@@ -252,13 +300,17 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
     const el = document.createElement('button');
     el.className = 'tt-btn';
     el.innerHTML = btn.label;
-    el.title = btn.title;
+    el.setAttribute('aria-label', btn.title);
     if (btn.isDisabled?.()) el.disabled = true;
     if (btn.isActive?.()) el.classList.add('tt-active');
     el.addEventListener('mousedown', (e) => {
       e.preventDefault();
       btn.action();
+      refreshTableToolbarStates(editor);
     });
+    el.addEventListener('mouseenter', () => showTableTooltip(el, btn.title));
+    el.addEventListener('mouseleave', hideTableTooltip);
+    toolbarButtons.push({ el, def: btn });
     tableToolbarEl!.appendChild(el);
   });
 
@@ -304,10 +356,21 @@ export function hideTableToolbar(): void {
     tableToolbarScrollHandler = null;
   }
   tableToolbarAnchor = null;
+  hideTableTooltip();
+  toolbarButtons = [];
   if (tableToolbarEl) {
     tableToolbarEl.remove();
     tableToolbarEl = null;
   }
+}
+
+// Re-evaluate active/disabled state for every button (e.g. alignment highlight
+// when the cursor moves to a different column).
+function refreshTableToolbarStates(editor: Editor): void {
+  toolbarButtons.forEach(({ el, def }) => {
+    el.disabled = def.isDisabled?.() ?? false;
+    el.classList.toggle('tt-active', def.isActive?.() ?? false);
+  });
 }
 
 export function updateTableToolbar(editor: Editor): void {
@@ -340,6 +403,7 @@ export function updateTableToolbar(editor: Editor): void {
     } else {
       tableToolbarAnchor = tableNode;
       positionTableToolbar(tableNode);
+      refreshTableToolbarStates(editor);
     }
   }
 }

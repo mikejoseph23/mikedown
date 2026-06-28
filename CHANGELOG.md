@@ -2,6 +2,17 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.8.0] - 2026-06-28
+
+### Added
+
+- **Table column alignment that actually saves.** The table toolbar's Align Left / Center / Right buttons now set alignment for the whole column and write it to the markdown delimiter row (`:---:`, `---:`), so it survives save and reload. Left is the GFM default and stays a plain `---`. The active alignment is highlighted as you move between columns. Previously these buttons were no-ops — the alignment was neither displayed nor persisted.
+- **Toggle header row** and **merge / split cells** in the table toolbar and right-click menu. Merged cells can't be expressed in GFM, so a table containing them is saved as an HTML `<table>` block (and reloads correctly).
+
+### Changed
+
+- **Larger, clearer table toolbar.** Bigger buttons and icons, and fast hover tooltips that name each action, so the table controls are easier to discover and read.
+
 ## [2.7.0] - 2026-06-26
 
 ### Added
