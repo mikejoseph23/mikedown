@@ -102,3 +102,43 @@
 .lac-item.lac-external .lac-label {
   font-style: italic;
 }
+
+/* Wikilink filename autocomplete — inline popup while typing `[[abc`. */
+
+#mikedown-wikilink-ac {
+  position: fixed;
+  z-index: 1100;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.25));
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2), 0 0 1px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  user-select: none;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.wac-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 4px;
+  color: var(--vscode-foreground, #d4d4d4);
+}
+
+.wac-item:hover,
+.wac-item.wac-active {
+  background: var(--vscode-list-activeSelectionBackground, #0e639c);
+  color: var(--vscode-list-activeSelectionForeground, #ffffff);
+}
+
+.wac-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

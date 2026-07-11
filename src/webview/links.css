@@ -85,3 +85,40 @@ body.cmd-held .ProseMirror a {
   font-size: 0.75em;
   color: var(--vscode-errorForeground, #f44747);
 }
+
+/* Wikilink styles — Obsidian-style [[wikilink]] rendered as
+   <a data-wikilink class="mikedown-wikilink">. Given a distinct purple/violet
+   accent so they read differently from normal [text](path) links. When the host
+   reports the target can't be resolved, .mikedown-unresolved adds a muted, dashed
+   treatment (softer than the red broken-link state). */
+.ProseMirror a[data-wikilink] {
+  color: var(--vscode-charts-purple, #b180d7);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 35%, transparent);
+  cursor: text;
+}
+.ProseMirror a[data-wikilink]:hover {
+  color: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 80%, white);
+  border-bottom-color: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 55%, transparent);
+}
+
+/* Cmd+Click hint cursor for resolved wikilinks */
+body.cmd-held .ProseMirror a[data-wikilink] {
+  cursor: pointer;
+}
+
+/* Unresolved wikilink — target file doesn't exist yet (soft, not an error) */
+.ProseMirror a[data-wikilink].mikedown-unresolved {
+  color: var(--vscode-descriptionForeground, #8c8c8c);
+  border-bottom: 1px dashed color-mix(in srgb, var(--vscode-descriptionForeground, #8c8c8c) 45%, transparent);
+  cursor: default;
+}
+
+/* Ambiguous wikilink — several workspace files share this basename, so it
+   resolved to the *nearest* one. Still a working link (keeps the purple accent),
+   just flagged with a dotted underline + hover hint so the name can be
+   disambiguated. */
+.ProseMirror a[data-wikilink].mikedown-wikilink-ambiguous {
+  border-bottom-style: dotted;
+  border-bottom-color: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 65%, var(--vscode-editorWarning-foreground, #cca700));
+}

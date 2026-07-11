@@ -19,6 +19,7 @@ import {
 } from './imagePaste';
 import { githubAnchorId } from './anchoring';
 import { BacklinkEntry } from './backlinkProvider';
+import { pickBestWikilinkTarget } from './wikilinkResolve';
 
 /**
  * MikeDown custom text editor provider.
@@ -722,6 +723,75 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           } catch { /* file not found — silently ignore */ }
           break;
         }
+        case 'resolveWikilinks': {
+          // Obsidian-style `[[Note]]` resolution. Unlike standard links these are
+          // NAME-BASED: match `Note` against the basename of any markdown file in
+          // the workspace (case-insensitive, extension stripped), not a fixed
+          // relative path. The webview sends a batch of bare target names; we
+          // reply with a relative href (from the current doc's dir) or null.
+          const targets: string[] = Array.isArray((message as any).targets) ? (message as any).targets : [];
+          const results: Array<{ target: string; href: string | null; count: number }> = [];
+          if (targets.length > 0) {
+            const mdFiles = await vscode.workspace.findFiles('**/*.{md,markdown}', '**/node_modules/**', 500);
+            const fromDir = path.dirname(document.uri.fsPath);
+            for (const rawTarget of targets) {
+              const target = (rawTarget || '').trim();
+              if (!target) { results.push({ target: rawTarget, href: null, count: 0 }); continue; }
+              const want = target.toLowerCase();
+              // Collect EVERY basename match, then rank by proximity so the
+              // closest `Note.md` wins when several exist.
+              const matches = mdFiles
+                .map(uri => uri.fsPath)
+                .filter(fsPath => path.basename(fsPath).replace(/\.(md|markdown)$/i, '').toLowerCase() === want);
+              const best = pickBestWikilinkTarget(matches, fromDir);
+              if (!best) { results.push({ target: rawTarget, href: null, count: 0 }); continue; }
+              let rel = path.relative(fromDir, best).replace(/\\/g, '/');
+              if (!rel.startsWith('.')) rel = './' + rel;
+              results.push({ target: rawTarget, href: rel, count: matches.length });
+            }
+          }
+          webviewPanel.webview.postMessage({ type: 'wikilinksResolved', results });
+          break;
+        }
+        case 'createWikilink': {
+          // Phase 6 — Obsidian-style create-on-click. Gated behind the opt-in
+          // `mikedown.wikilink.createOnClick` setting; when off we do nothing.
+          if (!getSettings().wikilink.createOnClick) break;
+          const rawTarget = ((message as any).target as string || '').trim();
+          if (!rawTarget) break;
+          // Refuse path traversal; a wikilink target is a name (optionally with
+          // forward-slash subpath), never an escape out of the workspace.
+          if (rawTarget.split(/[\\/]/).some(seg => seg === '..')) {
+            vscode.window.showWarningMessage(`MikeDown: cannot create "${rawTarget}" — invalid path.`);
+            break;
+          }
+          const fileName = /\.(md|markdown)$/i.test(rawTarget) ? rawTarget : rawTarget + '.md';
+          const dir = path.dirname(document.uri.fsPath);
+          const newUri = vscode.Uri.file(path.join(dir, fileName));
+          const heading = path.basename(rawTarget).replace(/\.(md|markdown)$/i, '');
+          try {
+            // Create only if absent; if it somehow already exists, just open it.
+            let created = false;
+            try {
+              await vscode.workspace.fs.stat(newUri);
+            } catch {
+              await vscode.workspace.fs.writeFile(newUri, Buffer.from(`# ${heading}\n`, 'utf8'));
+              created = true;
+            }
+            const behavior = getSettings().linkClickBehavior;
+            const viewColumn = behavior === 'navigateCurrentTab' ? vscode.ViewColumn.Active : vscode.ViewColumn.Beside;
+            await vscode.commands.executeCommand('vscode.open', newUri, { viewColumn });
+            // Tell the source webview the target now resolves so the wikilink
+            // flips from unresolved → resolved without a reload.
+            let rel = path.relative(dir, newUri.fsPath).replace(/\\/g, '/');
+            if (!rel.startsWith('.')) rel = './' + rel;
+            webviewPanel.webview.postMessage({ type: 'wikilinksResolved', results: [{ target: rawTarget, href: rel }] });
+            if (created) vscode.window.showInformationMessage(`MikeDown: created ${fileName}`);
+          } catch {
+            vscode.window.showErrorMessage(`MikeDown: could not create "${fileName}".`);
+          }
+          break;
+        }
         case 'headingRenamed': {
           // 2.7.0 — A heading's anchor slug changed. The webview already fixed
           // in-doc TOC links; here we find + (per preference) fix cross-file
@@ -776,6 +846,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             if (ir.overwrite !== undefined) {
               config.update('imageResize.overwrite', ir.overwrite, vscode.ConfigurationTarget.Global);
             }
+          }
+          if (typeof settings.wikilinkCreateOnClick === 'boolean') {
+            config.update('wikilink.createOnClick', settings.wikilinkCreateOnClick, vscode.ConfigurationTarget.Global);
           }
           // Sidebar defaults — only seed values for newly-opened panels.
           // Use "Apply to open documents" in the modal to push to open panels.
@@ -1063,6 +1136,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       normalizationStyle: settings.normalizationStyle,
       imagePaste: settings.imagePaste,
       imageResize: settings.imageResize,
+      wikilinkCreateOnClick: settings.wikilink.createOnClick,
       imagePastePathMappings: prefixes,
       docDirFs,
     });
@@ -1760,7 +1834,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'headingRenamed' | 'headingRenameAmbiguous';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'headingRenamed' | 'headingRenameAmbiguous';
   content?: string;
   pristine?: boolean;
   /** stats payload — selection word/char counts; `null` = nothing selected. */
@@ -1774,6 +1848,10 @@ interface WebviewMessage {
   revealOccurrence?: number;
   html?: string;
   links?: Array<{ href: string; type: 'anchor' | 'file' | 'fileAnchor' }>;
+  /** resolveWikilinks payload — bare `[[target]]` names to resolve by basename. */
+  targets?: string[];
+  /** createWikilink payload — the single bare `[[target]]` name to create. */
+  target?: string;
   filePath?: string;
   /** Optional override for link navigation behavior (from context menu actions). */
   behavior?: 'navigateCurrentTab' | 'openNewTab';

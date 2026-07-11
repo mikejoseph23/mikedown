@@ -46,6 +46,8 @@ import { Emoji } from './emoji';
 import { EmojiAutocomplete } from './emojiautocomplete';
 import { Highlight } from './highlight';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
+import { Wikilink } from './wikilink-node';
+import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import {
   initOutlineSidebar,
@@ -1185,6 +1187,11 @@ function showSettingsModal(): void {
       { value: 'vscode', label: 'Whole VS Code window' },
     ],
   );
+  const wikilinkCreateField = makeCheckboxRow(
+    'Create files from unresolved [[wikilinks]]',
+    'Obsidian-style: Cmd/Ctrl+Click an unresolved [[Note]] to create Note.md in this document’s folder and open it.',
+    currentWikilinkCreateOnClick,
+  );
   const headingRenameField = makeSelectRow<'ask' | 'always' | 'never'>(
     'Fix links on heading rename',
     'When you rename a heading, links pointing at its #anchor break. In-document links are always fixed; this controls cross-file links in other files.',
@@ -1346,6 +1353,7 @@ function showSettingsModal(): void {
         autoReloadUnmodifiedFiles: autoReloadField.input.checked,
         renderMermaidDiagrams: mermaidField.input.checked,
         linkClickBehavior: linkClickField.select.value,
+        wikilinkCreateOnClick: wikilinkCreateField.input.checked,
         themeToggleScope: themeScopeField.select.value,
         headingRenameUpdateLinks: headingRenameField.select.value,
         // Markdown
@@ -1363,6 +1371,7 @@ function showSettingsModal(): void {
     currentDefaultEditor = defaultEditorField.input.checked;
     currentAutoReloadUnmodifiedFiles = autoReloadField.input.checked;
     currentRenderMermaidDiagrams = mermaidField.input.checked;
+    currentWikilinkCreateOnClick = wikilinkCreateField.input.checked;
     currentLinkClickBehavior = linkClickField.select.value as typeof currentLinkClickBehavior;
     themeToggleScope = themeScopeField.select.value as typeof themeToggleScope;
     currentHeadingRenameUpdateLinks = headingRenameField.select.value as typeof currentHeadingRenameUpdateLinks;
@@ -1410,6 +1419,7 @@ function showSettingsModal(): void {
     defaultEditorField.row,
     autoReloadField.row,
     linkClickField.row,
+    wikilinkCreateField.row,
     themeScopeField.row,
     headingRenameField.row,
   );
@@ -1559,6 +1569,7 @@ let currentExtensionVersion = '';
 let currentDefaultEditor = false;
 let currentAutoReloadUnmodifiedFiles = true;
 let currentRenderMermaidDiagrams = true;
+let currentWikilinkCreateOnClick = false;
 let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
 let currentHeadingRenameUpdateLinks: 'ask' | 'always' | 'never' = 'ask';
 interface NormalizationStyleSettings {
@@ -2558,6 +2569,7 @@ if (!editorContainer) {
       // form in saved markdown for GitHub/GitLab server-side rendering.
       Emoji,
       EmojiAutocomplete,
+      WikilinkAutocomplete,
 
       // ── Highlight / mark (==text==) ────────────────────────────────────────
       // Inline `<mark>` mark; round-trips to `==text==` via markdown-it-mark.
@@ -2569,6 +2581,11 @@ if (!editorContainer) {
       // source on save. Registered after StarterKit so its parseHTML priority
       // (70) wins for `<blockquote data-callout>` over the bare blockquote rule.
       Callout,
+
+      // ── Obsidian-style `[[wikilink]]` ──────────────────────────────────────
+      // Inline atomic node. Name-based (basename) resolution is done host-side;
+      // see resolveWikilinksInDoc() / the 'wikilinksResolved' handler below.
+      Wikilink,
     ],
     content: '',
 
@@ -2722,8 +2739,17 @@ if (!editorContainer) {
       const plainText = updatedEditor.getText();
       applyPlainText(plainText);
       postStats({ document: plainText });
+
+      // Resolve any newly-typed `[[wikilinks]]` (debounced; cached names skip
+      // the round-trip). scheduleWikilinkResolution is hoisted from the setup
+      // scope below.
+      scheduleWikilinkResolution();
     },
   });
+
+  // Wikilink autocomplete: lazily ask the host for the workspace file list the
+  // first time the `[[` popup opens with an empty candidate cache.
+  setWikilinkCandidateRequester(() => vscode.postMessage({ type: 'getLinkSuggestions' }));
 
   // Re-render Mermaid diagrams when the color theme flips (VS Code light↔dark
   // toggles the <body> class). Mermaid bakes theme colors into the SVG, so
@@ -3355,6 +3381,21 @@ if (!editorContainer) {
     if (event.button !== 0) return; // left-click only
 
     const target = event.target as HTMLElement;
+
+    // Phase 6 — Unresolved wikilink (no href): ask the host to create the
+    // target file (Obsidian-style). The host no-ops unless the user has opted
+    // in via mikedown.wikilink.createOnClick. Resolved wikilinks carry an href
+    // and fall through to the normal openLink path below.
+    const wikiEl = target.closest('a[data-wikilink]') as HTMLElement | null;
+    if (wikiEl && !wikiEl.getAttribute('href')) {
+      if (!currentWikilinkCreateOnClick) return; // opt-in only
+      event.preventDefault();
+      event.stopPropagation();
+      const wikiTarget = wikiEl.getAttribute('data-target') || '';
+      if (wikiTarget) vscode.postMessage({ type: 'createWikilink', target: wikiTarget });
+      return;
+    }
+
     const linkEl = target.closest('a[href]') as HTMLAnchorElement | null;
     if (!linkEl) return;
 
@@ -3371,6 +3412,77 @@ if (!editorContainer) {
       vscode.postMessage({ type: 'openLink', href });
     }
   }, true);
+
+  // ── Wikilink resolution ─────────────────────────────────────────────────────
+  // `[[Note]]` targets are name-based; the host resolves each bare name to a
+  // relative href by basename search. We cache target → href|null (constant for
+  // the life of this webview since the doc dir never changes) and stamp the
+  // resolved `href`/`resolved` attrs onto matching nodes via an
+  // `addToHistory:false` transaction — so navigation lights up without dirtying
+  // the document, pushing an undo step, or mutating PM's DOM directly.
+
+  // target(lowercased) → resolution. `count` is how many workspace files share
+  // the basename: 0 = unresolved, 1 = unique, >1 = ambiguous (resolved to the
+  // nearest, flagged with a hint).
+  const wikilinkResolutionCache = new Map<string, { href: string | null; count: number }>();
+  let wikilinkResolveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function collectWikilinkTargets(): string[] {
+    const targets = new Set<string>();
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'wikilink' && node.attrs.target) {
+        targets.add(String(node.attrs.target));
+      }
+    });
+    return [...targets];
+  }
+
+  // Stamp cached resolution onto every wikilink node whose target is known.
+  function applyWikilinkResolution(): void {
+    const { state } = editor;
+    let tr = state.tr;
+    let changed = false;
+    state.doc.descendants((node, pos) => {
+      if (node.type.name !== 'wikilink') return;
+      const key = String(node.attrs.target || '').toLowerCase();
+      const entry = wikilinkResolutionCache.get(key);
+      if (!entry) return;
+      const base = entry.href;
+      const resolved = base !== null;
+      const ambiguous = resolved && entry.count > 1;
+      const href = resolved
+        ? base + (node.attrs.anchor ? '#' + node.attrs.anchor : '')
+        : null;
+      if (
+        node.attrs.href === href &&
+        node.attrs.resolved === resolved &&
+        node.attrs.ambiguous === ambiguous
+      ) return;
+      tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, href, resolved, ambiguous });
+      changed = true;
+    });
+    if (changed) {
+      tr.setMeta('addToHistory', false);
+      editor.view.dispatch(tr);
+    }
+  }
+
+  // Ask the host for any target we haven't resolved yet, then (re)apply.
+  function requestWikilinkResolution(): void {
+    const need = collectWikilinkTargets().filter(
+      (t) => !wikilinkResolutionCache.has(t.toLowerCase())
+    );
+    if (need.length > 0) {
+      vscode.postMessage({ type: 'resolveWikilinks', targets: need });
+    } else {
+      applyWikilinkResolution();
+    }
+  }
+
+  function scheduleWikilinkResolution(): void {
+    if (wikilinkResolveTimer) clearTimeout(wikilinkResolveTimer);
+    wikilinkResolveTimer = setTimeout(() => requestWikilinkResolution(), 250);
+  }
 
   // ── M6a: Heading anchor icon click handler ──────────────────────────────────
 
@@ -3397,7 +3509,7 @@ if (!editorContainer) {
 
   editorContainer.addEventListener('mouseover', (event) => {
     const target = event.target as HTMLElement;
-    const linkEl = target.closest<HTMLAnchorElement>('a[href]');
+    const linkEl = target.closest<HTMLAnchorElement>('a[data-wikilink], a[href]');
     if (!linkEl) {
       if (linkTooltip) { linkTooltip.style.display = 'none'; }
       return;
@@ -3410,8 +3522,22 @@ if (!editorContainer) {
       document.body.appendChild(linkTooltip);
     }
     const mod = navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl';
-    // M6c — Show broken link tooltip if this link is marked as broken.
-    if (linkEl.classList.contains('mikedown-broken-link')) {
+    if (linkEl.hasAttribute('data-wikilink')) {
+      // Wikilink-specific hints: ambiguity, unresolved, or plain open.
+      const wt = linkEl.getAttribute('data-target') || '';
+      const entry = wikilinkResolutionCache.get(wt.toLowerCase());
+      if (linkEl.classList.contains('mikedown-wikilink-ambiguous')) {
+        const n = entry?.count ?? 0;
+        linkTooltip.textContent = `${n} notes named “${wt}” — linked to the nearest. Rename to disambiguate.`;
+      } else if (linkEl.classList.contains('mikedown-unresolved')) {
+        linkTooltip.textContent = currentWikilinkCreateOnClick
+          ? `${mod}+Click to create “${wt}.md”`
+          : `No file named “${wt}” in the workspace`;
+      } else {
+        linkTooltip.textContent = `${mod}+Click to open`;
+      }
+    } else if (linkEl.classList.contains('mikedown-broken-link')) {
+      // M6c — Show broken link tooltip if this link is marked as broken.
       linkTooltip.textContent = linkEl.title || `Broken link: ${href}`;
     } else {
       linkTooltip.textContent = `${mod}+Click to open`;
@@ -4127,6 +4253,9 @@ if (!editorContainer) {
       if (typeof msg.autoReloadUnmodifiedFiles === 'boolean') {
         currentAutoReloadUnmodifiedFiles = msg.autoReloadUnmodifiedFiles;
       }
+      if (typeof msg.wikilinkCreateOnClick === 'boolean') {
+        currentWikilinkCreateOnClick = msg.wikilinkCreateOnClick;
+      }
       if (msg.markdownNormalization === 'preserve' || msg.markdownNormalization === 'normalize') {
         currentMarkdownNormalization = msg.markdownNormalization;
       }
@@ -4262,6 +4391,9 @@ if (!editorContainer) {
         scanAndCheckLinks();
       }, 500);
 
+      // Resolve `[[wikilinks]]` present in the freshly-loaded document.
+      scheduleWikilinkResolution();
+
       // Seed the sidebar footer + status bar with the initial document text.
       // No selection on first load.
       const initialText = editor.getText();
@@ -4381,11 +4513,38 @@ if (!editorContainer) {
     // M6b — Link autocomplete: receive workspace file suggestions from host.
     if (message.type === 'linkSuggestions') {
       receiveSuggestions((message as any).suggestions);
+      // Also feed the wikilink autocomplete: file suggestions only, mapped to
+      // bare basenames without the .md/.markdown extension, deduped.
+      const rawSuggestions = ((message as any).suggestions || []) as Array<{ label: string; type: string }>;
+      const seen = new Set<string>();
+      const wikiNames: string[] = [];
+      for (const s of rawSuggestions) {
+        if (!s || s.type !== 'file' || typeof s.label !== 'string') continue;
+        const base = s.label.replace(/^.*[\\/]/, '').replace(/\.(md|markdown)$/i, '');
+        if (seen.has(base)) continue;
+        seen.add(base);
+        wikiNames.push(base);
+      }
+      receiveWikilinkCandidates(wikiNames);
     }
 
     // M6b — Link autocomplete: receive heading anchors for a specific file.
     if (message.type === 'fileHeadings') {
       receiveFileHeadings((message as any).anchors);
+    }
+
+    // Wikilink resolution: host replies with { target, href|null } per name.
+    // Cache each result and stamp the resolved state onto matching nodes.
+    if (message.type === 'wikilinksResolved') {
+      const results: Array<{ target: string; href: string | null; count?: number }> =
+        (message as any).results || [];
+      for (const r of results) {
+        wikilinkResolutionCache.set(String(r.target).toLowerCase(), {
+          href: r.href ?? null,
+          count: typeof r.count === 'number' ? r.count : (r.href ? 1 : 0),
+        });
+      }
+      applyWikilinkResolution();
     }
 
     // Sidebar — extension push of width/pref/position/per-doc state

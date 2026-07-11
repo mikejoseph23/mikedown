@@ -22,6 +22,13 @@ export interface MikeDownSettings {
   imagePaste: ImagePasteSettings;
   imageResize: ImageResizeSettings;
   sidebar: SidebarSettings;
+  wikilink: WikilinkSettings;
+}
+
+export interface WikilinkSettings {
+  /** Obsidian-style: Cmd/Ctrl+Click on an unresolved `[[Note]]` creates
+   *  `Note.md` in the current document's folder and opens it. Default off. */
+  createOnClick: boolean;
 }
 
 export interface SidebarSettings {
@@ -78,6 +85,9 @@ export function getSettings(): MikeDownSettings {
     },
     imageResize: {
       overwrite: config.get<boolean>('imageResize.overwrite', true),
+    },
+    wikilink: {
+      createOnClick: config.get<boolean>('wikilink.createOnClick', false),
     },
     sidebar: {
       // Legacy 'remember' value collapses to 'never' — per-doc memory was

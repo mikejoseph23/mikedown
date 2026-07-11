@@ -466,6 +466,11 @@
           "type": "boolean",
           "default": true,
           "description": "When resizing an image from the popover, overwrite the original file. When disabled, write a sibling file (e.g. foo-50pct.png) and update the markdown link to point at it."
+        },
+        "mikedown.wikilink.createOnClick": {
+          "type": "boolean",
+          "default": false,
+          "description": "Obsidian-style: when you Cmd/Ctrl+Click an unresolved [[wikilink]] whose target file doesn't exist yet, create the markdown file (in the current document's folder) and open it. When off, unresolved wikilinks do nothing on click."
         }
       }
     }
