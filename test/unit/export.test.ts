@@ -1,23 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { slugifyHeading, addHeadingIds, fixInternalLinks, buildFullHtml } from '../../src/export';
-
-describe('slugifyHeading', () => {
-  it('matches GitHub slugs for numbered headings with punctuation', () => {
-    expect(slugifyHeading('1. Meeting at a Glance')).toBe('1-meeting-at-a-glance');
-    expect(slugifyHeading("3. Aaron's Background and Skill Set")).toBe(
-      '3-aarons-background-and-skill-set'
-    );
-    expect(slugifyHeading('6. The Website — Core Business Discussion')).toBe(
-      '6-the-website--core-business-discussion'
-    );
-  });
-
-  it('lowercases and hyphenates', () => {
-    expect(slugifyHeading('Table of Contents')).toBe('table-of-contents');
-  });
-});
+import { addHeadingIds, fixInternalLinks, buildFullHtml } from '../../src/export';
 
 describe('addHeadingIds', () => {
+  it('matches GitHub slugs for numbered headings with punctuation', () => {
+    expect(addHeadingIds('<h2>1. Meeting at a Glance</h2>')).toContain('id="1-meeting-at-a-glance"');
+    expect(addHeadingIds("<h2>3. Aaron's Background and Skill Set</h2>")).toContain(
+      'id="3-aarons-background-and-skill-set"'
+    );
+    expect(addHeadingIds('<h2>6. The Website — Core Business Discussion</h2>')).toContain(
+      'id="6-the-website--core-business-discussion"'
+    );
+  });
+
   it('adds slug ids to headings', () => {
     expect(addHeadingIds('<h2>Table of Contents</h2>')).toBe(
       '<h2 id="table-of-contents">Table of Contents</h2>'
