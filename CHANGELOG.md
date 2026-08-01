@@ -2,6 +2,16 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.9.0] - 2026-07-31
+
+### Added
+
+- **`[[Wikilink]]` support with name-based resolution.** Obsidian-style `[[Note]]` links are resolved by filename across the workspace, so they keep working when a file moves. `[[Note]]`, `[[Note|alias]]`, and `[[Note#heading]]` all convert as you type and round-trip cleanly back to `[[...]]` in the markdown source. When several files share a name, the closest one wins (same folder first, then nearest in the tree); genuinely ambiguous links still work but are marked with a dotted underline and a hover hint. Typing `[[` opens inline filename autocomplete, backlinks recognize wikilinks alongside regular markdown links, and the opt-in `mikedown.wikilink.createOnClick` setting lets you Cmd+Click an unresolved link to create that file and open it.
+
+### Fixed
+
+- **Links inside exported HTML and printed PDFs now work.** In-document `#anchor` links — tables of contents, "back to top" links, cross-references between sections — were dead in every export path. Two things were wrong: the exported HTML carried no `id` attributes on its headings, so the anchors had nothing to land on, and every link was stamped with `target="_blank"`, so clicking one opened a blank tab instead of scrolling. Headings now get GitHub-style anchor ids (identical to the ones the editor itself generates), and same-document links open in place. Affects **Export as HTML**, **View in Browser**, and **Print / Export as PDF**.
+
 ## [2.8.0] - 2026-06-28
 
 ### Added
