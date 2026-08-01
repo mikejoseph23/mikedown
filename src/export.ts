@@ -7,6 +7,7 @@ import * as path from 'path';
  * Shared by "Export as HTML" and "View in Browser" so styles stay in sync.
  */
 export function buildFullHtml(renderedHtml: string, title: string): string {
+  const body = fixInternalLinks(addHeadingIds(renderedHtml));
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -35,9 +36,72 @@ export function buildFullHtml(renderedHtml: string, title: string): string {
 </style>
 </head>
 <body>
-${renderedHtml}
+${body}
 </body>
 </html>`;
+}
+
+/**
+ * Convert heading text to a GitHub-compatible anchor slug:
+ * lowercase, punctuation stripped, spaces to hyphens.
+ * "6. The Website — Core Business Discussion" -> "6-the-website--core-business-discussion"
+ */
+export function slugifyHeading(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+    .replace(/\s/g, '-');
+}
+
+/**
+ * Add `id` attributes to headings so in-document `#anchor` links resolve.
+ * TipTap's HTML output has no ids; without these, tables of contents and
+ * "back to top" links are dead in exported HTML and printed PDFs.
+ * Duplicate slugs get a `-1`, `-2`, ... suffix, matching GitHub.
+ */
+export function addHeadingIds(html: string): string {
+  const seen = new Map<string, number>();
+  return html.replace(
+    /<h([1-6])([^>]*)>([\s\S]*?)<\/h\1>/gi,
+    (match: string, level: string, attrs: string, inner: string) => {
+      if (/\sid\s*=/i.test(attrs)) return match;
+      const text = inner.replace(/<[^>]*>/g, '');
+      const base = slugifyHeading(decodeEntities(text));
+      if (!base) return match;
+      const count = seen.get(base) ?? 0;
+      seen.set(base, count + 1);
+      const id = count === 0 ? base : `${base}-${count}`;
+      return `<h${level}${attrs} id="${escapeHtml(id)}">${inner}</h${level}>`;
+    }
+  );
+}
+
+/**
+ * Strip `target="_blank"` / `rel` from same-document `#anchor` links.
+ * TipTap's link mark stamps those on every link, which makes an anchor
+ * open a blank tab instead of scrolling to its heading.
+ */
+export function fixInternalLinks(html: string): string {
+  return html.replace(/<a\s([^>]*)>/gi, (match: string, attrs: string) => {
+    const href = /\shref\s*=\s*(["'])(.*?)\1/i.exec(` ${attrs}`);
+    if (!href || !href[2].startsWith('#')) return match;
+    const cleaned = attrs
+      .replace(/\s*target\s*=\s*(["']).*?\1/gi, '')
+      .replace(/\s*rel\s*=\s*(["']).*?\1/gi, '')
+      .trim();
+    return `<a ${cleaned}>`;
+  });
+}
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&');
 }
 
 function escapeHtml(s: string): string {
