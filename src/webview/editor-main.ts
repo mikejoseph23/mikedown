@@ -1354,6 +1354,13 @@ function showSettingsModal(): void {
   let spellWords: string[] = [...currentSpellCheckUserWords];
   // Below this many total words a filter box is just clutter.
   const SPELL_FILTER_THRESHOLD = 8;
+  // Past this many words the wrapped chip cloud stops being scannable —
+  // variable-width chips wrapping mid-row defeat an alphabetical scan — so the
+  // list switches to fixed columns, one word per row.
+  const SPELL_DENSE_THRESHOLD = 25;
+  const CLOUD_LIST_STYLE = 'display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start';
+  const DENSE_LIST_STYLE = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1px 10px;align-content:start';
+  const LIST_BOX_STYLE = ';max-height:240px;overflow-y:auto;padding:6px;border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35));border-radius:4px;min-height:34px';
   const spellWordsRow = makeRow(
     'Custom dictionary',
     'Words MikeDown should always accept. Right-clicking a squiggle and choosing “Add to Dictionary” adds to this list.',
@@ -1373,11 +1380,10 @@ function showSettingsModal(): void {
 
   const spellWordsList = document.createElement('div');
   spellWordsList.setAttribute('role', 'list');
-  spellWordsList.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;max-height:200px;overflow-y:auto;padding:6px;border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35));border-radius:4px;min-height:34px;align-content:flex-start';
+  spellWordsList.style.cssText = CLOUD_LIST_STYLE + LIST_BOX_STYLE;
 
   const spellWordsLegend = document.createElement('div');
   spellWordsLegend.style.cssText = 'font-size:11.5px;color:var(--vscode-descriptionForeground);line-height:1.4';
-  spellWordsLegend.textContent = 'Dashed words come from the Code Spell Checker extension (cSpell.words) and are honoured here but edited there.';
 
   const emptyStyle = 'font-size:12px;color:var(--vscode-descriptionForeground);padding:2px 4px';
 
@@ -1399,6 +1405,14 @@ function showSettingsModal(): void {
       ? `${view.entries.length} of ${view.total}`
       : `${view.total} ${view.total === 1 ? 'word' : 'words'}`;
     spellWordsCount.style.display = view.total === 0 ? 'none' : '';
+
+    // Layout keys off the *unfiltered* total so typing in the filter never
+    // reshuffles the list under the user's eyes.
+    const dense = view.total >= SPELL_DENSE_THRESHOLD;
+    spellWordsList.style.cssText = (dense ? DENSE_LIST_STYLE : CLOUD_LIST_STYLE) + LIST_BOX_STYLE;
+    spellWordsLegend.textContent = dense
+      ? 'Greyed, italic words come from the Code Spell Checker extension (cSpell.words) and are honoured here but edited there.'
+      : 'Dashed words come from the Code Spell Checker extension (cSpell.words) and are honoured here but edited there.';
     spellWordsLegend.style.display = external.length > 0 ? '' : 'none';
 
     spellWordsList.textContent = '';
@@ -1421,23 +1435,46 @@ function showSettingsModal(): void {
       const chip = document.createElement('span');
       chip.setAttribute('role', 'listitem');
       const isExternal = entry.source === 'external';
-      chip.style.cssText = isExternal
-        ? 'display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;background:transparent;border:1px dashed var(--vscode-input-border,rgba(128,128,128,0.5));color:var(--vscode-descriptionForeground);font-size:12px'
-        : 'display:inline-flex;align-items:center;gap:5px;padding:2px 6px 2px 8px;border-radius:10px;background:var(--vscode-badge-background,rgba(128,128,128,0.25));color:var(--vscode-badge-foreground,inherit);font-size:12px';
+      if (dense) {
+        // One word per row, in columns. No chip pill — at this length the
+        // pills are visual noise and the ragged edges are what break scanning.
+        chip.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:6px;padding:1px 4px;border-radius:3px;font-size:12px'
+          + (isExternal ? ';color:var(--vscode-descriptionForeground);font-style:italic' : '');
+      } else {
+        chip.style.cssText = isExternal
+          ? 'display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;background:transparent;border:1px dashed var(--vscode-input-border,rgba(128,128,128,0.5));color:var(--vscode-descriptionForeground);font-size:12px'
+          : 'display:inline-flex;align-items:center;gap:5px;padding:2px 6px 2px 8px;border-radius:10px;background:var(--vscode-badge-background,rgba(128,128,128,0.25));color:var(--vscode-badge-foreground,inherit);font-size:12px';
+      }
       const label = document.createElement('span');
       label.textContent = entry.word;
+      if (dense) label.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
       chip.appendChild(label);
 
       if (isExternal) {
         chip.title = `“${entry.word}” comes from the Code Spell Checker extension (cSpell.words). Remove it there.`;
         label.setAttribute('aria-label', `${entry.word} (from Code Spell Checker, read-only)`);
+        // Dense rows are a grid: without a spacer the word would stretch
+        // across the cell and stop aligning with the removable rows above it.
+        if (dense) chip.appendChild(document.createElement('span'));
       } else {
         const myIndex = ++removableIndex;
         const remove = document.createElement('button');
         remove.type = 'button';
         remove.textContent = '×';
         remove.setAttribute('aria-label', `Remove ${entry.word} from the custom dictionary`);
-        remove.style.cssText = 'background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;font-family:inherit';
+        remove.style.cssText = 'background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;font-family:inherit;flex-shrink:0';
+        if (dense) {
+          // Hover-to-remove: 100 always-on × glyphs is a wall of clutter. Kept
+          // faintly visible (not display:none) so it survives a keyboard tab
+          // and doesn't reflow the row when it appears.
+          remove.style.opacity = '0.25';
+          const show = (): void => { remove.style.opacity = '1'; chip.style.background = 'var(--vscode-list-hoverBackground,rgba(128,128,128,0.14))'; };
+          const hide = (): void => { remove.style.opacity = '0.25'; chip.style.background = 'transparent'; };
+          chip.addEventListener('mouseenter', show);
+          chip.addEventListener('mouseleave', hide);
+          remove.addEventListener('focus', show);
+          remove.addEventListener('blur', hide);
+        }
         remove.addEventListener('click', () => {
           // By value, never by index — the rendered order is sorted/filtered.
           spellWords = removeWordFromList(spellWords, entry.word);
