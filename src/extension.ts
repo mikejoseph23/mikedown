@@ -5,6 +5,7 @@ import * as path from 'path';
 import { MarkdownEditorProvider } from './markdownEditorProvider';
 import { StatusBarManager } from './statusBar';
 import { exportViaPrint } from './export';
+import { disposeExportServer } from './exportServer';
 import { BacklinkProvider } from './backlinkProvider';
 import { MarkdownOutlineSymbolProvider } from './outlineProvider';
 import { NagPrompt } from './nagPrompt';
@@ -320,5 +321,7 @@ export function activate(context: vscode.ExtensionContext): void {
  * Called when the extension is deactivated.
  */
 export function deactivate(): void {
-  // Nothing to clean up — subscriptions are disposed automatically.
+  // Subscriptions are disposed automatically; the export server is not one of
+  // them (it's started lazily from export.ts), so close it here.
+  disposeExportServer();
 }

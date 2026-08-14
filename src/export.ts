@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
+import * as fs from 'fs';
 import * as path from 'path';
 import { githubAnchorId } from './anchoring';
+import { serveExport, rewriteUrlsForServer } from './exportServer';
 
 /**
  * Build a standalone HTML document around the given rendered body HTML.
@@ -148,14 +150,84 @@ export async function writeRenderedHtml(
   vscode.window.showInformationMessage(`Exported to ${path.basename(uri.fsPath)}`);
 }
 
+/** Inject the auto-print script used by "Print / Export as PDF". */
+function withAutoPrint(fullHtml: string, autoPrint: boolean | undefined): string {
+  if (!autoPrint) return fullHtml;
+  // Wait for images/fonts to settle before popping the print dialog.
+  const script = `<script>window.addEventListener('load', function(){setTimeout(function(){window.print();}, 400);});</script>`;
+  return fullHtml.replace('</body>', `${script}\n</body>`);
+}
+
 /**
- * Write rendered HTML to a temp file and open it in the system browser.
- * Relative image/link URLs are rewritten to absolute file:// URLs so they
- * resolve from the temp location.
+ * Best-effort sweep of temp exports left behind by earlier sessions.
+ * Only touches our own `mikedown-print-*` / `mikedown-preview-*` files, and
+ * only ones older than a day, so a page the user still has open is never
+ * pulled out from under them.
+ */
+function sweepStaleTempExports(): void {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  try {
+    for (const name of fs.readdirSync(os.tmpdir())) {
+      if (!/^mikedown-(print|preview)-.*\.html$/.test(name)) continue;
+      const full = path.join(os.tmpdir(), name);
+      try {
+        if (fs.statSync(full).mtimeMs < cutoff) fs.unlinkSync(full);
+      } catch {
+        // Ignore — another window may have removed it, or it may be locked.
+      }
+    }
+  } catch {
+    // Temp dir unreadable: nothing to clean up.
+  }
+}
+
+/**
+ * Last-resort path when the browser can't be opened for us: save the HTML
+ * where the user chooses and tell them where it landed. Never surfaces an
+ * opaque error.
+ */
+async function saveForLocalOpen(
+  fullHtml: string,
+  title: string,
+  autoPrint: boolean | undefined
+): Promise<void> {
+  const uri = await vscode.window.showSaveDialog({
+    defaultUri: vscode.Uri.file(`${title}.html`),
+    filters: { 'HTML Files': ['html'] },
+    saveLabel: autoPrint ? 'Save for Printing' : 'Save HTML',
+  });
+  if (!uri) {
+    void vscode.window.showWarningMessage(
+      "MikeDown couldn't open a browser from this remote session. Use Export as HTML and open the file on your local machine."
+    );
+    return;
+  }
+  await vscode.workspace.fs.writeFile(uri, Buffer.from(fullHtml, 'utf8'));
+  const where = uri.fsPath;
+  void vscode.window.showInformationMessage(
+    autoPrint
+      ? `Saved to ${where} — open it from your local machine and press Ctrl/Cmd+P to print.`
+      : `Saved to ${where} — open it from your local machine.`
+  );
+}
+
+/**
+ * Open the rendered HTML in the user's system browser.
+ *
+ * Local sessions keep the original behavior exactly: write a temp file and
+ * hand it to `vscode.env.openExternal`.
+ *
+ * In a remote session (Dev Containers / WSL / SSH / Codespaces) the extension
+ * host runs on the remote machine, so that temp file lives on the remote
+ * filesystem and `openExternal` hands the local OS a `vscode-remote://` URI it
+ * has no handler for. There we serve the HTML from a loopback HTTP server and
+ * convert the URL with `vscode.env.asExternalUri`, which makes VS Code forward
+ * the port so the local browser can load it.
  *
  * When `autoPrint` is true, an inline script is injected that calls
  * window.print() on load — this is how "Print / Export as PDF" works,
- * since webviews themselves can't pop a print dialog.
+ * since webviews themselves can't pop a print dialog. It works the same over
+ * the HTTP-served page.
  */
 export async function openRenderedInBrowser(
   renderedHtml: string,
@@ -163,20 +235,41 @@ export async function openRenderedInBrowser(
   options: { autoPrint?: boolean } = {}
 ): Promise<void> {
   const baseDir = path.dirname(sourceDocPath);
-  const rewritten = rewriteRelativeUrls(renderedHtml, baseDir);
   const title = path.basename(sourceDocPath, path.extname(sourceDocPath));
-  let fullHtml = buildFullHtml(rewritten, title);
 
-  if (options.autoPrint) {
-    // Wait for images/fonts to settle before popping the print dialog.
-    const script = `<script>window.addEventListener('load', function(){setTimeout(function(){window.print();}, 400);});</script>`;
-    fullHtml = fullHtml.replace('</body>', `${script}\n</body>`);
+  if (vscode.env.remoteName) {
+    try {
+      const localUri = await serveExport(
+        (token) =>
+          withAutoPrint(
+            buildFullHtml(rewriteUrlsForServer(renderedHtml, baseDir, token), title),
+            options.autoPrint
+          ),
+        baseDir
+      );
+      const externalUri = await vscode.env.asExternalUri(localUri);
+      const opened = await vscode.env.openExternal(externalUri);
+      if (!opened) throw new Error('openExternal declined');
+      return;
+    } catch (err) {
+      console.error('MikeDown: remote browser open failed', err);
+      // Leave relative URLs alone, exactly like "Export as HTML" does: a
+      // `file://` URL built from a remote path is meaningless on the machine
+      // that will actually open this file.
+      const fallbackHtml = buildFullHtml(renderedHtml, title);
+      await saveForLocalOpen(fallbackHtml, title, options.autoPrint);
+      return;
+    }
   }
+
+  const rewritten = rewriteRelativeUrls(renderedHtml, baseDir);
+  const fullHtml = withAutoPrint(buildFullHtml(rewritten, title), options.autoPrint);
 
   const prefix = options.autoPrint ? 'mikedown-print' : 'mikedown-preview';
   const safeName = title.replace(/[^a-z0-9-_]/gi, '_') || 'mikedown';
   const tmpPath = path.join(os.tmpdir(), `${prefix}-${safeName}-${Date.now()}.html`);
   const tmpUri = vscode.Uri.file(tmpPath);
   await vscode.workspace.fs.writeFile(tmpUri, Buffer.from(fullHtml, 'utf8'));
+  sweepStaleTempExports();
   await vscode.env.openExternal(tmpUri);
 }

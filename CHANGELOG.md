@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.10.0] - 2026-08-13
+
+### Fixed
+
+- **View in Browser and Print / Export as PDF now work over remote connections.** In a Dev Container, WSL, SSH, or Codespaces session the extension runs on the remote machine, so the page it handed to your browser was a `vscode-remote://` link your local OS couldn't open — Windows answered with "Get an app to open this 'vscode-remote' link" and nothing opened. MikeDown now detects a remote session and serves the rendered page over a forwarded loopback port instead, so the local browser opens it normally and printing behaves the same as it does locally. Images and in-document anchor links resolve through the same channel. If the browser still can't be reached, MikeDown offers to save the HTML and tells you where it landed rather than failing silently. Local sessions are unchanged.
+
 ## [2.9.0] - 2026-07-31
 
 ### Added

@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "license": "MIT",
   "preview": false,
   "publisher": "interapp",
@@ -38,6 +38,10 @@
     "onCommand:mikedown.openWithMikeDown"
   ],
   "main": "./dist/extension.js",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
   "contributes": {
     "customEditors": [
       {
