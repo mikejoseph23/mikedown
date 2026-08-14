@@ -714,8 +714,12 @@ function showSettingsModal(): void {
 
   const inputStyle = [
     'padding:6px 10px',
-    'background:var(--vscode-input-background,#3c3c3c)',
-    'color:var(--vscode-input-foreground,#d4d4d4)',
+    // Fall back to the editor's own theme tokens (always present) rather than
+    // a fixed dark literal — VS Code normally supplies --vscode-input-* on
+    // every webview, but contexts that don't (e.g. the test harness) would
+    // otherwise render a dark control inside a light-themed modal.
+    'background:var(--vscode-input-background,var(--vscode-editor-background,#3c3c3c))',
+    'color:var(--vscode-input-foreground,var(--vscode-editor-foreground,#d4d4d4))',
     'border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35))',
     'border-radius:4px',
     'font-size:14px',

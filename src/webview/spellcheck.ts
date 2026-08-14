@@ -228,7 +228,8 @@ function isKnown(word: string): boolean {
 
 /**
  * Walk `[from, to]` of the document and return every misspelled range.
- * Excludes code blocks, inline code, links, and wikilinks (see the walk below).
+ * Excludes code blocks, inline code, links, highlighted text, and wikilinks
+ * (see the walk below).
  */
 function findMisspellings(doc: any, from: number, to: number): Misspelling[] {
   if (!spell) return [];
@@ -245,6 +246,7 @@ function findMisspellings(doc: any, from: number, to: number): Misspelling[] {
 
     const marks: any[] = node.marks ?? [];
     if (marks.some(m => m.type.name === 'link')) return false;
+    if (marks.some(m => m.type.name === 'highlight')) return false;
     if (config.ignoreCodeBlocks && marks.some(m => m.type.name === 'code')) return false;
 
     const text: string = node.text ?? '';

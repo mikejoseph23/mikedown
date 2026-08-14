@@ -184,20 +184,12 @@ describe('exclusion rules (decorations in a live editor)', () => {
     expect(squiggleTexts(editor)).not.toContain(MISSPELLED);
   });
 
-  it('FINDING: ==highlighted== misspellings ARE still flagged — not excluded', async () => {
-    // The planning doc's exclusion checklist (kevin-feedback-aug-08.md) lists
-    // ==highlights== alongside code/URLs/wikilinks/frontmatter, but
-    // spellcheck.ts's findMisspellings() only special-cases `link` and `code`
-    // marks — there is no check for the `highlight` mark. So this asserts the
-    // ACTUAL current behavior (still flagged) rather than the checklist's
-    // implied expectation, and is meant to fail loudly if that's ever "fixed"
-    // by accident in a way nobody intended. See the M6 summary for the
-    // orchestrator note — this is flagged as an open question, not silently
-    // patched here (out of scope: no src/ changes for this milestone).
+  it('does not flag misspellings inside ==highlighted== text', async () => {
     const mod = await freshSpellCheck();
     editor = makeEditor([mod.SpellCheckExtension], `This is ==${MISSPELLED}== text.`);
     mod.configureSpellCheck(editor, { enabled: true, language: 'en', ignoreCodeBlocks: true, userWords: [] });
-    await vi.waitFor(() => expect(squiggleTexts(editor)).toContain(MISSPELLED), { timeout: 2000 });
+    await new Promise(r => setTimeout(r, 300));
+    expect(squiggleTexts(editor)).not.toContain(MISSPELLED);
   });
 });
 
