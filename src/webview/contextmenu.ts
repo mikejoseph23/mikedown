@@ -10,6 +10,8 @@ export interface ContextMenuItem {
   submenu?: false;
   disabled?: boolean;
   isActive?: () => boolean;
+  /** Extra class on the row — used by the spelling menu to style suggestions. */
+  className?: string;
 }
 export interface ContextMenuSeparator { separator: true; }
 export interface ContextMenuSubmenu {
@@ -45,7 +47,10 @@ function hideSubmenu(): void {
 
 function buildMenuItemEl(item: ContextMenuItem): HTMLElement {
   const el = document.createElement('div');
-  el.className = 'cm-item' + (item.disabled ? ' cm-disabled' : '') + (item.isActive?.() ? ' cm-active' : '');
+  el.className = 'cm-item'
+    + (item.disabled ? ' cm-disabled' : '')
+    + (item.isActive?.() ? ' cm-active' : '')
+    + (item.className ? ` ${item.className}` : '');
   el.setAttribute('role', 'menuitem');
 
   const indicator = document.createElement('span');
@@ -267,6 +272,45 @@ export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
     { separator: true },
     { label: 'Insert Emoji…', shortcut: `${mod};`, action: () => (window as any).__mikedownShowEmojiPicker?.() },
   ];
+}
+
+/**
+ * Right-click menu for a flagged misspelling: corrections first, then the
+ * dictionary actions, then the normal text menu so nothing is lost by
+ * right-clicking on a squiggled word.
+ */
+export function buildSpellingMenu(
+  editor: Editor,
+  misspelling: { from: number; to: number; word: string },
+  actions: {
+    suggestions: string[];
+    replace: (from: number, to: number, replacement: string) => void;
+    addToDictionary: (word: string) => void;
+    ignore: (word: string) => void;
+  }
+): ContextMenuEntry[] {
+  const { from, to, word } = misspelling;
+  const entries: ContextMenuEntry[] = [];
+
+  if (actions.suggestions.length === 0) {
+    entries.push({ label: 'No suggestions', action: () => {}, disabled: true });
+  } else {
+    for (const suggestion of actions.suggestions) {
+      entries.push({
+        label: suggestion,
+        className: 'cm-item-spelling',
+        action: () => actions.replace(from, to, suggestion),
+      });
+    }
+  }
+
+  entries.push({ separator: true });
+  entries.push({ label: 'Add to Dictionary', action: () => actions.addToDictionary(word) });
+  entries.push({ label: 'Ignore', action: () => actions.ignore(word) });
+  entries.push({ separator: true });
+  entries.push(...buildTextMenu(editor));
+
+  return entries;
 }
 
 export function buildCodeBlockMenu(editor: Editor): ContextMenuEntry[] {

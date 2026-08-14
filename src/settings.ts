@@ -23,6 +23,23 @@ export interface MikeDownSettings {
   imageResize: ImageResizeSettings;
   sidebar: SidebarSettings;
   wikilink: WikilinkSettings;
+  spellCheck: SpellCheckSettings;
+}
+
+export interface SpellCheckSettings {
+  /** Master switch. When off, the webview never loads a dictionary at all. */
+  enabled: boolean;
+  language: 'en' | 'en-GB';
+  /** Skip fenced code blocks (incl. mermaid) and inline-code spans. */
+  ignoreCodeBlocks: boolean;
+  /** Custom dictionary, written by "Add to Dictionary" in the context menu.
+   *  This is the only list MikeDown persists or lets the user edit. */
+  userWords: string[];
+  /** Words inherited read-only from other extensions (today: `cSpell.words`).
+   *  Accepted by the checker but never shown in, or written back from, the
+   *  MikeDown settings UI — otherwise saving would copy someone else's list
+   *  into MikeDown's. */
+  externalWords: string[];
 }
 
 export interface WikilinkSettings {
@@ -89,6 +106,12 @@ export function getSettings(): MikeDownSettings {
     wikilink: {
       createOnClick: config.get<boolean>('wikilink.createOnClick', false),
     },
+    spellCheck: {
+      enabled: config.get<boolean>('spellCheck.enabled', true),
+      language: config.get<'en' | 'en-GB'>('spellCheck.language', 'en') === 'en-GB' ? 'en-GB' : 'en',
+      ignoreCodeBlocks: config.get<boolean>('spellCheck.ignoreCodeBlocks', true),
+      ...readWordLists(config),
+    },
     sidebar: {
       // Legacy 'remember' value collapses to 'never' — per-doc memory was
       // dropped when visibility went binary (pin on/off).
@@ -97,6 +120,47 @@ export function getSettings(): MikeDownSettings {
       position: config.get<'left' | 'right'>('sidebar.position', 'right'),
     },
   };
+}
+
+function cleanWords(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const word of raw) {
+    if (typeof word !== 'string') { continue; }
+    const trimmed = word.trim();
+    if (!trimmed) { continue; }
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) { continue; }
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+/**
+ * Split the effective word list into MikeDown's own (editable, persisted) and
+ * the words inherited from the Code Spell Checker extension (`cSpell.words`).
+ * cSpell is read-only here — honouring it means a user who already curated a
+ * word list doesn't have to build a second one, and keeping it in a separate
+ * bucket stops MikeDown's settings UI from copying it into MikeDown's own list.
+ * Exported for unit testing.
+ */
+export function splitWordLists(own: unknown, cspell: unknown): { userWords: string[]; externalWords: string[] } {
+  const userWords = cleanWords(own);
+  const ownKeys = new Set(userWords.map(w => w.toLowerCase()));
+  const externalWords = cleanWords(cspell).filter(w => !ownKeys.has(w.toLowerCase()));
+  return { userWords, externalWords };
+}
+
+function readWordLists(config: vscode.WorkspaceConfiguration): { userWords: string[]; externalWords: string[] } {
+  let cspell: unknown = [];
+  try {
+    cspell = vscode.workspace.getConfiguration('cSpell').get<string[]>('words', []);
+  } catch {
+    // cSpell isn't installed — its config section simply isn't there.
+  }
+  return splitWordLists(config.get<string[]>('spellCheck.userWords', []), cspell);
 }
 
 export function onSettingsChange(callback: (settings: MikeDownSettings) => void): vscode.Disposable {

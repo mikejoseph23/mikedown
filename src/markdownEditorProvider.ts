@@ -139,6 +139,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         vscode.Uri.file(path.join(this.context.extensionPath, 'src', 'webview')),
         vscode.Uri.file(path.join(this.context.extensionPath, 'dist')),
         vscode.Uri.file(path.join(this.context.extensionPath, 'out', 'webview')),
+        // Hunspell dictionaries, fetched by the webview's spell checker.
+        vscode.Uri.file(path.join(this.context.extensionPath, 'dictionaries')),
         docDirUri,
         ...workspaceFolderRoots
       ]
@@ -903,7 +905,29 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               config.update('normalizationStyle.headingStyle', ns.headingStyle, vscode.ConfigurationTarget.Global);
             }
           }
-          vscode.window.showInformationMessage('MikeDown settings saved.');
+          // Spelling tab
+          if (typeof settings.spellCheckEnabled === 'boolean') {
+            config.update('spellCheck.enabled', settings.spellCheckEnabled, vscode.ConfigurationTarget.Global);
+          }
+          if (settings.spellCheckLanguage === 'en' || settings.spellCheckLanguage === 'en-GB') {
+            config.update('spellCheck.language', settings.spellCheckLanguage, vscode.ConfigurationTarget.Global);
+          }
+          if (typeof settings.spellCheckIgnoreCodeBlocks === 'boolean') {
+            config.update('spellCheck.ignoreCodeBlocks', settings.spellCheckIgnoreCodeBlocks, vscode.ConfigurationTarget.Global);
+          }
+          if (Array.isArray(settings.spellCheckUserWords)) {
+            // Global scope so the custom dictionary follows the user across
+            // workspaces and rides Settings Sync.
+            const words = (settings.spellCheckUserWords as unknown[])
+              .filter((w): w is string => typeof w === 'string' && w.trim().length > 0)
+              .map(w => w.trim());
+            config.update('spellCheck.userWords', words, vscode.ConfigurationTarget.Global);
+          }
+          // "Add to Dictionary" saves silently — a toast on every added word
+          // would be noise.
+          if (!(message as any).silent) {
+            vscode.window.showInformationMessage('MikeDown settings saved.');
+          }
           break;
         }
         case 'sidebarRequestState': {
@@ -1137,6 +1161,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       imagePaste: settings.imagePaste,
       imageResize: settings.imageResize,
       wikilinkCreateOnClick: settings.wikilink.createOnClick,
+      spellCheck: settings.spellCheck,
       imagePastePathMappings: prefixes,
       docDirFs,
     });
@@ -1785,6 +1810,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'toolbar-dropdown.css',
       'outline-sidebar.css',
       'emojipicker.css',
+      'spellcheck.css',
     ];
     const cssLinks = cssFiles.map(f => {
       const uri = webview.asWebviewUri(vscode.Uri.file(path.join(cssDir, f)));
@@ -1796,13 +1822,24 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       vscode.Uri.file(path.join(this.context.extensionPath, 'out', 'webview', 'editor-main.js'))
     );
 
-    // Content Security Policy: fully offline, no external resources
+    // Content Security Policy: fully offline, no external resources.
+    // `connect-src` is scoped to the webview's own resource origin — it exists
+    // so the spell checker can fetch() the bundled hunspell dictionaries. No
+    // external host is reachable, so the offline guarantee is unchanged.
     const csp = [
       `default-src 'none'`,
       `img-src ${webview.cspSource} https: data:`,
       `script-src ${webview.cspSource}`,
-      `style-src ${webview.cspSource} 'unsafe-inline'`
+      `style-src ${webview.cspSource} 'unsafe-inline'`,
+      `connect-src ${webview.cspSource}`
     ].join('; ');
+
+    // Where the webview can fetch the dictionaries from. Passed as a body data
+    // attribute rather than an inline <script> because the CSP has no inline
+    // script allowance.
+    const dictionaryBaseUri = webview.asWebviewUri(
+      vscode.Uri.file(path.join(this.context.extensionPath, 'dictionaries'))
+    ).toString();
 
     const nonce = getNonce();
 
@@ -1815,7 +1852,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   <title>MikeDown Editor</title>
 ${cssLinks}
 </head>
-<body>
+<body data-dictionary-base="${dictionaryBaseUri}">
   <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">
     <span class="toolbar-placeholder">MikeDown</span>
   </div>

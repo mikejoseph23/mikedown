@@ -479,6 +479,38 @@
           "type": "boolean",
           "default": false,
           "description": "Obsidian-style: when you Cmd/Ctrl+Click an unresolved [[wikilink]] whose target file doesn't exist yet, create the markdown file (in the current document's folder) and open it. When off, unresolved wikilinks do nothing on click."
+        },
+        "mikedown.spellCheck.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Underline misspelled words in the MikeDown editor. VS Code disables the browser's built-in spell checker for all webviews, so MikeDown ships its own dictionary. When off, no dictionary is loaded at all."
+        },
+        "mikedown.spellCheck.language": {
+          "type": "string",
+          "default": "en",
+          "enum": [
+            "en",
+            "en-GB"
+          ],
+          "enumDescriptions": [
+            "English (United States)",
+            "English (United Kingdom)"
+          ],
+          "description": "Which English dictionary the spell checker uses."
+        },
+        "mikedown.spellCheck.ignoreCodeBlocks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Skip fenced code blocks (including mermaid diagrams) and `inline code` when spell checking. Links and [[wikilinks]] are always skipped."
+        },
+        "mikedown.spellCheck.userWords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "application",
+          "description": "Custom dictionary — words the spell checker should always accept. Right-click a flagged word and choose \"Add to Dictionary\" to add to this list. Words configured for the Code Spell Checker extension (cSpell.words) are also honoured, read-only."
         }
       }
     }
@@ -535,10 +567,13 @@
     "@tiptap/extension-task-list": "^3.20.0",
     "@tiptap/pm": "^3.20.0",
     "@tiptap/starter-kit": "^3.20.0",
+    "dictionary-en": "^4.0.0",
+    "dictionary-en-gb": "^3.0.0",
     "lowlight": "^3.3.0",
     "markdown-it-emoji": "^3.0.0",
     "markdown-it-mark": "^4.0.0",
     "mermaid": "^11.15.0",
+    "nspell": "^2.1.5",
     "tiptap-markdown": "^0.9.0"
   }
 }

@@ -70,7 +70,12 @@ import {
   cmFindReplaceExtension, cmUpdateSearch, cmClearSearch, cmFindNext, cmFindPrev,
   cmReplaceCurrent, cmReplaceAll,
 } from './findreplace';
-import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu, buildCodeBlockMenu } from './contextmenu';
+import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu, buildCodeBlockMenu, buildSpellingMenu } from './contextmenu';
+import {
+  SpellCheckExtension, configureSpellCheck, getMisspellingAt, getSuggestions,
+  addWordToDictionary, ignoreWord,
+  type SpellCheckLanguage,
+} from './spellcheck';
 import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
 import { initTableDrag, clearCellSelection, clearDragHandles } from './tabledrag';
 import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks } from './linkautocomplete';
@@ -590,7 +595,7 @@ function showImageInsertDialog(editor: Editor): void {
 
 // ── Settings Modal ──────────────────────────────────────────────────────────────
 
-type SettingsTabId = 'appearance' | 'behavior' | 'markdown' | 'images' | 'about';
+type SettingsTabId = 'appearance' | 'behavior' | 'markdown' | 'spelling' | 'images' | 'about';
 let lastSettingsTab: SettingsTabId = 'appearance';
 
 /**
@@ -1312,6 +1317,90 @@ function showSettingsModal(): void {
   });
   sidebarApplyRow.append(sidebarApplyNote, sidebarApplyBtn);
 
+  // ── Spelling tab fields
+  const spellEnabledField = makeCheckboxRow(
+    'Check spelling',
+    'Underline misspelled words in the editor. VS Code turns off the browser’s own spell checker, so MikeDown ships its own dictionary.',
+    currentSpellCheckEnabled,
+  );
+  const spellLanguageField = makeSelectRow<SpellCheckLanguage>(
+    'Dictionary',
+    'Which English dictionary to check against.',
+    currentSpellCheckLanguage,
+    [
+      { value: 'en', label: 'English (United States)' },
+      { value: 'en-GB', label: 'English (United Kingdom)' },
+    ],
+  );
+  const spellIgnoreCodeField = makeCheckboxRow(
+    'Skip code blocks and inline code',
+    'Leave fenced code blocks, mermaid diagrams, and `inline code` unchecked. Links and [[wikilinks]] are always skipped.',
+    currentSpellCheckIgnoreCodeBlocks,
+  );
+
+  // Custom dictionary — an editable list. "Add to Dictionary" in the
+  // right-click menu writes to the same setting.
+  const spellWords: string[] = [...currentSpellCheckUserWords];
+  const spellWordsRow = makeRow(
+    'Custom dictionary',
+    'Words MikeDown should always accept. Right-clicking a squiggle and choosing “Add to Dictionary” adds to this list.',
+  );
+  const spellWordsList = document.createElement('div');
+  spellWordsList.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;max-height:140px;overflow-y:auto;padding:6px;border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35));border-radius:4px;min-height:34px;align-content:flex-start';
+  const spellWordsEmpty = document.createElement('span');
+  spellWordsEmpty.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);padding:2px 4px';
+  spellWordsEmpty.textContent = 'No custom words yet.';
+
+  function renderSpellWords(): void {
+    spellWordsList.textContent = '';
+    if (spellWords.length === 0) {
+      spellWordsList.appendChild(spellWordsEmpty);
+      return;
+    }
+    spellWords.forEach((word, idx) => {
+      const chip = document.createElement('span');
+      chip.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:2px 6px 2px 8px;border-radius:10px;background:var(--vscode-badge-background,rgba(128,128,128,0.25));color:var(--vscode-badge-foreground,inherit);font-size:12px';
+      const label = document.createElement('span');
+      label.textContent = word;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', `Remove ${word} from the custom dictionary`);
+      remove.style.cssText = 'background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;font-family:inherit';
+      remove.addEventListener('click', () => {
+        spellWords.splice(idx, 1);
+        renderSpellWords();
+      });
+      chip.append(label, remove);
+      spellWordsList.appendChild(chip);
+    });
+  }
+
+  const spellWordsAddRow = document.createElement('div');
+  spellWordsAddRow.style.cssText = 'display:flex;gap:8px;align-items:center';
+  const spellWordInput = document.createElement('input');
+  spellWordInput.type = 'text';
+  spellWordInput.placeholder = 'Add a word…';
+  spellWordInput.style.cssText = inputStyle + ';flex:1';
+  const spellWordAddBtn = document.createElement('button');
+  spellWordAddBtn.type = 'button';
+  spellWordAddBtn.textContent = 'Add';
+  spellWordAddBtn.style.cssText = 'background:transparent;border:1px solid var(--vscode-button-border,var(--vscode-input-border,rgba(128,128,128,0.4)));color:var(--vscode-foreground);padding:4px 12px;border-radius:3px;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0';
+  const addSpellWord = (): void => {
+    const word = spellWordInput.value.trim();
+    if (!word || spellWords.includes(word)) { spellWordInput.value = ''; return; }
+    spellWords.push(word);
+    spellWordInput.value = '';
+    renderSpellWords();
+  };
+  spellWordAddBtn.addEventListener('click', addSpellWord);
+  spellWordInput.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); addSpellWord(); }
+  });
+  spellWordsAddRow.append(spellWordInput, spellWordAddBtn);
+  spellWordsRow.append(spellWordsList, spellWordsAddRow);
+  renderSpellWords();
+
   // ── Save button + note
   const footer = document.createElement('div');
   footer.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.2));flex-shrink:0';
@@ -1363,6 +1452,11 @@ function showSettingsModal(): void {
         sidebarVisibility: sidebarVisibilityField.select.value,
         sidebarPosition: sidebarPositionField.select.value,
         sidebarWidth: parsedSidebarWidth,
+        // Spelling
+        spellCheckEnabled: spellEnabledField.input.checked,
+        spellCheckLanguage: spellLanguageField.select.value,
+        spellCheckIgnoreCodeBlocks: spellIgnoreCodeField.input.checked,
+        spellCheckUserWords: [...spellWords],
       }
     });
     // Mirror into local state so subsequent reads don't wait on the broadcast.
@@ -1380,6 +1474,20 @@ function showSettingsModal(): void {
     currentSidebarVisibilityDefault = sidebarVisibilityField.select.value as typeof currentSidebarVisibilityDefault;
     currentSidebarPositionDefault = sidebarPositionField.select.value as typeof currentSidebarPositionDefault;
     currentSidebarWidthDefault = parsedSidebarWidth;
+    currentSpellCheckEnabled = spellEnabledField.input.checked;
+    currentSpellCheckLanguage = spellLanguageField.select.value as SpellCheckLanguage;
+    currentSpellCheckIgnoreCodeBlocks = spellIgnoreCodeField.input.checked;
+    currentSpellCheckUserWords = [...spellWords];
+    // Apply immediately rather than waiting on the host's echo, so toggling
+    // spell check off in the modal clears the squiggles the moment you save.
+    // `null` — the modal has no editor handle; the plugin falls back to the
+    // view it bound on mount.
+    configureSpellCheck(null, {
+      enabled: currentSpellCheckEnabled,
+      language: currentSpellCheckLanguage,
+      ignoreCodeBlocks: currentSpellCheckIgnoreCodeBlocks,
+      userWords: [...currentSpellCheckUserWords, ...currentSpellCheckExternalWords],
+    });
     overlay.remove();
   });
   footer.appendChild(note);
@@ -1432,6 +1540,13 @@ function showSettingsModal(): void {
     listMarkerField.row,
     headingStyleField.row,
   );
+  const spellingPanel = makePanel();
+  spellingPanel.append(
+    spellEnabledField.row,
+    spellLanguageField.row,
+    spellIgnoreCodeField.row,
+    spellWordsRow,
+  );
   const imagesPanel = makePanel();
   imagesPanel.append(ipSectionRow, irSectionRow);
   const aboutPanel = buildAboutPanel();
@@ -1440,6 +1555,7 @@ function showSettingsModal(): void {
     appearance: appearancePanel,
     behavior: behaviorPanel,
     markdown: markdownPanel,
+    spelling: spellingPanel,
     images: imagesPanel,
     about: aboutPanel,
   };
@@ -1448,6 +1564,7 @@ function showSettingsModal(): void {
     { id: 'appearance', label: 'Appearance' },
     { id: 'behavior', label: 'Behavior' },
     { id: 'markdown', label: 'Markdown' },
+    { id: 'spelling', label: 'Spelling' },
     { id: 'images', label: 'Images' },
     { id: 'about', label: 'About' },
   ];
@@ -1509,7 +1626,7 @@ function showSettingsModal(): void {
     nav.appendChild(btn);
   });
 
-  content.append(appearancePanel, behaviorPanel, markdownPanel, imagesPanel, aboutPanel);
+  content.append(appearancePanel, behaviorPanel, markdownPanel, spellingPanel, imagesPanel, aboutPanel);
   body.append(nav, content);
 
   setActiveTab(activeTab);
@@ -1572,6 +1689,17 @@ let currentRenderMermaidDiagrams = true;
 let currentWikilinkCreateOnClick = false;
 let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
 let currentHeadingRenameUpdateLinks: 'ask' | 'always' | 'never' = 'ask';
+
+// Spelling tab state. `userWords` is the persisted custom dictionary; the
+// checker keeps its own copy so "Add to Dictionary" takes effect immediately
+// instead of waiting for the settings round-trip.
+let currentSpellCheckEnabled = true;
+let currentSpellCheckLanguage: SpellCheckLanguage = 'en';
+let currentSpellCheckIgnoreCodeBlocks = true;
+let currentSpellCheckUserWords: string[] = [];
+/** Read-only words inherited from cSpell — accepted by the checker, but never
+ *  shown in the Spelling tab or written back to MikeDown's own list. */
+let currentSpellCheckExternalWords: string[] = [];
 interface NormalizationStyleSettings {
   boldMarker: '**' | '__';
   italicMarker: '*' | '_';
@@ -2553,6 +2681,12 @@ if (!editorContainer) {
       // WYSIWYG view. Keyboard intercept (Cmd+F / Cmd+H) is wired below.
       FindReplaceExtension,
 
+      // ── Spell check ───────────────────────────────────────────────────────
+      // Hunspell dictionaries checked in the webview (VS Code disables
+      // Chromium's native spellchecker window-wide), squiggles rendered as
+      // inline decorations. Dictionary loads lazily after first render.
+      SpellCheckExtension,
+
       // ── Table Checkboxes ──────────────────────────────────────────────────
       // Renders [ ] and [x] inside table cells as interactive checkboxes.
       // The underlying markdown text is preserved for round-trip fidelity.
@@ -2777,6 +2911,15 @@ if (!editorContainer) {
   // M5c — Initialize table drag handles and multi-cell selection
   initTableDrag(editor);
 
+  // Spell check — start the (lazy, idle-scheduled) dictionary load with the
+  // defaults. The host's `settings` broadcast reconfigures it moments later.
+  configureSpellCheck(editor, {
+    enabled: currentSpellCheckEnabled,
+    language: currentSpellCheckLanguage,
+    ignoreCodeBlocks: currentSpellCheckIgnoreCodeBlocks,
+    userWords: [...currentSpellCheckUserWords, ...currentSpellCheckExternalWords],
+  });
+
   // M10 — Custom context menu: prevent browser default; show custom one.
   editorContainer.addEventListener('contextmenu', (event) => {
     event.preventDefault();
@@ -2788,7 +2931,38 @@ if (!editorContainer) {
     const imgEl = target.closest<HTMLImageElement>('img');
     const preEl = target.closest<HTMLElement>('pre.mikedown-code-block');
 
-    if (linkEl) {
+    // Spelling takes priority: a squiggled word is the most specific thing
+    // under the pointer, and the corrections menu appends the normal text menu
+    // so nothing is lost.
+    const spellHit = (() => {
+      if (linkEl || imgEl || preEl) return null;
+      const coords = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
+      if (!coords) return null;
+      return getMisspellingAt(editor, coords.pos);
+    })();
+
+    if (spellHit) {
+      items = buildSpellingMenu(editor, spellHit, {
+        suggestions: getSuggestions(spellHit.word, 5),
+        replace: (from, to, replacement) => {
+          // A proper transaction — never a DOM write. insertContentAt keeps
+          // the surrounding marks (bold, emphasis) on the replacement.
+          editor.chain().focus().insertContentAt({ from, to }, replacement).run();
+        },
+        addToDictionary: (word) => {
+          if (!currentSpellCheckUserWords.includes(word)) {
+            currentSpellCheckUserWords = [...currentSpellCheckUserWords, word];
+          }
+          addWordToDictionary(editor, word);
+          vscode.postMessage({
+            type: 'saveSettings',
+            silent: true,
+            settings: { spellCheckUserWords: currentSpellCheckUserWords },
+          });
+        },
+        ignore: (word) => ignoreWord(editor, word),
+      });
+    } else if (linkEl) {
       items = buildLinkMenu(editor, linkEl.getAttribute('href') || '');
     } else if (imgEl) {
       items = buildImageMenu(editor, imgEl, (window as any).mikedownImageActions);
@@ -4273,6 +4447,26 @@ if (!editorContainer) {
       }
       if (typeof msg.docDirFs === 'string') {
         docDirFsPath = msg.docDirFs;
+      }
+      if (msg.spellCheck && typeof msg.spellCheck === 'object') {
+        const sc = msg.spellCheck;
+        if (typeof sc.enabled === 'boolean') currentSpellCheckEnabled = sc.enabled;
+        if (sc.language === 'en' || sc.language === 'en-GB') currentSpellCheckLanguage = sc.language;
+        if (typeof sc.ignoreCodeBlocks === 'boolean') currentSpellCheckIgnoreCodeBlocks = sc.ignoreCodeBlocks;
+        if (Array.isArray(sc.userWords)) {
+          currentSpellCheckUserWords = sc.userWords.filter((w: unknown) => typeof w === 'string');
+        }
+        if (Array.isArray(sc.externalWords)) {
+          currentSpellCheckExternalWords = sc.externalWords.filter((w: unknown) => typeof w === 'string');
+        }
+        // Toggles live: off clears the decorations and never loads a
+        // dictionary; a language change rebuilds and re-scans.
+        configureSpellCheck(editor, {
+          enabled: currentSpellCheckEnabled,
+          language: currentSpellCheckLanguage,
+          ignoreCodeBlocks: currentSpellCheckIgnoreCodeBlocks,
+          userWords: [...currentSpellCheckUserWords, ...currentSpellCheckExternalWords],
+        });
       }
     }
 
