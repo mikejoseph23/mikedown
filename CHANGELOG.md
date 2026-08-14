@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **First-run prompt to set MikeDown as your default `.md` editor.** VS Code opens `.md` files in its built-in text editor unless told otherwise, so new installs of MikeDown didn't do anything until you found VS Code's **Reopen Editor With…** menu yourself. MikeDown now offers to set itself as the default the first time it activates — "Yes" writes `workbench.editorAssociations` for you, "Not now" and "Don't ask again" leave things as they are. Missed the prompt? Run **MikeDown: Make MikeDown the Default Markdown Editor** from the Command Palette at any time. Documented above the fold in the README.
+
 ## [2.9.0] - 2026-07-31
 
 ### Added

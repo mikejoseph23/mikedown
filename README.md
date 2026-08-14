@@ -10,6 +10,16 @@ The split-pane markdown preview workflow gets old fast — source on one side, r
 
 MikeDown closes that gap. It's an open-source WYSIWYG Markdown editor that lives entirely inside VS Code. Open multiple markdown files across panes, windows, and monitors — all without leaving your editor.
 
+## Make MikeDown your default Markdown editor
+
+By default, VS Code opens `.md` files in its built-in text editor, so MikeDown won't kick in until you tell VS Code to use it. Do that once and every `.md` file opens straight into MikeDown from then on.
+
+The first time you install MikeDown, it offers to do this for you with a one-click prompt. Missed it, or said "Not now"? Run **MikeDown: Make MikeDown the Default Markdown Editor** from the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) at any time.
+
+Prefer to do it by hand: right-click any editor tab → **Reopen Editor With…** → **Configure default editor for `.md`…** → choose **MikeDown Editor**.
+
+Either way, the raw markdown source is always one keystroke away with `Cmd+/` / `Ctrl+/`.
+
 ## Enjoying MikeDown?
 
 If this free extension is making your markdown workflow better, please **tell a friend or co-worker** or [**leave a review on the VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details). Ratings and word of mouth are what get the word out — it genuinely helps.
@@ -161,11 +171,11 @@ Install **MikeDown Editor** from the [VS Code Marketplace](https://marketplace.v
 
 ### Make MikeDown the default editor for markdown files in VS Code
 
-By default, VS Code opens `.md` files in its standard text editor. To have MikeDown open them automatically:
+By default, VS Code opens `.md` files in its standard text editor. See [Make MikeDown your default Markdown editor](#make-mikedown-your-default-markdown-editor) above the fold for the one-click command, or use VS Code's own **Reopen Editor With…** flow:
 
-1. Open VS Code Settings (`Cmd+,` / `Ctrl+,`).
-2. Search for `mikedown.defaultEditor`.
-3. Enable the checkbox.
+1. Right-click any `.md` editor tab and choose **Reopen Editor With…**.
+2. Choose **Configure default editor for `.md`…**.
+3. Select **MikeDown Editor**.
 
 Now every `.md` or `.markdown` file you open in VS Code will go straight into MikeDown's WYSIWYG view. The raw source is always one keystroke away with `Cmd+/`.
 

@@ -8,6 +8,7 @@ import { exportViaPrint } from './export';
 import { BacklinkProvider } from './backlinkProvider';
 import { MarkdownOutlineSymbolProvider } from './outlineProvider';
 import { NagPrompt } from './nagPrompt';
+import { maybeOfferDefaultEditorPrompt, setAsDefaultEditorCommand } from './defaultEditorPrompt';
 
 /**
  * One-shot migration: rename `mikedown.outline.*` settings + globalState key
@@ -154,6 +155,12 @@ export function activate(context: vscode.ExtensionContext): void {
         panel.webview.postMessage({ type: 'copyAsRichText' });
       }
     })
+  );
+
+  // Make MikeDown the default `.md` editor — writes workbench.editorAssociations.
+  // Also reachable via the first-run prompt below (see src/defaultEditorPrompt.ts).
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.setAsDefaultEditor', () => setAsDefaultEditorCommand(context))
   );
 
   // "Open with MikeDown" command — works from explorer, editor tab, and command palette
@@ -314,6 +321,12 @@ export function activate(context: vscode.ExtensionContext): void {
   MarkdownEditorProvider.onDocOpen = () => nag.recordDocOpen();
   // Idle delay before first check — don't ambush the user during startup.
   setTimeout(() => nag.maybeShow(), 60_000);
+
+  // First-run "make MikeDown the default .md editor?" prompt. Shown once,
+  // shortly after activation — short delay so it doesn't compete with other
+  // startup toasts, but well before the nag prompt above. See
+  // src/defaultEditorPrompt.ts for the full gating logic.
+  setTimeout(() => maybeOfferDefaultEditorPrompt(context), 5_000);
 }
 
 /**

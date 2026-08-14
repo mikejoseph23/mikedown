@@ -114,6 +114,10 @@
       {
         "command": "mikedown.showDiff",
         "title": "MikeDown: Show Git Diff"
+      },
+      {
+        "command": "mikedown.setAsDefaultEditor",
+        "title": "MikeDown: Make MikeDown the Default Markdown Editor"
       }
     ],
     "menus": {
