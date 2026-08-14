@@ -74,6 +74,7 @@ import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTa
 import {
   SpellCheckExtension, configureSpellCheck, getMisspellingAt, getSuggestions,
   addWordToDictionary, ignoreWord,
+  buildDictionaryView, removeWordFromList, addWordToList,
   type SpellCheckLanguage,
 } from './spellcheck';
 import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
@@ -1344,57 +1345,145 @@ function showSettingsModal(): void {
 
   // Custom dictionary — an editable list. "Add to Dictionary" in the
   // right-click menu writes to the same setting.
-  const spellWords: string[] = [...currentSpellCheckUserWords];
+  //
+  // Two sources share one list: MikeDown's own words (removable) and the
+  // words inherited from the Code Spell Checker extension (`cSpell.words`,
+  // read-only — dashed chips). Rendering is sorted + filtered, so *nothing*
+  // here may address a word by its position in the rendered list; removal
+  // goes by value through `removeWordFromList`.
+  let spellWords: string[] = [...currentSpellCheckUserWords];
+  // Below this many total words a filter box is just clutter.
+  const SPELL_FILTER_THRESHOLD = 8;
   const spellWordsRow = makeRow(
     'Custom dictionary',
     'Words MikeDown should always accept. Right-clicking a squiggle and choosing “Add to Dictionary” adds to this list.',
   );
+
+  const spellWordsHeader = document.createElement('div');
+  spellWordsHeader.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between';
+  const spellWordsFilter = document.createElement('input');
+  spellWordsFilter.type = 'search';
+  spellWordsFilter.placeholder = 'Filter words…';
+  spellWordsFilter.setAttribute('aria-label', 'Filter the custom dictionary');
+  spellWordsFilter.style.cssText = inputStyle + ';flex:1;font-size:12px;padding:4px 8px';
+  const spellWordsCount = document.createElement('span');
+  spellWordsCount.setAttribute('aria-live', 'polite');
+  spellWordsCount.style.cssText = 'font-size:11.5px;color:var(--vscode-descriptionForeground);flex-shrink:0;white-space:nowrap';
+  spellWordsHeader.append(spellWordsFilter, spellWordsCount);
+
   const spellWordsList = document.createElement('div');
-  spellWordsList.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;max-height:140px;overflow-y:auto;padding:6px;border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35));border-radius:4px;min-height:34px;align-content:flex-start';
-  const spellWordsEmpty = document.createElement('span');
-  spellWordsEmpty.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);padding:2px 4px';
-  spellWordsEmpty.textContent = 'No custom words yet.';
+  spellWordsList.setAttribute('role', 'list');
+  spellWordsList.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;max-height:200px;overflow-y:auto;padding:6px;border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35));border-radius:4px;min-height:34px;align-content:flex-start';
+
+  const spellWordsLegend = document.createElement('div');
+  spellWordsLegend.style.cssText = 'font-size:11.5px;color:var(--vscode-descriptionForeground);line-height:1.4';
+  spellWordsLegend.textContent = 'Dashed words come from the Code Spell Checker extension (cSpell.words) and are honoured here but edited there.';
+
+  const emptyStyle = 'font-size:12px;color:var(--vscode-descriptionForeground);padding:2px 4px';
 
   function renderSpellWords(): void {
-    spellWordsList.textContent = '';
-    if (spellWords.length === 0) {
-      spellWordsList.appendChild(spellWordsEmpty);
+    const external = currentSpellCheckExternalWords;
+    const view = buildDictionaryView(spellWords, external, spellWordsFilter.value);
+
+    // The filter only earns its space once the list is long. If words were
+    // removed down past the threshold, drop the (now hidden) filter text too,
+    // otherwise it would silently keep hiding words.
+    const showFilter = view.total >= SPELL_FILTER_THRESHOLD;
+    if (!showFilter && spellWordsFilter.value) {
+      spellWordsFilter.value = '';
+      renderSpellWords();
       return;
     }
-    spellWords.forEach((word, idx) => {
+    spellWordsFilter.style.display = showFilter ? '' : 'none';
+    spellWordsCount.textContent = view.filter
+      ? `${view.entries.length} of ${view.total}`
+      : `${view.total} ${view.total === 1 ? 'word' : 'words'}`;
+    spellWordsCount.style.display = view.total === 0 ? 'none' : '';
+    spellWordsLegend.style.display = external.length > 0 ? '' : 'none';
+
+    spellWordsList.textContent = '';
+    if (view.entries.length === 0) {
+      const empty = document.createElement('span');
+      empty.style.cssText = emptyStyle;
+      // Distinct empty states: an empty dictionary and a filter that matched
+      // nothing look identical otherwise, and the second reads as data loss.
+      empty.textContent = view.total === 0
+        ? 'No custom words yet.'
+        : `No words match “${view.filter}”.`;
+      spellWordsList.appendChild(empty);
+      return;
+    }
+
+    // Position of each removable chip among the removable chips only —
+    // used to put focus back on the neighbouring × after a removal.
+    let removableIndex = -1;
+    for (const entry of view.entries) {
       const chip = document.createElement('span');
-      chip.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:2px 6px 2px 8px;border-radius:10px;background:var(--vscode-badge-background,rgba(128,128,128,0.25));color:var(--vscode-badge-foreground,inherit);font-size:12px';
+      chip.setAttribute('role', 'listitem');
+      const isExternal = entry.source === 'external';
+      chip.style.cssText = isExternal
+        ? 'display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;background:transparent;border:1px dashed var(--vscode-input-border,rgba(128,128,128,0.5));color:var(--vscode-descriptionForeground);font-size:12px'
+        : 'display:inline-flex;align-items:center;gap:5px;padding:2px 6px 2px 8px;border-radius:10px;background:var(--vscode-badge-background,rgba(128,128,128,0.25));color:var(--vscode-badge-foreground,inherit);font-size:12px';
       const label = document.createElement('span');
-      label.textContent = word;
-      const remove = document.createElement('button');
-      remove.type = 'button';
-      remove.textContent = '×';
-      remove.setAttribute('aria-label', `Remove ${word} from the custom dictionary`);
-      remove.style.cssText = 'background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;font-family:inherit';
-      remove.addEventListener('click', () => {
-        spellWords.splice(idx, 1);
-        renderSpellWords();
-      });
-      chip.append(label, remove);
+      label.textContent = entry.word;
+      chip.appendChild(label);
+
+      if (isExternal) {
+        chip.title = `“${entry.word}” comes from the Code Spell Checker extension (cSpell.words). Remove it there.`;
+        label.setAttribute('aria-label', `${entry.word} (from Code Spell Checker, read-only)`);
+      } else {
+        const myIndex = ++removableIndex;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', `Remove ${entry.word} from the custom dictionary`);
+        remove.style.cssText = 'background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;font-family:inherit';
+        remove.addEventListener('click', () => {
+          // By value, never by index — the rendered order is sorted/filtered.
+          spellWords = removeWordFromList(spellWords, entry.word);
+          renderSpellWords();
+          // Keep the keyboard where the user left it: the × that slid into
+          // this slot (or the last one), else the nearest input if the list
+          // just emptied out.
+          const buttons = spellWordsList.querySelectorAll('button');
+          const next = buttons[Math.min(myIndex, buttons.length - 1)];
+          (next ?? (spellWordsFilter.style.display === 'none' ? spellWordInput : spellWordsFilter)).focus();
+        });
+        chip.appendChild(remove);
+      }
       spellWordsList.appendChild(chip);
-    });
+    }
   }
+
+  spellWordsFilter.addEventListener('input', () => renderSpellWords());
+  spellWordsFilter.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && spellWordsFilter.value) {
+      // Clear the filter without closing the whole modal.
+      e.preventDefault();
+      e.stopPropagation();
+      spellWordsFilter.value = '';
+      renderSpellWords();
+    }
+  });
 
   const spellWordsAddRow = document.createElement('div');
   spellWordsAddRow.style.cssText = 'display:flex;gap:8px;align-items:center';
   const spellWordInput = document.createElement('input');
   spellWordInput.type = 'text';
   spellWordInput.placeholder = 'Add a word…';
+  spellWordInput.setAttribute('aria-label', 'Add a word to the custom dictionary');
   spellWordInput.style.cssText = inputStyle + ';flex:1';
   const spellWordAddBtn = document.createElement('button');
   spellWordAddBtn.type = 'button';
   spellWordAddBtn.textContent = 'Add';
   spellWordAddBtn.style.cssText = 'background:transparent;border:1px solid var(--vscode-button-border,var(--vscode-input-border,rgba(128,128,128,0.4)));color:var(--vscode-foreground);padding:4px 12px;border-radius:3px;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0';
   const addSpellWord = (): void => {
-    const word = spellWordInput.value.trim();
-    if (!word || spellWords.includes(word)) { spellWordInput.value = ''; return; }
-    spellWords.push(word);
+    const next = addWordToList(spellWords, spellWordInput.value);
     spellWordInput.value = '';
+    if (next === spellWords) return; // blank or already in the list
+    spellWords = next;
+    // A stale filter would hide the word that was just added.
+    spellWordsFilter.value = '';
     renderSpellWords();
   };
   spellWordAddBtn.addEventListener('click', addSpellWord);
@@ -1402,7 +1491,7 @@ function showSettingsModal(): void {
     if (e.key === 'Enter') { e.preventDefault(); addSpellWord(); }
   });
   spellWordsAddRow.append(spellWordInput, spellWordAddBtn);
-  spellWordsRow.append(spellWordsList, spellWordsAddRow);
+  spellWordsRow.append(spellWordsHeader, spellWordsList, spellWordsLegend, spellWordsAddRow);
   renderSpellWords();
 
   // ── Save button + note
@@ -1697,7 +1786,10 @@ let currentHeadingRenameUpdateLinks: 'ask' | 'always' | 'never' = 'ask';
 // Spelling tab state. `userWords` is the persisted custom dictionary; the
 // checker keeps its own copy so "Add to Dictionary" takes effect immediately
 // instead of waiting for the settings round-trip.
-let currentSpellCheckEnabled = true;
+// Matches the `mikedown.spellCheck.enabled` default in package.json — off
+// until the host's first `settings` broadcast says otherwise, so a disabled
+// user never sees a flash of squiggles on open.
+let currentSpellCheckEnabled = false;
 let currentSpellCheckLanguage: SpellCheckLanguage = 'en';
 let currentSpellCheckIgnoreCodeBlocks = true;
 let currentSpellCheckUserWords: string[] = [];

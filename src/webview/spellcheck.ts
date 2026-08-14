@@ -214,6 +214,79 @@ export function tokenize(text: string): CheckableToken[] {
   return out;
 }
 
+// ─── Custom-dictionary list model (settings modal) ───────────────────────────
+
+export interface DictionaryEntry {
+  word: string;
+  /**
+   * `user` — MikeDown's own `spellCheck.userWords`, editable and removable.
+   * `external` — inherited from the Code Spell Checker extension's
+   * `cSpell.words`, shown read-only so the list explains itself.
+   */
+  source: 'user' | 'external';
+}
+
+export interface DictionaryView {
+  /** Sorted, filtered rows to render. */
+  entries: DictionaryEntry[];
+  /** Every word in the dictionary, both sources, before filtering. */
+  total: number;
+  /** The active filter, trimmed. Empty string means "no filter". */
+  filter: string;
+}
+
+/**
+ * Build the rendered view of the custom dictionary: both sources merged,
+ * case-insensitively sorted, optionally filtered by substring.
+ *
+ * Sorting happens *here*, at render time — the persisted arrays keep their
+ * insertion order so saving the modal doesn't churn the user's settings.json.
+ * Exported (with the helpers below) so the sort/filter/remove logic is unit
+ * testable without standing up the modal's DOM.
+ */
+export function buildDictionaryView(
+  userWords: readonly string[],
+  externalWords: readonly string[],
+  filter: string,
+): DictionaryView {
+  const all: DictionaryEntry[] = [
+    ...userWords.map((word): DictionaryEntry => ({ word, source: 'user' })),
+    ...externalWords.map((word): DictionaryEntry => ({ word, source: 'external' })),
+  ];
+  const trimmed = filter.trim();
+  const needle = trimmed.toLowerCase();
+  const entries = (needle ? all.filter(e => e.word.toLowerCase().includes(needle)) : all)
+    .sort((a, b) => {
+      const byWord = a.word.toLowerCase().localeCompare(b.word.toLowerCase());
+      // Tie-break on the raw string so casing variants order deterministically.
+      return byWord !== 0 ? byWord : a.word.localeCompare(b.word);
+    });
+  return { entries, total: all.length, filter: trimmed };
+}
+
+/**
+ * Remove a word **by value**, case-insensitively. Never by render index — the
+ * rendered order is sorted and filtered, so an index into it does not address
+ * the same element as an index into the backing array.
+ */
+export function removeWordFromList(words: readonly string[], word: string): string[] {
+  const key = word.toLowerCase();
+  return words.filter(w => w.toLowerCase() !== key);
+}
+
+/**
+ * Append a word if it isn't already present (case-insensitive). Returns the
+ * original array reference when nothing changed, so callers can cheaply tell
+ * an accepted word from a rejected duplicate.
+ */
+export function addWordToList(words: string[], raw: string): string[] {
+  const word = raw.trim();
+  if (!word) return words;
+  const key = word.toLowerCase();
+  if (words.some(w => w.toLowerCase() === key)) return words;
+  return [...words, word];
+}
+
 // ─── Document scanning ───────────────────────────────────────────────────────
 
 function isKnown(word: string): boolean {

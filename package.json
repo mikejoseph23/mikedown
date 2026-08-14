@@ -482,8 +482,8 @@
         },
         "mikedown.spellCheck.enabled": {
           "type": "boolean",
-          "default": true,
-          "description": "Underline misspelled words in the MikeDown editor. VS Code disables the browser's built-in spell checker for all webviews, so MikeDown ships its own dictionary. When off, no dictionary is loaded at all."
+          "default": false,
+          "description": "Underline misspelled words in the MikeDown editor. Off by default while the feature settles; turn it on here or in the editor's Settings → Spelling tab. VS Code disables the browser's built-in spell checker for all webviews, so MikeDown ships its own dictionary. When off, no dictionary is loaded at all."
         },
         "mikedown.spellCheck.language": {
           "type": "string",

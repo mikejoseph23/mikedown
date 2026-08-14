@@ -107,7 +107,7 @@ export function getSettings(): MikeDownSettings {
       createOnClick: config.get<boolean>('wikilink.createOnClick', false),
     },
     spellCheck: {
-      enabled: config.get<boolean>('spellCheck.enabled', true),
+      enabled: config.get<boolean>('spellCheck.enabled', false),
       language: config.get<'en' | 'en-GB'>('spellCheck.language', 'en') === 'en-GB' ? 'en-GB' : 'en',
       ignoreCodeBlocks: config.get<boolean>('spellCheck.ignoreCodeBlocks', true),
       ...readWordLists(config),
