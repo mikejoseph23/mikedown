@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MikeDown spell-check harness (M6)</title>
+<!--
+  Minimal standalone harness for exercising the spell-check TipTap extension
+  outside VS Code. Not a faithful reproduction of markdownEditorProvider's
+  getWebviewContent() — no CSP, no vscode-webview: URI scheme — just enough
+  DOM scaffolding (#toolbar, #editor-container, data-dictionary-base, the
+  same acquireVsCodeApi + postMessage protocol) for out/webview/editor-main.js
+  to boot, mount TipTap, and load the real bundled dictionaries over a plain
+  fetch. Serve this from the repo root (e.g. `python3 -m http.server`) so the
+  relative /out, /src, /dictionaries paths below resolve.
+-->
+<link rel="stylesheet" href="/src/webview/editor.css">
+<link rel="stylesheet" href="/src/webview/tables.css">
+<link rel="stylesheet" href="/src/webview/images.css">
+<link rel="stylesheet" href="/src/webview/codeblocks.css">
+<link rel="stylesheet" href="/src/webview/mermaid.css">
+<link rel="stylesheet" href="/src/webview/links.css">
+<link rel="stylesheet" href="/src/webview/findreplace.css">
+<link rel="stylesheet" href="/src/webview/contextmenu.css">
+<link rel="stylesheet" href="/src/webview/tablepicker.css">
+<link rel="stylesheet" href="/src/webview/tabledrag.css">
+<link rel="stylesheet" href="/src/webview/tasklist.css">
+<link rel="stylesheet" href="/src/webview/linkautocomplete.css">
+<link rel="stylesheet" href="/src/webview/toolbar-dropdown.css">
+<link rel="stylesheet" href="/src/webview/outline-sidebar.css">
+<link rel="stylesheet" href="/src/webview/emojipicker.css">
+<link rel="stylesheet" href="/src/webview/spellcheck.css">
+<style>
+  /* VS Code theme tokens the editor CSS expects — light defaults, and a
+     `.vscode-dark` toggle on <html> for the dark-theme screenshots. */
+  :root {
+    --vscode-editor-foreground: #1e1e1e;
+    --vscode-editor-background: #ffffff;
+    --vscode-editorInfo-foreground: #3794ff;
+    --vscode-descriptionForeground: #6c6c6c;
+    --vscode-textLink-foreground: #006ab1;
+    --vscode-focusBorder: #006ab1;
+    --vscode-widget-border: #d4d4d4;
+    --vscode-editorWidget-background: #f3f3f3;
+    --vscode-list-hoverBackground: #e8e8e8;
+    --vscode-font-family: sans-serif;
+  }
+  html.vscode-dark {
+    --vscode-editor-foreground: #d4d4d4;
+    --vscode-editor-background: #1e1e1e;
+    --vscode-editorInfo-foreground: #3794ff;
+    --vscode-descriptionForeground: #9d9d9d;
+    --vscode-textLink-foreground: #3794ff;
+    --vscode-focusBorder: #007fd4;
+    --vscode-widget-border: #454545;
+    --vscode-editorWidget-background: #252526;
+    --vscode-list-hoverBackground: #2a2d2e;
+  }
+  body { margin: 0; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); }
+  #harness-log { display: none; position: fixed; bottom: 0; left: 0; right: 0; max-height: 25vh; overflow: auto;
+    background: #000; color: #0f0; font: 11px monospace; padding: 4px; z-index: 99999; opacity: 0.85; }
+  #harness-log.visible { display: block; }
+</style>
+</head>
+<body data-dictionary-base="/dictionaries">
+  <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">
+    <span class="toolbar-placeholder">MikeDown</span>
+  </div>
+  <aside id="mikedown-outline-sidebar" aria-label="Document sidebar" hidden></aside>
+  <button type="button" id="mikedown-outline-toggle" aria-label="Show sidebar" title="Show sidebar" aria-expanded="false"></button>
+  <div id="editor-container" role="main" aria-label="Markdown editor"></div>
+  <div id="source-container" style="display:none;"></div>
+  <div id="harness-log"></div>
+
+<script>
+  // ── Fake VS Code webview host ─────────────────────────────────────────
+  // Mirrors the postMessage protocol documented at the top of editor-main.ts.
+  // 'ready' from the webview triggers our scripted 'update' + 'settings'
+  // replies, standing in for MarkdownEditorProvider on the host side.
+  // Content and spell-check config can be driven by query string, so a
+  // Playwright test can just navigate rather than eval() into the page
+  // before the bundle has attached its listeners.
+  //   ?content=<url-encoded markdown>
+  //   ?enabled=0|1  ?language=en|en-GB  ?ignoreCode=0|1  ?userWords=a,b,c
+  const params = new URLSearchParams(location.search);
+  const HARNESS_CONTENT = params.has('content')
+    ? decodeURIComponent(params.get('content'))
+    : (window.__harnessContent || '# Harness\n\nEmpty by default.\n');
+  const HARNESS_SPELLCHECK = window.__harnessSpellCheck || {
+    enabled: params.get('enabled') !== '0',
+    language: params.get('language') === 'en-GB' ? 'en-GB' : 'en',
+    ignoreCodeBlocks: params.get('ignoreCode') !== '0',
+    userWords: params.has('userWords') ? params.get('userWords').split(',').filter(Boolean) : [],
+    externalWords: [],
+  };
+  if (params.get('dark') === '1') document.documentElement.classList.add('vscode-dark');
+  if (params.get('debug') === '1') document.getElementById('harness-log').classList.add('visible');
+
+  function log(msg) {
+    const el = document.getElementById('harness-log');
+    if (el) el.textContent += msg + '\n';
+    console.log('[harness]', msg);
+  }
+
+  window.acquireVsCodeApi = function () {
+    return {
+      postMessage(msg) {
+        log('webview -> host: ' + JSON.stringify(msg).slice(0, 200));
+        window.__lastPostedMessage = msg;
+        if (msg && msg.type === 'ready') {
+          window.dispatchEvent(new MessageEvent('message', {
+            data: { type: 'update', content: HARNESS_CONTENT, pristine: true },
+          }));
+          window.dispatchEvent(new MessageEvent('message', {
+            data: { type: 'settings', spellCheck: HARNESS_SPELLCHECK },
+          }));
+        }
+      },
+      getState() { return window.__harnessState || null; },
+      setState(s) { window.__harnessState = s; },
+    };
+  };
+
+  window.addEventListener('error', (e) => log('ERROR: ' + e.message));
+</script>
+<script src="/out/webview/editor-main.js"></script>
+</body>
+</html>
