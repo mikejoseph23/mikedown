@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { addHeadingIds, fixInternalLinks, buildFullHtml } from '../../src/export';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { addHeadingIds, fixInternalLinks, buildFullHtml, sanitizeExportFilename } from '../../src/export';
 
 describe('addHeadingIds', () => {
   it('matches GitHub slugs for numbered headings with punctuation', () => {
@@ -66,5 +66,25 @@ describe('buildFullHtml', () => {
     );
     expect(out).toContain('<h2 id="table-of-contents">Table of Contents</h2>');
     expect(out).toContain('<a href="#table-of-contents">top</a>');
+  });
+});
+
+describe('sanitizeExportFilename', () => {
+  it('keeps already-safe names untouched', () => {
+    expect(sanitizeExportFilename('My-Doc_v2')).toBe('My-Doc_v2');
+  });
+
+  it('replaces unsafe characters with underscores', () => {
+    expect(sanitizeExportFilename('report (final) — Q3.md')).toBe(
+      'report__final____Q3_md'
+    );
+  });
+
+  it('replaces every character of a non-ASCII title (one underscore per char, not stripped)', () => {
+    expect(sanitizeExportFilename('日本語')).toBe('___');
+  });
+
+  it('falls back to "mikedown" for an empty title', () => {
+    expect(sanitizeExportFilename('')).toBe('mikedown');
   });
 });

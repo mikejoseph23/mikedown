@@ -20,7 +20,7 @@ import { randomBytes } from 'crypto';
  */
 
 const IDLE_SHUTDOWN_MS = 15 * 60 * 1000;
-const MAX_ENTRIES = 20;
+export const MAX_ENTRIES = 20;
 
 interface ExportEntry {
   html: string;
@@ -35,11 +35,11 @@ let idleTimer: NodeJS.Timeout | undefined;
 const entries = new Map<string, ExportEntry>();
 
 /** Paths under `/a/<token>/<encoded>` are asset requests; `/e/<token>` is the page. */
-function encodeAssetPath(p: string): string {
+export function encodeAssetPath(p: string): string {
   return Buffer.from(p, 'utf8').toString('base64url');
 }
 
-function decodeAssetPath(encoded: string): string {
+export function decodeAssetPath(encoded: string): string {
   return Buffer.from(encoded, 'base64url').toString('utf8');
 }
 
@@ -69,7 +69,7 @@ const MIME: Record<string, string> = {
  * unguessable token, but this keeps a stray relative path from turning into
  * an arbitrary-file read.
  */
-function isAllowedAsset(target: string, baseDir: string): boolean {
+export function isAllowedAsset(target: string, baseDir: string): boolean {
   const roots = [baseDir, ...(vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath)];
   return roots.some((root) => {
     const rel = path.relative(root, target);

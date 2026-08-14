@@ -150,6 +150,16 @@ export async function writeRenderedHtml(
   vscode.window.showInformationMessage(`Exported to ${path.basename(uri.fsPath)}`);
 }
 
+/**
+ * Sanitize a document title into a filesystem-safe filename fragment for
+ * temp exports. Anything outside `[a-z0-9-_]` becomes `_` (non-ASCII titles
+ * end up as a run of underscores, not stripped); an empty input falls back
+ * to `mikedown` rather than producing a blank filename.
+ */
+export function sanitizeExportFilename(title: string): string {
+  return title.replace(/[^a-z0-9-_]/gi, '_') || 'mikedown';
+}
+
 /** Inject the auto-print script used by "Print / Export as PDF". */
 function withAutoPrint(fullHtml: string, autoPrint: boolean | undefined): string {
   if (!autoPrint) return fullHtml;
@@ -266,7 +276,7 @@ export async function openRenderedInBrowser(
   const fullHtml = withAutoPrint(buildFullHtml(rewritten, title), options.autoPrint);
 
   const prefix = options.autoPrint ? 'mikedown-print' : 'mikedown-preview';
-  const safeName = title.replace(/[^a-z0-9-_]/gi, '_') || 'mikedown';
+  const safeName = sanitizeExportFilename(title);
   const tmpPath = path.join(os.tmpdir(), `${prefix}-${safeName}-${Date.now()}.html`);
   const tmpUri = vscode.Uri.file(tmpPath);
   await vscode.workspace.fs.writeFile(tmpUri, Buffer.from(fullHtml, 'utf8'));
