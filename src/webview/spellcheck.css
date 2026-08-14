@@ -1,0 +1,33 @@
+/* Spell check squiggles.
+ *
+ * Colour token: --vscode-editorInfo-foreground rather than the warning token.
+ * VS Code reserves warning-yellow for "this will probably break"; a typo is
+ * informational. It also matches the squiggle the Code Spell Checker extension
+ * draws in the plain text editor (Information severity), so moving between the
+ * text editor and MikeDown looks like one product rather than two. The token is
+ * theme-supplied, so light and dark both come out right with no extra rules.
+ */
+
+.mikedown-misspelling {
+  /* `skip-ink` keeps the wave from cutting through descenders. */
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--vscode-editorInfo-foreground, #3794ff);
+  text-decoration-skip-ink: none;
+  /* Chromium draws the wave tight against the baseline by default; a small
+   * offset keeps it legible at MikeDown's larger editor font sizes. */
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
+/* Don't double-underline inside links or headings that already carry one. */
+a .mikedown-misspelling {
+  text-decoration-line: none;
+}
+
+/* Suggestion entries in the context menu render in the editor's own font so a
+ * proposed correction reads the way it will read in the document. */
+#mikedown-context-menu .cm-item-spelling .cm-item-label {
+  font-family: var(--mikedown-font-family, inherit);
+  font-weight: 600;
+}
