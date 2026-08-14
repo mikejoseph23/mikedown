@@ -7,3 +7,4 @@ dist/
 .vscode-test/
 .claude/settings.local.json
 .playwright-cli/
+test/workspace/.vscode/settings.json
