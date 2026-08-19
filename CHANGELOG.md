@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [2.10.1] - 2026-08-19
+
+### Fixed
+
+- **The editor loads again in WSL, Dev Container, and other remote sessions.** 2.10.0's remote print fix told VS Code it *preferred* to run MikeDown on the local machine (`extensionKind` order), which handed the editor `vscode-remote://` file URIs. The diff-view detector treated any non-`file://` URI as a git diff, tried to show one, warned "No git history found for this file," and closed the panel — so remote files never opened at all. The extension now prefers running on the remote side again (where the 2.10.0 loopback print fix was designed to operate), and the diff detector only reacts to genuine diff schemes instead of everything non-local. Local sessions are unchanged.
+
 ## [2.10.0] - 2026-08-13
 
 ### Added

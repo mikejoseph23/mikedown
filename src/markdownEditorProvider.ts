@@ -166,10 +166,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const pathPanels = MarkdownEditorProvider.panelsByPath.get(fsPath)!;
     pathPanels.add(entry);
 
-    // Diff detection: non-file scheme (e.g. git: from Source Control) or
+    // Diff detection: a known diff scheme (git:/gitfs: from Source Control) or
     // 2+ panels sharing the same path indicates VS Code opened a diff view.
     // Redirect to the source text diff for proper green/red line highlighting.
-    if (document.uri.scheme !== 'file' || pathPanels.size > 1) {
+    // Must be an allowlist — remote sessions can hand us vscode-remote: URIs
+    // for ordinary files, which are NOT diffs and must load the editor.
+    const DIFF_SCHEMES = ['git', 'gitfs', 'pr'];
+    if (DIFF_SCHEMES.includes(document.uri.scheme) || pathPanels.size > 1) {
       // Register dispose handler for cleanup before returning early
       webviewPanel.onDidDispose(() => {
         MarkdownEditorProvider.openPanels.delete(webviewPanel);
