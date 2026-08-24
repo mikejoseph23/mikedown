@@ -23,7 +23,7 @@ Address the feature half of [GitHub issue #3](https://github.com/mikejoseph23/mi
 | M2: Webview command handlers | Sonnet | ✅ Done | 4 | Commit 9264690 |
 | M3: Testing & verification | Sonnet | ✅ Automated done · ⏳ hands-on pending | 4 | Commit 8782c83 |
 | M4: Docs & issue follow-up | Haiku | ✅ Done | 5 | Commit 8947309 (amended) |
-| M5: Hotkeys section in Settings modal | Sonnet | ✅ Done | 10 | Commit ba3289d |
+| M5: Hotkeys section in Settings modal | Sonnet | ✅ Done | 10 | Commits ba3289d + dc3fad6 (fix) |
 
 ## Table of Contents
 
@@ -86,10 +86,10 @@ Mirror the existing `mikedown.toggleBold` pipeline exactly.
 - [x] Unit: if any pure logic was factored out (e.g. command-name → editor-action mapping), cover it in `test/unit/`.
 - [x] Run `npm run test:unit` and `npm run test:integration` green.
 - [ ] Hands-on checklist (user or orchestrator in the Extension Development Host):
-  - [ ] `Ctrl+.` toggles a bullet list on/off at the cursor.
+  - [x] `Ctrl+.` toggles a bullet list on/off at the cursor. ✅ confirmed 2026-08-24
   - [ ] `Ctrl+3` toggles an ordered list; converting between list types works.
   - [ ] `Ctrl+8` toggles a task list.
-  - [ ] `Ctrl+\` shows/hides the sidebar.
+  - [x] `Ctrl+\` shows/hides the sidebar. ✅ confirmed 2026-08-24
   - [ ] Shortcuts do nothing destructive in source mode.
   - [ ] Remapping one binding via VS Code's Keyboard Shortcuts UI works (proves the "native remapping" premise of issue #3).
   - [ ] **(M5)** Settings gear → Hotkeys tab shows the shortcut table, and "Customize in VS Code…" opens the Keyboard Shortcuts UI pre-filtered to "mikedown".
@@ -141,6 +141,10 @@ Mirror the existing `mikedown.toggleBold` pipeline exactly.
 [Return to Top](#list-hotkeys-planning-document)
 
 ## Progress Log / Notes
+
+**2026-08-24 18:10** - Hands-on progress: `Ctrl+.` and `Ctrl+\` both **confirmed working** — the sidebar binding wins over VS Code's built-in Split Editor, so the `when: activeCustomEditorId` scope override holds and no fallback rebinding is needed. The docs, README table, and issue reply stand as written.
+
+**Bug found and fixed by the orchestrator (commit `dc3fad6`):** M5's Hotkeys tab rendered an empty pane. The panel was registered in the `panels` record and in `tabDefs`, so the tab appeared and switched, but the element was never appended to the `content` container — the hardcoded `content.append(...)` call listed every other panel and omitted `hotkeysPanel`. Fixed by deriving the append from `tabDefs` (`content.append(...tabDefs.map(t => panels[t.id]))`), which makes registered-but-unmounted structurally impossible for future tabs. Compile clean, `test:unit` 386/386. Worth noting the unit suite couldn't have caught this: `showSettingsModal` isn't exported and has no DOM-level test coverage.
 
 **2026-08-24 18:02** - M5 complete (commit `ba3289d`): Hotkeys tab in the Settings modal listing all 13 `mikedown.*` shortcuts, sourced from a new pure module `src/webview/hotkeys.ts`, plus a "Customize in VS Code…" button posting `openKeybindings` to the host, which runs `workbench.action.openGlobalKeybindings('mikedown')`. `test/unit/hotkeys.test.ts` asserts the table stays in sync with `package.json#contributes.keybindings` (count, per-command keys, no stale entries) so the two can't drift. Compile clean, `test:unit` 386/386. No new setting, so the three-places Settings rule didn't apply. Platform labels render as combined `Cmd+B / Ctrl+B` — the webview has no platform check in scope near that panel and the worker declined to invent one; revisit if the combined form reads poorly. Query-argument filtering is documented VS Code behavior but **not yet click-tested** — added to the hands-on checklist.
 
