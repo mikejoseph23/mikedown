@@ -2882,7 +2882,15 @@ if (!editorContainer) {
         // M5a — Table keyboard navigation.
         // Tab/Shift+Tab move between cells. Tab on the last cell of the last row
         // creates a new row. Escape exits the table.
-        if (event.key === 'Tab' && editor.isActive('table')) {
+        // Ctrl/Cmd/Alt+Tab is a VS Code tab-switching shortcut, not ours — bail
+        // out so the event propagates to the host (see issue #3).
+        if (
+          event.key === 'Tab' &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey &&
+          editor.isActive('table')
+        ) {
           event.preventDefault();
           if (event.shiftKey) {
             editor.commands.goToPreviousCell();
@@ -2918,7 +2926,15 @@ if (!editorContainer) {
         // M2c — Tab to indent list item (sink one level deeper).
         // TipTap's BulletList / OrderedList extensions do not add Tab bindings by
         // default; we add them here so Tab behaves as expected inside lists.
-        if (event.key === 'Tab' && !event.shiftKey) {
+        // Ctrl/Cmd/Alt+Tab is a VS Code tab-switching shortcut, not ours — bail
+        // out so the event propagates to the host (see issue #3).
+        if (
+          event.key === 'Tab' &&
+          !event.shiftKey &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey
+        ) {
           const { state } = view;
           const { selection } = state;
           const { $from } = selection;
@@ -2951,7 +2967,15 @@ if (!editorContainer) {
         }
 
         // M2c — Shift+Tab to un-indent list item (lift one level up).
-        if (event.key === 'Tab' && event.shiftKey) {
+        // Ctrl/Cmd/Alt+Shift+Tab is a VS Code tab-switching shortcut, not ours —
+        // bail out so the event propagates to the host (see issue #3).
+        if (
+          event.key === 'Tab' &&
+          event.shiftKey &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey
+        ) {
           const { state } = view;
           const { selection } = state;
           const { $from } = selection;
