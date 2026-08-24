@@ -205,6 +205,10 @@ All shortcuts are active when a MikeDown editor tab is focused.
 | Toggle Italic | `Cmd+I` | `Ctrl+I` |
 | Toggle Strikethrough | `Cmd+Shift+S` | `Ctrl+Shift+S` |
 | Toggle Inline Code | `Cmd+Shift+K` | `Ctrl+Shift+K` |
+| Toggle Bullet List | `Cmd+.` | `Ctrl+.` |
+| Toggle Ordered List | `Cmd+3` | `Ctrl+3` |
+| Toggle Task List | `Cmd+8` | `Ctrl+8` |
+| Toggle Sidebar | `Cmd+\` | `Ctrl+\` |
 | Toggle Source Mode | `Cmd+/` | `Ctrl+/` |
 | Undo | `Cmd+Z` | `Ctrl+Z` |
 | Redo | `Cmd+Shift+Z` | `Ctrl+Shift+Z` |
