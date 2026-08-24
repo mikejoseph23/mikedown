@@ -23,6 +23,7 @@ Address the feature half of [GitHub issue #3](https://github.com/mikejoseph23/mi
 | M2: Webview command handlers | Sonnet | ✅ Done | 4 | Commit 9264690 |
 | M3: Testing & verification | Sonnet | ✅ Automated done · ⏳ hands-on pending | 4 | Commit 8782c83 |
 | M4: Docs & issue follow-up | Haiku | ✅ Done | 5 | Commit 8947309 (amended) |
+| M5: Hotkeys section in Settings modal | Sonnet | ✅ Done | 10 | Commit ba3289d |
 
 ## Table of Contents
 
@@ -31,6 +32,7 @@ Address the feature half of [GitHub issue #3](https://github.com/mikejoseph23/mi
 - [Milestone 2: Webview Command Handlers](#milestone-2-webview-command-handlers)
 - [Milestone 3: Testing & Verification](#milestone-3-testing--verification)
 - [Milestone 4: Docs & Issue Follow-up](#milestone-4-docs--issue-follow-up)
+- [Milestone 5: Hotkeys Section in Settings Modal](#milestone-5-hotkeys-section-in-settings-modal)
 - [Parallel Development Recommendations](#parallel-development-recommendations)
 - [Progress Log / Notes](#progress-log--notes)
 
@@ -90,6 +92,7 @@ Mirror the existing `mikedown.toggleBold` pipeline exactly.
   - [ ] `Ctrl+\` shows/hides the sidebar.
   - [ ] Shortcuts do nothing destructive in source mode.
   - [ ] Remapping one binding via VS Code's Keyboard Shortcuts UI works (proves the "native remapping" premise of issue #3).
+  - [ ] **(M5)** Settings gear → Hotkeys tab shows the shortcut table, and "Customize in VS Code…" opens the Keyboard Shortcuts UI pre-filtered to "mikedown".
 - [x] Commit any test code.
 
 **Note:** Workers must complete ALL items in this list. If an item seems removable, note it in the worker summary for the orchestrator to decide — but attempt it unless truly blocked.
@@ -108,6 +111,25 @@ Mirror the existing `mikedown.toggleBold` pipeline exactly.
 
 [Return to Top](#list-hotkeys-planning-document)
 
+## Milestone 5: Hotkeys Section in Settings Modal
+
+**Recommended model:** Sonnet
+
+**Added 2026-08-24** after hands-on testing. User asked whether the Settings modal should have a Hotkeys section. Decision: **yes for discoverability, no for remapping.** An extension cannot write the user's `keybindings.json` (no API; `contributes.keybindings` is static), so a real rebinding UI would mean reimplementing key handling in the webview — losing VS Code's conflict detection and missing commands fired from the palette. Instead: a read-only reference section plus a one-click deep link into VS Code's own Keyboard Shortcuts UI, pre-filtered to "mikedown".
+
+- [x] Add a **Hotkeys** section to the in-editor Settings modal (`src/webview/editor-main.ts#showSettingsModal`), matching the existing section styling.
+- [x] Render a read-only table of the current MikeDown shortcuts (mirror the README table; platform-appropriate labels if the modal already knows the platform).
+- [x] Add a button ("Customize in VS Code…" or similar) that posts a new `{ type: 'openKeybindings' }` message to the host.
+- [x] Host side: handle `openKeybindings` in `markdownEditorProvider.ts` by executing `workbench.action.openGlobalKeybindings` with the query `'mikedown'`. **Verify the query argument is honored**; if not, fall back to the no-arg form and note it.
+- [x] Explain in the section that remapping happens in VS Code's UI and why (one short line — no lecture).
+- [x] No new `mikedown.*` setting is introduced, so the three-places Settings rule does not apply. If that turns out to be wrong, follow the rule in full.
+- [x] `npm run compile` and `npm run test:unit` pass.
+- [x] Commit.
+
+**Note:** Workers must complete ALL items in this list. If an item seems removable, note it in the worker summary for the orchestrator to decide — but attempt it unless truly blocked.
+
+[Return to Top](#list-hotkeys-planning-document)
+
 ## Parallel Development Recommendations
 
 - **Group A (parallel-safe):** M1 and M2 touch different files (`package.json`/`extension.ts` vs `editor-main.ts`) and could run concurrently, though they're small enough that sequential is simpler.
@@ -119,6 +141,10 @@ Mirror the existing `mikedown.toggleBold` pipeline exactly.
 [Return to Top](#list-hotkeys-planning-document)
 
 ## Progress Log / Notes
+
+**2026-08-24 18:02** - M5 complete (commit `ba3289d`): Hotkeys tab in the Settings modal listing all 13 `mikedown.*` shortcuts, sourced from a new pure module `src/webview/hotkeys.ts`, plus a "Customize in VS Code…" button posting `openKeybindings` to the host, which runs `workbench.action.openGlobalKeybindings('mikedown')`. `test/unit/hotkeys.test.ts` asserts the table stays in sync with `package.json#contributes.keybindings` (count, per-command keys, no stale entries) so the two can't drift. Compile clean, `test:unit` 386/386. No new setting, so the three-places Settings rule didn't apply. Platform labels render as combined `Cmd+B / Ctrl+B` — the webview has no platform check in scope near that panel and the worker declined to invent one; revisit if the combined form reads poorly. Query-argument filtering is documented VS Code behavior but **not yet click-tested** — added to the hands-on checklist.
+
+**2026-08-24 17:52** - Hands-on testing underway: `Ctrl+.` bullet list **confirmed working**. Remaining hands-on items still open. User proposed a Hotkeys section in the Settings modal; scoped as M5 (read-only reference + deep link, not a rebinding UI — see M5 rationale) and dispatched.
 
 **2026-08-24 17:40** - M4 complete (commit `8947309`): README shortcut table + CHANGELOG `[Unreleased]` entry; issue #3 reply drafted to `.orchestrator/list-hotkeys-planning/issue-3-reply-draft.md` (not posted — user reviews and posts).
 
