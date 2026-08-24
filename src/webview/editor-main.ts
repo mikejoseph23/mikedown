@@ -56,6 +56,7 @@ import {
   applyProperties,
   applyDocMeta,
   applyPlainText,
+  toggleSidebarVisible,
 } from './outlineSidebar';
 import {
   parseFrontmatter,
@@ -4671,6 +4672,26 @@ if (!editorContainer) {
         case 'redo': doRedo(editor); break;
         case 'toggleSource':
           if (sourceMode) { switchToWysiwyg(); } else { switchToSource(); }
+          break;
+        // M2 — list-toggle keybindings mirror the toolbar's bulletList/
+        // orderedList/taskList buttons, which are disabled in source mode
+        // (SOURCE_MODE_DISABLED_ACTIONS) because CodeMirror owns the visible
+        // doc there; firing a TipTap command would silently edit the hidden
+        // PM doc and desync the two views. No-op rather than throw.
+        case 'toggleBulletList':
+          if (!sourceMode) editor.chain().focus().toggleBulletList().run();
+          break;
+        case 'toggleOrderedList':
+          if (!sourceMode) editor.chain().focus().toggleOrderedList().run();
+          break;
+        case 'toggleTaskList':
+          if (!sourceMode) editor.chain().focus().toggleTaskList().run();
+          break;
+        // Sidebar toggle isn't a doc edit, so it stays available in source
+        // mode too. Routes through the same setVisible the header
+        // discovery/close buttons use — no duplicated open/close state.
+        case 'toggleSidebar':
+          toggleSidebarVisible();
           break;
       }
     }

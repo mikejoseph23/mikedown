@@ -448,6 +448,14 @@ export function applyPlainText(plainText: string): void {
 
 // ── Visibility ─────────────────────────────────────────────────────────────
 
+// Toggle path shared by the header discovery/close buttons and the
+// `mikedown.toggleSidebar` command (Ctrl+\ / Cmd+\) — routes through the same
+// setVisible so both entry points keep identical state.
+export function toggleSidebarVisible(): void {
+  if (!sidebarEl) return;
+  setVisible(sidebarEl.hidden);
+}
+
 function setVisible(visible: boolean): void {
   // Visibility is session-only when manually toggled; the pin pref is what
   // persists. Nothing posted back to the host on a manual show/hide.
