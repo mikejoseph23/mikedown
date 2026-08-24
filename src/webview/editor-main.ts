@@ -14,6 +14,8 @@
  *   { type: 'edit', content: string }    — new full markdown text after user edit
  *   { type: 'stats', selection: { words, chars } | null } — selection stats for status bar (null = no selection)
  *   { type: 'toggleSource' }             — request to toggle source mode (M4 hook)
+ *   { type: 'openKeybindings' }          — Settings modal "Customize in VS Code…" button (Hotkeys tab);
+ *       host opens VS Code's Keyboard Shortcuts UI filtered to mikedown.*
  *
  * Heading Rename → Fix Links (2.7.0):
  *   Webview → Extension:
@@ -87,6 +89,7 @@ import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipick
 import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from '../imageDisplayPath';
 import { githubAnchorId } from '../anchoring';
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
+import { MIKEDOWN_HOTKEYS } from './hotkeys';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
 import { EditorState, Transaction as CmTransaction } from '@codemirror/state';
@@ -597,8 +600,82 @@ function showImageInsertDialog(editor: Editor): void {
 
 // ── Settings Modal ──────────────────────────────────────────────────────────────
 
-type SettingsTabId = 'appearance' | 'behavior' | 'markdown' | 'spelling' | 'images' | 'about';
+type SettingsTabId = 'appearance' | 'behavior' | 'markdown' | 'spelling' | 'images' | 'hotkeys' | 'about';
 let lastSettingsTab: SettingsTabId = 'appearance';
+
+/**
+ * Build the Hotkeys settings tab. Read-only reference table — MikeDown
+ * cannot rewrite the user's keybindings.json (there is no API for it, and
+ * `contributes.keybindings` is static), so this shows what's bound today and
+ * links out to VS Code's own Keyboard Shortcuts UI for remapping.
+ */
+function buildHotkeysPanel(): HTMLDivElement {
+  const panel = document.createElement('div');
+  panel.setAttribute('role', 'tabpanel');
+  panel.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+
+  const intro = document.createElement('div');
+  intro.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.4';
+  intro.textContent = 'To remap any of these, use VS Code’s own Keyboard Shortcuts UI — MikeDown can’t rewrite keybindings.json itself.';
+  panel.appendChild(intro);
+
+  const table = document.createElement('table');
+  table.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px';
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  for (const label of ['Action', 'Shortcut']) {
+    const th = document.createElement('th');
+    th.textContent = label;
+    th.style.cssText = 'text-align:left;padding:6px 8px;font-weight:500;color:var(--vscode-descriptionForeground);border-bottom:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.25))';
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  // The webview has no reliable platform check elsewhere in this file, so
+  // rather than invent one here, show a single Mac/Win combined format
+  // (e.g. "Cmd+B / Ctrl+B") consistent for every viewer.
+  const tbody = document.createElement('tbody');
+  for (const hk of MIKEDOWN_HOTKEYS) {
+    const row = document.createElement('tr');
+    const labelCell = document.createElement('td');
+    labelCell.textContent = hk.label;
+    labelCell.style.cssText = 'padding:5px 8px;color:var(--vscode-editor-foreground)';
+    const keyCell = document.createElement('td');
+    keyCell.textContent = `${formatHotkeyChord(hk.mac)} / ${formatHotkeyChord(hk.win)}`;
+    keyCell.style.cssText = 'padding:5px 8px;color:var(--vscode-editor-foreground);font-family:var(--vscode-editor-font-family,monospace);white-space:nowrap';
+    row.append(labelCell, keyCell);
+    tbody.appendChild(row);
+  }
+  table.appendChild(tbody);
+  panel.appendChild(table);
+
+  const customizeBtn = document.createElement('button');
+  customizeBtn.type = 'button';
+  customizeBtn.textContent = 'Customize in VS Code…';
+  customizeBtn.style.cssText = 'align-self:flex-start;background:transparent;border:1px solid var(--vscode-button-border,var(--vscode-input-border,rgba(128,128,128,0.4)));color:var(--vscode-foreground);padding:5px 12px;border-radius:3px;font-size:12.5px;cursor:pointer;font-family:inherit';
+  customizeBtn.addEventListener('mouseenter', () => {
+    customizeBtn.style.background = 'var(--vscode-button-hoverBackground,rgba(255,255,255,0.05))';
+  });
+  customizeBtn.addEventListener('mouseleave', () => {
+    customizeBtn.style.background = 'transparent';
+  });
+  customizeBtn.addEventListener('click', () => {
+    vscode.postMessage({ type: 'openKeybindings' });
+  });
+  panel.appendChild(customizeBtn);
+
+  return panel;
+}
+
+/** Renders a package.json key chord ("ctrl+shift+s") as "Ctrl+Shift+S". */
+function formatHotkeyChord(chord: string): string {
+  return chord
+    .split('+')
+    .map(part => (part.length === 1 ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1)))
+    .join('+');
+}
 
 /**
  * Build the About settings tab. Static metadata + a few outbound links; opens
@@ -1680,6 +1757,7 @@ function showSettingsModal(): void {
   );
   const imagesPanel = makePanel();
   imagesPanel.append(ipSectionRow, irSectionRow);
+  const hotkeysPanel = buildHotkeysPanel();
   const aboutPanel = buildAboutPanel();
 
   const panels: Record<SettingsTabId, HTMLElement> = {
@@ -1688,6 +1766,7 @@ function showSettingsModal(): void {
     markdown: markdownPanel,
     spelling: spellingPanel,
     images: imagesPanel,
+    hotkeys: hotkeysPanel,
     about: aboutPanel,
   };
 
@@ -1697,6 +1776,7 @@ function showSettingsModal(): void {
     { id: 'markdown', label: 'Markdown' },
     { id: 'spelling', label: 'Spelling' },
     { id: 'images', label: 'Images' },
+    { id: 'hotkeys', label: 'Hotkeys' },
     { id: 'about', label: 'About' },
   ];
 

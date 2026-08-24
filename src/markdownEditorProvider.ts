@@ -976,6 +976,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           await this.handleResizeImage(document, webviewPanel.webview, message);
           break;
         }
+        case 'openKeybindings': {
+          // Settings modal Hotkeys tab — open VS Code's own Keyboard Shortcuts
+          // UI, filtered to mikedown.* commands. We can't rewrite the user's
+          // keybindings.json ourselves (no API for it), so this is the closest
+          // MikeDown gets to a "remap" affordance.
+          await vscode.commands.executeCommand('workbench.action.openGlobalKeybindings', 'mikedown');
+          break;
+        }
         default:
           console.warn(`MikeDown: unknown message type "${(message as { type: string }).type}"`);
       }
@@ -1874,7 +1882,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'headingRenamed' | 'headingRenameAmbiguous';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'headingRenamed' | 'headingRenameAmbiguous' | 'openKeybindings';
   content?: string;
   pristine?: boolean;
   /** stats payload — selection word/char counts; `null` = nothing selected. */
