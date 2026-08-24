@@ -122,6 +122,22 @@
       {
         "command": "mikedown.setAsDefaultEditor",
         "title": "MikeDown: Make MikeDown the Default Markdown Editor"
+      },
+      {
+        "command": "mikedown.toggleBulletList",
+        "title": "MikeDown: Toggle Bullet List"
+      },
+      {
+        "command": "mikedown.toggleOrderedList",
+        "title": "MikeDown: Toggle Ordered List"
+      },
+      {
+        "command": "mikedown.toggleTaskList",
+        "title": "MikeDown: Toggle Task List"
+      },
+      {
+        "command": "mikedown.toggleSidebar",
+        "title": "MikeDown: Toggle Sidebar"
       }
     ],
     "menus": {
@@ -143,6 +159,22 @@
         {
           "command": "mikedown.openWithMikeDown",
           "when": "resourceExtname == .md || resourceExtname == .markdown"
+        },
+        {
+          "command": "mikedown.toggleBulletList",
+          "when": "activeCustomEditorId == 'mikedown.editor'"
+        },
+        {
+          "command": "mikedown.toggleOrderedList",
+          "when": "activeCustomEditorId == 'mikedown.editor'"
+        },
+        {
+          "command": "mikedown.toggleTaskList",
+          "when": "activeCustomEditorId == 'mikedown.editor'"
+        },
+        {
+          "command": "mikedown.toggleSidebar",
+          "when": "activeCustomEditorId == 'mikedown.editor'"
         }
       ]
     },
@@ -199,6 +231,30 @@
         "command": "mikedown.toggleSourceMode",
         "key": "ctrl+/",
         "mac": "cmd+/",
+        "when": "activeCustomEditorId == 'mikedown.editor'"
+      },
+      {
+        "command": "mikedown.toggleBulletList",
+        "key": "ctrl+.",
+        "mac": "cmd+.",
+        "when": "activeCustomEditorId == 'mikedown.editor'"
+      },
+      {
+        "command": "mikedown.toggleOrderedList",
+        "key": "ctrl+3",
+        "mac": "cmd+3",
+        "when": "activeCustomEditorId == 'mikedown.editor'"
+      },
+      {
+        "command": "mikedown.toggleTaskList",
+        "key": "ctrl+8",
+        "mac": "cmd+8",
+        "when": "activeCustomEditorId == 'mikedown.editor'"
+      },
+      {
+        "command": "mikedown.toggleSidebar",
+        "key": "ctrl+\\",
+        "mac": "cmd+\\",
         "when": "activeCustomEditorId == 'mikedown.editor'"
       }
     ],
