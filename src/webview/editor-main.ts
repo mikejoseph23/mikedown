@@ -1837,7 +1837,9 @@ function showSettingsModal(): void {
     nav.appendChild(btn);
   });
 
-  content.append(appearancePanel, behaviorPanel, markdownPanel, spellingPanel, imagesPanel, aboutPanel);
+  // Derived from tabDefs so a newly registered tab can never be left unmounted
+  // (a tab whose panel isn't appended renders as a blank pane).
+  content.append(...tabDefs.map((t) => panels[t.id]));
   body.append(nav, content);
 
   setActiveTab(activeTab);
