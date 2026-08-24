@@ -2,11 +2,16 @@
 
 All notable changes to MikeDown Editor are documented here.
 
-## [Unreleased]
+## [2.10.2] - 2026-08-24
 
 ### Added
 
 - **List toggle shortcuts and sidebar keyboard shortcut.** Four new commands available from the keyboard: `Cmd+.` / `Ctrl+.` toggles a bullet list, `Cmd+3` / `Ctrl+3` toggles an ordered list, `Cmd+8` / `Ctrl+8` toggles a task list, and `Cmd+\` / `Ctrl+\` shows or hides the in-editor sidebar. All shortcuts are active when a MikeDown editor tab is focused; list toggles no-op in source mode, and the sidebar toggle works in both modes. Each command is remappable via VS Code's **Keyboard Shortcuts** UI (`Cmd+K Cmd+S` / `Ctrl+K Ctrl+S`, search "mikedown") so you can override the defaults with your own bindings — no custom preference area needed.
+- **Hotkeys tab in the in-editor settings.** The settings gear now includes a read-only reference of every MikeDown keyboard shortcut, with a **Customize in VS Code…** button that opens the Keyboard Shortcuts UI pre-filtered to "mikedown".
+
+### Fixed
+
+- **`Ctrl+Tab` no longer indents a list item while switching tabs.** The editor's Tab handling (table cell navigation and list indent/outdent) ignored modifier keys, so VS Code's tab switch also sank an indent into the document. Any Tab combination with Ctrl, Cmd, or Alt now passes through to VS Code untouched.
 
 ## [2.10.1] - 2026-08-19
 
