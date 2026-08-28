@@ -34,13 +34,14 @@ import { TaskList } from '@tiptap/extension-task-list';
 import { DraggableTaskItem as TaskItem } from './taskitem-drag';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableAligned, TableCellAligned, TableHeaderAligned } from './table-align';
-import { LinkWithAutolink } from './linkAutolink';
+import { LinkWithAutolink, shouldAutolinkText } from './linkAutolink';
 import { Image } from '@tiptap/extension-image';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
 import { SmartPasteExtension } from './smartpaste';
+import { PlainPasteExtension, requestPlainPaste } from './plainpaste';
 import { ImagePasteExtension, handlePastedImageResult, setPostMessage as setImagePastePostMessage } from './imagepaste';
 import { TableCheckboxExtension } from './tablecheckbox';
 import { HtmlAnchor } from './htmlanchor';
@@ -2835,7 +2836,9 @@ if (!editorContainer) {
       // misses mailto: links whose text is the email without the prefix —
       // those would otherwise be re-serialized as `[user@host](mailto:user@host)`,
       // marking the file dirty on open.
-      LinkWithAutolink.configure({ openOnClick: false, isAllowedUri: () => true }),
+      // shouldAutoLink: don't turn bare filenames (`build.sh`, `notes.md`) into
+      // links just because the extension collides with a ccTLD — issue #4.
+      LinkWithAutolink.configure({ openOnClick: false, isAllowedUri: () => true, shouldAutoLink: shouldAutolinkText }),
 
       // ── Images (M2b) ──────────────────────────────────────────────────────────
       // tiptap-markdown handles "![alt](src)" syntax and creates Image nodes.
@@ -2890,6 +2893,7 @@ if (!editorContainer) {
       // semantic elements) and converts it to ProseMirror nodes via PM's own
       // DOMParser. Falls back to tiptap-markdown's built-in paste handling when
       // no HTML data is present or when the payload exceeds 500 KB.
+      PlainPasteExtension,
       SmartPasteExtension,
 
       // ── Find & Replace (M13) ───────────────────────────────────────────────
@@ -4747,6 +4751,7 @@ if (!editorContainer) {
         case 'toggleStrike': editor.chain().focus().toggleStrike().run(); break;
         case 'toggleHighlight': editor.chain().focus().toggleHighlight().run(); break;
         case 'toggleCode': editor.chain().focus().toggleCode().run(); break;
+        case 'pasteWithoutFormatting': editor.commands.focus(); requestPlainPaste(editor.view); break;
         case 'openEmojiPicker':
           if (isEmojiPickerOpen()) { hideEmojiPicker(); } else { showEmojiPicker(editor, {}); }
           break;

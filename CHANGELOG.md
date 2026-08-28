@@ -2,6 +2,16 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Paste Without Formatting (`Cmd+Shift+V` / `Ctrl+Shift+V`).** Drops all clipboard markup and inserts plain text — no links, no bold, no heading levels carried over from a browser copy. Available as `MikeDown: Paste Without Formatting` and remappable from the Keyboard Shortcuts UI. (#4)
+
+### Fixed
+
+- **Bare filenames are no longer autolinked.** `build.sh`, `notes.md`, and `lib.rs` were turned into links because their extensions collide with country-code top-level domains. Text with an explicit scheme, a `www.` prefix, an `@`, or a non-file-extension domain still autolinks as before. (#4)
+
 ## [2.10.2] - 2026-08-24
 
 ### Added

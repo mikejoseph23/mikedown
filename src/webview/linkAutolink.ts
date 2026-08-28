@@ -42,3 +42,29 @@ export const LinkWithAutolink = Link.extend({
     };
   },
 });
+
+// Autolink guard (issue #4). linkifyjs happily treats a bare filename as a
+// domain when its extension collides with a ccTLD — `build.sh`, `notes.md`,
+// `lib.rs` all became links while the user was writing about files. Anything
+// with an explicit scheme, a `www.` prefix or an `@` is still autolinked; a
+// bare `name.ext` is only autolinked when `ext` isn't a common file extension.
+const FILE_EXTENSIONS = new Set([
+  'sh', 'md', 'rs', 'pl', 'py', 'ps1', 'bat', 'cmd', 'ts', 'js', 'json', 'yml', 'yaml',
+  'toml', 'ini', 'cfg', 'conf', 'log', 'txt', 'csv', 'tsv', 'sql', 'db', 'zip', 'tar',
+  'gz', 'exe', 'dll', 'app', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico',
+  'mp3', 'mp4', 'mov', 'wav', 'css', 'scss', 'html', 'htm', 'xml', 'vue', 'jsx', 'tsx',
+  'go', 'rb', 'php', 'java', 'cs', 'cpp', 'hpp', 'swift', 'kt', 'lock', 'env', 'bak',
+]);
+
+export function shouldAutolinkText(value: string): boolean {
+  const text = (value || '').trim();
+  if (!text) return false;
+  // Explicit scheme, www-prefixed host or an email address — always a link.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(text)) return true;
+  if (/^www\./i.test(text)) return true;
+  if (text.includes('@')) return true;
+  // Bare `something.ext[/path]` — reject when ext looks like a file extension.
+  const host = text.split(/[/?#]/)[0];
+  const ext = host.split('.').pop() || '';
+  return !FILE_EXTENSIONS.has(ext.toLowerCase());
+}

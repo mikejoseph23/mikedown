@@ -25,6 +25,7 @@ export const MIKEDOWN_HOTKEYS: MikedownHotkey[] = [
   { command: 'mikedown.toggleStrike', label: 'Toggle Strikethrough', win: 'ctrl+shift+s', mac: 'cmd+shift+s' },
   { command: 'mikedown.toggleHighlight', label: 'Toggle Highlight', win: 'ctrl+shift+h', mac: 'cmd+shift+h' },
   { command: 'mikedown.toggleCode', label: 'Toggle Inline Code', win: 'ctrl+shift+k', mac: 'cmd+shift+k' },
+  { command: 'mikedown.pasteWithoutFormatting', label: 'Paste Without Formatting', win: 'ctrl+shift+v', mac: 'cmd+shift+v' },
   { command: 'mikedown.openEmojiPicker', label: 'Open Emoji Picker', win: 'ctrl+;', mac: 'cmd+;' },
   { command: 'mikedown.toggleBulletList', label: 'Toggle Bullet List', win: 'ctrl+.', mac: 'cmd+.' },
   { command: 'mikedown.toggleOrderedList', label: 'Toggle Ordered List', win: 'ctrl+3', mac: 'cmd+3' },

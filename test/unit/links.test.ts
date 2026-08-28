@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
+import { shouldAutolinkText } from '../../src/webview/linkAutolink';
 
 // Replicate the githubAnchorId function from editor-main.ts
 function githubAnchorId(text: string): string {
@@ -124,5 +125,19 @@ describe('Anchor ID Deduplication', () => {
     expect(ids[0]).toBe('introduction');
     expect(ids[1]).toBe('introduction-1');
     expect(ids[2]).toBe('introduction-2');
+  });
+});
+
+describe('shouldAutolinkText (issue #4)', () => {
+  it('links explicit URLs, www hosts, emails and real domains', () => {
+    for (const v of ['https://example.com', 'http://run.sh', 'www.example.sh', 'me@host.com', 'example.com', 'example.io/path']) {
+      expect(shouldAutolinkText(v)).toBe(true);
+    }
+  });
+
+  it('leaves bare filenames alone', () => {
+    for (const v of ['build.sh', 'notes.md', 'lib.rs', 'setup.py', 'Deploy.PS1', 'archive.zip', 'config.yml']) {
+      expect(shouldAutolinkText(v)).toBe(false);
+    }
   });
 });
