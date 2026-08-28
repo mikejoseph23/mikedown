@@ -2,7 +2,7 @@
 
 All notable changes to MikeDown Editor are documented here.
 
-## [Unreleased]
+## [2.10.3] - 2026-08-28
 
 ### Added
 
