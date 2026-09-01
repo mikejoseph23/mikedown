@@ -39,6 +39,7 @@ import { Image } from '@tiptap/extension-image';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
 import { MarkdownText, MarkdownHardBreak } from './markdownText';
+import { SourceModeSync } from './sourceSync';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
 import { SmartPasteExtension } from './smartpaste';
@@ -173,17 +174,11 @@ let cmView: EditorView | null = null;
 let cmLoading = false;
 
 /**
- * The exact markdown CodeMirror was seeded with on the last switch into source
- * mode (issue #5). switchToWysiwyg compares against THIS, not `originalContent`,
- * to decide whether the source was edited.
- *
- * `originalContent` is the on-disk/dirty baseline and is rewritten by the host's
- * `saved` and `update` messages — so a Cmd+S while in source mode used to make
- * `md === originalContent` true, the reload was skipped, and TipTap silently kept
- * the pre-source-edit document. The next WYSIWYG keystroke then serialized that
- * stale doc back over the file. `null` means "not currently in source mode".
+ * Tracks the markdown CodeMirror was seeded with, so leaving source mode can
+ * tell a real source edit from a no-op toggle (issue #5). See sourceSync.ts for
+ * why `originalContent` is the wrong thing to compare against.
  */
-let sourceEntryContent: string | null = null;
+const sourceSync = new SourceModeSync();
 
 /**
  * Post the latest stats to the host status bar. Either or both fields may be
@@ -4446,7 +4441,7 @@ if (!editorContainer) {
 
     // Baseline for the divergence check on the way back out. Recorded from `md`
     // (not from cmView) so it matches exactly what CodeMirror now holds.
-    sourceEntryContent = md;
+    sourceSync.enter(md);
 
     // Map PM cursor → CM offset. Counting plain-text chars underestimates
     // because markdown syntax (##, **, [link](url), `code`) isn't present
@@ -4540,7 +4535,7 @@ if (!editorContainer) {
     // a real edit, and reloading would needlessly discard PM's undo history
     // and invalidate the saved-state baseline.
     const currentPmBody = editor.storage.markdown.getMarkdown() as string;
-    const sourceUnchanged = sourceEntryContent !== null && md === sourceEntryContent;
+    const sourceUnchanged = !sourceSync.hasSourceEdits(md);
     if (!sourceUnchanged && (body !== currentPmBody || frontmatter !== frontmatterContent)) {
       frontmatterContent = frontmatter;
       isLoading = true;
@@ -4559,7 +4554,7 @@ if (!editorContainer) {
       // baseline tracks the current markdown verbatim (trailing-newline etc).
       originalContent = md;
     }
-    sourceEntryContent = null;
+    sourceSync.exit();
 
     // Show WYSIWYG, hide source
     const editorEl = document.getElementById('editor-container') as HTMLElement;
@@ -4869,7 +4864,7 @@ if (!editorContainer) {
         // TipTap was just reloaded from the same content, so CodeMirror and the
         // PM doc agree again — rebaseline or the next toggle back would treat
         // this reload as a source-side edit.
-        sourceEntryContent = originalContent;
+        sourceSync.rebaseline(originalContent);
       }
 
       // M15 — Render frontmatter UI block (collapsed by default above editor).
