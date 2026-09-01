@@ -2,6 +2,16 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- **`<` and `>` are no longer mangled into `&lt;` and `&gt;`.** The markdown serializer ran every run of plain text through an HTML escaper, so `jobs/<job>/<slug>` was written to disk as `jobs/&lt;job&gt;/&lt;slug&gt;` — and re-rendered that way everywhere else. Angle brackets are now left alone unless a markdown parser would actually consume them (a `<https://…>` or `<name@host>` autolink, or a raw HTML tag when HTML is enabled), in which case they get a proper backslash escape instead of an entity. Inline code and fenced code blocks were never affected and still aren't. (#5)
+- **No more stray `\` at the end of soft-wrapped lines.** Every line break inside a paragraph, blockquote, or list item picked up a trailing backslash on save. A bare newline already round-trips as a line break, so the backslash is gone; it's still emitted where it carries meaning (two line breaks in a row, or when `breaks` handling is off). A line break followed by text starting with `-`, `>`, `#`, or `1.` now escapes that marker instead of silently splitting the paragraph into a new list, quote, or heading. (#5)
+- **`&amp;` and other character references survive a round-trip.** A literal `&amp;` in the source used to decay to `&` on the next save. (#5)
+- **A `|` typed into a table cell no longer breaks the table.** It's escaped as `\|` on save. (#5)
+- **Source-mode edits are no longer discarded when you save before switching back.** Saving while in source mode (`Cmd+/` / `Ctrl+/`) rebaselined the editor's copy of the document, so toggling back to WYSIWYG skipped reloading it and quietly restored the pre-edit content — the next keystroke then wrote that stale document over the file. The source/WYSIWYG comparison is now against the text CodeMirror was actually opened with. (#5)
+
 ## [2.10.3] - 2026-08-28
 
 ### Added

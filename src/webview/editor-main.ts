@@ -38,6 +38,7 @@ import { LinkWithAutolink, shouldAutolinkText } from './linkAutolink';
 import { Image } from '@tiptap/extension-image';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
+import { MarkdownText, MarkdownHardBreak } from './markdownText';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
 import { SmartPasteExtension } from './smartpaste';
@@ -170,6 +171,19 @@ let cmView: EditorView | null = null;
  * an 'edit' message (which would dirty the document on mode toggle).
  */
 let cmLoading = false;
+
+/**
+ * The exact markdown CodeMirror was seeded with on the last switch into source
+ * mode (issue #5). switchToWysiwyg compares against THIS, not `originalContent`,
+ * to decide whether the source was edited.
+ *
+ * `originalContent` is the on-disk/dirty baseline and is rewritten by the host's
+ * `saved` and `update` messages — so a Cmd+S while in source mode used to make
+ * `md === originalContent` true, the reload was skipped, and TipTap silently kept
+ * the pre-source-edit document. The next WYSIWYG keystroke then serialized that
+ * stale doc back over the file. `null` means "not currently in source mode".
+ */
+let sourceEntryContent: string | null = null;
 
 /**
  * Post the latest stats to the host status bar. Either or both fields may be
@@ -2765,6 +2779,13 @@ if (!editorContainer) {
         // Disable the built-in codeBlock — tiptap-markdown provides its own code
         // fenced-block handling and conflicts with StarterKit's codeBlock node.
         codeBlock: false,
+        // Disable the built-in text / hardBreak nodes — MarkdownText and
+        // MarkdownHardBreak (registered below) are the same nodes plus markdown
+        // serializers that override tiptap-markdown's broken defaults (issue #5:
+        // `<` serialised as `&lt;`, and a stray `\\` on every soft-wrapped line).
+        // Registering both copies would trip TipTap's duplicate-name check.
+        text: false,
+        hardBreak: false,
         // Disable the built-in link — we register a standalone Link.configure
         // below with openOnClick: false. Registering both produces a
         // "Duplicate extension names found: ['link']" warning and double-binds
@@ -2773,6 +2794,12 @@ if (!editorContainer) {
         // M2d: Configure History with grouping delay and stack depth.
         history: { depth: 100, newGroupDelay: 500 },
       }),
+
+      // ── Markdown-correct text + hard break (issue #5) ─────────────────────
+      // Replaces StarterKit's text/hardBreak nodes with identical nodes that
+      // carry MikeDown's markdown serializers. See src/webview/markdownText.ts.
+      MarkdownText,
+      MarkdownHardBreak,
 
       // ── Code Blocks with Syntax Highlighting (M15) ────────────────────────────
       // CodeBlockLowlight extends the base CodeBlock node with lowlight (highlight.js
@@ -4417,6 +4444,10 @@ if (!editorContainer) {
       cmLoading = false;
     }
 
+    // Baseline for the divergence check on the way back out. Recorded from `md`
+    // (not from cmView) so it matches exactly what CodeMirror now holds.
+    sourceEntryContent = md;
+
     // Map PM cursor → CM offset. Counting plain-text chars underestimates
     // because markdown syntax (##, **, [link](url), `code`) isn't present
     // in PM's text. Instead, grab the last ~40 plain-text chars before the
@@ -4509,7 +4540,7 @@ if (!editorContainer) {
     // a real edit, and reloading would needlessly discard PM's undo history
     // and invalidate the saved-state baseline.
     const currentPmBody = editor.storage.markdown.getMarkdown() as string;
-    const sourceUnchanged = md === originalContent;
+    const sourceUnchanged = sourceEntryContent !== null && md === sourceEntryContent;
     if (!sourceUnchanged && (body !== currentPmBody || frontmatter !== frontmatterContent)) {
       frontmatterContent = frontmatter;
       isLoading = true;
@@ -4528,6 +4559,7 @@ if (!editorContainer) {
       // baseline tracks the current markdown verbatim (trailing-newline etc).
       originalContent = md;
     }
+    sourceEntryContent = null;
 
     // Show WYSIWYG, hide source
     const editorEl = document.getElementById('editor-container') as HTMLElement;
@@ -4834,6 +4866,10 @@ if (!editorContainer) {
           annotations: CmTransaction.addToHistory.of(false),
         });
         cmLoading = false;
+        // TipTap was just reloaded from the same content, so CodeMirror and the
+        // PM doc agree again — rebaseline or the next toggle back would treat
+        // this reload as a source-side edit.
+        sourceEntryContent = originalContent;
       }
 
       // M15 — Render frontmatter UI block (collapsed by default above editor).
