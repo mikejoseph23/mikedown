@@ -184,7 +184,7 @@ function isSkippableToken(token: string): boolean {
 
 /** Strip possessive / quote apostrophes that the token regex swept up. */
 function trimToken(token: string): { word: string; offset: number } {
-  let start = 0;
+  const start = 0;
   let end = token.length;
   while (end > start && /['’]/.test(token[end - 1])) {end--;}
   const word = token.slice(start, end);
@@ -506,7 +506,7 @@ function scheduleRecheck(view: any): void {
   }, RECHECK_DEBOUNCE_MS);
 }
 
-function viewOf(editor: any): any | null {
+function viewOf(editor: any): any {
   return editor?.view ?? (boundEditor && boundEditor.state ? boundEditor : null);
 }
 

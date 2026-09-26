@@ -1034,7 +1034,7 @@ function buildAddPropertyRow(): HTMLElement {
 // ── Inline edit transitions ────────────────────────────────────────────────
 
 function beginEditValue(row: HTMLElement, index: number): void {
-  const valueEl = row.querySelector('.properties-value') as HTMLElement | null;
+  const valueEl = row.querySelector('.properties-value');
   const entry = currentProperties[index];
   if (!valueEl || !entry || Array.isArray(entry.value)) {return;}
 
@@ -1059,7 +1059,7 @@ function beginEditValue(row: HTMLElement, index: number): void {
 }
 
 function beginEditKey(row: HTMLElement, index: number): void {
-  const keyEl = row.querySelector('.properties-key') as HTMLElement | null;
+  const keyEl = row.querySelector('.properties-key');
   const entry = currentProperties[index];
   if (!keyEl || !entry) {return;}
 

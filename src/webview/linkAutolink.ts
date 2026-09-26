@@ -26,12 +26,12 @@ export const LinkWithAutolink = Link.extend({
             state.inAutolink = isAutolink(mark, parent, index);
             return state.inAutolink ? '<' : '[';
           },
-          close(state: any, mark: any, parent: any, index: number) {
+          close(state: any, mark: any, _parent: any, _index: number) {
             const inAutolink = state.inAutolink;
             state.inAutolink = undefined;
             if (inAutolink) {return '>';}
             const title = mark.attrs.title ? ` "${mark.attrs.title.replace(/"/g, '\\"')}"` : '';
-            return '](' + (mark.attrs.href || '').replace(/[\(\)"]/g, '\\$&') + title + ')';
+            return '](' + (mark.attrs.href || '').replace(/[()"]/g, '\\$&') + title + ')';
           },
           mixable: true,
         },

@@ -31,6 +31,8 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
   _Baseline (2026-09-26, pre-release): 391 installs, 5.00 average rating, 5 reviews, 982 lifetime downloads._
 
+- **Floating promises** — 84 `@typescript-eslint/no-floating-promises` findings (mostly `src/markdownEditorProvider.ts`, plus `extension.ts` and `export.ts`) to review; unhandled promises can hide real errors. Also ~945 webview type-safety warnings (`no-unsafe-*`, `no-explicit-any`) downgraded from errors in 2.11.0.
+
 ## Product ideas
 
 - **Standalone desktop app for writers** — a side-car product built on the MikeDown editor core, for writers who don't live in VS Code. The market is crowded, so do market research before committing; could be a good addition to the portfolio if it's refined enough. Key differentiator idea: built-in version control with two modes:

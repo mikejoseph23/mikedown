@@ -157,7 +157,7 @@ function renderMenuContainer(items: ContextMenuEntry[], isSubmenu: boolean): HTM
       container.appendChild(buildSubmenuParentEl(item));
       return;
     }
-    container.appendChild(buildMenuItemEl(item as ContextMenuItem));
+    container.appendChild(buildMenuItemEl(item));
   });
 
   return container;
@@ -377,7 +377,7 @@ export function buildLinkMenu(editor: Editor, href: string): ContextMenuEntry[] 
       action: () => { if (vscode) {vscode.postMessage({ type: 'openLink', href, behavior: 'openNewTab' });} },
     } as ContextMenuItem]),
     { separator: true } as ContextMenuSeparator,
-    { label: copyLabel, action: () => navigator.clipboard?.writeText(copyValue).catch(() => {}) },
+    { label: copyLabel, action: () => { void navigator.clipboard?.writeText(copyValue).catch(() => {}); } },
     { label: 'Edit Link…', action: () => {
       (window as any).__mikedownShowLinkDialog?.();
     }},
@@ -417,7 +417,7 @@ export function buildImageMenu(
 ): ContextMenuEntry[] {
   const entries: ContextMenuEntry[] = [
     { label: 'Edit Image…', action: () => imgEl.click() }, // triggers M7 popover
-    { label: 'Copy Image Path', action: () => navigator.clipboard?.writeText(imgEl.getAttribute('src') || '').catch(() => {}) },
+    { label: 'Copy Image Path', action: () => { void navigator.clipboard?.writeText(imgEl.getAttribute('src') || '').catch(() => {}); } },
   ];
   if (actions) {
     entries.push({ separator: true });

@@ -170,7 +170,7 @@ export function showLanguagePicker(editor: Editor, opts: ShowOptions): void {
       rendered.push(clearItem);
     }
 
-    let matches: { label: string; value: string; hint?: string }[] = [];
+    const matches: { label: string; value: string; hint?: string }[] = [];
     if (q) {
       // Search across everything we know about
       const seen = new Set<string>();

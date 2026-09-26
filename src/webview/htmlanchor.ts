@@ -55,7 +55,7 @@ export const HtmlAnchor = Node.create({
         priority: 60,
         getAttrs: (dom) => {
           if (typeof dom === 'string') {return false;}
-          const el = dom as HTMLElement;
+          const el = dom;
           if (el.hasAttribute('href')) {return false;}
           const id = el.getAttribute('id');
           const name = el.getAttribute('name');

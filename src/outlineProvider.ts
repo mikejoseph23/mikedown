@@ -14,7 +14,6 @@ export function parseHeadings(text: string): HeadingInfo[] {
   const headings: HeadingInfo[] = [];
   const regex = /^(#{1,6})\s+(.+)$/gm;
   let m: RegExpExecArray | null;
-  const lines = text.split('\n');
   while ((m = regex.exec(text)) !== null) {
     const line = text.slice(0, m.index).split('\n').length - 1;
     headings.push({

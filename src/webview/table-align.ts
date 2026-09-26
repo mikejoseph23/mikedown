@@ -31,7 +31,7 @@ const alignAttribute = {
     parseHTML: (el: HTMLElement) =>
       el.style.textAlign || el.getAttribute('align') || null,
     renderHTML: (attrs: Record<string, unknown>) =>
-      attrs.textAlign ? { style: `text-align: ${attrs.textAlign}` } : {},
+      attrs.textAlign ? { style: `text-align: ${String(attrs.textAlign)}` } : {},
   },
 };
 
@@ -102,7 +102,7 @@ function serializeTableAsHTML(node: PMNode, parent: PMNode | Fragment): string {
   const schema = node.type.schema;
   const html = getHTMLFromFragment(Fragment.from(node), schema);
   const isTopLevel =
-    parent instanceof Fragment || (parent as PMNode).type?.name === schema.topNodeType.name;
+    parent instanceof Fragment || parent.type?.name === schema.topNodeType.name;
   if (node.isBlock && isTopLevel) {
     const dom = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html').body;
     const element = dom.firstElementChild as HTMLElement | null;

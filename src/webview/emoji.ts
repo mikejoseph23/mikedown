@@ -40,7 +40,7 @@ export const Emoji = Node.create({
         priority: 60,
         getAttrs: (dom) => {
           if (typeof dom === 'string') {return false;}
-          const el = dom as HTMLElement;
+          const el = dom;
           const shortcode = el.getAttribute('data-emoji-shortcode');
           if (!shortcode) {return false;}
           return { shortcode };

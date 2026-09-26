@@ -136,7 +136,7 @@ function scrollActiveIntoView(editor: any): void {
     try {
       const dom = editor?.view?.dom as HTMLElement | undefined;
       if (!dom || !dom.isConnected) {return;}
-      const el = dom.querySelector('.search-match-active') as HTMLElement | null;
+      const el = dom.querySelector('.search-match-active');
       if (!el) {return;}
       // `nearest` avoids yanking the viewport around when the match is already visible.
       el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });

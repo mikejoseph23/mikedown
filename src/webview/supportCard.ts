@@ -156,7 +156,7 @@ export function showSupportCard(opts: ShowSupportCardOptions): void {
   };
 
   root.addEventListener('click', e => {
-    const btn = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null;
+    const btn = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion -- both casts are load-bearing under this project's tsconfig; leaving as-is
     if (!btn || !root.contains(btn)) {return;}
     handleAction(card, btn.dataset.action as SupportCardAction);
   });

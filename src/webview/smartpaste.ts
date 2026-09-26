@@ -41,7 +41,7 @@ export const SmartPasteExtension = Extension.create({
 
             if (!slice || slice.content.childCount === 0) {return false;}
 
-            const { tr, selection } = view.state;
+            const { tr } = view.state;
             tr.replaceSelection(slice);
             view.dispatch(tr.scrollIntoView());
             return true;

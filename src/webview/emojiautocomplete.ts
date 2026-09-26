@@ -20,7 +20,6 @@ const EMOJI_MAP = emojiData as Record<string, string>;
 const EMOJI_KEYS = Object.keys(EMOJI_MAP);
 
 const MAX_RESULTS = 8;
-const MIN_QUERY_LEN = 2;
 
 interface Match {
   shortcode: string;
@@ -185,7 +184,7 @@ export const EmojiAutocomplete = Extension.create({
                 undefined,
                 '￼',
               );
-              const m = /(?:^|[\s(>])(:([a-z0-9_+\-]{2,}))$/i.exec(textBefore);
+              const m = /(?:^|[\s(>])(:([a-z0-9_+-]{2,}))$/i.exec(textBefore);
               if (!m) { hidePopup(); return; }
 
               const query = m[2];

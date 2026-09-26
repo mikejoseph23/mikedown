@@ -125,7 +125,7 @@ function quoteScalarIfNeeded(s: string): string {
   if (s === '') {return '""';}
   // Anything that looks like YAML structure or reserved scalars must be quoted
   // so it parses back as a string.
-  const needsQuoteForChars = /[:#\[\]{},&*!|>'"%@`]/.test(s) || /^\s|\s$/.test(s);
+  const needsQuoteForChars = /[:#[\]{},&*!|>'"%@`]/.test(s) || /^\s|\s$/.test(s);
   const looksLikeBoolNumNull = /^(-?\d+(\.\d+)?|true|false|null|yes|no|on|off|~)$/i.test(s);
   if (needsQuoteForChars || looksLikeBoolNumNull) {
     return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;

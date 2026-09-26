@@ -21,7 +21,7 @@ function isInsideTable(doc: any, pos: number): boolean {
   return false;
 }
 
-function buildDecorations(doc: any, view?: EditorView): DecorationSet {
+function buildDecorations(doc: any, _view?: EditorView): DecorationSet {
   const decorations: Decoration[] = [];
 
   doc.descendants((node: any, pos: number) => {

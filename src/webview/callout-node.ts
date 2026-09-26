@@ -54,7 +54,7 @@ export const Callout = Node.create({
         priority: 70,
         getAttrs: (dom) => {
           if (typeof dom === 'string') {return false;}
-          const el = dom as HTMLElement;
+          const el = dom;
           const kind = normalizeCalloutKind(el.getAttribute('data-callout'));
           if (!kind) {return false;}
           return { kind };

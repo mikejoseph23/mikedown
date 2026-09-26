@@ -394,7 +394,7 @@ export function hideTableToolbar(): void {
 
 // Re-evaluate active/disabled state for every button (e.g. alignment highlight
 // when the cursor moves to a different column).
-function refreshTableToolbarStates(editor: Editor): void {
+function refreshTableToolbarStates(_editor: Editor): void {
   toolbarButtons.forEach(({ el, def }) => {
     el.disabled = def.isDisabled?.() ?? false;
     el.classList.toggle('tt-active', def.isActive?.() ?? false);

@@ -212,7 +212,7 @@ function createDragHandle(type: 'row' | 'col', index: number, anchorEl: HTMLElem
   return handle;
 }
 
-function startDrag(type: 'row' | 'col', sourceIndex: number, tablePos: number, handleEl: HTMLElement): void {
+function startDrag(type: 'row' | 'col', sourceIndex: number, tablePos: number, _handleEl: HTMLElement): void {
   const overlay = document.createElement('div');
   overlay.className = 'td-drag-overlay';
   document.body.appendChild(overlay);
@@ -225,7 +225,7 @@ function startDrag(type: 'row' | 'col', sourceIndex: number, tablePos: number, h
   document.body.classList.add('td-dragging');
 }
 
-function onDragMove(e: MouseEvent, editor: Editor): void {
+function onDragMove(e: MouseEvent, _editor: Editor): void {
   if (!dragState || !activeTableEl) {return;}
   const { type, sourceIndex } = dragState;
 
@@ -340,8 +340,8 @@ function reorderColumns(tr: Transaction, tableNode: PMNode, tablePos: number, fr
 // MULTI-CELL SELECTION
 // =============================================
 
-function wireCellSelection(tableEl: HTMLElement, tablePos: number): void {
-  const cells = Array.from(tableEl.querySelectorAll('td, th')) as HTMLElement[];
+function wireCellSelection(tableEl: HTMLElement, _tablePos: number): void {
+  const cells = Array.from(tableEl.querySelectorAll('td, th')) as HTMLElement[]; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion -- cast is load-bearing for the compound selector's element type; leaving as-is
   cells.forEach(cell => {
     cell.addEventListener('mousedown', (e) => {
       if (e.button !== 0) {return;}
@@ -385,7 +385,7 @@ function applySelectionHighlight(): void {
 
   const rows = Array.from(tableEl.querySelectorAll('tr'));
   rows.forEach((row, r) => {
-    const cells = Array.from(row.querySelectorAll('td, th')) as HTMLElement[];
+    const cells = Array.from(row.querySelectorAll('td, th')) as HTMLElement[]; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion -- cast is load-bearing for the compound selector's element type; leaving as-is
     cells.forEach((cell, c) => {
       const inSel = r >= minR && r <= maxR && c >= minC && c <= maxC;
       cell.classList.toggle('mikedown-cell-selected', inSel);
@@ -404,7 +404,7 @@ function clearSelectedCellContents(editor: Editor): void {
   let modified = false;
 
   const { minR, maxR, minC, maxC } = (() => {
-    const { startRow, startCol, endRow, endCol } = cellSelection!;
+    const { startRow, startCol, endRow, endCol } = cellSelection;
     return { minR: Math.min(startRow, endRow), maxR: Math.max(startRow, endRow), minC: Math.min(startCol, endCol), maxC: Math.max(startCol, endCol) };
   })();
 
@@ -420,7 +420,7 @@ function clearSelectedCellContents(editor: Editor): void {
   // Walk DOM cells in selection and clear them via PM
   const rows = Array.from(activeTableEl.querySelectorAll('tr'));
   for (let r = minR; r <= maxR; r++) {
-    const cells = Array.from(rows[r]?.querySelectorAll('td, th') || []) as HTMLElement[];
+    const cells = Array.from(rows[r]?.querySelectorAll('td, th') || []) as HTMLElement[]; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion -- cast is load-bearing for the compound selector's element type; leaving as-is
     for (let c = minC; c <= maxC; c++) {
       const cell = cells[c];
       if (!cell) {continue;}

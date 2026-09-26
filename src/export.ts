@@ -109,7 +109,7 @@ function escapeHtml(s: string): string {
 export function rewriteRelativeUrls(html: string, baseDir: string): string {
   const isAbsolute = (v: string): boolean =>
     /^[a-z][a-z0-9+.-]*:/i.test(v) || v.startsWith('//') || v.startsWith('#') || v.startsWith('data:');
-  return html.replace(/(\s(?:src|href)=)(["'])([^"']*)\2/gi, (match, attr, quote, value) => {
+  return html.replace(/(\s(?:src|href)=)(["'])([^"']*)\2/gi, (match: string, attr: string, quote: string, value: string) => {
     if (!value || isAbsolute(value)) {return match;}
     const resolved = vscode.Uri.file(path.resolve(baseDir, value)).toString();
     return `${attr}${quote}${resolved}${quote}`;

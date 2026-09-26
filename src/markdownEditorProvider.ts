@@ -326,6 +326,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   /**
    * Called when VS Code opens a file with this custom editor.
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- interface requires an async-compatible signature (Thenable<void>); this override happens to have no top-level await
   public async resolveCustomTextEditor(
     document: vscode.TextDocument,
     webviewPanel: vscode.WebviewPanel,
@@ -396,6 +397,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       if (!MarkdownEditorProvider.diffRedirectPending.has(fsPath)) {
         MarkdownEditorProvider.diffRedirectPending.add(fsPath);
         const fileUri = vscode.Uri.file(fsPath);
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises -- fire-and-forget by design; setTimeout ignores the returned promise
         setTimeout(async () => {
           MarkdownEditorProvider.diffRedirectPending.delete(fsPath);
           try {
@@ -898,7 +900,6 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         case 'getLinkSuggestions': {
           // M6b — Scan workspace for .md/.markdown files and current document headings.
           const currentFile = document.uri;
-          const workspaceFolder = vscode.workspace.getWorkspaceFolder(currentFile);
 
           // Find all .md/.markdown files in workspace
           const mdFiles = await vscode.workspace.findFiles('**/*.{md,markdown}', '**/node_modules/**', 200);
@@ -2105,7 +2106,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     ];
     const cssLinks = cssFiles.map(f => {
       const uri = webview.asWebviewUri(vscode.Uri.file(path.join(cssDir, f)));
-      return `  <link rel="stylesheet" href="${uri}">`;
+      return `  <link rel="stylesheet" href="${uri.toString()}">`;
     }).join('\n');
 
     // The TipTap webview bundle is compiled by webpack to out/webview/editor-main.js
@@ -2132,8 +2133,6 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       vscode.Uri.file(path.join(this.context.extensionPath, 'dictionaries'))
     ).toString();
 
-    const nonce = getNonce();
-
     return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2152,7 +2151,7 @@ ${cssLinks}
   <!-- TipTap mounts directly into #editor-container -->
   <div id="editor-container" role="main" aria-label="Markdown editor"></div>
   <div id="source-container" style="display:none;"></div>
-  <script src="${scriptUri}"></script>
+  <script src="${scriptUri.toString()}"></script>
 </body>
 </html>`;
   }
@@ -2296,16 +2295,4 @@ function sha1HexFile(absPath: string): string {
   } catch {
     return '';
   }
-}
-
-/**
- * Generate a random nonce for CSP.
- */
-function getNonce(): string {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
 }

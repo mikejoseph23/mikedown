@@ -291,7 +291,7 @@ function postStats(opts: { document?: string; selection?: string | null }): void
 // TipTap history and desync the two views.
 function doUndo(editor: Editor): void {
   if (sourceMode && cmView) {
-    cmUndo({ state: cmView.state, dispatch: cmView.dispatch });
+    cmUndo({ state: cmView.state, dispatch: cmView.dispatch.bind(cmView) });
     cmView.focus();
   } else {
     editor.chain().focus().undo().run();
@@ -319,7 +319,7 @@ function resetPmHistory(editor: Editor): void {
 
 function doRedo(editor: Editor): void {
   if (sourceMode && cmView) {
-    cmRedo({ state: cmView.state, dispatch: cmView.dispatch });
+    cmRedo({ state: cmView.state, dispatch: cmView.dispatch.bind(cmView) });
     cmView.focus();
   } else {
     editor.chain().focus().redo().run();
@@ -1147,9 +1147,6 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
 
   // Apply initial styling
   updateThemeItems();
-
-  // Wire selectedFontValue for save handler
-  let selectedFontValue = selectedBody;
 
   // ── Image Paste
   const ip = currentImagePasteSettings;
@@ -2301,6 +2298,7 @@ type ToolbarButtonDef =
       isActive: () => boolean;
     };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- superseded by buildCondensedToolbar below (no call sites); left in place for reference rather than deleted
 function buildToolbar(editor: Editor): void {
   const toolbar = document.getElementById('toolbar');
   if (!toolbar) {return;}
@@ -2315,7 +2313,7 @@ function buildToolbar(editor: Editor): void {
     { id: 'highlight', title: 'Highlight (Cmd+Shift+H)', icon: icons.highlight, action: () => editor.chain().focus().toggleHighlight().run(), isActive: () => editor.isActive('highlight') },
     { id: 'code', title: 'Inline Code', icon: icons.code, action: () => editor.chain().focus().toggleCode().run(), isActive: () => editor.isActive('code') },
     { id: 'emoji', title: 'Insert Emoji (Cmd+;)', icon: icons.emoji, action: () => {
-      const btn = document.querySelector('button[data-action="emoji"]') as HTMLElement | null;
+      const btn = document.querySelector('button[data-action="emoji"]');
       if (isEmojiPickerOpen()) { hideEmojiPicker(); return; }
       showEmojiPicker(editor, btn ? { anchorRect: btn.getBoundingClientRect() } : {});
     }, isActive: () => isEmojiPickerOpen() },
@@ -2357,7 +2355,7 @@ function buildToolbar(editor: Editor): void {
 
   // Wire click handlers
   toolbar.addEventListener('click', (e) => {
-    const target = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null;
+    const target = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion -- dead code (buildToolbar is unused, superseded by buildCondensedToolbar); leaving assertions as-is rather than risk-editing unreachable code
     if (!target) {return;}
     // M5b — Table button opens grid picker instead of directly inserting
     if (target.dataset.action === 'table') {
@@ -2371,7 +2369,7 @@ function buildToolbar(editor: Editor): void {
   // Keyboard accessibility: activate buttons via Enter or Space
   toolbar.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') {return;}
-    const target = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null;
+    const target = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion -- dead code (buildToolbar is unused, superseded by buildCondensedToolbar); leaving assertions as-is rather than risk-editing unreachable code
     if (!target) {return;}
     e.preventDefault();
     target.click();
@@ -2514,11 +2512,11 @@ function buildCondensedToolbar(editor: Editor): void {
     if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
     showToolbarDropdown(shareBtn, [
       { type: 'action', id: 'viewInBrowser', label: 'View in Browser', icon: icons.browser, action: () => {
-        const el = document.querySelector('.ProseMirror') as HTMLElement | null;
+        const el = document.querySelector('.ProseMirror');
         vscode.postMessage({ type: 'viewInBrowser', html: el?.innerHTML ?? '' });
       }},
       { type: 'action', id: 'print', label: 'Print / Export as PDF', icon: icons.print, action: () => {
-        const el = document.querySelector('.ProseMirror') as HTMLElement | null;
+        const el = document.querySelector('.ProseMirror');
         vscode.postMessage({ type: 'printDocument', html: el?.innerHTML ?? '' });
       }},
     ]);
@@ -3601,7 +3599,7 @@ if (!editorContainer) {
       // Let native Cmd+A run inside other contenteditable regions (e.g. the
       // frontmatter block), but NOT inside the main ProseMirror editor —
       // that one must go through our TextSelection path below.
-      const editorDom = editor.view.dom as HTMLElement;
+      const editorDom = editor.view.dom;
       if (target.isContentEditable && !editorDom.contains(target)) {return;}
     }
 
@@ -3774,7 +3772,7 @@ if (!editorContainer) {
     host.classList.add('visible');
     window.clearTimeout((host as any).__t);
     (host as any).__t = window.setTimeout(() => {
-      host!.classList.remove('visible');
+      host.classList.remove('visible');
     }, 3000);
   }
 
@@ -4132,7 +4130,7 @@ if (!editorContainer) {
     // target file (Obsidian-style). The host no-ops unless the user has opted
     // in via mikedown.wikilink.createOnClick. Resolved wikilinks carry an href
     // and fall through to the normal openLink path below.
-    const wikiEl = target.closest('a[data-wikilink]') as HTMLElement | null;
+    const wikiEl = target.closest('a[data-wikilink]');
     if (wikiEl && !wikiEl.getAttribute('href')) {
       if (!currentWikilinkCreateOnClick) {return;} // opt-in only
       event.preventDefault();
@@ -4142,7 +4140,7 @@ if (!editorContainer) {
       return;
     }
 
-    const linkEl = target.closest('a[href]') as HTMLAnchorElement | null;
+    const linkEl = target.closest('a[href]');
     if (!linkEl) {return;}
 
     event.preventDefault();
@@ -4344,6 +4342,7 @@ if (!editorContainer) {
         if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       });
       copyBtn.addEventListener('mouseleave', () => scheduleHide());
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises -- fire-and-forget by design; addEventListener ignores the returned promise
       copyBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -4458,7 +4457,7 @@ if (!editorContainer) {
           if (node.type.name === 'codeBlock') {
             const start = $from.before(depth);
             const dom = editor.view.nodeDOM(start) as HTMLElement | null;
-            if (dom) {pre = dom.closest('pre.mikedown-code-block') || (dom as HTMLElement);}
+            if (dom) {pre = dom.closest('pre.mikedown-code-block') || dom;}
             break;
           }
         }
@@ -4560,7 +4559,7 @@ if (!editorContainer) {
    */
   function applyDiffDecorations(): void {
     // Remove existing diff classes from all top-level nodes
-    const proseMirrorEl = document.querySelector('.ProseMirror') as HTMLElement | null;
+    const proseMirrorEl = document.querySelector('.ProseMirror');
     if (proseMirrorEl) {
       proseMirrorEl.querySelectorAll('.mikedown-diff-changed').forEach(el => {
         el.classList.remove('mikedown-diff-changed');
@@ -4577,7 +4576,6 @@ if (!editorContainer) {
 
     // Map changed source lines to top-level ProseMirror nodes.
     // Walk the doc's top-level children and track which markdown lines they span.
-    const lines = currentMarkdown.split('\n');
     const doc = editor.state.doc;
     let sourceLine = 0;
 
@@ -4630,6 +4628,7 @@ if (!editorContainer) {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- not wired to any command/keybinding yet; diffHighlightActive is still read elsewhere, so this looks like an incomplete feature rather than dead code. Left in place for review rather than deleted.
   function toggleDiffHighlight(): void {
     if (!fileHasGitChanges) {return;}
 
