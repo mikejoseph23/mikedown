@@ -24,7 +24,7 @@
 
 | Milestone | Model | Status | Duration (min) | Notes |
 | --- | --- | --- | --- | --- |
-| M1: Copy Draft (Review Gate) | Opus | ⬜ | | Pauses for Mike's approval; neutral share line (Q7) |
+| M1: Copy Draft (Review Gate) | Opus | 🟡 | | Pauses for Mike's approval; neutral share line (Q7) |
 | M2: Eligibility Module | Sonnet | ⬜ | | Pure module, injected clock; Q1 thresholds |
 | M3: Host Wiring, Command, Dev Reset | Sonnet | ⬜ | | Needs M2; toast removed (Q2) |
 | M4: Testing: Host Logic | Sonnet | ⬜ | | Needs M2, M3 |
@@ -109,17 +109,17 @@ The copy must carry all five of Mike's points in his personal, first-person voic
 
 Copy rules: **no hyphens, em dashes, or en dashes** anywhere in the appeal prose (use commas, periods, parentheses). Warm, brief, not guilt-trippy. No "please please". No fake urgency.
 
-- [ ] Card title (short, e.g. in the spirit of "A note from Mike").
-- [ ] Card body: 3 to 5 short sentences covering points a through e; target under 90 words so it fits without scrolling at 360px width.
-- [ ] Button labels: primary "Leave a review", secondary "Tell a friend", tertiary "Share feedback", plus quiet "Maybe later" and "Don't ask again" (propose alternates if better; keep each under 18 characters).
-- [ ] "Copied" confirmation text for Tell a friend (e.g. "Copied. Paste it anywhere.").
-- [ ] Share message copied to the clipboard (Q7 resolved: **neutral line**, not the sharer's personal voice and not Mike's): one sentence plus the Marketplace link, e.g. "Check out MikeDown, a WYSIWYG markdown editor for VS Code: https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor". Offer at most one alternate phrasing.
-- [ ] Entry point labels: sidebar footer link text (e.g. "♥ Support MikeDown", short enough to sit inline after the metrics), the × dismiss button's `aria-label`/tooltip (e.g. "Hide this link"), the brief post dismiss confirmation (e.g. "Hidden. You can bring it back in Settings, Appearance."), the Settings Appearance checkbox label for `mikedown.support.showSidebarLink` (e.g. "Show Support MikeDown link in sidebar"), About tab section heading and one line lead in, command title `MikeDown: Support MikeDown`.
-- [ ] README section "A note from the developer": same appeal, slightly longer (up to 150 words), with links for review, GitHub issues, and share.
-- [ ] Fallback notice text for `mikedown.support` when no MikeDown editor is open (single sentence, under 110 characters so it does not truncate). The startup toast is removed (Q2), so this is the only native notice.
-- [ ] Self check: run `grep -nP '[-\x{2013}\x{2014}]' review-appeal-copy.md` restricted to prose sections and confirm no hyphen or dash appears in any appeal copy (URLs are exempt). Note the result in the summary.
-- [ ] Add a short "Rationale" note per piece (one line each) so Mike can see intent.
-- [ ] Commit the copy file ("Add review appeal copy draft"), write `.orchestrator/worker-summary-m1-copy-draft.md`, and stop. Tell the user the copy is ready for review.
+- [x] Card title (short, e.g. in the spirit of "A note from Mike").
+- [x] Card body: 3 to 5 short sentences covering points a through e; target under 90 words so it fits without scrolling at 360px width.
+- [x] Button labels: primary "Leave a review", secondary "Tell a friend", tertiary "Share feedback", plus quiet "Maybe later" and "Don't ask again" (propose alternates if better; keep each under 18 characters).
+- [x] "Copied" confirmation text for Tell a friend (e.g. "Copied. Paste it anywhere.").
+- [x] Share message copied to the clipboard (Q7 resolved: **neutral line**, not the sharer's personal voice and not Mike's): one sentence plus the Marketplace link, e.g. "Check out MikeDown, a WYSIWYG markdown editor for VS Code: https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor". Offer at most one alternate phrasing.
+- [x] Entry point labels: sidebar footer link text (e.g. "♥ Support MikeDown", short enough to sit inline after the metrics), the × dismiss button's `aria-label`/tooltip (e.g. "Hide this link"), the brief post dismiss confirmation (e.g. "Hidden. You can bring it back in Settings, Appearance."), the Settings Appearance checkbox label for `mikedown.support.showSidebarLink` (e.g. "Show Support MikeDown link in sidebar"), About tab section heading and one line lead in, command title `MikeDown: Support MikeDown`.
+- [x] README section "A note from the developer": same appeal, slightly longer (up to 150 words), with links for review, GitHub issues, and share.
+- [x] Fallback notice text for `mikedown.support` when no MikeDown editor is open (single sentence, under 110 characters so it does not truncate). The startup toast is removed (Q2), so this is the only native notice.
+- [x] Self check: run `grep -nP '[-\x{2013}\x{2014}]' review-appeal-copy.md` restricted to prose sections and confirm no hyphen or dash appears in any appeal copy (URLs are exempt). Note the result in the summary.
+- [x] Add a short "Rationale" note per piece (one line each) so Mike can see intent.
+- [x] Commit the copy file ("Add review appeal copy draft"), write `.orchestrator/worker-summary-m1-copy-draft.md`, and stop. Tell the user the copy is ready for review.
 
 [Return to Top](#review-appeal-planning)
 
@@ -318,6 +318,8 @@ All resolved 2026-09-26.
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
+
+**2026-09-26** - M1 copy drafted in `review-appeal-copy.md` (all pieces, rationale, one alternate where useful). Dash self check clean in all copy (only URLs, file names, and `aria-label` contain hyphens). Awaiting Mike's approval; M5, M6, M8 blocked until approval is logged here.
 
 **2026-09-26 00:22** - Open questions Q1 to Q8 resolved by Mike. Accepted recommendations for Q1 (thresholds), Q2 (startup toast removed; only the `mikedown.support` fallback notice remains), Q3 (never auto show after "Leave a review"), Q4 (legacy "Stop asking" respected), Q6 ("M" initial now, swappable avatar slot; photo is a follow-up), Q8 (2.11.0, may share the release with slash commands). Changed from recommendation: Q5 sidebar link goes inline after the metrics with a forever × dismiss and a new setting `mikedown.support.showSidebarLink` (three-place rule, Appearance tab, live toggle); Q7 share message is a neutral "Check out MikeDown" line. Updated summary, design decisions, M1 to M9, tests, hands-on steps, and added Follow-ups.
 
