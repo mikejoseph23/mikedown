@@ -23,8 +23,9 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import type { Transaction } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
-import type { Mark, ResolvedPos } from '@tiptap/pm/model';
+import type { Mark, ResolvedPos, Node as PmNode } from '@tiptap/pm/model';
 import { closeHistory } from '@tiptap/pm/history';
 import {
   extractSlashQuery,
@@ -84,6 +85,21 @@ export function setSlashCommandHandler(
   fn: ((id: string, range: { from: number; to: number }, view: EditorView) => boolean) | null
 ): void {
   externalHandler = fn;
+}
+
+/**
+ * Marks `pos` (a `/`) as dismissed without touching the document. M3 uses
+ * this when handing off to a follow-up picker (table/link/emoji/code
+ * language) that keeps `/query` in the doc until it commits: the slash
+ * plugin would otherwise re-derive the same query on the next view update
+ * (e.g. the picker's own input stealing focus) and reopen the menu on top of
+ * the picker, or reopen it after a cancel restores `/query` via undo.
+ */
+export function markSlashDismissed(pos: number): void {
+  const box = dismissBox();
+  if (box) {
+    box.dismissedAt = pos;
+  }
 }
 
 const slashCommandsKey = new PluginKey<DismissBox>('slashCommands');
@@ -482,8 +498,18 @@ function runMatch(index: number): void {
   }
   const range = { from: state.from, to: state.to };
   const view = viewRef;
+  const box = dismissBox();
+  // Captured before hidePopup() clears box.openFrom.
+  const dismissPos = box?.openFrom ?? state.from;
   hidePopup();
-  executeSlashCommand(cmd.id, range, view);
+  const handled = executeSlashCommand(cmd.id, range, view);
+  if (!handled && box) {
+    // Nothing was handled (id not wired yet, e.g. still-pending M4/M6 hooks):
+    // no transaction ran, so remember the `/` as dismissed. Otherwise the
+    // next view update re-derives the identical, still-open query and
+    // reopens the menu right back up (T1 finding).
+    box.dismissedAt = dismissPos;
+  }
   view.focus();
 }
 
@@ -528,24 +554,163 @@ export function executeSlashCommand(
   if (!textblock.isTextblock) {
     return false;
   }
-  const onlyContent = textblock.content.size === to - from;
+  // Inside a list item (or task item), the item's content model is
+  // `paragraph block*`-ish and generally won't accept a heading directly —
+  // `setBlockType` silently no-ops per node it can't convert. Escape the
+  // whole enclosing list instead of trying to convert the item in place.
+  const listAfter = listEscapeAfter($from);
+  const onlyContent = listAfter === null && textblock.content.size === to - from;
+  const deleteFrom = computeDeleteFrom(view, $from, from, to, onlyContent, textblock);
 
   const tr = closeHistory(view.state.tr);
-  tr.delete(from, to);
+  tr.delete(deleteFrom, to);
 
   if (onlyContent) {
     // `/query` was the whole block: convert it in place.
-    tr.setBlockType(from, from, blockType, attrs);
-    tr.setSelection(TextSelection.create(tr.doc, from));
+    tr.setBlockType(deleteFrom, deleteFrom, blockType, attrs);
+    tr.setSelection(TextSelection.create(tr.doc, deleteFrom));
   } else {
-    // Leave the line's text untouched; new block goes right after it.
-    const insertAt = tr.mapping.map($from.after());
+    // Leave the line's text untouched; new block goes right after it (or,
+    // inside a list item, right after the whole enclosing list).
+    const insertAt = tr.mapping.map(listAfter ?? $from.after());
     try {
       tr.insert(insertAt, blockType.create(attrs));
       tr.setSelection(TextSelection.create(tr.doc, insertAt + 1));
     } catch {
       return false;
     }
+  }
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+/**
+ * When `$from`'s textblock sits directly inside a `listItem`/`taskItem`,
+ * returns the doc position right after the whole enclosing list — the
+ * "lift out, insert below" landing spot used instead of converting the
+ * item's own paragraph (which the list's content model usually rejects).
+ * Returns null when not inside a list item.
+ */
+export function listEscapeAfter($from: ResolvedPos): number | null {
+  const itemDepth = $from.depth - 1;
+  if (itemDepth < 0) {
+    return null;
+  }
+  const itemName = $from.node(itemDepth).type.name;
+  if (itemName !== 'listItem' && itemName !== 'taskItem') {
+    return null;
+  }
+  const listDepth = itemDepth - 1;
+  if (listDepth < 0) {
+    return null;
+  }
+  return $from.after(listDepth);
+}
+
+/**
+ * Mid-line only (never when `/query` is the block's only content): strips
+ * the single triggering whitespace character too, but ONLY when nothing
+ * follows the query on the line — `foo /h2` (nothing after) leaves `foo`,
+ * not `foo `, since the new block appears below and a trailing space would
+ * be an orphaned artifact. When something DOES follow on the line (`foo
+ * /table` immediately followed by `bar`, no space in between), the space is
+ * the only thing left separating the two once `/table` is gone, so it's kept
+ * — `foo /table|bar` must leave `foo bar` (T2 expectation), not `foobar`.
+ */
+function computeDeleteFrom(
+  view: EditorView,
+  $from: ResolvedPos,
+  from: number,
+  to: number,
+  onlyContent: boolean,
+  textblock: PmNode
+): number {
+  const blockStart = $from.start();
+  const hasTrailingContent = to < blockStart + textblock.content.size;
+  if (onlyContent || hasTrailingContent || from <= blockStart) {
+    return from;
+  }
+  return /\s/.test(view.state.doc.textBetween(from - 1, from, '', '')) ? from - 1 : from;
+}
+
+/**
+ * Builds (but does not dispatch) the "delete `/query`, land an empty target
+ * paragraph" transaction shared by `prepareSlashTarget` and
+ * `applySlashWrap`. Returns the transaction and the position inside the
+ * empty target paragraph, or null when the position can't be resolved.
+ */
+function buildSlashTargetTr(
+  view: EditorView,
+  range: { from: number; to: number }
+): { tr: Transaction; pos: number } | null {
+  const { from, to } = range;
+  const $from = view.state.doc.resolve(from);
+  const textblock = $from.parent;
+  if (!textblock.isTextblock) {
+    return null;
+  }
+  const listAfter = listEscapeAfter($from);
+  const onlyContent = listAfter === null && textblock.content.size === to - from;
+  const deleteFrom = computeDeleteFrom(view, $from, from, to, onlyContent, textblock);
+
+  const tr = closeHistory(view.state.tr);
+  tr.delete(deleteFrom, to);
+
+  if (onlyContent) {
+    return { tr, pos: deleteFrom };
+  }
+  const insertAt = tr.mapping.map(listAfter ?? $from.after());
+  const paragraph = view.state.schema.nodes.paragraph.create();
+  try {
+    tr.insert(insertAt, paragraph);
+  } catch {
+    return null;
+  }
+  return { tr, pos: insertAt + 1 };
+}
+
+/**
+ * Deletes `/query` and leaves the cursor in an empty target paragraph (see
+ * `buildSlashTargetTr`), dispatching immediately. Safe to follow with a
+ * SEPARATE `editor.chain()` call that itself uses `setBlockType` under the
+ * hood (headings, `toggleCodeBlock`, `setHorizontalRule`, `insertTable`) —
+ * empirically, ProseMirror's history groups a `setBlockType`/insert-shaped
+ * step right after this into the same undo event. It is NOT safe to follow
+ * with a `wrapIn`/`toggleList`-shaped command (`ReplaceAroundStep`) — those
+ * do not group with the preceding transaction, so two `Cmd+Z` would be
+ * needed instead of one; use `applySlashWrap` for those instead.
+ */
+export function prepareSlashTarget(view: EditorView, range: { from: number; to: number }): boolean {
+  const built = buildSlashTargetTr(view, range);
+  if (!built) {
+    return false;
+  }
+  const { tr, pos } = built;
+  tr.setSelection(TextSelection.create(tr.doc, pos));
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+/**
+ * Same target preparation as `prepareSlashTarget`, but for wrap-shaped
+ * commands (blockquote, lists, callouts): `shape` mutates the SAME
+ * transaction (e.g. via `tr.wrap`) before the single dispatch, so the text
+ * deletion and the wrap are always one undo step — no reliance on
+ * ProseMirror's history-grouping heuristic (see `prepareSlashTarget`'s
+ * doc comment for why that heuristic doesn't cover wraps).
+ */
+export function applySlashWrap(
+  view: EditorView,
+  range: { from: number; to: number },
+  shape: (tr: Transaction, pos: number) => boolean
+): boolean {
+  const built = buildSlashTargetTr(view, range);
+  if (!built) {
+    return false;
+  }
+  const { tr, pos } = built;
+  if (!shape(tr, pos)) {
+    return false;
   }
   view.dispatch(tr.scrollIntoView());
   return true;

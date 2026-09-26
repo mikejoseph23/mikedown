@@ -11,11 +11,43 @@ let pickerHoverCols = 1;
 const PICKER_ROWS = 8;
 const PICKER_COLS = 10;
 
+interface AnchorRect {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+export interface TableGridPickerOptions {
+  /** Overrides the default `insertTable` when set (the slash `/table`
+   *  command uses this to remove `/query` and insert the table in one
+   *  action, rather than inserting at whatever the selection happens to be). */
+  onInsert?: (rows: number, cols: number) => void;
+  /** Fires when the picker closes WITHOUT a table having been committed
+   *  (Escape or click-away) — never after a real commit. */
+  onClosed?: () => void;
+}
+
+let pendingOpts: TableGridPickerOptions | undefined;
+let gridPickerCommitted = false;
+
+function commitTable(editor: Editor, rows: number, cols: number, opts: TableGridPickerOptions | undefined): void {
+  gridPickerCommitted = true;
+  if (opts?.onInsert) {
+    opts.onInsert(rows, cols);
+  } else {
+    editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+  }
+}
+
 export function showTableGridPicker(
   editor: Editor,
-  anchorEl: HTMLElement
+  anchor: HTMLElement | AnchorRect,
+  opts?: TableGridPickerOptions
 ): void {
   hideTableGridPicker();
+  pendingOpts = opts;
+  gridPickerCommitted = false;
 
   pickerEl = document.createElement('div');
   pickerEl.id = 'mikedown-table-picker';
@@ -40,12 +72,8 @@ export function showTableGridPicker(
       });
       cell.addEventListener('mousedown', (e) => {
         e.preventDefault();
+        commitTable(editor, r, c, opts);
         hideTableGridPicker();
-        editor.chain().focus().insertTable({
-          rows: r,
-          cols: c,
-          withHeaderRow: true,
-        }).run();
       });
       grid.appendChild(cell);
     }
@@ -86,12 +114,8 @@ export function showTableGridPicker(
     e.preventDefault();
     const r2 = Math.max(1, Math.min(50, parseInt(rowInput.value || '3', 10) || 3));
     const c2 = Math.max(1, Math.min(20, parseInt(colInput.value || '3', 10) || 3));
+    commitTable(editor, r2, c2, opts);
     hideTableGridPicker();
-    editor.chain().focus().insertTable({
-      rows: r2,
-      cols: c2,
-      withHeaderRow: true,
-    }).run();
   });
 
   manualRow.appendChild(rowInput);
@@ -108,7 +132,7 @@ export function showTableGridPicker(
   document.body.appendChild(pickerEl);
 
   // Position below anchor
-  const rect = anchorEl.getBoundingClientRect();
+  const rect = anchor instanceof HTMLElement ? anchor.getBoundingClientRect() : anchor;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const pickerRect = pickerEl.getBoundingClientRect();
@@ -127,12 +151,8 @@ export function showTableGridPicker(
   pickerEl.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hideTableGridPicker();
     if (e.key === 'Enter' && document.activeElement !== rowInput && document.activeElement !== colInput) {
+      commitTable(editor, pickerHoverRows, pickerHoverCols, opts);
       hideTableGridPicker();
-      editor.chain().focus().insertTable({
-        rows: pickerHoverRows,
-        cols: pickerHoverCols,
-        withHeaderRow: true,
-      }).run();
     }
   });
 }
@@ -149,9 +169,17 @@ function updateGridHighlight(): void {
 }
 
 export function hideTableGridPicker(): void {
+  const wasOpen = pickerEl !== null;
   if (pickerEl) {
     pickerEl.remove();
     pickerEl = null;
+  }
+  const opts = pendingOpts;
+  const committed = gridPickerCommitted;
+  pendingOpts = undefined;
+  gridPickerCommitted = false;
+  if (wasOpen && !committed) {
+    opts?.onClosed?.();
   }
 }
 

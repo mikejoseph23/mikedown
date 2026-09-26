@@ -17,6 +17,13 @@ const CURATED: string[] = [
 
 let popoverEl: HTMLElement | null = null;
 let onClose: (() => void) | null = null;
+let pickerCommitted = false;
+// The click-away/Escape document listeners are deferred a frame so the click
+// that opened the picker doesn't immediately close it. If the picker is
+// closed before that frame runs (e.g. Escape on the picker's own input, or a
+// very fast programmatic close), cancel it — otherwise it fires later and
+// installs listeners for a picker that's already gone.
+let docListenersRafId: number | null = null;
 
 function applyLanguage(editor: Editor, language: string): void {
   const lang = language.trim();
@@ -28,13 +35,22 @@ function clearLanguage(editor: Editor): void {
 }
 
 export function hideLanguagePicker(): void {
+  if (docListenersRafId !== null) {
+    cancelAnimationFrame(docListenersRafId);
+    docListenersRafId = null;
+  }
   if (popoverEl) {
     popoverEl.remove();
     popoverEl = null;
   }
-  if (onClose) {
-    const cb = onClose;
-    onClose = null;
+  const cb = onClose;
+  const committed = pickerCommitted;
+  onClose = null;
+  pickerCommitted = false;
+  // Only fire onClosed for a real cancel (Esc / click-away) — never after a
+  // commit, so slash-command callers can tell the two apart with just this
+  // one hook.
+  if (cb && !committed) {
     cb();
   }
   document.removeEventListener('mousedown', handleDocMouseDown, true);
@@ -61,6 +77,9 @@ interface ShowOptions {
   point?: { x: number; y: number };
   allLanguages: string[];
   currentLanguage: string;
+  /** Fires only on a real cancel (Esc / click-away) — never after a language
+   *  was actually chosen (including "Clear language"). The slash `/code`
+   *  command uses this to undo its own block insertion on cancel. */
   onClosed?: () => void;
 }
 
@@ -119,6 +138,7 @@ export function showLanguagePicker(editor: Editor, opts: ShowOptions): void {
     el.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      pickerCommitted = true;
       if (opts2?.isClear) {
         clearLanguage(editor);
       } else {
@@ -214,6 +234,7 @@ export function showLanguagePicker(editor: Editor, opts: ShowOptions): void {
       if (target) {
         target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
       } else if (input.value.trim()) {
+        pickerCommitted = true;
         applyLanguage(editor, input.value);
         hideLanguagePicker();
       }
@@ -252,7 +273,8 @@ export function showLanguagePicker(editor: Editor, opts: ShowOptions): void {
   popoverEl.style.visibility = '';
 
   // Delay listeners by one frame so the click that opened us doesn't immediately close.
-  requestAnimationFrame(() => {
+  docListenersRafId = requestAnimationFrame(() => {
+    docListenersRafId = null;
     document.addEventListener('mousedown', handleDocMouseDown, true);
     document.addEventListener('keydown', handleDocKeyDown, true);
   });

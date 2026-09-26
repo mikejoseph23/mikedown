@@ -176,6 +176,10 @@ const CATEGORIES: Category[] = [
 
 let pickerEl: HTMLElement | null = null;
 let openEditor: Editor | null = null;
+/** Overrides the default `insertContent` when set (the slash `/emoji`
+ *  command uses this to replace `/query` with the emoji in one transaction,
+ *  instead of inserting at whatever the current selection happens to be). */
+let onInsertOverride: ((shortcode: string) => void) | null = null;
 
 function loadRecents(): string[] {
   try {
@@ -201,12 +205,16 @@ function saveRecent(shortcode: string): void {
 
 function insertEmoji(shortcode: string): void {
   if (!openEditor) return;
-  const emojiType = openEditor.schema.nodes.emoji;
-  if (emojiType) {
-    openEditor.chain().focus().insertContent({ type: 'emoji', attrs: { shortcode } }).run();
+  if (onInsertOverride) {
+    onInsertOverride(shortcode);
   } else {
-    const char = EMOJI_MAP[shortcode] || `:${shortcode}:`;
-    openEditor.chain().focus().insertContent(char).run();
+    const emojiType = openEditor.schema.nodes.emoji;
+    if (emojiType) {
+      openEditor.chain().focus().insertContent({ type: 'emoji', attrs: { shortcode } }).run();
+    } else {
+      const char = EMOJI_MAP[shortcode] || `:${shortcode}:`;
+      openEditor.chain().focus().insertContent(char).run();
+    }
   }
   saveRecent(shortcode);
 }
@@ -217,6 +225,7 @@ export function hideEmojiPicker(): void {
     pickerEl = null;
   }
   openEditor = null;
+  onInsertOverride = null;
   document.removeEventListener('mousedown', onDocMouseDown, true);
 }
 
@@ -234,11 +243,13 @@ export function isEmojiPickerOpen(): boolean {
 interface ShowOptions {
   anchorRect?: DOMRect;
   point?: { x: number; y: number };
+  onInsert?: (shortcode: string) => void;
 }
 
 export function showEmojiPicker(editor: Editor, opts: ShowOptions = {}): void {
   hideEmojiPicker();
   openEditor = editor;
+  onInsertOverride = opts.onInsert ?? null;
 
   pickerEl = document.createElement('div');
   pickerEl.id = 'mikedown-emoji-picker';

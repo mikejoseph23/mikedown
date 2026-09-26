@@ -101,7 +101,7 @@
 
 import { Editor, mergeAttributes } from '@tiptap/core';
 import { Selection, TextSelection, EditorState as PmEditorState } from '@tiptap/pm/state';
-import { undoDepth as pmUndoDepth } from '@tiptap/pm/history';
+import { undoDepth as pmUndoDepth, closeHistory } from '@tiptap/pm/history';
 import { StarterKit } from '@tiptap/starter-kit';
 import { TaskList } from '@tiptap/extension-task-list';
 import { DraggableTaskItem as TaskItem } from './taskitem-drag';
@@ -127,6 +127,7 @@ import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
 import { Wikilink } from './wikilink-node';
 import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
 import { SlashCommands, closeSlashMenu, setSlashFrontmatterProvider, setSlashPostMessage, setSlashSourceMode, setSlashCommandsConfig } from './slashcommands';
+import { initSlashCommandActions } from './slashcommands-actions';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import {
   initOutlineSidebar,
@@ -434,7 +435,7 @@ function smoothScrollHeadingIntoView(target: HTMLElement): void {
 
 // ── M3: Link and image dialog helpers ─────────────────────────────────────────
 
-function showLinkDialog(editor: Editor): void {
+function showLinkDialog(editor: Editor, slashRange?: { from: number; to: number }): void {
   const existing = editor.getAttributes('link').href as string | undefined;
 
   // Build modal overlay
@@ -543,6 +544,15 @@ function showLinkDialog(editor: Editor): void {
   function confirm(): void {
     const url = urlInput.value.trim();
     cleanup();
+    if (slashRange) {
+      // The slash `/link` command: `/query` stays in the doc until Save is
+      // actually clicked (Cancel/Escape/click-away never reach this
+      // function, so it's untouched then). Remove it inline, right here, so
+      // the removal and the link mark below land in one undo group.
+      const tr = closeHistory(editor.view.state.tr);
+      tr.delete(slashRange.from, slashRange.to);
+      editor.view.dispatch(tr);
+    }
     if (url === '') {
       editor.chain().focus().unsetLink().run();
     } else {
@@ -3371,6 +3381,11 @@ if (!editorContainer) {
       scheduleWikilinkResolution();
     },
   });
+
+  // M3: wire the slash-command action map (quote/lists/callouts/divider,
+  // code/mermaid/table, link/wikilink/emoji). Image/Properties/Date/Datetime
+  // are left as no-op hooks for M4/M6.
+  initSlashCommandActions(editor, { showLinkDialog });
 
   // Wikilink autocomplete: lazily ask the host for the workspace file list the
   // first time the `[[` popup opens with an empty candidate cache.
