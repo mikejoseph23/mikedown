@@ -12,9 +12,15 @@ Rationale: personal and quiet, reads like a handwritten note rather than a syste
 
 ## 2. Card body
 
-> Hi, I'm Mike, and I build MikeDown on my own. It's one of the few truly WYSIWYG markdown editors in a sea of half baked ones, so it's a small miracle you found it. A good review helps it climb the Marketplace rankings, and that's what keeps it alive and improving. Telling a friend who uses VS Code helps just as much. And if something bugs you or you have an idea, open an issue. I read every one.
+> Thanks for using MikeDown.
+>
+> I built it for myself. I'd spent years in split pane previews and wanted markdown to feel like having a few Word documents open. It's been my main editor ever since, and nearly every feature came from using it daily. I'm accidentally proud of how it turned out.
+>
+> It's just me, and it's easy to miss on the Marketplace. A review, or a word to a colleague who uses VS Code, helps more than you'd think. Bug or idea? Open an issue. I reply fast.
+>
+> Mike
 
-Rationale: covers a (solo), b (sea of editors, small miracle), c (reviews and rankings), e (tell a friend), d (listening) in five sentences, under 80 words, no guilt or urgency.
+Rationale: a short letter from one colleague to another. Opens with thanks, tells the origin story (built for himself, dogfooded daily), then asks for a review or a word to a colleague and invites issues. Under 90 words, signed "Mike".
 
 ## 3. Button labels
 
@@ -80,16 +86,19 @@ Rationale: one consistent name ("Support MikeDown") everywhere so users recogniz
 
 > ## A note from the developer
 >
-> Hi, I'm Mike, and I build MikeDown on my own. There are a lot of markdown editors out there, most of them half baked and few of them truly WYSIWYG, so it's a small miracle you found this one at all.
+> Thanks for giving MikeDown a try.
 >
-> If MikeDown makes your writing easier, two things help more than anything else:
+> I built it for myself. I'd used the popular Markdown Preview extension for years, and it's great, but the split pane always felt like wasted space. I wanted editing docs and plans to feel like having a few Word documents open side by side. Version one already worked well, and it's been my everyday markdown editor since. Nearly every feature came from using it that way and thinking "I wish it did this." I'm accidentally proud of where it ended up.
 >
-> * **[Leave a review](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details)** on the Marketplace. Every positive review nudges MikeDown up the rankings, and that's the best way to keep it alive and improving.
-> * **Tell a friend or colleague** who uses VS Code. Word of mouth might be the best support of all. Here's the link to share: [MikeDown on the Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor).
+> It's just me building it, and it's easy to miss among all the markdown editors on the Marketplace. If it's earned a spot in your workflow, [a review](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details) or [a word to a colleague](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor) is the best way to help it grow.
 >
-> I'm listening, too. If something bugs you or you have an idea for a feature, [open a GitHub issue](https://github.com/mikejoseph23/mikedown/issues/new). I read every one.
+> I'm small enough to be quick. Bug or idea, [open an issue](https://github.com/mikejoseph23/mikedown/issues/new) and you'll likely hear back fast.
+>
+> Mike
 
-Rationale: same five points as the card with room for the three links; about 130 words; replaces the current "Enjoying MikeDown?" section (which has an em dash). M8 may switch the `*` bullets to `-` to match the rest of the README.
+Rationale: the longer version of the card letter, with the Markdown Preview backstory and links for review, share, and issues. About 165 words, a little over the 150 target, approved by Mike 2026-09-26.
+
+Optional line (not included, Mike's call): "The whole design started as a conversation on a walk around my neighborhood."
 
 ## 8. Fallback notice (`mikedown.support`, no MikeDown editor open)
 
