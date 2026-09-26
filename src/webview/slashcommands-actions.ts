@@ -1,8 +1,8 @@
 /**
- * M3/M4: wires every remaining registry `id` (quote/lists/callouts/divider,
- * code/mermaid, table, link/wikilink/emoji/image) to a real action. Headings
- * and Paragraph are handled directly in `slashcommands.ts` (M2); Properties,
- * Date, and Datetime are left as clean no-op hooks below for M6.
+ * M3/M4/M6: wires every registry `id` (quote/lists/callouts/divider,
+ * code/mermaid, table, link/wikilink/emoji/image/properties/date/datetime)
+ * to a real action. Headings and Paragraph are handled directly in
+ * `slashcommands.ts` (M2).
  *
  * Three shapes of command, all deleting `/query` (and, mid-line, the
  * triggering space) via `slashcommands.ts`'s shared target-preparation logic:
@@ -19,10 +19,10 @@
  *    empirically — so those safely use `prepareSlashTarget` (one dispatch)
  *    followed by a normal `editor.chain()` call (a second dispatch that
  *    still ends up in the same undo event).
- *  - Inline (wikilink here; link/emoji/image below, since they hand off to a
- *    picker): replace `/query` directly at its own position — no block
- *    splitting, no preceding-space stripping (Trigger rules: "Inline
- *    commands ... insert inline at the cursor instead").
+ *  - Inline (wikilink, date, datetime here; link/emoji/image below, since
+ *    those hand off to a picker): replace `/query` directly at its own
+ *    position — no block splitting, no preceding-space stripping (Trigger
+ *    rules: "Inline commands ... insert inline at the cursor instead").
  *
  * Picker-based commands (code language, table, link, emoji, image) keep
  * `/query` in the doc until the picker/host round-trip actually commits;
@@ -33,21 +33,34 @@
  * event. Link, emoji, and image don't need eager preparation (they insert
  * inline at a fixed position once the picker/host resolves), so cancelling
  * them is simply "never touched the document."
+ *
+ * `/properties` is the odd one out: the frontmatter it inserts doesn't live
+ * in the ProseMirror doc at all (see `insertEmptyFrontmatter` in
+ * editor-main.ts), so ProseMirror's own undo can't restore it — `actionProperties`
+ * below watches the editor's undo depth itself to detect a one-step undo and
+ * revert the frontmatter side effect to match.
  */
 
 import type { Editor } from '@tiptap/core';
 import type { EditorView } from '@tiptap/pm/view';
 import { TextSelection } from '@tiptap/pm/state';
-import { closeHistory } from '@tiptap/pm/history';
+import { closeHistory, undoDepth as pmUndoDepth } from '@tiptap/pm/history';
 import { findWrapping } from '@tiptap/pm/transform';
 import type { NodeType } from '@tiptap/pm/model';
 import { createLowlight, all } from 'lowlight';
-import { setSlashCommandHandler, markSlashDismissed, prepareSlashTarget, applySlashWrap } from './slashcommands';
+import {
+  setSlashCommandHandler,
+  markSlashDismissed,
+  prepareSlashTarget,
+  applySlashWrap,
+  getSlashCommandsConfig,
+} from './slashcommands';
 import { MERMAID_STARTER_DIAGRAM } from './slashcommands-registry';
 import { showLanguagePicker } from './languagepicker';
 import { showTableGridPicker } from './tablepicker';
 import { showEmojiPicker } from './emojipicker';
 import { requestImagePick } from './imagepick';
+import { formatSlashDate } from './slashcommands-date';
 
 type Range = { from: number; to: number };
 
@@ -56,13 +69,21 @@ type Range = { from: number; to: number };
 // registration set, so the same names) to avoid reaching into that module.
 const codeLowlight = createLowlight(all);
 
-/** Dependencies M3 needs from `editor-main.ts` without importing it back
- *  (that module imports this one to call `initSlashCommandActions`). */
+/** Dependencies M3/M4/M6 need from `editor-main.ts` without importing it
+ *  back (that module imports this one to call `initSlashCommandActions`). */
 export interface SlashActionDeps {
   /** `showLinkDialog(editor)` from editor-main.ts, extended with an optional
    *  range: when given, the dialog removes `/query` only on Save/Update
    *  (never on Cancel/Escape/click-away), inline at that position. */
   showLinkDialog: (editor: Editor, range?: Range) => void;
+  /** M6 `/properties`: inserts an empty frontmatter block (persisted + the
+   *  WYSIWYG frontmatter block + sidebar re-rendered) and returns a
+   *  `revert()` that undoes exactly that side effect. See the module doc
+   *  comment and `actionProperties` for why this can't be plain PM undo. */
+  insertEmptyFrontmatter: () => { revert: () => void };
+  /** M6 `/properties`: shows the sidebar, un-collapses Properties, and
+   *  focuses its "+ Add property" control. */
+  focusPropertiesSection: () => void;
 }
 
 const CALLOUT_IDS = new Set(['note', 'tip', 'important', 'warning', 'caution']);
@@ -122,14 +143,12 @@ function handleSlashAction(
       requestImagePick(view, range.from, range.to);
       return true;
 
-    // NEW: not this milestone. M6 wires Properties, Date, and Datetime.
-    // Falling through to `false` here leaves the plugin's own "unhandled
-    // command" path (records the `/` as dismissed, no doc change) to do the
-    // right thing until then.
     case 'properties':
+      return actionProperties(editor, view, range, deps);
     case 'date':
+      return actionDate(view, range, false);
     case 'datetime':
-      return false;
+      return actionDate(view, range, true);
 
     default:
       return false;
@@ -274,5 +293,54 @@ function actionEmoji(editor: Editor, view: EditorView, range: Range): boolean {
       view.focus();
     }
   });
+  return true;
+}
+
+/** `/date` and `/datetime`: insert the formatted timestamp inline as plain
+ *  text, replacing `/query` in one `closeHistory`'d transaction — same
+ *  inline shape as `actionWikilink`, so one undo restores `/query` exactly. */
+function actionDate(view: EditorView, range: Range, includeTime: boolean): boolean {
+  const { dateFormat, timeZone } = getSlashCommandsConfig();
+  const text = formatSlashDate(new Date(), { format: dateFormat, timeZone, includeTime });
+  const { from, to } = range;
+  const tr = closeHistory(view.state.tr);
+  tr.delete(from, to);
+  tr.insertText(text, from);
+  tr.setSelection(TextSelection.create(tr.doc, from + text.length));
+  view.dispatch(tr.scrollIntoView());
+  view.focus();
+  return true;
+}
+
+/**
+ * `/properties`: deletes `/query` (one `closeHistory`'d PM transaction, same
+ * as the inline commands above) and, alongside it, asks `editor-main.ts` to
+ * insert an empty frontmatter block — a side effect that lives outside the
+ * ProseMirror doc, so a lone Cmd+Z on the PM transaction above wouldn't
+ * touch it on its own. To still get a genuine one-undo round trip, this
+ * records the undo depth right after its own deletion and watches the very
+ * next `editor` update: if that update is the deletion being undone (depth
+ * drops back to where it was before), it calls `revert()` to remove the
+ * frontmatter and re-render in lockstep. Any other next update (the user
+ * typing something else, e.g.) leaves the frontmatter as inserted — matches
+ * how every other undo-tracked action here behaves.
+ */
+function actionProperties(editor: Editor, view: EditorView, range: Range, deps: SlashActionDeps): boolean {
+  const depthBeforeDeletion = pmUndoDepth(view.state);
+  const { from, to } = range;
+  const tr = closeHistory(view.state.tr);
+  tr.delete(from, to);
+  view.dispatch(tr.scrollIntoView());
+
+  const { revert } = deps.insertEmptyFrontmatter();
+  deps.focusPropertiesSection();
+
+  const onUpdate = (): void => {
+    editor.off('update', onUpdate);
+    if (pmUndoDepth(editor.state) <= depthBeforeDeletion) {
+      revert();
+    }
+  };
+  editor.on('update', onUpdate);
   return true;
 }

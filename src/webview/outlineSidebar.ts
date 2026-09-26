@@ -468,6 +468,23 @@ export function applyProperties(
   renderProperties();
 }
 
+/**
+ * M6: called right after the `/properties` slash command inserts an empty
+ * frontmatter block. Surfaces the section the same way a user reaching for
+ * it manually would — shows the sidebar, un-collapses Properties (bypassing
+ * the auto-collapse-when-empty rule, same as an explicit user toggle), and
+ * focuses the "+ Add property" trigger so the next keystroke can start
+ * naming the first key.
+ */
+export function focusPropertiesSection(): void {
+  setVisible(true);
+  collapsedSections.delete('properties');
+  userTouchedSections.add('properties');
+  applySectionCollapsedDom();
+  const trigger = propertiesListEl?.querySelector<HTMLButtonElement>('.properties-add-trigger');
+  (trigger ?? propertiesSectionEl?.querySelector<HTMLElement>('.sidebar-section-header'))?.focus();
+}
+
 export function applyDocMeta(meta: { mtimeMs?: number | null }): void {
   if (typeof meta.mtimeMs === 'number') docMtimeMs = meta.mtimeMs;
   else if (meta.mtimeMs === null) docMtimeMs = null;

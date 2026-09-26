@@ -1,12 +1,13 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import type { EditorView as PmEditorView } from '@tiptap/pm/view';
 import { bootWebview, type Harness } from '../harness/webviewHarness';
+import { formatSlashDate } from '../../src/webview/slashcommands-date';
 
 /**
- * M3/M4 coverage: the action map wired in `slashcommands-actions.ts` (plus
- * the `executeSlashCommand`/`runMatch` fixes in `slashcommands.ts`). T2 does
- * the exhaustive round-trip/mid-line/undo/cancel matrix later; this file
- * checks one representative case per command shape, and the specific
+ * M3/M4/M6 coverage: the action map wired in `slashcommands-actions.ts`
+ * (plus the `executeSlashCommand`/`runMatch` fixes in `slashcommands.ts`).
+ * T2 does the exhaustive round-trip/mid-line/undo/cancel matrix later; this
+ * file checks one representative case per command shape, and the specific
  * handoffs from M2/T1 (list-item escape, preceding-space strip, the
  * "unhandled command reopens the menu" bug).
  */
@@ -315,10 +316,79 @@ describe('slash menu — image (M4)', () => {
   });
 });
 
+describe('slash menu — date and datetime (M6)', () => {
+  const FIXED_NOW = new Date('2026-03-05T09:07:00Z');
+
+  async function runWithClock(h: Harness, query: string): Promise<void> {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(FIXED_NOW);
+    try {
+      await runCommand(h, query);
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  const combos: Array<[format: 'iso' | 'long', timeZone: string]> = [
+    ['iso', 'local'],
+    ['long', 'local'],
+    ['iso', 'UTC'],
+    ['long', 'America/New_York'],
+  ];
+
+  for (const [dateFormat, timeZone] of combos) {
+    it(`/date inserts the expected text for dateFormat=${dateFormat} timeZone=${timeZone}`, async () => {
+      const h = await boot('');
+      h.send({ type: 'settings', slashCommandsEnabled: true, slashCommandsDateFormat: dateFormat, slashCommandsTimeZone: timeZone });
+      await settle();
+      await runWithClock(h, 'date');
+      const expected = formatSlashDate(FIXED_NOW, { format: dateFormat, timeZone, includeTime: false });
+      expect(markdown(h).trim()).toBe(expected);
+      h.wysiwygEditor().commands.undo();
+      expect(markdown(h).trim()).toBe('/date');
+    });
+
+    it(`/datetime inserts the expected text for dateFormat=${dateFormat} timeZone=${timeZone}`, async () => {
+      const h = await boot('');
+      h.send({ type: 'settings', slashCommandsEnabled: true, slashCommandsDateFormat: dateFormat, slashCommandsTimeZone: timeZone });
+      await settle();
+      await runWithClock(h, 'datetime');
+      const expected = formatSlashDate(FIXED_NOW, { format: dateFormat, timeZone, includeTime: true });
+      expect(markdown(h).trim()).toBe(expected);
+      h.wysiwygEditor().commands.undo();
+      expect(markdown(h).trim()).toBe('/datetime');
+    });
+  }
+});
+
+describe('slash menu — properties (M6)', () => {
+  it('inserts an empty frontmatter block, removes "/properties", and one undo restores both', async () => {
+    const h = await boot('');
+    await runCommand(h, 'properties');
+
+    // The frontmatter block isn't part of the PM doc (see editor-main.ts's
+    // frontmatterContent), so check the full document the host would save,
+    // not just the WYSIWYG body.
+    expect(markdown(h).trim()).toBe('');
+    expect(h.lastEditMarkdown()).toBe('---\n\n---\n');
+
+    h.wysiwygEditor().commands.undo();
+    expect(markdown(h).trim()).toBe('/properties');
+    expect(h.lastEditMarkdown()).not.toContain('---');
+  });
+
+  it('/prop is not offered once frontmatter exists (right after running /properties)', async () => {
+    const h = await boot('');
+    await runCommand(h, 'properties');
+    h.typeInWysiwyg('/prop');
+    expect(menuEl()).toBeNull();
+  });
+});
+
 describe('slash menu — unhandled commands (T1 regression)', () => {
-  // As of M4 every command below "properties"/"date"/"datetime" (still M6
-  // no-ops at this point) is wired to a real action — exercise the generic
-  // path (runMatch's "handler returned false" branch in slashcommands.ts) by
+  // As of M4/M6 every registry id is wired to a real action, so there's no
+  // genuinely unhandled id left to pick — exercise the same generic path
+  // (runMatch's "handler returned false" branch in slashcommands.ts) by
   // forcing the external handler to report "not handled" for one call.
   it('a command whose handler reports unhandled closes the menu and stays closed on the next update', async () => {
     const h = await boot('');

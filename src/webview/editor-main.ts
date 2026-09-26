@@ -139,6 +139,7 @@ import {
   applyPlainText,
   toggleSidebarVisible,
   applySupportLink,
+  focusPropertiesSection,
 } from './outlineSidebar';
 import {
   parseFrontmatter,
@@ -344,10 +345,14 @@ let linkTooltip: HTMLDivElement | null = null;
 
 /**
  * Stores raw YAML content between the --- delimiters of a frontmatter block.
- * Empty string when the document has no frontmatter.
+ * `null` when the document has no frontmatter block at all; `''` when a
+ * block is present but has no entries yet (e.g. right after `/properties` —
+ * see `insertEmptyFrontmatter` below). Keeping these distinct matters:
+ * collapsing "empty" into "absent" (as a plain `string` default would) means
+ * `restoreFrontmatter` strips the `---` delimiters on the very next edit.
  */
-let frontmatterContent: string = '';
-setSlashFrontmatterProvider(() => frontmatterContent !== '');
+let frontmatterContent: string | null = null;
+setSlashFrontmatterProvider(() => frontmatterContent !== null);
 
 /**
  * Tracks whether the frontmatter UI block is expanded or collapsed.
@@ -356,17 +361,17 @@ let frontmatterExpanded = false;
 
 // ── M15: Frontmatter helpers ───────────────────────────────────────────────────
 
-function extractFrontmatter(markdown: string): { frontmatter: string; body: string } {
+function extractFrontmatter(markdown: string): { frontmatter: string | null; body: string } {
   // Match YAML frontmatter: --- at start of file (with optional BOM)
   const match = markdown.match(/^(?:---\n)([\s\S]*?)\n---\n?/);
   if (match) {
     return { frontmatter: match[1], body: markdown.slice(match[0].length) };
   }
-  return { frontmatter: '', body: markdown };
+  return { frontmatter: null, body: markdown };
 }
 
-function restoreFrontmatter(frontmatter: string, body: string): string {
-  if (!frontmatter) return body;
+function restoreFrontmatter(frontmatter: string | null, body: string): string {
+  if (frontmatter === null) return body;
   return `---\n${frontmatter}\n---\n${body}`;
 }
 
@@ -3384,10 +3389,13 @@ if (!editorContainer) {
     },
   });
 
-  // M3: wire the slash-command action map (quote/lists/callouts/divider,
-  // code/mermaid/table, link/wikilink/emoji). Image/Properties/Date/Datetime
-  // are left as no-op hooks for M4/M6.
-  initSlashCommandActions(editor, { showLinkDialog });
+  // M3/M4/M6: wire the slash-command action map (quote/lists/callouts/divider,
+  // code/mermaid/table, link/wikilink/emoji/image/properties/date/datetime).
+  initSlashCommandActions(editor, {
+    showLinkDialog,
+    insertEmptyFrontmatter,
+    focusPropertiesSection,
+  });
 
   // Wikilink autocomplete: lazily ask the host for the workspace file list the
   // first time the `[[` popup opens with an empty candidate cache.
@@ -4058,9 +4066,53 @@ if (!editorContainer) {
   }
 
   function refreshPropertiesSidebar(): void {
-    applyProperties(parseFrontmatter(frontmatterContent), {
-      editable: !sourceMode && isSimpleFrontmatter(frontmatterContent),
+    applyProperties(parseFrontmatter(frontmatterContent ?? ''), {
+      editable: !sourceMode && isSimpleFrontmatter(frontmatterContent ?? ''),
     });
+  }
+
+  // M6 — `/properties`: insert an empty frontmatter block (no entries yet;
+  // the user fills them in via the sidebar's "+ Add property") and persist
+  // it exactly like a sidebar edit would (`applyFrontmatterEdit` above is
+  // the same shape, but that one always has entries — this is the one path
+  // that goes from "no frontmatter" to "frontmatter present" with zero of
+  // them). Returns a `revert` that undoes exactly this side effect; the
+  // slash-command action calls it when it detects the paired PM-doc
+  // deletion of `/query` was undone (frontmatterContent lives outside the
+  // ProseMirror doc, so PM's own undo can't reach it — see slashcommands-
+  // actions.ts's actionProperties).
+  function insertEmptyFrontmatter(): { revert: () => void } {
+    const hadFrontmatter = frontmatterContent !== null;
+    const previousContent = frontmatterContent;
+    const previousExpanded = frontmatterExpanded;
+
+    frontmatterContent = '';
+    frontmatterExpanded = true;
+    const body = editor.storage.markdown.getMarkdown() as string;
+    isDirty = restoreFrontmatter(frontmatterContent, body) !== originalContent;
+    vscode.postMessage({ type: 'edit', content: restoreFrontmatter(frontmatterContent, body), pristine: false });
+    renderFrontmatterBlock();
+    refreshPropertiesSidebar();
+
+    return {
+      revert: () => {
+        // Should never fire when frontmatter already existed (`/properties`
+        // is only offered when it doesn't — see requiresNoFrontmatter in the
+        // registry), but don't clobber real content if it somehow does.
+        if (hadFrontmatter) return;
+        frontmatterContent = previousContent;
+        frontmatterExpanded = previousExpanded;
+        const revertedBody = editor.storage.markdown.getMarkdown() as string;
+        isDirty = restoreFrontmatter(frontmatterContent, revertedBody) !== originalContent;
+        vscode.postMessage({
+          type: 'edit',
+          content: restoreFrontmatter(frontmatterContent, revertedBody),
+          pristine: false,
+        });
+        renderFrontmatterBlock();
+        refreshPropertiesSidebar();
+      },
+    };
   }
 
   // ── M6a: Link click handler (Cmd+Click to navigate) ────────────────────────
@@ -4439,7 +4491,7 @@ if (!editorContainer) {
     const existing = document.getElementById('frontmatter-block');
     if (existing) existing.remove();
 
-    if (!frontmatterContent) return;
+    if (frontmatterContent === null) return;
 
     const block = document.createElement('div');
     block.id = 'frontmatter-block';
