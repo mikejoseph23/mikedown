@@ -1963,6 +1963,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'toolbar-dropdown.css',
       'outline-sidebar.css',
       'emojipicker.css',
+      'slashcommands.css',
       'spellcheck.css',
     ];
     const cssLinks = cssFiles.map(f => {

@@ -19,6 +19,7 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { isSlashMenuOpen } from './slashcommands';
 
 const MAX_RESULTS = 8;
 
@@ -177,7 +178,9 @@ export const WikilinkAutocomplete = Extension.create({
             update(view) {
               viewRef = view;
               const { selection } = view.state;
-              if (!selection.empty) {
+              // Only one popup at a time: the slash menu (higher priority,
+              // so its view updates first) wins.
+              if (!selection.empty || isSlashMenuOpen()) {
                 hidePopup();
                 return;
               }

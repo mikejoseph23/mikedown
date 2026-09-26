@@ -1,0 +1,300 @@
+/* Slash command menu ("/" menu).
+ *
+ * Reads as a VS Code quick pick crossed with Notion's block menu: a compact
+ * editor widget, grouped rows with an icon tile, title, muted description and
+ * a right-aligned shortcut hint, and a quiet utility footer.
+ *
+ * Every color resolves through a VS Code theme token first. The local
+ * --slash-* tokens exist so light/dark/high-contrast/force-light only need to
+ * swap a handful of values.
+ */
+
+#mikedown-slash-menu {
+  --slash-bg: var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526));
+  --slash-fg: var(--vscode-editorWidget-foreground, var(--vscode-foreground, #cccccc));
+  --slash-border: var(
+    --vscode-editorWidget-border,
+    var(--vscode-widget-border, rgba(128, 128, 128, 0.35))
+  );
+  --slash-shadow: var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+  --slash-muted: var(--vscode-descriptionForeground, rgba(204, 204, 204, 0.7));
+  --slash-active-bg: var(--vscode-list-activeSelectionBackground, #04395e);
+  --slash-active-fg: var(--vscode-list-activeSelectionForeground, #ffffff);
+  --slash-focus: var(--vscode-focusBorder, #007fd4);
+  --slash-hover-bg: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+  --slash-hover-fg: var(--vscode-list-hoverForeground, var(--slash-fg));
+  --slash-tile-bg: var(--vscode-editor-background, rgba(128, 128, 128, 0.08));
+  --slash-tile-border: var(
+    --vscode-widget-border,
+    var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.3))
+  );
+  --slash-divider: var(
+    --vscode-menu-separatorBackground,
+    var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.3))
+  );
+  --slash-row-radius: 4px;
+
+  position: fixed;
+  z-index: 1150;
+  width: 320px;
+  max-width: calc(100vw - 16px);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 4px 0 0;
+  background: var(--slash-bg);
+  color: var(--slash-fg);
+  border: 1px solid var(--slash-border);
+  border-radius: 6px;
+  box-shadow:
+    0 4px 16px var(--slash-shadow),
+    0 0 0 0.5px var(--slash-shadow);
+  font-family: var(--vscode-font-family, system-ui, -apple-system, sans-serif);
+  font-size: 13px;
+  line-height: 1.35;
+  user-select: none;
+  outline: none;
+  animation: slash-menu-in 0.09s ease-out;
+}
+
+#mikedown-slash-menu.is-above {
+  animation-name: slash-menu-in-above;
+}
+
+@keyframes slash-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slash-menu-in-above {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mikedown-slash-menu {
+    animation: none;
+  }
+}
+
+/* Scrollable command list; the footer sits outside it and is always visible. */
+.slash-menu-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 4px 4px;
+}
+
+.slash-menu-group + .slash-menu-group {
+  margin-top: 4px;
+}
+
+.slash-menu-group-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 8px 4px;
+  background: var(--slash-bg);
+  color: var(--slash-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Command row ───────────────────────────────────────────────────────────── */
+
+.slash-menu-item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  min-height: 38px;
+  padding: 4px 8px;
+  border-radius: var(--slash-row-radius);
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  cursor: pointer;
+}
+
+.slash-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+  border: 1px solid var(--slash-tile-border);
+  border-radius: 5px;
+  background: var(--slash-tile-bg);
+  color: var(--vscode-icon-foreground, var(--slash-fg));
+}
+
+.slash-menu-icon svg {
+  display: block;
+}
+
+.slash-menu-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.slash-menu-title,
+.slash-menu-desc {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.slash-menu-title {
+  font-weight: 500;
+}
+
+.slash-menu-desc {
+  margin-top: 1px;
+  color: var(--slash-muted);
+  font-size: 11.5px;
+}
+
+.slash-menu-hint {
+  color: var(--slash-muted);
+  font-family: var(--vscode-editor-font-family, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 11px;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+/* Hover is a quiet tint; keyboard focus is the unmistakable selection. */
+.slash-menu-item:hover:not(.is-active) {
+  background: var(--slash-hover-bg);
+  color: var(--slash-hover-fg);
+}
+
+.slash-menu-item.is-active {
+  background: var(--slash-active-bg);
+  color: var(--slash-active-fg);
+  outline-color: var(--slash-focus);
+}
+
+.slash-menu-item.is-active .slash-menu-desc,
+.slash-menu-item.is-active .slash-menu-hint {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.slash-menu-item.is-active .slash-menu-icon {
+  color: inherit;
+  border-color: currentColor;
+  background: transparent;
+}
+
+/* ── Footer: "Turn off slash commands" — a utility, not a command ─────────── */
+
+.slash-menu-divider {
+  flex: none;
+  height: 1px;
+  margin: 0 8px;
+  background: var(--slash-divider);
+}
+
+.slash-menu-footer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 4px 4px;
+  padding: 4px 8px;
+  border-radius: var(--slash-row-radius);
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  color: var(--slash-muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.slash-menu-footer-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  opacity: 0.75;
+}
+
+.slash-menu-footer-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.slash-menu-footer:hover:not(.is-active) {
+  background: var(--slash-hover-bg);
+  color: var(--slash-fg);
+}
+
+.slash-menu-footer.is-active {
+  background: var(--slash-active-bg);
+  color: var(--slash-active-fg);
+  outline-color: var(--slash-focus);
+}
+
+.slash-menu-footer.is-active .slash-menu-footer-icon {
+  opacity: 1;
+}
+
+/* ── Theme variants ────────────────────────────────────────────────────────── */
+
+/* Editor-only light override: theme.css swaps most tokens already; fill in
+   the ones it doesn't define so hover/shadow/tiles read as light. */
+body.mikedown-force-light #mikedown-slash-menu {
+  --slash-fg: var(--vscode-editor-foreground, #1e1e1e);
+  --slash-shadow: rgba(0, 0, 0, 0.16);
+  --slash-hover-bg: rgba(0, 0, 0, 0.05);
+  --slash-hover-fg: var(--vscode-editor-foreground, #1e1e1e);
+  --slash-tile-bg: var(--vscode-editor-background, #ffffff);
+  --slash-tile-border: var(--vscode-editorWidget-border, #c8c8c8);
+  --slash-active-bg: var(--vscode-list-activeSelectionBackground, #e8e8e8);
+  --slash-active-fg: var(--vscode-list-activeSelectionForeground, #1e1e1e);
+}
+
+body.mikedown-force-dark #mikedown-slash-menu {
+  --slash-fg: var(--vscode-editor-foreground, #d4d4d4);
+  --slash-hover-bg: rgba(255, 255, 255, 0.06);
+  --slash-hover-fg: var(--vscode-editor-foreground, #d4d4d4);
+}
+
+/* High contrast: no fills doing the work alone — borders carry state. */
+body.vscode-high-contrast #mikedown-slash-menu,
+body.vscode-high-contrast-light #mikedown-slash-menu {
+  --slash-border: var(--vscode-contrastBorder, currentColor);
+  --slash-divider: var(--vscode-contrastBorder, currentColor);
+  --slash-tile-border: var(--vscode-contrastBorder, currentColor);
+  box-shadow: none;
+}
+
+body.vscode-high-contrast .slash-menu-item:hover:not(.is-active),
+body.vscode-high-contrast .slash-menu-footer:hover:not(.is-active),
+body.vscode-high-contrast-light .slash-menu-item:hover:not(.is-active),
+body.vscode-high-contrast-light .slash-menu-footer:hover:not(.is-active) {
+  background: transparent;
+  outline: 1px dashed var(--vscode-contrastActiveBorder, var(--slash-focus));
+}
+
+body.vscode-high-contrast .slash-menu-item.is-active,
+body.vscode-high-contrast .slash-menu-footer.is-active,
+body.vscode-high-contrast-light .slash-menu-item.is-active,
+body.vscode-high-contrast-light .slash-menu-footer.is-active {
+  outline: 1px solid var(--vscode-contrastActiveBorder, var(--slash-focus));
+}

@@ -13,6 +13,7 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { isSlashMenuOpen } from './slashcommands';
 import emojiData from 'markdown-it-emoji/lib/data/full.mjs';
 
 const EMOJI_MAP = emojiData as Record<string, string>;
@@ -160,7 +161,9 @@ export const EmojiAutocomplete = Extension.create({
             update(view) {
               viewRef = view;
               const { selection } = view.state;
-              if (!selection.empty) {
+              // Only one popup at a time: the slash menu (higher priority,
+              // so its view updates first) wins.
+              if (!selection.empty || isSlashMenuOpen()) {
                 hidePopup();
                 return;
               }

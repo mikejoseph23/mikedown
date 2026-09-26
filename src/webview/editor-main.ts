@@ -78,6 +78,7 @@ import { Highlight } from './highlight';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
 import { Wikilink } from './wikilink-node';
 import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
+import { SlashCommands, closeSlashMenu, setSlashFrontmatterProvider, setSlashPostMessage, setSlashSourceMode } from './slashcommands';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import {
   initOutlineSidebar,
@@ -142,6 +143,7 @@ const vscode = acquireVsCodeApi();
 // call acquireVsCodeApi() a second time (which throws — only one call per
 // webview is allowed).
 setImagePastePostMessage(vscode.postMessage.bind(vscode));
+setSlashPostMessage(vscode.postMessage.bind(vscode));
 
 console.log('MikeDown: editor-main.ts script executing');
 
@@ -292,6 +294,7 @@ let linkTooltip: HTMLDivElement | null = null;
  * Empty string when the document has no frontmatter.
  */
 let frontmatterContent: string = '';
+setSlashFrontmatterProvider(() => frontmatterContent !== '');
 
 /**
  * Tracks whether the frontmatter UI block is expanded or collapsed.
@@ -2971,6 +2974,8 @@ if (!editorContainer) {
       Emoji,
       EmojiAutocomplete,
       WikilinkAutocomplete,
+      // "/" command menu. Priority 1000 so its keys win over the autocompletes.
+      SlashCommands,
 
       // ── Highlight / mark (==text==) ────────────────────────────────────────
       // Inline `<mark>` mark; round-trips to `==text==` via markdown-it-mark.
@@ -4524,6 +4529,7 @@ if (!editorContainer) {
     editorEl.style.display = 'none';
     sourceContainer.style.display = 'block';
     sourceMode = true;
+    setSlashSourceMode(true);
 
     // Lock out doc-editing toolbar buttons + mark source toggle active.
     updateToolbarState(editor);
@@ -4586,6 +4592,7 @@ if (!editorContainer) {
     sourceContainer.style.display = 'none';
     editorEl.style.display = '';
     sourceMode = false;
+    setSlashSourceMode(false);
 
     // Map CM cursor (markdown char offset) → PM position using snippet search.
     // Grab the last ~40 chars of markdown before the cursor, strip out common
@@ -4848,6 +4855,7 @@ if (!editorContainer) {
       // M2d — Load content from disk and establish the originalContent baseline.
       // isLoading prevents the onUpdate handler from echoing this back as an
       // 'edit' message, which would incorrectly mark the document as dirty.
+      closeSlashMenu({ reload: true });
       isLoading = true;
       originalContent = message.content ?? '';
 
