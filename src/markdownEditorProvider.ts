@@ -905,8 +905,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (settings.sidebarPosition === 'left' || settings.sidebarPosition === 'right') {
             config.update('sidebar.position', settings.sidebarPosition, vscode.ConfigurationTarget.Global);
           }
-          if (typeof settings.supportShowSidebarLink === 'boolean') {
-            config.update('support.showSidebarLink', settings.supportShowSidebarLink, vscode.ConfigurationTarget.Global);
+          // Support appeal footer link (M6) — the Appearance checkbox and the
+          // footer's × (dismiss forever) both post this key.
+          const supportShowSidebarLink = (settings as { supportShowSidebarLink?: unknown }).supportShowSidebarLink;
+          if (typeof supportShowSidebarLink === 'boolean') {
+            void config.update('support.showSidebarLink', supportShowSidebarLink, vscode.ConfigurationTarget.Global);
           }
           if (typeof settings.sidebarWidth === 'number' && settings.sidebarWidth >= 160 && settings.sidebarWidth <= 360) {
             config.update('sidebar.width', Math.round(settings.sidebarWidth), vscode.ConfigurationTarget.Global);
