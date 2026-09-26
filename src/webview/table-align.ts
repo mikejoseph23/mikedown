@@ -63,7 +63,7 @@ function hasSpan(node: PMNode): boolean {
 function isMarkdownSerializable(node: PMNode): boolean {
   const rows = tableChildren(node);
   const firstRow = rows[0];
-  if (!firstRow) return false;
+  if (!firstRow) {return false;}
   const bodyRows = rows.slice(1);
   if (
     tableChildren(firstRow).some(
@@ -122,7 +122,7 @@ export const TableAligned = Table.extend({
         serialize(state: any, node: PMNode, parent: PMNode | Fragment) {
           if (!isMarkdownSerializable(node)) {
             state.write(serializeTableAsHTML(node, parent));
-            if (node.isBlock) state.closeBlock(node);
+            if (node.isBlock) {state.closeBlock(node);}
             return;
           }
           state.inTable = true;
@@ -130,7 +130,7 @@ export const TableAligned = Table.extend({
           node.forEach((row: PMNode, _p: number, i: number) => {
             state.write('| ');
             row.forEach((col: PMNode, _p2: number, j: number) => {
-              if (j) state.write(' | ');
+              if (j) {state.write(' | ');}
               const cellContent = col.firstChild;
               if (cellContent && cellContent.textContent.trim()) {
                 state.renderInline(cellContent);
@@ -170,7 +170,7 @@ export function setColumnAlign(editor: Editor, align: ColumnAlign): boolean {
   } catch {
     return false;
   }
-  if (!$cell) return false;
+  if (!$cell) {return false;}
 
   const table = $cell.node(-1);
   const tableStart = $cell.start(-1);
@@ -191,7 +191,7 @@ export function setColumnAlign(editor: Editor, align: ColumnAlign): boolean {
   cellRelPositions.forEach((rel) => {
     const pos = tableStart + rel;
     const cellNode = tr.doc.nodeAt(pos);
-    if (cellNode) tr.setNodeMarkup(pos, undefined, { ...cellNode.attrs, textAlign: value });
+    if (cellNode) {tr.setNodeMarkup(pos, undefined, { ...cellNode.attrs, textAlign: value });}
   });
 
   if (tr.docChanged) {

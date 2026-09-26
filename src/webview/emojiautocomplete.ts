@@ -50,7 +50,7 @@ function findMatches(query: string): Match[] {
     } else if (key.includes(q)) {
       contains.push({ shortcode: key, char: EMOJI_MAP[key] });
     }
-    if (starts.length >= MAX_RESULTS) break;
+    if (starts.length >= MAX_RESULTS) {break;}
   }
   return [...starts, ...contains].slice(0, MAX_RESULTS);
 }
@@ -78,7 +78,7 @@ function ensurePopup(): HTMLElement {
 }
 
 function renderPopup(): void {
-  if (!state) return;
+  if (!state) {return;}
   const el = ensurePopup();
   el.innerHTML = '';
   state.matches.forEach((m, i) => {
@@ -106,7 +106,7 @@ function renderPopup(): void {
 }
 
 function positionPopup(view: any, from: number): void {
-  if (!popupEl) return;
+  if (!popupEl) {return;}
   const coords = view.coordsAtPos(from);
   // anchor below the typed `:abc`
   const top = coords.bottom + 4;
@@ -130,9 +130,9 @@ function positionPopup(view: any, from: number): void {
 let viewRef: any = null;
 
 function selectMatch(index: number): void {
-  if (!state || !viewRef) return;
+  if (!state || !viewRef) {return;}
   const match = state.matches[index];
-  if (!match) return;
+  if (!match) {return;}
   const { from, to } = state;
   const emojiType = viewRef.state.schema.nodes.emoji;
   const tr = viewRef.state.tr;
@@ -213,7 +213,7 @@ export const EmojiAutocomplete = Extension.create({
         },
         props: {
           handleKeyDown(view, event) {
-            if (!state || state.matches.length === 0) return false;
+            if (!state || state.matches.length === 0) {return false;}
             if (event.key === 'ArrowDown') {
               event.preventDefault();
               state.activeIndex = (state.activeIndex + 1) % state.matches.length;

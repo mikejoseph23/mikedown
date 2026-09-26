@@ -157,7 +157,7 @@ export function showSupportCard(opts: ShowSupportCardOptions): void {
 
   root.addEventListener('click', e => {
     const btn = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null;
-    if (!btn || !root.contains(btn)) return;
+    if (!btn || !root.contains(btn)) {return;}
     handleAction(card, btn.dataset.action as SupportCardAction);
   });
 
@@ -175,7 +175,7 @@ export function showSupportCard(opts: ShowSupportCardOptions): void {
 
   // Enter transition: next frame so the initial state paints first.
   requestAnimationFrame(() => {
-    if (current === card) root.classList.add('is-open');
+    if (current === card) {root.classList.add('is-open');}
   });
 
   if (opts.reason === 'manual') {
@@ -185,7 +185,7 @@ export function showSupportCard(opts: ShowSupportCardOptions): void {
 
 /** Close the card without posting an action (e.g. host teardown). */
 export function hideSupportCard(): void {
-  if (!current) return;
+  if (!current) {return;}
   const card = current;
   current = null;
   teardown(card, true);
@@ -194,11 +194,11 @@ export function hideSupportCard(): void {
 /** Host confirmed the share line is on the clipboard: show the confirmation on the share button for 2s. */
 export function showSupportCopied(): void {
   const card = current;
-  if (!card) return;
+  if (!card) {return;}
   const btn = card.shareBtn;
   btn.classList.add('is-copied');
   btn.replaceChildren(checkGlyph(), document.createTextNode(card.copied));
-  if (card.copiedTimer !== undefined) window.clearTimeout(card.copiedTimer);
+  if (card.copiedTimer !== undefined) {window.clearTimeout(card.copiedTimer);}
   card.copiedTimer = window.setTimeout(() => {
     card.copiedTimer = undefined;
     btn.classList.remove('is-copied');
@@ -209,7 +209,7 @@ export function showSupportCopied(): void {
 // ── Internals ────────────────────────────────────────────────────────────────
 
 function handleAction(card: OpenCard, action: SupportCardAction): void {
-  if (current !== card) return;
+  if (current !== card) {return;}
   // Share keeps the card open to show the Copied confirmation; everything else closes it.
   if (action !== 'share') {
     current = null;
@@ -219,7 +219,7 @@ function handleAction(card: OpenCard, action: SupportCardAction): void {
 }
 
 function teardown(card: OpenCard, animate: boolean): void {
-  if (card.copiedTimer !== undefined) window.clearTimeout(card.copiedTimer);
+  if (card.copiedTimer !== undefined) {window.clearTimeout(card.copiedTimer);}
   const hadFocus = card.root.contains(document.activeElement);
   const { root } = card;
   root.removeAttribute('id');
@@ -232,7 +232,7 @@ function teardown(card: OpenCard, animate: boolean): void {
   } else {
     root.remove();
   }
-  if (hadFocus) card.opts.restoreFocus?.();
+  if (hadFocus) {card.opts.restoreFocus?.();}
 }
 
 function makeButton(label: string, action: SupportCardAction, className: string): HTMLButtonElement {
@@ -279,7 +279,7 @@ function checkGlyph(): SVGSVGElement {
 }
 
 function ensureStyles(): void {
-  if (document.getElementById(STYLE_ID)) return;
+  if (document.getElementById(STYLE_ID)) {return;}
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = SUPPORT_CARD_CSS;

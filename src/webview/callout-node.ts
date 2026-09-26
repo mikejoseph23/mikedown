@@ -14,7 +14,7 @@ export const CALLOUT_KINDS = ['note', 'tip', 'important', 'warning', 'caution'] 
 export type CalloutKind = typeof CALLOUT_KINDS[number];
 
 export function normalizeCalloutKind(s: string | null | undefined): CalloutKind | null {
-  if (!s) return null;
+  if (!s) {return null;}
   const k = s.toLowerCase();
   return (CALLOUT_KINDS as readonly string[]).includes(k) ? (k as CalloutKind) : null;
 }
@@ -53,10 +53,10 @@ export const Callout = Node.create({
         tag: 'blockquote[data-callout]',
         priority: 70,
         getAttrs: (dom) => {
-          if (typeof dom === 'string') return false;
+          if (typeof dom === 'string') {return false;}
           const el = dom as HTMLElement;
           const kind = normalizeCalloutKind(el.getAttribute('data-callout'));
-          if (!kind) return false;
+          if (!kind) {return false;}
           return { kind };
         },
       },
@@ -127,18 +127,18 @@ export const Callout = Node.create({
               const tokens = state.tokens;
               for (let i = 0; i < tokens.length; i++) {
                 const open = tokens[i];
-                if (open.type !== 'blockquote_open') continue;
+                if (open.type !== 'blockquote_open') {continue;}
                 const pOpen = tokens[i + 1];
                 const inlineTok = tokens[i + 2];
-                if (!pOpen || pOpen.type !== 'paragraph_open') continue;
-                if (!inlineTok || inlineTok.type !== 'inline') continue;
+                if (!pOpen || pOpen.type !== 'paragraph_open') {continue;}
+                if (!inlineTok || inlineTok.type !== 'inline') {continue;}
                 const content: string = inlineTok.content || '';
                 // GitHub matches the marker case-insensitively; we accept any
                 // case on parse but always re-serialize uppercase.
                 const m = /^\[!([A-Za-z]+)\][ \t]*(?:\r?\n)?/.exec(content);
-                if (!m) continue;
+                if (!m) {continue;}
                 const kind = normalizeCalloutKind(m[1]);
-                if (!kind) continue;
+                if (!kind) {continue;}
 
                 const stripped = content.slice(m[0].length).replace(/^\r?\n+/, '');
                 inlineTok.content = stripped;

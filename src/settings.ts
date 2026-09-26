@@ -145,7 +145,7 @@ export function getSettings(): MikeDownSettings {
 }
 
 function cleanWords(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
+  if (!Array.isArray(raw)) {return [];}
   const seen = new Set<string>();
   const out: string[] = [];
   for (const word of raw) {

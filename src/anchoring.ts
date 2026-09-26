@@ -33,7 +33,7 @@ export function dedupedAnchorIdAt(headingTexts: string[], index: number): string
     const base = githubAnchorId(headingTexts[i]);
     const count = seen.get(base) ?? 0;
     seen.set(base, count + 1);
-    if (i === index) return count === 0 ? base : `${base}-${count}`;
+    if (i === index) {return count === 0 ? base : `${base}-${count}`;}
   }
   return '';
 }

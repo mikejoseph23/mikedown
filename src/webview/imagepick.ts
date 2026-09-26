@@ -55,7 +55,7 @@ interface PickedImageResult {
  */
 export function handlePickedImageResult(message: PickedImageResult): void {
   const req = pending.get(message.requestId);
-  if (!req) return;
+  if (!req) {return;}
   pending.delete(message.requestId);
 
   if (message.cancelled || message.error) {

@@ -23,7 +23,7 @@ export function countWords(text: string): number {
     .replace(/^---+$/gm, '')
     .trim();
 
-  if (!stripped) return 0;
+  if (!stripped) {return 0;}
   return stripped.split(/\s+/).filter(w => w.length > 0).length;
 }
 

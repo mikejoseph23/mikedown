@@ -65,7 +65,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    * delete) so all visible sidebars stay in sync.
    */
   public static broadcastBacklinks(): void {
-    if (!MarkdownEditorProvider.backlinkProvider) return;
+    if (!MarkdownEditorProvider.backlinkProvider) {return;}
     for (const [panel, doc] of MarkdownEditorProvider.openPanels) {
       MarkdownEditorProvider.sendBacklinksToWebview(panel.webview, doc);
     }
@@ -89,7 +89,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webview: vscode.Webview,
     document: vscode.TextDocument
   ): void {
-    if (!MarkdownEditorProvider.backlinkProvider) return;
+    if (!MarkdownEditorProvider.backlinkProvider) {return;}
     const entries = MarkdownEditorProvider.backlinkProvider.getBacklinksFor(document.uri);
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
     // Occurrence index per (source file + link href): entries arrive in line
@@ -423,8 +423,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         if (sb) {
           sb.hideSelection();
           const cached = MarkdownEditorProvider.lastDocTextByPanel.get(webviewPanel);
-          if (cached !== undefined) sb.showDocument(cached);
-          else sb.hide();
+          if (cached !== undefined) {sb.showDocument(cached);}
+          else {sb.hide();}
         }
       } else if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
@@ -683,7 +683,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (typeof msg.document === 'string') {
             MarkdownEditorProvider.lastDocTextByPanel.set(webviewPanel, msg.document);
           }
-          if (MarkdownEditorProvider.activePanel !== webviewPanel || !MarkdownEditorProvider.statusBar) break;
+          if (MarkdownEditorProvider.activePanel !== webviewPanel || !MarkdownEditorProvider.statusBar) {break;}
           const sb = MarkdownEditorProvider.statusBar;
           if (typeof msg.document === 'string') {
             sb.showDocument(msg.document);
@@ -779,7 +779,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           const href = message.href as string;
           const settings = getSettings();
 
-          if (!href) break;
+          if (!href) {break;}
 
           // Internal anchor link (#section-name)
           if (href.startsWith('#')) {
@@ -863,14 +863,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           while ((m = headingRegex.exec(currentText)) !== null) {
             anchorIds.add(githubAnchorId(m[1]));
           }
-          for (const id of collectHtmlAnchorIds(currentText)) anchorIds.add(id);
+          for (const id of collectHtmlAnchorIds(currentText)) {anchorIds.add(id);}
 
           const brokenLinks: string[] = [];
 
           for (const link of links) {
             if (link.type === 'anchor') {
               const anchor = link.href.slice(1); // remove '#'
-              if (!anchorIds.has(anchor)) brokenLinks.push(link.href);
+              if (!anchorIds.has(anchor)) {brokenLinks.push(link.href);}
             } else if (link.type === 'file' || link.type === 'fileAnchor') {
               const [filePart, anchorPart] = link.href.split('#');
               const absPath = path.resolve(currentDir, decodePathPart(filePart));
@@ -882,9 +882,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
                   const anchors = new Set<string>();
                   const re = /^#{1,6}\s+(.+)$/gm;
                   let r: RegExpExecArray | null;
-                  while ((r = re.exec(content)) !== null) anchors.add(githubAnchorId(r[1]));
-                  for (const id of collectHtmlAnchorIds(content)) anchors.add(id);
-                  if (!anchors.has(anchorPart)) brokenLinks.push(link.href);
+                  while ((r = re.exec(content)) !== null) {anchors.add(githubAnchorId(r[1]));}
+                  for (const id of collectHtmlAnchorIds(content)) {anchors.add(id);}
+                  if (!anchors.has(anchorPart)) {brokenLinks.push(link.href);}
                 }
               } catch {
                 brokenLinks.push(link.href);
@@ -973,7 +973,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               const best = pickBestWikilinkTarget(matches, fromDir);
               if (!best) { results.push({ target: rawTarget, href: null, count: 0 }); continue; }
               let rel = path.relative(fromDir, best).replace(/\\/g, '/');
-              if (!rel.startsWith('.')) rel = './' + rel;
+              if (!rel.startsWith('.')) {rel = './' + rel;}
               results.push({ target: rawTarget, href: rel, count: matches.length });
             }
           }
@@ -983,9 +983,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         case 'createWikilink': {
           // Phase 6 — Obsidian-style create-on-click. Gated behind the opt-in
           // `mikedown.wikilink.createOnClick` setting; when off we do nothing.
-          if (!getSettings().wikilink.createOnClick) break;
+          if (!getSettings().wikilink.createOnClick) {break;}
           const rawTarget = ((message as any).target as string || '').trim();
-          if (!rawTarget) break;
+          if (!rawTarget) {break;}
           // Refuse path traversal; a wikilink target is a name (optionally with
           // forward-slash subpath), never an escape out of the workspace.
           if (rawTarget.split(/[\\/]/).some(seg => seg === '..')) {
@@ -1011,9 +1011,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             // Tell the source webview the target now resolves so the wikilink
             // flips from unresolved → resolved without a reload.
             let rel = path.relative(dir, newUri.fsPath).replace(/\\/g, '/');
-            if (!rel.startsWith('.')) rel = './' + rel;
+            if (!rel.startsWith('.')) {rel = './' + rel;}
             webviewPanel.webview.postMessage({ type: 'wikilinksResolved', results: [{ target: rawTarget, href: rel }] });
-            if (created) vscode.window.showInformationMessage(`MikeDown: created ${fileName}`);
+            if (created) {vscode.window.showInformationMessage(`MikeDown: created ${fileName}`);}
           } catch {
             vscode.window.showErrorMessage(`MikeDown: could not create "${fileName}".`);
           }
@@ -1025,7 +1025,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // backlinks in OTHER markdown files that target this file's #oldSlug.
           const oldSlug = message.oldSlug;
           const newSlug = message.newSlug;
-          if (!oldSlug || !newSlug) break;
+          if (!oldSlug || !newSlug) {break;}
           await this.fixCrossFileHeadingLinks(document, oldSlug, newSlug);
           break;
         }
@@ -1185,7 +1185,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       // Skip true external/data URIs, but NOT webview-resolved URIs — those
       // start with https:// (modern VS Code emits https://*.vscode-cdn.net/...
       // from asWebviewUri) and are exactly what we're trying to reverse here.
-      if (isExternalOrDataUri(src) && !isWebviewResolvedUri(src)) return match;
+      if (isExternalOrDataUri(src) && !isWebviewResolvedUri(src)) {return match;}
       // Strip cache-bust queries / fragments (added by the resize popover so
       // the browser re-fetches an overwritten file). They're meaningless on a
       // local-disk path and would otherwise leak into the saved markdown.
@@ -1374,7 +1374,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     newSlug: string,
   ): Promise<void> {
     const provider = MarkdownEditorProvider.backlinkProvider;
-    if (!provider) return;
+    if (!provider) {return;}
 
     // The index keys hrefs by resolved target path and stores the fragment
     // verbatim. Keep only entries whose fragment is exactly `oldSlug`.
@@ -1385,7 +1385,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const entries = provider
       .getBacklinksFor(document.uri)
       .filter(e => fragmentOf(e.linkHref) === oldSlug);
-    if (entries.length === 0) return;
+    if (entries.length === 0) {return;}
 
     const fileCount = new Set(entries.map(e => e.sourceFile.fsPath)).size;
     const pref = getSettings().headingRename.updateLinks;
@@ -1398,7 +1398,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         { modal: true },
         'Update Links'
       );
-      if (choice !== 'Update Links') return;
+      if (choice !== 'Update Links') {return;}
     }
     // pref === 'always' falls through and applies silently; 'never' never
     // reaches here (the webview suppresses the message entirely).
@@ -1425,7 +1425,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         const oldHref = e.linkHref; // e.g. ./other.md#old-slug
         const newHref = oldHref.slice(0, oldHref.indexOf('#') + 1) + newSlug;
         const lineIdx = e.lineNumber - 1;
-        if (lineIdx < 0 || lineIdx >= srcDoc.lineCount) continue;
+        if (lineIdx < 0 || lineIdx >= srcDoc.lineCount) {continue;}
         const lineText = srcDoc.lineAt(lineIdx).text;
         // Replace every occurrence of this exact href on the line (duplicates
         // all point at the same anchor, so they all move together).
@@ -1934,7 +1934,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    */
   private async cleanupOrphanedImages(savedDoc: vscode.TextDocument): Promise<void> {
     const settings = getSettings().imagePaste;
-    if (!settings.cleanupUnreferenced) return;
+    if (!settings.cleanupUnreferenced) {return;}
 
     const docPath = savedDoc.uri.fsPath;
     const previous = this.imagePathsBaseline.get(docPath) ?? new Set<string>();
@@ -1944,21 +1944,21 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     this.imagePathsBaseline.set(docPath, current);
 
     const removed = new Set<string>();
-    for (const p of previous) if (!current.has(p)) removed.add(p);
+    for (const p of previous) {if (!current.has(p)) {removed.add(p);}}
     const sessionPasted = this.sessionPastedAbsPaths.get(docPath);
     if (sessionPasted) {
-      for (const p of sessionPasted) if (!current.has(p)) removed.add(path.normalize(p));
+      for (const p of sessionPasted) {if (!current.has(p)) {removed.add(path.normalize(p));}}
       // Anything that survived (= still referenced) is now part of the saved
       // baseline; anything else we're about to delete. Either way, drop it.
       this.sessionPastedAbsPaths.delete(docPath);
     }
-    if (removed.size === 0) return;
+    if (removed.size === 0) {return;}
 
     const wsRoot = vscode.workspace.getWorkspaceFolder(savedDoc.uri)?.uri.fsPath;
     const docName = path.basename(docPath, path.extname(docPath));
     const candidates: string[] = [];
     for (const absPath of removed) {
-      if (!isInsideManagedFolder(absPath, settings, docPath, wsRoot)) continue;
+      if (!isInsideManagedFolder(absPath, settings, docPath, wsRoot)) {continue;}
       // Only auto-delete files that came from the paste pipeline. Files this
       // session pasted are known-ours; for older files we fall back to a
       // filename-shape match against the configured paste pattern. A
@@ -1967,14 +1967,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       const wasSessionPasted = sessionPasted?.has(absPath) ?? false;
       if (!wasSessionPasted) {
         const filename = path.basename(absPath);
-        if (!looksLikeAutoPastedImage(filename, settings.filenamePattern, docName)) continue;
+        if (!looksLikeAutoPastedImage(filename, settings.filenamePattern, docName)) {continue;}
       }
       try {
-        if (!fs.existsSync(absPath)) continue;
+        if (!fs.existsSync(absPath)) {continue;}
       } catch { continue; }
       candidates.push(absPath);
     }
-    if (candidates.length === 0) return;
+    if (candidates.length === 0) {return;}
 
     // Workspace-wide cross-reference check. Skip the saved doc itself (we
     // already know its current refs are in `current`).
@@ -1985,7 +1985,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     let deletedCount = 0;
     for (const absPath of candidates) {
-      if (referencedElsewhere.has(absPath)) continue;
+      if (referencedElsewhere.has(absPath)) {continue;}
       try {
         await fs.promises.unlink(absPath);
         deletedCount += 1;
@@ -2011,7 +2011,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     excludeDoc: vscode.Uri
   ): Promise<Set<string>> {
     const referenced = new Set<string>();
-    if (candidates.length === 0) return referenced;
+    if (candidates.length === 0) {return referenced;}
     if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
       // No workspace — nothing else to check against.
       return referenced;
@@ -2025,7 +2025,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       2000
     );
     for (const fileUri of files) {
-      if (path.normalize(fileUri.fsPath) === excludePath) continue;
+      if (path.normalize(fileUri.fsPath) === excludePath) {continue;}
       try {
         const bytes = await vscode.workspace.fs.readFile(fileUri);
         const text = Buffer.from(bytes).toString('utf8');
@@ -2035,9 +2035,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         const absRefs = resolveLocalImagePaths(refs, fileDir, wsRoot);
         for (const absRef of absRefs) {
           const norm = path.normalize(absRef);
-          if (candidateSet.has(norm)) referenced.add(norm);
+          if (candidateSet.has(norm)) {referenced.add(norm);}
         }
-        if (referenced.size === candidateSet.size) break; // all accounted for
+        if (referenced.size === candidateSet.size) {break;} // all accounted for
       } catch {
         // Unreadable file — skip and continue. We bias toward NOT deleting
         // when in doubt, but a single read failure shouldn't block the rest
@@ -2072,7 +2072,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       }
       return null;
     }
-    if (isExternalOrDataUri(cleanSrc)) return null;
+    if (isExternalOrDataUri(cleanSrc)) {return null;}
     return path.resolve(docDirFs, cleanSrc);
   }
 
@@ -2221,13 +2221,13 @@ interface WebviewMessage {
 function readSectionPrefs(raw: unknown): Record<string, boolean> {
   if (Array.isArray(raw)) {
     const out: Record<string, boolean> = {};
-    for (const name of raw) if (typeof name === 'string') out[name] = true;
+    for (const name of raw) {if (typeof name === 'string') {out[name] = true;}}
     return out;
   }
   if (raw && typeof raw === 'object') {
     const out: Record<string, boolean> = {};
     for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-      if (typeof v === 'boolean') out[k] = v;
+      if (typeof v === 'boolean') {out[k] = v;}
     }
     return out;
   }
@@ -2246,13 +2246,13 @@ function collectHtmlAnchorIds(content: string): string[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(content)) !== null) {
     const attrs = m[1] || '';
-    if (/\bhref\s*=/i.test(attrs)) continue;
+    if (/\bhref\s*=/i.test(attrs)) {continue;}
     const idMatch = attrs.match(/\bid\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
     const nameMatch = attrs.match(/\bname\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
     const id = idMatch ? (idMatch[1] ?? idMatch[2]) : null;
     const name = nameMatch ? (nameMatch[1] ?? nameMatch[2]) : null;
-    if (id) ids.push(id);
-    else if (name) ids.push(name);
+    if (id) {ids.push(id);}
+    else if (name) {ids.push(name);}
   }
   return ids;
 }

@@ -50,25 +50,25 @@ export function initTableDrag(editor: Editor): void {
   const editorContainer = document.getElementById('editor-container');
   if (editorContainer) {
     editorContainer.addEventListener('scroll', () => {
-      if (handleOverlays.length > 0) repositionHandles();
+      if (handleOverlays.length > 0) {repositionHandles();}
     }, { passive: true });
   }
 
   // Global mouseup to end drags
   document.addEventListener('mouseup', () => {
-    if (dragState) finalizeDrag(editor);
+    if (dragState) {finalizeDrag(editor);}
     isMouseDown = false;
   });
 
   // Global mousemove for drag tracking
   document.addEventListener('mousemove', (e) => {
-    if (dragState) onDragMove(e, editor);
-    if (isMouseDown && cellSelection) onCellSelectionMove(e);
+    if (dragState) {onDragMove(e, editor);}
+    if (isMouseDown && cellSelection) {onCellSelectionMove(e);}
   });
 
   // Keyboard: Delete/Backspace on cell selection
   document.addEventListener('keydown', (e) => {
-    if (!cellSelection) return;
+    if (!cellSelection) {return;}
     if (e.key === 'Escape') { clearCellSelection(); return; }
     if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
@@ -85,7 +85,7 @@ export function clearDragHandles(): void {
 }
 
 export function clearCellSelection(): void {
-  if (!cellSelection) return;
+  if (!cellSelection) {return;}
   cellSelection.tableEl.querySelectorAll('.mikedown-cell-selected, .mikedown-cell-border-top, .mikedown-cell-border-right, .mikedown-cell-border-bottom, .mikedown-cell-border-left')
     .forEach(el => el.classList.remove('mikedown-cell-selected', 'mikedown-cell-border-top', 'mikedown-cell-border-right', 'mikedown-cell-border-bottom', 'mikedown-cell-border-left'));
   cellSelection = null;
@@ -118,7 +118,7 @@ function updateDragHandles(editor: Editor): void {
       break;
     }
   }
-  if (!tableDOM || tableDOM === activeTableEl) return;
+  if (!tableDOM || tableDOM === activeTableEl) {return;}
 
   clearDragHandles();
   activeTableEl = tableDOM;
@@ -128,7 +128,7 @@ function updateDragHandles(editor: Editor): void {
   const rows = Array.from(tableDOM.querySelectorAll('tr'));
   rows.forEach((row, rowIdx) => {
     // Skip header row (rowIdx === 0)
-    if (rowIdx === 0) return;
+    if (rowIdx === 0) {return;}
     const handle = createDragHandle('row', rowIdx, row as HTMLElement);
     document.body.appendChild(handle);
     handleOverlays.push(handle);
@@ -166,7 +166,7 @@ function updateDragHandles(editor: Editor): void {
  * viewport positions (called on scroll).
  */
 function repositionHandles(): void {
-  if (!activeTableEl) return;
+  if (!activeTableEl) {return;}
   const rows = Array.from(activeTableEl.querySelectorAll('tr'));
   const headerRow = activeTableEl.querySelector('thead tr, tr:first-child');
   const headerCells = headerRow ? Array.from(headerRow.querySelectorAll('th, td')) : [];
@@ -180,7 +180,7 @@ function repositionHandles(): void {
     } else {
       anchorEl = headerCells[idx] || null;
     }
-    if (!anchorEl) return;
+    if (!anchorEl) {return;}
     const rect = anchorEl.getBoundingClientRect();
     if (type === 'row') {
       handle.style.top = `${rect.top + rect.height / 2 - 8}px`;
@@ -226,7 +226,7 @@ function startDrag(type: 'row' | 'col', sourceIndex: number, tablePos: number, h
 }
 
 function onDragMove(e: MouseEvent, editor: Editor): void {
-  if (!dragState || !activeTableEl) return;
+  if (!dragState || !activeTableEl) {return;}
   const { type, sourceIndex } = dragState;
 
   if (type === 'row') {
@@ -250,7 +250,7 @@ function onDragMove(e: MouseEvent, editor: Editor): void {
     }
   } else {
     const headerRow = activeTableEl.querySelector('thead tr, tr:first-child');
-    if (!headerRow) return;
+    if (!headerRow) {return;}
     const cols = Array.from(headerRow.querySelectorAll('th, td'));
     let targetIdx = sourceIndex;
     for (let i = 0; i < cols.length; i++) {
@@ -272,18 +272,18 @@ function onDragMove(e: MouseEvent, editor: Editor): void {
 }
 
 function finalizeDrag(editor: Editor): void {
-  if (!dragState) return;
+  if (!dragState) {return;}
   const { type, sourceIndex, currentIndex, tablePos, overlayEl, dropLineEl } = dragState;
   dragState = null;
   document.body.classList.remove('td-dragging');
   overlayEl?.remove();
   dropLineEl?.remove();
 
-  if (sourceIndex === currentIndex) return;
+  if (sourceIndex === currentIndex) {return;}
 
   const { state } = editor.view;
   const tableNode = state.doc.nodeAt(tablePos);
-  if (!tableNode || tableNode.type.name !== 'table') return;
+  if (!tableNode || tableNode.type.name !== 'table') {return;}
 
   const tr = state.tr;
   if (type === 'row') {
@@ -305,8 +305,8 @@ function reorderRows(tr: Transaction, tableNode: PMNode, tablePos: number, from:
   const rows: PMNode[] = [];
   tableNode.forEach(row => rows.push(row));
 
-  if (from < 1 || to < 1 || from >= rows.length || to > rows.length) return;
-  if (from === to) return;
+  if (from < 1 || to < 1 || from >= rows.length || to > rows.length) {return;}
+  if (from === to) {return;}
 
   const reordered = [...rows];
   const [moved] = reordered.splice(from, 1);
@@ -324,7 +324,7 @@ function reorderColumns(tr: Transaction, tableNode: PMNode, tablePos: number, fr
   const newRows = rows.map(row => {
     const cells: PMNode[] = [];
     row.forEach(cell => cells.push(cell));
-    if (from >= cells.length || to > cells.length) return row;
+    if (from >= cells.length || to > cells.length) {return row;}
     const reordered = [...cells];
     const [moved] = reordered.splice(from, 1);
     const insertAt = to > from ? to - 1 : to;
@@ -344,7 +344,7 @@ function wireCellSelection(tableEl: HTMLElement, tablePos: number): void {
   const cells = Array.from(tableEl.querySelectorAll('td, th')) as HTMLElement[];
   cells.forEach(cell => {
     cell.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {return;}
       const { rowIdx, colIdx } = getCellIndices(cell, tableEl);
       clearCellSelection();
       isMouseDown = true;
@@ -353,7 +353,7 @@ function wireCellSelection(tableEl: HTMLElement, tablePos: number): void {
     });
 
     cell.addEventListener('mouseenter', () => {
-      if (!isMouseDown || !cellSelection || cellSelection.tableEl !== tableEl) return;
+      if (!isMouseDown || !cellSelection || cellSelection.tableEl !== tableEl) {return;}
       const { rowIdx, colIdx } = getCellIndices(cell, tableEl);
       cellSelection.endRow = rowIdx;
       cellSelection.endCol = colIdx;
@@ -371,14 +371,14 @@ function getCellIndices(cell: HTMLElement, tableEl: HTMLElement): { rowIdx: numb
   for (let r = 0; r < rows.length; r++) {
     const cells = Array.from(rows[r].querySelectorAll('td, th'));
     for (let c = 0; c < cells.length; c++) {
-      if (cells[c] === cell) return { rowIdx: r, colIdx: c };
+      if (cells[c] === cell) {return { rowIdx: r, colIdx: c };}
     }
   }
   return { rowIdx: 0, colIdx: 0 };
 }
 
 function applySelectionHighlight(): void {
-  if (!cellSelection) return;
+  if (!cellSelection) {return;}
   const { tableEl, startRow, startCol, endRow, endCol } = cellSelection;
   const minR = Math.min(startRow, endRow), maxR = Math.max(startRow, endRow);
   const minC = Math.min(startCol, endCol), maxC = Math.max(startCol, endCol);
@@ -398,7 +398,7 @@ function applySelectionHighlight(): void {
 }
 
 function clearSelectedCellContents(editor: Editor): void {
-  if (!cellSelection || !activeTableEl) return;
+  if (!cellSelection || !activeTableEl) {return;}
   const { state, dispatch } = editor.view;
   const tr = state.tr;
   let modified = false;
@@ -415,7 +415,7 @@ function clearSelectedCellContents(editor: Editor): void {
   for (let d = $from.depth; d >= 0; d--) {
     if ($from.node(d).type.name === 'table') { tablePos = $from.before(d); break; }
   }
-  if (tablePos < 0) return;
+  if (tablePos < 0) {return;}
 
   // Walk DOM cells in selection and clear them via PM
   const rows = Array.from(activeTableEl.querySelectorAll('tr'));
@@ -423,7 +423,7 @@ function clearSelectedCellContents(editor: Editor): void {
     const cells = Array.from(rows[r]?.querySelectorAll('td, th') || []) as HTMLElement[];
     for (let c = minC; c <= maxC; c++) {
       const cell = cells[c];
-      if (!cell) continue;
+      if (!cell) {continue;}
       try {
         const pos = view.posAtDOM(cell, 0);
         const pmNode = state.doc.nodeAt(pos - 1);
@@ -438,6 +438,6 @@ function clearSelectedCellContents(editor: Editor): void {
     }
   }
 
-  if (modified) dispatch(tr);
+  if (modified) {dispatch(tr);}
   clearCellSelection();
 }

@@ -271,7 +271,7 @@ function postStats(opts: { document?: string; selection?: string | null }): void
   const payload: { type: 'stats'; document?: string; selection?: { words: number; chars: number } | null } = {
     type: 'stats',
   };
-  if (typeof opts.document === 'string') payload.document = opts.document;
+  if (typeof opts.document === 'string') {payload.document = opts.document;}
   if (opts.selection !== undefined) {
     if (opts.selection === null || opts.selection === '') {
       payload.selection = null;
@@ -371,7 +371,7 @@ function extractFrontmatter(markdown: string): { frontmatter: string | null; bod
 }
 
 function restoreFrontmatter(frontmatter: string | null, body: string): string {
-  if (frontmatter === null) return body;
+  if (frontmatter === null) {return body;}
   return `---\n${frontmatter}\n---\n${body}`;
 }
 
@@ -384,7 +384,7 @@ function restoreFrontmatter(frontmatter: string | null, body: string): string {
  */
 function computeAnchorIdFor(targetHeading: HTMLElement): string {
   const container = document.getElementById('editor-container');
-  if (!container) return '';
+  if (!container) {return '';}
   const headings = container.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
   const seenIds = new Map<string, number>();
   for (const h of headings) {
@@ -392,7 +392,7 @@ function computeAnchorIdFor(targetHeading: HTMLElement): string {
     const count = seenIds.get(base) ?? 0;
     const id = count === 0 ? base : `${base}-${count}`;
     seenIds.set(base, count + 1);
-    if (h === targetHeading) return id;
+    if (h === targetHeading) {return id;}
   }
   return '';
 }
@@ -420,7 +420,7 @@ function smoothScrollHeadingIntoView(target: HTMLElement): void {
   );
   const start = container.scrollTop;
   const distance = destination - start;
-  if (Math.abs(distance) < 1) return;
+  if (Math.abs(distance) < 1) {return;}
 
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if (reduceMotion) { container.scrollTop = destination; return; }
@@ -431,11 +431,11 @@ function smoothScrollHeadingIntoView(target: HTMLElement): void {
 
   let startTime: number | null = null;
   const step = (now: number) => {
-    if (startTime === null) startTime = now;
+    if (startTime === null) {startTime = now;}
     const elapsed = now - startTime;
     const t = Math.min(1, elapsed / duration);
     container.scrollTop = start + distance * easeInOutQuad(t);
-    if (t < 1) requestAnimationFrame(step);
+    if (t < 1) {requestAnimationFrame(step);}
   };
   requestAnimationFrame(step);
 }
@@ -867,7 +867,7 @@ function buildAboutPanel(closeModal: () => void): HTMLDivElement {
     ].join(';');
     btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--vscode-button-secondaryHoverBackground,#45494e)'; });
     btn.addEventListener('mouseleave', () => { btn.style.background = 'var(--vscode-button-secondaryBackground,#3a3d41)'; });
-    btn.addEventListener('focus', () => { if (!btn.matches(':focus-visible')) return; btn.style.outline = '1px solid var(--vscode-focusBorder,#007fd4)'; btn.style.outlineOffset = '2px'; });
+    btn.addEventListener('focus', () => { if (!btn.matches(':focus-visible')) {return;} btn.style.outline = '1px solid var(--vscode-focusBorder,#007fd4)'; btn.style.outlineOffset = '2px'; });
     btn.addEventListener('blur', () => { btn.style.outline = 'none'; });
     btn.addEventListener('click', () => {
       closeModal();
@@ -1051,10 +1051,10 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
       const descEl = el.querySelector('[data-role="desc"]') as HTMLElement;
       const headEl = el.querySelector('[data-role="heading"]') as HTMLElement;
       const bodyEl = el.querySelector('[data-role="body"]') as HTMLElement;
-      if (nameEl) nameEl.style.color = isActive ? '#ffffff' : '#e0e0e0';
-      if (descEl) descEl.style.color = isActive ? 'rgba(255,255,255,0.7)' : '#888';
-      if (headEl) headEl.style.color = isActive ? '#ffffff' : '#cccccc';
-      if (bodyEl) bodyEl.style.color = isActive ? 'rgba(255,255,255,0.8)' : '#999';
+      if (nameEl) {nameEl.style.color = isActive ? '#ffffff' : '#e0e0e0';}
+      if (descEl) {descEl.style.color = isActive ? 'rgba(255,255,255,0.7)' : '#888';}
+      if (headEl) {headEl.style.color = isActive ? '#ffffff' : '#cccccc';}
+      if (bodyEl) {bodyEl.style.color = isActive ? 'rgba(255,255,255,0.8)' : '#999';}
     });
   }
 
@@ -1118,7 +1118,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
 
   // Keyboard navigation
   let themeFocusIdx = themeItems.findIndex(ti => ti.theme.body === selectedBody && ti.theme.heading === selectedHeading);
-  if (themeFocusIdx < 0) themeFocusIdx = 0;
+  if (themeFocusIdx < 0) {themeFocusIdx = 0;}
 
   themeList.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -1140,7 +1140,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   themeList.addEventListener('click', () => {
     themeList.focus();
     themeFocusIdx = themeItems.findIndex(ti => ti.theme.body === selectedBody && ti.theme.heading === selectedHeading);
-    if (themeFocusIdx < 0) themeFocusIdx = 0;
+    if (themeFocusIdx < 0) {themeFocusIdx = 0;}
   });
 
   fontThemeRow.appendChild(themeList);
@@ -1210,7 +1210,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   for (const [v, t] of [['document', 'Document folder'], ['workspace', 'Workspace root']] as const) {
     const o = document.createElement('option');
     o.value = v; o.textContent = t;
-    if (ipState.folderRelativeTo === v) o.selected = true;
+    if (ipState.folderRelativeTo === v) {o.selected = true;}
     relSelect.appendChild(o);
   }
   relSelect.addEventListener('change', () => {
@@ -1237,7 +1237,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   for (const [v, t] of [['relative', 'Relative to document'], ['workspace-absolute', 'Workspace-absolute (/...)']] as const) {
     const o = document.createElement('option');
     o.value = v; o.textContent = t;
-    if (ipState.pathStyle === v) o.selected = true;
+    if (ipState.pathStyle === v) {o.selected = true;}
     psSelect.appendChild(o);
   }
   psSelect.addEventListener('change', () => {
@@ -1253,7 +1253,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   for (const [v, t] of [['empty', 'Empty'], ['filename', 'Filename'], ['prompt', 'Prompt on each paste']] as const) {
     const o = document.createElement('option');
     o.value = v; o.textContent = t;
-    if (ipState.altText === v) o.selected = true;
+    if (ipState.altText === v) {o.selected = true;}
     altSelect.appendChild(o);
   }
   altSelect.addEventListener('change', () => {
@@ -1272,7 +1272,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   sizeInput.style.cssText = inputStyle;
   sizeInput.addEventListener('input', () => {
     const n = parseFloat(sizeInput.value);
-    if (Number.isFinite(n) && n > 0) ipState.maxSizeMB = n;
+    if (Number.isFinite(n) && n > 0) {ipState.maxSizeMB = n;}
   });
   sizeField.appendChild(sizeInput);
   ipGrid.appendChild(sizeField);
@@ -1327,7 +1327,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     const option = document.createElement('option');
     option.value = opt.value;
     option.textContent = opt.label;
-    if (currentMaxWidth === opt.value || (currentMaxWidth === '' && opt.value === '100%')) option.selected = true;
+    if (currentMaxWidth === opt.value || (currentMaxWidth === '' && opt.value === '100%')) {option.selected = true;}
     widthSelect.appendChild(option);
   });
   widthRow.appendChild(widthSelect);
@@ -1351,7 +1351,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
       const o = document.createElement('option');
       o.value = opt.value;
       o.textContent = opt.label;
-      if (current === opt.value) o.selected = true;
+      if (current === opt.value) {o.selected = true;}
       select.appendChild(o);
     }
     row.appendChild(select);
@@ -1374,7 +1374,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     desc.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.4';
     desc.textContent = description;
     labelWrap.append(lbl);
-    if (description) labelWrap.append(desc);
+    if (description) {labelWrap.append(desc);}
     labelWrap.addEventListener('click', (e) => {
       // Native label-for would be cleaner but we'd need unique ids; cheaper to
       // forward clicks manually (and we still want the entire row clickable).
@@ -1727,7 +1727,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
       }
       const label = document.createElement('span');
       label.textContent = entry.word;
-      if (dense) label.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      if (dense) {label.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';}
       chip.appendChild(label);
 
       if (isExternal) {
@@ -1735,7 +1735,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
         label.setAttribute('aria-label', `${entry.word} (from Code Spell Checker, read-only)`);
         // Dense rows are a grid: without a spacer the word would stretch
         // across the cell and stop aligning with the removable rows above it.
-        if (dense) chip.appendChild(document.createElement('span'));
+        if (dense) {chip.appendChild(document.createElement('span'));}
       } else {
         const myIndex = ++removableIndex;
         const remove = document.createElement('button');
@@ -1797,7 +1797,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   const addSpellWord = (): void => {
     const next = addWordToList(spellWords, spellWordInput.value);
     spellWordInput.value = '';
-    if (next === spellWords) return; // blank or already in the list
+    if (next === spellWords) {return;} // blank or already in the list
     spellWords = next;
     // A stale filter would hide the word that was just added.
     spellWordsFilter.value = '';
@@ -2027,10 +2027,10 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     btn.style.cssText = 'text-align:left;padding:7px 12px;background:transparent;border:none;color:var(--vscode-foreground,#cccccc);cursor:pointer;border-radius:4px;font-size:13px;font-family:inherit;outline:none';
     btn.addEventListener('click', () => { setActiveTab(tab.id); btn.focus(); });
     btn.addEventListener('mouseenter', () => {
-      if (tab.id !== activeTab) btn.style.background = 'var(--vscode-list-hoverBackground,rgba(255,255,255,0.06))';
+      if (tab.id !== activeTab) {btn.style.background = 'var(--vscode-list-hoverBackground,rgba(255,255,255,0.06))';}
     });
     btn.addEventListener('mouseleave', () => {
-      if (tab.id !== activeTab) btn.style.background = 'transparent';
+      if (tab.id !== activeTab) {btn.style.background = 'transparent';}
     });
     btn.addEventListener('keydown', (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -2069,7 +2069,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   document.body.appendChild(overlay);
 
   // Close on backdrop click or Escape
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) {overlay.remove();} });
   document.addEventListener('keydown', function escHandler(e) {
     if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
   });
@@ -2184,8 +2184,8 @@ let imagePathMappings: ImagePathPrefix[] = [];
 let docDirFsPath = '';
 
 function isDarkTheme(): boolean {
-  if (document.body.classList.contains('mikedown-force-light')) return false;
-  if (document.body.classList.contains('mikedown-force-dark')) return true;
+  if (document.body.classList.contains('mikedown-force-light')) {return false;}
+  if (document.body.classList.contains('mikedown-force-dark')) {return true;}
   const kind = document.body.dataset.vscodeThemeKind ?? '';
   return !kind.includes('light');
 }
@@ -2199,15 +2199,15 @@ function toggleTheme(): void {
 /** Apply the editorTheme setting ('auto' | 'light' | 'dark') to the body. */
 function applyEditorTheme(editorTheme: string): void {
   document.body.classList.remove('mikedown-force-light', 'mikedown-force-dark');
-  if (editorTheme === 'light') document.body.classList.add('mikedown-force-light');
-  else if (editorTheme === 'dark') document.body.classList.add('mikedown-force-dark');
+  if (editorTheme === 'light') {document.body.classList.add('mikedown-force-light');}
+  else if (editorTheme === 'dark') {document.body.classList.add('mikedown-force-dark');}
   // 'auto' → no class override, follow VS Code theme
   updateThemeToggleIcon();
 }
 
 function updateThemeToggleIcon(): void {
   const btn = document.querySelector('button[data-action="themeToggle"]');
-  if (!btn) return;
+  if (!btn) {return;}
   const dark = isDarkTheme();
   const mkSvg = (d: string, sw = 1.8) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   btn.innerHTML = dark
@@ -2303,7 +2303,7 @@ type ToolbarButtonDef =
 
 function buildToolbar(editor: Editor): void {
   const toolbar = document.getElementById('toolbar');
-  if (!toolbar) return;
+  if (!toolbar) {return;}
   toolbar.className = '';
 
   const icons = toolbarIcons;
@@ -2358,21 +2358,21 @@ function buildToolbar(editor: Editor): void {
   // Wire click handlers
   toolbar.addEventListener('click', (e) => {
     const target = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null;
-    if (!target) return;
+    if (!target) {return;}
     // M5b — Table button opens grid picker instead of directly inserting
     if (target.dataset.action === 'table') {
       showTableGridPicker(editor, target);
       return;
     }
     const btn = buttons.find(b => !('separator' in b) && (b as { id: string }).id === target.dataset.action);
-    if (btn && 'action' in btn) btn.action();
+    if (btn && 'action' in btn) {btn.action();}
   });
 
   // Keyboard accessibility: activate buttons via Enter or Space
   toolbar.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.key !== 'Enter' && e.key !== ' ') {return;}
     const target = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null;
-    if (!target) return;
+    if (!target) {return;}
     e.preventDefault();
     target.click();
   });
@@ -2382,7 +2382,7 @@ function buildToolbar(editor: Editor): void {
 
 function buildCondensedToolbar(editor: Editor): void {
   const toolbar = document.getElementById('toolbar');
-  if (!toolbar) return;
+  if (!toolbar) {return;}
   toolbar.className = 'toolbar-condensed';
   toolbar.innerHTML = '';
 
@@ -2390,9 +2390,9 @@ function buildCondensedToolbar(editor: Editor): void {
 
   // Helper: get current block type label for the text format button
   function getBlockLabel(): string {
-    if (editor.isActive('heading', { level: 1 })) return 'H1';
-    if (editor.isActive('heading', { level: 2 })) return 'H2';
-    if (editor.isActive('heading', { level: 3 })) return 'H3';
+    if (editor.isActive('heading', { level: 1 })) {return 'H1';}
+    if (editor.isActive('heading', { level: 2 })) {return 'H2';}
+    if (editor.isActive('heading', { level: 3 })) {return 'H3';}
     return 'Aa';
   }
 
@@ -2673,10 +2673,10 @@ function buildCondensedToolbar(editor: Editor): void {
       item.appendChild(preview);
 
       item.addEventListener('mouseenter', () => {
-        if (!isActive) item.style.background = 'rgba(255,255,255,0.08)';
+        if (!isActive) {item.style.background = 'rgba(255,255,255,0.08)';}
       });
       item.addEventListener('mouseleave', () => {
-        if (!isActive) item.style.background = isActive ? '#0e639c' : 'transparent';
+        if (!isActive) {item.style.background = isActive ? '#0e639c' : 'transparent';}
       });
       item.addEventListener('click', () => {
         document.documentElement.style.setProperty('--mikedown-font-family', theme.body);
@@ -2731,7 +2731,7 @@ function buildCondensedToolbar(editor: Editor): void {
   (toolbar as any).__condensedUpdate = () => {
     // Update the text format button label to reflect current block type
     const labelEl = textFormatBtn.querySelector('.condensed-btn-label');
-    if (labelEl) labelEl.innerHTML = getBlockLabel();
+    if (labelEl) {labelEl.innerHTML = getBlockLabel();}
 
     // Highlight dropdown triggers when their children are active
     textFormatBtn.classList.toggle('active', isTextFormatActive());
@@ -2756,14 +2756,14 @@ const SOURCE_MODE_DISABLED_ACTIONS = new Set([
 
 function updateToolbarState(editor: Editor): void {
   const toolbar = document.getElementById('toolbar');
-  if (!toolbar) return;
+  if (!toolbar) {return;}
   const inCodeBlock = editor.isActive('codeBlock');
   toolbar.querySelectorAll('button[data-action]').forEach(el => {
     const btn = el as HTMLButtonElement;
     const action = btn.dataset.action!;
     // Active state
     btn.classList.toggle('active', (() => {
-      if (action === 'sourceToggle') return sourceMode;
+      if (action === 'sourceToggle') {return sourceMode;}
       switch (action) {
         case 'bold': return editor.isActive('bold');
         case 'italic': return editor.isActive('italic');
@@ -2842,8 +2842,8 @@ function buildFindReplaceBar(editor: Editor): void {
     matchCount.textContent = matches.length > 0 ? `${matches.length} match${matches.length === 1 ? '' : 'es'}` : 'No matches';
   }
 
-  function doNext() { if (sourceMode && cmView) cmFindNext(cmView); else findNext(editor); }
-  function doPrev() { if (sourceMode && cmView) cmFindPrev(cmView); else findPrev(editor); }
+  function doNext() { if (sourceMode && cmView) {cmFindNext(cmView);} else {findNext(editor);} }
+  function doPrev() { if (sourceMode && cmView) {cmFindPrev(cmView);} else {findPrev(editor);} }
 
   findInput.addEventListener('input', doSearch);
   ['fr-case', 'fr-word', 'fr-regex'].forEach(id => {
@@ -2862,7 +2862,7 @@ function buildFindReplaceBar(editor: Editor): void {
   prevBtn?.addEventListener('click', doPrev);
 
   findInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) doPrev(); else doNext(); }
+    if (e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) {doPrev();} else {doNext();} }
     if (e.key === 'Escape') { closeFindBar(); }
   });
 
@@ -2872,8 +2872,8 @@ function buildFindReplaceBar(editor: Editor): void {
   });
 
   document.getElementById('fr-replace-btn')?.addEventListener('click', () => {
-    if (sourceMode && cmView) cmReplaceCurrent(cmView, replaceInput.value);
-    else replaceCurrentMatch(editor, replaceInput.value);
+    if (sourceMode && cmView) {cmReplaceCurrent(cmView, replaceInput.value);}
+    else {replaceCurrentMatch(editor, replaceInput.value);}
     doSearch();
   });
 
@@ -2913,8 +2913,8 @@ function buildFindReplaceBar(editor: Editor): void {
     // Always clear both sides first — only the side that just became active
     // should show highlights after the resync.
     clearSearch(editor);
-    if (cmView) cmClearSearch(cmView);
-    if (bar.style.display === 'none') return; // Bar closed; no query to reapply.
+    if (cmView) {cmClearSearch(cmView);}
+    if (bar.style.display === 'none') {return;} // Bar closed; no query to reapply.
     if (!findInput.value) { matchCount.textContent = ''; return; }
     doSearch();
   };
@@ -3372,7 +3372,7 @@ if (!editorContainer) {
       const contentToSend = isPristine ? originalContent : markdown;
 
       const newDirty = contentToSend !== originalContent;
-      if (newDirty !== isDirty) isDirty = newDirty;
+      if (newDirty !== isDirty) {isDirty = newDirty;}
 
       vscode.postMessage({ type: 'edit', content: contentToSend, pristine: isPristine });
 
@@ -3408,9 +3408,9 @@ if (!editorContainer) {
   let mermaidThemeTimer: ReturnType<typeof setTimeout> | null = null;
   let lastBodyClass = document.body.className;
   new MutationObserver(() => {
-    if (document.body.className === lastBodyClass) return;
+    if (document.body.className === lastBodyClass) {return;}
     lastBodyClass = document.body.className;
-    if (mermaidThemeTimer) clearTimeout(mermaidThemeTimer);
+    if (mermaidThemeTimer) {clearTimeout(mermaidThemeTimer);}
     mermaidThemeTimer = setTimeout(() => refreshMermaidTheme(editor), 120);
   }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
@@ -3451,9 +3451,9 @@ if (!editorContainer) {
     // under the pointer, and the corrections menu appends the normal text menu
     // so nothing is lost.
     const spellHit = (() => {
-      if (linkEl || imgEl || preEl) return null;
+      if (linkEl || imgEl || preEl) {return null;}
       const coords = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
-      if (!coords) return null;
+      if (!coords) {return null;}
       return getMisspellingAt(editor, coords.pos);
     })();
 
@@ -3524,7 +3524,7 @@ if (!editorContainer) {
   // M5b — Wire table toolbar to selection updates
   editor.on('selectionUpdate', () => {
     updateTableToolbar(editor);
-    if (sourceMode) return; // CM listener handles selection in source mode.
+    if (sourceMode) {return;} // CM listener handles selection in source mode.
     const { from, to } = editor.state.selection;
     postStats({ selection: from === to ? null : editor.state.doc.textBetween(from, to, '\n') });
   });
@@ -3590,19 +3590,19 @@ if (!editorContainer) {
   // Mod-a keymap handler and any VS Code / browser default, and we call
   // stopImmediatePropagation so neither of them see the event at all.
   document.addEventListener('keydown', (event) => {
-    if (!(event.metaKey || event.ctrlKey)) return;
-    if (event.key !== 'a' && event.key !== 'A') return;
-    if (sourceMode) return; // CodeMirror has its own selectAll in source mode.
+    if (!(event.metaKey || event.ctrlKey)) {return;}
+    if (event.key !== 'a' && event.key !== 'A') {return;}
+    if (sourceMode) {return;} // CodeMirror has its own selectAll in source mode.
 
     const target = event.target as HTMLElement | null;
     // Let native Cmd+A run inside form fields (find bar, dialogs).
     if (target) {
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {return;}
       // Let native Cmd+A run inside other contenteditable regions (e.g. the
       // frontmatter block), but NOT inside the main ProseMirror editor —
       // that one must go through our TextSelection path below.
       const editorDom = editor.view.dom as HTMLElement;
-      if (target.isContentEditable && !editorDom.contains(target)) return;
+      if (target.isContentEditable && !editorDom.contains(target)) {return;}
     }
 
     event.preventDefault();
@@ -3615,13 +3615,13 @@ if (!editorContainer) {
   // WYSIWYG; this capture-phase listener handles source mode, where CodeMirror
   // owns the keyboard.
   document.addEventListener('keydown', (event) => {
-    if (!(event.metaKey || event.ctrlKey)) return;
-    if (event.key !== 'f' && event.key !== 'h' && event.key !== 'F' && event.key !== 'H') return;
-    if (!sourceMode) return; // WYSIWYG path is handled by PM.
+    if (!(event.metaKey || event.ctrlKey)) {return;}
+    if (event.key !== 'f' && event.key !== 'h' && event.key !== 'F' && event.key !== 'H') {return;}
+    if (!sourceMode) {return;} // WYSIWYG path is handled by PM.
     const target = event.target as HTMLElement | null;
     // Don't hijack the shortcut when focus is already in a form field (e.g.
     // the find bar itself) — native behavior there is fine.
-    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {return;}
     event.preventDefault();
     event.stopPropagation();
     const replace = event.key === 'h' || event.key === 'H';
@@ -3725,7 +3725,7 @@ if (!editorContainer) {
   // on a NodeSelection), or if the doc mutates such that the position no
   // longer points to an image.
   editor.on('update', () => {
-    if (editingImagePos === null) return;
+    if (editingImagePos === null) {return;}
     const node = editor.state.doc.nodeAt(editingImagePos);
     if (!node || node.type.name !== 'image') {
       hideImagePopover();
@@ -3750,15 +3750,15 @@ if (!editorContainer) {
 
   function inferOutputMime(src: string): string {
     const ext = (src.split('?')[0].split('#')[0].split('.').pop() || '').toLowerCase();
-    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
-    if (ext === 'webp') return 'image/webp';
+    if (ext === 'jpg' || ext === 'jpeg') {return 'image/jpeg';}
+    if (ext === 'webp') {return 'image/webp';}
     return 'image/png';
   }
 
   function isUnsupportedForCanvasResize(src: string): string | null {
     const ext = (src.split('?')[0].split('#')[0].split('.').pop() || '').toLowerCase();
-    if (ext === 'svg') return 'SVG';
-    if (ext === 'gif') return 'GIF';
+    if (ext === 'svg') {return 'SVG';}
+    if (ext === 'gif') {return 'GIF';}
     return null;
   }
 
@@ -3779,9 +3779,9 @@ if (!editorContainer) {
   }
 
   async function applyResizeFromMenu(img: HTMLImageElement, percent: number): Promise<void> {
-    if (!Number.isFinite(percent) || percent < 1 || percent > 200) return;
+    if (!Number.isFinite(percent) || percent < 1 || percent > 200) {return;}
     const pos = editor.view.posAtDOM(img, 0);
-    if (pos < 0) return;
+    if (pos < 0) {return;}
     const rawSrc = img.getAttribute('src') ?? '';
     const unsupported = isUnsupportedForCanvasResize(rawSrc);
     if (unsupported) {
@@ -3875,9 +3875,9 @@ if (!editorContainer) {
     const links: Array<{ href: string; type: 'anchor' | 'file' | 'fileAnchor' }> = [];
     document.querySelectorAll('.ProseMirror a[href]').forEach(el => {
       const href = el.getAttribute('href') || '';
-      if (!href || href.startsWith('http://') || href.startsWith('https://')) return;
+      if (!href || href.startsWith('http://') || href.startsWith('https://')) {return;}
       // Non-resolvable schemes — let the OS handle them, don't flag as broken.
-      if (/^(mailto|tel|sms|ftp|ftps|news|nntp|magnet|irc|xmpp|skype|callto|geo|bitcoin):/i.test(href)) return;
+      if (/^(mailto|tel|sms|ftp|ftps|news|nntp|magnet|irc|xmpp|skype|callto|geo|bitcoin):/i.test(href)) {return;}
       if (href.startsWith('#')) {
         links.push({ href, type: 'anchor' });
       } else if (href.includes('#')) {
@@ -3946,7 +3946,7 @@ if (!editorContainer) {
   // Read the current text of the heading node that starts at `pos`, or null if
   // it is no longer a heading there (e.g. the heading was deleted).
   function headingTextAt(pos: number): string | null {
-    if (pos < 0 || pos > editor.state.doc.content.size) return null;
+    if (pos < 0 || pos > editor.state.doc.content.size) {return null;}
     const node = editor.state.doc.nodeAt(pos);
     return node && node.type.name === 'heading' ? node.textContent : null;
   }
@@ -3970,13 +3970,13 @@ if (!editorContainer) {
   function rewriteInDocLinks(oldSlug: string, newSlug: string): number {
     const { state } = editor;
     const linkType = state.schema.marks.link;
-    if (!linkType) return 0;
+    if (!linkType) {return 0;}
     const oldHref = `#${oldSlug}`;
     const newHref = `#${newSlug}`;
     let tr = state.tr;
     let count = 0;
     state.doc.descendants((node, pos) => {
-      if (!node.isText) return;
+      if (!node.isText) {return;}
       for (const mark of node.marks) {
         if (mark.type === linkType && mark.attrs.href === oldHref) {
           const end = pos + node.nodeSize;
@@ -3987,13 +3987,13 @@ if (!editorContainer) {
         }
       }
     });
-    if (tr.docChanged) editor.view.dispatch(tr);
+    if (tr.docChanged) {editor.view.dispatch(tr);}
     return count;
   }
 
   // A settled rename: fix in-doc links, guard duplicates, ask host for cross-file.
   function handleHeadingRename(oldSlug: string, newSlug: string): void {
-    if (headingRenamePref === 'never') return;
+    if (headingRenamePref === 'never') {return;}
     // Duplicate-slug guard — refuse to guess when anchors are ambiguous.
     if (isRenameAmbiguous(allHeadingTexts(), oldSlug, newSlug)) {
       vscode.postMessage({ type: 'headingRenameAmbiguous', baseName: oldSlug });
@@ -4009,7 +4009,7 @@ if (!editorContainer) {
   // Compare the tracked heading's current text against its baseline; if the slug
   // changed, emit a rename and re-baseline so chained renames keep working.
   function settleTrackedHeading(): void {
-    if (!trackedHeading) return;
+    if (!trackedHeading) {return;}
     const current = headingTextAt(trackedHeading.startPos);
     if (current === null) {
       trackedHeading = null;
@@ -4042,7 +4042,7 @@ if (!editorContainer) {
   editor.on('selectionUpdate', syncHeadingTracking);
   editor.on('update', () => {
     // Idle-settle so a rename applies promptly even without moving the cursor.
-    if (headingIdleTimer) clearTimeout(headingIdleTimer);
+    if (headingIdleTimer) {clearTimeout(headingIdleTimer);}
     headingIdleTimer = setTimeout(settleTrackedHeading, 800);
   });
 
@@ -4053,9 +4053,9 @@ if (!editorContainer) {
   // the user edits YAML directly in CodeMirror; the sidebar reflects but
   // doesn't drive (see refreshPropertiesEditable below).
   function applyFrontmatterEdit(entries: ParsedEntry[]): void {
-    if (sourceMode) return;
+    if (sourceMode) {return;}
     const newYaml = serializeFrontmatter(entries);
-    if (newYaml === frontmatterContent) return;
+    if (newYaml === frontmatterContent) {return;}
     frontmatterContent = newYaml;
     const body = editor.storage.markdown.getMarkdown() as string;
     const markdown = restoreFrontmatter(frontmatterContent, body);
@@ -4099,7 +4099,7 @@ if (!editorContainer) {
         // Should never fire when frontmatter already existed (`/properties`
         // is only offered when it doesn't — see requiresNoFrontmatter in the
         // registry), but don't clobber real content if it somehow does.
-        if (hadFrontmatter) return;
+        if (hadFrontmatter) {return;}
         frontmatterContent = previousContent;
         frontmatterExpanded = previousExpanded;
         const revertedBody = editor.storage.markdown.getMarkdown() as string;
@@ -4123,8 +4123,8 @@ if (!editorContainer) {
   let linkClickBehavior: 'navigateCurrentTab' | 'openNewTab' | 'showContextMenu' = 'openNewTab';
 
   editorContainer.addEventListener('mousedown', (event) => {
-    if (!event.metaKey && !event.ctrlKey) return;
-    if (event.button !== 0) return; // left-click only
+    if (!event.metaKey && !event.ctrlKey) {return;}
+    if (event.button !== 0) {return;} // left-click only
 
     const target = event.target as HTMLElement;
 
@@ -4134,16 +4134,16 @@ if (!editorContainer) {
     // and fall through to the normal openLink path below.
     const wikiEl = target.closest('a[data-wikilink]') as HTMLElement | null;
     if (wikiEl && !wikiEl.getAttribute('href')) {
-      if (!currentWikilinkCreateOnClick) return; // opt-in only
+      if (!currentWikilinkCreateOnClick) {return;} // opt-in only
       event.preventDefault();
       event.stopPropagation();
       const wikiTarget = wikiEl.getAttribute('data-target') || '';
-      if (wikiTarget) vscode.postMessage({ type: 'createWikilink', target: wikiTarget });
+      if (wikiTarget) {vscode.postMessage({ type: 'createWikilink', target: wikiTarget });}
       return;
     }
 
     const linkEl = target.closest('a[href]') as HTMLAnchorElement | null;
-    if (!linkEl) return;
+    if (!linkEl) {return;}
 
     event.preventDefault();
     event.stopPropagation();
@@ -4189,10 +4189,10 @@ if (!editorContainer) {
     let tr = state.tr;
     let changed = false;
     state.doc.descendants((node, pos) => {
-      if (node.type.name !== 'wikilink') return;
+      if (node.type.name !== 'wikilink') {return;}
       const key = String(node.attrs.target || '').toLowerCase();
       const entry = wikilinkResolutionCache.get(key);
-      if (!entry) return;
+      if (!entry) {return;}
       const base = entry.href;
       const resolved = base !== null;
       const ambiguous = resolved && entry.count > 1;
@@ -4203,7 +4203,7 @@ if (!editorContainer) {
         node.attrs.href === href &&
         node.attrs.resolved === resolved &&
         node.attrs.ambiguous === ambiguous
-      ) return;
+      ) {return;}
       tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, href, resolved, ambiguous });
       changed = true;
     });
@@ -4226,7 +4226,7 @@ if (!editorContainer) {
   }
 
   function scheduleWikilinkResolution(): void {
-    if (wikilinkResolveTimer) clearTimeout(wikilinkResolveTimer);
+    if (wikilinkResolveTimer) {clearTimeout(wikilinkResolveTimer);}
     wikilinkResolveTimer = setTimeout(() => requestWikilinkResolution(), 250);
   }
 
@@ -4235,7 +4235,7 @@ if (!editorContainer) {
   editorContainer.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     const heading = target.closest<HTMLElement>('h1,h2,h3,h4,h5,h6');
-    if (!heading) return;
+    if (!heading) {return;}
 
     // Only trigger if click is in the left margin area (before the text)
     const rect = heading.getBoundingClientRect();
@@ -4297,7 +4297,7 @@ if (!editorContainer) {
   editorContainer.addEventListener('mouseout', (event) => {
     const target = event.target as HTMLElement;
     if (target.closest('a[href]') && !linkTooltip?.contains(event.relatedTarget as Node)) {
-      if (linkTooltip) linkTooltip.style.display = 'none';
+      if (linkTooltip) {linkTooltip.style.display = 'none';}
     }
   });
 
@@ -4333,7 +4333,7 @@ if (!editorContainer) {
     };
 
     const ensureCopyBtn = (): HTMLButtonElement => {
-      if (copyBtn) return copyBtn;
+      if (copyBtn) {return copyBtn;}
       copyBtn = document.createElement('button');
       copyBtn.id = 'mikedown-code-copy-btn';
       copyBtn.type = 'button';
@@ -4347,7 +4347,7 @@ if (!editorContainer) {
       copyBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!hoveredPre) return;
+        if (!hoveredPre) {return;}
         const codeEl = hoveredPre.querySelector('code') ?? hoveredPre;
         const text = codeEl.textContent ?? '';
         try {
@@ -4369,7 +4369,7 @@ if (!editorContainer) {
     };
 
     const ensureLangBtn = (): HTMLButtonElement => {
-      if (langBtn) return langBtn;
+      if (langBtn) {return langBtn;}
       langBtn = document.createElement('button');
       langBtn.id = 'mikedown-code-language-btn';
       langBtn.type = 'button';
@@ -4382,7 +4382,7 @@ if (!editorContainer) {
       langBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!hoveredPre) return;
+        if (!hoveredPre) {return;}
         openPickerForPre(hoveredPre);
       });
       document.body.appendChild(langBtn);
@@ -4408,10 +4408,10 @@ if (!editorContainer) {
     };
 
     const scheduleHide = (): void => {
-      if (hideTimer) clearTimeout(hideTimer);
+      if (hideTimer) {clearTimeout(hideTimer);}
       hideTimer = window.setTimeout(() => {
-        if (copyBtn) copyBtn.classList.remove('visible');
-        if (langBtn) langBtn.classList.remove('visible');
+        if (copyBtn) {copyBtn.classList.remove('visible');}
+        if (langBtn) {langBtn.classList.remove('visible');}
         hoveredPre = null;
         hideTimer = null;
       }, 150);
@@ -4420,7 +4420,7 @@ if (!editorContainer) {
     editorContainer.addEventListener('mouseover', (event) => {
       const target = event.target as HTMLElement;
       const pre = target.closest<HTMLElement>('pre.mikedown-code-block');
-      if (!pre) return;
+      if (!pre) {return;}
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       hoveredPre = pre;
       positionFor(pre);
@@ -4429,22 +4429,22 @@ if (!editorContainer) {
     editorContainer.addEventListener('mouseout', (event) => {
       const target = event.target as HTMLElement;
       const pre = target.closest<HTMLElement>('pre.mikedown-code-block');
-      if (!pre) return;
+      if (!pre) {return;}
       const related = event.relatedTarget as Node | null;
-      if (related && (pre.contains(related) || copyBtn?.contains(related) || langBtn?.contains(related))) return;
+      if (related && (pre.contains(related) || copyBtn?.contains(related) || langBtn?.contains(related))) {return;}
       scheduleHide();
     });
 
     // Hide when the code block scrolls or the window resizes (position would be stale).
     window.addEventListener('scroll', () => {
-      if (copyBtn) copyBtn.classList.remove('visible');
-      if (langBtn) langBtn.classList.remove('visible');
+      if (copyBtn) {copyBtn.classList.remove('visible');}
+      if (langBtn) {langBtn.classList.remove('visible');}
       hoveredPre = null;
     }, true);
 
     // Reposition pill after editor updates (language attr may have changed).
     editor.on('transaction', () => {
-      if (hoveredPre && hoveredPre.isConnected) positionFor(hoveredPre);
+      if (hoveredPre && hoveredPre.isConnected) {positionFor(hoveredPre);}
     });
 
     // Expose entry point for the context menu "Set language…" action.
@@ -4458,7 +4458,7 @@ if (!editorContainer) {
           if (node.type.name === 'codeBlock') {
             const start = $from.before(depth);
             const dom = editor.view.nodeDOM(start) as HTMLElement | null;
-            if (dom) pre = dom.closest('pre.mikedown-code-block') || (dom as HTMLElement);
+            if (dom) {pre = dom.closest('pre.mikedown-code-block') || (dom as HTMLElement);}
             break;
           }
         }
@@ -4478,10 +4478,10 @@ if (!editorContainer) {
   // ── M6a: Cmd-held class tracking (changes link cursor on hover) ─────────────
 
   document.addEventListener('keydown', (e) => {
-    if (e.metaKey || e.ctrlKey) document.body.classList.add('cmd-held');
+    if (e.metaKey || e.ctrlKey) {document.body.classList.add('cmd-held');}
   });
   document.addEventListener('keyup', (e) => {
-    if (!e.metaKey && !e.ctrlKey) document.body.classList.remove('cmd-held');
+    if (!e.metaKey && !e.ctrlKey) {document.body.classList.remove('cmd-held');}
   });
 
   // ── M15: Frontmatter UI block renderer ─────────────────────────────────────
@@ -4489,9 +4489,9 @@ if (!editorContainer) {
   function renderFrontmatterBlock(): void {
     // Remove existing frontmatter block if any
     const existing = document.getElementById('frontmatter-block');
-    if (existing) existing.remove();
+    if (existing) {existing.remove();}
 
-    if (frontmatterContent === null) return;
+    if (frontmatterContent === null) {return;}
 
     const block = document.createElement('div');
     block.id = 'frontmatter-block';
@@ -4567,13 +4567,13 @@ if (!editorContainer) {
       });
     }
 
-    if (!diffHighlightActive || !headContent) return;
+    if (!diffHighlightActive || !headContent) {return;}
 
     // Get current markdown from the editor
     const currentMarkdown = editor.storage.markdown.getMarkdown();
     const changedLines = computeChangedBlocks(headContent, currentMarkdown);
 
-    if (changedLines.size === 0) return;
+    if (changedLines.size === 0) {return;}
 
     // Map changed source lines to top-level ProseMirror nodes.
     // Walk the doc's top-level children and track which markdown lines they span.
@@ -4591,14 +4591,14 @@ if (!editorContainer) {
         // Tables span multiple lines
         nodeLineCount = 0;
         node.descendants((child) => {
-          if (child.type.name === 'tableRow') nodeLineCount++;
+          if (child.type.name === 'tableRow') {nodeLineCount++;}
           return true;
         });
         nodeLineCount += 1; // header separator line
       } else if (node.type.name === 'bulletList' || node.type.name === 'orderedList' || node.type.name === 'taskList') {
         nodeLineCount = 0;
         node.descendants((child) => {
-          if (child.type.name === 'listItem' || child.type.name === 'taskItem') nodeLineCount++;
+          if (child.type.name === 'listItem' || child.type.name === 'taskItem') {nodeLineCount++;}
           return true;
         });
       } else if (node.type.name === 'codeBlock') {
@@ -4607,7 +4607,7 @@ if (!editorContainer) {
       } else if (node.type.name === 'blockquote') {
         nodeLineCount = 0;
         node.descendants((child) => {
-          if (child.isTextblock) nodeLineCount++;
+          if (child.isTextblock) {nodeLineCount++;}
           return true;
         });
       }
@@ -4631,7 +4631,7 @@ if (!editorContainer) {
   }
 
   function toggleDiffHighlight(): void {
-    if (!fileHasGitChanges) return;
+    if (!fileHasGitChanges) {return;}
 
     diffHighlightActive = !diffHighlightActive;
 
@@ -4693,7 +4693,7 @@ if (!editorContainer) {
             const md = update.state.doc.toString();
             const isPristine = md === originalContent;
             const newDirty = !isPristine;
-            if (newDirty !== isDirty) isDirty = newDirty;
+            if (newDirty !== isDirty) {isDirty = newDirty;}
             vscode.postMessage({ type: 'edit', content: md, pristine: isPristine });
             // Source mode is markdown text directly — fine to send as document
             // stats. ATX symbols/etc. get stripped by countWords on the host.
@@ -4710,7 +4710,7 @@ if (!editorContainer) {
   }
 
   function switchToSource(): void {
-    if (sourceMode) return;
+    if (sourceMode) {return;}
 
     // Serialize TipTap content (re-attach frontmatter for complete markdown).
     // When the document is pristine (no PM edits since last load/save), prefer
@@ -4772,7 +4772,7 @@ if (!editorContainer) {
         let searchFrom = 0;
         while (searchFrom <= docText.length && snippet.length > 0) {
           const found = docText.indexOf(snippet, searchFrom);
-          if (found === -1) break;
+          if (found === -1) {break;}
           const end = found + snippet.length;
           // Bias toward matches AT OR AFTER expected (markdown offset is
           // always >= plaintext offset because of syntax chars).
@@ -4816,7 +4816,7 @@ if (!editorContainer) {
   }
 
   function switchToWysiwyg(): void {
-    if (!sourceMode || !cmView) return;
+    if (!sourceMode || !cmView) {return;}
 
     const md = cmView.state.doc.toString();
 
@@ -4909,7 +4909,7 @@ if (!editorContainer) {
         let searchFrom = 0;
         while (searchFrom <= pmPlain.length) {
           const found = pmPlain.indexOf(snippet, searchFrom);
-          if (found === -1) break;
+          if (found === -1) {break;}
           const end = found + snippet.length;
           const dist = Math.abs(end - expectedPt);
           if (dist < bestDist) { bestDist = dist; bestEnd = end; }
@@ -4925,8 +4925,8 @@ if (!editorContainer) {
       while (lo < hi) {
         const mid = (lo + hi) >> 1;
         const len = editor.state.doc.textBetween(0, mid, '\n').length;
-        if (len < targetPt) lo = mid + 1;
-        else hi = mid;
+        if (len < targetPt) {lo = mid + 1;}
+        else {hi = mid;}
       }
       const safePos = Math.max(1, Math.min(lo, docSize));
       const sel = TextSelection.near(editor.state.doc.resolve(safePos));
@@ -5066,9 +5066,9 @@ if (!editorContainer) {
       }
       if (msg.spellCheck && typeof msg.spellCheck === 'object') {
         const sc = msg.spellCheck;
-        if (typeof sc.enabled === 'boolean') currentSpellCheckEnabled = sc.enabled;
-        if (sc.language === 'en' || sc.language === 'en-GB') currentSpellCheckLanguage = sc.language;
-        if (typeof sc.ignoreCodeBlocks === 'boolean') currentSpellCheckIgnoreCodeBlocks = sc.ignoreCodeBlocks;
+        if (typeof sc.enabled === 'boolean') {currentSpellCheckEnabled = sc.enabled;}
+        if (sc.language === 'en' || sc.language === 'en-GB') {currentSpellCheckLanguage = sc.language;}
+        if (typeof sc.ignoreCodeBlocks === 'boolean') {currentSpellCheckIgnoreCodeBlocks = sc.ignoreCodeBlocks;}
         if (Array.isArray(sc.userWords)) {
           currentSpellCheckUserWords = sc.userWords.filter((w: unknown) => typeof w === 'string');
         }
@@ -5129,7 +5129,7 @@ if (!editorContainer) {
           copy: msg.copy as SupportCardCopy,
           onAction: action => vscode.postMessage({ type: 'supportAction', action }),
           restoreFocus: () => {
-            if (!sourceMode) editor.commands.focus();
+            if (!sourceMode) {editor.commands.focus();}
           },
         });
         vscode.postMessage({ type: 'supportCardShown' });
@@ -5164,13 +5164,13 @@ if (!editorContainer) {
         // doc there; firing a TipTap command would silently edit the hidden
         // PM doc and desync the two views. No-op rather than throw.
         case 'toggleBulletList':
-          if (!sourceMode) editor.chain().focus().toggleBulletList().run();
+          if (!sourceMode) {editor.chain().focus().toggleBulletList().run();}
           break;
         case 'toggleOrderedList':
-          if (!sourceMode) editor.chain().focus().toggleOrderedList().run();
+          if (!sourceMode) {editor.chain().focus().toggleOrderedList().run();}
           break;
         case 'toggleTaskList':
-          if (!sourceMode) editor.chain().focus().toggleTaskList().run();
+          if (!sourceMode) {editor.chain().focus().toggleTaskList().run();}
           break;
         // Sidebar toggle isn't a doc edit, so it stays available in source
         // mode too. Routes through the same setVisible the header
@@ -5358,7 +5358,7 @@ if (!editorContainer) {
           const matches: HTMLElement[] = [];
           for (const a of anchors) {
             const raw = a.getAttribute('href') || '';
-            if (raw === want || norm(raw) === norm(want)) matches.push(a);
+            if (raw === want || norm(raw) === norm(want)) {matches.push(a);}
           }
           // Wait until the wanted occurrence has rendered; only after retries
           // run out do we settle for whatever's available (fall back to first).
@@ -5387,9 +5387,9 @@ if (!editorContainer) {
       const seen = new Set<string>();
       const wikiNames: string[] = [];
       for (const s of rawSuggestions) {
-        if (!s || s.type !== 'file' || typeof s.label !== 'string') continue;
+        if (!s || s.type !== 'file' || typeof s.label !== 'string') {continue;}
         const base = s.label.replace(/^.*[\\/]/, '').replace(/\.(md|markdown)$/i, '');
-        if (seen.has(base)) continue;
+        if (seen.has(base)) {continue;}
         seen.add(base);
         wikiNames.push(base);
       }
@@ -5418,9 +5418,9 @@ if (!editorContainer) {
     // Sidebar — extension push of width/pref/position/per-doc state
     if (message.type === 'sidebarState') {
       const m = message as any;
-      if (m.pref === 'always' || m.pref === 'never') currentSidebarVisibilityDefault = m.pref;
-      if (m.position === 'left' || m.position === 'right') currentSidebarPositionDefault = m.position;
-      if (typeof m.width === 'number') currentSidebarWidthDefault = m.width;
+      if (m.pref === 'always' || m.pref === 'never') {currentSidebarVisibilityDefault = m.pref;}
+      if (m.position === 'left' || m.position === 'right') {currentSidebarPositionDefault = m.position;}
+      if (typeof m.width === 'number') {currentSidebarWidthDefault = m.width;}
       applyOutlineState({
         pref: m.pref,
         width: m.width,
@@ -5459,12 +5459,12 @@ if (!editorContainer) {
     if (message.type === 'resizeImageResult') {
       const m = message as any;
       const req = pendingResizeRequests.get(m.requestId);
-      if (req) pendingResizeRequests.delete(m.requestId);
+      if (req) {pendingResizeRequests.delete(m.requestId);}
       if (!m.success) {
         showTransientToast(`Resize failed: ${m.error || 'unknown error'}`, true);
         return;
       }
-      if (!req || typeof m.webviewUri !== 'string') return;
+      if (!req || typeof m.webviewUri !== 'string') {return;}
       const newSrc = m.overwritten ? `${m.webviewUri}?v=${Date.now()}` : m.webviewUri;
       try {
         editor.commands.setNodeSelection(req.pos);
@@ -5483,7 +5483,7 @@ if (!editorContainer) {
     if (message.type === 'imageFileMissing') {
       const targetUri = (message as any).uri as string | undefined;
       console.log('MikeDown:DIAG-WEBVIEW-V1: imageFileMissing received uri=', targetUri, 'fsPath=', (message as any).fsPath);
-      if (!targetUri) return;
+      if (!targetUri) {return;}
       const imgs = document.querySelectorAll<HTMLImageElement>('.ProseMirror img');
       console.log('MikeDown:DIAG-WEBVIEW-V1: scanning', imgs.length, 'imgs in editor');
       let matched = 0;
@@ -5508,7 +5508,7 @@ if (!editorContainer) {
     // chrome stops showing once the file is back.
     if (message.type === 'imageFileFound') {
       const targetUri = (message as any).uri as string | undefined;
-      if (!targetUri) return;
+      if (!targetUri) {return;}
       document.querySelectorAll<HTMLImageElement>('.ProseMirror img.broken-image').forEach(img => {
         const src = img.getAttribute('src') ?? '';
         if (src === targetUri || src.startsWith(targetUri + '?')) {

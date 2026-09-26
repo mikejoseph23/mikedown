@@ -39,10 +39,10 @@ export const Emoji = Node.create({
         tag: 'span[data-emoji-shortcode]',
         priority: 60,
         getAttrs: (dom) => {
-          if (typeof dom === 'string') return false;
+          if (typeof dom === 'string') {return false;}
           const el = dom as HTMLElement;
           const shortcode = el.getAttribute('data-emoji-shortcode');
-          if (!shortcode) return false;
+          if (!shortcode) {return false;}
           return { shortcode };
         },
       },
@@ -69,7 +69,7 @@ export const Emoji = Node.create({
         find: /:([a-zA-Z0-9_+-]+):$/,
         handler: ({ state, range, match }) => {
           const shortcode = match[1];
-          if (!(shortcode in EMOJI_MAP)) return null;
+          if (!(shortcode in EMOJI_MAP)) {return null;}
           const { tr } = state;
           tr.replaceWith(range.from, range.to, this.type.create({ shortcode }));
         },

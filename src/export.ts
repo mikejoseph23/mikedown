@@ -58,10 +58,10 @@ export function addHeadingIds(html: string): string {
   return html.replace(
     /<h([1-6])([^>]*)>([\s\S]*?)<\/h\1>/gi,
     (match: string, level: string, attrs: string, inner: string) => {
-      if (/\sid\s*=/i.test(attrs)) return match;
+      if (/\sid\s*=/i.test(attrs)) {return match;}
       const text = inner.replace(/<[^>]*>/g, '');
       const base = githubAnchorId(decodeEntities(text));
-      if (!base) return match;
+      if (!base) {return match;}
       const count = seen.get(base) ?? 0;
       seen.set(base, count + 1);
       const id = count === 0 ? base : `${base}-${count}`;
@@ -78,7 +78,7 @@ export function addHeadingIds(html: string): string {
 export function fixInternalLinks(html: string): string {
   return html.replace(/<a\s([^>]*)>/gi, (match: string, attrs: string) => {
     const href = /\shref\s*=\s*(["'])(.*?)\1/i.exec(` ${attrs}`);
-    if (!href || !href[2].startsWith('#')) return match;
+    if (!href || !href[2].startsWith('#')) {return match;}
     const cleaned = attrs
       .replace(/\s*target\s*=\s*(["']).*?\1/gi, '')
       .replace(/\s*rel\s*=\s*(["']).*?\1/gi, '')
@@ -110,7 +110,7 @@ export function rewriteRelativeUrls(html: string, baseDir: string): string {
   const isAbsolute = (v: string): boolean =>
     /^[a-z][a-z0-9+.-]*:/i.test(v) || v.startsWith('//') || v.startsWith('#') || v.startsWith('data:');
   return html.replace(/(\s(?:src|href)=)(["'])([^"']*)\2/gi, (match, attr, quote, value) => {
-    if (!value || isAbsolute(value)) return match;
+    if (!value || isAbsolute(value)) {return match;}
     const resolved = vscode.Uri.file(path.resolve(baseDir, value)).toString();
     return `${attr}${quote}${resolved}${quote}`;
   });
@@ -142,7 +142,7 @@ export async function writeRenderedHtml(
     filters: { 'HTML Files': ['html'] },
     saveLabel: 'Export as HTML',
   });
-  if (!uri) return;
+  if (!uri) {return;}
 
   const title = path.basename(suggestedName, path.extname(suggestedName));
   const fullHtml = buildFullHtml(renderedHtml, title);
@@ -162,7 +162,7 @@ export function sanitizeExportFilename(title: string): string {
 
 /** Inject the auto-print script used by "Print / Export as PDF". */
 function withAutoPrint(fullHtml: string, autoPrint: boolean | undefined): string {
-  if (!autoPrint) return fullHtml;
+  if (!autoPrint) {return fullHtml;}
   // Wait for images/fonts to settle before popping the print dialog.
   const script = `<script>window.addEventListener('load', function(){setTimeout(function(){window.print();}, 400);});</script>`;
   return fullHtml.replace('</body>', `${script}\n</body>`);
@@ -178,10 +178,10 @@ function sweepStaleTempExports(): void {
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   try {
     for (const name of fs.readdirSync(os.tmpdir())) {
-      if (!/^mikedown-(print|preview)-.*\.html$/.test(name)) continue;
+      if (!/^mikedown-(print|preview)-.*\.html$/.test(name)) {continue;}
       const full = path.join(os.tmpdir(), name);
       try {
-        if (fs.statSync(full).mtimeMs < cutoff) fs.unlinkSync(full);
+        if (fs.statSync(full).mtimeMs < cutoff) {fs.unlinkSync(full);}
       } catch {
         // Ignore — another window may have removed it, or it may be locked.
       }
@@ -259,7 +259,7 @@ export async function openRenderedInBrowser(
       );
       const externalUri = await vscode.env.asExternalUri(localUri);
       const opened = await vscode.env.openExternal(externalUri);
-      if (!opened) throw new Error('openExternal declined');
+      if (!opened) {throw new Error('openExternal declined');}
       return;
     } catch (err) {
       console.error('MikeDown: remote browser open failed', err);

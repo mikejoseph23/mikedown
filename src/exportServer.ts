@@ -78,7 +78,7 @@ export function isAllowedAsset(target: string, baseDir: string): boolean {
 }
 
 function touchIdleTimer(): void {
-  if (idleTimer) clearTimeout(idleTimer);
+  if (idleTimer) {clearTimeout(idleTimer);}
   idleTimer = setTimeout(() => {
     disposeExportServer();
   }, IDLE_SHUTDOWN_MS);
@@ -143,13 +143,13 @@ async function handleRequest(
 }
 
 async function ensureServer(): Promise<number> {
-  if (server && serverPort !== undefined) return serverPort;
-  if (starting) return starting;
+  if (server && serverPort !== undefined) {return serverPort;}
+  if (starting) {return starting;}
 
   starting = new Promise<number>((resolve, reject) => {
     const s = http.createServer((req, res) => {
       handleRequest(req, res).catch(() => {
-        if (!res.headersSent) res.writeHead(500);
+        if (!res.headersSent) {res.writeHead(500);}
         res.end();
       });
     });
@@ -191,9 +191,9 @@ export function rewriteUrlsForServer(html: string, baseDir: string, token: strin
   return html.replace(
     /(\s(?:src|href)=)(["'])([^"']*)\2/gi,
     (match: string, attr: string, quote: string, value: string) => {
-      if (!value || isAbsolute(value)) return match;
+      if (!value || isAbsolute(value)) {return match;}
       const [rawPath, hash] = value.split('#');
-      if (!rawPath) return match;
+      if (!rawPath) {return match;}
       const resolved = path.resolve(baseDir, decodeURIComponent(rawPath));
       const served = `/a/${token}/${encodeAssetPath(resolved)}${hash ? `#${hash}` : ''}`;
       return `${attr}${quote}${served}${quote}`;
@@ -216,7 +216,7 @@ export async function serveExport(
   // Keep the map bounded — oldest first (Map preserves insertion order).
   while (entries.size > MAX_ENTRIES) {
     const oldest = entries.keys().next().value;
-    if (oldest === undefined) break;
+    if (oldest === undefined) {break;}
     entries.delete(oldest);
   }
 
@@ -233,5 +233,5 @@ export function disposeExportServer(): void {
   const s = server;
   server = undefined;
   serverPort = undefined;
-  if (s) s.close();
+  if (s) {s.close();}
 }

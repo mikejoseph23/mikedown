@@ -34,10 +34,10 @@ let currentSearchState: SearchState = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function buildRegex(state: SearchState): RegExp | null {
-  if (!state.query) return null;
+  if (!state.query) {return null;}
   try {
     let pattern = state.useRegex ? state.query : state.query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    if (state.wholeWord) pattern = `\\b${pattern}\\b`;
+    if (state.wholeWord) {pattern = `\\b${pattern}\\b`;}
     return new RegExp(pattern, state.matchCase ? 'g' : 'gi');
   } catch (_) {
     return null;
@@ -48,18 +48,18 @@ function buildRegex(state: SearchState): RegExp | null {
 // starting position. This avoids any fragile text-offset → PM-pos mapping.
 function findMatchesInDoc(doc: any, searchState: SearchState): SearchMatch[] {
   const rx = buildRegex(searchState);
-  if (!rx) return [];
+  if (!rx) {return [];}
   const matches: SearchMatch[] = [];
   doc.descendants((node: any, pos: number) => {
-    if (!node.isText) return;
+    if (!node.isText) {return;}
     const text: string = node.text ?? '';
     rx.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = rx.exec(text)) !== null) {
       const from = pos + m.index;
       const to = from + m[0].length;
-      if (to > from) matches.push({ from, to });
-      if (m[0].length === 0) rx.lastIndex++; // avoid infinite loop on zero-length match
+      if (to > from) {matches.push({ from, to });}
+      if (m[0].length === 0) {rx.lastIndex++;} // avoid infinite loop on zero-length match
     }
   });
   return matches;
@@ -87,7 +87,7 @@ export const FindReplaceExtension = Extension.create({
             return { decorations: DecorationSet.empty, matches: [] as SearchMatch[] };
           },
           apply(tr: Transaction, prev: any, _oldState: EditorState, newState: EditorState) {
-            if (!tr.getMeta(findReplaceKey) && !tr.docChanged) return prev;
+            if (!tr.getMeta(findReplaceKey) && !tr.docChanged) {return prev;}
             if (!currentSearchState.query) {
               return { decorations: DecorationSet.empty, matches: [] };
             }
@@ -135,9 +135,9 @@ function scrollActiveIntoView(editor: any): void {
   const run = () => {
     try {
       const dom = editor?.view?.dom as HTMLElement | undefined;
-      if (!dom || !dom.isConnected) return;
+      if (!dom || !dom.isConnected) {return;}
       const el = dom.querySelector('.search-match-active') as HTMLElement | null;
-      if (!el) return;
+      if (!el) {return;}
       // `nearest` avoids yanking the viewport around when the match is already visible.
       el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
     } catch {
@@ -164,7 +164,7 @@ export function updateSearch(
   const state = findReplaceKey.getState(editor.view.state);
   const matches = state?.matches ?? [];
   // Auto-jump to the first match so users see immediate feedback when typing.
-  if (matches.length > 0) scrollActiveIntoView(editor);
+  if (matches.length > 0) {scrollActiveIntoView(editor);}
   return matches;
 }
 
@@ -175,7 +175,7 @@ export function clearSearch(editor: any): void {
 
 export function findNext(editor: any): void {
   const state = findReplaceKey.getState(editor.view.state);
-  if (!state || state.matches.length === 0) return;
+  if (!state || state.matches.length === 0) {return;}
   currentSearchState.currentIndex =
     (currentSearchState.currentIndex + 1) % state.matches.length;
   editor.view.dispatch(editor.view.state.tr.setMeta(findReplaceKey, true));
@@ -184,7 +184,7 @@ export function findNext(editor: any): void {
 
 export function findPrev(editor: any): void {
   const state = findReplaceKey.getState(editor.view.state);
-  if (!state || state.matches.length === 0) return;
+  if (!state || state.matches.length === 0) {return;}
   currentSearchState.currentIndex =
     (currentSearchState.currentIndex - 1 + state.matches.length) % state.matches.length;
   editor.view.dispatch(editor.view.state.tr.setMeta(findReplaceKey, true));
@@ -193,9 +193,9 @@ export function findPrev(editor: any): void {
 
 export function replaceCurrentMatch(editor: any, replaceWith: string): void {
   const state = findReplaceKey.getState(editor.view.state);
-  if (!state || state.matches.length === 0) return;
+  if (!state || state.matches.length === 0) {return;}
   const match = state.matches[currentSearchState.currentIndex];
-  if (!match) return;
+  if (!match) {return;}
   editor.view.dispatch(
     editor.view.state.tr.insertText(replaceWith, match.from, match.to)
   );
@@ -205,7 +205,7 @@ export function replaceCurrentMatch(editor: any, replaceWith: string): void {
 
 export function replaceAllMatches(editor: any, replaceWith: string): number {
   const state = findReplaceKey.getState(editor.view.state);
-  if (!state || state.matches.length === 0) return 0;
+  if (!state || state.matches.length === 0) {return 0;}
   const count = state.matches.length;
   // Replace in reverse order to preserve offsets
   const tr = editor.view.state.tr;
@@ -257,7 +257,7 @@ let cmMatches: SearchMatch[] = [];
 
 function findMatchesInCm(view: CmEditorView, state: SearchState): SearchMatch[] {
   const rx = buildRegex(state);
-  if (!rx) return [];
+  if (!rx) {return [];}
   const text = view.state.doc.toString();
   const matches: SearchMatch[] = [];
   rx.lastIndex = 0;
@@ -265,15 +265,15 @@ function findMatchesInCm(view: CmEditorView, state: SearchState): SearchMatch[] 
   while ((m = rx.exec(text)) !== null) {
     const from = m.index;
     const to = from + m[0].length;
-    if (to > from) matches.push({ from, to });
-    if (m[0].length === 0) rx.lastIndex++;
+    if (to > from) {matches.push({ from, to });}
+    if (m[0].length === 0) {rx.lastIndex++;}
   }
   return matches;
 }
 
 function cmScrollActive(view: CmEditorView): void {
   const m = cmMatches[currentSearchState.currentIndex];
-  if (!m) return;
+  if (!m) {return;}
   view.dispatch({ effects: CmEditorView.scrollIntoView(m.from, { y: 'nearest' }) });
 }
 
@@ -287,7 +287,7 @@ export function cmUpdateSearch(view: CmEditorView, partial: Partial<SearchState>
   view.dispatch({
     effects: setCmSearchEffect.of({ matches: cmMatches, activeIndex: currentSearchState.currentIndex }),
   });
-  if (cmMatches.length > 0) cmScrollActive(view);
+  if (cmMatches.length > 0) {cmScrollActive(view);}
   return cmMatches;
 }
 
@@ -298,7 +298,7 @@ export function cmClearSearch(view: CmEditorView): void {
 }
 
 export function cmFindNext(view: CmEditorView): void {
-  if (cmMatches.length === 0) return;
+  if (cmMatches.length === 0) {return;}
   currentSearchState.currentIndex =
     (currentSearchState.currentIndex + 1) % cmMatches.length;
   view.dispatch({
@@ -308,7 +308,7 @@ export function cmFindNext(view: CmEditorView): void {
 }
 
 export function cmFindPrev(view: CmEditorView): void {
-  if (cmMatches.length === 0) return;
+  if (cmMatches.length === 0) {return;}
   currentSearchState.currentIndex =
     (currentSearchState.currentIndex - 1 + cmMatches.length) % cmMatches.length;
   view.dispatch({
@@ -318,15 +318,15 @@ export function cmFindPrev(view: CmEditorView): void {
 }
 
 export function cmReplaceCurrent(view: CmEditorView, replaceWith: string): void {
-  if (cmMatches.length === 0) return;
+  if (cmMatches.length === 0) {return;}
   const m = cmMatches[currentSearchState.currentIndex];
-  if (!m) return;
+  if (!m) {return;}
   view.dispatch({ changes: { from: m.from, to: m.to, insert: replaceWith } });
   cmUpdateSearch(view, {});
 }
 
 export function cmReplaceAll(view: CmEditorView, replaceWith: string): number {
-  if (cmMatches.length === 0) return 0;
+  if (cmMatches.length === 0) {return 0;}
   const count = cmMatches.length;
   // Changes must be sorted ascending & non-overlapping; our matches already are.
   const changes = cmMatches.map(m => ({ from: m.from, to: m.to, insert: replaceWith }));

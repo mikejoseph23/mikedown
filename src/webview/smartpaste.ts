@@ -12,22 +12,22 @@ export const SmartPasteExtension = Extension.create({
         props: {
           handlePaste: (view, event, _slice) => {
             const clipboardData = event.clipboardData;
-            if (!clipboardData) return false;
+            if (!clipboardData) {return false;}
 
             const htmlData = clipboardData.getData('text/html');
 
             // Task 7: Guard against empty clipboard content
-            if (!htmlData || !htmlData.trim()) return false;
+            if (!htmlData || !htmlData.trim()) {return false;}
 
             // Don't process very large pastes — fallback to plain text
-            if (htmlData.length > 500_000) return false;
+            if (htmlData.length > 500_000) {return false;}
 
             // Use TipTap's existing HTML-to-ProseMirror parsing
             // but strip noisy markup first
             const cleaned = cleanHtml(htmlData);
 
             // Task 7: Guard against empty/trivial cleaned output
-            if (!cleaned.trim() || cleaned === '<br>' || cleaned === '<p></p>') return false;
+            if (!cleaned.trim() || cleaned === '<br>' || cleaned === '<p></p>') {return false;}
 
             // Parse with DOMParser, then use ProseMirror's DOMParser
             const domParser = new DOMParser();
@@ -39,7 +39,7 @@ export const SmartPasteExtension = Extension.create({
               preserveWhitespace: false,
             });
 
-            if (!slice || slice.content.childCount === 0) return false;
+            if (!slice || slice.content.childCount === 0) {return false;}
 
             const { tr, selection } = view.state;
             tr.replaceSelection(slice);
@@ -103,7 +103,7 @@ function cleanHtml(html: string): string {
 
   // Task 1: Remove empty MsoNormal/MsoBodyText paragraphs
   doc.querySelectorAll('p.MsoNormal, p.MsoBodyText').forEach(el => {
-    if (!el.textContent?.trim()) el.remove();
+    if (!el.textContent?.trim()) {el.remove();}
   });
 
   // Strip Mso* wrapper elements (keep children)
@@ -335,7 +335,7 @@ function unwrapElements(root: Element, selector: string): void {
   try {
     root.querySelectorAll(selector).forEach(el => {
       const parent = el.parentNode;
-      if (!parent) return;
+      if (!parent) {return;}
       while (el.firstChild) {
         parent.insertBefore(el.firstChild, el);
       }
@@ -350,7 +350,7 @@ function convertStyleBasedFormatting(root: Element): void {
     const fw = el.style.fontWeight;
     if (fw === 'bold' || fw === '700' || parseInt(fw) >= 700) {
       const strong = document.createElement('strong');
-      while (el.firstChild) strong.appendChild(el.firstChild);
+      while (el.firstChild) {strong.appendChild(el.firstChild);}
       el.parentNode?.replaceChild(strong, el);
     }
   });
@@ -359,7 +359,7 @@ function convertStyleBasedFormatting(root: Element): void {
   root.querySelectorAll<HTMLElement>('span[style*="font-style"]').forEach(el => {
     if (el.style.fontStyle === 'italic') {
       const em = document.createElement('em');
-      while (el.firstChild) em.appendChild(el.firstChild);
+      while (el.firstChild) {em.appendChild(el.firstChild);}
       el.parentNode?.replaceChild(em, el);
     }
   });

@@ -184,9 +184,9 @@ let onInsertOverride: ((shortcode: string) => void) | null = null;
 function loadRecents(): string[] {
   try {
     const raw = localStorage.getItem(RECENTS_KEY);
-    if (!raw) return [];
+    if (!raw) {return [];}
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) {return [];}
     return parsed.filter((s: any): s is string => typeof s === 'string' && s in EMOJI_MAP).slice(0, MAX_RECENTS);
   } catch {
     return [];
@@ -204,7 +204,7 @@ function saveRecent(shortcode: string): void {
 }
 
 function insertEmoji(shortcode: string): void {
-  if (!openEditor) return;
+  if (!openEditor) {return;}
   if (onInsertOverride) {
     onInsertOverride(shortcode);
   } else {
@@ -230,7 +230,7 @@ export function hideEmojiPicker(): void {
 }
 
 function onDocMouseDown(e: MouseEvent): void {
-  if (!pickerEl) return;
+  if (!pickerEl) {return;}
   if (!(e.target as HTMLElement).closest('#mikedown-emoji-picker')) {
     hideEmojiPicker();
   }
@@ -281,7 +281,7 @@ export function showEmojiPicker(editor: Editor, opts: ShowOptions = {}): void {
   let activeTab = loadRecents().length > 0 ? -1 : 0;
 
   const setActive = (i: number): void => {
-    if (cells.length === 0) return;
+    if (cells.length === 0) {return;}
     const clamped = Math.max(0, Math.min(i, cells.length - 1));
     cells.forEach((c, idx) => c.classList.toggle('emoji-picker-active', idx === clamped));
     cells[clamped].scrollIntoView({ block: 'nearest' });
@@ -305,7 +305,7 @@ export function showEmojiPicker(editor: Editor, opts: ShowOptions = {}): void {
   };
 
   const appendSection = (label: string, codes: string[]): void => {
-    if (codes.length === 0) return;
+    if (codes.length === 0) {return;}
     const header = document.createElement('div');
     header.className = 'emoji-picker-section-header';
     header.textContent = label;
@@ -313,7 +313,7 @@ export function showEmojiPicker(editor: Editor, opts: ShowOptions = {}): void {
     const row = document.createElement('div');
     row.className = 'emoji-picker-row';
     for (const code of codes) {
-      if (!(code in EMOJI_MAP)) continue;
+      if (!(code in EMOJI_MAP)) {continue;}
       const cell = buildCell(code);
       row.appendChild(cell);
       cells.push(cell);
@@ -332,7 +332,7 @@ export function showEmojiPicker(editor: Editor, opts: ShowOptions = {}): void {
       btn.setAttribute('aria-label', label);
       btn.setAttribute('role', 'tab');
       btn.textContent = icon;
-      if (idx === activeTab) btn.classList.add('emoji-picker-tab-active');
+      if (idx === activeTab) {btn.classList.add('emoji-picker-tab-active');}
       if (disabled) {
         btn.disabled = true;
         btn.classList.add('emoji-picker-tab-disabled');
@@ -358,7 +358,7 @@ export function showEmojiPicker(editor: Editor, opts: ShowOptions = {}): void {
     if (!q) {
       tabsEl.style.display = '';
       // Auto-skip the Recent tab if it's empty.
-      if (activeTab === -1 && loadRecents().length === 0) activeTab = 0;
+      if (activeTab === -1 && loadRecents().length === 0) {activeTab = 0;}
       renderTabs();
       if (activeTab === -1) {
         appendSection('Recent', loadRecents());
@@ -392,12 +392,12 @@ export function showEmojiPicker(editor: Editor, opts: ShowOptions = {}): void {
       appendSection('Results', combined);
     }
 
-    if (cells.length > 0) setActive(0);
+    if (cells.length > 0) {setActive(0);}
   };
 
   input.addEventListener('input', () => render(input.value));
   input.addEventListener('keydown', (e) => {
-    if (cells.length === 0 && e.key !== 'Escape') return;
+    if (cells.length === 0 && e.key !== 'Escape') {return;}
     const cols = 8;
     if (e.key === 'ArrowRight') {
       e.preventDefault();

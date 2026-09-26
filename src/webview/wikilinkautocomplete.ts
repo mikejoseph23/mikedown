@@ -61,7 +61,7 @@ export function receiveWikilinkCandidates(names: string[]): void {
     state.matches = matches;
     state.activeIndex = Math.min(state.activeIndex, matches.length - 1);
     renderPopup();
-    if (viewRef) positionPopup(viewRef, state.from);
+    if (viewRef) {positionPopup(viewRef, state.from);}
   }
 }
 
@@ -79,7 +79,7 @@ function findMatches(query: string): string[] {
     } else if (lower.includes(q)) {
       contains.push(name);
     }
-    if (starts.length >= MAX_RESULTS) break;
+    if (starts.length >= MAX_RESULTS) {break;}
   }
   return [...starts, ...contains].slice(0, MAX_RESULTS);
 }
@@ -107,7 +107,7 @@ function ensurePopup(): HTMLElement {
 }
 
 function renderPopup(): void {
-  if (!state) return;
+  if (!state) {return;}
   const el = ensurePopup();
   el.innerHTML = '';
   state.matches.forEach((name, i) => {
@@ -130,7 +130,7 @@ function renderPopup(): void {
 }
 
 function positionPopup(view: any, from: number): void {
-  if (!popupEl) return;
+  if (!popupEl) {return;}
   const coords = view.coordsAtPos(from);
   const top = coords.bottom + 4;
   const left = coords.left;
@@ -151,12 +151,12 @@ function positionPopup(view: any, from: number): void {
 }
 
 function selectMatch(index: number): void {
-  if (!state || !viewRef) return;
+  if (!state || !viewRef) {return;}
   const name = state.matches[index];
-  if (!name) return;
+  if (!name) {return;}
   const { from, to } = state;
   const type = viewRef.state.schema.nodes.wikilink;
-  if (!type) return;
+  if (!type) {return;}
   const tr = viewRef.state.tr.replaceWith(from, to, type.create({ target: name }));
   viewRef.dispatch(tr);
   hidePopup();
@@ -250,7 +250,7 @@ export const WikilinkAutocomplete = Extension.create({
         },
         props: {
           handleKeyDown(view, event) {
-            if (!state || state.matches.length === 0) return false;
+            if (!state || state.matches.length === 0) {return false;}
             if (event.key === 'ArrowDown') {
               event.preventDefault();
               state.activeIndex = (state.activeIndex + 1) % state.matches.length;

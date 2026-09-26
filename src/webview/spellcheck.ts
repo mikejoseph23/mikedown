@@ -102,7 +102,7 @@ function dictionaryDir(language: SpellCheckLanguage): string {
 
 async function loadDictionary(language: SpellCheckLanguage): Promise<void> {
   const base = dictionaryBase();
-  if (!base) return; // Host didn't stamp the attribute — nothing to fetch.
+  if (!base) {return;} // Host didn't stamp the attribute — nothing to fetch.
   const dir = `${base}/${dictionaryDir(language)}`;
   const [aff, dic] = await Promise.all([
     fetch(`${dir}/index.aff`).then(r => r.text()),
@@ -116,7 +116,7 @@ async function loadDictionary(language: SpellCheckLanguage): Promise<void> {
 
 function applyWordLists(instance: ReturnType<typeof nspell>): void {
   for (const word of config.userWords) {
-    if (word) instance.add(word);
+    if (word) {instance.add(word);}
   }
   for (const word of ignoredWords) {
     instance.add(word);
@@ -129,14 +129,14 @@ function applyWordLists(instance: ReturnType<typeof nspell>): void {
  * the document-open path.
  */
 function ensureDictionary(editor: any): void {
-  if (!config.enabled) return;
-  if (spell && loadedLanguage === config.language) return;
-  if (loadPromise) return;
+  if (!config.enabled) {return;}
+  if (spell && loadedLanguage === config.language) {return;}
+  if (loadPromise) {return;}
   const target = config.language;
   const start = (): void => {
     loadPromise = loadDictionary(target)
       .then(() => {
-        if (config.enabled) requestFullScan(editor);
+        if (config.enabled) {requestFullScan(editor);}
       })
       .catch(() => {
         // A missing or unreadable dictionary must never break editing — the
@@ -176,9 +176,9 @@ function maskNonProse(text: string): string {
 
 /** Tokens we never check even when unknown to the dictionary. */
 function isSkippableToken(token: string): boolean {
-  if (token.length < 3) return true;                 // "vs", "a", "an" — noise
-  if (token === token.toUpperCase()) return true;    // acronyms: API, HTML
-  if (/[a-z][A-Z]/.test(token)) return true;         // camelCase identifiers
+  if (token.length < 3) {return true;}                 // "vs", "a", "an" — noise
+  if (token === token.toUpperCase()) {return true;}    // acronyms: API, HTML
+  if (/[a-z][A-Z]/.test(token)) {return true;}         // camelCase identifiers
   return false;
 }
 
@@ -186,7 +186,7 @@ function isSkippableToken(token: string): boolean {
 function trimToken(token: string): { word: string; offset: number } {
   let start = 0;
   let end = token.length;
-  while (end > start && /['’]/.test(token[end - 1])) end--;
+  while (end > start && /['’]/.test(token[end - 1])) {end--;}
   const word = token.slice(start, end);
   return { word, offset: start };
 }
@@ -208,7 +208,7 @@ export function tokenize(text: string): CheckableToken[] {
   let m: RegExpExecArray | null;
   while ((m = WORD_RE.exec(masked)) !== null) {
     const { word, offset } = trimToken(m[0]);
-    if (!word || isSkippableToken(word)) continue;
+    if (!word || isSkippableToken(word)) {continue;}
     out.push({ word, index: m.index + offset });
   }
   return out;
@@ -281,21 +281,21 @@ export function removeWordFromList(words: readonly string[], word: string): stri
  */
 export function addWordToList(words: string[], raw: string): string[] {
   const word = raw.trim();
-  if (!word) return words;
+  if (!word) {return words;}
   const key = word.toLowerCase();
-  if (words.some(w => w.toLowerCase() === key)) return words;
+  if (words.some(w => w.toLowerCase() === key)) {return words;}
   return [...words, word];
 }
 
 // ─── Document scanning ───────────────────────────────────────────────────────
 
 function isKnown(word: string): boolean {
-  if (!spell) return true;
-  if (ignoredWords.has(word)) return true;
-  if (spell.correct(word)) return true;
+  if (!spell) {return true;}
+  if (ignoredWords.has(word)) {return true;}
+  if (spell.correct(word)) {return true;}
   // Sentence-initial capitals: "Colour" should follow the same verdict as
   // "colour" when the dictionary only lists the lowercase form.
-  if (/^[A-Z][a-z'’]*$/.test(word) && spell.correct(word.toLowerCase())) return true;
+  if (/^[A-Z][a-z'’]*$/.test(word) && spell.correct(word.toLowerCase())) {return true;}
   return false;
 }
 
@@ -305,29 +305,29 @@ function isKnown(word: string): boolean {
  * (see the walk below).
  */
 function findMisspellings(doc: any, from: number, to: number): Misspelling[] {
-  if (!spell) return [];
+  if (!spell) {return [];}
   const out: Misspelling[] = [];
   doc.nodesBetween(from, to, (node: any, pos: number) => {
     if (config.ignoreCodeBlocks) {
       // `spec.code` catches codeBlock and any future code-ish node (mermaid
       // blocks are codeBlocks, so they're covered here too).
-      if (node.type.spec?.code) return false;
+      if (node.type.spec?.code) {return false;}
     }
     // Wikilinks are file references, not prose.
-    if (node.type.name === 'wikilink') return false;
-    if (!node.isText) return true;
+    if (node.type.name === 'wikilink') {return false;}
+    if (!node.isText) {return true;}
 
     const marks: any[] = node.marks ?? [];
-    if (marks.some(m => m.type.name === 'link')) return false;
-    if (marks.some(m => m.type.name === 'highlight')) return false;
-    if (config.ignoreCodeBlocks && marks.some(m => m.type.name === 'code')) return false;
+    if (marks.some(m => m.type.name === 'link')) {return false;}
+    if (marks.some(m => m.type.name === 'highlight')) {return false;}
+    if (config.ignoreCodeBlocks && marks.some(m => m.type.name === 'code')) {return false;}
 
     const text: string = node.text ?? '';
     for (const token of tokenize(text)) {
-      if (isKnown(token.word)) continue;
+      if (isKnown(token.word)) {continue;}
       const wordFrom = pos + token.index;
       const wordTo = wordFrom + token.word.length;
-      if (wordTo <= from || wordFrom >= to) continue; // outside the scanned slice
+      if (wordTo <= from || wordFrom >= to) {continue;} // outside the scanned slice
       out.push({ from: wordFrom, to: wordTo, word: token.word });
     }
     return true;
@@ -338,7 +338,7 @@ function findMisspellings(doc: any, from: number, to: number): Misspelling[] {
 /** The word the caret sits strictly inside, if any — left unflagged. */
 function caretWord(state: EditorState, found: Misspelling[]): Misspelling | null {
   const sel = state.selection;
-  if (!sel.empty) return null;
+  if (!sel.empty) {return null;}
   const pos = sel.from;
   return found.find(m => pos > m.from && pos <= m.to) ?? null;
 }
@@ -387,12 +387,12 @@ function rescanRanges(
   for (const raw of ranges) {
     const range = expandToBlocks(state.doc, raw.from, raw.to);
     const stale = set.find(range.from, range.to);
-    if (stale.length) set = set.remove(stale);
+    if (stale.length) {set = set.remove(stale);}
     const found = findMisspellings(state.doc, range.from, range.to);
     const inCaret = caretWord(state, found);
-    if (inCaret) skip = inCaret;
+    if (inCaret) {skip = inCaret;}
     const visible = inCaret ? found.filter(m => m !== inCaret) : found;
-    if (visible.length) set = set.add(state.doc, toDecorations(visible));
+    if (visible.length) {set = set.add(state.doc, toDecorations(visible));}
   }
   caretSkip = skip ? { from: skip.from, to: skip.to } : null;
   return { decorations: set };
@@ -419,9 +419,9 @@ export const SpellCheckExtension = Extension.create({
             if (!config.enabled || !spell) {
               return prev.decorations === DecorationSet.empty ? prev : { decorations: DecorationSet.empty };
             }
-            if (meta?.kind === 'full') return fullScan(next);
-            if (meta?.kind === 'rescan') return rescanRanges(prev, next, meta.ranges);
-            if (!tr.docChanged) return prev;
+            if (meta?.kind === 'full') {return fullScan(next);}
+            if (meta?.kind === 'rescan') {return rescanRanges(prev, next, meta.ranges);}
+            if (!tr.docChanged) {return prev;}
 
             // Map the existing squiggles forward so they track the text they
             // belong to, and remember what changed for the debounced re-check.
@@ -450,9 +450,9 @@ export const SpellCheckExtension = Extension.create({
           boundEditor = (view as any);
           return {
             update: (v) => {
-              if (!config.enabled) return;
+              if (!config.enabled) {return;}
               // IME composition: leave the document alone until it commits.
-              if ((v as any).composing) return;
+              if ((v as any).composing) {return;}
               if (pendingRanges.length) {
                 scheduleRecheck(v);
                 return;
@@ -475,7 +475,7 @@ export const SpellCheckExtension = Extension.create({
               }
               pendingRanges = [];
               caretSkip = null;
-              if (boundEditor === view) boundEditor = null;
+              if (boundEditor === view) {boundEditor = null;}
             },
           };
         },
@@ -495,13 +495,13 @@ function dispatchMeta(view: any, meta: SpellMeta): void {
 }
 
 function scheduleRecheck(view: any): void {
-  if (recheckTimer !== null) clearTimeout(recheckTimer);
+  if (recheckTimer !== null) {clearTimeout(recheckTimer);}
   recheckTimer = window.setTimeout(() => {
     recheckTimer = null;
     const ranges = pendingRanges;
     pendingRanges = [];
-    if (!ranges.length || !config.enabled || !spell) return;
-    if (view.composing) return;
+    if (!ranges.length || !config.enabled || !spell) {return;}
+    if (view.composing) {return;}
     dispatchMeta(view, { kind: 'rescan', ranges });
   }, RECHECK_DEBOUNCE_MS);
 }
@@ -512,13 +512,13 @@ function viewOf(editor: any): any | null {
 
 function requestFullScan(editor: any): void {
   const view = viewOf(editor);
-  if (!view) return;
+  if (!view) {return;}
   dispatchMeta(view, { kind: 'full' });
 }
 
 function requestClear(editor: any): void {
   const view = viewOf(editor);
-  if (!view) return;
+  if (!view) {return;}
   dispatchMeta(view, { kind: 'clear' });
 }
 
@@ -573,11 +573,11 @@ export function getSpellCheckConfig(): SpellCheckConfig {
  */
 export function getMisspellingAt(editor: any, pos: number): Misspelling | null {
   const view = viewOf(editor);
-  if (!view || !config.enabled || !spell) return null;
+  if (!view || !config.enabled || !spell) {return null;}
   const state = spellCheckKey.getState(view.state);
-  if (!state) return null;
+  if (!state) {return null;}
   const hits = state.decorations.find(pos, pos);
-  if (!hits.length) return null;
+  if (!hits.length) {return null;}
   const deco = hits[0] as any;
   const word = deco.spec?.word ?? view.state.doc.textBetween(deco.from, deco.to);
   return { from: deco.from, to: deco.to, word };
@@ -585,7 +585,7 @@ export function getMisspellingAt(editor: any, pos: number): Misspelling | null {
 
 /** Up to `limit` corrections for a word, cheapest-first per nspell's ranking. */
 export function getSuggestions(word: string, limit = 5): string[] {
-  if (!spell) return [];
+  if (!spell) {return [];}
   try {
     return spell.suggest(word).slice(0, limit);
   } catch {
@@ -596,7 +596,7 @@ export function getSuggestions(word: string, limit = 5): string[] {
 /** Session-only ignore — not persisted anywhere. */
 export function ignoreWord(editor: any, word: string): void {
   ignoredWords.add(word);
-  if (spell) spell.add(word);
+  if (spell) {spell.add(word);}
   requestFullScan(editor);
 }
 
@@ -606,6 +606,6 @@ export function addWordToDictionary(editor: any, word: string): void {
   if (!config.userWords.includes(word)) {
     config.userWords = [...config.userWords, word];
   }
-  if (spell) spell.add(word);
+  if (spell) {spell.add(word);}
   requestFullScan(editor);
 }

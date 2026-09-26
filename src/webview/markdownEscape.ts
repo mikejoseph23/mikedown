@@ -49,7 +49,7 @@ export interface MarkdownEscapeOptions {
 /** True when the `<` at `index` would be consumed as an autolink or raw HTML. */
 export function needsLessThanEscape(text: string, index: number, html: boolean): boolean {
   const rest = text.slice(index);
-  if (AUTOLINK_URI.test(rest) || AUTOLINK_EMAIL.test(rest)) return true;
+  if (AUTOLINK_URI.test(rest) || AUTOLINK_EMAIL.test(rest)) {return true;}
   return html === true && HTML_OPENER.test(rest);
 }
 

@@ -9,14 +9,14 @@ import { Link } from '@tiptap/extension-link';
 export const LinkWithAutolink = Link.extend({
   addStorage() {
     const isAutolink = (mark: any, parent: any, index: number): boolean => {
-      if (mark.attrs.title) return false;
+      if (mark.attrs.title) {return false;}
       const content = parent.child(index);
-      if (!content.isText) return false;
-      if (content.marks[content.marks.length - 1] !== mark) return false;
-      if (index !== parent.childCount - 1 && mark.isInSet(parent.child(index + 1).marks)) return false;
+      if (!content.isText) {return false;}
+      if (content.marks[content.marks.length - 1] !== mark) {return false;}
+      if (index !== parent.childCount - 1 && mark.isInSet(parent.child(index + 1).marks)) {return false;}
       const href: string = mark.attrs.href || '';
-      if (/^\w+:/.test(href) && content.text === href) return true;
-      if (/^mailto:/i.test(href) && content.text === href.slice(7)) return true;
+      if (/^\w+:/.test(href) && content.text === href) {return true;}
+      if (/^mailto:/i.test(href) && content.text === href.slice(7)) {return true;}
       return false;
     };
     return {
@@ -29,7 +29,7 @@ export const LinkWithAutolink = Link.extend({
           close(state: any, mark: any, parent: any, index: number) {
             const inAutolink = state.inAutolink;
             state.inAutolink = undefined;
-            if (inAutolink) return '>';
+            if (inAutolink) {return '>';}
             const title = mark.attrs.title ? ` "${mark.attrs.title.replace(/"/g, '\\"')}"` : '';
             return '](' + (mark.attrs.href || '').replace(/[\(\)"]/g, '\\$&') + title + ')';
           },
@@ -58,11 +58,11 @@ const FILE_EXTENSIONS = new Set([
 
 export function shouldAutolinkText(value: string): boolean {
   const text = (value || '').trim();
-  if (!text) return false;
+  if (!text) {return false;}
   // Explicit scheme, www-prefixed host or an email address — always a link.
-  if (/^[a-z][a-z0-9+.-]*:/i.test(text)) return true;
-  if (/^www\./i.test(text)) return true;
-  if (text.includes('@')) return true;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(text)) {return true;}
+  if (/^www\./i.test(text)) {return true;}
+  if (text.includes('@')) {return true;}
   // Bare `something.ext[/path]` — reject when ext looks like a file extension.
   const host = text.split(/[/?#]/)[0];
   const ext = host.split('.').pop() || '';

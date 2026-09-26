@@ -33,7 +33,7 @@ export function collectDocLinks(): LinkSuggestion[] {
   const results: LinkSuggestion[] = [];
   document.querySelectorAll('.ProseMirror a[href]').forEach(el => {
     const href = el.getAttribute('href') || '';
-    if (!href || seen.has(href)) return;
+    if (!href || seen.has(href)) {return;}
     seen.add(href);
     const label = href.startsWith('http') ? href.replace(/^https?:\/\//, '').split('/')[0] : href;
     results.push({ label: el.textContent?.trim() || label, href, type: 'inDoc' });
@@ -62,13 +62,13 @@ export function initLinkAutocomplete(
 
 export function receiveSuggestions(newSuggestions: LinkSuggestion[]): void {
   suggestions = newSuggestions;
-  if (inputEl) updateDropdown(inputEl.value);
+  if (inputEl) {updateDropdown(inputEl.value);}
 }
 
 export function receiveFileHeadings(anchors: LinkSuggestion[]): void {
   suggestions = suggestions.filter(s => s.type !== 'anchor');
   suggestions.push(...anchors);
-  if (inputEl) updateDropdown(inputEl.value);
+  if (inputEl) {updateDropdown(inputEl.value);}
 }
 
 export function destroyLinkAutocomplete(): void {
@@ -88,12 +88,12 @@ export function isDropdownActive(): boolean {
 }
 
 function onInputFocus(): void {
-  if (!inputEl) return;
+  if (!inputEl) {return;}
   updateDropdown(inputEl.value);
 }
 
 function onInputChange(): void {
-  if (!inputEl) return;
+  if (!inputEl) {return;}
   const val = inputEl.value;
 
   // If user typed a file path and pressed '#', request headings for that file
@@ -109,7 +109,7 @@ function onInputChange(): void {
 }
 
 function onInputKeydown(e: KeyboardEvent): void {
-  if (!dropdownEl || flatItems.length === 0) return;
+  if (!dropdownEl || flatItems.length === 0) {return;}
   if (e.key === 'ArrowDown') {
     e.preventDefault();
     activeIndex = Math.min(activeIndex + 1, flatItems.length - 1);
@@ -180,13 +180,13 @@ function buildGroupedResults(query: string): GroupedResults {
 }
 
 function fuzzyMatch(items: LinkSuggestion[], query: string): LinkSuggestion[] {
-  if (!query) return items;
+  if (!query) {return items;}
   const q = query.toLowerCase();
   return items.filter(item => {
     const text = (item.label + ' ' + item.href).toLowerCase();
     let qi = 0;
     for (let i = 0; i < text.length && qi < q.length; i++) {
-      if (text[i] === q[qi]) qi++;
+      if (text[i] === q[qi]) {qi++;}
     }
     return qi === q.length;
   });
@@ -197,7 +197,7 @@ function updateDropdown(query: string): void {
 
   // Build flat item list for keyboard navigation
   flatItems = [];
-  if (externalEntry) flatItems.push(externalEntry);
+  if (externalEntry) {flatItems.push(externalEntry);}
   for (const section of sections) {
     flatItems.push(...section.items);
   }
@@ -212,7 +212,7 @@ function updateDropdown(query: string): void {
 }
 
 function showDropdown(sections: Section[], externalEntry: LinkSuggestion | null): void {
-  if (!inputEl) return;
+  if (!inputEl) {return;}
   if (!dropdownEl) {
     dropdownEl = document.createElement('div');
     dropdownEl.id = 'mikedown-link-ac';
@@ -235,7 +235,7 @@ function renderDropdown(): void {
 }
 
 function renderGrouped(sections: Section[], externalEntry: LinkSuggestion | null): void {
-  if (!dropdownEl) return;
+  if (!dropdownEl) {return;}
   _lastSections = sections;
   _lastExternal = externalEntry;
   dropdownEl.innerHTML = '';
@@ -265,8 +265,8 @@ function renderGrouped(sections: Section[], externalEntry: LinkSuggestion | null
 function makeItem(s: LinkSuggestion, idx: number, isExternal: boolean): HTMLElement {
   const item = document.createElement('div');
   const classes = ['lac-item'];
-  if (idx === activeIndex) classes.push('lac-active');
-  if (isExternal) classes.push('lac-external');
+  if (idx === activeIndex) {classes.push('lac-active');}
+  if (isExternal) {classes.push('lac-external');}
   item.className = classes.join(' ');
   item.setAttribute('role', 'option');
   item.setAttribute('aria-selected', String(idx === activeIndex));
@@ -298,7 +298,7 @@ function makeItem(s: LinkSuggestion, idx: number, isExternal: boolean): HTMLElem
 
   item.appendChild(icon);
   item.appendChild(label);
-  if (!isExternal) item.appendChild(href);
+  if (!isExternal) {item.appendChild(href);}
   item.addEventListener('mousedown', (e) => {
     e.preventDefault();
     selectSuggestion(s);
@@ -312,7 +312,7 @@ function makeItem(s: LinkSuggestion, idx: number, isExternal: boolean): HTMLElem
 }
 
 function selectSuggestion(s: LinkSuggestion): void {
-  if (inputEl) inputEl.value = s.href;
+  if (inputEl) {inputEl.value = s.href;}
   hideDropdown();
   onSelectCallback?.(s.href);
 }

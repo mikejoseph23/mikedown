@@ -28,7 +28,7 @@ export class SourceModeSync {
    * agree again. No-op outside source mode.
    */
   rebaseline(md: string): void {
-    if (this.entry !== null) this.entry = md;
+    if (this.entry !== null) {this.entry = md;}
   }
 
   /**

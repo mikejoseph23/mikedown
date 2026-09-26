@@ -16,7 +16,7 @@ function isInsideTable(doc: any, pos: number): boolean {
   const resolved = doc.resolve(pos);
   for (let depth = resolved.depth; depth > 0; depth--) {
     const nodeType = resolved.node(depth).type.name;
-    if (nodeType === 'tableCell' || nodeType === 'tableHeader') return true;
+    if (nodeType === 'tableCell' || nodeType === 'tableHeader') {return true;}
   }
   return false;
 }
@@ -25,8 +25,8 @@ function buildDecorations(doc: any, view?: EditorView): DecorationSet {
   const decorations: Decoration[] = [];
 
   doc.descendants((node: any, pos: number) => {
-    if (!node.isText) return;
-    if (!isInsideTable(doc, pos)) return;
+    if (!node.isText) {return;}
+    if (!isInsideTable(doc, pos)) {return;}
 
     const text = node.text!;
     let match: RegExpExecArray | null;
@@ -81,7 +81,7 @@ export const TableCheckboxExtension = Extension.create({
             return buildDecorations(doc);
           },
           apply(tr, oldDecorations) {
-            if (!tr.docChanged) return oldDecorations;
+            if (!tr.docChanged) {return oldDecorations;}
             return buildDecorations(tr.doc);
           },
         },

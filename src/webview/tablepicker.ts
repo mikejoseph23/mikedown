@@ -138,8 +138,8 @@ export function showTableGridPicker(
   const pickerRect = pickerEl.getBoundingClientRect();
   let left = rect.left;
   let top = rect.bottom + 4;
-  if (left + pickerRect.width > vw - 8) left = vw - pickerRect.width - 8;
-  if (top + pickerRect.height > vh - 8) top = rect.top - pickerRect.height - 4;
+  if (left + pickerRect.width > vw - 8) {left = vw - pickerRect.width - 8;}
+  if (top + pickerRect.height > vh - 8) {top = rect.top - pickerRect.height - 4;}
   pickerEl.style.left = `${Math.max(4, left)}px`;
   pickerEl.style.top = `${Math.max(4, top)}px`;
 
@@ -149,7 +149,7 @@ export function showTableGridPicker(
 
   // Keyboard support
   pickerEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') hideTableGridPicker();
+    if (e.key === 'Escape') {hideTableGridPicker();}
     if (e.key === 'Enter' && document.activeElement !== rowInput && document.activeElement !== colInput) {
       commitTable(editor, pickerHoverRows, pickerHoverCols, opts);
       hideTableGridPicker();
@@ -158,9 +158,9 @@ export function showTableGridPicker(
 }
 
 function updateGridHighlight(): void {
-  if (!pickerEl) return;
+  if (!pickerEl) {return;}
   const label = pickerEl.querySelector('#tp-dimension-label');
-  if (label) label.textContent = `${pickerHoverRows} × ${pickerHoverCols}`;
+  if (label) {label.textContent = `${pickerHoverRows} × ${pickerHoverCols}`;}
   pickerEl.querySelectorAll('.tp-cell').forEach(cell => {
     const r = parseInt((cell as HTMLElement).dataset.row || '0', 10);
     const c = parseInt((cell as HTMLElement).dataset.col || '0', 10);
@@ -205,7 +205,7 @@ interface TableToolbarButton {
 let toolbarButtons: Array<{ el: HTMLButtonElement; def: TableToolbarButton }> = [];
 
 function showTableTooltip(anchor: HTMLElement, text: string): void {
-  if (!text) return;
+  if (!text) {return;}
   if (!tableTooltipEl) {
     tableTooltipEl = document.createElement('div');
     tableTooltipEl.id = 'mikedown-table-tooltip';
@@ -224,7 +224,7 @@ function showTableTooltip(anchor: HTMLElement, text: string): void {
 }
 
 function hideTableTooltip(): void {
-  if (tableTooltipEl) tableTooltipEl.style.display = 'none';
+  if (tableTooltipEl) {tableTooltipEl.style.display = 'none';}
 }
 
 export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
@@ -329,8 +329,8 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
     el.className = 'tt-btn';
     el.innerHTML = btn.label;
     el.setAttribute('aria-label', btn.title);
-    if (btn.isDisabled?.()) el.disabled = true;
-    if (btn.isActive?.()) el.classList.add('tt-active');
+    if (btn.isDisabled?.()) {el.disabled = true;}
+    if (btn.isActive?.()) {el.classList.add('tt-active');}
     el.addEventListener('mousedown', (e) => {
       e.preventDefault();
       btn.action();
@@ -349,13 +349,13 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
   // Reposition (or hide) on scroll/resize so the toolbar stays anchored to the
   // table instead of floating in the viewport while the user scrolls.
   tableToolbarScrollHandler = () => {
-    if (!tableToolbarAnchor) return;
+    if (!tableToolbarAnchor) {return;}
     const rect = tableToolbarAnchor.getBoundingClientRect();
     const vh = window.innerHeight;
     if (rect.bottom < 0 || rect.top > vh) {
-      if (tableToolbarEl) tableToolbarEl.style.visibility = 'hidden';
+      if (tableToolbarEl) {tableToolbarEl.style.visibility = 'hidden';}
     } else {
-      if (tableToolbarEl) tableToolbarEl.style.visibility = '';
+      if (tableToolbarEl) {tableToolbarEl.style.visibility = '';}
       positionTableToolbar(tableToolbarAnchor);
     }
   };
@@ -364,15 +364,15 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
 }
 
 function positionTableToolbar(tableEl: HTMLElement): void {
-  if (!tableToolbarEl) return;
+  if (!tableToolbarEl) {return;}
   const rect = tableEl.getBoundingClientRect();
   const tbRect = tableToolbarEl.getBoundingClientRect();
   const vw = window.innerWidth;
 
   let left = rect.left;
   let top = rect.top - tbRect.height - 6;
-  if (top < 4) top = rect.bottom + 6;
-  if (left + tbRect.width > vw - 8) left = vw - tbRect.width - 8;
+  if (top < 4) {top = rect.bottom + 6;}
+  if (left + tbRect.width > vw - 8) {left = vw - tbRect.width - 8;}
   tableToolbarEl.style.left = `${Math.max(4, left)}px`;
   tableToolbarEl.style.top = `${Math.max(4, top)}px`;
 }

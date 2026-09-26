@@ -92,7 +92,7 @@ export function showToolbarDropdown(
 }
 
 export function hideToolbarDropdown(): void {
-  if (!dropdownEl) return;
+  if (!dropdownEl) {return;}
 
   document.removeEventListener('mousedown', handleClickOutside, true);
   document.removeEventListener('keydown', handleKeyDown, true);
@@ -114,7 +114,7 @@ export function isToolbarDropdownOpen(): boolean {
 }
 
 export function updateDropdownActiveStates(): void {
-  if (!dropdownEl) return;
+  if (!dropdownEl) {return;}
 
   // Update action items
   const actionItems = dropdownEl.querySelectorAll<HTMLElement>('.tdd-item[data-tdd-id]');
@@ -300,7 +300,7 @@ function setFocusedIndex(index: number): void {
 }
 
 function handleKeyDown(e: KeyboardEvent): void {
-  if (!dropdownEl) return;
+  if (!dropdownEl) {return;}
 
   switch (e.key) {
     case 'Escape':
@@ -342,7 +342,7 @@ function handleKeyDown(e: KeyboardEvent): void {
 // ── Click-outside ────────────────────────────────────────────────────────────
 
 function handleClickOutside(e: MouseEvent): void {
-  if (!dropdownEl) return;
+  if (!dropdownEl) {return;}
   const target = e.target as Node;
   if (!dropdownEl.contains(target)) {
     hideToolbarDropdown();

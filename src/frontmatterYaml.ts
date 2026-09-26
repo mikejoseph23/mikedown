@@ -15,17 +15,17 @@ export interface ParsedEntry {
 }
 
 export function parseFrontmatter(yaml: string): ParsedEntry[] {
-  if (!yaml) return [];
+  if (!yaml) {return [];}
   const entries: ParsedEntry[] = [];
   const lines = yaml.split('\n');
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
-    if (!raw.trim() || raw.trim().startsWith('#')) continue;
-    if (/^\s/.test(raw)) continue;
+    if (!raw.trim() || raw.trim().startsWith('#')) {continue;}
+    if (/^\s/.test(raw)) {continue;}
 
     const match = raw.match(/^([^:]+):\s*(.*)$/);
-    if (!match) continue;
+    if (!match) {continue;}
     const key = match[1].trim();
     const rest = match[2];
 
@@ -96,19 +96,19 @@ export function serializeFrontmatter(entries: ParsedEntry[]): string {
  * would silently drop content, so we keep the section read-only.
  */
 export function isSimpleFrontmatter(yaml: string): boolean {
-  if (!yaml) return true;
+  if (!yaml) {return true;}
   const lines = yaml.split('\n');
   let prevWasBareKey = false;
   for (const raw of lines) {
     const trimmed = raw.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
+    if (!trimmed || trimmed.startsWith('#')) {continue;}
     if (/^\s/.test(raw)) {
       // Indented line — only allowed as a block-array item directly under a bare key.
-      if (prevWasBareKey && /^\s+-\s+/.test(raw)) continue;
+      if (prevWasBareKey && /^\s+-\s+/.test(raw)) {continue;}
       return false;
     }
     const m = raw.match(/^([^:]+):\s*(.*)$/);
-    if (!m) return false;
+    if (!m) {return false;}
     prevWasBareKey = m[2] === '';
   }
   return true;
@@ -122,7 +122,7 @@ function stripQuotes(s: string): string {
 }
 
 function quoteScalarIfNeeded(s: string): string {
-  if (s === '') return '""';
+  if (s === '') {return '""';}
   // Anything that looks like YAML structure or reserved scalars must be quoted
   // so it parses back as a string.
   const needsQuoteForChars = /[:#\[\]{},&*!|>'"%@`]/.test(s) || /^\s|\s$/.test(s);

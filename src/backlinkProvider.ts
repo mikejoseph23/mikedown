@@ -35,8 +35,8 @@ export class BacklinkProvider {
     // Remove old entries for this source file
     for (const [target, entries] of this.index.entries()) {
       const filtered = entries.filter(e => e.sourceFile.fsPath !== uri.fsPath);
-      if (filtered.length === 0) this.index.delete(target);
-      else this.index.set(target, filtered);
+      if (filtered.length === 0) {this.index.delete(target);}
+      else {this.index.set(target, filtered);}
     }
     // Refresh the md file list so newly created wikilink targets resolve.
     this.mdFiles = await vscode.workspace.findFiles('**/*.{md,markdown}', '**/node_modules/**', 500);
@@ -69,7 +69,7 @@ export class BacklinkProvider {
         let m: RegExpExecArray | null;
         while ((m = linkRegex.exec(line)) !== null) {
           const href = m[2].trim();
-          if (!href || href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) continue;
+          if (!href || href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) {continue;}
           const absTarget = path.resolve(dir, href);
           const existing = this.index.get(absTarget) || [];
           existing.push({
@@ -88,7 +88,7 @@ export class BacklinkProvider {
         while ((w = wikiRegex.exec(line)) !== null) {
           const target = w[1].trim();
           const absTarget = this.resolveWikiTarget(target, dir);
-          if (!absTarget) continue;
+          if (!absTarget) {continue;}
           const existing = this.index.get(absTarget) || [];
           existing.push({
             sourceFile: uri,

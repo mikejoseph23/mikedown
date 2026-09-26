@@ -38,7 +38,7 @@ export interface ParsedWikilink {
  *  rule and unit tests. */
 export function parseWikilink(raw: string): ParsedWikilink | null {
   const m = new RegExp('^' + WIKILINK_REGEX.source).exec(raw);
-  if (!m) return null;
+  if (!m) {return null;}
   return {
     target: m[1].trim(),
     anchor: m[2] != null ? m[2].trim() : null,
@@ -124,7 +124,7 @@ export const Wikilink = Node.create({
         find: new RegExp(WIKILINK_REGEX.source + '$'),
         handler: ({ state, range, match }) => {
           const target = (match[1] || '').trim();
-          if (!target) return;
+          if (!target) {return;}
           const attrs = {
             target,
             anchor: match[2] != null ? match[2].trim() : null,
@@ -142,8 +142,8 @@ export const Wikilink = Node.create({
     };
     const label = (alias && alias.length ? alias : target) || '';
     let cls = 'mikedown-wikilink';
-    if (resolved === false) cls += ' mikedown-unresolved';
-    if (ambiguous) cls += ' mikedown-wikilink-ambiguous';
+    if (resolved === false) {cls += ' mikedown-unresolved';}
+    if (ambiguous) {cls += ' mikedown-wikilink-ambiguous';}
     return [
       'a',
       mergeAttributes(HTMLAttributes, { 'data-wikilink': '', class: cls }),
@@ -169,7 +169,7 @@ export const Wikilink = Node.create({
                 return false;
               }
               const m = new RegExp('^' + WIKILINK_REGEX.source).exec(src.slice(pos));
-              if (!m) return false;
+              if (!m) {return false;}
               if (!silent) {
                 const token = state.push('wikilink', '', 0);
                 token.meta = {
@@ -192,8 +192,8 @@ export const Wikilink = Node.create({
               const alias: string = meta.alias || '';
               const label = alias || target;
               let out = `<a data-wikilink data-target="${escAttr(target)}"`;
-              if (anchor) out += ` data-anchor="${escAttr(anchor)}"`;
-              if (alias) out += ` data-alias="${escAttr(alias)}"`;
+              if (anchor) {out += ` data-anchor="${escAttr(anchor)}"`;}
+              if (alias) {out += ` data-alias="${escAttr(alias)}"`;}
               out += ` class="mikedown-wikilink">${escHtml(label)}</a>`;
               return out;
             };

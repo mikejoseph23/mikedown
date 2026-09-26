@@ -33,7 +33,7 @@ function nextRequestId(): string {
  * entries whose MIME type starts with `image/`.
  */
 function extractImageFiles(transfer: DataTransfer | null): File[] {
-  if (!transfer) return [];
+  if (!transfer) {return [];}
 
   // `transfer.files` and `transfer.items` overlap in most environments —
   // walking both double-counts because DataTransferItem.getAsFile() returns a
@@ -43,7 +43,7 @@ function extractImageFiles(transfer: DataTransfer | null): File[] {
   if (transfer.files && transfer.files.length > 0) {
     for (let i = 0; i < transfer.files.length; i++) {
       const f = transfer.files.item(i);
-      if (f && f.type.startsWith('image/')) out.push(f);
+      if (f && f.type.startsWith('image/')) {out.push(f);}
     }
     return out;
   }
@@ -52,7 +52,7 @@ function extractImageFiles(transfer: DataTransfer | null): File[] {
       const item = transfer.items[i];
       if (item.kind === 'file' && item.type.startsWith('image/')) {
         const f = item.getAsFile();
-        if (f) out.push(f);
+        if (f) {out.push(f);}
       }
     }
   }
@@ -100,7 +100,7 @@ interface PastedImageResult {
  */
 export function handlePastedImageResult(message: PastedImageResult): void {
   const req = pending.get(message.requestId);
-  if (!req) return;
+  if (!req) {return;}
   pending.delete(message.requestId);
 
   if (!message.success) {
@@ -146,7 +146,7 @@ export const ImagePasteExtension = Extension.create({
         props: {
           handlePaste(view, event) {
             const files = extractImageFiles(event.clipboardData);
-            if (files.length === 0) return false;
+            if (files.length === 0) {return false;}
             event.preventDefault();
             const insertPos = view.state.selection.from;
             // Run uploads in parallel; each insert is a separate transaction.
@@ -158,10 +158,10 @@ export const ImagePasteExtension = Extension.create({
             return true;
           },
           handleDrop(view, event, _slice, moved) {
-            if (moved) return false; // internal node drag — let PM handle it
+            if (moved) {return false;} // internal node drag — let PM handle it
             const dt = event.dataTransfer;
             const files = extractImageFiles(dt);
-            if (files.length === 0) return false;
+            if (files.length === 0) {return false;}
             event.preventDefault();
             const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
             const dropPos = coords?.pos ?? view.state.selection.from;

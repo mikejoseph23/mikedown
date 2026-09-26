@@ -25,8 +25,8 @@ function escapeAttr(value: string): string {
 
 function renderTokenHtml(id: string | null, name: string | null): string {
   let out = '<a';
-  if (id) out += ` id="${escapeAttr(id)}"`;
-  if (name) out += ` name="${escapeAttr(name)}"`;
+  if (id) {out += ` id="${escapeAttr(id)}"`;}
+  if (name) {out += ` name="${escapeAttr(name)}"`;}
   out += '></a>';
   return out;
 }
@@ -54,15 +54,15 @@ export const HtmlAnchor = Node.create({
         // tags are picked up as this node rather than as an empty link.
         priority: 60,
         getAttrs: (dom) => {
-          if (typeof dom === 'string') return false;
+          if (typeof dom === 'string') {return false;}
           const el = dom as HTMLElement;
-          if (el.hasAttribute('href')) return false;
+          if (el.hasAttribute('href')) {return false;}
           const id = el.getAttribute('id');
           const name = el.getAttribute('name');
-          if (!id && !name) return false;
+          if (!id && !name) {return false;}
           // Reject anchors that wrap content — those aren't the target pattern.
-          if ((el.textContent || '').trim() !== '') return false;
-          if (el.children.length > 0) return false;
+          if ((el.textContent || '').trim() !== '') {return false;}
+          if (el.children.length > 0) {return false;}
           return { id, name };
         },
       },
@@ -71,8 +71,8 @@ export const HtmlAnchor = Node.create({
 
   renderHTML({ HTMLAttributes, node }) {
     const attrs: Record<string, string> = {};
-    if (node.attrs.id) attrs.id = node.attrs.id;
-    if (node.attrs.name) attrs.name = node.attrs.name;
+    if (node.attrs.id) {attrs.id = node.attrs.id;}
+    if (node.attrs.name) {attrs.name = node.attrs.name;}
     attrs.class = 'mikedown-html-anchor';
     return ['a', mergeAttributes(HTMLAttributes, attrs)];
   },
@@ -84,8 +84,8 @@ export const HtmlAnchor = Node.create({
           const id = node.attrs.id;
           const name = node.attrs.name;
           let out = '<a';
-          if (id) out += ` id="${escapeAttr(id)}"`;
-          if (name) out += ` name="${escapeAttr(name)}"`;
+          if (id) {out += ` id="${escapeAttr(id)}"`;}
+          if (name) {out += ` name="${escapeAttr(name)}"`;}
           out += '></a>';
           state.write(out);
         },
@@ -94,25 +94,25 @@ export const HtmlAnchor = Node.create({
             markdownit.inline.ruler.before('html_inline', 'mikedown_html_anchor', (state: any, silent: boolean) => {
               const src = state.src;
               const pos = state.pos;
-              if (src.charCodeAt(pos) !== 0x3c /* < */) return false;
-              if (pos + 2 >= state.posMax) return false;
+              if (src.charCodeAt(pos) !== 0x3c /* < */) {return false;}
+              if (pos + 2 >= state.posMax) {return false;}
               const ch1 = src.charCodeAt(pos + 1);
-              if (ch1 !== 0x61 /* a */ && ch1 !== 0x41 /* A */) return false;
+              if (ch1 !== 0x61 /* a */ && ch1 !== 0x41 /* A */) {return false;}
               const ch2 = src.charCodeAt(pos + 2);
               // Must be followed by whitespace — otherwise it's `<abbr>` etc.
-              if (ch2 !== 0x20 && ch2 !== 0x09 && ch2 !== 0x0a && ch2 !== 0x0d) return false;
+              if (ch2 !== 0x20 && ch2 !== 0x09 && ch2 !== 0x0a && ch2 !== 0x0d) {return false;}
 
               const rest = src.slice(pos);
               const openMatch = rest.match(ANCHOR_RE);
-              if (!openMatch) return false;
+              if (!openMatch) {return false;}
               const attrsStr = openMatch[1] || '';
 
-              if (/\bhref\s*=/i.test(attrsStr)) return false;
+              if (/\bhref\s*=/i.test(attrsStr)) {return false;}
               const idMatch = attrsStr.match(ATTR_ID_RE);
               const nameMatch = attrsStr.match(ATTR_NAME_RE);
               const id = idMatch ? (idMatch[1] ?? idMatch[2]) : null;
               const name = nameMatch ? (nameMatch[1] ?? nameMatch[2]) : null;
-              if (!id && !name) return false;
+              if (!id && !name) {return false;}
 
               // If the opener wasn't self-closing, the regex already consumed
               // `</a>` (empty content only) — if content exists between the

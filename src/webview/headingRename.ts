@@ -27,10 +27,10 @@ export function detectHeadingRename(
   currentText: string,
 ): RenameEvent | null {
   const oldSlug = githubAnchorId(baselineText);
-  if (!oldSlug) return null; // no baseline anchor → brand-new heading
-  if (!currentText.trim()) return null; // emptied → deletion, not a rename
+  if (!oldSlug) {return null;} // no baseline anchor → brand-new heading
+  if (!currentText.trim()) {return null;} // emptied → deletion, not a rename
   const newSlug = githubAnchorId(currentText);
-  if (!newSlug || newSlug === oldSlug) return null; // no slug change
+  if (!newSlug || newSlug === oldSlug) {return null;} // no slug change
   return { oldSlug, newSlug };
 }
 
@@ -57,8 +57,8 @@ export function isRenameAmbiguous(
   let newBaseCount = 0;
   for (const text of headingTexts) {
     const base = githubAnchorId(text);
-    if (base === oldSlug) oldBaseCount++;
-    if (base === newSlug) newBaseCount++;
+    if (base === oldSlug) {oldBaseCount++;}
+    if (base === newSlug) {newBaseCount++;}
   }
   // After the rename the renamed heading no longer carries oldSlug, so any
   // remaining oldSlug means a *different* heading shares that base name.

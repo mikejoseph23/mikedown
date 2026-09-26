@@ -58,7 +58,7 @@ export function hideLanguagePicker(): void {
 }
 
 function handleDocMouseDown(e: MouseEvent): void {
-  if (!popoverEl) return;
+  if (!popoverEl) {return;}
   if (!(e.target as HTMLElement).closest('#mikedown-language-picker')) {
     hideLanguagePicker();
   }
@@ -118,8 +118,8 @@ export function showLanguagePicker(editor: Editor, opts: ShowOptions): void {
   const buildItem = (label: string, value: string, opts2?: { hint?: string; isClear?: boolean }): HTMLElement => {
     const el = document.createElement('div');
     el.className = 'lp-item';
-    if (opts2?.isClear) el.classList.add('lp-item-clear');
-    if (value.toLowerCase() === currentLang) el.classList.add('lp-item-current');
+    if (opts2?.isClear) {el.classList.add('lp-item-clear');}
+    if (value.toLowerCase() === currentLang) {el.classList.add('lp-item-current');}
     el.setAttribute('role', 'option');
     el.dataset.value = value;
 
@@ -187,7 +187,7 @@ export function showLanguagePicker(editor: Editor, opts: ShowOptions): void {
       }
     } else {
       // No filter: show curated set first, then "More languages…" section
-      for (const lang of CURATED) matches.push({ label: lang, value: lang });
+      for (const lang of CURATED) {matches.push({ label: lang, value: lang });}
     }
 
     for (const m of matches) {
@@ -222,11 +222,11 @@ export function showLanguagePicker(editor: Editor, opts: ShowOptions): void {
   input.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (rendered.length === 0) return;
+      if (rendered.length === 0) {return;}
       setFocused((focusedIndex + 1) % rendered.length);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      if (rendered.length === 0) return;
+      if (rendered.length === 0) {return;}
       setFocused(focusedIndex <= 0 ? rendered.length - 1 : focusedIndex - 1);
     } else if (e.key === 'Enter') {
       e.preventDefault();

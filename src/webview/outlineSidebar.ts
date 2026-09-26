@@ -150,7 +150,7 @@ export function initOutlineSidebar(opts: InitOptions): void {
 
   sidebarEl = document.getElementById('mikedown-outline-sidebar');
   toggleEl = document.getElementById('mikedown-outline-toggle') as HTMLButtonElement | null;
-  if (!sidebarEl || !toggleEl) return;
+  if (!sidebarEl || !toggleEl) {return;}
 
   buildSidebarSkeleton(sidebarEl);
 
@@ -319,7 +319,7 @@ function buildSectionHeader(label: string, section: string, withClose = false, w
   const toggle = (): void => toggleSectionCollapsed(section);
   header.addEventListener('click', (ev) => {
     const target = ev.target as HTMLElement;
-    if (target.closest('.outline-close') || target.closest('.outline-pin') || target.closest('.outline-position-toggle')) return;
+    if (target.closest('.outline-close') || target.closest('.outline-pin') || target.closest('.outline-position-toggle')) {return;}
     toggle();
   });
   header.addEventListener('keydown', (ev) => {
@@ -332,8 +332,8 @@ function buildSectionHeader(label: string, section: string, withClose = false, w
 }
 
 function toggleSectionCollapsed(section: string): void {
-  if (collapsedSections.has(section)) collapsedSections.delete(section);
-  else collapsedSections.add(section);
+  if (collapsedSections.has(section)) {collapsedSections.delete(section);}
+  else {collapsedSections.add(section);}
   // Once the user explicitly toggles a section, the auto-collapse-when-empty
   // rule stops applying to that section. Other sections are unaffected.
   userTouchedSections.add(section);
@@ -346,7 +346,7 @@ function toggleSectionCollapsed(section: string): void {
 }
 
 function applySectionCollapsedDom(): void {
-  if (!sidebarEl) return;
+  if (!sidebarEl) {return;}
   sidebarEl.querySelectorAll<HTMLElement>('.sidebar-section').forEach((el) => {
     const name = el.dataset.section || '';
     el.classList.toggle('collapsed', collapsedSections.has(name));
@@ -364,9 +364,9 @@ export function applyOutlineState(state: {
   position?: OutlinePosition;
   sectionPrefs?: Record<string, boolean>;
 }): void {
-  if (typeof state.width === 'number') setWidth(state.width);
-  if (state.position === 'left' || state.position === 'right') setPosition(state.position);
-  if (state.pref === 'always' || state.pref === 'never') pref = state.pref;
+  if (typeof state.width === 'number') {setWidth(state.width);}
+  if (state.position === 'left' || state.position === 'right') {setPosition(state.position);}
+  if (state.pref === 'always' || state.pref === 'never') {pref = state.pref;}
   if (state.sectionPrefs && typeof state.sectionPrefs === 'object') {
     // Only mutate sections the user has explicitly toggled. Sections absent
     // from the map are still "auto-driven" — leaving their current collapsed
@@ -377,8 +377,8 @@ export function applyOutlineState(state: {
     userTouchedSections.clear();
     for (const [section, collapsed] of Object.entries(state.sectionPrefs)) {
       userTouchedSections.add(section);
-      if (collapsed) collapsedSections.add(section);
-      else collapsedSections.delete(section);
+      if (collapsed) {collapsedSections.add(section);}
+      else {collapsedSections.delete(section);}
     }
     applySectionCollapsedDom();
   }
@@ -394,12 +394,12 @@ export function applyOutlineState(state: {
  * rule for Backlinks/Properties.
  */
 function autoCollapseIfEmpty(section: string, isEmpty: boolean): void {
-  if (userTouchedSections.has(section)) return;
+  if (userTouchedSections.has(section)) {return;}
   const wasCollapsed = collapsedSections.has(section);
   const shouldCollapse = isEmpty;
   if (wasCollapsed !== shouldCollapse) {
-    if (shouldCollapse) collapsedSections.add(section);
-    else collapsedSections.delete(section);
+    if (shouldCollapse) {collapsedSections.add(section);}
+    else {collapsedSections.delete(section);}
     applySectionCollapsedDom();
   }
 }
@@ -418,7 +418,7 @@ function togglePin(): void {
 }
 
 function updatePinState(): void {
-  if (!pinButtonEl) return;
+  if (!pinButtonEl) {return;}
   const pinned = pref === 'always';
   pinButtonEl.classList.toggle('pinned', pinned);
   pinButtonEl.setAttribute('aria-pressed', pinned ? 'true' : 'false');
@@ -439,7 +439,7 @@ function togglePosition(): void {
 }
 
 function updatePositionToggle(): void {
-  if (!positionToggleEl) return;
+  if (!positionToggleEl) {return;}
   // The arrow points to the *other* side — i.e. where clicking will move the sidebar.
   const movingTo: OutlinePosition = position === 'right' ? 'left' : 'right';
   positionToggleEl.innerHTML = movingTo === 'left' ? SIDEBAR_ARROW_LEFT : SIDEBAR_ARROW_RIGHT;
@@ -486,8 +486,8 @@ export function focusPropertiesSection(): void {
 }
 
 export function applyDocMeta(meta: { mtimeMs?: number | null }): void {
-  if (typeof meta.mtimeMs === 'number') docMtimeMs = meta.mtimeMs;
-  else if (meta.mtimeMs === null) docMtimeMs = null;
+  if (typeof meta.mtimeMs === 'number') {docMtimeMs = meta.mtimeMs;}
+  else if (meta.mtimeMs === null) {docMtimeMs = null;}
   renderFooter();
 }
 
@@ -502,14 +502,14 @@ export function applyPlainText(plainText: string): void {
 // `mikedown.toggleSidebar` command (Ctrl+\ / Cmd+\) — routes through the same
 // setVisible so both entry points keep identical state.
 export function toggleSidebarVisible(): void {
-  if (!sidebarEl) return;
+  if (!sidebarEl) {return;}
   setVisible(sidebarEl.hidden);
 }
 
 function setVisible(visible: boolean): void {
   // Visibility is session-only when manually toggled; the pin pref is what
   // persists. Nothing posted back to the host on a manual show/hide.
-  if (!sidebarEl || !toggleEl) return;
+  if (!sidebarEl || !toggleEl) {return;}
   sidebarEl.hidden = !visible;
   document.body.classList.toggle('mikedown-outline-open', visible);
   toggleEl.setAttribute('aria-expanded', visible ? 'true' : 'false');
@@ -573,12 +573,12 @@ function wireResize(handle: HTMLElement): void {
 
 function collectHeadings(): Heading[] {
   const headings: Heading[] = [];
-  if (!editorRef) return headings;
+  if (!editorRef) {return headings;}
   const seen = new Map<string, number>();
   editorRef.state.doc.forEach((node: any, offset: number) => {
-    if (node.type.name !== 'heading') return;
+    if (node.type.name !== 'heading') {return;}
     const text = (node.textContent as string).trim();
-    if (!text) return;
+    if (!text) {return;}
     const base = anchorFnRef(text);
     const count = seen.get(base) ?? 0;
     const anchor = count === 0 ? base : `${base}-${count}`;
@@ -594,7 +594,7 @@ function collectHeadings(): Heading[] {
 }
 
 function rebuildHeadings(): void {
-  if (!outlineListEl || sidebarEl?.hidden) return;
+  if (!outlineListEl || sidebarEl?.hidden) {return;}
   const headings = collectHeadings();
   const key = headings.map(h => `${h.level}|${h.anchor}|${h.text}`).join('\n');
   if (key === lastHeadingsKey) {
@@ -627,39 +627,39 @@ function rebuildHeadings(): void {
 // ── Active-item tracking ───────────────────────────────────────────────────
 
 function updateActiveFromCursor(): void {
-  if (!editorRef || !outlineListEl || sidebarEl?.hidden) return;
+  if (!editorRef || !outlineListEl || sidebarEl?.hidden) {return;}
   const from = editorRef.state.selection.from;
   let currentAnchor = '';
   const seen = new Map<string, number>();
   editorRef.state.doc.forEach((node: any, offset: number) => {
-    if (node.type.name !== 'heading') return;
+    if (node.type.name !== 'heading') {return;}
     const text = (node.textContent as string).trim();
-    if (!text) return;
+    if (!text) {return;}
     const base = anchorFnRef(text);
     const count = seen.get(base) ?? 0;
     const anchor = count === 0 ? base : `${base}-${count}`;
     seen.set(base, count + 1);
-    if (offset <= from) currentAnchor = anchor;
+    if (offset <= from) {currentAnchor = anchor;}
   });
-  if (currentAnchor === activeAnchor) return;
+  if (currentAnchor === activeAnchor) {return;}
   activeAnchor = currentAnchor;
   highlightActive();
 }
 
 function highlightActive(): void {
-  if (!outlineListEl) return;
+  if (!outlineListEl) {return;}
   const items = outlineListEl.querySelectorAll<HTMLElement>('.outline-item');
   let activeEl: HTMLElement | null = null;
   items.forEach((el) => {
     const on = el.dataset.anchor === activeAnchor;
     el.classList.toggle('active', on);
-    if (on) activeEl = el;
+    if (on) {activeEl = el;}
   });
-  if (activeEl) scrollActiveIntoView(activeEl);
+  if (activeEl) {scrollActiveIntoView(activeEl);}
 }
 
 function scrollActiveIntoView(el: HTMLElement): void {
-  if (!outlineListEl) return;
+  if (!outlineListEl) {return;}
   const itemTop = el.offsetTop;
   const itemBottom = itemTop + el.offsetHeight;
   const viewTop = outlineListEl.scrollTop;
@@ -675,21 +675,21 @@ function scrollActiveIntoView(el: HTMLElement): void {
 
 function wireScrollSpy(): void {
   const editorContainer = document.getElementById('editor-container');
-  if (!editorContainer) return;
+  if (!editorContainer) {return;}
   let scrollTimer: number | undefined;
   editorContainer.addEventListener('scroll', () => {
-    if (sidebarEl?.hidden) return;
+    if (sidebarEl?.hidden) {return;}
     clearTimeout(scrollTimer);
     scrollTimer = window.setTimeout(updateActiveFromScroll, 80) as unknown as number;
   });
 }
 
 function updateActiveFromScroll(): void {
-  if (!outlineListEl || sidebarEl?.hidden) return;
+  if (!outlineListEl || sidebarEl?.hidden) {return;}
   const editorContainer = document.getElementById('editor-container');
-  if (!editorContainer) return;
+  if (!editorContainer) {return;}
   const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
-  if (headings.length === 0) return;
+  if (headings.length === 0) {return;}
   const top = editorContainer.getBoundingClientRect().top + 60;
   const seen = new Map<string, number>();
   let currentAnchor = '';
@@ -708,14 +708,14 @@ function updateActiveFromScroll(): void {
     const first = headings[0];
     currentAnchor = anchorFnRef(first.textContent || '');
   }
-  if (currentAnchor === activeAnchor) return;
+  if (currentAnchor === activeAnchor) {return;}
   activeAnchor = currentAnchor;
   highlightActive();
 }
 
 function scrollEditorToAnchor(anchor: string): void {
   const editorContainer = document.getElementById('editor-container');
-  if (!editorContainer) return;
+  if (!editorContainer) {return;}
   const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
   const seen = new Map<string, number>();
   for (const h of headings) {
@@ -733,14 +733,14 @@ function scrollEditorToAnchor(anchor: string): void {
 // ── Backlinks rendering ────────────────────────────────────────────────────
 
 function renderBacklinks(): void {
-  if (!backlinksListEl || !backlinksCountEl) return;
+  if (!backlinksListEl || !backlinksCountEl) {return;}
 
   // Group occurrences by source document, preserving first-seen order.
   const groups = new Map<string, BacklinkItem[]>();
   for (const item of currentBacklinks) {
     const arr = groups.get(item.uri);
-    if (arr) arr.push(item);
-    else groups.set(item.uri, [item]);
+    if (arr) {arr.push(item);}
+    else {groups.set(item.uri, [item]);}
   }
 
   // Badge shows the number of distinct source docs (one per top-level row).
@@ -757,7 +757,7 @@ function renderBacklinks(): void {
   const key = currentBacklinks
     .map(b => `${b.uri}|${b.line}|${b.displayPath}|${b.lineText ?? ''}`)
     .join('\n');
-  if (key === lastBacklinksKey) return;
+  if (key === lastBacklinksKey) {return;}
   lastBacklinksKey = key;
 
   backlinksListEl.replaceChildren();
@@ -854,8 +854,8 @@ function buildBacklinkGroup(uri: string, items: BacklinkItem[]): HTMLElement {
 
   header.addEventListener('click', () => {
     const next = !expandedBacklinkGroups.has(uri);
-    if (next) expandedBacklinkGroups.add(uri);
-    else expandedBacklinkGroups.delete(uri);
+    if (next) {expandedBacklinkGroups.add(uri);}
+    else {expandedBacklinkGroups.delete(uri);}
     setExpanded(next);
   });
 
@@ -864,7 +864,7 @@ function buildBacklinkGroup(uri: string, items: BacklinkItem[]): HTMLElement {
 }
 
 function renderBacklinksEmpty(): void {
-  if (!backlinksListEl) return;
+  if (!backlinksListEl) {return;}
   backlinksListEl.replaceChildren();
   const empty = document.createElement('div');
   empty.className = 'backlinks-empty';
@@ -875,7 +875,7 @@ function renderBacklinksEmpty(): void {
 // ── Properties rendering ───────────────────────────────────────────────────
 
 function renderProperties(): void {
-  if (!propertiesListEl || !propertiesSectionEl) return;
+  if (!propertiesListEl || !propertiesSectionEl) {return;}
   propertiesListEl.replaceChildren();
   propertiesSectionEl.hidden = false;
   propertiesListEl.classList.toggle('editable', propertiesEditable);
@@ -988,7 +988,7 @@ function buildPill(text: string, rowIdx: number, pillIdx: number): HTMLElement {
     x.addEventListener('click', (ev) => {
       ev.stopPropagation();
       const entry = currentProperties[rowIdx];
-      if (!entry || !Array.isArray(entry.value)) return;
+      if (!entry || !Array.isArray(entry.value)) {return;}
       const newArr = entry.value.filter((_, i) => i !== pillIdx);
       const next = currentProperties.map((e, i) =>
         i === rowIdx ? { ...e, value: newArr } : e
@@ -1036,7 +1036,7 @@ function buildAddPropertyRow(): HTMLElement {
 function beginEditValue(row: HTMLElement, index: number): void {
   const valueEl = row.querySelector('.properties-value') as HTMLElement | null;
   const entry = currentProperties[index];
-  if (!valueEl || !entry || Array.isArray(entry.value)) return;
+  if (!valueEl || !entry || Array.isArray(entry.value)) {return;}
 
   const input = document.createElement('input');
   input.type = 'text';
@@ -1061,7 +1061,7 @@ function beginEditValue(row: HTMLElement, index: number): void {
 function beginEditKey(row: HTMLElement, index: number): void {
   const keyEl = row.querySelector('.properties-key') as HTMLElement | null;
   const entry = currentProperties[index];
-  if (!keyEl || !entry) return;
+  if (!keyEl || !entry) {return;}
 
   const input = document.createElement('input');
   input.type = 'text';
@@ -1089,7 +1089,7 @@ function beginEditKey(row: HTMLElement, index: number): void {
 
 function beginEditPill(pillEl: HTMLElement, rowIdx: number, pillIdx: number): void {
   const entry = currentProperties[rowIdx];
-  if (!entry || !Array.isArray(entry.value)) return;
+  if (!entry || !Array.isArray(entry.value)) {return;}
 
   const input = document.createElement('input');
   input.type = 'text';
@@ -1121,7 +1121,7 @@ function beginEditPill(pillEl: HTMLElement, rowIdx: number, pillIdx: number): vo
 
 function beginAddPill(triggerEl: HTMLElement, rowIdx: number): void {
   const entry = currentProperties[rowIdx];
-  if (!entry || !Array.isArray(entry.value)) return;
+  if (!entry || !Array.isArray(entry.value)) {return;}
 
   const wrap = document.createElement('span');
   wrap.className = 'properties-pill editable';
@@ -1212,7 +1212,7 @@ function beginAddProperty(rowEl: HTMLElement): void {
   // Commit on focus leaving the row entirely (clicking outside).
   const onFocusOut = (ev: FocusEvent): void => {
     const next = ev.relatedTarget as Node | null;
-    if (next && rowEl.contains(next)) return;
+    if (next && rowEl.contains(next)) {return;}
     rowEl.removeEventListener('focusout', onFocusOut);
     tryCommit();
   };
@@ -1225,12 +1225,12 @@ function wireCommitCancel(
 ): void {
   let settled = false;
   const commit = (): void => {
-    if (settled) return;
+    if (settled) {return;}
     settled = true;
     opts.commit();
   };
   const cancel = (): void => {
-    if (settled) return;
+    if (settled) {return;}
     settled = true;
     opts.cancel();
   };
@@ -1242,7 +1242,7 @@ function wireCommitCancel(
 }
 
 function commitProperties(next: FrontmatterEntry[]): void {
-  if (!propertiesChangeCb) return;
+  if (!propertiesChangeCb) {return;}
   // Update local snapshot immediately so a re-render between now and the
   // host round-trip doesn't blink the old values.
   currentProperties = next;
@@ -1252,7 +1252,7 @@ function commitProperties(next: FrontmatterEntry[]): void {
 // ── Footer rendering ───────────────────────────────────────────────────────
 
 function renderFooter(): void {
-  if (!footerEl || !footerRowsEl) return;
+  if (!footerEl || !footerRowsEl) {return;}
   const wc = countWords(docPlainText);
   const cc = docPlainText.length;
   const rt = readingMinutes(wc);
@@ -1333,12 +1333,12 @@ function dismissSupportLink(): void {
   supportLinkVisible = false;
   renderFooter();
   supportDismissCb?.();
-  if (!supportStatusEl || !confirmation) return;
-  if (supportStatusTimer !== null) window.clearTimeout(supportStatusTimer);
+  if (!supportStatusEl || !confirmation) {return;}
+  if (supportStatusTimer !== null) {window.clearTimeout(supportStatusTimer);}
   supportStatusEl.textContent = confirmation;
   supportStatusTimer = window.setTimeout(() => {
     supportStatusTimer = null;
-    if (supportStatusEl) supportStatusEl.textContent = '';
+    if (supportStatusEl) {supportStatusEl.textContent = '';}
   }, SUPPORT_STATUS_MS) as unknown as number;
 }
 
@@ -1347,14 +1347,14 @@ function dismissSupportLink(): void {
  * `settings` broadcast (`mikedown.support.showSidebarLink` + entry copy).
  */
 export function applySupportLink(opts: { visible: boolean; copy?: SupportLinkCopy | null }): void {
-  if (opts.copy) supportLinkCopy = opts.copy;
-  if (supportLinkVisible === opts.visible) return;
+  if (opts.copy) {supportLinkCopy = opts.copy;}
+  if (supportLinkVisible === opts.visible) {return;}
   supportLinkVisible = opts.visible;
   renderFooter();
 }
 
 function startFooterTick(): void {
-  if (footerTickTimer !== null) return;
+  if (footerTickTimer !== null) {return;}
   // Once a minute, refresh the relative-time string. Cheap — it's a single
   // textContent write.
   footerTickTimer = window.setInterval(() => renderFooter(), 60_000) as unknown as number;

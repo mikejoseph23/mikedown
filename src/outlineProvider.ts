@@ -32,7 +32,7 @@ export function parseHeadings(text: string): HeadingInfo[] {
 export class MarkdownOutlineSymbolProvider implements vscode.DocumentSymbolProvider {
   provideDocumentSymbols(document: vscode.TextDocument): vscode.DocumentSymbol[] {
     const headings = parseHeadings(document.getText());
-    if (headings.length === 0) return [];
+    if (headings.length === 0) {return [];}
 
     // Build nested tree using a stack
     const root: vscode.DocumentSymbol[] = [];

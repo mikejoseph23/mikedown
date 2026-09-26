@@ -75,7 +75,7 @@ export const MarkdownHardBreak = HardBreak.extend({
           // end of the block and serialize to nothing — same rule upstream
           // applies. Anything else emits a break.
           for (let i = index + 1; i < parent.childCount; i++) {
-            if (parent.child(i).type === node.type) continue;
+            if (parent.child(i).type === node.type) {continue;}
             if (state.inTable) {
               // A newline would end the table row; GFM's escape hatch is <br>.
               state.write('<br>');

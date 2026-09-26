@@ -17,14 +17,14 @@ const NATIVE_PASTE_GRACE_MS = 150;
 let armedUntil = 0;
 
 function disarm(): boolean {
-  if (Date.now() > armedUntil) return false;
+  if (Date.now() > armedUntil) {return false;}
   armedUntil = 0;
   return true;
 }
 
 /** Insert `text` verbatim: no markdown parsing, no mark inheritance. */
 export function insertPlainText(view: EditorView, text: string): void {
-  if (!text) return;
+  if (!text) {return;}
   const { state } = view;
   const { schema } = state;
   const tr = state.tr;
@@ -47,7 +47,7 @@ export function insertPlainText(view: EditorView, text: string): void {
 export function requestPlainPaste(view: EditorView): void {
   armedUntil = Date.now() + ARM_WINDOW_MS;
   setTimeout(() => {
-    if (!disarm()) return; // a native paste event already handled it
+    if (!disarm()) {return;} // a native paste event already handled it
     navigator.clipboard
       ?.readText()
       .then(text => insertPlainText(view, text))
@@ -66,7 +66,7 @@ export const PlainPasteExtension = Extension.create({
         key: new PluginKey('plainPaste'),
         props: {
           handlePaste: (view, event) => {
-            if (!disarm()) return false;
+            if (!disarm()) {return false;}
             const text = event.clipboardData?.getData('text/plain') ?? '';
             insertPlainText(view, text);
             return true;

@@ -48,7 +48,7 @@ export const DraggableTaskItem = TaskItem.extend({
       // TipTap click-to-toggle doesn't fire.
       checkbox.addEventListener('change', () => {
         const pos = typeof getPos === 'function' ? getPos() : null;
-        if (pos == null) return;
+        if (pos == null) {return;}
         editor.view.dispatch(
           editor.view.state.tr.setNodeAttribute(pos, 'checked', checkbox.checked),
         );
@@ -59,7 +59,7 @@ export const DraggableTaskItem = TaskItem.extend({
       // and sets view.dragging for us).
       handle.addEventListener('dragstart', (e) => {
         const pos = typeof getPos === 'function' ? getPos() : null;
-        if (pos == null) return;
+        if (pos == null) {return;}
         const { view } = editor;
         view.dispatch(
           view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)),
@@ -75,23 +75,23 @@ export const DraggableTaskItem = TaskItem.extend({
         dom: li,
         contentDOM: content,
         update(updated) {
-          if (updated.type !== node.type) return false;
+          if (updated.type !== node.type) {return false;}
           const checked = !!updated.attrs.checked;
           li.setAttribute('data-checked', String(checked));
-          if (checkbox.checked !== checked) checkbox.checked = checked;
+          if (checkbox.checked !== checked) {checkbox.checked = checked;}
           return true;
         },
         // Let the checkbox change event and the handle dragstart run without
         // ProseMirror trying to take over.
         stopEvent(e) {
-          if (handle.contains(e.target as Node)) return true;
-          if (label.contains(e.target as Node) && e.type !== 'mousedown') return true;
+          if (handle.contains(e.target as Node)) {return true;}
+          if (label.contains(e.target as Node) && e.type !== 'mousedown') {return true;}
           return false;
         },
         ignoreMutation(mutation) {
-          if (mutation.target === li && mutation.attributeName === 'data-checked') return true;
-          if (handle.contains(mutation.target as Node)) return true;
-          if (label.contains(mutation.target as Node)) return true;
+          if (mutation.target === li && mutation.attributeName === 'data-checked') {return true;}
+          if (handle.contains(mutation.target as Node)) {return true;}
+          if (label.contains(mutation.target as Node)) {return true;}
           return false;
         },
       };

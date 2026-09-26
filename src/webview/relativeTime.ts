@@ -15,10 +15,10 @@ export function formatRelativeTime(timestampMs: number, nowMs: number = Date.now
 
   // Future timestamps (clock skew, freshly-touched-via-API files) — collapse
   // to "just now" rather than confusing the user with "in 3 seconds".
-  if (diff < 0 && -diff < MINUTE) return 'just now';
-  if (diff < 0) return 'in the future';
+  if (diff < 0 && -diff < MINUTE) {return 'just now';}
+  if (diff < 0) {return 'in the future';}
 
-  if (diff < MINUTE) return 'just now';
+  if (diff < MINUTE) {return 'just now';}
   if (diff < HOUR) {
     const m = Math.floor(diff / MINUTE);
     return `${m} minute${m === 1 ? '' : 's'} ago`;
@@ -27,7 +27,7 @@ export function formatRelativeTime(timestampMs: number, nowMs: number = Date.now
     const h = Math.floor(diff / HOUR);
     return `${h} hour${h === 1 ? '' : 's'} ago`;
   }
-  if (diff < 2 * DAY) return 'yesterday';
+  if (diff < 2 * DAY) {return 'yesterday';}
   if (diff < WEEK) {
     const d = Math.floor(diff / DAY);
     return `${d} days ago`;

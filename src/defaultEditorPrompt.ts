@@ -51,8 +51,8 @@ export async function applyMikeDownAsDefaultEditor(): Promise<void> {
  * (accepted, "not now", or "don't ask again") → no; otherwise yes.
  */
 export function shouldOfferDefaultEditorPrompt(context: vscode.ExtensionContext): boolean {
-  if (isMikeDownDefaultEditor()) return false;
-  if (context.globalState.get<number>(KEYS.offeredAt) !== undefined) return false;
+  if (isMikeDownDefaultEditor()) {return false;}
+  if (context.globalState.get<number>(KEYS.offeredAt) !== undefined) {return false;}
   return true;
 }
 
@@ -70,7 +70,7 @@ export async function setAsDefaultEditorCommand(context: vscode.ExtensionContext
 
 /** Call once on activation. Shows the first-run toast if eligible. */
 export function maybeOfferDefaultEditorPrompt(context: vscode.ExtensionContext): void {
-  if (!shouldOfferDefaultEditorPrompt(context)) return;
+  if (!shouldOfferDefaultEditorPrompt(context)) {return;}
 
   void vscode.window.showInformationMessage(MESSAGE, YES, NOT_NOW, NEVER).then(async choice => {
     // Any response (including dismissing via X / Esc, which resolves

@@ -101,7 +101,7 @@ function buildSubmenuParentEl(entry: ContextMenuSubmenu): HTMLElement {
   el.appendChild(chevron);
 
   const openSubmenu = (): void => {
-    if (submenuOwnerEl === el && submenuEl) return;
+    if (submenuOwnerEl === el && submenuEl) {return;}
     hideSubmenu();
     submenuOwnerEl = el;
     el.classList.add('cm-submenu-open');
@@ -323,7 +323,7 @@ export function buildCodeBlockMenu(editor: Editor): ContextMenuEntry[] {
       label: 'Copy code',
       action: () => {
         const text = getCurrentCodeBlockText(editor);
-        if (text !== null) navigator.clipboard?.writeText(text).catch(() => {});
+        if (text !== null) {navigator.clipboard?.writeText(text).catch(() => {});}
       },
     },
     { separator: true },
@@ -351,7 +351,7 @@ function getCurrentCodeBlockText(editor: Editor): string | null {
   const $from = editor.state.selection.$from;
   for (let depth = $from.depth; depth > 0; depth--) {
     const node = $from.node(depth);
-    if (node.type.name === 'codeBlock') return node.textContent;
+    if (node.type.name === 'codeBlock') {return node.textContent;}
   }
   return null;
 }
@@ -370,11 +370,11 @@ export function buildLinkMenu(editor: Editor, href: string): ContextMenuEntry[] 
     {
       label: openLabel,
       shortcut: `${mod}Click`,
-      action: () => { if (vscode) vscode.postMessage({ type: 'openLink', href, behavior: 'navigateCurrentTab' }); },
+      action: () => { if (vscode) {vscode.postMessage({ type: 'openLink', href, behavior: 'navigateCurrentTab' });} },
     },
     ...(isUriScheme ? [] : [{
       label: 'Open Link in New Tab',
-      action: () => { if (vscode) vscode.postMessage({ type: 'openLink', href, behavior: 'openNewTab' }); },
+      action: () => { if (vscode) {vscode.postMessage({ type: 'openLink', href, behavior: 'openNewTab' });} },
     } as ContextMenuItem]),
     { separator: true } as ContextMenuSeparator,
     { label: copyLabel, action: () => navigator.clipboard?.writeText(copyValue).catch(() => {}) },

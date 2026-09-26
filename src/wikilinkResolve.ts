@@ -21,7 +21,7 @@ import * as path from 'path';
  *  not affect ordering. */
 function treeDistance(fromDir: string, filePath: string): number {
   const rel = path.relative(fromDir, filePath);
-  if (!rel) return 0;
+  if (!rel) {return 0;}
   return rel.split(path.sep).filter((s) => s.length > 0).length;
 }
 
@@ -36,21 +36,21 @@ export function rankWikilinkCandidates(fsPaths: string[], fromDir: string): stri
     // 1. Same folder as the current document wins.
     const sameA = dirA === from ? 0 : 1;
     const sameB = dirB === from ? 0 : 1;
-    if (sameA !== sameB) return sameA - sameB;
+    if (sameA !== sameB) {return sameA - sameB;}
 
     // 2. Fewest hops through the directory tree.
     const distA = treeDistance(from, path.resolve(a));
     const distB = treeDistance(from, path.resolve(b));
-    if (distA !== distB) return distA - distB;
+    if (distA !== distB) {return distA - distB;}
 
     // 3. Deterministic tiebreak.
-    if (a.length !== b.length) return a.length - b.length;
+    if (a.length !== b.length) {return a.length - b.length;}
     return a < b ? -1 : a > b ? 1 : 0;
   });
 }
 
 /** The single best basename match for `fromDir`, or null when none match. */
 export function pickBestWikilinkTarget(fsPaths: string[], fromDir: string): string | null {
-  if (fsPaths.length === 0) return null;
+  if (fsPaths.length === 0) {return null;}
   return rankWikilinkCandidates(fsPaths, fromDir)[0];
 }

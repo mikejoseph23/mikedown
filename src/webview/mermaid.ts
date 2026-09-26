@@ -42,7 +42,7 @@ export function isMermaidEnabled(): boolean {
 }
 
 export function setMermaidEnabled(editor: Editor, value: boolean): void {
-  if (enabled === value) return;
+  if (enabled === value) {return;}
   enabled = value;
   forceRebuild(editor);
 }
@@ -59,21 +59,21 @@ export function refreshMermaidTheme(editor: Editor): void {
 }
 
 function forceRebuild(editor: Editor): void {
-  if (!editor || editor.isDestroyed) return;
+  if (!editor || editor.isDestroyed) {return;}
   editor.view.dispatch(editor.state.tr.setMeta(mermaidPluginKey, { force: true }));
 }
 
 function isDarkTheme(): boolean {
   const cls = document.body.classList;
-  if (cls.contains('mikedown-force-dark')) return true;
-  if (cls.contains('mikedown-force-light')) return false;
+  if (cls.contains('mikedown-force-dark')) {return true;}
+  if (cls.contains('mikedown-force-light')) {return false;}
   // Fall back to the VS Code theme classes the webview host sets on <body>.
   return cls.contains('vscode-dark') || cls.contains('vscode-high-contrast');
 }
 
 function ensureInit(): void {
   const theme = isDarkTheme() ? 'dark' : 'default';
-  if (initializedTheme === theme) return;
+  if (initializedTheme === theme) {return;}
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
@@ -146,7 +146,7 @@ function createPreview(view: EditorView, getPos: () => number | undefined, code:
   container.addEventListener('mousedown', (event) => {
     event.preventDefault();
     const wpos = getPos();
-    if (wpos == null) return;
+    if (wpos == null) {return;}
     // The widget sits just after the code block; (wpos - 1) lands inside it.
     const inside = Math.max(0, wpos - 1);
     const { state } = view;
@@ -160,7 +160,7 @@ function createPreview(view: EditorView, getPos: () => number | undefined, code:
 }
 
 function buildDecorations(doc: PmNode, selection: { from: number; to: number }): DecorationSet {
-  if (!enabled) return DecorationSet.empty;
+  if (!enabled) {return DecorationSet.empty;}
 
   const decos: Decoration[] = [];
   // Disambiguate widgets for blocks that share identical source so PM keys
@@ -178,8 +178,8 @@ function buildDecorations(doc: PmNode, selection: { from: number; to: number }):
     const hasError = errorCache.has(code);
 
     const classes = ['mikedown-mermaid-source'];
-    if (editing) classes.push('is-editing');
-    if (hasError) classes.push('has-error');
+    if (editing) {classes.push('is-editing');}
+    if (hasError) {classes.push('has-error');}
     decos.push(Decoration.node(from, to, { class: classes.join(' ') }));
 
     const n = occurrence.get(code) ?? 0;

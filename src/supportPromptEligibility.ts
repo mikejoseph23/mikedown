@@ -162,7 +162,7 @@ function isSessionMeaningful(session: EditSession, now: number): boolean {
  * 14 -> 30 -> 60 -> 90 days (capped) based on `remindCount`.
  */
 export function nextDelayMs(remindCount: number, hadCtaSinceLastPrompt: boolean): number {
-  if (hadCtaSinceLastPrompt) return THRESHOLDS.ctaGapDays * DAY;
+  if (hadCtaSinceLastPrompt) {return THRESHOLDS.ctaGapDays * DAY;}
   const ladder = THRESHOLDS.ladderDays;
   const idx = Math.max(0, Math.min(remindCount, ladder.length - 1));
   return ladder[idx] * DAY;
@@ -175,16 +175,16 @@ export function nextDelayMs(remindCount: number, hadCtaSinceLastPrompt: boolean)
  * doc comment; the caller (M3) gates that separately before calling this.
  */
 export function isAutoEligible(state: SupportPromptState, session: EditSession, now: number): boolean {
-  if (state.dismissed) return false;
-  if (state.reviewedAt !== null) return false;
-  if (!isSessionMeaningful(session, now)) return false;
-  if (now - state.installDate < THRESHOLDS.installAgeMs) return false;
-  if (state.docOpens < THRESHOLDS.minDocOpens) return false;
-  if (state.activeDays < THRESHOLDS.minActiveDays) return false;
+  if (state.dismissed) {return false;}
+  if (state.reviewedAt !== null) {return false;}
+  if (!isSessionMeaningful(session, now)) {return false;}
+  if (now - state.installDate < THRESHOLDS.installAgeMs) {return false;}
+  if (state.docOpens < THRESHOLDS.minDocOpens) {return false;}
+  if (state.activeDays < THRESHOLDS.minActiveDays) {return false;}
 
   const hadCtaSinceLastPrompt = state.lastCtaAt > state.lastPrompt;
   const requiredGap = nextDelayMs(state.remindCount, hadCtaSinceLastPrompt);
-  if (now - state.lastPrompt < requiredGap) return false;
+  if (now - state.lastPrompt < requiredGap) {return false;}
 
   return true;
 }
@@ -238,7 +238,7 @@ function localDateString(now: number): string {
  */
 export function recordActiveDay(state: SupportPromptState, now: number): SupportPromptState {
   const day = localDateString(now);
-  if (state.lastActiveDay === day) return state;
+  if (state.lastActiveDay === day) {return state;}
   return { ...state, lastActiveDay: day, activeDays: state.activeDays + 1 };
 }
 
@@ -254,7 +254,7 @@ export class SessionTracker {
 
   /** Call for every `edit` message received from the webview. */
   public recordEdit(now: number): void {
-    if (this.firstEditAt === null) this.firstEditAt = now;
+    if (this.firstEditAt === null) {this.firstEditAt = now;}
     this.editCount += 1;
   }
 

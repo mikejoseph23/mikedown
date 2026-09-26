@@ -24,7 +24,7 @@ async function migrateOutlineSettings(context: vscode.ExtensionContext): Promise
   ] as const;
   for (const [oldKey, newKey] of keys) {
     const inspected = config.inspect(oldKey);
-    if (!inspected) continue;
+    if (!inspected) {continue;}
     const newInspected = config.inspect(newKey);
     const writeIfUnset = async (scope: vscode.ConfigurationTarget, oldVal: unknown, newVal: unknown): Promise<void> => {
       if (oldVal !== undefined && newVal === undefined) {
@@ -263,9 +263,9 @@ export function activate(context: vscode.ExtensionContext) {
   let plainTextDebounce: NodeJS.Timeout | undefined;
   vscode.workspace.onDidChangeTextDocument((event) => {
     const activeEditor = vscode.window.activeTextEditor;
-    if (!activeEditor || event.document !== activeEditor.document) return;
-    if (!isMarkdownDoc(event.document)) return;
-    if (plainTextDebounce) clearTimeout(plainTextDebounce);
+    if (!activeEditor || event.document !== activeEditor.document) {return;}
+    if (!isMarkdownDoc(event.document)) {return;}
+    if (plainTextDebounce) {clearTimeout(plainTextDebounce);}
     plainTextDebounce = setTimeout(() => {
       statusBar.showDocument(event.document.getText());
     }, 250);

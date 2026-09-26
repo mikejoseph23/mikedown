@@ -32,14 +32,14 @@ export function unresolveSrcForDisplay(
   // `https://`. Non-vscode http(s) URLs and data: URIs simply won't match
   // any prefix and fall through unchanged. We only short-circuit data:
   // URIs to avoid scanning megabytes of base64 with `startsWith`.
-  if (src.startsWith('data:')) return src;
+  if (src.startsWith('data:')) {return src;}
   for (const { prefix, fsPath } of prefixes) {
     if (src.startsWith(prefix + '/')) {
       const tail = decodePathPart(src.slice(prefix.length + 1));
       const absPath = posixJoin(fsPath, tail);
       return posixRelative(docDirFs, absPath);
     }
-    if (src === prefix) return src;
+    if (src === prefix) {return src;}
   }
   return src;
 }
@@ -61,17 +61,17 @@ export function resolveSrcForEditor(
   prefixes: ImagePathPrefix[],
   docDirFs: string
 ): string {
-  if (!src) return src;
-  if (src.startsWith('data:')) return src;
-  if (/^https?:\/\//i.test(src)) return src;
+  if (!src) {return src;}
+  if (src.startsWith('data:')) {return src;}
+  if (/^https?:\/\//i.test(src)) {return src;}
   for (const { prefix } of prefixes) {
-    if (src.startsWith(prefix + '/') || src === prefix) return src;
+    if (src.startsWith(prefix + '/') || src === prefix) {return src;}
   }
   const absPath = src.startsWith('/')
     ? posixNormalize(src)
     : posixNormalize(posixJoin(docDirFs, src));
   for (const { prefix, fsPath } of prefixes) {
-    if (absPath === fsPath) return prefix;
+    if (absPath === fsPath) {return prefix;}
     if (absPath.startsWith(fsPath + '/')) {
       const tail = absPath.slice(fsPath.length + 1);
       return prefix + '/' + tail.split('/').map(encodeURIComponent).join('/');
@@ -95,7 +95,7 @@ function posixNormalize(p: string): string {
   const isAbs = p.startsWith('/');
   const out: string[] = [];
   for (const seg of p.split('/')) {
-    if (seg === '' || seg === '.') continue;
+    if (seg === '' || seg === '.') {continue;}
     if (seg === '..') { out.pop(); continue; }
     out.push(seg);
   }
@@ -107,10 +107,10 @@ function posixRelative(from: string, to: string): string {
   const fromSeg = from.split('/').filter(s => s.length > 0);
   const toSeg = to.split('/').filter(s => s.length > 0);
   let i = 0;
-  while (i < fromSeg.length && i < toSeg.length && fromSeg[i] === toSeg[i]) i++;
+  while (i < fromSeg.length && i < toSeg.length && fromSeg[i] === toSeg[i]) {i++;}
   const up = fromSeg.length - i;
   const out: string[] = [];
-  for (let j = 0; j < up; j++) out.push('..');
-  for (let j = i; j < toSeg.length; j++) out.push(toSeg[j]);
+  for (let j = 0; j < up; j++) {out.push('..');}
+  for (let j = i; j < toSeg.length; j++) {out.push(toSeg[j]);}
   return out.length === 0 ? '.' : out.join('/');
 }
