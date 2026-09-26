@@ -32,7 +32,7 @@
 | M6: Persistent Entry Points | Opus | ✅ | 8 | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
 | M7: Testing: Webview Card and Entry Points | Sonnet | ✅ | 20 | Needs M5, M6 |
 | M8: README and CHANGELOG | Haiku | ✅ | 1 | Needs M1 approved; 2.11.0 (Q8) |
-| M9: Hands-on Pass and Measurement Follow-up | Sonnet | 🔄 | | Pauses for Mike's sign-off |
+| M9: Hands-on Pass and Measurement Follow-up | Sonnet | 🔄 | 4 | Awaiting Mike's hands-on sign-off |
 
 ## Table of Contents
 
@@ -269,10 +269,10 @@ Mode: **unit** with the jsdom webview harness (`test/harness/webviewHarness.ts`)
 
 > Workers must complete ALL items in this milestone. If you believe an item should be deferred, note that in your summary, but still attempt it.
 
-- [ ] Run `npm run compile`, `npm run test:unit`, `npm run test:integration` green before handing off.
-- [ ] Write the hands-on steps below into the worker summary and tell Mike they are ready.
-- [ ] Record the baseline now: run `npx vsce show interapp.mikedown-editor` and paste installs, rating, and review count into the Progress Log (expected: about 400 installs, 5 reviews).
-- [ ] Add the Follow-ups section items below to `BACKLOG.md`, plus a checklist: re-run `npx vsce show interapp.mikedown-editor` 30 days and 60 days after the release date and record results in this document's Progress Log.
+- [x] Run `npm run compile`, `npm run test:unit`, `npm run test:integration` green before handing off.
+- [x] Write the hands-on steps below into the worker summary and tell Mike they are ready.
+- [x] Record the baseline now: run `npx vsce show interapp.mikedown-editor` and paste installs, rating, and review count into the Progress Log (expected: about 400 installs, 5 reviews).
+- [x] Add the Follow-ups section items below to `BACKLOG.md`, plus a checklist: re-run `npx vsce show interapp.mikedown-editor` 30 days and 60 days after the release date and record results in this document's Progress Log.
 
 **Hands-on steps (Extension Development Host).** Press F5 (after edits, `npm run compile` then Cmd+R in the host window).
 
@@ -318,6 +318,8 @@ All resolved 2026-09-26.
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
+
+**2026-09-26 01:58** - M9 prep done (commit `8be197a`). **Baseline** (`npx vsce show interapp.mikedown-editor`, 2026-09-26, published 2.10.4): 391 installs, 5.00 rating, 5 reviews, 982 downloads. `BACKLOG.md` gained the photo avatar follow-up and the 30/60 day re-check checklist. Main tree: compile, 601 unit, 28 integration green. Hands-on steps (updated to built labels) are in `.orchestrator/review-appeal-planning/processed/worker-summary-m9-hands-on.md`. **Paused for Mike's sign-off.**
 
 **2026-09-26 01:50** - M7 done (commit `3c65be6`). 18 new tests: `test/unit/supportCard.test.ts` (15, jsdom harness) and `test/unit/supportSettings.test.ts` (3). No production code changes needed. Worker could not run integration in its worktree (socket path too long); run in main after merge: 601 unit and 28 integration green.
 
