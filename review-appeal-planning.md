@@ -25,13 +25,13 @@
 | Milestone | Model | Status | Duration (min) | Notes |
 | --- | --- | --- | --- | --- |
 | M1: Copy Draft (Review Gate) | Opus | ✅ | | Pauses for Mike's approval; neutral share line (Q7) |
-| M2: Eligibility Module | Sonnet | ⬜ | | Pure module, injected clock; Q1 thresholds |
+| M2: Eligibility Module | Sonnet | 🔄 | | Pure module, injected clock; Q1 thresholds |
 | M3: Host Wiring, Command, Dev Reset | Sonnet | ⬜ | | Needs M2; toast removed (Q2) |
 | M4: Testing: Host Logic | Sonnet | ⬜ | | Needs M2, M3 |
 | M5: "A Note from Mike" Card UI | Opus | ⬜ | | Needs M1 approved, M3 protocol; swappable avatar slot (Q6) |
 | M6: Persistent Entry Points | Opus | ⬜ | | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
 | M7: Testing: Webview Card and Entry Points | Sonnet | ⬜ | | Needs M5, M6 |
-| M8: README and CHANGELOG | Haiku | ⬜ | | Needs M1 approved; 2.11.0 (Q8) |
+| M8: README and CHANGELOG | Haiku | ✅ | 1 | Needs M1 approved; 2.11.0 (Q8) |
 | M9: Hands-on Pass and Measurement Follow-up | Sonnet | ⬜ | | Pauses for Mike's sign-off |
 
 ## Table of Contents
@@ -255,11 +255,11 @@ Mode: **unit** with the jsdom webview harness (`test/harness/webviewHarness.ts`)
 
 > Workers must complete ALL items in this milestone. If you believe an item should be deferred, note that in your summary, but still attempt it.
 
-- [ ] Replace the existing `## Enjoying MikeDown?` section in `README.md` (around line 23) with `## A note from the developer` using the approved README copy from `review-appeal-copy.md` verbatim. Keep links: review `https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details`, issues `https://github.com/mikejoseph23/mikedown/issues/new`.
-- [ ] Update the Table of Contents or any internal anchor that pointed at the old heading (search `enjoying-mikedown`).
-- [ ] Add `## [Unreleased]` (targeting **2.11.0**, Q8; may share the release with slash commands) above `## [2.10.4]` in `CHANGELOG.md` with a `### Changed` entry: the review prompt is now a note inside the editor shown after a real editing session, never at startup (startup toast removed); and an `### Added` entry for the Support MikeDown command, the sidebar link (dismissible, plus the `mikedown.support.showSidebarLink` setting), and About tab section.
-- [ ] Markdown rules: blank lines around lists; escape `$` as `\$` outside code.
-- [ ] Commit, write `.orchestrator/worker-summary-m8-readme-changelog.md`.
+- [x] Replace the existing `## Enjoying MikeDown?` section in `README.md` (around line 23) with `## A note from the developer` using the approved README copy from `review-appeal-copy.md` verbatim. Keep links: review `https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details`, issues `https://github.com/mikejoseph23/mikedown/issues/new`.
+- [x] Update the Table of Contents or any internal anchor that pointed at the old heading (search `enjoying-mikedown`).
+- [x] Add `## [Unreleased]` (targeting **2.11.0**, Q8; may share the release with slash commands) above `## [2.10.4]` in `CHANGELOG.md` with a `### Changed` entry: the review prompt is now a note inside the editor shown after a real editing session, never at startup (startup toast removed); and an `### Added` entry for the Support MikeDown command, the sidebar link (dismissible, plus the `mikedown.support.showSidebarLink` setting), and About tab section.
+- [x] Markdown rules: blank lines around lists; escape `$` as `\$` outside code.
+- [x] Commit, write `.orchestrator/worker-summary-m8-readme-changelog.md`.
 
 [Return to Top](#review-appeal-planning)
 
@@ -318,6 +318,8 @@ All resolved 2026-09-26.
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
+
+**2026-09-26 00:49** - M8 done (commit `20b3769`). README "Enjoying MikeDown?" replaced with "A note from the developer" (approved letter verbatim); CHANGELOG `[Unreleased]` added with Changed and Added entries. No `enjoying-mikedown` anchors existed.
 
 **2026-09-26** - **M1 copy approved by Mike.** Card body and README rewritten as a letter (README about 165 words, over the 150 target by Mike's choice). Buttons: "Tell a friend" renamed "Tell a colleague", "Share feedback" renamed "Open an issue" (actions stay `share` and `feedback`). Other pieces accepted as drafted. M5, M6, M8 unblocked; use `review-appeal-copy.md` verbatim.
 
