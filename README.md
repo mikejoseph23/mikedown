@@ -80,6 +80,10 @@ A condensed toolbar with dropdown menus for formatting, insert, and export actio
 
 ![Toolbar dropdown menu](assets/screenshots/toolbar-dropdown.jpg)
 
+### Slash Commands *(new in 2.11)*
+
+Type `/` at the start of a line (or after whitespace) to open a menu of insertable blocks — headings (`/h1`–`/h6`), lists, callouts, tables, code blocks, links, images (via a file picker), properties, and date/time. An empty document shows a "Type / for commands…" placeholder, and the menu itself includes a "Turn off slash commands" option.
+
 ### Smart Paste
 
 Paste content from Google Docs, Microsoft Word, Slack, web pages, and other rich-text sources. MikeDown converts it to clean markdown automatically.
@@ -248,6 +252,10 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 | `mikedown.imagePaste.maxSizeMB` | `10` | Reject pastes larger than this (1--200) |
 | `mikedown.imagePaste.cleanupUnreferenced` | `true` | Delete unreferenced images on save (only inside the configured `imagePaste.folder` and only when no other markdown file references them) |
 | `mikedown.imageResize.overwrite` | `true` | When resizing from the image popover, overwrite the original file. When `false`, write a sibling like `foo-50pct.png` and update the markdown link |
+| `mikedown.slashCommands.enabled` | `true` | Show the slash command menu when typing `/` at the start of a line or after whitespace |
+| `mikedown.slashCommands.dateFormat` | `iso` | Date format used by the `/date` and `/datetime` slash commands: `iso` or `long` |
+| `mikedown.slashCommands.timeZone` | `local` | Time zone used by the `/date` and `/datetime` slash commands: `local`, `UTC`, or an IANA zone name |
+| `mikedown.support.showSidebarLink` | `true` | Show a small Support MikeDown link in the in-editor sidebar footer |
 
 ## Requirements
 

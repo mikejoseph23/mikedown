@@ -12,6 +12,8 @@ All notable changes to MikeDown Editor are documented here.
 
 - Support MikeDown command and sidebar link (dismissible, plus the `mikedown.support.showSidebarLink` setting).
 - About tab section for supporting the project.
+- Slash command menu — type `/` at the start of a line (or after whitespace) to insert blocks: headings (`/h1`–`/h6`), lists, callouts, tables, code blocks, links, images (via an `/image` file picker), properties (`/properties`), and date/time (`/date`, `/datetime`). Includes a "Turn off slash commands" option in the menu itself and a "Type / for commands…" placeholder on empty documents.
+- Settings `mikedown.slashCommands.enabled`, `.dateFormat` (`iso` | `long`), and `.timeZone` (`local` | `UTC` | IANA name) to configure the slash command menu.
 
 ## [2.10.4] - 2026-08-31
 

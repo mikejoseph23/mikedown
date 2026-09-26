@@ -40,7 +40,7 @@
 | M5: Settings (three places, live toggle) | Sonnet | ✅ | 15 | enabled/dateFormat/timeZone, Behavior subsection, placeholder, footer notification |
 | M6: Properties, Date, Datetime | Sonnet | ✅ | 18 | Pure date helper 4 min + actions ~14 min + tests; runs before T2 |
 | T2: Tests, integration, hands-on sign-off | Sonnet | ✅ | 28 (automated) | Signed off 2026-09-26 | Pauses for Mike |
-| M7: Docs (CHANGELOG, README, BACKLOG) | Haiku | ⬜ | | Last |
+| M7: Docs (CHANGELOG, README, BACKLOG) | Haiku | ✅ | | Last |
 
 ## Table of Contents
 
@@ -392,11 +392,11 @@ Start: open the repo in VS Code, run `npm run compile`, press **F5** (Extension 
 
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
-- [ ] `CHANGELOG.md`: add an `## [Unreleased]` section (above 2.10.4) with an `### Added` entry for the slash command menu, the `/image` file picker, the in-menu "Turn off slash commands" option, `/properties`, `/date`, `/datetime`, the "Type / for commands…" placeholder, and the `mikedown.slashCommands.enabled`, `.dateFormat`, and `.timeZone` settings.
-- [ ] `README.md`: add a short slash-commands feature mention and list the `mikedown.slashCommands.enabled`, `.dateFormat`, and `.timeZone` settings where other settings are documented.
-- [ ] `BACKLOG.md`: remove the "Slash commands" line from Nice-to-have.
-- [ ] Escape `$` as `\$` and keep blank lines around lists (MD032).
-- [ ] Commit.
+- [x] `CHANGELOG.md`: add an `## [Unreleased]` section (above 2.10.4) with an `### Added` entry for the slash command menu, the `/image` file picker, the in-menu "Turn off slash commands" option, `/properties`, `/date`, `/datetime`, the "Type / for commands…" placeholder, and the `mikedown.slashCommands.enabled`, `.dateFormat`, and `.timeZone` settings.
+- [x] `README.md`: add a short slash-commands feature mention and list the `mikedown.slashCommands.enabled`, `.dateFormat`, and `.timeZone` settings where other settings are documented.
+- [x] `BACKLOG.md`: remove the "Slash commands" line from Nice-to-have.
+- [x] Escape `$` as `\$` and keep blank lines around lists (MD032).
+- [x] Commit.
 
 [Return to Top](#top)
 
@@ -446,6 +446,8 @@ Each gap-fill prompt must include:
 [Return to Top](#top)
 
 ## Progress Log / Notes
+
+**2026-09-26** - M7 done. CHANGELOG `[Unreleased]` Added list gained the slash command menu, `/image` picker, in-menu disable option, `/properties`, `/date`, `/datetime`, placeholder, and the three settings; README got a Slash Commands feature blurb and the three settings rows (plus `mikedown.support.showSidebarLink`, missing from the settings table); BACKLOG's "Slash commands" Nice-to-have line removed. Milestone complete.
 
 **2026-09-26 (afternoon)** - T2 signed off. Commit `7d64519` automated the scriptable hands-on steps (manual remainder in `hands-on-remaining.md`); Mike ran the rest and found no defects. Accepted: `/properties` undo only works as the very next action. M7 docs next.
 

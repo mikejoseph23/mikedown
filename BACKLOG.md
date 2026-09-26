@@ -10,7 +10,6 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## Nice-to-have
 
-- **Slash commands** — `/` menu for inserting blocks (Notion-style).
 - **Tags** — first-class support for `#tag` inline syntax and/or frontmatter `tags:` arrays: render as clickable pills in the editor, aggregate workspace-wide with a sidebar section showing all tags + their documents, autocomplete on `#`. _🚧 In progress on branch `feature/inline-tags` (parked for a later release): inline `#tag` decorations + frontmatter `tags:` pills, merged workspace index, click → QuickPick of tagged docs (nested tags supported). Still TODO before shipping: `#` autocomplete, a dedicated all-tags sidebar section, and possibly a VS Code-search click target instead of the QuickPick._
 - **Definition lists** — `term\n: definition` (pandoc / PHP Markdown Extra).
 - **Table of contents** — auto-generated `[[toc]]` block.
