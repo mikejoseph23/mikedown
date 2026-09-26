@@ -24,7 +24,7 @@
 
 | Milestone | Model | Status | Duration (min) | Notes |
 | --- | --- | --- | --- | --- |
-| M1: Copy Draft (Review Gate) | Opus | 🟡 | | Pauses for Mike's approval; neutral share line (Q7) |
+| M1: Copy Draft (Review Gate) | Opus | ✅ | | Pauses for Mike's approval; neutral share line (Q7) |
 | M2: Eligibility Module | Sonnet | ⬜ | | Pure module, injected clock; Q1 thresholds |
 | M3: Host Wiring, Command, Dev Reset | Sonnet | ⬜ | | Needs M2; toast removed (Q2) |
 | M4: Testing: Host Logic | Sonnet | ⬜ | | Needs M2, M3 |
@@ -318,6 +318,8 @@ All resolved 2026-09-26.
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
+
+**2026-09-26** - **M1 copy approved by Mike.** Card body and README rewritten as a letter (README about 165 words, over the 150 target by Mike's choice). Buttons: "Tell a friend" renamed "Tell a colleague", "Share feedback" renamed "Open an issue" (actions stay `share` and `feedback`). Other pieces accepted as drafted. M5, M6, M8 unblocked; use `review-appeal-copy.md` verbatim.
 
 **2026-09-26** - M1 copy drafted in `review-appeal-copy.md` (all pieces, rationale, one alternate where useful). Dash self check clean in all copy (only URLs, file names, and `aria-label` contain hyphens). Awaiting Mike's approval; M5, M6, M8 blocked until approval is logged here.
 

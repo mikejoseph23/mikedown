@@ -26,17 +26,17 @@ Rationale: a short letter from one colleague to another. Opens with thanks, tell
 
 > Leave a review
 
-> Tell a friend
+> Tell a colleague
 
-> Share feedback
+> Open an issue
 
 > Maybe later
 
 > Don't ask again
 
-Rationale: plain verbs, all under 18 characters; "Share feedback" stays broad so it covers both bugs and feature ideas. Alternate for the tertiary button: "Suggest an idea" (if you want to lean into feature requests).
+Rationale: all under 18 characters and echo the letter ("a word to a colleague", "Open an issue"); approved by Mike 2026-09-26.
 
-## 4. Copied confirmation (Tell a friend)
+## 4. Copied confirmation (Tell a colleague)
 
 > Copied. Paste it anywhere.
 
