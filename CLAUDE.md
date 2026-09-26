@@ -83,4 +83,3 @@ Any new `mikedown.*` setting must be added in **three places**:
 - `ZOMBIE`-prefixed commented code blocks are intentional — leave them.
 - Markdown rules: escape `$` as `\$` (LaTeX would otherwise render), and put blank lines before and after lists (MD032). Not needed in codeblocks or HTML
 - Don't mention Claude or Anthropic in commit messages.
-- **Standing reminder:** whenever you regenerate or update `RESUME.md`, keep an item in "What's Next" reminding Mike to update the review plea message (the "A note from Mike" appeal card, the README "A note from the developer" section and the share text; draft copy in `review-appeal-copy.md`). Remove this rule only when Mike says the plea is final.
