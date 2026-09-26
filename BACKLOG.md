@@ -24,9 +24,9 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 - Word count / reading time in status bar — _scaffolding exists in `src/statusBar.ts` but isn't wired to the webview yet._ ✅ Shipped in 1.8.0.
 - **Buy Me A Coffee link in Settings → About tab.** Needs a final BMAC URL. The About panel in `src/webview/editor-main.ts#buildAboutPanel` already has GitHub / changelog / issue links — add a BMAC link there once the URL exists.
 - **Support card photo avatar.** Replace the "M" initial in the "A note from Mike" support card's avatar slot with a small photo of Mike. Needs an image asset shipped in the bundle (webview `localResourceRoots`, `asWebviewUri`) and a CSP check that `img-src` allows `${webview.cspSource}`. No card redesign needed — the slot is already built for it (`avatar: { kind: 'image', src, alt }` in `src/webview/supportCard.ts`). _From the review appeal follow-ups, 2026-09-26._
-- **Review appeal: 30/60 day measurement check-in.** Re-run `npx vsce show interapp.mikedown-editor` and record installs, rating, and review count in `review-appeal-planning.md`'s Progress Log.
-  - [ ] 30 days after the 2.11.0 release
-  - [ ] 60 days after the 2.11.0 release
+- **Review appeal: 30/60 day measurement check-in.** Re-run `npx vsce show interapp.mikedown-editor` and record installs, rating, and review count here. Baseline at 2.11.0 release (2026-09-26): 392 installs, 5 reviews, 5.00 rating.
+  - [ ] 30 days after the 2.11.0 release (2026-10-26)
+  - [ ] 60 days after the 2.11.0 release (2026-11-25)
 
   _Baseline (2026-09-26, pre-release): 391 installs, 5.00 average rating, 5 reviews, 982 lifetime downloads._
 
