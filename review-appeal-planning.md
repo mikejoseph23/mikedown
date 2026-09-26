@@ -319,6 +319,8 @@ All resolved 2026-09-26.
 
 ## Progress Log / Notes
 
+**2026-09-26 (late afternoon)** - Appeal copy rewritten in Mike's voice (`b6323f1`) and applied to `supportCopy.ts`, About tab ("colleague") and README (`c045141`). No card CSS change. Compile, 730 unit, 38 integration, lint green. Ready for 2.11.0.
+
 **2026-09-26 (afternoon)** - M9 hands-on signed off, no defects (scriptable steps automated in `7d64519`). Decisions: the About tab lead-in says "colleague" not "friend" (lands with the copy rework); a manual card open pushing back the next auto show is accepted. Mike is reworking the appeal copy (reads as AI-written) before 2.11.0 ships; session stays open until that lands.
 
 **2026-09-26 01:58** - M9 prep done (commit `8be197a`). **Baseline** (`npx vsce show interapp.mikedown-editor`, 2026-09-26, published 2.10.4): 391 installs, 5.00 rating, 5 reviews, 982 downloads. `BACKLOG.md` gained the photo avatar follow-up and the 30/60 day re-check checklist. Main tree: compile, 601 unit, 28 integration green. Hands-on steps (updated to built labels) are in `.orchestrator/review-appeal-planning/processed/worker-summary-m9-hands-on.md`. **Paused for Mike's sign-off.**
