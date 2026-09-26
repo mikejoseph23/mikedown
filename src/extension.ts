@@ -8,7 +8,6 @@ import { exportViaPrint } from './export';
 import { disposeExportServer } from './exportServer';
 import { BacklinkProvider } from './backlinkProvider';
 import { MarkdownOutlineSymbolProvider } from './outlineProvider';
-import { NagPrompt } from './nagPrompt';
 import { maybeOfferDefaultEditorPrompt, setAsDefaultEditorCommand } from './defaultEditorPrompt';
 
 /**
@@ -314,14 +313,57 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
 
-  // Periodic "enjoying MikeDown?" toast. Backed by globalState — fires only
-  // after 7d install + ≥3 doc opens, then backs off 14→30→60→90d on dismiss
-  // (30d after a CTA click). See src/nagPrompt.ts for the full schedule.
-  const nag = new NagPrompt(context);
-  nag.recordActivation();
-  MarkdownEditorProvider.onDocOpen = () => nag.recordDocOpen();
-  // Idle delay before first check — don't ambush the user during startup.
-  setTimeout(() => nag.maybeShow(), 60_000);
+  // Support appeal — "A note from Mike" card, shown in the webview after a
+  // save that follows a meaningful editing session (no more startup toast,
+  // Q2 resolved). Persisted state, eligibility, and side effects live in
+  // provider.supportPrompt (src/supportPrompt.ts); this just wires the two
+  // activation-time engagement signals it needs.
+  provider.supportPrompt.recordActivation();
+  MarkdownEditorProvider.onDocOpen = () => provider.supportPrompt.recordDocOpen();
+
+  // "MikeDown: Support MikeDown" — always available in the palette (no
+  // `when` gating) so it works from anywhere. Posts the card to whichever
+  // MikeDown panel is available, or falls back to a single native notice
+  // (the only one left) if no MikeDown editor is open at all.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.support', () => {
+      const panel = MarkdownEditorProvider.activePanel ?? MarkdownEditorProvider.findVisiblePanel();
+      if (panel) {
+        provider.supportPrompt.showManual(panel);
+      } else {
+        provider.supportPrompt.showFallbackNotice();
+      }
+    })
+  );
+
+  // Dev-only: reset support-prompt state for manual testing. Never
+  // registered (or shown in the palette — see contributes.commands.when in
+  // package.json) outside a dev/debug host.
+  if (context.extensionMode !== vscode.ExtensionMode.Production) {
+    void vscode.commands.executeCommand('setContext', 'mikedown.isDevelopment', true);
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('mikedown.dev.resetSupportPrompt', async () => {
+        const pick = await vscode.window.showQuickPick(
+          [
+            { label: 'Clear all support prompt state', action: 'clear' as const },
+            { label: 'Make eligible now', action: 'eligible' as const },
+          ],
+          { placeHolder: 'MikeDown (Dev): Reset Support Prompt State' }
+        );
+        if (!pick) {
+          return;
+        }
+        if (pick.action === 'clear') {
+          provider.supportPrompt.devResetAll();
+          void vscode.window.showInformationMessage('MikeDown (Dev): support prompt state cleared.');
+        } else {
+          provider.supportPrompt.devMakeEligibleNow();
+          void vscode.window.showInformationMessage('MikeDown (Dev): support prompt is eligible. The next qualifying save shows the card.');
+        }
+      })
+    );
+  }
 
   // First-run "make MikeDown the default .md editor?" prompt. Shown once,
   // shortly after activation — short delay so it doesn't compete with other

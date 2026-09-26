@@ -21,6 +21,8 @@ import {
 import { githubAnchorId } from './anchoring';
 import { BacklinkEntry } from './backlinkProvider';
 import { pickBestWikilinkTarget } from './wikilinkResolve';
+import { SupportPrompt, SessionTracker } from './supportPrompt';
+import { SupportAction } from './supportPromptEligibility';
 
 /**
  * MikeDown custom text editor provider.
@@ -51,7 +53,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private static lastDocTextByPanel = new WeakMap<vscode.WebviewPanel, string>();
   /** BacklinkProvider (assigned by extension.ts) — backs the sidebar Backlinks section. */
   public static backlinkProvider: import('./backlinkProvider').BacklinkProvider | undefined = undefined;
-  /** Nag-prompt engagement hook (assigned by extension.ts) — fires on each doc open. */
+  /** Support-appeal engagement hook (assigned by extension.ts) — fires on each doc open. */
   public static onDocOpen: (() => void) | undefined = undefined;
 
   /**
@@ -64,6 +66,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     for (const [panel, doc] of MarkdownEditorProvider.openPanels) {
       MarkdownEditorProvider.sendBacklinksToWebview(panel.webview, doc);
     }
+  }
+
+  /**
+   * M3 — First visible MikeDown panel, in open order. Used by the
+   * `mikedown.support` command when no panel is currently active (e.g. focus
+   * moved to a non-MikeDown editor) but one is still visible in a split.
+   */
+  public static findVisiblePanel(): vscode.WebviewPanel | undefined {
+    for (const panel of MarkdownEditorProvider.openPanels.keys()) {
+      if (panel.visible) {
+        return panel;
+      }
+    }
+    return undefined;
   }
 
   private static sendBacklinksToWebview(
@@ -119,7 +135,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private imagePathsBaseline = new Map<string, Set<string>>();
   private sessionPastedAbsPaths = new Map<string, Set<string>>();
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  /** Support appeal — persisted state, URLs, and side effects (M3, src/supportPrompt.ts). */
+  public readonly supportPrompt: SupportPrompt;
+
+  constructor(private readonly context: vscode.ExtensionContext) {
+    this.supportPrompt = new SupportPrompt(context);
+  }
 
   /**
    * Called when VS Code opens a file with this custom editor.
@@ -299,6 +320,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // delete + insert for a full-document replace), all of them are suppressed.
     let webviewEditsInFlight = 0;
 
+    // M3 — Support appeal: this panel's current editing session (edit count +
+    // first-edit timestamp), so a save can be checked for "was this preceded
+    // by real editing" without persisting anything per keystroke. Reset after
+    // each save is evaluated by supportPrompt.onSaveAfterSession.
+    const supportSessionTracker = new SessionTracker();
+
     // Suppress change events triggered by VS Code's own save process (e.g.
     // trimTrailingWhitespace, insertFinalNewline) which fire
     // onDidChangeTextDocument while the document is still dirty.
@@ -335,6 +362,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         void this.cleanupOrphanedImages(savedDoc).catch(err => {
           console.warn('MikeDown: orphan-image cleanup failed —', (err as Error).message);
         });
+        // M3 — Support appeal: maybe show the "A note from Mike" card (auto
+        // reason) after a save that followed a meaningful editing session.
+        // Eligibility, backoff, and the 1.5s delay all live in
+        // supportPrompt.onSaveAfterSession; this call is a no-op most of the
+        // time. The save is always the end of a session regardless.
+        this.supportPrompt.onSaveAfterSession(webviewPanel, savedDoc, supportSessionTracker);
+        supportSessionTracker.reset();
       }
     });
 
@@ -404,6 +438,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
       switch (message.type) {
         case 'edit': {
+          // M3 — Support appeal engagement signals: count this edit toward
+          // the current session (used by onSaveAfterSession) and toward the
+          // persisted active-day streak (used by the eligibility thresholds).
+          const editNow = Date.now();
+          supportSessionTracker.recordEdit(editNow);
+          this.supportPrompt.recordEdit(editNow);
           // M2d — Apply cleanup normalization before writing to disk.
           // Guard stays up for the entire async operation so all change
           // events fired by this WorkspaceEdit are suppressed.
@@ -989,6 +1029,26 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           await vscode.commands.executeCommand('workbench.action.openGlobalKeybindings', 'mikedown');
           break;
         }
+        case 'supportAction': {
+          // "A note from Mike" card button click — review / share / feedback /
+          // later / never / close. All persistence, URL opening, and the
+          // clipboard write live in supportPrompt.handleAction (M3).
+          if (message.action) {
+            this.supportPrompt.handleAction(webviewPanel, message.action);
+          }
+          break;
+        }
+        case 'supportCardShown':
+          // Webview ack that the card actually rendered — the only place
+          // lastPrompt is written (M5 implements the render + ack).
+          this.supportPrompt.onCardShown(webviewPanel);
+          break;
+        case 'busy':
+          // Webview declined to render showSupportCard (another card or the
+          // Settings modal was already open). Not a show — lastPrompt is left
+          // untouched so the same save doesn't get "used up".
+          this.supportPrompt.onBusy(webviewPanel);
+          break;
         default:
           console.warn(`MikeDown: unknown message type "${(message as { type: string }).type}"`);
       }
@@ -2025,7 +2085,9 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'pickImage' | 'headingRenamed' | 'headingRenameAmbiguous' | 'openKeybindings';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'pickImage' | 'headingRenamed' | 'headingRenameAmbiguous' | 'openKeybindings' | 'supportAction' | 'supportCardShown' | 'busy';
+  /** supportAction payload — which "A note from Mike" card button was clicked. */
+  action?: SupportAction;
   content?: string;
   pristine?: boolean;
   /** stats payload — selection word/char counts; `null` = nothing selected. */

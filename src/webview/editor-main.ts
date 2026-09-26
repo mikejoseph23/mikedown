@@ -49,6 +49,34 @@
  *         should find + (per pref) fix cross-file backlinks targeting this file.
  *     { type: 'headingRenameAmbiguous', baseName } — the renamed heading's base
  *         slug is duplicated in the document; host shows a warning, no auto-fix.
+ *
+ * Support appeal — "A note from Mike" card (host wiring in src/supportPrompt.ts,
+ * M5 implements the render + these handlers on the webview side):
+ *   Extension → Webview:
+ *     { type: 'showSupportCard', reason: 'auto' | 'manual', copy } — render the
+ *         card (copy is the full CARD_COPY payload from src/supportCopy.ts —
+ *         title, body, avatar, button labels, copied confirmation — the
+ *         webview never hardcodes support-appeal strings). `reason: 'auto'`
+ *         fires ~1.5s after a qualifying save; `reason: 'manual'` comes from
+ *         the `mikedown.support` command or another entry point (M6+). If the
+ *         Settings modal or another card is already open, reply `{ type:
+ *         'busy' }` instead of rendering (host treats that as "not shown").
+ *         Otherwise render and reply `{ type: 'supportCardShown' }`.
+ *     { type: 'supportCopied' } — the host finished writing the neutral share
+ *         line to the clipboard after a `supportAction: 'share'`; the webview
+ *         swaps the "Tell a colleague" label to the approved "Copied" text
+ *         for ~2s.
+ *   Webview → Extension:
+ *     { type: 'supportCardShown' } — ack that the card actually rendered; the
+ *         only place the host writes `lastPrompt`.
+ *     { type: 'busy' } — the card could not render (see above); no `lastPrompt`
+ *         write follows.
+ *     { type: 'supportAction', action } — a card button was clicked. `action`
+ *         is one of 'review' | 'share' | 'feedback' | 'later' | 'never' |
+ *         'close' ('close' = dismissed without choosing). The host applies
+ *         the corresponding state change, and for 'review'/'feedback' opens
+ *         the Marketplace review / GitHub issue URL, or for 'share' writes
+ *         the clipboard and replies `supportCopied`.
  */
 
 import { Editor, mergeAttributes } from '@tiptap/core';
