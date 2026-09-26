@@ -74,7 +74,7 @@ About tab section heading:
 
 About tab lead in:
 
-> MikeDown is made by one person. A review or a word to a friend goes a long way.
+> MikeDown is made by one person. A review or a word to a colleague goes a long way.
 
 Command title (category `MikeDown`, title `Support MikeDown`):
 

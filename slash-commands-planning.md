@@ -39,7 +39,7 @@
 | M4: Image file picker (host) | Sonnet | ✅ | 22 | Host 8 min + webview ~14 min (shared worker with M6) |
 | M5: Settings (three places, live toggle) | Sonnet | ✅ | 15 | enabled/dateFormat/timeZone, Behavior subsection, placeholder, footer notification |
 | M6: Properties, Date, Datetime | Sonnet | ✅ | 18 | Pure date helper 4 min + actions ~14 min + tests; runs before T2 |
-| T2: Tests, integration, hands-on sign-off | Sonnet | 🔄 | 28 (automated) | Automated done; awaiting Mike's hands-on | Pauses for Mike |
+| T2: Tests, integration, hands-on sign-off | Sonnet | ✅ | 28 (automated) | Signed off 2026-09-26 | Pauses for Mike |
 | M7: Docs (CHANGELOG, README, BACKLOG) | Haiku | ⬜ | | Last |
 
 ## Table of Contents
@@ -382,7 +382,7 @@ Start: open the repo in VS Code, run `npm run compile`, press **F5** (Extension 
 - [ ] 26. Gear → Behavior: untick "Slash command menu". Expected: Date format and Time zone controls grey out immediately; Save; on an empty doc the placeholder reads "Start writing…" with no reload. Re-tick, Save. Expected: placeholder back to "Type / for commands…".
 - [ ] 27. `/image`, choose a PNG outside the workspace (e.g. `~/Desktop`). Expected: it is copied into the image-paste folder, renders, and source shows a relative path to the copy.
 - [ ] 28. Save the file, reopen it. Expected: all inserted blocks reload identically.
-- [ ] Mike signs off (record in Progress Log).
+- [x] Mike signs off (record in Progress Log).
 
 [Return to Top](#top)
 
@@ -446,6 +446,8 @@ Each gap-fill prompt must include:
 [Return to Top](#top)
 
 ## Progress Log / Notes
+
+**2026-09-26 (afternoon)** - T2 signed off. Commit `7d64519` automated the scriptable hands-on steps (manual remainder in `hands-on-remaining.md`); Mike ran the rest and found no defects. Accepted: `/properties` undo only works as the very next action. M7 docs next.
 
 **2026-09-26 02:58** - T2 automated done, commit `8f5d5c3`. Added `slashcommandsRoundtrip.test.ts` (33), `slashcommandsUndoToggle.test.ts` (14), `test/integration/slashCommands.test.ts` (12). Test seam: `MarkdownEditorProvider.dispatchTestMessage` + static `instance`, `activate()` returns `{ __test }`, `saveSettings` body extracted verbatim into `handleSaveSettings`. Orchestrator re-ran: unit 46 files / 704 tests, edge 22, integration 38 passing. Lint: same 386-problem baseline before and after (no new findings; baseline failure is pre-existing). Flagged, not fixed: an empty `/todo` item picks up a cosmetic backslash escape on its first reload (stable from the second); PM input rules don't fire through the harness's synthetic typing, so wikilink round-trips drive the real autocomplete path. Paused for Mike's hands-on pass.
 
