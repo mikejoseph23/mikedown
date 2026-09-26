@@ -56,7 +56,7 @@ The extension host has zero DOM types. The webview has zero `vscode` Node APIs. 
 Message shapes are documented at the top of `src/webview/editor-main.ts`. Key flows:
 
 - Host → webview: `update` (full markdown), `command` (toolbar/keybinding), `settings` (broadcast on config change), `backlinks`, `properties`, `linkSuggestions`, `imagePathPrefix`.
-- Webview → host: `ready`, `edit` (full markdown back), `stats` (plain text for status bar), `saveSettings`, `openLink`, `pasteImage` (binary → host writes file → host returns inserted path).
+- Webview → host: `ready`, `edit` (full markdown back), `stats` (plain text for status bar), `saveSettings`, `openLink`, `savePastedImage` (binary → host writes file → host returns inserted path).
 
 Always send full document content for `update`/`edit`. The host re-applies into `vscode.TextDocument` via `WorkspaceEdit` and lets VS Code dedupe.
 
