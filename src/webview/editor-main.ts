@@ -51,17 +51,18 @@
  *         slug is duplicated in the document; host shows a warning, no auto-fix.
  *
  * Support appeal — "A note from Mike" card (host wiring in src/supportPrompt.ts,
- * M5 implements the render + these handlers on the webview side):
+ * render in src/webview/supportCard.ts):
  *   Extension → Webview:
  *     { type: 'showSupportCard', reason: 'auto' | 'manual', copy } — render the
  *         card (copy is the full CARD_COPY payload from src/supportCopy.ts —
  *         title, body, avatar, button labels, copied confirmation — the
  *         webview never hardcodes support-appeal strings). `reason: 'auto'`
  *         fires ~1.5s after a qualifying save; `reason: 'manual'` comes from
- *         the `mikedown.support` command or another entry point (M6+). If the
- *         Settings modal or another card is already open, reply `{ type:
- *         'busy' }` instead of rendering (host treats that as "not shown").
- *         Otherwise render and reply `{ type: 'supportCardShown' }`.
+ *         the `mikedown.support` command or another entry point (M6+). For
+ *         `reason: 'auto'`, if the Settings modal or another card is already
+ *         open, reply `{ type: 'busy' }` instead of rendering (host treats
+ *         that as "not shown"). Otherwise render (a manual show replaces any
+ *         open card) and reply `{ type: 'supportCardShown' }`.
  *     { type: 'supportCopied' } — the host finished writing the neutral share
  *         line to the clipboard after a `supportAction: 'share'`; the webview
  *         swaps the "Tell a colleague" label to the approved "Copied" text
@@ -147,6 +148,7 @@ import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } fro
 import { githubAnchorId } from '../anchoring';
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
+import { showSupportCard, isSupportCardOpen, showSupportCopied, type SupportCardCopy } from './supportCard';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
 import { EditorState, Transaction as CmTransaction } from '@codemirror/state';
@@ -4831,6 +4833,32 @@ if (!editorContainer) {
       const msg = message as any;
       originalContent = msg.content ?? '';
       lastSavedUndoDepth = pmUndoDepth(editor.state);
+    }
+
+    // Support appeal: "A note from Mike" card (render in ./supportCard.ts).
+    // An auto card never stacks on the Settings modal or on another card;
+    // it replies `busy` so the host does not count it as shown.
+    if (message.type === 'showSupportCard') {
+      const msg = message as any;
+      const reason: 'auto' | 'manual' = msg.reason === 'manual' ? 'manual' : 'auto';
+      const settingsOpen = !!document.getElementById('mikedown-settings-overlay');
+      if (reason === 'auto' && (settingsOpen || isSupportCardOpen())) {
+        vscode.postMessage({ type: 'busy' });
+      } else if (msg.copy && typeof msg.copy === 'object') {
+        showSupportCard({
+          reason,
+          copy: msg.copy as SupportCardCopy,
+          onAction: action => vscode.postMessage({ type: 'supportAction', action }),
+          restoreFocus: () => {
+            if (!sourceMode) editor.commands.focus();
+          },
+        });
+        vscode.postMessage({ type: 'supportCardShown' });
+      }
+    }
+
+    if (message.type === 'supportCopied') {
+      showSupportCopied();
     }
 
     // M3 — Handle formatting commands posted from the extension host
