@@ -1,9 +1,8 @@
 /**
- * M3: wires every remaining registry `id` (quote/lists/callouts/divider,
- * code/mermaid, table, link/wikilink/emoji) to a real action. Headings and
- * Paragraph are handled directly in `slashcommands.ts` (M2); Image
- * (`/image`), Properties, Date, and Datetime are left as clean no-op hooks
- * below for M4 and M6.
+ * M3/M4: wires every remaining registry `id` (quote/lists/callouts/divider,
+ * code/mermaid, table, link/wikilink/emoji/image) to a real action. Headings
+ * and Paragraph are handled directly in `slashcommands.ts` (M2); Properties,
+ * Date, and Datetime are left as clean no-op hooks below for M6.
  *
  * Three shapes of command, all deleting `/query` (and, mid-line, the
  * triggering space) via `slashcommands.ts`'s shared target-preparation logic:
@@ -20,19 +19,20 @@
  *    empirically — so those safely use `prepareSlashTarget` (one dispatch)
  *    followed by a normal `editor.chain()` call (a second dispatch that
  *    still ends up in the same undo event).
- *  - Inline (wikilink here; link/emoji below, since they hand off to a
+ *  - Inline (wikilink here; link/emoji/image below, since they hand off to a
  *    picker): replace `/query` directly at its own position — no block
  *    splitting, no preceding-space stripping (Trigger rules: "Inline
  *    commands ... insert inline at the cursor instead").
  *
- * Picker-based commands (code language, table, link, emoji) keep `/query` in
- * the doc until the picker actually commits; cancelling leaves it intact.
- * For code and table, the target is prepared eagerly (needed to anchor the
- * picker and, for code, to give the language picker's `updateAttributes`
- * something to target), so "cancel" is implemented as one `editor.commands
- * .undo()` of that single merged undo event. Link and emoji don't need eager
- * preparation (they insert inline at a fixed position), so cancelling them
- * is simply "never touched the document."
+ * Picker-based commands (code language, table, link, emoji, image) keep
+ * `/query` in the doc until the picker/host round-trip actually commits;
+ * cancelling or erroring leaves it intact. For code and table, the target is
+ * prepared eagerly (needed to anchor the picker and, for code, to give the
+ * language picker's `updateAttributes` something to target), so "cancel" is
+ * implemented as one `editor.commands.undo()` of that single merged undo
+ * event. Link, emoji, and image don't need eager preparation (they insert
+ * inline at a fixed position once the picker/host resolves), so cancelling
+ * them is simply "never touched the document."
  */
 
 import type { Editor } from '@tiptap/core';
@@ -47,6 +47,7 @@ import { MERMAID_STARTER_DIAGRAM } from './slashcommands-registry';
 import { showLanguagePicker } from './languagepicker';
 import { showTableGridPicker } from './tablepicker';
 import { showEmojiPicker } from './emojipicker';
+import { requestImagePick } from './imagepick';
 
 type Range = { from: number; to: number };
 
@@ -116,12 +117,15 @@ function handleSlashAction(
       return actionWikilink(view, range);
     case 'emoji':
       return actionEmoji(editor, view, range);
-
-    // NEW: not this milestone. M4 wires `/image`; M6 wires Properties, Date,
-    // and Datetime. Falling through to `false` here leaves the plugin's own
-    // "unhandled command" path (records the `/` as dismissed, no doc change)
-    // to do the right thing until then.
     case 'image':
+      markSlashDismissed(range.from);
+      requestImagePick(view, range.from, range.to);
+      return true;
+
+    // NEW: not this milestone. M6 wires Properties, Date, and Datetime.
+    // Falling through to `false` here leaves the plugin's own "unhandled
+    // command" path (records the `/` as dismissed, no doc change) to do the
+    // right thing until then.
     case 'properties':
     case 'date':
     case 'datetime':

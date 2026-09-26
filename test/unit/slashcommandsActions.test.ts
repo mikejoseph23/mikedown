@@ -3,12 +3,12 @@ import type { EditorView as PmEditorView } from '@tiptap/pm/view';
 import { bootWebview, type Harness } from '../harness/webviewHarness';
 
 /**
- * M3 coverage: the action map wired in `slashcommands-actions.ts` (plus the
- * `executeSlashCommand`/`runMatch` fixes in `slashcommands.ts`). T2 does the
- * exhaustive round-trip/mid-line/undo/cancel matrix later; this file checks
- * one representative case per command shape, and the specific handoffs from
- * M2/T1 (list-item escape, preceding-space strip, the "unhandled command
- * reopens the menu" bug).
+ * M3/M4 coverage: the action map wired in `slashcommands-actions.ts` (plus
+ * the `executeSlashCommand`/`runMatch` fixes in `slashcommands.ts`). T2 does
+ * the exhaustive round-trip/mid-line/undo/cancel matrix later; this file
+ * checks one representative case per command shape, and the specific
+ * handoffs from M2/T1 (list-item escape, preceding-space strip, the
+ * "unhandled command reopens the menu" bug).
  */
 
 // jsdom has no layout engine and doesn't implement scrollIntoView at all.
@@ -277,14 +277,63 @@ describe('slash menu — link, wikilink, emoji (M3)', () => {
   });
 });
 
-describe('slash menu — unhandled commands (T1 regression)', () => {
-  it('choosing a not-yet-wired command (e.g. /image) closes the menu and stays closed on the next update', async () => {
+describe('slash menu — image (M4)', () => {
+  it('/image posts pickImage with a requestId, keeping "/image" until the host replies', async () => {
     const h = await boot('');
     await runCommand(h, 'image');
-    expect(menuEl()).toBeNull();
     expect(markdown(h).trim()).toBe('/image');
+    const pick = h.last('pickImage');
+    expect(pick).toBeDefined();
+    expect(typeof pick.requestId).toBe('string');
+  });
+
+  it('a pickedImageResult reply replaces "/image" with the image, serialized to insertPath', async () => {
+    const h = await boot('');
+    await runCommand(h, 'image');
+    const { requestId } = h.last('pickImage');
+    h.send({ type: 'pickedImageResult', requestId, insertPath: 'images/cat.png', alt: 'cat' });
+    expect(markdown(h)).not.toContain('/image');
+    expect(markdown(h)).toContain('![cat](images/cat.png)');
+    h.wysiwygEditor().commands.undo();
+    expect(markdown(h).trim()).toBe('/image');
+  });
+
+  it('a cancelled pickedImageResult leaves "/image" untouched', async () => {
+    const h = await boot('');
+    await runCommand(h, 'image');
+    const { requestId } = h.last('pickImage');
+    h.send({ type: 'pickedImageResult', requestId, cancelled: true });
+    expect(markdown(h).trim()).toBe('/image');
+  });
+
+  it('an errored pickedImageResult leaves "/image" untouched', async () => {
+    const h = await boot('');
+    await runCommand(h, 'image');
+    const { requestId } = h.last('pickImage');
+    h.send({ type: 'pickedImageResult', requestId, error: 'document not saved' });
+    expect(markdown(h).trim()).toBe('/image');
+  });
+});
+
+describe('slash menu — unhandled commands (T1 regression)', () => {
+  // As of M4 every command below "properties"/"date"/"datetime" (still M6
+  // no-ops at this point) is wired to a real action — exercise the generic
+  // path (runMatch's "handler returned false" branch in slashcommands.ts) by
+  // forcing the external handler to report "not handled" for one call.
+  it('a command whose handler reports unhandled closes the menu and stays closed on the next update', async () => {
+    const h = await boot('');
+    // `bootWebview()` calls `vi.resetModules()` before (re-)importing the
+    // bundle, so a top-level `setSlashCommandHandler` import in this file
+    // would be bound to a stale module instance by now — re-import to reach
+    // the live one `editor-main.ts` (and its `initSlashCommandActions`)
+    // registered its real handler on.
+    const live = await import('../../src/webview/slashcommands');
+    live.setSlashCommandHandler(() => false);
+    await runCommand(h, 'quote');
+    expect(menuEl()).toBeNull();
+    expect(markdown(h).trim()).toBe('/quote');
     // Any later view update (a selection-only transaction here) must not
-    // re-derive and reopen the menu for the same, still-unhandled "/image".
+    // re-derive and reopen the menu for the same, still-unhandled "/quote".
     h.setWysiwygCursor(h.wysiwygEditor().state.selection.from);
     expect(menuEl()).toBeNull();
   });

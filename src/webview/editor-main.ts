@@ -118,6 +118,7 @@ import { createLowlight, all } from 'lowlight';
 import { SmartPasteExtension } from './smartpaste';
 import { PlainPasteExtension, requestPlainPaste } from './plainpaste';
 import { ImagePasteExtension, handlePastedImageResult, setPostMessage as setImagePastePostMessage } from './imagepaste';
+import { handlePickedImageResult, setPostMessage as setImagePickPostMessage } from './imagepick';
 import { TableCheckboxExtension } from './tablecheckbox';
 import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
@@ -194,6 +195,7 @@ const vscode = acquireVsCodeApi();
 // call acquireVsCodeApi() a second time (which throws — only one call per
 // webview is allowed).
 setImagePastePostMessage(vscode.postMessage.bind(vscode));
+setImagePickPostMessage(vscode.postMessage.bind(vscode));
 setSlashPostMessage(vscode.postMessage.bind(vscode));
 
 console.log('MikeDown: editor-main.ts script executing');
@@ -5389,6 +5391,13 @@ if (!editorContainer) {
     // position recorded when the request was sent.
     if (message.type === 'pastedImageResult') {
       handlePastedImageResult(message as any);
+    }
+
+    // M4 — Image picker host response (`/image` slash command): replace
+    // `/query` with the picked image exactly like a paste result; cancelled
+    // or errored leaves `/query` untouched (see imagepick.ts).
+    if (message.type === 'pickedImageResult') {
+      handlePickedImageResult(message as any);
     }
 
     // v1.6.0 — Image resize host response: replace the in-editor image's src
