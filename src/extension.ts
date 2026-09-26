@@ -68,7 +68,7 @@ async function migrateOutlineSettings(context: vscode.ExtensionContext): Promise
  * Called when the extension is activated.
  * Registers the MikeDown custom text editor provider.
  */
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(context: vscode.ExtensionContext) {
   // Fire-and-forget — runs every activation but no-ops once migrated.
   migrateOutlineSettings(context).catch(() => {});
 
@@ -370,6 +370,21 @@ export function activate(context: vscode.ExtensionContext): void {
   // startup toasts, but well before the nag prompt above. See
   // src/defaultEditorPrompt.ts for the full gating logic.
   setTimeout(() => maybeOfferDefaultEditorPrompt(context), 5_000);
+
+  // T2 test seam: `vscode.extensions.getExtension(id).exports` is the only
+  // reliable way for an integration test to reach the LIVE provider/panel —
+  // this `activate()` call and its `provider` are the ones VS Code actually
+  // runs, whereas a test file importing `./markdownEditorProvider` directly
+  // gets a second, separately-loaded module instance (this one is bundled
+  // by webpack into dist/extension.js) whose statics are never populated.
+  // Not a documented/public API; for test use only.
+  return {
+    __test: {
+      dispatchMessage: (document: vscode.TextDocument, panel: vscode.WebviewPanel, message: unknown) =>
+        provider.dispatchTestMessage(document, panel, message as never),
+      getActivePanel: () => MarkdownEditorProvider.activePanel,
+    },
+  };
 }
 
 /**

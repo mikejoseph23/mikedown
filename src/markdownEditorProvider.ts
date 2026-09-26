@@ -56,6 +56,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static backlinkProvider: import('./backlinkProvider').BacklinkProvider | undefined = undefined;
   /** Support-appeal engagement hook (assigned by extension.ts) — fires on each doc open. */
   public static onDocOpen: (() => void) | undefined = undefined;
+  /** T2 test seam — see `dispatchTestMessage`'s doc comment. */
+  public static instance: MarkdownEditorProvider | undefined = undefined;
 
   /**
    * Broadcast the current backlink list to every open MikeDown panel. Called
@@ -141,6 +143,184 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
   constructor(private readonly context: vscode.ExtensionContext) {
     this.supportPrompt = new SupportPrompt(context);
+    MarkdownEditorProvider.instance = this;
+  }
+
+  /**
+   * T2 test seam: invoke a webview→host message handler directly, bypassing
+   * the real webview's `onDidReceiveMessage` round trip — integration tests
+   * running under @vscode/test-electron can't script the actual webview
+   * content (it's a real Electron webview, not something Mocha can type
+   * into). Only wires the handlers the slash-command integration tests
+   * need; extend as more messages need direct-dispatch coverage.
+   */
+  public async dispatchTestMessage(
+    document: vscode.TextDocument,
+    webviewPanel: vscode.WebviewPanel,
+    message: WebviewMessage
+  ): Promise<void> {
+    switch (message.type) {
+      case 'saveSettings':
+        this.handleSaveSettings(webviewPanel, message);
+        return;
+      case 'pickImage':
+        await this.handlePickImage(document, webviewPanel.webview, message);
+        return;
+    }
+  }
+
+  /** Handles a `saveSettings` message from the webview: persists whichever
+   *  fields the payload carries into `mikedown.*` config, then shows either
+   *  the slash-menu-disable toast (Open Settings / Undo) or the generic
+   *  "settings saved" toast. Extracted out of the `onDidReceiveMessage`
+   *  switch so `dispatchTestMessage` (T2) can invoke it directly. */
+  private handleSaveSettings(webviewPanel: vscode.WebviewPanel, message: WebviewMessage): void {
+    const settings = (message as any).settings || {};
+    const config = vscode.workspace.getConfiguration('mikedown');
+    if (settings.fontSize) {
+      config.update('fontSize', settings.fontSize, vscode.ConfigurationTarget.Global);
+    }
+    if (settings.fontFamily !== undefined) {
+      config.update('fontFamily', settings.fontFamily, vscode.ConfigurationTarget.Global);
+    }
+    if (settings.headingFontFamily !== undefined) {
+      config.update('headingFontFamily', settings.headingFontFamily, vscode.ConfigurationTarget.Global);
+    }
+    if (settings.imagePaste && typeof settings.imagePaste === 'object') {
+      const ip = settings.imagePaste;
+      const pairs: Array<[string, unknown]> = [
+        ['imagePaste.enabled', ip.enabled],
+        ['imagePaste.folder', ip.folder],
+        ['imagePaste.folderRelativeTo', ip.folderRelativeTo],
+        ['imagePaste.filenamePattern', ip.filenamePattern],
+        ['imagePaste.pathStyle', ip.pathStyle],
+        ['imagePaste.altText', ip.altText],
+        ['imagePaste.maxSizeMB', ip.maxSizeMB],
+        ['imagePaste.cleanupUnreferenced', ip.cleanupUnreferenced],
+      ];
+      for (const [key, value] of pairs) {
+        if (value !== undefined) {
+          config.update(key, value, vscode.ConfigurationTarget.Global);
+        }
+      }
+    }
+    if (settings.imageResize && typeof settings.imageResize === 'object') {
+      const ir = settings.imageResize;
+      if (ir.overwrite !== undefined) {
+        config.update('imageResize.overwrite', ir.overwrite, vscode.ConfigurationTarget.Global);
+      }
+    }
+    if (typeof settings.wikilinkCreateOnClick === 'boolean') {
+      config.update('wikilink.createOnClick', settings.wikilinkCreateOnClick, vscode.ConfigurationTarget.Global);
+    }
+    // Sidebar defaults — only seed values for newly-opened panels.
+    // Use "Apply to open documents" in the modal to push to open panels.
+    if (settings.sidebarVisibility === 'always' || settings.sidebarVisibility === 'never') {
+      config.update('sidebar.visibility', settings.sidebarVisibility, vscode.ConfigurationTarget.Global);
+    }
+    if (settings.sidebarPosition === 'left' || settings.sidebarPosition === 'right') {
+      config.update('sidebar.position', settings.sidebarPosition, vscode.ConfigurationTarget.Global);
+    }
+    // Support appeal footer link (M6) — the Appearance checkbox and the
+    // footer's × (dismiss forever) both post this key.
+    const supportShowSidebarLink = (settings as { supportShowSidebarLink?: unknown }).supportShowSidebarLink;
+    if (typeof supportShowSidebarLink === 'boolean') {
+      void config.update('support.showSidebarLink', supportShowSidebarLink, vscode.ConfigurationTarget.Global);
+    }
+    if (typeof settings.sidebarWidth === 'number' && settings.sidebarWidth >= 160 && settings.sidebarWidth <= 360) {
+      config.update('sidebar.width', Math.round(settings.sidebarWidth), vscode.ConfigurationTarget.Global);
+    }
+    // Behavior tab
+    if (typeof settings.defaultEditor === 'boolean') {
+      config.update('defaultEditor', settings.defaultEditor, vscode.ConfigurationTarget.Global);
+    }
+    if (settings.linkClickBehavior === 'navigateCurrentTab' || settings.linkClickBehavior === 'openNewTab' || settings.linkClickBehavior === 'showContextMenu') {
+      config.update('linkClickBehavior', settings.linkClickBehavior, vscode.ConfigurationTarget.Global);
+    }
+    if (typeof settings.autoReloadUnmodifiedFiles === 'boolean') {
+      config.update('autoReloadUnmodifiedFiles', settings.autoReloadUnmodifiedFiles, vscode.ConfigurationTarget.Global);
+    }
+    if (typeof settings.renderMermaidDiagrams === 'boolean') {
+      config.update('renderMermaidDiagrams', settings.renderMermaidDiagrams, vscode.ConfigurationTarget.Global);
+    }
+    if (settings.themeToggleScope === 'vscode' || settings.themeToggleScope === 'editorOnly') {
+      config.update('themeToggleScope', settings.themeToggleScope, vscode.ConfigurationTarget.Global);
+    }
+    // Markdown tab
+    if (settings.markdownNormalization === 'preserve' || settings.markdownNormalization === 'normalize') {
+      config.update('markdownNormalization', settings.markdownNormalization, vscode.ConfigurationTarget.Global);
+    }
+    if (
+      settings.headingRenameUpdateLinks === 'ask' ||
+      settings.headingRenameUpdateLinks === 'always' ||
+      settings.headingRenameUpdateLinks === 'never'
+    ) {
+      config.update('headingRename.updateLinks', settings.headingRenameUpdateLinks, vscode.ConfigurationTarget.Global);
+    }
+    if (settings.normalizationStyle && typeof settings.normalizationStyle === 'object') {
+      const ns = settings.normalizationStyle;
+      if (ns.boldMarker === '**' || ns.boldMarker === '__') {
+        config.update('normalizationStyle.boldMarker', ns.boldMarker, vscode.ConfigurationTarget.Global);
+      }
+      if (ns.italicMarker === '*' || ns.italicMarker === '_') {
+        config.update('normalizationStyle.italicMarker', ns.italicMarker, vscode.ConfigurationTarget.Global);
+      }
+      if (ns.listMarker === '-' || ns.listMarker === '*' || ns.listMarker === '+') {
+        config.update('normalizationStyle.listMarker', ns.listMarker, vscode.ConfigurationTarget.Global);
+      }
+      if (ns.headingStyle === 'atx' || ns.headingStyle === 'setext') {
+        config.update('normalizationStyle.headingStyle', ns.headingStyle, vscode.ConfigurationTarget.Global);
+      }
+    }
+    // Spelling tab
+    if (typeof settings.spellCheckEnabled === 'boolean') {
+      config.update('spellCheck.enabled', settings.spellCheckEnabled, vscode.ConfigurationTarget.Global);
+    }
+    if (settings.spellCheckLanguage === 'en' || settings.spellCheckLanguage === 'en-GB') {
+      config.update('spellCheck.language', settings.spellCheckLanguage, vscode.ConfigurationTarget.Global);
+    }
+    if (typeof settings.spellCheckIgnoreCodeBlocks === 'boolean') {
+      config.update('spellCheck.ignoreCodeBlocks', settings.spellCheckIgnoreCodeBlocks, vscode.ConfigurationTarget.Global);
+    }
+    if (Array.isArray(settings.spellCheckUserWords)) {
+      // Global scope so the custom dictionary follows the user across
+      // workspaces and rides Settings Sync.
+      const words = (settings.spellCheckUserWords as unknown[])
+        .filter((w): w is string => typeof w === 'string' && w.trim().length > 0)
+        .map(w => w.trim());
+      config.update('spellCheck.userWords', words, vscode.ConfigurationTarget.Global);
+    }
+    // Behavior tab — slash commands
+    if (typeof settings.slashCommandsEnabled === 'boolean') {
+      config.update('slashCommands.enabled', settings.slashCommandsEnabled, vscode.ConfigurationTarget.Global);
+    }
+    if (settings.slashCommandsDateFormat === 'iso' || settings.slashCommandsDateFormat === 'long') {
+      config.update('slashCommands.dateFormat', settings.slashCommandsDateFormat, vscode.ConfigurationTarget.Global);
+    }
+    if (typeof settings.slashCommandsTimeZone === 'string') {
+      config.update('slashCommands.timeZone', settings.slashCommandsTimeZone, vscode.ConfigurationTarget.Global);
+    }
+    // The in-menu "Turn off slash commands" footer row saves with
+    // source: 'slashMenu' — show a dedicated toast with Open Settings /
+    // Undo instead of (not in addition to) the generic save toast.
+    if (message.source === 'slashMenu') {
+      vscode.window.showInformationMessage(
+        'Slash commands are turned off. You can turn them back on in MikeDown Settings → Behavior.',
+        'Open Settings',
+        'Undo'
+      ).then(selection => {
+        if (selection === 'Open Settings') {
+          webviewPanel.webview.postMessage({ type: 'command', command: 'openSettings', tab: 'behavior' });
+        } else if (selection === 'Undo') {
+          vscode.workspace.getConfiguration('mikedown').update('slashCommands.enabled', true, vscode.ConfigurationTarget.Global);
+        }
+        // Dismissing (selection undefined) does nothing.
+      });
+    } else if (!(message as any).silent) {
+      // "Add to Dictionary" saves silently — a toast on every added word
+      // would be noise.
+      vscode.window.showInformationMessage('MikeDown settings saved.');
+    }
   }
 
   /**
@@ -859,152 +1039,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
         case 'saveSettings': {
-          const settings = (message as any).settings || {};
-          const config = vscode.workspace.getConfiguration('mikedown');
-          if (settings.fontSize) {
-            config.update('fontSize', settings.fontSize, vscode.ConfigurationTarget.Global);
-          }
-          if (settings.fontFamily !== undefined) {
-            config.update('fontFamily', settings.fontFamily, vscode.ConfigurationTarget.Global);
-          }
-          if (settings.headingFontFamily !== undefined) {
-            config.update('headingFontFamily', settings.headingFontFamily, vscode.ConfigurationTarget.Global);
-          }
-          if (settings.imagePaste && typeof settings.imagePaste === 'object') {
-            const ip = settings.imagePaste;
-            const pairs: Array<[string, unknown]> = [
-              ['imagePaste.enabled', ip.enabled],
-              ['imagePaste.folder', ip.folder],
-              ['imagePaste.folderRelativeTo', ip.folderRelativeTo],
-              ['imagePaste.filenamePattern', ip.filenamePattern],
-              ['imagePaste.pathStyle', ip.pathStyle],
-              ['imagePaste.altText', ip.altText],
-              ['imagePaste.maxSizeMB', ip.maxSizeMB],
-              ['imagePaste.cleanupUnreferenced', ip.cleanupUnreferenced],
-            ];
-            for (const [key, value] of pairs) {
-              if (value !== undefined) {
-                config.update(key, value, vscode.ConfigurationTarget.Global);
-              }
-            }
-          }
-          if (settings.imageResize && typeof settings.imageResize === 'object') {
-            const ir = settings.imageResize;
-            if (ir.overwrite !== undefined) {
-              config.update('imageResize.overwrite', ir.overwrite, vscode.ConfigurationTarget.Global);
-            }
-          }
-          if (typeof settings.wikilinkCreateOnClick === 'boolean') {
-            config.update('wikilink.createOnClick', settings.wikilinkCreateOnClick, vscode.ConfigurationTarget.Global);
-          }
-          // Sidebar defaults — only seed values for newly-opened panels.
-          // Use "Apply to open documents" in the modal to push to open panels.
-          if (settings.sidebarVisibility === 'always' || settings.sidebarVisibility === 'never') {
-            config.update('sidebar.visibility', settings.sidebarVisibility, vscode.ConfigurationTarget.Global);
-          }
-          if (settings.sidebarPosition === 'left' || settings.sidebarPosition === 'right') {
-            config.update('sidebar.position', settings.sidebarPosition, vscode.ConfigurationTarget.Global);
-          }
-          // Support appeal footer link (M6) — the Appearance checkbox and the
-          // footer's × (dismiss forever) both post this key.
-          const supportShowSidebarLink = (settings as { supportShowSidebarLink?: unknown }).supportShowSidebarLink;
-          if (typeof supportShowSidebarLink === 'boolean') {
-            void config.update('support.showSidebarLink', supportShowSidebarLink, vscode.ConfigurationTarget.Global);
-          }
-          if (typeof settings.sidebarWidth === 'number' && settings.sidebarWidth >= 160 && settings.sidebarWidth <= 360) {
-            config.update('sidebar.width', Math.round(settings.sidebarWidth), vscode.ConfigurationTarget.Global);
-          }
-          // Behavior tab
-          if (typeof settings.defaultEditor === 'boolean') {
-            config.update('defaultEditor', settings.defaultEditor, vscode.ConfigurationTarget.Global);
-          }
-          if (settings.linkClickBehavior === 'navigateCurrentTab' || settings.linkClickBehavior === 'openNewTab' || settings.linkClickBehavior === 'showContextMenu') {
-            config.update('linkClickBehavior', settings.linkClickBehavior, vscode.ConfigurationTarget.Global);
-          }
-          if (typeof settings.autoReloadUnmodifiedFiles === 'boolean') {
-            config.update('autoReloadUnmodifiedFiles', settings.autoReloadUnmodifiedFiles, vscode.ConfigurationTarget.Global);
-          }
-          if (typeof settings.renderMermaidDiagrams === 'boolean') {
-            config.update('renderMermaidDiagrams', settings.renderMermaidDiagrams, vscode.ConfigurationTarget.Global);
-          }
-          if (settings.themeToggleScope === 'vscode' || settings.themeToggleScope === 'editorOnly') {
-            config.update('themeToggleScope', settings.themeToggleScope, vscode.ConfigurationTarget.Global);
-          }
-          // Markdown tab
-          if (settings.markdownNormalization === 'preserve' || settings.markdownNormalization === 'normalize') {
-            config.update('markdownNormalization', settings.markdownNormalization, vscode.ConfigurationTarget.Global);
-          }
-          if (
-            settings.headingRenameUpdateLinks === 'ask' ||
-            settings.headingRenameUpdateLinks === 'always' ||
-            settings.headingRenameUpdateLinks === 'never'
-          ) {
-            config.update('headingRename.updateLinks', settings.headingRenameUpdateLinks, vscode.ConfigurationTarget.Global);
-          }
-          if (settings.normalizationStyle && typeof settings.normalizationStyle === 'object') {
-            const ns = settings.normalizationStyle;
-            if (ns.boldMarker === '**' || ns.boldMarker === '__') {
-              config.update('normalizationStyle.boldMarker', ns.boldMarker, vscode.ConfigurationTarget.Global);
-            }
-            if (ns.italicMarker === '*' || ns.italicMarker === '_') {
-              config.update('normalizationStyle.italicMarker', ns.italicMarker, vscode.ConfigurationTarget.Global);
-            }
-            if (ns.listMarker === '-' || ns.listMarker === '*' || ns.listMarker === '+') {
-              config.update('normalizationStyle.listMarker', ns.listMarker, vscode.ConfigurationTarget.Global);
-            }
-            if (ns.headingStyle === 'atx' || ns.headingStyle === 'setext') {
-              config.update('normalizationStyle.headingStyle', ns.headingStyle, vscode.ConfigurationTarget.Global);
-            }
-          }
-          // Spelling tab
-          if (typeof settings.spellCheckEnabled === 'boolean') {
-            config.update('spellCheck.enabled', settings.spellCheckEnabled, vscode.ConfigurationTarget.Global);
-          }
-          if (settings.spellCheckLanguage === 'en' || settings.spellCheckLanguage === 'en-GB') {
-            config.update('spellCheck.language', settings.spellCheckLanguage, vscode.ConfigurationTarget.Global);
-          }
-          if (typeof settings.spellCheckIgnoreCodeBlocks === 'boolean') {
-            config.update('spellCheck.ignoreCodeBlocks', settings.spellCheckIgnoreCodeBlocks, vscode.ConfigurationTarget.Global);
-          }
-          if (Array.isArray(settings.spellCheckUserWords)) {
-            // Global scope so the custom dictionary follows the user across
-            // workspaces and rides Settings Sync.
-            const words = (settings.spellCheckUserWords as unknown[])
-              .filter((w): w is string => typeof w === 'string' && w.trim().length > 0)
-              .map(w => w.trim());
-            config.update('spellCheck.userWords', words, vscode.ConfigurationTarget.Global);
-          }
-          // Behavior tab — slash commands
-          if (typeof settings.slashCommandsEnabled === 'boolean') {
-            config.update('slashCommands.enabled', settings.slashCommandsEnabled, vscode.ConfigurationTarget.Global);
-          }
-          if (settings.slashCommandsDateFormat === 'iso' || settings.slashCommandsDateFormat === 'long') {
-            config.update('slashCommands.dateFormat', settings.slashCommandsDateFormat, vscode.ConfigurationTarget.Global);
-          }
-          if (typeof settings.slashCommandsTimeZone === 'string') {
-            config.update('slashCommands.timeZone', settings.slashCommandsTimeZone, vscode.ConfigurationTarget.Global);
-          }
-          // The in-menu "Turn off slash commands" footer row saves with
-          // source: 'slashMenu' — show a dedicated toast with Open Settings /
-          // Undo instead of (not in addition to) the generic save toast.
-          if (message.source === 'slashMenu') {
-            vscode.window.showInformationMessage(
-              'Slash commands are turned off. You can turn them back on in MikeDown Settings → Behavior.',
-              'Open Settings',
-              'Undo'
-            ).then(selection => {
-              if (selection === 'Open Settings') {
-                webviewPanel.webview.postMessage({ type: 'command', command: 'openSettings', tab: 'behavior' });
-              } else if (selection === 'Undo') {
-                vscode.workspace.getConfiguration('mikedown').update('slashCommands.enabled', true, vscode.ConfigurationTarget.Global);
-              }
-              // Dismissing (selection undefined) does nothing.
-            });
-          } else if (!(message as any).silent) {
-            // "Add to Dictionary" saves silently — a toast on every added word
-            // would be noise.
-            vscode.window.showInformationMessage('MikeDown settings saved.');
-          }
+          this.handleSaveSettings(webviewPanel, message);
           break;
         }
         case 'sidebarRequestState': {
