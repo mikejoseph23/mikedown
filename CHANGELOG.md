@@ -2,6 +2,17 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- The review prompt is now a note inside the editor shown after a real editing session, never at startup (startup toast removed).
+
+### Added
+
+- Support MikeDown command and sidebar link (dismissible, plus the `mikedown.support.showSidebarLink` setting).
+- About tab section for supporting the project.
+
 ## [2.10.4] - 2026-08-31
 
 ### Fixed

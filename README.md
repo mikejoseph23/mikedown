@@ -20,9 +20,17 @@ Prefer to do it by hand: right-click any editor tab → **Reopen Editor With…*
 
 Either way, the raw markdown source is always one keystroke away with `Cmd+/` / `Ctrl+/`.
 
-## Enjoying MikeDown?
+## A note from the developer
 
-If this free extension is making your markdown workflow better, please **tell a friend or co-worker** or [**leave a review on the VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details). Ratings and word of mouth are what get the word out — it genuinely helps.
+Thanks for giving MikeDown a try.
+
+I built it for myself. I'd used the popular Markdown Preview extension for years, and it's great, but the split pane always felt like wasted space. I wanted editing docs and plans to feel like having a few Word documents open side by side. Version one already worked well, and it's been my everyday markdown editor since. Nearly every feature came from using it that way and thinking "I wish it did this." I'm accidentally proud of where it ended up.
+
+It's just me building it, and it's easy to miss among all the markdown editors on the Marketplace. If it's earned a spot in your workflow, [a review](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details) or [a word to a colleague](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor) is the best way to help it grow.
+
+I'm small enough to be quick. Bug or idea, [open an issue](https://github.com/mikejoseph23/mikedown/issues/new) and you'll likely hear back fast.
+
+Mike
 
 ## Screenshots
 
