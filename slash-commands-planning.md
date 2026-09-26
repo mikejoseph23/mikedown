@@ -9,10 +9,11 @@
 **Objectives.**
 
 - A pure, unit-tested command registry and matcher (name prefix + alias matching).
-- A ProseMirror plugin that opens the menu only in the right places (line start or after whitespace; never in code, links, mid-word, or source mode) and exits gracefully without ever deleting typed text.
+- A ProseMirror plugin that opens the menu only in the right places (textblock start or after whitespace, anywhere in the line; never in code, links, mid-word, or source mode) and exits gracefully without ever deleting typed text.
 - A popup that looks and feels native to VS Code and as polished as Notion's menu, in light and dark themes.
 - Every command inserts a block that serializes to clean markdown and undoes in one step back to the `/query` text.
-- Two new settings wired in all three places (package.json, `src/settings.ts`, Settings modal) with a live toggle.
+- One new setting, `mikedown.slashCommands.enabled`, wired in all three places (package.json, `src/settings.ts`, Settings modal) with a live toggle.
+- An in-menu "Turn off slash commands" footer row that disables the feature in one step, with a host notification offering Open Settings and Undo.
 - A new host-side image file picker reachable from `/image`.
 
 **Success factors.**
@@ -20,7 +21,8 @@
 - `and/or`, `path/to`, `https://x.com/a/b`, code, and inline code never trigger the menu.
 - Esc, click-away, Backspace past `/`, a no-match space, or moving the cursor out of range all close the menu with the document byte-for-byte unchanged.
 - Enter on any command produces the expected markdown (round-trip tested) and Cmd+Z restores the exact `/query` text.
-- Toggling `mikedown.slashCommands.enabled` or `.trigger` takes effect in an open editor without reload.
+- Toggling `mikedown.slashCommands.enabled` (settings UI, Settings modal, or the menu's footer row) takes effect in an open editor without reload.
+- The footer row is never matched by filtering, so Enter on a filtered query can never turn the feature off by accident.
 - `npm run test:unit`, `npm run test:integration`, and `npm run lint` are green, and Mike signs off on the hands-on pass.
 
 ## Milestone Progress Tracker
@@ -32,7 +34,7 @@
 | T1: Tests for M1 + M2 | Sonnet | ⬜ | | Unit + jsdom harness |
 | M3: Wire existing-block commands | Sonnet | ⬜ | | Mid-line insert-below, callouts, pickers |
 | M4: Image file picker (host) | Sonnet | ⬜ | | New message pair |
-| M5: Settings (three places, live toggle) | Sonnet | ⬜ | | Behavior tab |
+| M5: Settings (three places, live toggle) | Sonnet | ⬜ | | Behavior tab, footer-row notification |
 | T2: Tests, integration, hands-on sign-off | Sonnet | ⬜ | | Pauses for Mike |
 | M6: Optional Properties + Date | Sonnet | ⬜ | | Blocked on Open Question 1 |
 | M7: Docs (CHANGELOG, README, BACKLOG) | Haiku | ⬜ | | Last |
@@ -94,7 +96,7 @@ Because aliases include `1.`, ```` ``` ````, `---`, `[[` and `:`, the query char
 
 ### Trigger rules
 
-- Opens when `/` is typed at the start of a textblock, or (when `trigger = anywhere`) immediately after whitespace. `trigger = lineStart` restricts to textblock start only.
+- Opens when `/` is typed at the start of a textblock or immediately after whitespace, anywhere in the line. This is fixed behavior with no setting (decided 2026-09-25; the former `trigger` setting was dropped).
 - Never inside a `codeBlock` node, an inline `code` mark, a `link` mark, a wikilink, or directly after a non-whitespace character (so `and/or`, `path/to`, and URLs never trigger).
 - Never in source mode (CodeMirror). The plugin also stays closed if the selection is non-empty.
 - Mid-line insertion (decided 2026-09-25): if the `/query` is the only content of its textblock, convert that block in place. Otherwise remove `/query`, leave the current line's text untouched (no split), and insert the new block **immediately after the current block**, with the cursor placed inside it. Inline commands (link, wikilink, emoji, date) insert inline at the cursor instead.
@@ -108,10 +110,22 @@ Because aliases include `1.`, ```` ``` ````, `---`, `[[` and `:`, the query char
 
 ### Settings
 
-- `mikedown.slashCommands.enabled`: boolean, default `true`.
-- `mikedown.slashCommands.trigger`: `"lineStart"` | `"anywhere"`, default `"anywhere"` ("anywhere" still requires preceding whitespace).
-- No dedicated tab. Both go in the Settings modal's **Behavior** tab (`behaviorPanel` in `showSettingsModal`, currently holding default editor, auto-reload, link click, wikilink create, theme scope, and heading rename). Behavior is the right fit: this is an editing interaction, not markdown output (Markdown tab) or looks (Appearance).
+- `mikedown.slashCommands.enabled`: boolean, default `true`. This is the only slash-command setting (no trigger-mode setting; decided 2026-09-25).
+- No dedicated tab. It goes in the Settings modal's **Behavior** tab (`behaviorPanel` in `showSettingsModal`, currently holding default editor, auto-reload, link click, wikilink create, theme scope, and heading rename). Behavior is the right fit: this is an editing interaction, not markdown output (Markdown tab) or looks (Appearance).
 - The settings broadcast toggles behavior live, no reload.
+
+### In-menu disable option
+
+- The popup ends with a muted footer row, "Turn off slash commands" with a subtle icon, separated from the command list by a divider and set in smaller `--vscode-descriptionForeground` text.
+- Reachable by keyboard (ArrowDown past the last command, ArrowUp from the first wraps to it) and by click. Filtering never matches it, so it is never the default selection and Enter on a filtered query cannot hit it by accident. It stays visible under any filter that still has matches; when no commands match, the menu closes as usual.
+- Choosing it: closes the menu, leaves the typed `/query` text intact (no transaction), and posts the existing `{ type: 'saveSettings', settings: { slashCommandsEnabled: false } }` path. The host persists `mikedown.slashCommands.enabled = false`, and the resulting settings broadcast disables the plugin in every open editor.
+- The host (only when the save came from the footer row) shows `vscode.window.showInformationMessage("Slash commands are turned off. You can turn them back on in MikeDown Settings → Behavior.", "Open Settings", "Undo")`.
+  - **Open Settings:** host posts `{ type: 'command', command: 'openSettings', tab: 'behavior' }` to the originating panel; the webview opens `showSettingsModal` on the Behavior tab.
+  - **Undo:** host sets `mikedown.slashCommands.enabled = true` (Global); the broadcast re-enables live.
+- To tell the host the save came from the footer, the webview adds `source: 'slashMenu'` to that `saveSettings` message. No other new message types are needed.
+- Protocol additions (document in the header comment of `src/webview/editor-main.ts`):
+  - Webview → host: `saveSettings` gains optional `source?: 'slashMenu'`.
+  - Host → webview: `command` with `command: 'openSettings'` and optional `tab?: 'general' | 'appearance' | 'markdown' | 'behavior'` (use the modal's real tab ids).
 
 [Return to Top](#top)
 
@@ -148,7 +162,7 @@ Because aliases include `1.`, ```` ``` ````, `---`, `[[` and `:`, the query char
 - [ ] Define `SlashCommand { id, title, description, aliases: string[], group: 'basic' | 'lists' | 'callouts' | 'insert' | 'maybe', icon: string, keywords? }`. The action is NOT in this module; M3 maps `id` → action so the registry stays pure.
 - [ ] Add every command from [Design Decisions](#command-set) except Properties/Date (those are added in M6 behind a flag).
 - [ ] Export `matchCommands(query: string, commands = SLASH_COMMANDS): SlashCommand[]` with the ranking: exact name/alias, name prefix, alias prefix, registry order. Empty query returns all, in registry/group order.
-- [ ] Export `extractSlashQuery(textBefore: string, atBlockStart: boolean, mode: 'lineStart' | 'anywhere'): { offset: number; query: string } | null` implementing the trigger rules on plain text (preceding char must be start or whitespace; query is non-whitespace; `lineStart` requires the `/` at offset 0 of the textblock).
+- [ ] Export `extractSlashQuery(textBefore: string, atBlockStart: boolean): { offset: number; query: string } | null` implementing the trigger rules on plain text (preceding char must be textblock start or whitespace, anywhere in the line; query is non-whitespace).
 - [ ] Export the mermaid starter diagram text as a constant (e.g. a 3-node `flowchart TD`).
 - [ ] `npm run lint` clean, `npm run compile` succeeds.
 - [ ] Commit.
@@ -167,12 +181,13 @@ Because aliases include `1.`, ```` ``` ````, `---`, `[[` and `:`, the query char
 - [ ] In `view().update`, bail (close) when: disabled by config, source mode active, selection non-empty, parent is `codeBlock`, `code` or `link` mark active at the cursor, or `extractSlashQuery` returns null.
 - [ ] Keep dismissal state: remember the dismissed `/` document position and do not reopen for it; clear it when that `/` is deleted or a new `/` is typed.
 - [ ] Close on: Esc, click-away (document `mousedown` outside the popup), editor blur, Backspace past `/`, whitespace with no matches, cursor leaving `[from, to]`, host `update` message (full-document reload), and entering source mode. None of these may dispatch a transaction.
-- [ ] Keyboard: ArrowUp/ArrowDown wrap, Home/End, Enter and Tab execute, Esc closes. Keep the active row scrolled into view. Register with a higher keymap priority than the emoji/wikilink autocompletes and ensure only one popup can be open at a time.
+- [ ] Footer row per [In-menu disable option](#in-menu-disable-option): muted "Turn off slash commands" row with a subtle icon below a divider, smaller secondary text, its own `role="option"` outside the filtered list. Never counted as a match, never the default active row; reachable via ArrowDown past the last command (and ArrowUp wrap) and by click (`mousedown` + `preventDefault`). Choosing it closes the menu without a transaction (`/query` stays) and posts `saveSettings` with `slashCommandsEnabled: false` and `source: 'slashMenu'`. Apply the same design craft: it must read as a quiet utility, not a command.
+- [ ] Keyboard: ArrowUp/ArrowDown wrap (through the footer row), Home/End, Enter and Tab execute, Esc closes. Keep the active row scrolled into view. Register with a higher keymap priority than the emoji/wikilink autocompletes and ensure only one popup can be open at a time.
 - [ ] Execution API: `executeSlashCommand(id, { from, to })` placeholder that, for M2, handles only H1/H2/H3/Paragraph so the flow is demonstrable. It replaces `/query` in ONE transaction with `closeHistory(tr)` applied (import from `@tiptap/pm/history`) so one undo restores the `/query`.
 - [ ] Popup built in `document.body` with `role="listbox"`, `aria-activedescendant`, `role="option"` rows, grouped sections, empty state is not shown (menu closes instead).
 - [ ] Position with `view.coordsAtPos(from)`, clamp to viewport, flip above when there is no room below, max height with internal scroll.
 - [ ] New `src/webview/slashcommands.css`; register it in the stylesheet list in `markdownEditorProvider.ts`.
-- [ ] Expose `setSlashCommandsConfig({ enabled, trigger })` and `setSlashSourceMode(bool)` (or read the existing `sourceMode` via a setter) for M5 and source-mode wiring. Defaults: enabled, `anywhere`.
+- [ ] Expose `setSlashCommandsConfig({ enabled })` and `setSlashSourceMode(bool)` (or read the existing `sourceMode` via a setter) for M5 and source-mode wiring. Default: enabled.
 - [ ] Register the extension in `editor-main.ts` next to `EmojiAutocomplete` / `WikilinkAutocomplete` (~line 2947). Never touch `editor.view.dom` outside a transaction (commit `f5415e0`).
 - [ ] `npm run lint`, `npm run compile`, `npm run test:unit` green (no regressions).
 - [ ] Commit.
@@ -186,11 +201,12 @@ Because aliases include `1.`, ```` ``` ````, `---`, `[[` and `:`, the query char
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
 - [ ] Write `test/unit/slashcommandsRegistry.test.ts`: every alias from the table finds its command (`/check` → Task list, `/ol` and `/1.` → Numbered, `/---` → Divider, `/[[` → Wikilink, `/:` → Emoji, `/warn` → Warning, `/danger` → Caution); ranking (exact before prefix); empty query returns all; unknown query returns `[]`; case-insensitivity.
-- [ ] Write `extractSlashQuery` tests: line start, after space, after tab; `and/or`, `path/to`, `https://a.com/b` return null; `lineStart` mode rejects mid-line; whitespace in query returns null.
+- [ ] Write `extractSlashQuery` tests: line start, after space, after tab; `and/or`, `path/to`, `https://a.com/b` return null; mid-line after a space is accepted; whitespace in query returns null.
 - [ ] Extend `test/harness/webviewHarness.ts` with WYSIWYG helpers (editor access, type text at cursor through the view so plugins run, press key, place cursor, read last `edit` markdown). Keep `webviewSourceMode.test.ts` green.
 - [ ] Write `test/unit/slashcommandsHarness.test.ts` covering: menu opens on `/` at line start and after space; filter narrows as you type; no open inside code block, inline code, link, mid-word; no open in source mode.
 - [ ] Exit tests, each asserting the markdown is byte-identical to before dismissal: Esc, click-away, blur, Backspace past `/`, space with no matches, arrow-key cursor out of range; after Esc, typing another character does not reopen.
 - [ ] Insertion tests for H1/H2/H3/Paragraph at line start, then Cmd+Z (history undo) restores `/h2` exactly in one step.
+- [ ] Footer row tests: it is never in the filtered match list for any query; it is not the active row on open or after typing; Enter on a filtered query (e.g. `/h`, `/tur`, `/off`) never selects it; ArrowDown past the last command reaches it; choosing it (keyboard and click) closes the menu, leaves the markdown byte-identical, and posts `saveSettings` with `slashCommandsEnabled: false` and `source: 'slashMenu'`.
 - [ ] Run `npm run test:unit` green.
 - [ ] Run `npm run lint` green.
 - [ ] Commit tests.
@@ -247,12 +263,15 @@ Because aliases include `1.`, ```` ``` ````, `---`, `[[` and `:`, the query char
 
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
-- [ ] `package.json#contributes.configuration.properties`: `mikedown.slashCommands.enabled` (boolean, default `true`) and `mikedown.slashCommands.trigger` (enum `lineStart` | `anywhere`, default `anywhere`, with `enumDescriptions`).
-- [ ] `src/settings.ts`: add a `slashCommands: { enabled; trigger }` group and reader.
-- [ ] Host broadcast (~line 1168 of `markdownEditorProvider.ts`): add `slashCommandsEnabled`, `slashCommandsTrigger`.
-- [ ] Host `saveSettings` (~line 819): persist both with `ConfigurationTarget.Global`.
-- [ ] Settings modal **Behavior** tab: a `makeCheckboxRow` "Slash command menu" and a `makeSelectRow` "Slash menu trigger" (Anywhere after a space / Only at the start of a line). Include both in the save payload and update the `current*` module vars like the existing mermaid field does.
-- [ ] Webview `settings` handler (~line 4671): call `setSlashCommandsConfig(...)`; if disabling while the menu is open, close it (no doc change).
+- [ ] `package.json#contributes.configuration.properties`: `mikedown.slashCommands.enabled` (boolean, default `true`). No trigger setting.
+- [ ] `src/settings.ts`: add a `slashCommands: { enabled }` group and reader.
+- [ ] Host broadcast (~line 1168 of `markdownEditorProvider.ts`): add `slashCommandsEnabled`.
+- [ ] Host `saveSettings` (~line 819): persist it with `ConfigurationTarget.Global`.
+- [ ] Settings modal **Behavior** tab: a `makeCheckboxRow` "Slash command menu". Include it in the save payload and update the `current*` module var like the existing mermaid field does.
+- [ ] Webview `settings` handler (~line 4671): call `setSlashCommandsConfig({ enabled })`; if disabling while the menu is open, close it (no doc change).
+- [ ] Footer-row notification per [In-menu disable option](#in-menu-disable-option): when `saveSettings` arrives with `source: 'slashMenu'`, after persisting, show the information message with **Open Settings** and **Undo**. Open Settings posts `{ type: 'command', command: 'openSettings', tab: 'behavior' }` to the originating panel; Undo sets `enabled = true` (Global). Dismissing the notification does nothing.
+- [ ] Webview: handle `command: 'openSettings'` by calling `showSettingsModal` opened on the requested tab (add an initial-tab parameter if it lacks one).
+- [ ] Add `source` to the `saveSettings` shape and document `openSettings` + `tab` in the protocol comment at the top of `src/webview/editor-main.ts` (and the `WebviewMessage` type in `markdownEditorProvider.ts` if needed).
 - [ ] Verify the live toggle: change the setting in VS Code's settings UI and in the modal with an editor open; no reload needed.
 - [ ] `npm run lint`, `npm run compile`, `npm run test:unit` green.
 - [ ] Commit.
@@ -271,9 +290,10 @@ Because aliases include `1.`, ```` ``` ````, `---`, `[[` and `:`, the query char
 - [ ] Write mid-line insert-below tests: `foo /h2|` gives paragraph `foo` + empty H2 below; `foo /table|bar` gives paragraph `foo bar` (text intact, `/table` removed) + table below; `foo /emoji|` inserts inline.
 - [ ] Write undo tests: one history undo after each command restores the `/query` text exactly.
 - [ ] Write picker-cancel tests: code language, table, link, emoji, image cancel leave `/query` intact.
-- [ ] Write settings live-toggle tests (harness): send a `settings` message with `slashCommandsEnabled: false` and assert `/` no longer opens; `slashCommandsTrigger: 'lineStart'` blocks mid-line.
+- [ ] Write settings live-toggle tests (harness): send a `settings` message with `slashCommandsEnabled: false` and assert `/` no longer opens; sending `true` again reopens it on the next `/`.
+- [ ] Write footer-row flow tests (harness): choosing the footer row leaves the `/query` text intact and posts `saveSettings` with `slashCommandsEnabled: false`, `source: 'slashMenu'`; a `command` message `openSettings` with `tab: 'behavior'` opens the Settings modal on the Behavior tab.
 - [ ] Write image message tests (harness): `pickImage` posted with a `requestId`; replying `pickedImageResult` inserts the image and serializes to `insertPath`; `cancelled` leaves text.
-- [ ] Write integration tests in `test/integration/` (new `slashCommands.test.ts`): both settings are registered with the right defaults; updating them via `getConfiguration().update` is readable back; the image picker host handler returns a relative path for a file in a private fixture folder (stub `showOpenDialog`). Mutating tests use a private fixture with teardown, never `test/workspace/sample.md`.
+- [ ] Write integration tests in `test/integration/` (new `slashCommands.test.ts`): `mikedown.slashCommands.enabled` is registered with default `true` and no `trigger` setting exists; updating it via `getConfiguration().update` is readable back; a `saveSettings` with `source: 'slashMenu'` persists `enabled: false` and shows the notification (stub `showInformationMessage`); resolving the stub with "Undo" restores `enabled: true`; resolving it with "Open Settings" posts `openSettings` with `tab: 'behavior'` to the panel; the image picker host handler returns a relative path for a file in a private fixture folder (stub `showOpenDialog`). Mutating tests use a private fixture with teardown, never `test/workspace/sample.md`.
 - [ ] Run `npm run test:unit` green.
 - [ ] Run `npm run test:integration` green.
 - [ ] Run `npm run test:edge` and `npm run lint` green.
@@ -299,9 +319,12 @@ Start: open the repo in VS Code, run `npm run compile`, press **F5** (Extension 
 - [ ] 14. `/link`, `/wikilink`, `/emoji`. Expected: link dialog; wikilink autocomplete popup after `[[`; emoji picker at the cursor.
 - [ ] 15. `/image`, choose a PNG in the workspace. Expected: image renders; source shows a relative path. Repeat with Cancel: `/image` stays.
 - [ ] 16. Cmd+/ into source mode, type `/`. Expected: no menu.
-- [ ] 17. Gear → Behavior: untick "Slash command menu", Save. Expected: `/` no longer opens, no reload. Re-enable; set trigger to line start; ` /` mid-line does not open, line-start does.
-- [ ] 18. Toggle theme (toolbar theme button) light/dark. Expected: menu colors, focus row, and borders are correct in both.
-- [ ] 19. Save the file, reopen it. Expected: all inserted blocks reload identically.
+- [ ] 17. Gear → Behavior: untick "Slash command menu", Save. Expected: `/` no longer opens, no reload. Re-enable. Expected: `/` at line start and ` /` mid-line both open again.
+- [ ] 18. Type `/`. Expected: a muted "Turn off slash commands" footer row below a divider, visually quieter than the commands, not focused. Type `/h` and press Enter. Expected: a heading is inserted, never the footer.
+- [ ] 19. Type `/tu`, ArrowDown past the last match to the footer row, Enter. Expected: menu closes, `/tu` stays in the doc, and a VS Code notification reads "Slash commands are turned off. You can turn them back on in MikeDown Settings → Behavior." with Open Settings and Undo. Click **Open Settings**. Expected: the in-editor Settings modal opens on the Behavior tab with "Slash command menu" unticked; tick it and Save; `/` opens again.
+- [ ] 20. Type `/`, click the footer row. Expected: same notification. Click **Undo**. Expected: `/` opens the menu again with no reload, and the Behavior checkbox is ticked.
+- [ ] 21. Toggle theme (toolbar theme button) light/dark. Expected: menu colors, focus row, footer row, and borders are correct in both.
+- [ ] 22. Save the file, reopen it. Expected: all inserted blocks reload identically.
 - [ ] Mike signs off (record in Progress Log).
 
 [Return to Top](#top)
@@ -326,8 +349,8 @@ Start: open the repo in VS Code, run `npm run compile`, press **F5** (Extension 
 
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
-- [ ] `CHANGELOG.md`: add an `## [Unreleased]` section (above 2.10.4) with an `### Added` entry for the slash command menu, the `/image` file picker, and the two settings.
-- [ ] `README.md`: add a short slash-commands feature mention and list the two settings where other settings are documented.
+- [ ] `CHANGELOG.md`: add an `## [Unreleased]` section (above 2.10.4) with an `### Added` entry for the slash command menu, the `/image` file picker, the in-menu "Turn off slash commands" option, and the `mikedown.slashCommands.enabled` setting.
+- [ ] `README.md`: add a short slash-commands feature mention and list the `mikedown.slashCommands.enabled` setting where other settings are documented.
 - [ ] `BACKLOG.md`: remove the "Slash commands" line from Nice-to-have.
 - [ ] Escape `$` as `\$` and keep blank lines around lists (MD032).
 - [ ] Commit.
@@ -342,6 +365,7 @@ Start: open the repo in VS Code, run `npm run compile`, press **F5** (Extension 
 4. **Images outside the doc folder/workspace:** they will not render (`localResourceRoots`). Copy them into the image-paste folder (plan default), reference them by absolute path, or refuse?
 5. **Placeholder hint:** change the empty-doc placeholder from "Start writing…" to "Type / for commands…"?
 6. **Mid-line behavior:** ✅ Resolved 2026-09-25: no split. Block commands on a non-empty line insert the block on the next line; inline commands insert inline.
+7. **Trigger setting and disabling:** ✅ Resolved 2026-09-25: no `trigger` setting; `/` triggers at textblock start or after whitespace anywhere in the line. Only `mikedown.slashCommands.enabled` remains, plus an in-menu "Turn off slash commands" footer row with an Open Settings / Undo notification.
 
 [Return to Top](#top)
 
@@ -378,6 +402,8 @@ Each gap-fill prompt must include:
 [Return to Top](#top)
 
 ## Progress Log / Notes
+
+**2026-09-25 23:56** - Mike dropped the `mikedown.slashCommands.trigger` setting (`/` now always triggers at textblock start or after whitespace, never mid-word) and kept only `mikedown.slashCommands.enabled` (default true, three places, live toggle). Added an in-menu "Turn off slash commands" footer row (never matched by filtering) that saves `enabled: false`, leaves `/query` intact, and triggers a host notification with Open Settings (Behavior tab) and Undo. Updated Summary, [Trigger rules](#trigger-rules), [Settings](#settings), new [In-menu disable option](#in-menu-disable-option), M1, M2, T1, M5, T2 (tests and hands-on steps 17 to 22), M7, and Open Question 7.
 
 **2026-09-25 23:55** - Mike decided mid-line block commands insert the block on the next line instead of splitting the paragraph. Updated [Trigger rules](#trigger-rules), M3, T2 tests, and Open Question 6.
 
