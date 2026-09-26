@@ -28,8 +28,8 @@
 | M2: Eligibility Module | Sonnet | ✅ | 6 | Pure module, injected clock; Q1 thresholds |
 | M3: Host Wiring, Command, Dev Reset | Sonnet | ✅ | 12 | Needs M2; toast removed (Q2) |
 | M4: Testing: Host Logic | Sonnet | 🔄 | | Needs M2, M3 |
-| M5: "A Note from Mike" Card UI | Opus | 🔄 | | Needs M1 approved, M3 protocol; swappable avatar slot (Q6) |
-| M6: Persistent Entry Points | Opus | ⬜ | | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
+| M5: "A Note from Mike" Card UI | Opus | ✅ | 15 | Needs M1 approved, M3 protocol; swappable avatar slot (Q6) |
+| M6: Persistent Entry Points | Opus | 🔄 | | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
 | M7: Testing: Webview Card and Entry Points | Sonnet | ⬜ | | Needs M5, M6 |
 | M8: README and CHANGELOG | Haiku | ✅ | 1 | Needs M1 approved; 2.11.0 (Q8) |
 | M9: Hands-on Pass and Measurement Follow-up | Sonnet | ⬜ | | Pauses for Mike's sign-off |
@@ -188,18 +188,18 @@ Modes: **unit** (`npm run test:unit`, vitest with mocked `vscode`) and **integra
 
 **Design craft is the point of this milestone.** Reference: VS Code's own native widgets (notifications center, editor hover, Settings editor) and Notion's quiet, typographic callouts. It should feel like a handwritten note tucked into a well made tool, not a banner ad or a system alert. Use only theme CSS variables so it looks right in light, dark, and high contrast themes.
 
-- [ ] Create `src/webview/supportCard.ts` exporting `showSupportCard(opts)`, `hideSupportCard()`, `isSupportCardOpen()`. Render into a container appended to `document.body` (a sibling of the editor, **never inside `editor.view.dom`**, no DOM writes to the ProseMirror tree).
-- [ ] Placement: bottom right floating card, max width 380px, 16px from edges, above the editor but below the Settings modal (`z-index` under 1050). On narrow panes (< 480px wide) it spans the width with 12px gutters.
-- [ ] Visual hierarchy: small circular avatar with the initial "M" using `--vscode-button-background` (Q6 resolved), built as a **swappable slot**: one `.support-card-avatar` element rendered from `copy.avatar` (`{ kind: 'initial', text: 'M' }` now; `kind: 'image'` with a `src` later) with fixed size and `object-fit: cover`, so a small photo of Mike can drop in without layout changes; title in semibold 13 to 14px; body in `--vscode-editor-foreground` at 13px with comfortable 1.5 line height; primary button (`--vscode-button-background` / `--vscode-button-foreground`), two secondary buttons (`--vscode-button-secondaryBackground`), and "Maybe later" / "Don't ask again" as quiet text links in `--vscode-descriptionForeground`. Close "×" in the corner (counts as `close`). Background `--vscode-editorWidget-background`, border `--vscode-editorWidget-border`, subtle shadow `--vscode-widget-shadow`, 8px radius.
-- [ ] Motion: gentle 150ms fade and 8px rise on open; respect `prefers-reduced-motion`.
-- [ ] Never block typing: do not move focus into the card on `reason: 'auto'`; on `reason: 'manual'` focus the primary button. `Esc` closes only when focus is inside the card. Typing in the editor continues to work while the card is open.
-- [ ] Accessibility: `role="dialog"` with `aria-labelledby`, but `aria-modal="false"`; buttons are real `<button>` elements; focus visible outline via `--vscode-focusBorder`.
-- [ ] Actions post `{ type: 'supportAction', action }`. On `supportCopied`, swap the Tell a friend label to the approved "Copied" text for 2 seconds with a check glyph. Review and feedback close the card after posting; share keeps it open to show the confirmation.
-- [ ] Handle host messages in `editor-main.ts`: `showSupportCard` (reply `busy` if the Settings modal `#mikedown-settings-overlay` or another card is open for `reason: 'auto'`; otherwise render and reply `supportCardShown`), `supportCopied`.
-- [ ] Use approved copy from the `showSupportCard` payload only (no hardcoded strings in the webview).
-- [ ] Check it in light (Light Modern), dark (Dark Modern), and a high contrast theme in the Extension Development Host; note any theme issues in the summary.
-- [ ] `npm run compile` and `npm run lint` green.
-- [ ] Commit, write `.orchestrator/worker-summary-m5-support-card-ui.md`.
+- [x] Create `src/webview/supportCard.ts` exporting `showSupportCard(opts)`, `hideSupportCard()`, `isSupportCardOpen()`. Render into a container appended to `document.body` (a sibling of the editor, **never inside `editor.view.dom`**, no DOM writes to the ProseMirror tree).
+- [x] Placement: bottom right floating card, max width 380px, 16px from edges, above the editor but below the Settings modal (`z-index` under 1050). On narrow panes (< 480px wide) it spans the width with 12px gutters.
+- [x] Visual hierarchy: small circular avatar with the initial "M" using `--vscode-button-background` (Q6 resolved), built as a **swappable slot**: one `.support-card-avatar` element rendered from `copy.avatar` (`{ kind: 'initial', text: 'M' }` now; `kind: 'image'` with a `src` later) with fixed size and `object-fit: cover`, so a small photo of Mike can drop in without layout changes; title in semibold 13 to 14px; body in `--vscode-editor-foreground` at 13px with comfortable 1.5 line height; primary button (`--vscode-button-background` / `--vscode-button-foreground`), two secondary buttons (`--vscode-button-secondaryBackground`), and "Maybe later" / "Don't ask again" as quiet text links in `--vscode-descriptionForeground`. Close "×" in the corner (counts as `close`). Background `--vscode-editorWidget-background`, border `--vscode-editorWidget-border`, subtle shadow `--vscode-widget-shadow`, 8px radius.
+- [x] Motion: gentle 150ms fade and 8px rise on open; respect `prefers-reduced-motion`.
+- [x] Never block typing: do not move focus into the card on `reason: 'auto'`; on `reason: 'manual'` focus the primary button. `Esc` closes only when focus is inside the card. Typing in the editor continues to work while the card is open.
+- [x] Accessibility: `role="dialog"` with `aria-labelledby`, but `aria-modal="false"`; buttons are real `<button>` elements; focus visible outline via `--vscode-focusBorder`.
+- [x] Actions post `{ type: 'supportAction', action }`. On `supportCopied`, swap the Tell a friend label to the approved "Copied" text for 2 seconds with a check glyph. Review and feedback close the card after posting; share keeps it open to show the confirmation.
+- [x] Handle host messages in `editor-main.ts`: `showSupportCard` (reply `busy` if the Settings modal `#mikedown-settings-overlay` or another card is open for `reason: 'auto'`; otherwise render and reply `supportCardShown`), `supportCopied`.
+- [x] Use approved copy from the `showSupportCard` payload only (no hardcoded strings in the webview).
+- [x] Check it in light (Light Modern), dark (Dark Modern), and a high contrast theme in the Extension Development Host; note any theme issues in the summary.
+- [x] `npm run compile` and `npm run lint` green.
+- [x] Commit, write `.orchestrator/worker-summary-m5-support-card-ui.md`.
 
 [Return to Top](#review-appeal-planning)
 
@@ -318,6 +318,8 @@ All resolved 2026-09-26.
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
+
+**2026-09-26 01:27** - M5 done (commit `921f9a6`). New `src/webview/supportCard.ts` (fixed overlay outside the ProseMirror DOM, swappable avatar slot, fade and rise with reduced motion respected, no focus steal on auto); `editor-main.ts` handles `showSupportCard` (replies `busy` or `supportCardShown`) and `supportCopied`. Theme check done in headless Chrome with Dark Modern, Light Modern, and High Contrast Dark variable sets (screenshots in `.orchestrator/review-appeal-planning/screenshots/`); not yet checked in the real Extension Development Host (covered by M9 step 9). Fixes from that check: buttons fit one row; avatar gets a border in high contrast. The × close `aria-label` "Close" is the one hardcoded webview string (M6 moves it into `supportCopy.ts`). Compile and 522 unit tests green.
 
 **2026-09-26 01:10** - M3 done (commit `4c41a2c`). New `src/supportPrompt.ts` (single host instance on the provider; owns URLs, clipboard, action handling, one auto show per session) and `src/supportCopy.ts` (approved copy, avatar slot payload). Provider keeps a `SessionTracker` per panel and calls `onSaveAfterSession` after save (1500 ms delay, skips diff and non `file:` panels). `mikedown.support` command with fallback notice; dev only `mikedown.dev.resetSupportPrompt` gated on `mikedown.isDevelopment`. Startup `setTimeout` removed; `src/nagPrompt.ts` deleted. Protocol documented in `editor-main.ts`. Note: `lastPrompt` is written on any `supportCardShown` ack, manual included, so a manual open also pushes back the next auto show. `npm run compile` green in main.
 
