@@ -30,9 +30,9 @@
 | M4: Testing: Host Logic | Sonnet | ✅ | 12 | Needs M2, M3 |
 | M5: "A Note from Mike" Card UI | Opus | ✅ | 15 | Needs M1 approved, M3 protocol; swappable avatar slot (Q6) |
 | M6: Persistent Entry Points | Opus | ✅ | 8 | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
-| M7: Testing: Webview Card and Entry Points | Sonnet | 🔄 | | Needs M5, M6 |
+| M7: Testing: Webview Card and Entry Points | Sonnet | ✅ | 20 | Needs M5, M6 |
 | M8: README and CHANGELOG | Haiku | ✅ | 1 | Needs M1 approved; 2.11.0 (Q8) |
-| M9: Hands-on Pass and Measurement Follow-up | Sonnet | ⬜ | | Pauses for Mike's sign-off |
+| M9: Hands-on Pass and Measurement Follow-up | Sonnet | 🔄 | | Pauses for Mike's sign-off |
 
 ## Table of Contents
 
@@ -231,21 +231,21 @@ Low key, always there, never loud. They should read as a quiet signature, the wa
 
 Mode: **unit** with the jsdom webview harness (`test/harness/webviewHarness.ts`).
 
-- [ ] Write tests: `test/unit/supportCard.test.ts` with the harness. `send({ type: 'showSupportCard', reason: 'auto', copy })` renders the card with title, body, and five actions; harness `last('supportCardShown')` is present.
-- [ ] Write tests: each button posts the right `supportAction` (`review`, `share`, `feedback`, `later`, `never`, `close`).
-- [ ] Write tests: `supportCopied` swaps the share label to the Copied text; it reverts (use fake timers).
-- [ ] Write tests: `reason: 'auto'` does not move focus away from the editor; typing into the editor while the card is open still produces an `edit` message with the typed text; the card's container is not a descendant of the ProseMirror root (`.ProseMirror`).
-- [ ] Write tests: with the Settings modal open, `showSupportCard` `reason: 'auto'` posts `busy` and renders nothing.
-- [ ] Write tests: sidebar footer contains `[data-testid="sidebar-support-link"]` inline in the metrics row after a footer re-render, and clicking it opens the card (or posts `open`).
-- [ ] Write tests: clicking `[data-testid="sidebar-support-dismiss"]` posts `saveSettings` with `support.showSidebarLink: false`, removes the link, shows the confirmation (`role="status"`) which disappears (fake timers), and the link stays gone after a footer re-render and after a `settings` broadcast carrying `false` (dismiss persists).
-- [ ] Write tests: live toggle. A `settings` broadcast with `showSidebarLink: false` hides the link; `true` shows it again, no reload.
-- [ ] Write tests: Settings checkbox round-trip. The Appearance tab `[data-testid="setting-support-sidebar-link"]` reflects the current value; unchecking and saving posts `saveSettings` with `false`; rechecking posts `true`. The About tab button and `mikedown.support` still work when the link is hidden.
-- [ ] Write tests (host, unit with mocked `vscode`): `src/settings.ts` reads `support.showSidebarLink` with default `true`; `package.json` declares `mikedown.support.showSidebarLink` as boolean default `true`.
-- [ ] Write tests: About tab contains `[data-testid="about-support-button"]`; clicking closes `#mikedown-settings-overlay` and opens the card.
-- [ ] Run green: `npm run test:unit`.
-- [ ] Run green: `npm run test:integration` (regression).
-- [ ] Human review locators: `src/webview/supportCard.ts`; `src/webview/outlineSidebar.ts` `renderFooter()` (search `sidebar-support-dismiss`); `src/settings.ts` search `showSidebarLink`; `src/webview/editor-main.ts` `buildAboutPanel()` (search `about-support-button`).
-- [ ] Commit, write `.orchestrator/worker-summary-m7-testing-webview.md`.
+- [x] Write tests: `test/unit/supportCard.test.ts` with the harness. `send({ type: 'showSupportCard', reason: 'auto', copy })` renders the card with title, body, and five actions; harness `last('supportCardShown')` is present.
+- [x] Write tests: each button posts the right `supportAction` (`review`, `share`, `feedback`, `later`, `never`, `close`).
+- [x] Write tests: `supportCopied` swaps the share label to the Copied text; it reverts (use fake timers).
+- [x] Write tests: `reason: 'auto'` does not move focus away from the editor; typing into the editor while the card is open still produces an `edit` message with the typed text; the card's container is not a descendant of the ProseMirror root (`.ProseMirror`).
+- [x] Write tests: with the Settings modal open, `showSupportCard` `reason: 'auto'` posts `busy` and renders nothing.
+- [x] Write tests: sidebar footer contains `[data-testid="sidebar-support-link"]` inline in the metrics row after a footer re-render, and clicking it opens the card (or posts `open`).
+- [x] Write tests: clicking `[data-testid="sidebar-support-dismiss"]` posts `saveSettings` with `support.showSidebarLink: false`, removes the link, shows the confirmation (`role="status"`) which disappears (fake timers), and the link stays gone after a footer re-render and after a `settings` broadcast carrying `false` (dismiss persists).
+- [x] Write tests: live toggle. A `settings` broadcast with `showSidebarLink: false` hides the link; `true` shows it again, no reload.
+- [x] Write tests: Settings checkbox round-trip. The Appearance tab `[data-testid="setting-support-sidebar-link"]` reflects the current value; unchecking and saving posts `saveSettings` with `false`; rechecking posts `true`. The About tab button and `mikedown.support` still work when the link is hidden.
+- [x] Write tests (host, unit with mocked `vscode`): `src/settings.ts` reads `support.showSidebarLink` with default `true`; `package.json` declares `mikedown.support.showSidebarLink` as boolean default `true`.
+- [x] Write tests: About tab contains `[data-testid="about-support-button"]`; clicking closes `#mikedown-settings-overlay` and opens the card.
+- [x] Run green: `npm run test:unit`.
+- [x] Run green: `npm run test:integration` (regression).
+- [x] Human review locators: `src/webview/supportCard.ts`; `src/webview/outlineSidebar.ts` `renderFooter()` (search `sidebar-support-dismiss`); `src/settings.ts` search `showSidebarLink`; `src/webview/editor-main.ts` `buildAboutPanel()` (search `about-support-button`).
+- [x] Commit, write `.orchestrator/worker-summary-m7-testing-webview.md`.
 
 [Return to Top](#review-appeal-planning)
 
@@ -318,6 +318,8 @@ All resolved 2026-09-26.
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
+
+**2026-09-26 01:50** - M7 done (commit `3c65be6`). 18 new tests: `test/unit/supportCard.test.ts` (15, jsdom harness) and `test/unit/supportSettings.test.ts` (3). No production code changes needed. Worker could not run integration in its worktree (socket path too long); run in main after merge: 601 unit and 28 integration green.
 
 **2026-09-26 01:42** - M4 done (commit `d4dcdd3`). 51 new tests: `test/unit/supportPromptEligibility.test.ts`, `test/unit/supportPrompt.test.ts`, `test/integration/supportCommand.test.ts` (private temp fixture). No M2 or M3 bugs found. Worker ran 573 unit and 28 integration green; after merging onto M6, main runs 583 unit green.
 
