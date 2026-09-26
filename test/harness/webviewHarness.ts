@@ -11,6 +11,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { vi } from 'vitest';
 import { EditorView as CmEditorView } from '@codemirror/view';
+import { TextSelection } from '@tiptap/pm/state';
+import type { EditorView as PmEditorView } from '@tiptap/pm/view';
 
 const PROVIDER = join(__dirname, '..', '..', 'src', 'markdownEditorProvider.ts');
 
@@ -43,6 +45,35 @@ export interface Harness {
   wysiwygText(): string;
   /** Whether source mode is the visible surface. */
   inSourceMode(): boolean;
+  /**
+   * The live TipTap editor instance (exposed by editor-main.ts as
+   * `window.__mikedownEditor` for tests only). Use `.view` for the raw
+   * ProseMirror EditorView, `.state`, or `.storage.markdown.getMarkdown()`.
+   */
+  wysiwygEditor(): { view: PmEditorView; state: any; storage: any; [k: string]: any };
+  /**
+   * Types `text` into the WYSIWYG surface one character at a time, each as
+   * its own `insertText` transaction dispatched through the real PM view —
+   * so every ProseMirror plugin (including the slash-command menu) sees an
+   * `update()` call per keystroke, the same way it would from real typing.
+   */
+  typeInWysiwyg(text: string): void;
+  /**
+   * Dispatches a native `keydown` on the WYSIWYG view's DOM node, the way a
+   * real keypress would reach ProseMirror's `handleKeyDown` plugin props.
+   * Good for keys a plugin intercepts directly (Enter/Escape/arrow-navigation
+   * inside a popup). jsdom has no real contentEditable text-editing pipeline,
+   * so it will NOT perform actual caret movement or character deletion for
+   * keys like ArrowLeft/Backspace (those are ordinarily driven by the
+   * browser's native `beforeinput`/selection handling) — drive the
+   * equivalent transaction directly for those (`setWysiwygCursor`,
+   * `editor.commands.deleteRange`, etc.) instead.
+   */
+  pressKeyInWysiwyg(key: string, mods?: Partial<Pick<KeyboardEventInit, 'shiftKey' | 'ctrlKey' | 'metaKey' | 'altKey'>>): void;
+  /** Moves the WYSIWYG cursor to a plain (non-selection) text position. */
+  setWysiwygCursor(pos: number): void;
+  /** The markdown of the most recent `edit` message posted to the host, if any. */
+  lastEditMarkdown(): string | undefined;
   /** Remove the listeners this boot installed so another boot can run clean. */
   dispose(): void;
 }
@@ -131,6 +162,29 @@ export async function bootWebview(): Promise<Harness> {
     },
     inSourceMode() {
       return sourceContainer().style.display !== 'none' && editorContainer().style.display === 'none';
+    },
+    wysiwygEditor() {
+      const ed = (window as any).__mikedownEditor;
+      if (!ed) throw new Error('WYSIWYG editor is not exposed yet (window.__mikedownEditor)');
+      return ed;
+    },
+    typeInWysiwyg(text: string) {
+      const view = this.wysiwygEditor().view as PmEditorView;
+      for (const ch of text) {
+        view.dispatch(view.state.tr.insertText(ch));
+      }
+    },
+    pressKeyInWysiwyg(key: string, mods = {}) {
+      const view = this.wysiwygEditor().view as PmEditorView;
+      view.dom.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...mods }));
+    },
+    setWysiwygCursor(pos: number) {
+      const view = this.wysiwygEditor().view as PmEditorView;
+      const sel = TextSelection.create(view.state.doc, pos);
+      view.dispatch(view.state.tr.setSelection(sel));
+    },
+    lastEditMarkdown() {
+      return this.last('edit')?.content;
     },
     dispose() {
       added.forEach(([t, type, listener, options]) => t.removeEventListener(type, listener, options));

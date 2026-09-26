@@ -3293,6 +3293,10 @@ if (!editorContainer) {
 
   // Expose vscode for contextmenu.ts link opening
   (window as any).__vscode = vscode;
+  // Test-only hook: gives the webview test harness (test/harness/webviewHarness.ts)
+  // direct access to the live TipTap editor/PM view so it can drive real
+  // transactions and keydown events rather than only posting host messages.
+  (window as any).__mikedownEditor = editor;
   (window as any).__mikedownShowLinkDialog = () => showLinkDialog(editor);
   (window as any).__mikedownShowImageDialog = () => showImageInsertDialog(editor);
   (window as any).__mikedownShowEmojiPicker = () => showEmojiPicker(editor, {});
