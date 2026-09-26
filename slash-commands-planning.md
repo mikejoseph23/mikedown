@@ -32,14 +32,14 @@
 
 | Milestone | Model | Status | Duration (min) | Notes |
 | --- | --- | --- | --- | --- |
-| M1: Command registry + matcher | Sonnet | ⬜ | | Pure module, no DOM |
-| M2: Trigger/exit plugin + popup UI | Opus | ⬜ | | Front-end design craft required |
-| T1: Tests for M1 + M2 | Sonnet | ⬜ | | Unit + jsdom harness |
-| M3: Wire existing-block commands | Sonnet | ⬜ | | Mid-line insert-below, callouts, pickers |
-| M4: Image file picker (host) | Sonnet | ⬜ | | New message pair |
-| M5: Settings (three places, live toggle) | Sonnet | ⬜ | | enabled/dateFormat/timeZone, Behavior subsection, placeholder, footer notification |
-| M6: Properties, Date, Datetime | Sonnet | ⬜ | | Pure date helper + tests; runs before T2 |
-| T2: Tests, integration, hands-on sign-off | Sonnet | ⬜ | | Pauses for Mike |
+| M1: Command registry + matcher | Sonnet | ✅ | 10 | Pure module, no DOM |
+| M2: Trigger/exit plugin + popup UI | Opus | ✅ | 8 | Front-end design craft required |
+| T1: Tests for M1 + M2 | Sonnet | ✅ | 18 | Unit + jsdom harness |
+| M3: Wire existing-block commands | Sonnet | ✅ | 28 | Mid-line insert-below, callouts, pickers |
+| M4: Image file picker (host) | Sonnet | ✅ | 22 | Host 8 min + webview ~14 min (shared worker with M6) |
+| M5: Settings (three places, live toggle) | Sonnet | ✅ | 15 | enabled/dateFormat/timeZone, Behavior subsection, placeholder, footer notification |
+| M6: Properties, Date, Datetime | Sonnet | ✅ | 18 | Pure date helper 4 min + actions ~14 min + tests; runs before T2 |
+| T2: Tests, integration, hands-on sign-off | Sonnet | 🔄 | 28 (automated) | Automated done; awaiting Mike's hands-on | Pauses for Mike |
 | M7: Docs (CHANGELOG, README, BACKLOG) | Haiku | ⬜ | | Last |
 
 ## Table of Contents
@@ -186,14 +186,14 @@ All three follow the three-place rule (`package.json`, `src/settings.ts`, Settin
 
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
-- [ ] Create `src/webview/slashcommands-registry.ts` with no DOM, no TipTap, no `vscode` imports.
-- [ ] Define `SlashCommand { id, title, description, aliases: string[], group: 'basic' | 'lists' | 'callouts' | 'insert', icon: string, keywords?, requiresNoFrontmatter?: boolean }`. The action is NOT in this module; M3 and M6 map `id` → action so the registry stays pure.
-- [ ] Add every command from [Design Decisions](#command-set), including H4–H6, Properties (`requiresNoFrontmatter: true`), Date, and Date and time.
-- [ ] Export `matchCommands(query: string, ctx: { hasFrontmatter: boolean }, commands = SLASH_COMMANDS): SlashCommand[]` with the ranking: exact name/alias, name prefix, alias prefix, registry order. Empty query returns all, in registry/group order. Commands with `requiresNoFrontmatter` are excluded when `ctx.hasFrontmatter` is true.
-- [ ] Export `extractSlashQuery(textBefore: string, atBlockStart: boolean): { offset: number; query: string } | null` implementing the trigger rules on plain text (preceding char must be textblock start or whitespace, anywhere in the line; query is non-whitespace).
-- [ ] Export the mermaid starter diagram text as a constant (e.g. a 3-node `flowchart TD`).
-- [ ] `npm run lint` clean, `npm run compile` succeeds.
-- [ ] Commit.
+- [x] Create `src/webview/slashcommands-registry.ts` with no DOM, no TipTap, no `vscode` imports.
+- [x] Define `SlashCommand { id, title, description, aliases: string[], group: 'basic' | 'lists' | 'callouts' | 'insert', icon: string, keywords?, requiresNoFrontmatter?: boolean }`. The action is NOT in this module; M3 and M6 map `id` → action so the registry stays pure.
+- [x] Add every command from [Design Decisions](#command-set), including H4–H6, Properties (`requiresNoFrontmatter: true`), Date, and Date and time.
+- [x] Export `matchCommands(query: string, ctx: { hasFrontmatter: boolean }, commands = SLASH_COMMANDS): SlashCommand[]` with the ranking: exact name/alias, name prefix, alias prefix, registry order. Empty query returns all, in registry/group order. Commands with `requiresNoFrontmatter` are excluded when `ctx.hasFrontmatter` is true.
+- [x] Export `extractSlashQuery(textBefore: string, atBlockStart: boolean): { offset: number; query: string } | null` implementing the trigger rules on plain text (preceding char must be textblock start or whitespace, anywhere in the line; query is non-whitespace).
+- [x] Export the mermaid starter diagram text as a constant (e.g. a 3-node `flowchart TD`).
+- [x] `npm run lint` clean, `npm run compile` succeeds.
+- [x] Commit.
 
 [Return to Top](#top)
 
@@ -205,21 +205,21 @@ All three follow the three-place rule (`package.json`, `src/settings.ts`, Settin
 
 **Design craft required.** Apply genuine design craft so the menu feels like a VS Code native quick-pick crossed with Notion's block menu: consistent spacing rhythm, clear hierarchy (title, muted description, right-aligned alias hint), group headers, a leading icon per row, an unmistakable keyboard-focus row (`--vscode-list-activeSelectionBackground` / `--vscode-list-activeSelectionForeground`, with `--vscode-focusBorder` outline), hover distinct from focus, `--vscode-editorWidget-background` / `-border` / `--vscode-widget-shadow`, `--vscode-descriptionForeground` for secondary text, correct in light, dark, high-contrast, and `body.mikedown-force-light`. Match the icon style already used in the toolbar (`icons.*` in `editor-main.ts`). No hard-coded colors without a VS Code token fallback chain.
 
-- [ ] Create `src/webview/slashcommands.ts` exporting a TipTap `SlashCommands` extension, following the `wikilinkautocomplete.ts` plugin pattern named in [Code Findings](#code-findings-that-shape-the-plan).
-- [ ] In `view().update`, bail (close) when: disabled by config, source mode active, selection non-empty, the cursor is anywhere inside a `codeBlock` (any language, including `mermaid`; check every ancestor depth, not just `$from.parent`), `code` or `link` mark active at the cursor (check both `$from.marks()` and `storedMarks`, so the boundary just inside backticks is covered), or `extractSlashQuery` returns null.
-- [ ] Pass `{ hasFrontmatter }` to `matchCommands` from the current frontmatter state so `/properties` only appears when the doc has none.
-- [ ] Keep dismissal state: remember the dismissed `/` document position and do not reopen for it; clear it when that `/` is deleted or a new `/` is typed.
-- [ ] Close on: Esc, click-away (document `mousedown` outside the popup), editor blur, Backspace past `/`, whitespace with no matches, cursor leaving `[from, to]`, host `update` message (full-document reload), and entering source mode. None of these may dispatch a transaction.
-- [ ] Footer row per [In-menu disable option](#in-menu-disable-option): muted "Turn off slash commands" row with a subtle icon below a divider, smaller secondary text, its own `role="option"` outside the filtered list. Never counted as a match, never the default active row; reachable via ArrowDown past the last command (and ArrowUp wrap) and by click (`mousedown` + `preventDefault`). Choosing it closes the menu without a transaction (`/query` stays) and posts `saveSettings` with `slashCommandsEnabled: false` and `source: 'slashMenu'`. Apply the same design craft: it must read as a quiet utility, not a command.
-- [ ] Keyboard: ArrowUp/ArrowDown wrap (through the footer row), Home/End, Enter and Tab execute, Esc closes. Keep the active row scrolled into view. Register with a higher keymap priority than the emoji/wikilink autocompletes and ensure only one popup can be open at a time.
-- [ ] Execution API: `executeSlashCommand(id, { from, to })` placeholder that, for M2, handles only H1–H6/Paragraph so the flow is demonstrable. It replaces `/query` in ONE transaction with `closeHistory(tr)` applied (import from `@tiptap/pm/history`) so one undo restores the `/query`.
-- [ ] Popup built in `document.body` with `role="listbox"`, `aria-activedescendant`, `role="option"` rows, grouped sections, empty state is not shown (menu closes instead).
-- [ ] Position with `view.coordsAtPos(from)`, clamp to viewport, flip above when there is no room below, max height with internal scroll.
-- [ ] New `src/webview/slashcommands.css`; register it in the stylesheet list in `markdownEditorProvider.ts`.
-- [ ] Expose `setSlashCommandsConfig({ enabled, dateFormat, timeZone })` and `setSlashSourceMode(bool)` (or read the existing `sourceMode` via a setter) for M5 and source-mode wiring. Default: enabled.
-- [ ] Register the extension in `editor-main.ts` next to `EmojiAutocomplete` / `WikilinkAutocomplete` (~line 2947). Never touch `editor.view.dom` outside a transaction (commit `f5415e0`).
-- [ ] `npm run lint`, `npm run compile`, `npm run test:unit` green (no regressions).
-- [ ] Commit.
+- [x] Create `src/webview/slashcommands.ts` exporting a TipTap `SlashCommands` extension, following the `wikilinkautocomplete.ts` plugin pattern named in [Code Findings](#code-findings-that-shape-the-plan).
+- [x] In `view().update`, bail (close) when: disabled by config, source mode active, selection non-empty, the cursor is anywhere inside a `codeBlock` (any language, including `mermaid`; check every ancestor depth, not just `$from.parent`), `code` or `link` mark active at the cursor (check both `$from.marks()` and `storedMarks`, so the boundary just inside backticks is covered), or `extractSlashQuery` returns null.
+- [x] Pass `{ hasFrontmatter }` to `matchCommands` from the current frontmatter state so `/properties` only appears when the doc has none.
+- [x] Keep dismissal state: remember the dismissed `/` document position and do not reopen for it; clear it when that `/` is deleted or a new `/` is typed.
+- [x] Close on: Esc, click-away (document `mousedown` outside the popup), editor blur, Backspace past `/`, whitespace with no matches, cursor leaving `[from, to]`, host `update` message (full-document reload), and entering source mode. None of these may dispatch a transaction.
+- [x] Footer row per [In-menu disable option](#in-menu-disable-option): muted "Turn off slash commands" row with a subtle icon below a divider, smaller secondary text, its own `role="option"` outside the filtered list. Never counted as a match, never the default active row; reachable via ArrowDown past the last command (and ArrowUp wrap) and by click (`mousedown` + `preventDefault`). Choosing it closes the menu without a transaction (`/query` stays) and posts `saveSettings` with `slashCommandsEnabled: false` and `source: 'slashMenu'`. Apply the same design craft: it must read as a quiet utility, not a command.
+- [x] Keyboard: ArrowUp/ArrowDown wrap (through the footer row), Home/End, Enter and Tab execute, Esc closes. Keep the active row scrolled into view. Register with a higher keymap priority than the emoji/wikilink autocompletes and ensure only one popup can be open at a time.
+- [x] Execution API: `executeSlashCommand(id, { from, to })` placeholder that, for M2, handles only H1–H6/Paragraph so the flow is demonstrable. It replaces `/query` in ONE transaction with `closeHistory(tr)` applied (import from `@tiptap/pm/history`) so one undo restores the `/query`.
+- [x] Popup built in `document.body` with `role="listbox"`, `aria-activedescendant`, `role="option"` rows, grouped sections, empty state is not shown (menu closes instead).
+- [x] Position with `view.coordsAtPos(from)`, clamp to viewport, flip above when there is no room below, max height with internal scroll.
+- [x] New `src/webview/slashcommands.css`; register it in the stylesheet list in `markdownEditorProvider.ts`.
+- [x] Expose `setSlashCommandsConfig({ enabled, dateFormat, timeZone })` and `setSlashSourceMode(bool)` (or read the existing `sourceMode` via a setter) for M5 and source-mode wiring. Default: enabled.
+- [x] Register the extension in `editor-main.ts` next to `EmojiAutocomplete` / `WikilinkAutocomplete` (~line 2947). Never touch `editor.view.dom` outside a transaction (commit `f5415e0`).
+- [x] `npm run lint`, `npm run compile`, `npm run test:unit` green (no regressions).
+- [x] Commit.
 
 [Return to Top](#top)
 
@@ -229,16 +229,16 @@ All three follow the three-place rule (`package.json`, `src/settings.ts`, Settin
 
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
-- [ ] Write `test/unit/slashcommandsRegistry.test.ts`: every alias from the table finds its command (`/check` → Task list, `/ol` and `/1.` → Numbered, `/---` → Divider, `/[[` → Wikilink, `/:` → Emoji, `/warn` → Warning, `/danger` → Caution, `/h4`/`/heading5`/`/h6` → H4/H5/H6, `/yaml` → Properties, `/today` → Date, `/timestamp` and `/now` → Date and time); ranking (exact before prefix; `/date` ranks Date above Date and time; `/h` lists H1–H6 in order); empty query returns all; unknown query returns `[]`; case-insensitivity; Properties is excluded for every query when `hasFrontmatter` is true and included when false.
-- [ ] Write `extractSlashQuery` tests: line start, after space, after tab; `and/or`, `path/to`, `https://a.com/b` return null; mid-line after a space is accepted; whitespace in query returns null.
-- [ ] Extend `test/harness/webviewHarness.ts` with WYSIWYG helpers (editor access, type text at cursor through the view so plugins run, press key, place cursor, read last `edit` markdown). Keep `webviewSourceMode.test.ts` green.
-- [ ] Write `test/unit/slashcommandsHarness.test.ts` covering: menu opens on `/` at line start and after space; filter narrows as you type; no open inside a plain code block, a ```` ```ts ```` code block, a ```` ```mermaid ```` code block (line start and after a space), inline code (middle and just inside either backtick), link, mid-word; no open in source mode; `/prop` shows Properties in a doc without frontmatter and not in one with frontmatter.
-- [ ] Exit tests, each asserting the markdown is byte-identical to before dismissal: Esc, click-away, blur, Backspace past `/`, space with no matches, arrow-key cursor out of range; after Esc, typing another character does not reopen.
-- [ ] Insertion tests for H1–H6/Paragraph at line start, then Cmd+Z (history undo) restores `/h2` exactly in one step.
-- [ ] Footer row tests: it is never in the filtered match list for any query; it is not the active row on open or after typing; Enter on a filtered query (e.g. `/h`, `/tur`, `/off`) never selects it; ArrowDown past the last command reaches it; choosing it (keyboard and click) closes the menu, leaves the markdown byte-identical, and posts `saveSettings` with `slashCommandsEnabled: false` and `source: 'slashMenu'`.
-- [ ] Run `npm run test:unit` green.
-- [ ] Run `npm run lint` green.
-- [ ] Commit tests.
+- [x] Write `test/unit/slashcommandsRegistry.test.ts`: every alias from the table finds its command (`/check` → Task list, `/ol` and `/1.` → Numbered, `/---` → Divider, `/[[` → Wikilink, `/:` → Emoji, `/warn` → Warning, `/danger` → Caution, `/h4`/`/heading5`/`/h6` → H4/H5/H6, `/yaml` → Properties, `/today` → Date, `/timestamp` and `/now` → Date and time); ranking (exact before prefix; `/date` ranks Date above Date and time; `/h` lists H1–H6 in order); empty query returns all; unknown query returns `[]`; case-insensitivity; Properties is excluded for every query when `hasFrontmatter` is true and included when false.
+- [x] Write `extractSlashQuery` tests: line start, after space, after tab; `and/or`, `path/to`, `https://a.com/b` return null; mid-line after a space is accepted; whitespace in query returns null.
+- [x] Extend `test/harness/webviewHarness.ts` with WYSIWYG helpers (editor access, type text at cursor through the view so plugins run, press key, place cursor, read last `edit` markdown). Keep `webviewSourceMode.test.ts` green.
+- [x] Write `test/unit/slashcommandsHarness.test.ts` covering: menu opens on `/` at line start and after space; filter narrows as you type; no open inside a plain code block, a ```` ```ts ```` code block, a ```` ```mermaid ```` code block (line start and after a space), inline code (middle and just inside either backtick), link, mid-word; no open in source mode; `/prop` shows Properties in a doc without frontmatter and not in one with frontmatter.
+- [x] Exit tests, each asserting the markdown is byte-identical to before dismissal: Esc, click-away, blur, Backspace past `/`, space with no matches, arrow-key cursor out of range; after Esc, typing another character does not reopen.
+- [x] Insertion tests for H1–H6/Paragraph at line start, then Cmd+Z (history undo) restores `/h2` exactly in one step.
+- [x] Footer row tests: it is never in the filtered match list for any query; it is not the active row on open or after typing; Enter on a filtered query (e.g. `/h`, `/tur`, `/off`) never selects it; ArrowDown past the last command reaches it; choosing it (keyboard and click) closes the menu, leaves the markdown byte-identical, and posts `saveSettings` with `slashCommandsEnabled: false` and `source: 'slashMenu'`.
+- [x] Run `npm run test:unit` green.
+- [x] Run `npm run lint` green.
+- [x] Commit tests.
 
 [Return to Top](#top)
 
@@ -248,21 +248,21 @@ All three follow the three-place rule (`package.json`, `src/settings.ts`, Settin
 
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
-- [ ] Map every registry `id` to an action in `slashcommands.ts` (or a sibling `slashcommands-actions.ts`), all via `editor.chain()` or `view.dispatch(tr)`.
-- [ ] Implement the mid-line insert-below rule from [Trigger rules](#trigger-rules) as a shared helper used by every block command (empty line → convert in place; non-empty line → strip `/query`, insert the block after the current block, cursor into it).
-- [ ] Headings H1–H6, paragraph, quote, bullet, numbered, task list.
-- [ ] Divider (`setHorizontalRule`), serializes as `---`.
-- [ ] Callouts: `note`, `tip`, `important`, `warning`, `caution` via `setCallout(kind)`; serializes as `> [!NOTE]` etc.
-- [ ] Code block: create the block, then open `showLanguagePicker` anchored at the block (rect from `coordsAtPos`).
-- [ ] Mermaid: code block with `language: 'mermaid'` pre-filled with the M1 starter text, cursor inside; renders if `renderMermaidDiagrams` is on.
-- [ ] Table: open `showTableGridPicker`. Add a rect/point option to it (preferred) or use a transient anchor in `document.body`; commit inserts the table.
-- [ ] Link: open `showLinkDialog(editor)`; the link text is empty-selection behavior of that dialog, verify it inserts a usable link.
-- [ ] Wikilink: replace `/query` with `[[` and confirm `wikilinkautocomplete.ts` opens its popup on the next view update.
-- [ ] Emoji: open `showEmojiPicker(editor, { anchorRect })` at the cursor.
-- [ ] Picker-based commands keep `/query` until the picker commits; cancel leaves it intact (resolved 2026-09-26, Open Question 3).
-- [ ] Every action goes through one `closeHistory`'d transaction for the text replacement.
-- [ ] `npm run lint`, `npm run compile`, `npm run test:unit` green.
-- [ ] Commit.
+- [x] Map every registry `id` to an action in `slashcommands.ts` (or a sibling `slashcommands-actions.ts`), all via `editor.chain()` or `view.dispatch(tr)`.
+- [x] Implement the mid-line insert-below rule from [Trigger rules](#trigger-rules) as a shared helper used by every block command (empty line → convert in place; non-empty line → strip `/query`, insert the block after the current block, cursor into it).
+- [x] Headings H1–H6, paragraph, quote, bullet, numbered, task list.
+- [x] Divider (`setHorizontalRule`), serializes as `---`.
+- [x] Callouts: `note`, `tip`, `important`, `warning`, `caution` via `setCallout(kind)`; serializes as `> [!NOTE]` etc.
+- [x] Code block: create the block, then open `showLanguagePicker` anchored at the block (rect from `coordsAtPos`).
+- [x] Mermaid: code block with `language: 'mermaid'` pre-filled with the M1 starter text, cursor inside; renders if `renderMermaidDiagrams` is on.
+- [x] Table: open `showTableGridPicker`. Add a rect/point option to it (preferred) or use a transient anchor in `document.body`; commit inserts the table.
+- [x] Link: open `showLinkDialog(editor)`; the link text is empty-selection behavior of that dialog, verify it inserts a usable link.
+- [x] Wikilink: replace `/query` with `[[` and confirm `wikilinkautocomplete.ts` opens its popup on the next view update.
+- [x] Emoji: open `showEmojiPicker(editor, { anchorRect })` at the cursor.
+- [x] Picker-based commands keep `/query` until the picker commits; cancel leaves it intact (resolved 2026-09-26, Open Question 3).
+- [x] Every action goes through one `closeHistory`'d transaction for the text replacement.
+- [x] `npm run lint`, `npm run compile`, `npm run test:unit` green.
+- [x] Commit.
 
 [Return to Top](#top)
 
@@ -272,17 +272,17 @@ All three follow the three-place rule (`package.json`, `src/settings.ts`, Settin
 
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
-- [ ] Webview → host: `{ type: 'pickImage', requestId: string }`. Host → webview: `{ type: 'pickedImageResult', requestId, insertPath?, webviewUri?, alt?, cancelled?: true, error?: string }`.
-- [ ] Document both messages in the protocol comment at the top of `src/webview/editor-main.ts` (and add the missing `savePastedImage` / `pastedImageResult` pair while there).
-- [ ] Add `'pickImage'` to the `WebviewMessage['type']` union in `markdownEditorProvider.ts`.
-- [ ] Host handler: `vscode.window.showOpenDialog({ canSelectMany: false, filters: { Images: [png, jpg, jpeg, gif, webp, svg, bmp, avif] }, defaultUri: doc folder })`. Untitled/non-`file:` docs get the same "save first" prompt the paste path uses.
-- [ ] Compute `insertPath` with `formatInsertPath(absPath, docPath, workspaceRoot, settings.imagePaste.pathStyle)`, `alt` with `resolveAltText`, `webviewUri` with `webview.asWebviewUri`. Extract any shared logic out of `handleSavePastedImage` rather than duplicating it.
-- [ ] Files outside the doc folder and workspace folders (i.e. outside `localResourceRoots`) are copied into the image-paste target folder via the existing `resolveTargetFolder` + `resolveFilename` path (dedupe by hash as paste does) so they render and are portable (resolved 2026-09-26, Open Question 4). Files inside are referenced in place.
-- [ ] Webview: `src/webview/imagepick.ts` with `requestImagePick(view, from, to)` using a pending-by-`requestId` map like `imagepaste.ts`; on result, replace `/query` with an image node (`src` = `webviewUri`, markdown serializes to `insertPath`); cancel/error leaves `/query` intact.
-- [ ] Route `pickedImageResult` in the webview message handler next to `pastedImageResult` (~line 5066).
-- [ ] Put pure path logic in `src/imagePaste.ts` (with `imagePaste.test.ts` coverage) so the host handler stays thin.
-- [ ] `npm run lint`, `npm run compile`, `npm run test:unit` green.
-- [ ] Commit.
+- [x] Webview → host: `{ type: 'pickImage', requestId: string }`. Host → webview: `{ type: 'pickedImageResult', requestId, insertPath?, webviewUri?, alt?, cancelled?: true, error?: string }`.
+- [x] Document both messages in the protocol comment at the top of `src/webview/editor-main.ts` (and add the missing `savePastedImage` / `pastedImageResult` pair while there).
+- [x] Add `'pickImage'` to the `WebviewMessage['type']` union in `markdownEditorProvider.ts`.
+- [x] Host handler: `vscode.window.showOpenDialog({ canSelectMany: false, filters: { Images: [png, jpg, jpeg, gif, webp, svg, bmp, avif] }, defaultUri: doc folder })`. Untitled/non-`file:` docs get the same "save first" prompt the paste path uses.
+- [x] Compute `insertPath` with `formatInsertPath(absPath, docPath, workspaceRoot, settings.imagePaste.pathStyle)`, `alt` with `resolveAltText`, `webviewUri` with `webview.asWebviewUri`. Extract any shared logic out of `handleSavePastedImage` rather than duplicating it.
+- [x] Files outside the doc folder and workspace folders (i.e. outside `localResourceRoots`) are copied into the image-paste target folder via the existing `resolveTargetFolder` + `resolveFilename` path (dedupe by hash as paste does) so they render and are portable (resolved 2026-09-26, Open Question 4). Files inside are referenced in place.
+- [x] Webview: `src/webview/imagepick.ts` with `requestImagePick(view, from, to)` using a pending-by-`requestId` map like `imagepaste.ts`; on result, replace `/query` with an image node (`src` = `webviewUri`, markdown serializes to `insertPath`); cancel/error leaves `/query` intact.
+- [x] Route `pickedImageResult` in the webview message handler next to `pastedImageResult` (~line 5066).
+- [x] Put pure path logic in `src/imagePaste.ts` (with `imagePaste.test.ts` coverage) so the host handler stays thin.
+- [x] `npm run lint`, `npm run compile`, `npm run test:unit` green.
+- [x] Commit.
 
 [Return to Top](#top)
 
@@ -292,19 +292,19 @@ All three follow the three-place rule (`package.json`, `src/settings.ts`, Settin
 
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
-- [ ] `package.json#contributes.configuration.properties` (see [Settings](#settings)): `mikedown.slashCommands.enabled` (boolean, default `true`); `mikedown.slashCommands.dateFormat` (enum `iso` | `long`, default `iso`, with `enumDescriptions` showing `2026-09-26` / `September 26, 2026`); `mikedown.slashCommands.timeZone` (string, default `"local"`, description: `"local"`, `"UTC"`, or an IANA zone name like `America/New_York`). No trigger setting.
-- [ ] `src/settings.ts`: add a `slashCommands: { enabled, dateFormat, timeZone }` group and reader (unknown `dateFormat` → `iso`; empty `timeZone` → `local`).
-- [ ] Host broadcast (~line 1168 of `markdownEditorProvider.ts`): add `slashCommandsEnabled`, `slashCommandsDateFormat`, `slashCommandsTimeZone`.
-- [ ] Host `saveSettings` (~line 819): persist all three with `ConfigurationTarget.Global`.
-- [ ] Settings modal **Behavior** tab: add a "Slash commands" subheading, then a `makeCheckboxRow` "Slash command menu", a select "Date format" (ISO / Long), and a text input "Time zone" with placeholder "local, UTC, or e.g. America/New_York". The select and text input are `disabled` (greyed) while the checkbox is unticked, toggling live on checkbox `change`. Include all three in the save payload and update the `current*` module vars like the existing mermaid field does.
-- [ ] Webview `settings` handler (~line 4671): call `setSlashCommandsConfig({ enabled, dateFormat, timeZone })`; if disabling while the menu is open, close it (no doc change).
-- [ ] Placeholder per [Placeholder](#placeholder): "Type / for commands…" when enabled, "Start writing…" when disabled, updated live from the `settings` handler via a no-op transaction.
-- [ ] Footer-row notification per [In-menu disable option](#in-menu-disable-option): when `saveSettings` arrives with `source: 'slashMenu'`, after persisting, show the information message with **Open Settings** and **Undo**. Open Settings posts `{ type: 'command', command: 'openSettings', tab: 'behavior' }` to the originating panel; Undo sets `enabled = true` (Global). Dismissing the notification does nothing.
-- [ ] Webview: handle `command: 'openSettings'` by calling `showSettingsModal` opened on the requested tab (add an initial-tab parameter if it lacks one).
-- [ ] Add `source` to the `saveSettings` shape and document `openSettings` + `tab` in the protocol comment at the top of `src/webview/editor-main.ts` (and the `WebviewMessage` type in `markdownEditorProvider.ts` if needed).
+- [x] `package.json#contributes.configuration.properties` (see [Settings](#settings)): `mikedown.slashCommands.enabled` (boolean, default `true`); `mikedown.slashCommands.dateFormat` (enum `iso` | `long`, default `iso`, with `enumDescriptions` showing `2026-09-26` / `September 26, 2026`); `mikedown.slashCommands.timeZone` (string, default `"local"`, description: `"local"`, `"UTC"`, or an IANA zone name like `America/New_York`). No trigger setting.
+- [x] `src/settings.ts`: add a `slashCommands: { enabled, dateFormat, timeZone }` group and reader (unknown `dateFormat` → `iso`; empty `timeZone` → `local`).
+- [x] Host broadcast (~line 1168 of `markdownEditorProvider.ts`): add `slashCommandsEnabled`, `slashCommandsDateFormat`, `slashCommandsTimeZone`.
+- [x] Host `saveSettings` (~line 819): persist all three with `ConfigurationTarget.Global`.
+- [x] Settings modal **Behavior** tab: add a "Slash commands" subheading, then a `makeCheckboxRow` "Slash command menu", a select "Date format" (ISO / Long), and a text input "Time zone" with placeholder "local, UTC, or e.g. America/New_York". The select and text input are `disabled` (greyed) while the checkbox is unticked, toggling live on checkbox `change`. Include all three in the save payload and update the `current*` module vars like the existing mermaid field does.
+- [x] Webview `settings` handler (~line 4671): call `setSlashCommandsConfig({ enabled, dateFormat, timeZone })`; if disabling while the menu is open, close it (no doc change).
+- [x] Placeholder per [Placeholder](#placeholder): "Type / for commands…" when enabled, "Start writing…" when disabled, updated live from the `settings` handler via a no-op transaction.
+- [x] Footer-row notification per [In-menu disable option](#in-menu-disable-option): when `saveSettings` arrives with `source: 'slashMenu'`, after persisting, show the information message with **Open Settings** and **Undo**. Open Settings posts `{ type: 'command', command: 'openSettings', tab: 'behavior' }` to the originating panel; Undo sets `enabled = true` (Global). Dismissing the notification does nothing.
+- [x] Webview: handle `command: 'openSettings'` by calling `showSettingsModal` opened on the requested tab (add an initial-tab parameter if it lacks one).
+- [x] Add `source` to the `saveSettings` shape and document `openSettings` + `tab` in the protocol comment at the top of `src/webview/editor-main.ts` (and the `WebviewMessage` type in `markdownEditorProvider.ts` if needed).
 - [ ] Verify the live toggle: change each setting in VS Code's settings UI and in the modal with an editor open; no reload needed.
-- [ ] `npm run lint`, `npm run compile`, `npm run test:unit` green.
-- [ ] Commit.
+- [x] `npm run lint`, `npm run compile`, `npm run test:unit` green.
+- [x] Commit.
 
 [Return to Top](#top)
 
@@ -314,14 +314,14 @@ All three follow the three-place rule (`package.json`, `src/settings.ts`, Settin
 
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
-- [ ] Create `src/webview/slashcommands-date.ts` per [Date and time formatting](#date-and-time-formatting): pure, no DOM, no TipTap, clock injected. `resolveTimeZone` validates via `Intl.DateTimeFormat`; `"local"`/empty → undefined; `"UTC"` and valid IANA names pass through; invalid → undefined plus one `console.warn` per bad value.
-- [ ] Write `test/unit/slashcommandsDate.test.ts` with a fixed injected `Date`: ISO and long for `/date`; ISO and long for `/datetime`; local (no label), `UTC` (`… 18:30 UTC`), and `America/New_York` (`… 14:30 EDT` in September, `EST` in January); invalid zone falls back to local and warns once; day rollover (e.g. `2026-09-26T02:30Z` gives `2026-09-25` in `America/New_York` and `2026-09-26` in `UTC`, and `2026-09-26T23:30Z` gives `2026-09-27` in `Asia/Tokyo`); `HH:mm` zero-padding and 24-hour (`00:05`, `23:59`). Run tests with `TZ=UTC` pinned (vitest config env or setup) so "local" results are deterministic.
-- [ ] Date action: insert `formatSlashDate(new Date(), { format, timeZone, includeTime: false })` inline as plain text, replacing `/query` in one `closeHistory`'d transaction.
-- [ ] Datetime action: same with `includeTime: true`.
-- [ ] Properties action (only reachable when the doc has no frontmatter, per M1/M2 filtering): remove `/query` and insert an empty frontmatter block using the existing `serializeFrontmatter` / sidebar Properties path, then focus the Properties section. One undo removes the frontmatter and restores `/query`.
-- [ ] Harness tests: `/date` and `/datetime` insert the expected text for a stubbed clock and each `dateFormat`/`timeZone` combo sent via a `settings` message; `/properties` round-trips to an empty frontmatter block (whatever `serializeFrontmatter` emits for no keys) at the top of the doc; `/prop` is not offered once frontmatter exists; one undo restores `/query` for all three.
-- [ ] `npm run lint`, `npm run compile`, `npm run test:unit` green.
-- [ ] Commit.
+- [x] Create `src/webview/slashcommands-date.ts` per [Date and time formatting](#date-and-time-formatting): pure, no DOM, no TipTap, clock injected. `resolveTimeZone` validates via `Intl.DateTimeFormat`; `"local"`/empty → undefined; `"UTC"` and valid IANA names pass through; invalid → undefined plus one `console.warn` per bad value.
+- [x] Write `test/unit/slashcommandsDate.test.ts` with a fixed injected `Date`: ISO and long for `/date`; ISO and long for `/datetime`; local (no label), `UTC` (`… 18:30 UTC`), and `America/New_York` (`… 14:30 EDT` in September, `EST` in January); invalid zone falls back to local and warns once; day rollover (e.g. `2026-09-26T02:30Z` gives `2026-09-25` in `America/New_York` and `2026-09-26` in `UTC`, and `2026-09-26T23:30Z` gives `2026-09-27` in `Asia/Tokyo`); `HH:mm` zero-padding and 24-hour (`00:05`, `23:59`). Run tests with `TZ=UTC` pinned (vitest config env or setup) so "local" results are deterministic.
+- [x] Date action: insert `formatSlashDate(new Date(), { format, timeZone, includeTime: false })` inline as plain text, replacing `/query` in one `closeHistory`'d transaction.
+- [x] Datetime action: same with `includeTime: true`.
+- [x] Properties action (only reachable when the doc has no frontmatter, per M1/M2 filtering): remove `/query` and insert an empty frontmatter block using the existing `serializeFrontmatter` / sidebar Properties path, then focus the Properties section. One undo removes the frontmatter and restores `/query`.
+- [x] Harness tests: `/date` and `/datetime` insert the expected text for a stubbed clock and each `dateFormat`/`timeZone` combo sent via a `settings` message; `/properties` round-trips to an empty frontmatter block (whatever `serializeFrontmatter` emits for no keys) at the top of the doc; `/prop` is not offered once frontmatter exists; one undo restores `/query` for all three.
+- [x] `npm run lint`, `npm run compile`, `npm run test:unit` green.
+- [x] Commit.
 
 [Return to Top](#top)
 
@@ -333,21 +333,21 @@ All three follow the three-place rule (`package.json`, `src/settings.ts`, Settin
 
 ### Automated
 
-- [ ] Write round-trip tests (harness): for every command, insert at line start and mid-line, then assert the emitted `edit` markdown exactly (`# `, `## `, `### `, `#### `, `##### `, `###### `, `> `, `- `, `1. `, `- [ ] `, fenced code, ```` ```mermaid ````, `---`, `> [!NOTE]`/`[!TIP]`/`[!IMPORTANT]`/`[!WARNING]`/`[!CAUTION]`, table, link, `[[`, emoji, `![alt](path)`, frontmatter, date, datetime) and that re-loading that markdown via `update` then re-serializing is stable.
-- [ ] Write mid-line insert-below tests: `foo /h2|` gives paragraph `foo` + empty H2 below; `foo /table|bar` gives paragraph `foo bar` (text intact, `/table` removed) + table below; `foo /emoji|` inserts inline.
-- [ ] Write undo tests: one history undo after each command restores the `/query` text exactly.
-- [ ] Write picker-cancel tests: code language, table, link, emoji, image cancel leave `/query` intact.
-- [ ] Write settings live-toggle tests (harness): send a `settings` message with `slashCommandsEnabled: false` and assert `/` no longer opens; sending `true` again reopens it on the next `/`.
-- [ ] Write placeholder tests (harness): an empty doc shows "Type / for commands…" by default; a `settings` message with `slashCommandsEnabled: false` switches it to "Start writing…" without reload; `true` switches it back.
-- [ ] Write code-block guard tests (harness, full bundle): typing `/` and ` /` inside a fenced code block, a `mermaid` code block, and inline code never opens the menu and leaves the markdown exactly as typed.
-- [ ] Write Settings modal tests (harness): the Behavior tab has a "Slash commands" subsection with the checkbox, Date format select, and Time zone input (placeholder "local, UTC, or e.g. America/New_York"); unticking the checkbox disables the select and input; Save posts `saveSettings` with all three values.
-- [ ] Write footer-row flow tests (harness): choosing the footer row leaves the `/query` text intact and posts `saveSettings` with `slashCommandsEnabled: false`, `source: 'slashMenu'`; a `command` message `openSettings` with `tab: 'behavior'` opens the Settings modal on the Behavior tab.
-- [ ] Write image message tests (harness): `pickImage` posted with a `requestId`; replying `pickedImageResult` inserts the image and serializes to `insertPath`; `cancelled` leaves text.
-- [ ] Write integration tests in `test/integration/` (new `slashCommands.test.ts`): `mikedown.slashCommands.enabled` (default `true`), `.dateFormat` (default `iso`, enum `iso`/`long`), and `.timeZone` (default `"local"`) are registered and no `trigger` setting exists; a `saveSettings` with new `dateFormat`/`timeZone` values persists them; updating it via `getConfiguration().update` is readable back; a `saveSettings` with `source: 'slashMenu'` persists `enabled: false` and shows the notification (stub `showInformationMessage`); resolving the stub with "Undo" restores `enabled: true`; resolving it with "Open Settings" posts `openSettings` with `tab: 'behavior'` to the panel; the image picker host handler returns a relative path for a file in a private fixture folder, and copies a file from outside the workspace (e.g. `os.tmpdir()`) into the image-paste folder and returns that relative path (stub `showOpenDialog`). Mutating tests use a private fixture with teardown, never `test/workspace/sample.md`.
-- [ ] Run `npm run test:unit` green.
-- [ ] Run `npm run test:integration` green.
-- [ ] Run `npm run test:edge` and `npm run lint` green.
-- [ ] Commit tests.
+- [x] Write round-trip tests (harness): for every command, insert at line start and mid-line, then assert the emitted `edit` markdown exactly (`# `, `## `, `### `, `#### `, `##### `, `###### `, `> `, `- `, `1. `, `- [x] `, fenced code, ```` ```mermaid ````, `---`, `> [!NOTE]`/`[!TIP]`/`[!IMPORTANT]`/`[!WARNING]`/`[!CAUTION]`, table, link, `[[`, emoji, `![alt](path)`, frontmatter, date, datetime) and that re-loading that markdown via `update` then re-serializing is stable.
+- [x] Write mid-line insert-below tests: `foo /h2|` gives paragraph `foo` + empty H2 below; `foo /table|bar` gives paragraph `foo bar` (text intact, `/table` removed) + table below; `foo /emoji|` inserts inline.
+- [x] Write undo tests: one history undo after each command restores the `/query` text exactly.
+- [x] Write picker-cancel tests: code language, table, link, emoji, image cancel leave `/query` intact.
+- [x] Write settings live-toggle tests (harness): send a `settings` message with `slashCommandsEnabled: false` and assert `/` no longer opens; sending `true` again reopens it on the next `/`.
+- [x] Write placeholder tests (harness): an empty doc shows "Type / for commands…" by default; a `settings` message with `slashCommandsEnabled: false` switches it to "Start writing…" without reload; `true` switches it back.
+- [x] Write code-block guard tests (harness, full bundle): typing `/` and ` /` inside a fenced code block, a `mermaid` code block, and inline code never opens the menu and leaves the markdown exactly as typed.
+- [x] Write Settings modal tests (harness): the Behavior tab has a "Slash commands" subsection with the checkbox, Date format select, and Time zone input (placeholder "local, UTC, or e.g. America/New_York"); unticking the checkbox disables the select and input; Save posts `saveSettings` with all three values.
+- [x] Write footer-row flow tests (harness): choosing the footer row leaves the `/query` text intact and posts `saveSettings` with `slashCommandsEnabled: false`, `source: 'slashMenu'`; a `command` message `openSettings` with `tab: 'behavior'` opens the Settings modal on the Behavior tab.
+- [x] Write image message tests (harness): `pickImage` posted with a `requestId`; replying `pickedImageResult` inserts the image and serializes to `insertPath`; `cancelled` leaves text.
+- [x] Write integration tests in `test/integration/` (new `slashCommands.test.ts`): `mikedown.slashCommands.enabled` (default `true`), `.dateFormat` (default `iso`, enum `iso`/`long`), and `.timeZone` (default `"local"`) are registered and no `trigger` setting exists; a `saveSettings` with new `dateFormat`/`timeZone` values persists them; updating it via `getConfiguration().update` is readable back; a `saveSettings` with `source: 'slashMenu'` persists `enabled: false` and shows the notification (stub `showInformationMessage`); resolving the stub with "Undo" restores `enabled: true`; resolving it with "Open Settings" posts `openSettings` with `tab: 'behavior'` to the panel; the image picker host handler returns a relative path for a file in a private fixture folder, and copies a file from outside the workspace (e.g. `os.tmpdir()`) into the image-paste folder and returns that relative path (stub `showOpenDialog`). Mutating tests use a private fixture with teardown, never `test/workspace/sample.md`.
+- [x] Run `npm run test:unit` green.
+- [x] Run `npm run test:integration` green.
+- [x] Run `npm run test:edge` and `npm run lint` green.
+- [x] Commit tests.
 
 ### Hands-on pass (orchestrator pauses for Mike's sign-off)
 
@@ -446,6 +446,24 @@ Each gap-fill prompt must include:
 [Return to Top](#top)
 
 ## Progress Log / Notes
+
+**2026-09-26 02:58** - T2 automated done, commit `8f5d5c3`. Added `slashcommandsRoundtrip.test.ts` (33), `slashcommandsUndoToggle.test.ts` (14), `test/integration/slashCommands.test.ts` (12). Test seam: `MarkdownEditorProvider.dispatchTestMessage` + static `instance`, `activate()` returns `{ __test }`, `saveSettings` body extracted verbatim into `handleSaveSettings`. Orchestrator re-ran: unit 46 files / 704 tests, edge 22, integration 38 passing. Lint: same 386-problem baseline before and after (no new findings; baseline failure is pre-existing). Flagged, not fixed: an empty `/todo` item picks up a cosmetic backslash escape on its first reload (stable from the second); PM input rules don't fire through the harness's synthetic typing, so wikilink round-trips drive the real autocomplete path. Paused for Mike's hands-on pass.
+
+**2026-09-26 02:28** - M4 webview half (`1993c00`: `imagepick.ts`, `pickedImageResult` routing, `/image` action) and M6 actions (`e5ae34b`: `/date`, `/datetime`, `/properties`, `focusPropertiesSection()` in `outlineSidebar.ts`) done. Compile green, unit 44 files / 634 tests. Real bug fixed along the way: `frontmatterContent` used `''` for both "absent" and "empty", so an empty frontmatter block would be stripped on the next edit; now `string | null` across ~10 call sites in `editor-main.ts`. Concern: frontmatter lives outside the PM doc, so `/properties` undo is a heuristic (an undo-depth watcher on the very next update calls `revert()`). One immediate Cmd+Z works; typing after `/properties` and undoing back past it later may not remove the frontmatter. Check in hands-on step 23. T2 automated part dispatched.
+
+**2026-09-26 01:58** - M3 done, landed as `538093d` (one import conflict with M5 resolved). New `slashcommands-actions.ts` wires every existing-block command plus code/table/link/wikilink/emoji pickers; fixed T1's reopen-after-unhandled bug; +19 tests in `slashcommandsActions.test.ts`. Compile green, unit 44 files / 620 tests. Decisions: wrap-shaped commands (quote, lists, callouts) build the wrap inside the `/query` transaction (`applySlashWrap`) because PM history won't group a `ReplaceAroundStep` with the prior tr, so a second dispatch would need two undos; the space before `/` is stripped only when needed to keep `foo /table|bar` → `foo bar`; code and table picker cancel is implemented as an undo of the eagerly created block (leaves a redo entry; watch in hands-on step 11). M4 webview half + M6 actions dispatched together to one worker (they share `slashcommands-actions.ts` and the message handler).
+
+**2026-09-26 01:30** - M5 done, landed as `517f091`. The worker's worktree reset to the pre-M1 base (orchestrator prompt bug), so it stubbed `slashcommands.ts`; merged by hand keeping M2's real file (its `setSlashCommandsConfig` is compatible) and resolving conflicts with the concurrent review-appeal `support` settings in `settings.ts` and `editor-main.ts` (both kept). Compile green, unit 39 files / 532 tests. Real-VS-Code live-toggle check left unchecked; covered by T2 hands-on steps 17 and 26 (harness tests cover placeholder, modal greying, save payload, `openSettings`).
+
+**2026-09-26 01:10** - T1 gate passed: commit `0293b60`, unit 38 files / 522 tests green. Added `slashcommandsRegistry.test.ts`, `slashcommandsHarness.test.ts`, WYSIWYG harness helpers, and a test-only `window.__mikedownEditor` hook in `editor-main.ts`. jsdom can't drive native Backspace/ArrowLeft, so those exit tests drive the equivalent transaction through the real plugin. Found for M3: choosing an unwired command closes the popup via `hidePopup()` without recording dismissal, so it reopens on the next update. M3 and M5 dispatched in parallel worktrees.
+
+**2026-09-26 00:58** - M2 done and cherry-picked (`slashcommands.ts`, `slashcommands.css`, registered in `editor-main.ts`, CSS in the provider's stylesheet list). Compile green, unit 449/449; new file lints clean against the webview tsconfig. Beyond brief: a two-line guard in the emoji and wikilink autocompletes so only one popup shows at a time. Popup visuals in light/dark/HC/force-light not yet eyeballed (T2 hands-on). Handoffs: M5 must call `setSlashCommandsConfig` from the settings handler (until then the footer disable lasts only until reload); M3 must strip the whitespace left before `/` on mid-line commands, and handle converting a list item's first paragraph to a heading (currently a silent no-op). T1 dispatched.
+
+**2026-09-26 00:50** - M4 host half done and cherry-picked: `pickImage`/`pickedImageResult`, `handlePickImage` with shared helpers extracted from `handleSavePastedImage`, `isPathInside`/`isOutsideResourceRoots` in `imagePaste.ts` with tests, protocol comment updated. Unit tests 449/449, compile green. Webview half (`imagepick.ts`, routing) deferred to after M3. M2 dispatched (Opus) at 00:46.
+
+**2026-09-26 00:44** - M1 done (`slashcommands-registry.ts`, 27 commands, `matchCommands`, `extractSlashQuery`, mermaid starter). M6 part 1 done (`slashcommands-date.ts` + 17 tests, `TZ=UTC` pinned in `vitest.config.ts`). Both cherry-picked onto main (main had moved with review-appeal commits). Concern: `npm run lint` fails repo-wide before this work (246 errors; eslint `parserOptions.project` points at `tsconfig.json`, which excludes `src/webview`), so the lint gate is "no new distinct findings", not green. Separate fix, out of scope. Note for M2: `extractSlashQuery(textBefore, atBlockStart)` expects `atBlockStart = true` when `textBefore` is the full block prefix from offset 0.
+
+**2026-09-26 00:37** - Orchestrator started. Wave 1 dispatched in parallel worktrees (Sonnet): M1 registry, M4 host half, M6 pure date helper + tests.
 
 **2026-09-26 00:06** - Mike resolved Open Questions 1 to 5. Properties and Date are in (M6 no longer optional, now runs before T2; `/properties` only when the doc has no frontmatter). Added `/h4`–`/h6`, `/datetime` (aliases `timestamp`, `now`; `now` moved off `/date`), and two settings, `mikedown.slashCommands.dateFormat` (`iso` | `long`) and `.timeZone` (`local` | `UTC` | IANA, validated, invalid falls back to local), in a "Slash commands" subsection of the Behavior tab that greys out when disabled. Date/time formatting is a pure, clock-injected helper (`slashcommands-date.ts`). Picker cancel keeps `/query`; outside images are copied into the image-paste folder; placeholder is "Type / for commands…" when enabled, "Start writing…" when disabled (M5). Reaffirmed no menu in code blocks (including mermaid) or inline code. Updated Summary, command table, new [Date and time formatting](#date-and-time-formatting) and [Placeholder](#placeholder), [Trigger rules](#trigger-rules), [Settings](#settings), M1, M2, T1, M3, M4, M5, M6, T2 (tests and hands-on steps 0, 4, 22 to 28), M7, tracker, parallel groups, and Open Questions.
 
