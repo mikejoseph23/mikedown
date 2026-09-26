@@ -12,15 +12,13 @@ Rationale: personal and quiet, reads like a handwritten note rather than a syste
 
 ## 2. Card body
 
-> Thanks for using MikeDown.
+> Hi there! Thanks for downloading my markdown editor. I built MikeDown for myself because I wanted more of a word processor inside VS Code, instead of the split pane preview I'd used for years. Version 1 was half-decent. Since then I've kept adding features and fixing bugs, and I find it more useful than ever. Thanks too to everyone who has sent in feature requests.
 >
-> I built it for myself. I'd spent years in split pane previews and wanted markdown to feel like having a few Word documents open. It's been my main editor ever since, and nearly every feature came from using it daily. I'm accidentally proud of how it turned out.
+> Problem is, the marketplace is crowded and it's hard to get noticed. I have a few hundred installs and only a handful of reviews, and reviews are what get an extension noticed. If you've found this extension useful, please help others find me by leaving me a review. If you have any ideas for new features or find any issues, feel free to contact me via GitHub!
 >
-> It's just me, and it's easy to miss on the Marketplace. A review, or a word to a colleague who uses VS Code, helps more than you'd think. Bug or idea? Open an issue. I reply fast.
->
-> Mike
+> \- Mike
 
-Rationale: a short letter from one colleague to another. Opens with thanks, tells the origin story (built for himself, dogfooded daily), then asks for a review or a word to a colleague and invites issues. Under 90 words, signed "Mike".
+Rationale: Mike's own voice (rewritten by Mike 2026-09-26, lightly tightened). Origin story, then a plain ask for a review. No hardcoded counts so it does not go stale. About 95 words, signed "Mike"; check card fit at F5.
 
 ## 3. Button labels
 
@@ -86,19 +84,15 @@ Rationale: one consistent name ("Support MikeDown") everywhere so users recogniz
 
 > ## A note from the developer
 >
-> Thanks for giving MikeDown a try.
+> Hi there! Thanks for giving MikeDown a try. I built it for myself a few months ago. I'd used the popular Markdown Preview extension for years, and it's good, but I wanted more of a word processor inside VS Code instead of a split pane. Version 1 was half-decent. Since then I've kept adding features and fixing bugs, and it's now my everyday markdown editor. Thanks too to everyone who has sent in feature requests.
 >
-> I built it for myself. I'd used the popular Markdown Preview extension for years, and it's great, but the split pane always felt like wasted space. I wanted editing docs and plans to feel like having a few Word documents open side by side. Version one already worked well, and it's been my everyday markdown editor since. Nearly every feature came from using it that way and thinking "I wish it did this." I'm accidentally proud of where it ended up.
+> Problem is, the marketplace is crowded and it's hard to get noticed. Reviews are what get an extension noticed, so if MikeDown has earned a spot in your workflow, please help others find it by [leaving me a review](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details) or [passing it along to a colleague](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor).
 >
-> It's just me building it, and it's easy to miss among all the markdown editors on the Marketplace. If it's earned a spot in your workflow, [a review](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details) or [a word to a colleague](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor) is the best way to help it grow.
+> Found a bug or have an idea? [Open an issue](https://github.com/mikejoseph23/mikedown/issues/new). I usually reply quickly.
 >
-> I'm small enough to be quick. Bug or idea, [open an issue](https://github.com/mikejoseph23/mikedown/issues/new) and you'll likely hear back fast.
->
-> Mike
+> \- Mike
 
-Rationale: the longer version of the card letter, with the Markdown Preview backstory and links for review, share, and issues. About 165 words, a little over the 150 target, approved by Mike 2026-09-26.
-
-Optional line (not included, Mike's call): "The whole design started as a conversation on a walk around my neighborhood."
+Rationale: longer version of the card letter in Mike's voice, with the Markdown Preview backstory and links for review, share, and issues. Approved by Mike 2026-09-26.
 
 ## 8. Fallback notice (`mikedown.support`, no MikeDown editor open)
 
