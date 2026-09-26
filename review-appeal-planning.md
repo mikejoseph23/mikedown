@@ -27,7 +27,7 @@
 | M1: Copy Draft (Review Gate) | Opus | ✅ | | Pauses for Mike's approval; neutral share line (Q7) |
 | M2: Eligibility Module | Sonnet | ✅ | 6 | Pure module, injected clock; Q1 thresholds |
 | M3: Host Wiring, Command, Dev Reset | Sonnet | ✅ | 12 | Needs M2; toast removed (Q2) |
-| M4: Testing: Host Logic | Sonnet | 🔄 | | Needs M2, M3 |
+| M4: Testing: Host Logic | Sonnet | ✅ | 12 | Needs M2, M3 |
 | M5: "A Note from Mike" Card UI | Opus | ✅ | 15 | Needs M1 approved, M3 protocol; swappable avatar slot (Q6) |
 | M6: Persistent Entry Points | Opus | ✅ | 8 | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
 | M7: Testing: Webview Card and Entry Points | Sonnet | 🔄 | | Needs M5, M6 |
@@ -170,13 +170,13 @@ Extract eligibility into a pure, unit-testable module with no `vscode` import.
 
 Modes: **unit** (`npm run test:unit`, vitest with mocked `vscode`) and **integration** (`npm run test:integration`, real VS Code).
 
-- [ ] Write tests: `test/unit/supportPromptEligibility.test.ts` using a fixed injected clock. Cover: not eligible before 7 days; not eligible under 5 doc opens or 3 active days; not eligible when the session is under 20 edits or under 3 minutes; eligible when all met; ladder 14/30/60/90 and cap; CTA gap 60 days; review stops auto permanently; `dismissed` sticky (including legacy `mikedown.nag.dismissed` with no one time exception); one auto show per session; legacy state (only old `mikedown.nag.*` keys present) evaluates correctly.
-- [ ] Write tests: `test/unit/supportPrompt.test.ts` with mocked `vscode` (pattern from `test/unit/defaultEditorPrompt.test.ts`). Cover: each `supportAction` writes the right keys; `share` calls `env.clipboard.writeText` with exactly the approved neutral share line (starts "Check out MikeDown" or the approved variant, contains the Marketplace URL, no first person "I") and posts `supportCopied`; no toast or notice is shown on activation or after any timer; `review`/`feedback` call `openExternal` with the right URLs; `lastPrompt` written only after `supportCardShown`; `busy` does not write `lastPrompt`.
-- [ ] Write tests: `test/integration/supportCommand.test.ts`. Assert `mikedown.support` is registered and executes without throwing with and without an open MikeDown editor. Use a **private fixture** copied to a temp dir (never `test/workspace/sample.md`) for any test that opens and saves a file.
-- [ ] Run green: `npm run test:unit`.
-- [ ] Run green: `npm run test:integration`.
-- [ ] Human review locators: `src/supportPromptEligibility.ts` `THRESHOLDS` constant; `src/markdownEditorProvider.ts` `onDidSaveTextDocument` handler (search `onSaveAfterSession`); `src/extension.ts` search `mikedown.dev.resetSupportPrompt`.
-- [ ] Commit, write `.orchestrator/worker-summary-m4-testing-host-logic.md`.
+- [x] Write tests: `test/unit/supportPromptEligibility.test.ts` using a fixed injected clock. Cover: not eligible before 7 days; not eligible under 5 doc opens or 3 active days; not eligible when the session is under 20 edits or under 3 minutes; eligible when all met; ladder 14/30/60/90 and cap; CTA gap 60 days; review stops auto permanently; `dismissed` sticky (including legacy `mikedown.nag.dismissed` with no one time exception); one auto show per session; legacy state (only old `mikedown.nag.*` keys present) evaluates correctly.
+- [x] Write tests: `test/unit/supportPrompt.test.ts` with mocked `vscode` (pattern from `test/unit/defaultEditorPrompt.test.ts`). Cover: each `supportAction` writes the right keys; `share` calls `env.clipboard.writeText` with exactly the approved neutral share line (starts "Check out MikeDown" or the approved variant, contains the Marketplace URL, no first person "I") and posts `supportCopied`; no toast or notice is shown on activation or after any timer; `review`/`feedback` call `openExternal` with the right URLs; `lastPrompt` written only after `supportCardShown`; `busy` does not write `lastPrompt`.
+- [x] Write tests: `test/integration/supportCommand.test.ts`. Assert `mikedown.support` is registered and executes without throwing with and without an open MikeDown editor. Use a **private fixture** copied to a temp dir (never `test/workspace/sample.md`) for any test that opens and saves a file.
+- [x] Run green: `npm run test:unit`.
+- [x] Run green: `npm run test:integration`.
+- [x] Human review locators: `src/supportPromptEligibility.ts` `THRESHOLDS` constant; `src/markdownEditorProvider.ts` `onDidSaveTextDocument` handler (search `onSaveAfterSession`); `src/extension.ts` search `mikedown.dev.resetSupportPrompt`.
+- [x] Commit, write `.orchestrator/worker-summary-m4-testing-host-logic.md`.
 
 [Return to Top](#review-appeal-planning)
 
@@ -318,6 +318,8 @@ All resolved 2026-09-26.
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
+
+**2026-09-26 01:42** - M4 done (commit `d4dcdd3`). 51 new tests: `test/unit/supportPromptEligibility.test.ts`, `test/unit/supportPrompt.test.ts`, `test/integration/supportCommand.test.ts` (private temp fixture). No M2 or M3 bugs found. Worker ran 573 unit and 28 integration green; after merging onto M6, main runs 583 unit green.
 
 **2026-09-26 01:38** - M6 done (commits `7ee9b3d`, `33d45e1`). Sidebar footer link inline after the metrics with hover and focus × dismiss and a `role="status"` confirmation; About tab Support section; new setting `mikedown.support.showSidebarLink` in all three places with live toggle. Route chosen: link and About button post `supportAction: 'open'`, host replies with a manual card. The modal key shape is `supportShowSidebarLink` (matches the existing modal keys), not `support.showSidebarLink`. Card close label now comes from `supportCopy.ts`. Sidebar screenshots (dark, light, minimum width) in `.orchestrator/review-appeal-planning/screenshots/`; About section compiled but not rendered. Compile and 522 unit tests green; no new lint errors.
 
