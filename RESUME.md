@@ -6,37 +6,27 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 
 ## Current Status
 
-**2.10.2 is released: GitHub issue #3 fully shipped (list/sidebar hotkeys + Hotkeys settings tab + Ctrl+Tab indent fix), published to the marketplace, issue closed, everything pushed.**
+**2.10.4 is released (issue #5 fix). `main` is clean, and 2.10.2 through 2.10.4 are tagged locally.**
 
-- Just finished: all 5 milestones of `list-hotkeys-planning.md` plus the separate Ctrl+Tab bug fix, orchestrated across subagent workers. All hands-on verification passed. Reply posted to issue #3 and the issue closed as completed.
-- Working tree clean, `main` pushed through `ff3cb15`.
-- No release tag was created for 2.10.2 (2.10.0/2.10.1 got `v*` tags) — consider `git tag v2.10.2 ff3cb15 && git push --tags`.
-
-## What's Done
-
-- **2.10.2 — issue #3** (`89b49e4`…`ff3cb15`): four new commands (`toggleBulletList` `Ctrl+.`, `toggleOrderedList` `Ctrl+3`, `toggleTaskList` `Ctrl+8`, `toggleSidebar` `Ctrl+\`), scoped `when: activeCustomEditorId == 'mikedown.editor'`, remappable via VS Code's native Keyboard Shortcuts UI (deliberate decision: no custom remapping preference area). Read-only **Hotkeys tab** in the Settings modal with a "Customize in VS Code…" deep link. **Ctrl+Tab fix** (`1ca9836`): Tab handlers in `editor-main.ts` now ignore modified Tab presses.
-- Tests: unit 386/386, integration 25/25, all green post-release.
-- **2.10.1 remote-loading hotfix** (`90a1080`): `extensionKind` order + diff-scheme allowlist — editor loads in WSL/Docker again.
-- **2.10.0**: spell checker (off by default), custom dictionary UI at scale, default-editor first-run prompt.
+- 2.10.3: Paste Without Formatting, and bare filenames no longer autolink (`efe276b`).
+- 2.10.4: markdown escaping and source-mode sync fix (#5, `c1148cf`), source-mode divergence tracking extracted and tested (`dc8061a`), and a jsdom harness that boots the real webview (`f308a6d`).
+- Housekeeping (2026-09-25): added tags v2.10.2 through v2.10.4, and archived the hotkeys and wikilink plans to `docs/` with a new `docs/README.md` index.
 
 ## What's Next
 
-1. **Tag the release** if desired (see Current Status).
-2. **Archive `list-hotkeys-planning.md`** (`/iadev:archive-planning-document`) — all milestones ✅ and shipped.
-3. **Three logged follow-ups from the hotkeys work** (in the planning doc's progress log, awaiting a decision):
-   - Older command cases (`toggleBold`/`Italic`/`Strike`/`Highlight`/`Code`) in `editor-main.ts` lack the `sourceMode` guard the new list commands have — latent bug.
-   - Those same older commands have no `commandPalette` gating entries — inconsistency worth retrofitting.
-   - Adopt repo rule: mutating integration tests must use a private fixture, never shared `test/workspace/sample.md` (M3 corrupted it once; restored).
-4. **Carry-overs from 2.10.x**: Kevin remote retest (WSL/Docker load + Docker print — still never human-verified), possible pending Kevin email (Gmail thread `19ffde1e6eeb746b`), `manual-test-script.md` pass, mark M3/M9 in `planning/kevin-feedback-aug-08.md` then archive it.
+1. **Hotkeys follow-ups:**
+   - The older command cases (`toggleBold`/`Italic`/`Strike`/`Highlight`/`Code`) in `editor-main.ts` have no `sourceMode` guard. This is a latent bug.
+   - Those same commands have no `commandPalette` gating entries.
+   - Adopt a repo rule that integration tests which change a file must use a private fixture.
+2. **Carry-overs from 2.10.x:** Kevin's remote retest (WSL/Docker load and Docker print have never been checked by a human), a possibly pending email to Kevin (Gmail thread `19ffde1e6eeb746b`), the `manual-test-script.md` pass, and marking M3/M9 in `planning/kevin-feedback-aug-08.md` before archiving it.
 
 ## Planning Docs
 
-- `list-hotkeys-planning.md` — issue #3 hotkeys work, all 5 milestones ✅, shipped in 2.10.2; ready to archive.
-- `planning/kevin-feedback-aug-08.md` — M1–M9 ✅ except M3 (hands-on remote checks) and M9 (follow-up email).
-- `manual-test-script.md` — the v2.10.0 manual pass, still not executed.
-- `PLANNING.md` — pre-existing general planning doc (reserved root fixture).
-- `wikilink-support-plan.md` — shipped in 2.9.0; candidate for archiving.
-- `planning/HEADING-RENAME-LINKS.md`, `planning/IMAGE-PASTE.md` — done, historical.
+- `docs/` holds archived plans: `list-hotkeys.md` and `wikilink-support.md`, indexed in `docs/README.md`.
+- `planning/kevin-feedback-aug-08.md` has M1 through M9 done except M3 (hands-on remote checks) and M9 (follow-up email).
+- `manual-test-script.md` is the v2.10.0 manual pass and still hasn't been run.
+- `PLANNING.md` is the general planning doc (reserved root fixture).
+- `planning/HEADING-RENAME-LINKS.md` and `planning/IMAGE-PASTE.md` are finished and kept for history.
 
 ## Key File Paths
 
@@ -46,18 +36,15 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 - `src/extension.ts` — `formattingCommands` forwarding array (~line 96)
 - `src/markdownEditorProvider.ts` — `openKeybindings` message case; diff-view allowlist (~line 169)
 - `package.json` — commands/keybindings/commandPalette contributions; `extensionKind` order is load-bearing
-- `.orchestrator/list-hotkeys-planning/` — worker prompts/summaries from the orchestration (gitignored)
 
 ## Recent Git Log
 
-- `ff3cb15` Bump version to 2.10.2
-- `c54029a` Date the 2.10.2 changelog entry and add the Hotkeys tab and Ctrl+Tab fix notes
-- `139bfec` Record hands-on results and the Hotkeys tab fix
-- `dc3fad6` Fix Hotkeys settings tab rendering an empty pane
-- `ba3289d` Add read-only Hotkeys tab to the Settings modal
-- `8947309` Add keyboard shortcuts for list toggles and sidebar
-- `8782c83` Add tests for list-toggle and sidebar commands
-- `9264690` Wire list-toggle and sidebar keybindings into the webview
+- `e4d26d0` Release 2.10.4
+- `f308a6d` Add a jsdom harness that boots the real webview, and cover issue #5 end to end
+- `dc8061a` Extract source-mode divergence tracking and cover it with tests
+- `c1148cf` Fix markdown escaping and source-mode sync (#5)
+- `f54b709` Release 2.10.3
+- `efe276b` Add Paste Without Formatting and stop autolinking bare filenames
 
 ## Any Other Notes
 
