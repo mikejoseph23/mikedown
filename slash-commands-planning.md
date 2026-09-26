@@ -30,7 +30,7 @@
 | M1: Command registry + matcher | Sonnet | ⬜ | | Pure module, no DOM |
 | M2: Trigger/exit plugin + popup UI | Opus | ⬜ | | Front-end design craft required |
 | T1: Tests for M1 + M2 | Sonnet | ⬜ | | Unit + jsdom harness |
-| M3: Wire existing-block commands | Sonnet | ⬜ | | Mid-line split, callouts, pickers |
+| M3: Wire existing-block commands | Sonnet | ⬜ | | Mid-line insert-below, callouts, pickers |
 | M4: Image file picker (host) | Sonnet | ⬜ | | New message pair |
 | M5: Settings (three places, live toggle) | Sonnet | ⬜ | | Behavior tab |
 | T2: Tests, integration, hands-on sign-off | Sonnet | ⬜ | | Pauses for Mike |
@@ -97,7 +97,7 @@ Because aliases include `1.`, ```` ``` ````, `---`, `[[` and `:`, the query char
 - Opens when `/` is typed at the start of a textblock, or (when `trigger = anywhere`) immediately after whitespace. `trigger = lineStart` restricts to textblock start only.
 - Never inside a `codeBlock` node, an inline `code` mark, a `link` mark, a wikilink, or directly after a non-whitespace character (so `and/or`, `path/to`, and URLs never trigger).
 - Never in source mode (CodeMirror). The plugin also stays closed if the selection is non-empty.
-- Mid-line insertion: if the `/query` is the only content of its textblock, convert that block in place. Otherwise remove `/query`, split the textblock at that position, and apply the block type to the second half (which carries any text that was after the cursor). Atom-ish blocks (divider, table, code, mermaid, image) insert between the two halves.
+- Mid-line insertion (decided 2026-09-25): if the `/query` is the only content of its textblock, convert that block in place. Otherwise remove `/query`, leave the current line's text untouched (no split), and insert the new block **immediately after the current block**, with the cursor placed inside it. Inline commands (link, wikilink, emoji, date) insert inline at the cursor instead.
 
 ### Graceful exit
 
@@ -204,7 +204,7 @@ Because aliases include `1.`, ```` ``` ````, `---`, `[[` and `:`, the query char
 > Workers must complete ALL items. If you think one should be deferred, note it in your summary but still attempt it unless truly blocked.
 
 - [ ] Map every registry `id` to an action in `slashcommands.ts` (or a sibling `slashcommands-actions.ts`), all via `editor.chain()` or `view.dispatch(tr)`.
-- [ ] Implement the mid-line split rule from [Trigger rules](#trigger-rules) as a shared helper used by every block command.
+- [ ] Implement the mid-line insert-below rule from [Trigger rules](#trigger-rules) as a shared helper used by every block command (empty line → convert in place; non-empty line → strip `/query`, insert the block after the current block, cursor into it).
 - [ ] Headings, paragraph, quote, bullet, numbered, task list.
 - [ ] Divider (`setHorizontalRule`), serializes as `---`.
 - [ ] Callouts: `note`, `tip`, `important`, `warning`, `caution` via `setCallout(kind)`; serializes as `> [!NOTE]` etc.
@@ -268,7 +268,7 @@ Because aliases include `1.`, ```` ``` ````, `---`, `[[` and `:`, the query char
 ### Automated
 
 - [ ] Write round-trip tests (harness): for every command, insert at line start and mid-line, then assert the emitted `edit` markdown exactly (`# `, `## `, `### `, `> `, `- `, `1. `, `- [ ] `, fenced code, ```` ```mermaid ````, `---`, `> [!NOTE]`/`[!TIP]`/`[!IMPORTANT]`/`[!WARNING]`/`[!CAUTION]`, table, link, `[[`, emoji, `![alt](path)`) and that re-loading that markdown via `update` then re-serializing is stable.
-- [ ] Write mid-line split tests: `foo /h2|` and `foo /h2|bar` produce the specified two blocks.
+- [ ] Write mid-line insert-below tests: `foo /h2|` gives paragraph `foo` + empty H2 below; `foo /table|bar` gives paragraph `foo bar` (text intact, `/table` removed) + table below; `foo /emoji|` inserts inline.
 - [ ] Write undo tests: one history undo after each command restores the `/query` text exactly.
 - [ ] Write picker-cancel tests: code language, table, link, emoji, image cancel leave `/query` intact.
 - [ ] Write settings live-toggle tests (harness): send a `settings` message with `slashCommandsEnabled: false` and assert `/` no longer opens; `slashCommandsTrigger: 'lineStart'` blocks mid-line.
@@ -341,7 +341,7 @@ Start: open the repo in VS Code, run `npm run compile`, press **F5** (Extension 
 3. **Picker cancel:** for `/code`, `/table`, `/link`, `/emoji`, `/image`, should cancelling the follow-up picker leave `/query` in the document (plan default), or remove it and leave an empty block?
 4. **Images outside the doc folder/workspace:** they will not render (`localResourceRoots`). Copy them into the image-paste folder (plan default), reference them by absolute path, or refuse?
 5. **Placeholder hint:** change the empty-doc placeholder from "Start writing…" to "Type / for commands…"?
-6. **Mid-line split direction:** plan applies the block type to the text after the cursor (`hello /quote|world` → `hello` + quote `world`). Acceptable, or should mid-line commands insert an empty block below instead?
+6. **Mid-line behavior:** ✅ Resolved 2026-09-25: no split. Block commands on a non-empty line insert the block on the next line; inline commands insert inline.
 
 [Return to Top](#top)
 
@@ -378,6 +378,8 @@ Each gap-fill prompt must include:
 [Return to Top](#top)
 
 ## Progress Log / Notes
+
+**2026-09-25 23:55** - Mike decided mid-line block commands insert the block on the next line instead of splitting the paragraph. Updated [Trigger rules](#trigger-rules), M3, T2 tests, and Open Question 6.
 
 **2026-09-25 23:43** - Plan created. Decisions baked in: full command set with aliases (Properties/Date deferred to M6 pending Mike); trigger at line start or after whitespace, never in code, inline code, links, mid-word, or source mode; mid-line insertion splits the paragraph; dismissal (Esc, click-away, Backspace past `/`, no-match space, cursor out of range) never changes text; one undo restores `/query`; settings `mikedown.slashCommands.enabled` (default true) and `.trigger` (`lineStart` | `anywhere`, default `anywhere`) in the Behavior tab with live toggle; popup follows the `wikilinkautocomplete.ts` plugin pattern; pure registry in `slashcommands-registry.ts`; `/image` uses a new host `showOpenDialog` picker with a `pickImage` / `pickedImageResult` message pair.
 
