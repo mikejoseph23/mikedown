@@ -13,6 +13,8 @@ import {
   resolveLocalImagePaths,
   isInsideManagedFolder,
   looksLikeAutoPastedImage,
+  isPathInside,
+  isOutsideResourceRoots,
 } from '../../src/imagePaste';
 import type { ImagePasteSettings } from '../../src/settings';
 
@@ -363,6 +365,50 @@ describe('looksLikeAutoPastedImage', () => {
 
   it('returns false for an empty pattern', () => {
     expect(looksLikeAutoPastedImage('foo.png', '', 'note')).toBe(false);
+  });
+});
+
+describe('isPathInside', () => {
+  it('is true for a file directly inside the parent', () => {
+    expect(isPathInside('/Users/me/notes', '/Users/me/notes/foo.png')).toBe(true);
+  });
+
+  it('is true for a file nested several levels deep', () => {
+    expect(isPathInside('/Users/me/notes', '/Users/me/notes/a/b/foo.png')).toBe(true);
+  });
+
+  it('is true for the parent directory itself', () => {
+    expect(isPathInside('/Users/me/notes', '/Users/me/notes')).toBe(true);
+  });
+
+  it('is false for a sibling directory that shares a prefix', () => {
+    expect(isPathInside('/Users/me/notes', '/Users/me/notesX/foo.png')).toBe(false);
+  });
+
+  it('is false for a path outside the parent entirely', () => {
+    expect(isPathInside('/Users/me/notes', '/Users/other/foo.png')).toBe(false);
+    expect(isPathInside('/Users/me/notes', '/Users/me/Desktop/foo.png')).toBe(false);
+  });
+});
+
+describe('isOutsideResourceRoots', () => {
+  const docDir = '/Users/me/notes';
+  const wsRoot = '/Users/me';
+
+  it('is false when the path is inside the doc folder', () => {
+    expect(isOutsideResourceRoots('/Users/me/notes/foo.png', [docDir, wsRoot])).toBe(false);
+  });
+
+  it('is false when the path is inside a workspace root but outside the doc folder', () => {
+    expect(isOutsideResourceRoots('/Users/me/assets/foo.png', [docDir, wsRoot])).toBe(false);
+  });
+
+  it('is true when the path is outside every root', () => {
+    expect(isOutsideResourceRoots('/Users/other/Desktop/foo.png', [docDir, wsRoot])).toBe(true);
+  });
+
+  it('is true when there are no roots at all', () => {
+    expect(isOutsideResourceRoots('/Users/me/notes/foo.png', [])).toBe(true);
   });
 });
 

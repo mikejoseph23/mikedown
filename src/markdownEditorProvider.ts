@@ -3,13 +3,14 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as cp from 'child_process';
-import { getSettings } from './settings';
+import { getSettings, ImagePasteSettings } from './settings';
 import { writeRenderedHtml, openRenderedInBrowser } from './export';
 import {
   extensionFromMime,
   extractLocalImageRefs,
   formatInsertPath,
   isInsideManagedFolder,
+  isOutsideResourceRoots,
   looksLikeAutoPastedImage,
   resolveAltText,
   resolveFilename,
@@ -972,6 +973,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           await this.handleSavePastedImage(document, webviewPanel.webview, message);
           break;
         }
+        case 'pickImage': {
+          await this.handlePickImage(document, webviewPanel.webview, message);
+          break;
+        }
         case 'resizeImage': {
           await this.handleResizeImage(document, webviewPanel.webview, message);
           break;
@@ -1409,6 +1414,87 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   /**
+   * Shared by `handleSavePastedImage` and `handlePickImage`: if the document
+   * isn't backed by a real file yet (Untitled, or a non-`file:` scheme),
+   * prompt the user to Save As before an image can be written next to it.
+   * Callers still reply with their own `error` payload after this returns.
+   */
+  private async promptSaveDocumentFirstForImage(): Promise<void> {
+    const pick = await vscode.window.showWarningMessage(
+      'MikeDown: save the document before pasting an image so the file can be written next to it.',
+      'Save As…',
+      'Cancel'
+    );
+    if (pick === 'Save As…') {
+      await vscode.commands.executeCommand('workbench.action.files.saveAs');
+    }
+  }
+
+  /**
+   * Shared by `handleSavePastedImage` and `handlePickImage`: resolve alt text
+   * per `mikedown.imagePaste.altText`, prompting the user when the strategy
+   * is `'prompt'`.
+   */
+  private async resolveAltTextForImage(
+    settings: ImagePasteSettings,
+    filenameNoExt: string
+  ): Promise<string> {
+    if (settings.altText === 'prompt') {
+      const prompted = await vscode.window.showInputBox({
+        prompt: 'Alt text for image (leave empty for none)',
+        value: '',
+        placeHolder: 'Describe the image for screen readers',
+      });
+      return resolveAltText('prompt', filenameNoExt, prompted ?? '');
+    }
+    return resolveAltText(settings.altText, filenameNoExt, undefined);
+  }
+
+  /**
+   * Shared by `handleSavePastedImage` and `handlePickImage`: write `buffer`
+   * (already-decoded image bytes) into the resolved image-paste target
+   * folder, handling filename collisions and hash-dedupe exactly like the
+   * paste path. Returns the final absolute path and whether an identical
+   * existing file was reused instead of writing a new one, or an `error`
+   * message when folder creation or the write itself fails.
+   */
+  private async writeImageIntoTargetFolder(
+    buffer: Buffer,
+    ext: string,
+    settings: ImagePasteSettings,
+    docPath: string,
+    workspaceRoot: string | undefined
+  ): Promise<{ absPath: string; reused: boolean } | { error: string }> {
+    const docName = path.basename(docPath, path.extname(docPath));
+    const targetFolder = resolveTargetFolder(settings, docPath, workspaceRoot);
+
+    try {
+      await fs.promises.mkdir(targetFolder, { recursive: true });
+    } catch (err) {
+      return { error: `Failed to create folder ${targetFolder}: ${(err as Error).message}` };
+    }
+
+    const data = new Uint8Array(buffer);
+    const resolution = resolveFilename(
+      settings.filenamePattern,
+      targetFolder,
+      { docName, extension: ext, data, timestamp: new Date() },
+      (p: string) => fs.existsSync(p),
+      (p: string) => sha1HexFile(p)
+    );
+
+    if (!resolution.reused) {
+      try {
+        await fs.promises.writeFile(resolution.absPath, buffer);
+      } catch (err) {
+        return { error: `Failed to write ${resolution.absPath}: ${(err as Error).message}` };
+      }
+    }
+
+    return resolution;
+  }
+
+  /**
    * Handle a 'savePastedImage' request from the webview: write the image bytes
    * to disk per `mikedown.imagePaste.*` settings and reply with the resolved
    * insert path, the webview-display URI, and the alt text.
@@ -1430,14 +1516,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     }
 
     if (document.uri.scheme !== 'file') {
-      const pick = await vscode.window.showWarningMessage(
-        'MikeDown: save the document before pasting an image so the file can be written next to it.',
-        'Save As…',
-        'Cancel'
-      );
-      if (pick === 'Save As…') {
-        await vscode.commands.executeCommand('workbench.action.files.saveAs');
-      }
+      await this.promptSaveDocumentFirstForImage();
       reply({ error: 'document not saved' });
       return;
     }
@@ -1471,39 +1550,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     }
 
     const docPath = document.uri.fsPath;
-    const docName = path.basename(docPath, path.extname(docPath));
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
     const workspaceRoot = workspaceFolder?.uri.fsPath;
 
-    const targetFolder = resolveTargetFolder(settings, docPath, workspaceRoot);
-    try {
-      await fs.promises.mkdir(targetFolder, { recursive: true });
-    } catch (err) {
-      const msg = `Failed to create folder ${targetFolder}: ${(err as Error).message}`;
-      vscode.window.showErrorMessage(msg);
-      reply({ error: msg });
+    const written = await this.writeImageIntoTargetFolder(buffer, ext, settings, docPath, workspaceRoot);
+    if ('error' in written) {
+      vscode.window.showErrorMessage(written.error);
+      reply({ error: written.error });
       return;
     }
-
-    const data = new Uint8Array(buffer);
-    const resolution = resolveFilename(
-      settings.filenamePattern,
-      targetFolder,
-      { docName, extension: ext, data, timestamp: new Date() },
-      (p: string) => fs.existsSync(p),
-      (p: string) => sha1HexFile(p)
-    );
-
-    if (!resolution.reused) {
-      try {
-        await fs.promises.writeFile(resolution.absPath, buffer);
-      } catch (err) {
-        const msg = `Failed to write ${resolution.absPath}: ${(err as Error).message}`;
-        vscode.window.showErrorMessage(msg);
-        reply({ error: msg });
-        return;
-      }
-    }
+    const resolution = written;
 
     // Track this paste so orphan-cleanup can remove it on save if the user
     // deletes the image before persisting (it wouldn't be in the open-time
@@ -1514,18 +1570,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     const insertPath = formatInsertPath(resolution.absPath, docPath, workspaceRoot, settings.pathStyle);
     const filenameNoExt = path.basename(resolution.absPath, path.extname(resolution.absPath));
-
-    let alt = '';
-    if (settings.altText === 'prompt') {
-      const prompted = await vscode.window.showInputBox({
-        prompt: 'Alt text for pasted image (leave empty for none)',
-        value: '',
-        placeHolder: 'Describe the image for screen readers',
-      });
-      alt = resolveAltText('prompt', filenameNoExt, prompted ?? '');
-    } else {
-      alt = resolveAltText(settings.altText, filenameNoExt, undefined);
-    }
+    const alt = await this.resolveAltTextForImage(settings, filenameNoExt);
 
     const webviewUri = webview.asWebviewUri(vscode.Uri.file(resolution.absPath)).toString();
 
@@ -1535,6 +1580,103 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       webviewUri,
       alt,
       reused: resolution.reused,
+    });
+  }
+
+  /**
+   * Handle a 'pickImage' request from the webview (the `/image` slash
+   * command): show a native file picker and reply with the same shape
+   * `savePastedImage` uses. Files already inside the doc folder or a
+   * workspace folder are referenced in place; files picked from elsewhere
+   * (e.g. the user's Desktop) are copied into the image-paste target folder,
+   * via the same `resolveTargetFolder` + `resolveFilename` (hash-dedupe) path
+   * `handleSavePastedImage` uses, so they render and stay portable.
+   */
+  private async handlePickImage(
+    document: vscode.TextDocument,
+    webview: vscode.Webview,
+    message: WebviewMessage
+  ): Promise<void> {
+    const requestId = message.requestId ?? '';
+    const reply = (payload: Record<string, unknown>): void => {
+      webview.postMessage({ type: 'pickedImageResult', requestId, ...payload });
+    };
+
+    if (document.uri.scheme !== 'file') {
+      await this.promptSaveDocumentFirstForImage();
+      reply({ error: 'document not saved' });
+      return;
+    }
+
+    const docPath = document.uri.fsPath;
+    const docDir = path.dirname(docPath);
+
+    let result: vscode.Uri[] | undefined;
+    try {
+      result = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: {
+          Images: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'],
+        },
+        defaultUri: vscode.Uri.file(docDir),
+      });
+    } catch (err) {
+      const msg = `Failed to open the file picker: ${(err as Error).message}`;
+      vscode.window.showErrorMessage(msg);
+      reply({ error: msg });
+      return;
+    }
+
+    if (!result || result.length === 0) {
+      reply({ cancelled: true });
+      return;
+    }
+
+    const sourceAbsPath = result[0].fsPath;
+    const settings = getSettings().imagePaste;
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const workspaceRoot = workspaceFolder?.uri.fsPath;
+    const workspaceFolderPaths = (vscode.workspace.workspaceFolders ?? []).map(f => f.uri.fsPath);
+
+    let finalAbsPath = sourceAbsPath;
+
+    if (isOutsideResourceRoots(sourceAbsPath, [docDir, ...workspaceFolderPaths])) {
+      let buffer: Buffer;
+      try {
+        buffer = await fs.promises.readFile(sourceAbsPath);
+      } catch (err) {
+        const msg = `Failed to read ${sourceAbsPath}: ${(err as Error).message}`;
+        vscode.window.showErrorMessage(msg);
+        reply({ error: msg });
+        return;
+      }
+
+      const ext = path.extname(sourceAbsPath).replace(/^\./, '').toLowerCase() || 'png';
+      const written = await this.writeImageIntoTargetFolder(buffer, ext, settings, docPath, workspaceRoot);
+      if ('error' in written) {
+        vscode.window.showErrorMessage(written.error);
+        reply({ error: written.error });
+        return;
+      }
+      finalAbsPath = written.absPath;
+
+      // Same session-cleanup tracking as a paste: this file was just written
+      // (or reused) into the managed folder, so an undo-before-save should
+      // still be caught by orphan-cleanup.
+      const pastedSet = this.sessionPastedAbsPaths.get(docPath) ?? new Set<string>();
+      pastedSet.add(finalAbsPath);
+      this.sessionPastedAbsPaths.set(docPath, pastedSet);
+    }
+
+    const insertPath = formatInsertPath(finalAbsPath, docPath, workspaceRoot, settings.pathStyle);
+    const filenameNoExt = path.basename(finalAbsPath, path.extname(finalAbsPath));
+    const alt = await this.resolveAltTextForImage(settings, filenameNoExt);
+    const webviewUri = webview.asWebviewUri(vscode.Uri.file(finalAbsPath)).toString();
+
+    reply({
+      insertPath,
+      webviewUri,
+      alt,
     });
   }
 
@@ -1882,7 +2024,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'headingRenamed' | 'headingRenameAmbiguous' | 'openKeybindings';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'pickImage' | 'headingRenamed' | 'headingRenameAmbiguous' | 'openKeybindings';
   content?: string;
   pristine?: boolean;
   /** stats payload — selection word/char counts; `null` = nothing selected. */
@@ -1904,7 +2046,9 @@ interface WebviewMessage {
   /** Optional override for link navigation behavior (from context menu actions). */
   behavior?: 'navigateCurrentTab' | 'openNewTab';
   anchor?: string;
-  /** savePastedImage / resizeImage payload — base64-encoded image bytes and metadata. */
+  /** savePastedImage / resizeImage / pickImage payload — requestId, plus
+   *  base64-encoded image bytes and metadata for savePastedImage/resizeImage.
+   *  pickImage carries only requestId; the host shows its own file dialog. */
   requestId?: string;
   mime?: string;
   dataBase64?: string;

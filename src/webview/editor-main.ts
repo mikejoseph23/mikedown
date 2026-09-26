@@ -17,6 +17,31 @@
  *   { type: 'openKeybindings' }          — Settings modal "Customize in VS Code…" button (Hotkeys tab);
  *       host opens VS Code's Keyboard Shortcuts UI filtered to mikedown.*
  *
+ * Image paste (imagepaste.ts):
+ *   Webview → Extension:
+ *     { type: 'savePastedImage', requestId, mime, dataBase64 } — clipboard/drop
+ *         image bytes to write to disk per `mikedown.imagePaste.*` settings.
+ *   Extension → Webview:
+ *     { type: 'pastedImageResult', requestId, success?, insertPath?, webviewUri?,
+ *       alt?, reused?, error? } — reply keyed by `requestId`; on success the
+ *       webview inserts an image node with `src: webviewUri` (which the host
+ *       resolves back to `insertPath` on serialize); `error` (no `success`)
+ *       leaves the paste site untouched.
+ *
+ * Image file picker (imagepick.ts, slash command `/image`):
+ *   Webview → Extension:
+ *     { type: 'pickImage', requestId } — open a native file picker for the
+ *         current document.
+ *   Extension → Webview:
+ *     { type: 'pickedImageResult', requestId, insertPath?, webviewUri?, alt?,
+ *       cancelled?, error? } — reply keyed by `requestId`. `cancelled: true`
+ *       means the user dismissed the dialog; `error` means the pick failed
+ *       (e.g. document not saved yet); either way `/query` is left intact.
+ *       On success the webview replaces `/query` with an image node exactly
+ *       like a paste result. Files outside the doc folder/workspace are
+ *       copied into the image-paste folder first (host-side), so
+ *       `insertPath`/`webviewUri` always point at a servable location.
+ *
  * Heading Rename → Fix Links (2.7.0):
  *   Webview → Extension:
  *     { type: 'headingRenamed', oldSlug, newSlug } — a heading's anchor slug
