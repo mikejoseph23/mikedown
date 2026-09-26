@@ -8,6 +8,13 @@
  * Extension → Webview messages:
  *   { type: 'update', content: string }  — full document markdown text to load
  *   { type: 'command', command: string } — formatting command from extension host
+ *   { type: 'command', command: 'openSettings', tab?: 'general' | 'appearance' | 'markdown' | 'behavior' }
+ *       — open the Settings modal on a specific tab (e.g. from the slash-menu
+ *       "Turn off slash commands" toast's Open Settings action). Omitted tab
+ *       falls back to the modal's normal last-used-tab behavior.
+ *   { type: 'settings', slashCommandsEnabled, slashCommandsDateFormat, slashCommandsTimeZone, ... }
+ *       — settings broadcast; slash-command fields apply live via
+ *       setSlashCommandsConfig() and update the empty-doc placeholder text.
  *
  * Webview → Extension messages:
  *   { type: 'ready' }                    — webview is ready to receive content
@@ -16,6 +23,11 @@
  *   { type: 'toggleSource' }             — request to toggle source mode (M4 hook)
  *   { type: 'openKeybindings' }          — Settings modal "Customize in VS Code…" button (Hotkeys tab);
  *       host opens VS Code's Keyboard Shortcuts UI filtered to mikedown.*
+ *   { type: 'saveSettings', settings: {...}, source?: 'slashMenu' }
+ *       — persist settings; `source: 'slashMenu'` marks a save that came from
+ *       the slash-menu footer row's "Turn off slash commands" action, so the
+ *       host shows a dedicated Open Settings / Undo toast instead of the
+ *       generic "settings saved" one.
  *
  * Image paste (imagepaste.ts):
  *   Webview → Extension:
@@ -114,7 +126,7 @@ import { Highlight } from './highlight';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
 import { Wikilink } from './wikilink-node';
 import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
-import { SlashCommands, closeSlashMenu, setSlashFrontmatterProvider, setSlashPostMessage, setSlashSourceMode } from './slashcommands';
+import { SlashCommands, closeSlashMenu, setSlashFrontmatterProvider, setSlashPostMessage, setSlashSourceMode, setSlashCommandsConfig } from './slashcommands';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import {
   initOutlineSidebar,
@@ -850,7 +862,7 @@ function buildAboutPanel(closeModal: () => void): HTMLDivElement {
   return panel;
 }
 
-function showSettingsModal(): void {
+function showSettingsModal(initialTab?: SettingsTabId): void {
   // Remove existing modal if open
   document.getElementById('mikedown-settings-overlay')?.remove();
 
@@ -1410,6 +1422,52 @@ function showSettingsModal(): void {
     ],
   );
 
+  // ── Slash commands subsection (Behavior tab, M5) ────────────────────────────
+  const slashCommandsSectionRow = makeRow(
+    'Slash commands',
+    'Type / at the start of a line (or after whitespace) to insert dates, links, tables, and more.',
+  );
+  const slashCommandsEnabledField = makeCheckboxRow(
+    'Slash command menu',
+    'Show the popup menu when typing / at the start of a line or after whitespace.',
+    currentSlashCommandsEnabled,
+  );
+  slashCommandsEnabledField.input.id = 'mikedown-slashcommands-enabled';
+  const slashCommandsDateFormatField = makeSelectRow<'iso' | 'long'>(
+    'Date format',
+    'Used by the /date and /datetime commands.',
+    currentSlashCommandsDateFormat,
+    [
+      { value: 'iso', label: 'ISO (2026-09-26)' },
+      { value: 'long', label: 'Long (September 26, 2026)' },
+    ],
+  );
+  slashCommandsDateFormatField.select.id = 'mikedown-slashcommands-dateformat';
+  const slashCommandsTimeZoneRow = makeRow('Time zone', 'Used by the /date and /datetime commands.');
+  const slashCommandsTimeZoneInput = document.createElement('input');
+  slashCommandsTimeZoneInput.id = 'mikedown-slashcommands-timezone';
+  slashCommandsTimeZoneInput.type = 'text';
+  slashCommandsTimeZoneInput.placeholder = 'local, UTC, or e.g. America/New_York';
+  slashCommandsTimeZoneInput.value = currentSlashCommandsTimeZone;
+  slashCommandsTimeZoneInput.style.cssText = inputStyle;
+  slashCommandsTimeZoneRow.appendChild(slashCommandsTimeZoneInput);
+  // Date format / time zone only matter when the menu is on — grey them out
+  // (and disable interaction) while it's off, toggling live on the checkbox.
+  function updateSlashCommandsDependentDisabled(): void {
+    const enabled = slashCommandsEnabledField.input.checked;
+    slashCommandsDateFormatField.select.disabled = !enabled;
+    slashCommandsTimeZoneInput.disabled = !enabled;
+    slashCommandsDateFormatField.select.style.opacity = enabled ? '1' : '0.5';
+    slashCommandsTimeZoneInput.style.opacity = enabled ? '1' : '0.5';
+  }
+  slashCommandsEnabledField.input.addEventListener('change', updateSlashCommandsDependentDisabled);
+  updateSlashCommandsDependentDisabled();
+  slashCommandsSectionRow.append(
+    slashCommandsEnabledField.row,
+    slashCommandsDateFormatField.row,
+    slashCommandsTimeZoneRow,
+  );
+
   // ── Markdown tab fields
   const normalizationField = makeSelectRow<'preserve' | 'normalize'>(
     'Markdown normalization',
@@ -1780,6 +1838,9 @@ function showSettingsModal(): void {
         wikilinkCreateOnClick: wikilinkCreateField.input.checked,
         themeToggleScope: themeScopeField.select.value,
         headingRenameUpdateLinks: headingRenameField.select.value,
+        slashCommandsEnabled: slashCommandsEnabledField.input.checked,
+        slashCommandsDateFormat: slashCommandsDateFormatField.select.value,
+        slashCommandsTimeZone: slashCommandsTimeZoneInput.value.trim() || 'local',
         // Markdown
         markdownNormalization: normalizationField.select.value,
         normalizationStyle,
@@ -1805,6 +1866,9 @@ function showSettingsModal(): void {
     currentLinkClickBehavior = linkClickField.select.value as typeof currentLinkClickBehavior;
     themeToggleScope = themeScopeField.select.value as typeof themeToggleScope;
     currentHeadingRenameUpdateLinks = headingRenameField.select.value as typeof currentHeadingRenameUpdateLinks;
+    currentSlashCommandsEnabled = slashCommandsEnabledField.input.checked;
+    currentSlashCommandsDateFormat = slashCommandsDateFormatField.select.value as typeof currentSlashCommandsDateFormat;
+    currentSlashCommandsTimeZone = slashCommandsTimeZoneInput.value.trim() || 'local';
     currentMarkdownNormalization = normalizationField.select.value as typeof currentMarkdownNormalization;
     currentNormalizationStyle = normalizationStyle;
     currentSidebarVisibilityDefault = sidebarVisibilityField.select.value as typeof currentSidebarVisibilityDefault;
@@ -1871,6 +1935,7 @@ function showSettingsModal(): void {
     wikilinkCreateField.row,
     themeScopeField.row,
     headingRenameField.row,
+    slashCommandsSectionRow,
   );
   const markdownPanel = makePanel();
   markdownPanel.append(
@@ -1914,7 +1979,9 @@ function showSettingsModal(): void {
   ];
 
   const tabButtons: HTMLButtonElement[] = [];
-  let activeTab: SettingsTabId = panels[lastSettingsTab] ? lastSettingsTab : 'appearance';
+  let activeTab: SettingsTabId = initialTab && panels[initialTab]
+    ? initialTab
+    : (panels[lastSettingsTab] ? lastSettingsTab : 'appearance');
 
   function setActiveTab(id: SettingsTabId): void {
     activeTab = id;
@@ -2055,6 +2122,12 @@ let currentSupportEntryCopy: SupportEntryCopy | null = null;
 function requestSupportCard(): void {
   vscode.postMessage({ type: 'supportAction', action: 'open' });
 }
+
+// Slash-commands settings (M5). Matches the `mikedown.slashCommands.*`
+// defaults in package.json until the host's first 'settings' broadcast.
+let currentSlashCommandsEnabled = true;
+let currentSlashCommandsDateFormat: 'iso' | 'long' = 'iso';
+let currentSlashCommandsTimeZone = 'local';
 
 // Spelling tab state. `userWords` is the persisted custom dictionary; the
 // checker keeps its own copy so "Add to Dictionary" takes effect immediately
@@ -3012,11 +3085,18 @@ if (!editorContainer) {
       // its own block. A solo image on its own paragraph still renders the same.
       Image.configure({ inline: true }),
 
-      // ── Placeholder (M2c) ─────────────────────────────────────────────────────
-      // "Start writing…" is displayed when the document contains no content.
-      // The CSS rule `.ProseMirror p.is-editor-empty:first-child::before` renders
-      // this via the data-placeholder attribute injected by the extension.
-      Placeholder.configure({ placeholder: 'Start writing…' }),
+      // ── Placeholder (M2c / M5) ────────────────────────────────────────────────
+      // "Type / for commands…" is shown when the slash-command menu is enabled;
+      // "Start writing…" otherwise. The CSS rule
+      // `.ProseMirror p.is-editor-empty:first-child::before` renders this via
+      // the data-placeholder attribute injected by the extension. `placeholder`
+      // is a function so it re-reads currentSlashCommandsEnabled on every
+      // decoration rebuild; the settings handler forces a rebuild on toggle by
+      // dispatching a no-op transaction (tr.setMeta('slashPlaceholder', true))
+      // rather than touching editor.view.dom directly.
+      Placeholder.configure({
+        placeholder: () => (currentSlashCommandsEnabled ? 'Type / for commands…' : 'Start writing…'),
+      }),
 
       // ── Markdown serialiser / input rules (M2b / M2c) ─────────────────────────
       // tiptap-markdown provides:
@@ -4812,6 +4892,8 @@ if (!editorContainer) {
       fontFamily?: string;
       fontSize?: number;
       command?: string;
+      /** command: 'openSettings' payload — which Settings modal tab to open on. */
+      tab?: SettingsTabId;
     };
 
     if (message.type === 'theme') {
@@ -4839,6 +4921,34 @@ if (!editorContainer) {
       if (msg.headingRenameUpdateLinks) {
         headingRenamePref = msg.headingRenameUpdateLinks;
         currentHeadingRenameUpdateLinks = msg.headingRenameUpdateLinks;
+      }
+      if (
+        typeof msg.slashCommandsEnabled === 'boolean'
+        || msg.slashCommandsDateFormat === 'iso' || msg.slashCommandsDateFormat === 'long'
+        || typeof msg.slashCommandsTimeZone === 'string'
+      ) {
+        if (typeof msg.slashCommandsEnabled === 'boolean') {
+          currentSlashCommandsEnabled = msg.slashCommandsEnabled;
+        }
+        if (msg.slashCommandsDateFormat === 'iso' || msg.slashCommandsDateFormat === 'long') {
+          currentSlashCommandsDateFormat = msg.slashCommandsDateFormat;
+        }
+        if (typeof msg.slashCommandsTimeZone === 'string' && msg.slashCommandsTimeZone.trim()) {
+          currentSlashCommandsTimeZone = msg.slashCommandsTimeZone.trim();
+        }
+        // The trigger/popup plugin (M2/M3) is expected to close its own
+        // popup (no document transaction) if `enabled` just flipped false
+        // while it was open — this call is its single live-config entry point.
+        setSlashCommandsConfig({
+          enabled: currentSlashCommandsEnabled,
+          dateFormat: currentSlashCommandsDateFormat,
+          timeZone: currentSlashCommandsTimeZone,
+        });
+        // Force the placeholder decoration to recompute with the new "Type /
+        // for commands…" / "Start writing…" text. ProseMirror re-evaluates a
+        // plugin's `decorations` prop on every dispatched transaction, so a
+        // no-op transaction is enough — never touch editor.view.dom directly.
+        editor.view.dispatch(editor.state.tr.setMeta('slashPlaceholder', true));
       }
       if (msg.editorTheme) {
         applyEditorTheme(msg.editorTheme);
@@ -4998,6 +5108,12 @@ if (!editorContainer) {
         // discovery/close buttons use — no duplicated open/close state.
         case 'toggleSidebar':
           toggleSidebarVisible();
+          break;
+        // M5 — the slash-menu footer row's "Turn off slash commands" toast
+        // posts this from the host after a saveSettings round-trip so the
+        // user can jump straight to the Behavior tab to re-enable it.
+        case 'openSettings':
+          showSettingsModal(message.tab);
           break;
       }
     }

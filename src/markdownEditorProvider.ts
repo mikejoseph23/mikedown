@@ -974,9 +974,35 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               .map(w => w.trim());
             config.update('spellCheck.userWords', words, vscode.ConfigurationTarget.Global);
           }
-          // "Add to Dictionary" saves silently — a toast on every added word
-          // would be noise.
-          if (!(message as any).silent) {
+          // Behavior tab — slash commands
+          if (typeof settings.slashCommandsEnabled === 'boolean') {
+            config.update('slashCommands.enabled', settings.slashCommandsEnabled, vscode.ConfigurationTarget.Global);
+          }
+          if (settings.slashCommandsDateFormat === 'iso' || settings.slashCommandsDateFormat === 'long') {
+            config.update('slashCommands.dateFormat', settings.slashCommandsDateFormat, vscode.ConfigurationTarget.Global);
+          }
+          if (typeof settings.slashCommandsTimeZone === 'string') {
+            config.update('slashCommands.timeZone', settings.slashCommandsTimeZone, vscode.ConfigurationTarget.Global);
+          }
+          // The in-menu "Turn off slash commands" footer row saves with
+          // source: 'slashMenu' — show a dedicated toast with Open Settings /
+          // Undo instead of (not in addition to) the generic save toast.
+          if (message.source === 'slashMenu') {
+            vscode.window.showInformationMessage(
+              'Slash commands are turned off. You can turn them back on in MikeDown Settings → Behavior.',
+              'Open Settings',
+              'Undo'
+            ).then(selection => {
+              if (selection === 'Open Settings') {
+                webviewPanel.webview.postMessage({ type: 'command', command: 'openSettings', tab: 'behavior' });
+              } else if (selection === 'Undo') {
+                vscode.workspace.getConfiguration('mikedown').update('slashCommands.enabled', true, vscode.ConfigurationTarget.Global);
+              }
+              // Dismissing (selection undefined) does nothing.
+            });
+          } else if (!(message as any).silent) {
+            // "Add to Dictionary" saves silently — a toast on every added word
+            // would be noise.
             vscode.window.showInformationMessage('MikeDown settings saved.');
           }
           break;
@@ -1247,6 +1273,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       imageResize: settings.imageResize,
       wikilinkCreateOnClick: settings.wikilink.createOnClick,
       spellCheck: settings.spellCheck,
+      slashCommandsEnabled: settings.slashCommands.enabled,
+      slashCommandsDateFormat: settings.slashCommands.dateFormat,
+      slashCommandsTimeZone: settings.slashCommands.timeZone,
       imagePastePathMappings: prefixes,
       docDirFs,
       // Support appeal entry points (M6): sidebar footer link toggle plus the
@@ -2137,6 +2166,13 @@ interface WebviewMessage {
   newSlug?: string;
   /** headingRenameAmbiguous payload — the duplicated base slug to warn about. */
   baseName?: string;
+  /** saveSettings payload — the settings fields being persisted (loosely typed;
+   *  each field is validated individually before being written). */
+  settings?: Record<string, unknown>;
+  /** saveSettings payload — set to 'slashMenu' when the save came from the
+   *  slash-menu footer row's "Turn off slash commands" action, so the host
+   *  shows a dedicated Open Settings / Undo toast instead of the generic one. */
+  source?: 'slashMenu';
 }
 
 

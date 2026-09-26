@@ -594,6 +594,29 @@
           "default": [],
           "scope": "application",
           "description": "Custom dictionary — words the spell checker should always accept. Right-click a flagged word and choose \"Add to Dictionary\" to add to this list. Words configured for the Code Spell Checker extension (cSpell.words) are also honoured, read-only."
+        },
+        "mikedown.slashCommands.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the slash command menu when typing / at the start of a line or after whitespace."
+        },
+        "mikedown.slashCommands.dateFormat": {
+          "type": "string",
+          "enum": [
+            "iso",
+            "long"
+          ],
+          "enumDescriptions": [
+            "2026-09-26",
+            "September 26, 2026"
+          ],
+          "default": "iso",
+          "description": "Date format used by the /date and /datetime slash commands."
+        },
+        "mikedown.slashCommands.timeZone": {
+          "type": "string",
+          "default": "local",
+          "description": "Time zone used by the /date and /datetime slash commands: \"local\", \"UTC\", or an IANA zone name like America/New_York."
         }
       }
     }

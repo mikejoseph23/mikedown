@@ -25,11 +25,19 @@ export interface MikeDownSettings {
   wikilink: WikilinkSettings;
   spellCheck: SpellCheckSettings;
   support: SupportSettings;
+  slashCommands: SlashCommandsSettings;
 }
 
 export interface SupportSettings {
   /** Show the "Support MikeDown" link in the sidebar footer (M6). */
   showSidebarLink: boolean;
+}
+
+export interface SlashCommandsSettings {
+  enabled: boolean;
+  dateFormat: 'iso' | 'long';
+  /** `'local'` (default), `'UTC'`, or an IANA zone name. Never empty. */
+  timeZone: string;
 }
 
 export interface SpellCheckSettings {
@@ -127,6 +135,11 @@ export function getSettings(): MikeDownSettings {
       visibility: config.get<string>('sidebar.visibility', 'never') === 'always' ? 'always' : 'never',
       width: config.get<number>('sidebar.width', 200),
       position: config.get<'left' | 'right'>('sidebar.position', 'right'),
+    },
+    slashCommands: {
+      enabled: config.get<boolean>('slashCommands.enabled', true),
+      dateFormat: config.get<'iso' | 'long'>('slashCommands.dateFormat', 'iso') === 'long' ? 'long' : 'iso',
+      timeZone: config.get<string>('slashCommands.timeZone', 'local').trim() || 'local',
     },
   };
 }
