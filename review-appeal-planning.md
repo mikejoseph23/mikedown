@@ -25,8 +25,8 @@
 | Milestone | Model | Status | Duration (min) | Notes |
 | --- | --- | --- | --- | --- |
 | M1: Copy Draft (Review Gate) | Opus | ✅ | | Pauses for Mike's approval; neutral share line (Q7) |
-| M2: Eligibility Module | Sonnet | 🔄 | | Pure module, injected clock; Q1 thresholds |
-| M3: Host Wiring, Command, Dev Reset | Sonnet | ⬜ | | Needs M2; toast removed (Q2) |
+| M2: Eligibility Module | Sonnet | ✅ | 6 | Pure module, injected clock; Q1 thresholds |
+| M3: Host Wiring, Command, Dev Reset | Sonnet | 🔄 | | Needs M2; toast removed (Q2) |
 | M4: Testing: Host Logic | Sonnet | ⬜ | | Needs M2, M3 |
 | M5: "A Note from Mike" Card UI | Opus | ⬜ | | Needs M1 approved, M3 protocol; swappable avatar slot (Q6) |
 | M6: Persistent Entry Points | Opus | ⬜ | | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
@@ -131,14 +131,14 @@ Copy rules: **no hyphens, em dashes, or en dashes** anywhere in the appeal prose
 
 Extract eligibility into a pure, unit-testable module with no `vscode` import.
 
-- [ ] Create `src/supportPromptEligibility.ts` exporting a `SupportPromptState` interface (all persisted fields), a `StateStore` interface (`get`/`update`, satisfied by `globalState`), and pure functions taking `now: number` explicitly (injected clock): `isAutoEligible(state, session, now)`, `nextDelayMs(remindCount, hadCtaSinceLastPrompt)`, and `applyAction(state, action, now): SupportPromptState`.
-- [ ] Keep existing keys (`mikedown.nag.installDate`, `sessions`, `docOpens`, `lastPrompt`, `remindCount`, `dismissed`, `lastCtaAt`) for backward compatibility. Add `mikedown.nag.activeDays` (count of distinct local dates with an editing session), `mikedown.nag.lastActiveDay` (YYYY-MM-DD), and `mikedown.nag.reviewedAt`.
-- [ ] Implement the Q1 thresholds (resolved 2026-09-26; make them named constants in one exported `THRESHOLDS` object): install age ≥ 7 days; `docOpens` ≥ 5; `activeDays` ≥ 3; the current session (per panel) had ≥ 20 `edit` messages from the webview **and** ≥ 3 minutes between first edit and the save; at most one auto show per VS Code session; card posted 1.5 s after the save.
-- [ ] Ladder: keep 14 → 30 → 60 → 90 (cap) for "Maybe later" and for closing the card without choosing. "Tell a friend" and "Share feedback" reset the ladder and set a 60 day gap. "Leave a review" sets `reviewedAt` and **never auto shows again** (Q3 resolved; entry points remain). "Don't ask again" sets `dismissed` (sticky, auto only; manual entry points still work). Existing users with legacy `mikedown.nag.dismissed` are respected with no one time exception (Q4 resolved).
-- [ ] Session tracking helper (pure): `SessionTracker` with `recordEdit(now)`, `isMeaningful(now)`, `reset()`, so the provider can keep one per panel.
-- [ ] Do not delete `src/nagPrompt.ts` yet; M3 rewires and retires it.
-- [ ] Run `npm run lint` and `npx tsc -p tsconfig.json --noEmit` green.
-- [ ] Commit, write `.orchestrator/worker-summary-m2-eligibility-module.md`.
+- [x] Create `src/supportPromptEligibility.ts` exporting a `SupportPromptState` interface (all persisted fields), a `StateStore` interface (`get`/`update`, satisfied by `globalState`), and pure functions taking `now: number` explicitly (injected clock): `isAutoEligible(state, session, now)`, `nextDelayMs(remindCount, hadCtaSinceLastPrompt)`, and `applyAction(state, action, now): SupportPromptState`.
+- [x] Keep existing keys (`mikedown.nag.installDate`, `sessions`, `docOpens`, `lastPrompt`, `remindCount`, `dismissed`, `lastCtaAt`) for backward compatibility. Add `mikedown.nag.activeDays` (count of distinct local dates with an editing session), `mikedown.nag.lastActiveDay` (YYYY-MM-DD), and `mikedown.nag.reviewedAt`.
+- [x] Implement the Q1 thresholds (resolved 2026-09-26; make them named constants in one exported `THRESHOLDS` object): install age ≥ 7 days; `docOpens` ≥ 5; `activeDays` ≥ 3; the current session (per panel) had ≥ 20 `edit` messages from the webview **and** ≥ 3 minutes between first edit and the save; at most one auto show per VS Code session; card posted 1.5 s after the save.
+- [x] Ladder: keep 14 → 30 → 60 → 90 (cap) for "Maybe later" and for closing the card without choosing. "Tell a friend" and "Share feedback" reset the ladder and set a 60 day gap. "Leave a review" sets `reviewedAt` and **never auto shows again** (Q3 resolved; entry points remain). "Don't ask again" sets `dismissed` (sticky, auto only; manual entry points still work). Existing users with legacy `mikedown.nag.dismissed` are respected with no one time exception (Q4 resolved).
+- [x] Session tracking helper (pure): `SessionTracker` with `recordEdit(now)`, `isMeaningful(now)`, `reset()`, so the provider can keep one per panel.
+- [x] Do not delete `src/nagPrompt.ts` yet; M3 rewires and retires it.
+- [x] Run `npm run lint` and `npx tsc -p tsconfig.json --noEmit` green.
+- [x] Commit, write `.orchestrator/worker-summary-m2-eligibility-module.md`.
 
 [Return to Top](#review-appeal-planning)
 
@@ -318,6 +318,8 @@ All resolved 2026-09-26.
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
+
+**2026-09-26 00:58** - M2 done (commit `8ebadde`). `src/supportPromptEligibility.ts`: `THRESHOLDS`, `KEYS`, `readState`/`writeState`, `isAutoEligible`, `nextDelayMs`, `applyAction`, `recordActiveDay`, `SessionTracker`; no `vscode` import. `tsc --noEmit` green. `npm run lint` fails on a pre-existing baseline (about 250 errors in other files, mostly `markdownEditorProvider.ts`); the new file lints with 0 errors. Lint gate for later milestones: no new errors in touched files.
 
 **2026-09-26 00:49** - M8 done (commit `20b3769`). README "Enjoying MikeDown?" replaced with "A note from the developer" (approved letter verbatim); CHANGELOG `[Unreleased]` added with Changed and Added entries. No `enjoying-mikedown` anchors existed.
 
