@@ -8,8 +8,9 @@
 
 - Replace the toast with a warm, dismissible **"A note from Mike"** card rendered inside the editor webview, written in Mike's personal voice.
 - Show it at a good moment (after a save that follows a meaningful editing session), gated by a pure, unit-tested eligibility module with an injected clock.
-- Add low-key, always-available **"♥ Support MikeDown"** entry points: sidebar footer, Settings modal About tab, and a `MikeDown: Support MikeDown` command.
-- Update the README (which is the Marketplace listing) and CHANGELOG with the same appeal.
+- Add low-key, always-available **"♥ Support MikeDown"** entry points: a link inline after the sidebar footer metrics (dismissible forever via a small ×, and toggled by the new setting `mikedown.support.showSidebarLink`), Settings modal About tab, and a `MikeDown: Support MikeDown` command.
+- Remove the startup toast entirely; the only remaining native notice is the `mikedown.support` fallback when no MikeDown editor is open.
+- Update the README (which is the Marketplace listing) and CHANGELOG with the same appeal. Ship as **2.11.0** (may share the release with the slash commands feature).
 - Measure before and after with `npx vsce show interapp.mikedown-editor`.
 
 **Success factors.**
@@ -23,14 +24,14 @@
 
 | Milestone | Model | Status | Duration (min) | Notes |
 | --- | --- | --- | --- | --- |
-| M1: Copy Draft (Review Gate) | Opus | ⬜ | | Pauses for Mike's approval |
-| M2: Eligibility Module | Sonnet | ⬜ | | Pure module, injected clock |
-| M3: Host Wiring, Command, Dev Reset | Sonnet | ⬜ | | Needs M2 |
+| M1: Copy Draft (Review Gate) | Opus | ⬜ | | Pauses for Mike's approval; neutral share line (Q7) |
+| M2: Eligibility Module | Sonnet | ⬜ | | Pure module, injected clock; Q1 thresholds |
+| M3: Host Wiring, Command, Dev Reset | Sonnet | ⬜ | | Needs M2; toast removed (Q2) |
 | M4: Testing: Host Logic | Sonnet | ⬜ | | Needs M2, M3 |
-| M5: "A Note from Mike" Card UI | Opus | ⬜ | | Needs M1 approved, M3 protocol |
-| M6: Persistent Entry Points | Opus | ⬜ | | Needs M5 |
+| M5: "A Note from Mike" Card UI | Opus | ⬜ | | Needs M1 approved, M3 protocol; swappable avatar slot (Q6) |
+| M6: Persistent Entry Points | Opus | ⬜ | | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
 | M7: Testing: Webview Card and Entry Points | Sonnet | ⬜ | | Needs M5, M6 |
-| M8: README and CHANGELOG | Haiku | ⬜ | | Needs M1 approved |
+| M8: README and CHANGELOG | Haiku | ⬜ | | Needs M1 approved; 2.11.0 (Q8) |
 | M9: Hands-on Pass and Measurement Follow-up | Sonnet | ⬜ | | Pauses for Mike's sign-off |
 
 ## Table of Contents
@@ -48,6 +49,7 @@
   - [M7: Testing: Webview Card and Entry Points](#m7-testing-webview-card-and-entry-points)
   - [M8: README and CHANGELOG](#m8-readme-and-changelog)
   - [M9: Hands-on Pass and Measurement Follow-up](#m9-hands-on-pass-and-measurement-follow-up)
+- [Follow-ups (Not in This Release)](#follow-ups-not-in-this-release)
 - [Open Questions](#open-questions)
 - [Progress Log / Notes](#progress-log--notes)
 - [Parallel Development Recommendations](#parallel-development-recommendations)
@@ -79,9 +81,11 @@ What exists today (read before starting any milestone):
 4. **Keep existing state keys.** Reuse the `mikedown.nag.*` keys so current users keep their install date, ladder position, and "Stop asking" choice. New keys use the same prefix.
 5. **Clipboard on the host.** "Tell a friend" uses `vscode.env.clipboard.writeText` (reliable in webviews, unlike `navigator.clipboard` which needs focus), then the host acks with `{ type: 'supportCopied' }` so the card can show "Copied".
 6. **Manual entry points bypass eligibility** but still record actions (a review click from a manual open counts the same as from an auto open).
-7. **Toast becomes a fallback only** (recommended): when eligible at save time but no MikeDown panel is visible (for example the save came from a plain text editor), do nothing and wait; the toast is kept only if Open Question Q2 resolves that way. See Open Questions.
-8. **No new `mikedown.*` settings.** If one becomes necessary, it follows the three-place rule in `CLAUDE.md` (package.json, `src/settings.ts`, Settings modal).
+7. **Startup toast removed** (Q2 resolved): when eligible at save time but no MikeDown panel is visible (for example the save came from a plain text editor), do nothing and wait for the next qualifying MikeDown save. The only native notice left is a single fallback `showInformationMessage` for `mikedown.support` when no MikeDown editor is open.
+8. **One new setting: `mikedown.support.showSidebarLink`** (boolean, default `true`), following the three-place rule in `CLAUDE.md`: `package.json#contributes.configuration`, `src/settings.ts`, and a checkbox in the Settings modal **Appearance** tab (where the other sidebar settings live). It controls only the sidebar footer link; the About tab Support entry and the `mikedown.support` command are unaffected. The link's × writes `false` through the existing `saveSettings` path, and the settings broadcast hides or shows the link live without reload. No other new settings.
 9. **Dev-only reset path.** Command `mikedown.dev.resetSupportPrompt` ("MikeDown (Dev): Reset Support Prompt State"), registered only when `context.extensionMode !== vscode.ExtensionMode.Production`. It sets context key `mikedown.isDevelopment` via `setContext`, and the command is gated in `commandPalette` with `"when": "mikedown.isDevelopment"` so it never appears for Marketplace users. It offers a quick pick: "Clear all support prompt state" and "Make eligible now (backdate install, satisfy engagement)".
+10. **Swappable avatar slot** (Q6): the card's avatar is a single slot element (`.support-card-avatar`) rendered from the payload (`avatar: { kind: 'initial', text: 'M' }`), so a photo (`kind: 'image'`) can replace the "M" circle later without redesign. Photo swap is a follow-up, not this release.
+11. **Release vehicle** (Q8): ship as 2.11.0; may share the release with the slash commands feature.
 
 [Return to Top](#review-appeal-planning)
 
@@ -109,10 +113,10 @@ Copy rules: **no hyphens, em dashes, or en dashes** anywhere in the appeal prose
 - [ ] Card body: 3 to 5 short sentences covering points a through e; target under 90 words so it fits without scrolling at 360px width.
 - [ ] Button labels: primary "Leave a review", secondary "Tell a friend", tertiary "Share feedback", plus quiet "Maybe later" and "Don't ask again" (propose alternates if better; keep each under 18 characters).
 - [ ] "Copied" confirmation text for Tell a friend (e.g. "Copied. Paste it anywhere.").
-- [ ] Share message copied to the clipboard: one or two sentences a user would plausibly send a colleague, plus the Marketplace link `https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor`. Written in the sharer's voice, not Mike's.
-- [ ] Entry point labels: sidebar footer link text (e.g. "♥ Support MikeDown"), About tab section heading and one line lead in, command title `MikeDown: Support MikeDown`.
+- [ ] Share message copied to the clipboard (Q7 resolved: **neutral line**, not the sharer's personal voice and not Mike's): one sentence plus the Marketplace link, e.g. "Check out MikeDown, a WYSIWYG markdown editor for VS Code: https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor". Offer at most one alternate phrasing.
+- [ ] Entry point labels: sidebar footer link text (e.g. "♥ Support MikeDown", short enough to sit inline after the metrics), the × dismiss button's `aria-label`/tooltip (e.g. "Hide this link"), the brief post dismiss confirmation (e.g. "Hidden. You can bring it back in Settings, Appearance."), the Settings Appearance checkbox label for `mikedown.support.showSidebarLink` (e.g. "Show Support MikeDown link in sidebar"), About tab section heading and one line lead in, command title `MikeDown: Support MikeDown`.
 - [ ] README section "A note from the developer": same appeal, slightly longer (up to 150 words), with links for review, GitHub issues, and share.
-- [ ] Fallback toast text (single sentence, under 110 characters so it does not truncate), in case Q2 keeps the toast.
+- [ ] Fallback notice text for `mikedown.support` when no MikeDown editor is open (single sentence, under 110 characters so it does not truncate). The startup toast is removed (Q2), so this is the only native notice.
 - [ ] Self check: run `grep -nP '[-\x{2013}\x{2014}]' review-appeal-copy.md` restricted to prose sections and confirm no hyphen or dash appears in any appeal copy (URLs are exempt). Note the result in the summary.
 - [ ] Add a short "Rationale" note per piece (one line each) so Mike can see intent.
 - [ ] Commit the copy file ("Add review appeal copy draft"), write `.orchestrator/worker-summary-m1-copy-draft.md`, and stop. Tell the user the copy is ready for review.
@@ -129,8 +133,8 @@ Extract eligibility into a pure, unit-testable module with no `vscode` import.
 
 - [ ] Create `src/supportPromptEligibility.ts` exporting a `SupportPromptState` interface (all persisted fields), a `StateStore` interface (`get`/`update`, satisfied by `globalState`), and pure functions taking `now: number` explicitly (injected clock): `isAutoEligible(state, session, now)`, `nextDelayMs(remindCount, hadCtaSinceLastPrompt)`, and `applyAction(state, action, now): SupportPromptState`.
 - [ ] Keep existing keys (`mikedown.nag.installDate`, `sessions`, `docOpens`, `lastPrompt`, `remindCount`, `dismissed`, `lastCtaAt`) for backward compatibility. Add `mikedown.nag.activeDays` (count of distinct local dates with an editing session), `mikedown.nag.lastActiveDay` (YYYY-MM-DD), and `mikedown.nag.reviewedAt`.
-- [ ] Implement recommended thresholds (see Q1; make them named constants in one exported `THRESHOLDS` object): install age ≥ 7 days; `docOpens` ≥ 5; `activeDays` ≥ 3; the current session (per panel) had ≥ 20 `edit` messages from the webview **and** ≥ 3 minutes between first edit and the save; at most one auto show per VS Code session.
-- [ ] Ladder: keep 14 → 30 → 60 → 90 (cap) for "Maybe later" and for closing the card without choosing. "Tell a friend" and "Share feedback" reset the ladder and set a 60 day gap. "Leave a review" sets `reviewedAt` and stops auto showing (see Q3). "Don't ask again" sets `dismissed` (sticky, auto only; manual entry points still work).
+- [ ] Implement the Q1 thresholds (resolved 2026-09-26; make them named constants in one exported `THRESHOLDS` object): install age ≥ 7 days; `docOpens` ≥ 5; `activeDays` ≥ 3; the current session (per panel) had ≥ 20 `edit` messages from the webview **and** ≥ 3 minutes between first edit and the save; at most one auto show per VS Code session; card posted 1.5 s after the save.
+- [ ] Ladder: keep 14 → 30 → 60 → 90 (cap) for "Maybe later" and for closing the card without choosing. "Tell a friend" and "Share feedback" reset the ladder and set a 60 day gap. "Leave a review" sets `reviewedAt` and **never auto shows again** (Q3 resolved; entry points remain). "Don't ask again" sets `dismissed` (sticky, auto only; manual entry points still work). Existing users with legacy `mikedown.nag.dismissed` are respected with no one time exception (Q4 resolved).
 - [ ] Session tracking helper (pure): `SessionTracker` with `recordEdit(now)`, `isMeaningful(now)`, `reset()`, so the provider can keep one per panel.
 - [ ] Do not delete `src/nagPrompt.ts` yet; M3 rewires and retires it.
 - [ ] Run `npm run lint` and `npx tsc -p tsconfig.json --noEmit` green.
@@ -149,9 +153,9 @@ Extract eligibility into a pure, unit-testable module with no `vscode` import.
 - [ ] In `src/markdownEditorProvider.ts`: keep a `SessionTracker` per panel; call `recordEdit` in `case 'edit'`; in the existing per panel `onDidSaveTextDocument` handler, after the current work, ask `supportPrompt.onSaveAfterSession(panel)`; if eligible and the panel is visible, post `showSupportCard` with `reason: 'auto'` after a 1500 ms delay (so it does not collide with the save flush). Update `lastActiveDay` / `activeDays` on first edit of each day.
 - [ ] Do not show auto card in a diff view panel, for non `file:` URIs, or when another MikeDown card or the Settings modal is already open (webview reports `busy` back if so; host treats that as "not shown" and does not write `lastPrompt`).
 - [ ] Record `lastPrompt` only when the webview acks `{ type: 'supportCardShown' }`.
-- [ ] Register `mikedown.support` ("MikeDown: Support MikeDown") in `src/extension.ts` and `package.json#contributes.commands`. Always available in the palette (no `when` gating) so it works from anywhere: if an active MikeDown panel exists, post `showSupportCard` with `reason: 'manual'`; otherwise open the most recent visible MikeDown panel, or fall back to a modal `showInformationMessage` with the same buttons (see Q2).
+- [ ] Register `mikedown.support` ("MikeDown: Support MikeDown") in `src/extension.ts` and `package.json#contributes.commands`. Always available in the palette (no `when` gating) so it works from anywhere: if an active MikeDown panel exists, post `showSupportCard` with `reason: 'manual'`; otherwise open the most recent visible MikeDown panel, or fall back to a single `showInformationMessage` (approved fallback notice text) with the same buttons. This is the only native notice left (Q2 resolved).
 - [ ] Dev reset: register `mikedown.dev.resetSupportPrompt` ("MikeDown (Dev): Reset Support Prompt State") only when `context.extensionMode !== vscode.ExtensionMode.Production`; call `setContext('mikedown.isDevelopment', true)`; add the command to `contributes.commands` and gate it in `commandPalette` with `"when": "mikedown.isDevelopment"`. Quick pick: "Clear all support prompt state" (delete every `mikedown.nag.*` key) and "Make eligible now" (backdate `installDate` 30 days, set `docOpens` 5, `activeDays` 3, clear `lastPrompt`/`dismissed`/`reviewedAt`, and set a flag so the next save treats the session as meaningful).
-- [ ] Remove the 60 second `setTimeout(() => nag.maybeShow(), 60_000)` from `extension.ts`; keep `recordActivation` and `onDocOpen` semantics via the new module; delete `src/nagPrompt.ts` once nothing imports it (or keep the toast path if Q2 says so, moved into `supportPrompt.ts`).
+- [ ] Remove the 60 second `setTimeout(() => nag.maybeShow(), 60_000)` from `extension.ts`; keep `recordActivation` and `onDocOpen` semantics via the new module; delete `src/nagPrompt.ts` once nothing imports it. The startup toast is removed entirely (Q2 resolved); the `mikedown.support` fallback notice lives in `supportPrompt.ts`.
 - [ ] Document the new messages (`showSupportCard`, `supportCopied`, `supportAction`, `supportCardShown`, `busy`) in the protocol comment at the top of `src/webview/editor-main.ts` (comment only; M5 implements the handlers).
 - [ ] `npm run compile` and `npm run lint` green.
 - [ ] Commit, write `.orchestrator/worker-summary-m3-host-wiring.md`.
@@ -166,8 +170,8 @@ Extract eligibility into a pure, unit-testable module with no `vscode` import.
 
 Modes: **unit** (`npm run test:unit`, vitest with mocked `vscode`) and **integration** (`npm run test:integration`, real VS Code).
 
-- [ ] Write tests: `test/unit/supportPromptEligibility.test.ts` using a fixed injected clock. Cover: not eligible before 7 days; not eligible under 5 doc opens or 3 active days; not eligible when the session is under 20 edits or under 3 minutes; eligible when all met; ladder 14/30/60/90 and cap; CTA gap 60 days; review stops auto; `dismissed` sticky; one auto show per session; legacy state (only old `mikedown.nag.*` keys present) evaluates correctly.
-- [ ] Write tests: `test/unit/supportPrompt.test.ts` with mocked `vscode` (pattern from `test/unit/defaultEditorPrompt.test.ts`). Cover: each `supportAction` writes the right keys; `share` calls `env.clipboard.writeText` with a string containing the Marketplace URL and posts `supportCopied`; `review`/`feedback` call `openExternal` with the right URLs; `lastPrompt` written only after `supportCardShown`; `busy` does not write `lastPrompt`.
+- [ ] Write tests: `test/unit/supportPromptEligibility.test.ts` using a fixed injected clock. Cover: not eligible before 7 days; not eligible under 5 doc opens or 3 active days; not eligible when the session is under 20 edits or under 3 minutes; eligible when all met; ladder 14/30/60/90 and cap; CTA gap 60 days; review stops auto permanently; `dismissed` sticky (including legacy `mikedown.nag.dismissed` with no one time exception); one auto show per session; legacy state (only old `mikedown.nag.*` keys present) evaluates correctly.
+- [ ] Write tests: `test/unit/supportPrompt.test.ts` with mocked `vscode` (pattern from `test/unit/defaultEditorPrompt.test.ts`). Cover: each `supportAction` writes the right keys; `share` calls `env.clipboard.writeText` with exactly the approved neutral share line (starts "Check out MikeDown" or the approved variant, contains the Marketplace URL, no first person "I") and posts `supportCopied`; no toast or notice is shown on activation or after any timer; `review`/`feedback` call `openExternal` with the right URLs; `lastPrompt` written only after `supportCardShown`; `busy` does not write `lastPrompt`.
 - [ ] Write tests: `test/integration/supportCommand.test.ts`. Assert `mikedown.support` is registered and executes without throwing with and without an open MikeDown editor. Use a **private fixture** copied to a temp dir (never `test/workspace/sample.md`) for any test that opens and saves a file.
 - [ ] Run green: `npm run test:unit`.
 - [ ] Run green: `npm run test:integration`.
@@ -186,7 +190,7 @@ Modes: **unit** (`npm run test:unit`, vitest with mocked `vscode`) and **integra
 
 - [ ] Create `src/webview/supportCard.ts` exporting `showSupportCard(opts)`, `hideSupportCard()`, `isSupportCardOpen()`. Render into a container appended to `document.body` (a sibling of the editor, **never inside `editor.view.dom`**, no DOM writes to the ProseMirror tree).
 - [ ] Placement: bottom right floating card, max width 380px, 16px from edges, above the editor but below the Settings modal (`z-index` under 1050). On narrow panes (< 480px wide) it spans the width with 12px gutters.
-- [ ] Visual hierarchy: small circular avatar with the initial "M" (or a heart glyph) using `--vscode-button-background`; title in semibold 13 to 14px; body in `--vscode-editor-foreground` at 13px with comfortable 1.5 line height; primary button (`--vscode-button-background` / `--vscode-button-foreground`), two secondary buttons (`--vscode-button-secondaryBackground`), and "Maybe later" / "Don't ask again" as quiet text links in `--vscode-descriptionForeground`. Close "×" in the corner (counts as `close`). Background `--vscode-editorWidget-background`, border `--vscode-editorWidget-border`, subtle shadow `--vscode-widget-shadow`, 8px radius.
+- [ ] Visual hierarchy: small circular avatar with the initial "M" using `--vscode-button-background` (Q6 resolved), built as a **swappable slot**: one `.support-card-avatar` element rendered from `copy.avatar` (`{ kind: 'initial', text: 'M' }` now; `kind: 'image'` with a `src` later) with fixed size and `object-fit: cover`, so a small photo of Mike can drop in without layout changes; title in semibold 13 to 14px; body in `--vscode-editor-foreground` at 13px with comfortable 1.5 line height; primary button (`--vscode-button-background` / `--vscode-button-foreground`), two secondary buttons (`--vscode-button-secondaryBackground`), and "Maybe later" / "Don't ask again" as quiet text links in `--vscode-descriptionForeground`. Close "×" in the corner (counts as `close`). Background `--vscode-editorWidget-background`, border `--vscode-editorWidget-border`, subtle shadow `--vscode-widget-shadow`, 8px radius.
 - [ ] Motion: gentle 150ms fade and 8px rise on open; respect `prefers-reduced-motion`.
 - [ ] Never block typing: do not move focus into the card on `reason: 'auto'`; on `reason: 'manual'` focus the primary button. `Esc` closes only when focus is inside the card. Typing in the editor continues to work while the card is open.
 - [ ] Accessibility: `role="dialog"` with `aria-labelledby`, but `aria-modal="false"`; buttons are real `<button>` elements; focus visible outline via `--vscode-focusBorder`.
@@ -207,11 +211,13 @@ Modes: **unit** (`npm run test:unit`, vitest with mocked `vscode`) and **integra
 
 Low key, always there, never loud. They should read as a quiet signature, the way a well made indie app credits its maker.
 
-- [ ] Sidebar footer (`src/webview/outlineSidebar.ts`, `renderFooter()`): add a third row with a small "♥ Support MikeDown" link in `--vscode-descriptionForeground`, underline on hover, `--vscode-textLink-foreground` on hover. Build it inside `renderFooter()` so the 60 second tick's `replaceChildren()` does not drop it; give it `data-testid="sidebar-support-link"`. Clicking posts `{ type: 'supportAction', action: 'open' }` (host replies with `showSupportCard` `reason: 'manual'`) or calls `showSupportCard` directly via a callback set from `editor-main.ts` (choose one and document it).
+- [ ] Sidebar footer (`src/webview/outlineSidebar.ts`, `renderFooter()`): add a small "♥ Support MikeDown" link **inline after the metrics** in the existing words/chars/read time row (Q5 resolved; not its own row), separated by a middle dot, in `--vscode-descriptionForeground`, underline and `--vscode-textLink-foreground` on hover. Build it inside `renderFooter()` so the 60 second tick's `replaceChildren()` does not drop it; give it `data-testid="sidebar-support-link"`. Render it only when `mikedown.support.showSidebarLink` is `true`.
+- [ ] Dismiss forever: a small × button (`data-testid="sidebar-support-dismiss"`, real `<button>`, approved `aria-label`) next to the link, visible on hover of the link group and on keyboard focus (focusable via Tab, activates on Enter/Space, `--vscode-focusBorder` outline). Clicking posts `{ type: 'saveSettings', settings: { 'support.showSidebarLink': false } }` through the existing path (match the key shape the modal already uses), hides the link immediately, and shows a brief non blocking confirmation (approved text, e.g. "Hidden. You can bring it back in Settings, Appearance.") in the footer for about 4 seconds, `role="status"`, no focus steal.
+- [ ] New setting `mikedown.support.showSidebarLink` (boolean, default `true`) via the three-place rule: `package.json#contributes.configuration.properties` (with description), `src/settings.ts` reader, and a checkbox in the Settings modal **Appearance** tab next to the other sidebar settings (`data-testid="setting-support-sidebar-link"`). Include it in the `settings` broadcast; the webview hides or shows the footer link live on broadcast, no reload. This setting does not affect the About tab Support entry or the `mikedown.support` command. Clicking posts `{ type: 'supportAction', action: 'open' }` (host replies with `showSupportCard` `reason: 'manual'`) or calls `showSupportCard` directly via a callback set from `editor-main.ts` (choose one and document it).
 - [ ] Settings modal About tab (`buildAboutPanel()` in `src/webview/editor-main.ts`): add a "Support MikeDown" section below the links with the approved heading, one line lead in, and a button "♥ Support MikeDown" (`data-testid="about-support-button"`) that closes the Settings modal and opens the card. Match the existing About tab spacing and link styling.
 - [ ] Command palette: confirm `mikedown.support` (from M3) opens the card in the active MikeDown editor.
 - [ ] Handle `open` in the host `supportAction` handler (M3's module) if the message route is chosen.
-- [ ] Verify in light and dark themes; the footer link must not wrap awkwardly at the minimum sidebar width.
+- [ ] Verify in light and dark themes; the inline link and × must not wrap awkwardly at the minimum sidebar width (if space runs out, the link may wrap to its own line as a whole, never mid label).
 - [ ] `npm run compile` and `npm run lint` green.
 - [ ] Commit, write `.orchestrator/worker-summary-m6-entry-points.md`.
 
@@ -230,11 +236,15 @@ Mode: **unit** with the jsdom webview harness (`test/harness/webviewHarness.ts`)
 - [ ] Write tests: `supportCopied` swaps the share label to the Copied text; it reverts (use fake timers).
 - [ ] Write tests: `reason: 'auto'` does not move focus away from the editor; typing into the editor while the card is open still produces an `edit` message with the typed text; the card's container is not a descendant of the ProseMirror root (`.ProseMirror`).
 - [ ] Write tests: with the Settings modal open, `showSupportCard` `reason: 'auto'` posts `busy` and renders nothing.
-- [ ] Write tests: sidebar footer contains `[data-testid="sidebar-support-link"]` after a footer re-render, and clicking it opens the card (or posts `open`).
+- [ ] Write tests: sidebar footer contains `[data-testid="sidebar-support-link"]` inline in the metrics row after a footer re-render, and clicking it opens the card (or posts `open`).
+- [ ] Write tests: clicking `[data-testid="sidebar-support-dismiss"]` posts `saveSettings` with `support.showSidebarLink: false`, removes the link, shows the confirmation (`role="status"`) which disappears (fake timers), and the link stays gone after a footer re-render and after a `settings` broadcast carrying `false` (dismiss persists).
+- [ ] Write tests: live toggle. A `settings` broadcast with `showSidebarLink: false` hides the link; `true` shows it again, no reload.
+- [ ] Write tests: Settings checkbox round-trip. The Appearance tab `[data-testid="setting-support-sidebar-link"]` reflects the current value; unchecking and saving posts `saveSettings` with `false`; rechecking posts `true`. The About tab button and `mikedown.support` still work when the link is hidden.
+- [ ] Write tests (host, unit with mocked `vscode`): `src/settings.ts` reads `support.showSidebarLink` with default `true`; `package.json` declares `mikedown.support.showSidebarLink` as boolean default `true`.
 - [ ] Write tests: About tab contains `[data-testid="about-support-button"]`; clicking closes `#mikedown-settings-overlay` and opens the card.
 - [ ] Run green: `npm run test:unit`.
 - [ ] Run green: `npm run test:integration` (regression).
-- [ ] Human review locators: `src/webview/supportCard.ts`; `src/webview/outlineSidebar.ts` `renderFooter()`; `src/webview/editor-main.ts` `buildAboutPanel()` (search `about-support-button`).
+- [ ] Human review locators: `src/webview/supportCard.ts`; `src/webview/outlineSidebar.ts` `renderFooter()` (search `sidebar-support-dismiss`); `src/settings.ts` search `showSidebarLink`; `src/webview/editor-main.ts` `buildAboutPanel()` (search `about-support-button`).
 - [ ] Commit, write `.orchestrator/worker-summary-m7-testing-webview.md`.
 
 [Return to Top](#review-appeal-planning)
@@ -247,7 +257,7 @@ Mode: **unit** with the jsdom webview harness (`test/harness/webviewHarness.ts`)
 
 - [ ] Replace the existing `## Enjoying MikeDown?` section in `README.md` (around line 23) with `## A note from the developer` using the approved README copy from `review-appeal-copy.md` verbatim. Keep links: review `https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details`, issues `https://github.com/mikejoseph23/mikedown/issues/new`.
 - [ ] Update the Table of Contents or any internal anchor that pointed at the old heading (search `enjoying-mikedown`).
-- [ ] Add `## [Unreleased]` above `## [2.10.4]` in `CHANGELOG.md` with an `### Changed` entry: the review prompt is now a note inside the editor shown after a real editing session, never at startup; and an `### Added` entry for the Support MikeDown command, sidebar link, and About tab section.
+- [ ] Add `## [Unreleased]` (targeting **2.11.0**, Q8; may share the release with slash commands) above `## [2.10.4]` in `CHANGELOG.md` with a `### Changed` entry: the review prompt is now a note inside the editor shown after a real editing session, never at startup (startup toast removed); and an `### Added` entry for the Support MikeDown command, the sidebar link (dismissible, plus the `mikedown.support.showSidebarLink` setting), and About tab section.
 - [ ] Markdown rules: blank lines around lists; escape `$` as `\$` outside code.
 - [ ] Commit, write `.orchestrator/worker-summary-m8-readme-changelog.md`.
 
@@ -262,42 +272,56 @@ Mode: **unit** with the jsdom webview harness (`test/harness/webviewHarness.ts`)
 - [ ] Run `npm run compile`, `npm run test:unit`, `npm run test:integration` green before handing off.
 - [ ] Write the hands-on steps below into the worker summary and tell Mike they are ready.
 - [ ] Record the baseline now: run `npx vsce show interapp.mikedown-editor` and paste installs, rating, and review count into the Progress Log (expected: about 400 installs, 5 reviews).
-- [ ] Add a follow-up checklist to `BACKLOG.md`: re-run `npx vsce show interapp.mikedown-editor` 30 days and 60 days after the release date and record results in this document's Progress Log.
+- [ ] Add the Follow-ups section items below to `BACKLOG.md`, plus a checklist: re-run `npx vsce show interapp.mikedown-editor` 30 days and 60 days after the release date and record results in this document's Progress Log.
 
 **Hands-on steps (Extension Development Host).** Press F5 (after edits, `npm run compile` then Cmd+R in the host window).
 
 1. Open any `.md` file in MikeDown. Expected: no card, no toast at startup, even after waiting 2 minutes.
 2. Command palette, "MikeDown: Support MikeDown". Expected: card appears bottom right, focus on "Leave a review", typing is unaffected once you click back into the editor.
-3. Click "Tell a friend". Expected: label shows the Copied text; paste into any text field shows the share message with the Marketplace link.
+3. Click "Tell a friend". Expected: label shows the Copied text; paste into any text field shows the neutral line ("Check out MikeDown, a WYSIWYG markdown editor for VS Code: " plus the Marketplace link, or the approved variant).
 4. Click "Leave a review". Expected: browser opens the Marketplace review section; card closes.
-5. Open the sidebar. Expected: "♥ Support MikeDown" in the footer, subtle; clicking opens the card. Wait 60 seconds; link is still present.
-6. Gear button, About tab. Expected: Support section; the button closes Settings and opens the card.
-7. Switch themes (Light Modern, Dark Modern, a High Contrast theme). Expected: card and links readable and native looking in all three.
-8. Command palette, "MikeDown (Dev): Reset Support Prompt State", choose "Make eligible now". Then edit a document for a bit and save (Cmd+S). Expected: card appears about 1.5 seconds after save, focus stays in the editor, typing continues.
-9. Click "Maybe later"; edit and save again. Expected: no card (one per session, ladder applies).
-10. Reset again ("Make eligible now"), trigger the card, click "Don't ask again". Reload window, reset nothing, edit and save. Expected: no auto card; manual entry points still work.
-11. Open a git diff of a markdown file. Expected: no card appears in the diff view.
+5. Open the sidebar. Expected: "♥ Support MikeDown" inline after the word/char/read time metrics, subtle, no extra row; clicking opens the card. Wait 60 seconds; link is still present.
+6. Hover the link, then Tab to it with the keyboard. Expected: a small × appears on hover and on focus. Press Enter on the ×. Expected: link disappears, a brief confirmation says it can be restored in Settings, then fades; focus is not stolen. Reload the window. Expected: link stays hidden.
+7. Gear button, Appearance tab. Expected: "Show Support MikeDown link in sidebar" checkbox is unchecked. Check it and save. Expected: link reappears in the footer immediately, no reload. Uncheck and save. Expected: link disappears immediately. While hidden, About tab Support button and "MikeDown: Support MikeDown" still open the card.
+8. Gear button, About tab. Expected: Support section; the button closes Settings and opens the card.
+9. Switch themes (Light Modern, Dark Modern, a High Contrast theme). Expected: card and links readable and native looking in all three.
+10. Command palette, "MikeDown (Dev): Reset Support Prompt State", choose "Make eligible now". Then edit a document for a bit and save (Cmd+S). Expected: card appears about 1.5 seconds after save, focus stays in the editor, typing continues.
+11. Click "Maybe later"; edit and save again. Expected: no card (one per session, ladder applies).
+12. Reset again ("Make eligible now"), trigger the card, click "Don't ask again". Reload window, reset nothing, edit and save. Expected: no auto card; manual entry points still work.
+13. Reset again ("Make eligible now"), trigger the card, click "Leave a review". Then reset only the session (reload window, no dev reset), edit and save across several sessions. Expected: no auto card ever again; manual entry points still work.
+14. Close all MikeDown editors, run "MikeDown: Support MikeDown". Expected: the single fallback notice appears (the only native notice); no toast ever appears at startup.
+15. Open a git diff of a markdown file. Expected: no card appears in the diff view.
 
 - [ ] Mike signs off (record in Progress Log). Commit, write `.orchestrator/worker-summary-m9-hands-on.md`.
 
 [Return to Top](#review-appeal-planning)
 
+## Follow-ups (Not in This Release)
+
+- **Photo avatar.** Replace the "M" initial in the card's avatar slot with a small photo of Mike. Needs an image asset shipped in the bundle (webview `localResourceRoots`, `asWebviewUri`) and a CSP check that `img-src` allows `${webview.cspSource}`. No card redesign needed (the slot is built for it in M5).
+
+[Return to Top](#review-appeal-planning)
+
 ## Open Questions
 
-- **Q1. Auto show thresholds.** Recommended default: install age ≥ 7 days, ≥ 5 documents opened, ≥ 3 distinct active days, and the current session had ≥ 20 edit messages over ≥ 3 minutes before a save; at most one auto show per VS Code session; card shows 1.5 seconds after save. Alternative: lower to 3 docs and 2 days for faster signal given the small install base.
-- **Q2. Toast fallback: keep or remove?** Recommendation: **remove** the startup toast entirely. When eligible but no MikeDown panel is visible, simply wait for the next qualifying save in MikeDown (saves in plain editors do not count anyway). Keep a single modal `showInformationMessage` only as the `mikedown.support` fallback when no MikeDown editor is open.
-- **Q3. After "Leave a review", ever ask again?** Recommendation: never auto show again (we cannot verify a review was posted, and asking a reviewer twice is the fastest way to annoy the happiest users). Entry points remain. Alternative: one gentle "tell a friend" only reminder after 180 days.
-- **Q4. Existing "Stop asking" users.** Their `mikedown.nag.dismissed` carries over (recommended). Should a one time exception show the new card to them? Recommendation: no, respect the choice.
-- **Q5. Sidebar footer link placement.** Third footer row (recommended) vs. inline after the metrics. Third row is cleaner but costs vertical space.
-- **Q6. Avatar.** Initial "M" in a circle (recommended, no asset to ship) vs. a small photo of Mike (more personal, adds an image to the bundle and a CSP consideration).
-- **Q7. Share message voice.** Written for the sharer (recommended) vs. a neutral "Check out MikeDown" line.
-- **Q8. Release vehicle.** Ship as 2.11.0 (minor, new command) or 2.10.5. Recommendation: 2.11.0.
+All resolved 2026-09-26.
+
+- **Q1. Auto show thresholds.** ✅ Resolved 2026-09-26: recommended default accepted. Install age ≥ 7 days, ≥ 5 documents opened, ≥ 3 distinct active days, and the current session had ≥ 20 edit messages over ≥ 3 minutes before a save; at most one auto show per VS Code session; card shows 1.5 seconds after save.
+- **Q2. Toast fallback: keep or remove?** ✅ Resolved 2026-09-26: **remove** the startup toast entirely. When eligible but no MikeDown panel is visible, wait for the next qualifying MikeDown save. Keep only the single fallback notice for `mikedown.support` when no MikeDown editor is open.
+- **Q3. After "Leave a review", ever ask again?** ✅ Resolved 2026-09-26: never auto show again. Entry points remain.
+- **Q4. Existing "Stop asking" users.** ✅ Resolved 2026-09-26: `mikedown.nag.dismissed` carries over and is respected; no one time exception.
+- **Q5. Sidebar footer link placement.** ✅ Resolved 2026-09-26 (changed from recommendation): **inline after the metrics**, not its own row. Dismissible forever via a small × (hover and keyboard focus), with a brief confirmation that it can be restored in Settings. New setting `mikedown.support.showSidebarLink` (boolean, default `true`, three-place rule, Appearance tab checkbox, live toggle). Hiding it does not affect the About tab Support entry or the command.
+- **Q6. Avatar.** ✅ Resolved 2026-09-26: "M" initial circle now, built as a swappable slot. Photo of Mike is a follow-up (bundle asset plus CSP check); see Follow-ups.
+- **Q7. Share message voice.** ✅ Resolved 2026-09-26 (changed from recommendation): **neutral line**, e.g. "Check out MikeDown, a WYSIWYG markdown editor for VS Code: (Marketplace link)".
+- **Q8. Release vehicle.** ✅ Resolved 2026-09-26: ship as **2.11.0** (may share the release with the slash commands feature).
 
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
 
-**2026-09-26 00:16** - Plan created. Decisions baked in: replace the startup toast with an in-webview "A note from Mike" card (overlay outside the ProseMirror DOM, dismissible, never blocks typing); trigger after a save following a meaningful editing session, eligibility in a pure module with an injected clock, keep the `mikedown.nag.*` globalState keys and backoff ladder, sticky "Don't ask again"; persistent "♥ Support MikeDown" entry points in sidebar footer, Settings About tab, and `mikedown.support` command; dev-only `mikedown.dev.resetSupportPrompt` for testing; toast removed or kept only as a fallback (Q2); README "A note from the developer" replacing the existing "Enjoying MikeDown?" section, plus CHANGELOG Unreleased; copy review gate at M1 (`review-appeal-copy.md`); no new settings; baseline 5 reviews, about 400 installs, check with `npx vsce show interapp.mikedown-editor` at 30 and 60 days after release.
+**2026-09-26 00:22** - Open questions Q1 to Q8 resolved by Mike. Accepted recommendations for Q1 (thresholds), Q2 (startup toast removed; only the `mikedown.support` fallback notice remains), Q3 (never auto show after "Leave a review"), Q4 (legacy "Stop asking" respected), Q6 ("M" initial now, swappable avatar slot; photo is a follow-up), Q8 (2.11.0, may share the release with slash commands). Changed from recommendation: Q5 sidebar link goes inline after the metrics with a forever × dismiss and a new setting `mikedown.support.showSidebarLink` (three-place rule, Appearance tab, live toggle); Q7 share message is a neutral "Check out MikeDown" line. Updated summary, design decisions, M1 to M9, tests, hands-on steps, and added Follow-ups.
+
+**2026-09-26 00:16** - Plan created. Decisions baked in: replace the startup toast with an in-webview "A note from Mike" card (overlay outside the ProseMirror DOM, dismissible, never blocks typing); trigger after a save following a meaningful editing session, eligibility in a pure module with an injected clock, keep the `mikedown.nag.*` globalState keys and backoff ladder, sticky "Don't ask again"; persistent "♥ Support MikeDown" entry points in sidebar footer, Settings About tab, and `mikedown.support` command; dev-only `mikedown.dev.resetSupportPrompt` for testing; toast removed or kept only as a fallback (Q2); README "A note from the developer" replacing the existing "Enjoying MikeDown?" section, plus CHANGELOG Unreleased; copy review gate at M1 (`review-appeal-copy.md`); no new settings (superseded 2026-09-26 by `mikedown.support.showSidebarLink`); baseline 5 reviews, about 400 installs, check with `npx vsce show interapp.mikedown-editor` at 30 and 60 days after release.
 
 [Return to Top](#review-appeal-planning)
 
@@ -312,7 +336,7 @@ Mode: **unit** with the jsdom webview harness (`test/harness/webviewHarness.ts`)
 
 **Group C (after M3):** M4 Testing: Host Logic (Sonnet). Can run in parallel with M5 once M1 is approved.
 
-**Group D (after M1 approved and M3 done):** M5 Card UI (Opus), then M6 Entry Points (Opus). M6 is sequential after M5 because both edit `src/webview/editor-main.ts`. M8 README and CHANGELOG (Haiku) can run in parallel with M5 and M6 (disjoint files).
+**Group D (after M1 approved and M3 done):** M5 Card UI (Opus), then M6 Entry Points (Opus). M6 is sequential after M5 because both edit `src/webview/editor-main.ts`. M6 also touches `package.json`, `src/settings.ts`, and `src/webview/outlineSidebar.ts` for the new setting. M8 README and CHANGELOG (Haiku) can run in parallel with M5 and M6 (disjoint files).
 
 **Group E (after M5, M6):** M7 Testing: Webview.
 
@@ -323,7 +347,7 @@ Mode: **unit** with the jsdom webview harness (`test/harness/webviewHarness.ts`)
 - M1 approval gates M5, M6, M8 (copy). M3 may use placeholder copy.
 - M3 gates M5 (message protocol) and M4.
 - M5 and M6 must not run concurrently (both edit `editor-main.ts`).
-- M3 and M6 both touch the host `supportAction` handler; M6 runs after M3.
+- M3 and M6 both touch the host `supportAction` handler and `package.json`; M6 runs after M3.
 
 If the orchestrator's context fills, run `/compact` and resume from `.orchestrator/state.json`.
 
