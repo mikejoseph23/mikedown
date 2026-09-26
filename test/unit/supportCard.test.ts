@@ -48,7 +48,7 @@ describe('support card rendering', () => {
     const card = document.querySelector('[data-testid="support-card"]') as HTMLElement | null;
     expect(card).not.toBeNull();
     expect(card!.querySelector('h2')?.textContent).toBe(CARD_COPY.title);
-    expect(card!.querySelector('.support-card-body')?.textContent).toContain('Thanks for using MikeDown.');
+    expect(card!.querySelector('.support-card-body')?.textContent).toContain('Hi there! Thanks for downloading my markdown editor.');
 
     const actionButtons = Array.from(card!.querySelectorAll<HTMLButtonElement>('button[data-action]'))
       .filter(b => b.dataset.action !== 'close');

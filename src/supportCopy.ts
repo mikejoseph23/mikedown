@@ -37,10 +37,9 @@ export interface SupportCardCopy {
 export const CARD_COPY: SupportCardCopy = {
   title: 'A note from Mike',
   body:
-    "Thanks for using MikeDown.\n\n" +
-    "I built it for myself. I'd spent years in split pane previews and wanted markdown to feel like having a few Word documents open. It's been my main editor ever since, and nearly every feature came from using it daily. I'm accidentally proud of how it turned out.\n\n" +
-    "It's just me, and it's easy to miss on the Marketplace. A review, or a word to a colleague who uses VS Code, helps more than you'd think. Bug or idea? Open an issue. I reply fast.\n\n" +
-    "Mike",
+    "Hi there! Thanks for downloading my markdown editor. I built MikeDown for myself because I wanted more of a word processor inside VS Code, instead of the split pane preview I'd used for years. Version 1 was half-decent. Since then I've kept adding features and fixing bugs, and I find it more useful than ever. Thanks too to everyone who has sent in feature requests.\n\n" +
+    "Problem is, the marketplace is crowded and it's hard to get noticed. I have a few hundred installs and only a handful of reviews, and reviews are what get an extension noticed. If you've found this extension useful, please help others find me by leaving me a review. If you have any ideas for new features or find any issues, feel free to contact me via GitHub!\n\n" +
+    "- Mike",
   avatar: { kind: 'initial', text: 'M' },
   buttons: BUTTON_LABELS,
   copiedConfirmation: 'Copied. Paste it anywhere.',
@@ -83,6 +82,6 @@ export const ENTRY_COPY: SupportEntryCopy = {
   dismissConfirmation: 'Hidden. You can bring it back in Settings, Appearance.',
   settingsCheckbox: 'Show Support MikeDown link in sidebar',
   aboutHeading: 'Support MikeDown',
-  aboutLeadIn: 'MikeDown is made by one person. A review or a word to a friend goes a long way.',
+  aboutLeadIn: 'MikeDown is made by one person. A review or a word to a colleague goes a long way.',
   aboutButton: '♥ Support MikeDown',
 };

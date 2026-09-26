@@ -22,15 +22,13 @@ Either way, the raw markdown source is always one keystroke away with `Cmd+/` / 
 
 ## A note from the developer
 
-Thanks for giving MikeDown a try.
+Hi there! Thanks for giving MikeDown a try. I built it for myself a few months ago. I'd used the popular Markdown Preview extension for years, and it's good, but I wanted more of a word processor inside VS Code instead of a split pane. Version 1 was half-decent. Since then I've kept adding features and fixing bugs, and it's now my everyday markdown editor. Thanks too to everyone who has sent in feature requests.
 
-I built it for myself. I'd used the popular Markdown Preview extension for years, and it's great, but the split pane always felt like wasted space. I wanted editing docs and plans to feel like having a few Word documents open side by side. Version one already worked well, and it's been my everyday markdown editor since. Nearly every feature came from using it that way and thinking "I wish it did this." I'm accidentally proud of where it ended up.
+Problem is, the marketplace is crowded and it's hard to get noticed. Reviews are what get an extension noticed, so if MikeDown has earned a spot in your workflow, please help others find it by [leaving me a review](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details) or [passing it along to a colleague](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor).
 
-It's just me building it, and it's easy to miss among all the markdown editors on the Marketplace. If it's earned a spot in your workflow, [a review](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details) or [a word to a colleague](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor) is the best way to help it grow.
+Found a bug or have an idea? [Open an issue](https://github.com/mikejoseph23/mikedown/issues/new). I usually reply quickly.
 
-I'm small enough to be quick. Bug or idea, [open an issue](https://github.com/mikejoseph23/mikedown/issues/new) and you'll likely hear back fast.
-
-Mike
+\- Mike
 
 ## Screenshots
 
