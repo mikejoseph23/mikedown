@@ -14,6 +14,7 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 
 ## What's Next
 
+1. **Reminder: update the review plea message.** Review and refresh the appeal copy (`review-appeal-copy.md`, from `review-appeal-planning.md` M1) before 2.11.0 ships, and keep the card, README section and share text in sync.
 1. **Hotkeys follow-ups:**
    - The older command cases (`toggleBold`/`Italic`/`Strike`/`Highlight`/`Code`) in `editor-main.ts` have no `sourceMode` guard. This is a latent bug.
    - Those same commands have no `commandPalette` gating entries.
