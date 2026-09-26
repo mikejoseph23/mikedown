@@ -30,6 +30,8 @@ export interface SupportCardCopy {
   avatar: { kind: 'initial'; text: string };
   buttons: typeof BUTTON_LABELS;
   copiedConfirmation: string;
+  /** Accessible name and tooltip of the card's corner × button. */
+  closeLabel: string;
 }
 
 export const CARD_COPY: SupportCardCopy = {
@@ -42,6 +44,7 @@ export const CARD_COPY: SupportCardCopy = {
   avatar: { kind: 'initial', text: 'M' },
   buttons: BUTTON_LABELS,
   copiedConfirmation: 'Copied. Paste it anywhere.',
+  closeLabel: 'Close',
 };
 
 /** Written to the clipboard by the `share` ("Tell a colleague") action — a neutral line, not Mike's voice (Q7). */
@@ -50,3 +53,36 @@ export const SHARE_MESSAGE =
 
 /** `mikedown.support` fallback notice text when no MikeDown editor is open — the only native notice left (Q2). */
 export const FALLBACK_NOTICE_TEXT = 'Open a markdown file in MikeDown to see how you can support the project.';
+
+/**
+ * Persistent entry point labels (review-appeal-copy.md section 6, M6). Sent
+ * to the webview as `supportEntryCopy` inside every `settings` broadcast, so
+ * the sidebar footer link, its dismiss button, the Appearance checkbox and
+ * the About tab section never hardcode these strings.
+ */
+export interface SupportEntryCopy {
+  /** Sidebar footer link label. */
+  sidebarLink: string;
+  /** Sidebar footer × button `aria-label` and tooltip. */
+  dismissLabel: string;
+  /** Brief `role="status"` text shown in the footer after dismissing. */
+  dismissConfirmation: string;
+  /** Settings Appearance checkbox label for `mikedown.support.showSidebarLink`. */
+  settingsCheckbox: string;
+  /** Settings About tab section heading. */
+  aboutHeading: string;
+  /** Settings About tab one line lead in. */
+  aboutLeadIn: string;
+  /** Settings About tab button label (opens the card). */
+  aboutButton: string;
+}
+
+export const ENTRY_COPY: SupportEntryCopy = {
+  sidebarLink: '♥ Support MikeDown',
+  dismissLabel: 'Hide this link',
+  dismissConfirmation: 'Hidden. You can bring it back in Settings, Appearance.',
+  settingsCheckbox: 'Show Support MikeDown link in sidebar',
+  aboutHeading: 'Support MikeDown',
+  aboutLeadIn: 'MikeDown is made by one person. A review or a word to a friend goes a long way.',
+  aboutButton: '♥ Support MikeDown',
+};

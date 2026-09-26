@@ -7,8 +7,8 @@
  *
  * Every user facing string comes from the `copy` payload of the host's
  * `showSupportCard` message (`CARD_COPY` in `src/supportCopy.ts`); this module
- * hardcodes none of the appeal copy. The only literal is the generic "Close"
- * accessible name on the corner × button, which is UI chrome, not appeal copy.
+ * hardcodes none of the appeal copy, including the corner × button's
+ * accessible name (`copy.closeLabel`).
  *
  * Styling uses VS Code theme tokens only (with fallbacks) so it follows light,
  * dark, and high contrast themes, plus MikeDown's own force light / force dark
@@ -35,6 +35,8 @@ export interface SupportCardCopy {
     never: string;
   };
   copiedConfirmation: string;
+  /** Accessible name and tooltip of the corner × button. */
+  closeLabel: string;
 }
 
 export interface ShowSupportCardOptions {
@@ -99,8 +101,9 @@ export function showSupportCard(opts: ShowSupportCardOptions): void {
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'support-card-close';
-  closeBtn.setAttribute('aria-label', 'Close');
-  closeBtn.title = 'Close';
+  const closeLabel = copy.closeLabel || 'Close';
+  closeBtn.setAttribute('aria-label', closeLabel);
+  closeBtn.title = closeLabel;
   closeBtn.setAttribute('data-action', 'close');
   closeBtn.innerHTML =
     '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';

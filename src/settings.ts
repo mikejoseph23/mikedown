@@ -24,6 +24,12 @@ export interface MikeDownSettings {
   sidebar: SidebarSettings;
   wikilink: WikilinkSettings;
   spellCheck: SpellCheckSettings;
+  support: SupportSettings;
+}
+
+export interface SupportSettings {
+  /** Show the "Support MikeDown" link in the sidebar footer (M6). */
+  showSidebarLink: boolean;
 }
 
 export interface SpellCheckSettings {
@@ -111,6 +117,9 @@ export function getSettings(): MikeDownSettings {
       language: config.get<'en' | 'en-GB'>('spellCheck.language', 'en') === 'en-GB' ? 'en-GB' : 'en',
       ignoreCodeBlocks: config.get<boolean>('spellCheck.ignoreCodeBlocks', true),
       ...readWordLists(config),
+    },
+    support: {
+      showSidebarLink: config.get<boolean>('support.showSidebarLink', true),
     },
     sidebar: {
       // Legacy 'remember' value collapses to 'never' — per-doc memory was

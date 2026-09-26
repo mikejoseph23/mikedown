@@ -49,6 +49,17 @@ interface InitOptions {
    * serialize-and-post step; the sidebar just produces the new entries list.
    */
   onPropertiesChange?: (entries: FrontmatterEntry[]) => void;
+  /** Footer "Support MikeDown" link clicked — the owner asks the host to open the card. */
+  onSupportOpen?: () => void;
+  /** Footer × clicked — the owner persists `mikedown.support.showSidebarLink = false`. */
+  onSupportDismiss?: () => void;
+}
+
+/** Entry point labels this module renders (subset of `ENTRY_COPY` in src/supportCopy.ts). */
+export interface SupportLinkCopy {
+  sidebarLink: string;
+  dismissLabel: string;
+  dismissConfirmation: string;
 }
 
 const MIN_WIDTH = 160;
@@ -117,12 +128,25 @@ let propertiesChangeCb: ((entries: FrontmatterEntry[]) => void) | null = null;
 let docMtimeMs: number | null = null;
 let docPlainText = '';
 let footerTickTimer: number | null = null;
+let footerRowsEl: HTMLElement | null = null;
+
+// Support appeal footer link (M6). Hidden until the host's first `settings`
+// broadcast delivers both the toggle and the approved copy.
+let supportLinkVisible = false;
+let supportLinkCopy: SupportLinkCopy | null = null;
+let supportOpenCb: (() => void) | null = null;
+let supportDismissCb: (() => void) | null = null;
+let supportStatusEl: HTMLElement | null = null;
+let supportStatusTimer: number | null = null;
+const SUPPORT_STATUS_MS = 4000;
 
 export function initOutlineSidebar(opts: InitOptions): void {
   editorRef = opts.editor;
   vscodeRef = opts.vscode;
   anchorFnRef = opts.anchorFn;
   propertiesChangeCb = opts.onPropertiesChange ?? null;
+  supportOpenCb = opts.onSupportOpen ?? null;
+  supportDismissCb = opts.onSupportDismiss ?? null;
 
   sidebarEl = document.getElementById('mikedown-outline-sidebar');
   toggleEl = document.getElementById('mikedown-outline-toggle') as HTMLButtonElement | null;
@@ -204,8 +228,17 @@ function buildSidebarSkeleton(root: HTMLElement): void {
   root.appendChild(propertiesSectionEl);
 
   // Footer
+  // Footer. The rows wrapper is rebuilt on every render (60s tick, edits);
+  // the status line is persistent so its live region survives re-renders.
   footerEl = document.createElement('div');
   footerEl.className = 'sidebar-footer';
+  footerRowsEl = document.createElement('div');
+  footerRowsEl.className = 'sidebar-footer-rows';
+  supportStatusEl = document.createElement('div');
+  supportStatusEl.className = 'sidebar-footer-status';
+  supportStatusEl.setAttribute('role', 'status');
+  supportStatusEl.setAttribute('data-testid', 'sidebar-support-status');
+  footerEl.append(footerRowsEl, supportStatusEl);
   root.appendChild(footerEl);
 
   // Resize handle — same role as before
@@ -1202,7 +1235,7 @@ function commitProperties(next: FrontmatterEntry[]): void {
 // ── Footer rendering ───────────────────────────────────────────────────────
 
 function renderFooter(): void {
-  if (!footerEl) return;
+  if (!footerEl || !footerRowsEl) return;
   const wc = countWords(docPlainText);
   const cc = docPlainText.length;
   const rt = readingMinutes(wc);
@@ -1212,15 +1245,95 @@ function renderFooter(): void {
   const wordsLabel = wc === 1 ? 'word' : 'words';
   const charsLabel = cc === 1 ? 'char' : 'chars';
   const metricsPart = `${wc.toLocaleString()} ${wordsLabel} · ${cc.toLocaleString()} ${charsLabel} · ${rt} min read`;
-  footerEl.replaceChildren();
+
+  // Keep keyboard focus on the support link / × across re-renders (the 60s
+  // tick and every edit rebuild the rows).
+  const focusedTestId = footerRowsEl.contains(document.activeElement)
+    ? (document.activeElement as HTMLElement).getAttribute('data-testid')
+    : null;
+
+  footerRowsEl.replaceChildren();
   const row1 = document.createElement('div');
   row1.className = 'sidebar-footer-row';
   row1.textContent = modPart;
   const row2 = document.createElement('div');
   row2.className = 'sidebar-footer-row';
-  row2.textContent = metricsPart;
-  footerEl.appendChild(row1);
-  footerEl.appendChild(row2);
+  if (supportLinkVisible && supportLinkCopy) {
+    row2.classList.add('sidebar-footer-row--with-support');
+    row2.appendChild(buildMetricsWithSupport(metricsPart, supportLinkCopy));
+  } else {
+    row2.textContent = metricsPart;
+  }
+  footerRowsEl.appendChild(row1);
+  footerRowsEl.appendChild(row2);
+
+  if (focusedTestId) {
+    footerRowsEl.querySelector<HTMLElement>(`[data-testid="${focusedTestId}"]`)?.focus({ preventScroll: true });
+  }
+}
+
+/**
+ * Metrics + "♥ Support MikeDown" link + × on one line. Each item draws its
+ * own leading middle dot; the wrapper is shifted left by one separator width
+ * and clipped by the row, so whichever item starts a line has its dot hidden.
+ * If the sidebar is too narrow, the link group wraps to its own line as a
+ * whole (it never breaks mid label) and the metrics ellipsize as before.
+ */
+function buildMetricsWithSupport(metricsPart: string, copy: SupportLinkCopy): HTMLElement {
+  const items = document.createElement('div');
+  items.className = 'sidebar-footer-items';
+
+  const metrics = document.createElement('span');
+  metrics.className = 'sidebar-footer-item sidebar-footer-metrics';
+  metrics.textContent = metricsPart;
+
+  const group = document.createElement('span');
+  group.className = 'sidebar-footer-item sidebar-support-group';
+
+  const link = document.createElement('button');
+  link.type = 'button';
+  link.className = 'sidebar-support-link';
+  link.setAttribute('data-testid', 'sidebar-support-link');
+  link.textContent = copy.sidebarLink;
+  link.addEventListener('click', () => supportOpenCb?.());
+
+  const dismiss = document.createElement('button');
+  dismiss.type = 'button';
+  dismiss.className = 'sidebar-support-dismiss';
+  dismiss.setAttribute('data-testid', 'sidebar-support-dismiss');
+  dismiss.setAttribute('aria-label', copy.dismissLabel);
+  dismiss.title = copy.dismissLabel;
+  dismiss.innerHTML = '<svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M1 1l6 6M7 1L1 7"/></svg>';
+  dismiss.addEventListener('click', () => dismissSupportLink());
+
+  group.append(link, dismiss);
+  items.append(metrics, group);
+  return items;
+}
+
+function dismissSupportLink(): void {
+  const confirmation = supportLinkCopy?.dismissConfirmation ?? '';
+  supportLinkVisible = false;
+  renderFooter();
+  supportDismissCb?.();
+  if (!supportStatusEl || !confirmation) return;
+  if (supportStatusTimer !== null) window.clearTimeout(supportStatusTimer);
+  supportStatusEl.textContent = confirmation;
+  supportStatusTimer = window.setTimeout(() => {
+    supportStatusTimer = null;
+    if (supportStatusEl) supportStatusEl.textContent = '';
+  }, SUPPORT_STATUS_MS) as unknown as number;
+}
+
+/**
+ * Show or hide the footer "Support MikeDown" link live, from the host's
+ * `settings` broadcast (`mikedown.support.showSidebarLink` + entry copy).
+ */
+export function applySupportLink(opts: { visible: boolean; copy?: SupportLinkCopy | null }): void {
+  if (opts.copy) supportLinkCopy = opts.copy;
+  if (supportLinkVisible === opts.visible) return;
+  supportLinkVisible = opts.visible;
+  renderFooter();
 }
 
 function startFooterTick(): void {

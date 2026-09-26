@@ -301,6 +301,11 @@
           ],
           "description": "Whether the in-editor sidebar starts visible. Toggle the pin button in the sidebar header to change this."
         },
+        "mikedown.support.showSidebarLink": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a small Support MikeDown link in the in-editor sidebar footer. Does not affect the Support MikeDown entry in Settings, About or the MikeDown: Support MikeDown command."
+        },
         "mikedown.sidebar.width": {
           "type": "number",
           "default": 200,

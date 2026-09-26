@@ -144,8 +144,16 @@ export class SupportPrompt {
     }
   }
 
-  /** Webview → host `{ type: 'supportAction', action }`. */
-  public handleAction(panel: vscode.WebviewPanel, action: SupportAction): void {
+  /**
+   * Webview → host `{ type: 'supportAction', action }`. `'open'` comes from a
+   * persistent entry point (sidebar footer link, Settings About button; M6):
+   * it is not a card response, so no state changes, just a manual show.
+   */
+  public handleAction(panel: vscode.WebviewPanel, action: SupportAction | 'open'): void {
+    if (action === 'open') {
+      this.showManual(panel);
+      return;
+    }
     const now = Date.now();
     const state = readState(this.store, now);
     writeState(this.store, applyAction(state, action, now));

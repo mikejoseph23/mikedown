@@ -22,6 +22,7 @@ import { githubAnchorId } from './anchoring';
 import { BacklinkEntry } from './backlinkProvider';
 import { pickBestWikilinkTarget } from './wikilinkResolve';
 import { SupportPrompt, SessionTracker } from './supportPrompt';
+import { ENTRY_COPY } from './supportCopy';
 import { SupportAction } from './supportPromptEligibility';
 
 /**
@@ -904,6 +905,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (settings.sidebarPosition === 'left' || settings.sidebarPosition === 'right') {
             config.update('sidebar.position', settings.sidebarPosition, vscode.ConfigurationTarget.Global);
           }
+          if (typeof settings.supportShowSidebarLink === 'boolean') {
+            config.update('support.showSidebarLink', settings.supportShowSidebarLink, vscode.ConfigurationTarget.Global);
+          }
           if (typeof settings.sidebarWidth === 'number' && settings.sidebarWidth >= 160 && settings.sidebarWidth <= 360) {
             config.update('sidebar.width', Math.round(settings.sidebarWidth), vscode.ConfigurationTarget.Global);
           }
@@ -1031,8 +1035,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }
         case 'supportAction': {
           // "A note from Mike" card button click — review / share / feedback /
-          // later / never / close. All persistence, URL opening, and the
-          // clipboard write live in supportPrompt.handleAction (M3).
+          // later / never / close — or 'open' from a persistent entry point
+          // (sidebar footer link, Settings About button; M6), which replies
+          // with a manual showSupportCard. All persistence, URL opening, and
+          // the clipboard write live in supportPrompt.handleAction (M3).
           if (message.action) {
             this.supportPrompt.handleAction(webviewPanel, message.action);
           }
@@ -1240,6 +1246,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       spellCheck: settings.spellCheck,
       imagePastePathMappings: prefixes,
       docDirFs,
+      // Support appeal entry points (M6): sidebar footer link toggle plus the
+      // approved entry point labels, so the webview hardcodes none of them.
+      supportShowSidebarLink: settings.support.showSidebarLink,
+      supportEntryCopy: ENTRY_COPY,
     });
   }
 
@@ -2086,8 +2096,8 @@ ${cssLinks}
  */
 interface WebviewMessage {
   type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'pickImage' | 'headingRenamed' | 'headingRenameAmbiguous' | 'openKeybindings' | 'supportAction' | 'supportCardShown' | 'busy';
-  /** supportAction payload — which "A note from Mike" card button was clicked. */
-  action?: SupportAction;
+  /** supportAction payload — which "A note from Mike" card button was clicked, or 'open' from an entry point. */
+  action?: SupportAction | 'open';
   content?: string;
   pristine?: boolean;
   /** stats payload — selection word/char counts; `null` = nothing selected. */

@@ -77,7 +77,14 @@
  *         'close' ('close' = dismissed without choosing). The host applies
  *         the corresponding state change, and for 'review'/'feedback' opens
  *         the Marketplace review / GitHub issue URL, or for 'share' writes
- *         the clipboard and replies `supportCopied`.
+ *         the clipboard and replies `supportCopied`. `action: 'open'` comes
+ *         from a persistent entry point (sidebar footer link, Settings About
+ *         button; M6): no state change, the host replies with a
+ *         `showSupportCard` `reason: 'manual'`.
+ *     { type: 'saveSettings', settings: { supportShowSidebarLink: false } } —
+ *         the sidebar footer link's × (dismiss forever). The `settings`
+ *         broadcast carries `supportShowSidebarLink` and `supportEntryCopy`
+ *         (ENTRY_COPY in src/supportCopy.ts) back; the link toggles live.
  */
 
 import { Editor, mergeAttributes } from '@tiptap/core';
@@ -117,6 +124,7 @@ import {
   applyDocMeta,
   applyPlainText,
   toggleSidebarVisible,
+  applySupportLink,
 } from './outlineSidebar';
 import {
   parseFrontmatter,
@@ -750,7 +758,7 @@ function formatHotkeyChord(chord: string): string {
  * external URLs via the host's existing 'openLink' message so VS Code handles
  * them in the user's default browser.
  */
-function buildAboutPanel(): HTMLDivElement {
+function buildAboutPanel(closeModal: () => void): HTMLDivElement {
   const panel = document.createElement('div');
   panel.setAttribute('role', 'tabpanel');
   panel.style.cssText = 'display:flex;flex-direction:column;gap:16px;align-items:flex-start';
@@ -797,6 +805,48 @@ function buildAboutPanel(): HTMLDivElement {
   );
 
   panel.append(titleRow, meta, linksRow);
+
+  // Support appeal (M6): heading, one line lead in, and a button that closes
+  // Settings and opens the "A note from Mike" card. Copy comes from the
+  // host's ENTRY_COPY; the section is omitted until it has arrived.
+  const supportCopy = currentSupportEntryCopy;
+  if (supportCopy) {
+    const supportSection = document.createElement('div');
+    supportSection.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin-top:4px;padding-top:16px;border-top:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.2));align-self:stretch';
+    const heading = document.createElement('div');
+    heading.setAttribute('role', 'heading');
+    heading.setAttribute('aria-level', '3');
+    heading.textContent = supportCopy.aboutHeading;
+    heading.style.cssText = 'font-size:13px;font-weight:600;color:var(--vscode-editor-foreground)';
+    const leadIn = document.createElement('div');
+    leadIn.textContent = supportCopy.aboutLeadIn;
+    leadIn.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.4';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('data-testid', 'about-support-button');
+    btn.textContent = supportCopy.aboutButton;
+    btn.style.cssText = [
+      'margin-top:4px',
+      'padding:5px 14px',
+      'background:var(--vscode-button-secondaryBackground,#3a3d41)',
+      'color:var(--vscode-button-secondaryForeground,#ffffff)',
+      'border:1px solid var(--vscode-button-border,transparent)',
+      'border-radius:4px',
+      'cursor:pointer',
+      'font-size:13px',
+      'font-family:inherit',
+    ].join(';');
+    btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--vscode-button-secondaryHoverBackground,#45494e)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.background = 'var(--vscode-button-secondaryBackground,#3a3d41)'; });
+    btn.addEventListener('focus', () => { if (!btn.matches(':focus-visible')) return; btn.style.outline = '1px solid var(--vscode-focusBorder,#007fd4)'; btn.style.outlineOffset = '2px'; });
+    btn.addEventListener('blur', () => { btn.style.outline = 'none'; });
+    btn.addEventListener('click', () => {
+      closeModal();
+      requestSupportCard();
+    });
+    supportSection.append(heading, leadIn, btn);
+    panel.append(supportSection);
+  }
   return panel;
 }
 
@@ -1294,7 +1344,8 @@ function showSettingsModal(): void {
     const desc = document.createElement('span');
     desc.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.4';
     desc.textContent = description;
-    labelWrap.append(lbl, desc);
+    labelWrap.append(lbl);
+    if (description) labelWrap.append(desc);
     labelWrap.addEventListener('click', (e) => {
       // Native label-for would be cleaner but we'd need unique ids; cheaper to
       // forward clicks manually (and we still want the entire row clickable).
@@ -1443,6 +1494,14 @@ function showSettingsModal(): void {
   sidebarWidthInput.value = String(currentSidebarWidthDefault);
   sidebarWidthInput.style.cssText = inputStyle;
   sidebarWidthRow.appendChild(sidebarWidthInput);
+
+  // Support appeal footer link (M6) — not a seed default: applies live to
+  // every open sidebar via the settings broadcast. The label is approved copy
+  // from the host (ENTRY_COPY); the row is omitted until it has arrived.
+  const supportSidebarLinkField = currentSupportEntryCopy
+    ? makeCheckboxRow(currentSupportEntryCopy.settingsCheckbox, '', currentSupportShowSidebarLink)
+    : null;
+  supportSidebarLinkField?.input.setAttribute('data-testid', 'setting-support-sidebar-link');
 
   // Note + Apply button — wires together below the sidebar default rows.
   const sidebarApplyRow = document.createElement('div');
@@ -1728,6 +1787,7 @@ function showSettingsModal(): void {
         sidebarVisibility: sidebarVisibilityField.select.value,
         sidebarPosition: sidebarPositionField.select.value,
         sidebarWidth: parsedSidebarWidth,
+        ...(supportSidebarLinkField ? { supportShowSidebarLink: supportSidebarLinkField.input.checked } : {}),
         // Spelling
         spellCheckEnabled: spellEnabledField.input.checked,
         spellCheckLanguage: spellLanguageField.select.value,
@@ -1750,6 +1810,10 @@ function showSettingsModal(): void {
     currentSidebarVisibilityDefault = sidebarVisibilityField.select.value as typeof currentSidebarVisibilityDefault;
     currentSidebarPositionDefault = sidebarPositionField.select.value as typeof currentSidebarPositionDefault;
     currentSidebarWidthDefault = parsedSidebarWidth;
+    if (supportSidebarLinkField) {
+      currentSupportShowSidebarLink = supportSidebarLinkField.input.checked;
+      applySupportLink({ visible: currentSupportShowSidebarLink, copy: currentSupportEntryCopy });
+    }
     currentSpellCheckEnabled = spellEnabledField.input.checked;
     currentSpellCheckLanguage = spellLanguageField.select.value as SpellCheckLanguage;
     currentSpellCheckIgnoreCodeBlocks = spellIgnoreCodeField.input.checked;
@@ -1797,6 +1861,7 @@ function showSettingsModal(): void {
     sidebarPositionField.row,
     sidebarWidthRow,
     sidebarApplyRow,
+    ...(supportSidebarLinkField ? [supportSidebarLinkField.row] : []),
   );
   const behaviorPanel = makePanel();
   behaviorPanel.append(
@@ -1826,7 +1891,7 @@ function showSettingsModal(): void {
   const imagesPanel = makePanel();
   imagesPanel.append(ipSectionRow, irSectionRow);
   const hotkeysPanel = buildHotkeysPanel();
-  const aboutPanel = buildAboutPanel();
+  const aboutPanel = buildAboutPanel(() => overlay.remove());
 
   const panels: Record<SettingsTabId, HTMLElement> = {
     appearance: appearancePanel,
@@ -1970,6 +2035,26 @@ let currentRenderMermaidDiagrams = true;
 let currentWikilinkCreateOnClick = false;
 let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
 let currentHeadingRenameUpdateLinks: 'ask' | 'always' | 'never' = 'ask';
+
+// Support appeal entry points (M6), seeded from the host's 'settings'
+// broadcast (`supportShowSidebarLink`, `supportEntryCopy` = ENTRY_COPY in
+// src/supportCopy.ts). Copy is null until the first broadcast arrives.
+interface SupportEntryCopy {
+  sidebarLink: string;
+  dismissLabel: string;
+  dismissConfirmation: string;
+  settingsCheckbox: string;
+  aboutHeading: string;
+  aboutLeadIn: string;
+  aboutButton: string;
+}
+let currentSupportShowSidebarLink = true;
+let currentSupportEntryCopy: SupportEntryCopy | null = null;
+
+/** Ask the host to open the "A note from Mike" card (it replies with a manual `showSupportCard`). */
+function requestSupportCard(): void {
+  vscode.postMessage({ type: 'supportAction', action: 'open' });
+}
 
 // Spelling tab state. `userWords` is the persisted custom dictionary; the
 // checker keeps its own copy so "Add to Dictionary" takes effect immediately
@@ -3714,6 +3799,14 @@ if (!editorContainer) {
     vscode,
     anchorFn: githubAnchorId,
     onPropertiesChange: applyFrontmatterEdit,
+    // Support appeal entry point (M6). Opening goes through the host
+    // (`supportAction: 'open'` → manual `showSupportCard`) so the card copy
+    // stays host owned. Dismiss persists the setting via the modal's path.
+    onSupportOpen: requestSupportCard,
+    onSupportDismiss: () => {
+      currentSupportShowSidebarLink = false;
+      vscode.postMessage({ type: 'saveSettings', settings: { supportShowSidebarLink: false } });
+    },
   });
 
   // ── Heading Rename → Fix Links (2.7.0) ─────────────────────────────────────
@@ -4767,6 +4860,13 @@ if (!editorContainer) {
       if (typeof msg.wikilinkCreateOnClick === 'boolean') {
         currentWikilinkCreateOnClick = msg.wikilinkCreateOnClick;
       }
+      if (msg.supportEntryCopy && typeof msg.supportEntryCopy === 'object') {
+        currentSupportEntryCopy = msg.supportEntryCopy as SupportEntryCopy;
+      }
+      if (typeof msg.supportShowSidebarLink === 'boolean') {
+        currentSupportShowSidebarLink = msg.supportShowSidebarLink;
+      }
+      applySupportLink({ visible: currentSupportShowSidebarLink && !!currentSupportEntryCopy, copy: currentSupportEntryCopy });
       if (msg.markdownNormalization === 'preserve' || msg.markdownNormalization === 'normalize') {
         currentMarkdownNormalization = msg.markdownNormalization;
       }
