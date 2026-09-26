@@ -29,8 +29,8 @@
 | M3: Host Wiring, Command, Dev Reset | Sonnet | ✅ | 12 | Needs M2; toast removed (Q2) |
 | M4: Testing: Host Logic | Sonnet | 🔄 | | Needs M2, M3 |
 | M5: "A Note from Mike" Card UI | Opus | ✅ | 15 | Needs M1 approved, M3 protocol; swappable avatar slot (Q6) |
-| M6: Persistent Entry Points | Opus | 🔄 | | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
-| M7: Testing: Webview Card and Entry Points | Sonnet | ⬜ | | Needs M5, M6 |
+| M6: Persistent Entry Points | Opus | ✅ | 8 | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
+| M7: Testing: Webview Card and Entry Points | Sonnet | 🔄 | | Needs M5, M6 |
 | M8: README and CHANGELOG | Haiku | ✅ | 1 | Needs M1 approved; 2.11.0 (Q8) |
 | M9: Hands-on Pass and Measurement Follow-up | Sonnet | ⬜ | | Pauses for Mike's sign-off |
 
@@ -211,15 +211,15 @@ Modes: **unit** (`npm run test:unit`, vitest with mocked `vscode`) and **integra
 
 Low key, always there, never loud. They should read as a quiet signature, the way a well made indie app credits its maker.
 
-- [ ] Sidebar footer (`src/webview/outlineSidebar.ts`, `renderFooter()`): add a small "♥ Support MikeDown" link **inline after the metrics** in the existing words/chars/read time row (Q5 resolved; not its own row), separated by a middle dot, in `--vscode-descriptionForeground`, underline and `--vscode-textLink-foreground` on hover. Build it inside `renderFooter()` so the 60 second tick's `replaceChildren()` does not drop it; give it `data-testid="sidebar-support-link"`. Render it only when `mikedown.support.showSidebarLink` is `true`.
-- [ ] Dismiss forever: a small × button (`data-testid="sidebar-support-dismiss"`, real `<button>`, approved `aria-label`) next to the link, visible on hover of the link group and on keyboard focus (focusable via Tab, activates on Enter/Space, `--vscode-focusBorder` outline). Clicking posts `{ type: 'saveSettings', settings: { 'support.showSidebarLink': false } }` through the existing path (match the key shape the modal already uses), hides the link immediately, and shows a brief non blocking confirmation (approved text, e.g. "Hidden. You can bring it back in Settings, Appearance.") in the footer for about 4 seconds, `role="status"`, no focus steal.
-- [ ] New setting `mikedown.support.showSidebarLink` (boolean, default `true`) via the three-place rule: `package.json#contributes.configuration.properties` (with description), `src/settings.ts` reader, and a checkbox in the Settings modal **Appearance** tab next to the other sidebar settings (`data-testid="setting-support-sidebar-link"`). Include it in the `settings` broadcast; the webview hides or shows the footer link live on broadcast, no reload. This setting does not affect the About tab Support entry or the `mikedown.support` command. Clicking posts `{ type: 'supportAction', action: 'open' }` (host replies with `showSupportCard` `reason: 'manual'`) or calls `showSupportCard` directly via a callback set from `editor-main.ts` (choose one and document it).
-- [ ] Settings modal About tab (`buildAboutPanel()` in `src/webview/editor-main.ts`): add a "Support MikeDown" section below the links with the approved heading, one line lead in, and a button "♥ Support MikeDown" (`data-testid="about-support-button"`) that closes the Settings modal and opens the card. Match the existing About tab spacing and link styling.
-- [ ] Command palette: confirm `mikedown.support` (from M3) opens the card in the active MikeDown editor.
-- [ ] Handle `open` in the host `supportAction` handler (M3's module) if the message route is chosen.
-- [ ] Verify in light and dark themes; the inline link and × must not wrap awkwardly at the minimum sidebar width (if space runs out, the link may wrap to its own line as a whole, never mid label).
-- [ ] `npm run compile` and `npm run lint` green.
-- [ ] Commit, write `.orchestrator/worker-summary-m6-entry-points.md`.
+- [x] Sidebar footer (`src/webview/outlineSidebar.ts`, `renderFooter()`): add a small "♥ Support MikeDown" link **inline after the metrics** in the existing words/chars/read time row (Q5 resolved; not its own row), separated by a middle dot, in `--vscode-descriptionForeground`, underline and `--vscode-textLink-foreground` on hover. Build it inside `renderFooter()` so the 60 second tick's `replaceChildren()` does not drop it; give it `data-testid="sidebar-support-link"`. Render it only when `mikedown.support.showSidebarLink` is `true`.
+- [x] Dismiss forever: a small × button (`data-testid="sidebar-support-dismiss"`, real `<button>`, approved `aria-label`) next to the link, visible on hover of the link group and on keyboard focus (focusable via Tab, activates on Enter/Space, `--vscode-focusBorder` outline). Clicking posts `{ type: 'saveSettings', settings: { 'support.showSidebarLink': false } }` through the existing path (match the key shape the modal already uses), hides the link immediately, and shows a brief non blocking confirmation (approved text, e.g. "Hidden. You can bring it back in Settings, Appearance.") in the footer for about 4 seconds, `role="status"`, no focus steal.
+- [x] New setting `mikedown.support.showSidebarLink` (boolean, default `true`) via the three-place rule: `package.json#contributes.configuration.properties` (with description), `src/settings.ts` reader, and a checkbox in the Settings modal **Appearance** tab next to the other sidebar settings (`data-testid="setting-support-sidebar-link"`). Include it in the `settings` broadcast; the webview hides or shows the footer link live on broadcast, no reload. This setting does not affect the About tab Support entry or the `mikedown.support` command. Clicking posts `{ type: 'supportAction', action: 'open' }` (host replies with `showSupportCard` `reason: 'manual'`) or calls `showSupportCard` directly via a callback set from `editor-main.ts` (choose one and document it).
+- [x] Settings modal About tab (`buildAboutPanel()` in `src/webview/editor-main.ts`): add a "Support MikeDown" section below the links with the approved heading, one line lead in, and a button "♥ Support MikeDown" (`data-testid="about-support-button"`) that closes the Settings modal and opens the card. Match the existing About tab spacing and link styling.
+- [x] Command palette: confirm `mikedown.support` (from M3) opens the card in the active MikeDown editor.
+- [x] Handle `open` in the host `supportAction` handler (M3's module) if the message route is chosen.
+- [x] Verify in light and dark themes; the inline link and × must not wrap awkwardly at the minimum sidebar width (if space runs out, the link may wrap to its own line as a whole, never mid label).
+- [x] `npm run compile` and `npm run lint` green.
+- [x] Commit, write `.orchestrator/worker-summary-m6-entry-points.md`.
 
 [Return to Top](#review-appeal-planning)
 
@@ -318,6 +318,8 @@ All resolved 2026-09-26.
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
+
+**2026-09-26 01:38** - M6 done (commits `7ee9b3d`, `33d45e1`). Sidebar footer link inline after the metrics with hover and focus × dismiss and a `role="status"` confirmation; About tab Support section; new setting `mikedown.support.showSidebarLink` in all three places with live toggle. Route chosen: link and About button post `supportAction: 'open'`, host replies with a manual card. The modal key shape is `supportShowSidebarLink` (matches the existing modal keys), not `support.showSidebarLink`. Card close label now comes from `supportCopy.ts`. Sidebar screenshots (dark, light, minimum width) in `.orchestrator/review-appeal-planning/screenshots/`; About section compiled but not rendered. Compile and 522 unit tests green; no new lint errors.
 
 **2026-09-26 01:27** - M5 done (commit `921f9a6`). New `src/webview/supportCard.ts` (fixed overlay outside the ProseMirror DOM, swappable avatar slot, fade and rise with reduced motion respected, no focus steal on auto); `editor-main.ts` handles `showSupportCard` (replies `busy` or `supportCardShown`) and `supportCopied`. Theme check done in headless Chrome with Dark Modern, Light Modern, and High Contrast Dark variable sets (screenshots in `.orchestrator/review-appeal-planning/screenshots/`); not yet checked in the real Extension Development Host (covered by M9 step 9). Fixes from that check: buttons fit one row; avatar gets a border in high contrast. The × close `aria-label` "Close" is the one hardcoded webview string (M6 moves it into `supportCopy.ts`). Compile and 522 unit tests green.
 
