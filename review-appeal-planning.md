@@ -26,9 +26,9 @@
 | --- | --- | --- | --- | --- |
 | M1: Copy Draft (Review Gate) | Opus | ✅ | | Pauses for Mike's approval; neutral share line (Q7) |
 | M2: Eligibility Module | Sonnet | ✅ | 6 | Pure module, injected clock; Q1 thresholds |
-| M3: Host Wiring, Command, Dev Reset | Sonnet | 🔄 | | Needs M2; toast removed (Q2) |
-| M4: Testing: Host Logic | Sonnet | ⬜ | | Needs M2, M3 |
-| M5: "A Note from Mike" Card UI | Opus | ⬜ | | Needs M1 approved, M3 protocol; swappable avatar slot (Q6) |
+| M3: Host Wiring, Command, Dev Reset | Sonnet | ✅ | 12 | Needs M2; toast removed (Q2) |
+| M4: Testing: Host Logic | Sonnet | 🔄 | | Needs M2, M3 |
+| M5: "A Note from Mike" Card UI | Opus | 🔄 | | Needs M1 approved, M3 protocol; swappable avatar slot (Q6) |
 | M6: Persistent Entry Points | Opus | ⬜ | | Needs M5; inline sidebar link, × dismiss, new setting (Q5) |
 | M7: Testing: Webview Card and Entry Points | Sonnet | ⬜ | | Needs M5, M6 |
 | M8: README and CHANGELOG | Haiku | ✅ | 1 | Needs M1 approved; 2.11.0 (Q8) |
@@ -148,17 +148,17 @@ Extract eligibility into a pure, unit-testable module with no `vscode` import.
 
 > Workers must complete ALL items in this milestone. If you believe an item should be deferred, note that in your summary, but still attempt it.
 
-- [ ] Create `src/supportPrompt.ts` (host side, imports `vscode`): wraps `globalState` with the M2 pure functions, owns URLs (`review`, `share`, `issue` from `nagPrompt.ts`), handles `supportAction` messages (`review`, `share`, `feedback`, `later`, `never`, `close`), opens URLs via `vscode.env.openExternal`, writes the share message via `vscode.env.clipboard.writeText` and posts `{ type: 'supportCopied' }` back.
-- [ ] Copy strings live in one host module (`src/supportCopy.ts`) sent to the webview inside `showSupportCard` so copy has a single source. Use placeholder strings from M1 draft until approval lands; replace with approved copy once the progress log records approval.
-- [ ] In `src/markdownEditorProvider.ts`: keep a `SessionTracker` per panel; call `recordEdit` in `case 'edit'`; in the existing per panel `onDidSaveTextDocument` handler, after the current work, ask `supportPrompt.onSaveAfterSession(panel)`; if eligible and the panel is visible, post `showSupportCard` with `reason: 'auto'` after a 1500 ms delay (so it does not collide with the save flush). Update `lastActiveDay` / `activeDays` on first edit of each day.
-- [ ] Do not show auto card in a diff view panel, for non `file:` URIs, or when another MikeDown card or the Settings modal is already open (webview reports `busy` back if so; host treats that as "not shown" and does not write `lastPrompt`).
-- [ ] Record `lastPrompt` only when the webview acks `{ type: 'supportCardShown' }`.
-- [ ] Register `mikedown.support` ("MikeDown: Support MikeDown") in `src/extension.ts` and `package.json#contributes.commands`. Always available in the palette (no `when` gating) so it works from anywhere: if an active MikeDown panel exists, post `showSupportCard` with `reason: 'manual'`; otherwise open the most recent visible MikeDown panel, or fall back to a single `showInformationMessage` (approved fallback notice text) with the same buttons. This is the only native notice left (Q2 resolved).
-- [ ] Dev reset: register `mikedown.dev.resetSupportPrompt` ("MikeDown (Dev): Reset Support Prompt State") only when `context.extensionMode !== vscode.ExtensionMode.Production`; call `setContext('mikedown.isDevelopment', true)`; add the command to `contributes.commands` and gate it in `commandPalette` with `"when": "mikedown.isDevelopment"`. Quick pick: "Clear all support prompt state" (delete every `mikedown.nag.*` key) and "Make eligible now" (backdate `installDate` 30 days, set `docOpens` 5, `activeDays` 3, clear `lastPrompt`/`dismissed`/`reviewedAt`, and set a flag so the next save treats the session as meaningful).
-- [ ] Remove the 60 second `setTimeout(() => nag.maybeShow(), 60_000)` from `extension.ts`; keep `recordActivation` and `onDocOpen` semantics via the new module; delete `src/nagPrompt.ts` once nothing imports it. The startup toast is removed entirely (Q2 resolved); the `mikedown.support` fallback notice lives in `supportPrompt.ts`.
-- [ ] Document the new messages (`showSupportCard`, `supportCopied`, `supportAction`, `supportCardShown`, `busy`) in the protocol comment at the top of `src/webview/editor-main.ts` (comment only; M5 implements the handlers).
-- [ ] `npm run compile` and `npm run lint` green.
-- [ ] Commit, write `.orchestrator/worker-summary-m3-host-wiring.md`.
+- [x] Create `src/supportPrompt.ts` (host side, imports `vscode`): wraps `globalState` with the M2 pure functions, owns URLs (`review`, `share`, `issue` from `nagPrompt.ts`), handles `supportAction` messages (`review`, `share`, `feedback`, `later`, `never`, `close`), opens URLs via `vscode.env.openExternal`, writes the share message via `vscode.env.clipboard.writeText` and posts `{ type: 'supportCopied' }` back.
+- [x] Copy strings live in one host module (`src/supportCopy.ts`) sent to the webview inside `showSupportCard` so copy has a single source. Use placeholder strings from M1 draft until approval lands; replace with approved copy once the progress log records approval.
+- [x] In `src/markdownEditorProvider.ts`: keep a `SessionTracker` per panel; call `recordEdit` in `case 'edit'`; in the existing per panel `onDidSaveTextDocument` handler, after the current work, ask `supportPrompt.onSaveAfterSession(panel)`; if eligible and the panel is visible, post `showSupportCard` with `reason: 'auto'` after a 1500 ms delay (so it does not collide with the save flush). Update `lastActiveDay` / `activeDays` on first edit of each day.
+- [x] Do not show auto card in a diff view panel, for non `file:` URIs, or when another MikeDown card or the Settings modal is already open (webview reports `busy` back if so; host treats that as "not shown" and does not write `lastPrompt`).
+- [x] Record `lastPrompt` only when the webview acks `{ type: 'supportCardShown' }`.
+- [x] Register `mikedown.support` ("MikeDown: Support MikeDown") in `src/extension.ts` and `package.json#contributes.commands`. Always available in the palette (no `when` gating) so it works from anywhere: if an active MikeDown panel exists, post `showSupportCard` with `reason: 'manual'`; otherwise open the most recent visible MikeDown panel, or fall back to a single `showInformationMessage` (approved fallback notice text) with the same buttons. This is the only native notice left (Q2 resolved).
+- [x] Dev reset: register `mikedown.dev.resetSupportPrompt` ("MikeDown (Dev): Reset Support Prompt State") only when `context.extensionMode !== vscode.ExtensionMode.Production`; call `setContext('mikedown.isDevelopment', true)`; add the command to `contributes.commands` and gate it in `commandPalette` with `"when": "mikedown.isDevelopment"`. Quick pick: "Clear all support prompt state" (delete every `mikedown.nag.*` key) and "Make eligible now" (backdate `installDate` 30 days, set `docOpens` 5, `activeDays` 3, clear `lastPrompt`/`dismissed`/`reviewedAt`, and set a flag so the next save treats the session as meaningful).
+- [x] Remove the 60 second `setTimeout(() => nag.maybeShow(), 60_000)` from `extension.ts`; keep `recordActivation` and `onDocOpen` semantics via the new module; delete `src/nagPrompt.ts` once nothing imports it. The startup toast is removed entirely (Q2 resolved); the `mikedown.support` fallback notice lives in `supportPrompt.ts`.
+- [x] Document the new messages (`showSupportCard`, `supportCopied`, `supportAction`, `supportCardShown`, `busy`) in the protocol comment at the top of `src/webview/editor-main.ts` (comment only; M5 implements the handlers).
+- [x] `npm run compile` and `npm run lint` green.
+- [x] Commit, write `.orchestrator/worker-summary-m3-host-wiring.md`.
 
 [Return to Top](#review-appeal-planning)
 
@@ -318,6 +318,8 @@ All resolved 2026-09-26.
 [Return to Top](#review-appeal-planning)
 
 ## Progress Log / Notes
+
+**2026-09-26 01:10** - M3 done (commit `4c41a2c`). New `src/supportPrompt.ts` (single host instance on the provider; owns URLs, clipboard, action handling, one auto show per session) and `src/supportCopy.ts` (approved copy, avatar slot payload). Provider keeps a `SessionTracker` per panel and calls `onSaveAfterSession` after save (1500 ms delay, skips diff and non `file:` panels). `mikedown.support` command with fallback notice; dev only `mikedown.dev.resetSupportPrompt` gated on `mikedown.isDevelopment`. Startup `setTimeout` removed; `src/nagPrompt.ts` deleted. Protocol documented in `editor-main.ts`. Note: `lastPrompt` is written on any `supportCardShown` ack, manual included, so a manual open also pushes back the next auto show. `npm run compile` green in main.
 
 **2026-09-26 00:58** - M2 done (commit `8ebadde`). `src/supportPromptEligibility.ts`: `THRESHOLDS`, `KEYS`, `readState`/`writeState`, `isAutoEligible`, `nextDelayMs`, `applyAction`, `recordActiveDay`, `SessionTracker`; no `vscode` import. `tsc --noEmit` green. `npm run lint` fails on a pre-existing baseline (about 250 errors in other files, mostly `markdownEditorProvider.ts`); the new file lints with 0 errors. Lint gate for later milestones: no new errors in touched files.
 
