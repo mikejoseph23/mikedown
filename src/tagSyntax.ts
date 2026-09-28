@@ -6,6 +6,8 @@
 // [A-Za-z0-9_-]. It must NOT be preceded by a word char, `/`, `#`, or `&`
 // (so it won't fire inside URLs, `##` sequences, or HTML entities) and must
 // contain at least one letter (so pure numbers like `#1234` aren't tags).
+// Inline tags that look like hex colors (`#2563eb`, `#ffffff`, `#f0f`) are
+// skipped too; frontmatter `tags:` entries are explicit, so they aren't.
 // Nested tags use slashes: `#project/active`.
 
 const SEGMENT = '[A-Za-z0-9_-]+';
@@ -28,6 +30,14 @@ export function normalizeTag(raw: string): string | null {
   return t;
 }
 
+/** `#fff`-style colors: 6 or 8 hex digits, or 3–4 with a digit in them, so
+ *  word-like tags such as `#bad`, `#cafe`, `#face` still count. */
+export function looksLikeHexColor(tag: string): boolean {
+  if (!/^[0-9a-f]+$/i.test(tag)) return false;
+  if (tag.length === 6 || tag.length === 8) return true;
+  return (tag.length === 3 || tag.length === 4) && /[0-9]/.test(tag);
+}
+
 export interface InlineTagMatch {
   /** The tag without its leading `#`, original case. */
   tag: string;
@@ -43,7 +53,7 @@ export function findInlineTags(text: string): InlineTagMatch[] {
   const out: InlineTagMatch[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    if (!isValidTag(m[1])) continue;
+    if (!isValidTag(m[1]) || looksLikeHexColor(m[1])) continue;
     out.push({ tag: m[1], index: m.index, length: m[0].length });
   }
   return out;

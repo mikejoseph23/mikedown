@@ -41,6 +41,30 @@ describe('inline tag syntax', () => {
   });
 });
 
+describe('inline tags — hex colors', () => {
+  const tags = (t: string) => findInlineTags(t).map((m) => m.tag);
+
+  it('skips 6- and 8-digit hex colors', () => {
+    expect(tags('bg #2563eb, fg #ffffff, overlay #eef0f3cc')).toEqual([]);
+  });
+
+  it('skips 3- and 4-digit hex colors that contain a digit', () => {
+    expect(tags('use #f0f or #fa08')).toEqual([]);
+  });
+
+  it('keeps word-like hex tags', () => {
+    expect(tags('#bad #cafe #face #add')).toEqual(['bad', 'cafe', 'face', 'add']);
+  });
+
+  it('keeps tags that are not pure hex', () => {
+    expect(tags('#design #v2')).toEqual(['design', 'v2']);
+  });
+
+  it('still honors explicit frontmatter tags that look like hex', () => {
+    expect(extractTags('---\ntags: [ffffff]\n---\nbody')).toContain('ffffff');
+  });
+});
+
 describe('extractTags (frontmatter + body)', () => {
   it('reads frontmatter array tags', () => {
     const doc = ['---', 'title: x', 'tags: [Alpha, beta]', '---', 'body'].join('\n');
