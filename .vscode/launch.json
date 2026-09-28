@@ -2,7 +2,16 @@
   "version": "0.2.0",
   "configurations": [
     {
+      // Default F5: build and open a dev host with no debugger attached.
+      // The debugger attach below is flaky on this machine (the host waits
+      // forever on "did not start in 10 seconds").
       "name": "Run Extension",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev"
+    },
+    {
+      "name": "Run Extension (debugger)",
       "type": "extensionHost",
       "request": "launch",
       "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
