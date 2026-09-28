@@ -130,6 +130,7 @@ import { EmojiAutocomplete } from './emojiautocomplete';
 import { Highlight } from './highlight';
 import { TagDecorator, setTagsEnabled } from './tag';
 import { TagAutocomplete, receiveTagCandidates, setTagCandidateRequester } from './tagautocomplete';
+import { extractTags } from '../tagExtract';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
 import { Wikilink } from './wikilink-node';
 import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
@@ -5005,6 +5006,31 @@ if (!editorContainer) {
 
   // ── Message Handling — Extension → Webview ─────────────────────────────────
 
+  // ── Live tags ─────────────────────────────────────────────────────────────
+  // The host's index only changes on save and never includes this document
+  // (see `sendTagsToWebview`), so merge in the tags from the current text.
+  // Otherwise typed tags wouldn't reach the sidebar or `#` autocomplete until
+  // the file was saved — or ever, for a file outside the workspace.
+  let workspaceTags: Array<{ tag: string; count: number }> = [];
+  let liveTagsTimer: ReturnType<typeof setTimeout> | null = null;
+  const refreshLiveTags = (): void => {
+    const body = editor.storage.markdown.getMarkdown() as string;
+    const counts = new Map(workspaceTags.map((t) => [t.tag, t.count]));
+    for (const t of extractTags(restoreFrontmatter(frontmatterContent, body))) {
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    const merged = [...counts]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+    applyTags(merged);
+    receiveTagCandidates(merged);
+  };
+  const scheduleLiveTags = (): void => {
+    if (liveTagsTimer) {clearTimeout(liveTagsTimer);}
+    liveTagsTimer = setTimeout(refreshLiveTags, 300);
+  };
+  editor.on('update', scheduleLiveTags);
+
   window.addEventListener('message', (event: MessageEvent) => {
     const message = event.data as {
       type: string;
@@ -5496,9 +5522,8 @@ if (!editorContainer) {
 
     // Workspace tag index (with doc counts) — sidebar Tags section + `#` autocomplete.
     if (message.type === 'tags') {
-      const tags = (message as any).tags || [];
-      applyTags(tags);
-      receiveTagCandidates(tags);
+      workspaceTags = (message as any).tags || [];
+      refreshLiveTags();
     }
 
     // Sidebar footer — modified time + initial mtime push.

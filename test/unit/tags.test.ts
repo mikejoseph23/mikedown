@@ -300,3 +300,28 @@ describe('`#` autocomplete', () => {
     h.send({ type: 'settings', tagsEnabled: true });
   });
 });
+
+describe('live tags — unsaved tags reach the sidebar', () => {
+  let h: Harness | null = null;
+  afterEach(() => { h?.dispose(); h = null; });
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const sidebarTags = () =>
+    [...document.querySelectorAll('.tags-section .tags-item')].map((r) => ({
+      name: r.querySelector('.tags-item-name')!.textContent,
+      count: r.querySelector('.tags-item-count')!.textContent,
+    }));
+
+  it('merges the current doc tags with the workspace index as you type', async () => {
+    h = await bootWebview();
+    h.send({ type: 'update', content: 'hello #shared' });
+    h.send({ type: 'tags', tags: [{ tag: 'shared', count: 2 }, { tag: 'other', count: 1 }] });
+    await wait(50);
+    expect(sidebarTags()).toContainEqual({ name: '#shared', count: '3' });
+
+    h.setWysiwygCursor(h.wysiwygEditor().state.doc.content.size - 1);
+    h.typeInWysiwyg(' #fresh ');
+    await wait(400);
+    expect(sidebarTags()).toContainEqual({ name: '#fresh', count: '1' });
+    expect(sidebarTags()).toContainEqual({ name: '#other', count: '1' });
+  });
+});

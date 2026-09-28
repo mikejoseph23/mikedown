@@ -88,9 +88,9 @@ export function findTagMatches(list: TagCandidate[], query: string): TagCandidat
     else if (lower.includes(q)) {contains.push(c);}
     if (starts.length >= MAX_RESULTS) {break;}
   }
-  const matches = [...starts, ...contains].slice(0, MAX_RESULTS);
-  if (matches.length === 1 && matches[0].tag.toLowerCase() === q) {return [];}
-  return matches;
+  // Never offer exactly what's typed — it adds nothing, and the live tag
+  // list includes the half-typed token itself.
+  return [...starts, ...contains].filter((c) => c.tag.toLowerCase() !== q).slice(0, MAX_RESULTS);
 }
 
 function hidePopup(): void {

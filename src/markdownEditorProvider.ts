@@ -79,13 +79,15 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    * whenever the tag index changes.
    */
   public static broadcastTags(): void {
-    for (const panel of MarkdownEditorProvider.openPanels.keys()) {
-      MarkdownEditorProvider.sendTagsToWebview(panel.webview);
+    for (const [panel, doc] of MarkdownEditorProvider.openPanels) {
+      MarkdownEditorProvider.sendTagsToWebview(panel.webview, doc);
     }
   }
 
-  private static sendTagsToWebview(webview: vscode.Webview): void {
-    const tags = MarkdownEditorProvider.tagProvider?.getAllTags() ?? [];
+  /** Counts exclude the panel's own document; the webview merges in its live
+   *  tags so typed-but-unsaved tags show up immediately. */
+  private static sendTagsToWebview(webview: vscode.Webview, document: vscode.TextDocument): void {
+    const tags = MarkdownEditorProvider.tagProvider?.getAllTags(document.uri.fsPath) ?? [];
     webview.postMessage({ type: 'tags', tags });
   }
 
@@ -688,7 +690,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           this.sendSettingsToWebview(webviewPanel.webview, document);
           this.sendOutlineStateToWebview(webviewPanel.webview, document);
           MarkdownEditorProvider.sendBacklinksToWebview(webviewPanel.webview, document);
-          MarkdownEditorProvider.sendTagsToWebview(webviewPanel.webview);
+          MarkdownEditorProvider.sendTagsToWebview(webviewPanel.webview, document);
           void this.sendDocMetaToWebview(webviewPanel.webview, document);
           // Send initial git diff status so the toolbar diff button can be enabled/disabled
           if (document.uri.scheme === 'file') {
@@ -949,7 +951,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
         case 'getTags': {
-          MarkdownEditorProvider.sendTagsToWebview(webviewPanel.webview);
+          MarkdownEditorProvider.sendTagsToWebview(webviewPanel.webview, document);
           break;
         }
         case 'getLinkSuggestions': {

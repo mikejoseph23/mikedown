@@ -46,10 +46,13 @@ export class TagProvider {
   /**
    * Every indexed tag with the number of documents carrying it exactly
    * (nested children count separately). Sorted by count desc, then name.
+   * `excludeFsPath` leaves one document out — the webview adds that doc's
+   * live (possibly unsaved) tags itself.
    */
-  getAllTags(): Array<{ tag: string; count: number }> {
+  getAllTags(excludeFsPath?: string): Array<{ tag: string; count: number }> {
     const counts = new Map<string, number>();
-    for (const tags of this.docTags.values()) {
+    for (const [fsPath, tags] of this.docTags) {
+      if (fsPath === excludeFsPath) {continue;}
       for (const t of tags) {counts.set(t, (counts.get(t) ?? 0) + 1);}
     }
     return [...counts]
