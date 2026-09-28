@@ -8,6 +8,10 @@ All notable changes to MikeDown Editor are documented here.
 
 - Math rendering with KaTeX: inline `\$...\$` and display `\$\$...\$\$` LaTeX, the same syntax GitHub renders. Click a formula to edit it (Enter to save, Esc to cancel; Cmd/Ctrl+Enter in display blocks). Type `\$x\$` followed by a space, or `\$\$` and a space on an empty line, to create one, or use `/math` and `/inline-math`. Prices like `\$5 and \$10` stay plain text.
 - Setting `mikedown.renderMath` (also in the Settings modal) to show formulas as raw source instead.
+- Tags: inline `#tag` (nested with slashes, like `#project/active`) and frontmatter `tags:` are highlighted and indexed across the workspace. Cmd/Ctrl+click a tag, or a tag pill in Properties, to pick from every document that carries it. Pure numbers (`#1234`), headings, URL fragments, wikilink headings, code, and math are never tags.
+- Tag autocomplete: typing `#` plus a few letters mid-line suggests existing workspace tags.
+- Sidebar Tags section listing every workspace tag with its document count; click one to find its documents.
+- Setting `mikedown.tags.enabled` (also in the Settings modal) to turn tags off.
 
 ## [2.11.0] - 2026-09-26
 

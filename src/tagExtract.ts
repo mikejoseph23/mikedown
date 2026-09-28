@@ -4,6 +4,7 @@
 
 import { parseFrontmatter } from './frontmatterYaml';
 import { findInlineTags, normalizeTag } from './tagSyntax';
+import { matchInlineMath } from './webview/mathSyntax';
 
 /** Split a document into its frontmatter YAML and the remaining body. */
 export function splitFrontmatter(content: string): { yaml: string; body: string } {
@@ -45,22 +46,58 @@ export function extractTags(content: string): Set<string> {
 }
 
 /**
- * Blank out fenced code blocks and strip inline code spans + markdown link/
- * image targets so `#tag`-shaped text inside them isn't indexed.
+ * Blank out fenced code and display-math blocks, and strip everything else
+ * that can hold `#tag`-shaped text without being a tag: inline code, inline
+ * `$…$` math, `[[wikilinks]]` (`[[#Heading]]` / `[[Note#Heading]]`), link and
+ * image targets, reference-link definitions, and raw HTML tags (`href="#x"`).
  */
 function stripCode(body: string): string[] {
   const out: string[] = [];
-  let inFence = false;
+  let fence: string | null = null;
+  let inMath = false;
   for (const line of body.split('\n')) {
-    if (/^\s*(```+|~~~+)/.test(line)) {
-      inFence = !inFence;
+    const fenceMatch = /^\s*(`{3,}|~{3,})/.exec(line);
+    if (!inMath && fenceMatch) {
+      const marker = fenceMatch[1];
+      if (fence === null) {fence = marker;}
+      else if (marker[0] === fence[0] && marker.length >= fence.length) {fence = null;}
       out.push('');
       continue;
     }
-    if (inFence) { out.push(''); continue; }
-    let s = line.replace(/`[^`]*`/g, ' '); // inline code
-    s = s.replace(/\]\([^)]*\)/g, '] ');    // [text](target) / ![alt](src)
+    if (fence !== null) { out.push(''); continue; }
+    if (/^\s*\$\$/.test(line)) {
+      // `$$` opens/closes display math; `$$x$$` on one line is self-contained.
+      const oneLine = /^\s*\$\$.*\S.*\$\$\s*$/.test(line);
+      if (!oneLine) {inMath = !inMath;}
+      out.push('');
+      continue;
+    }
+    if (inMath) { out.push(''); continue; }
+    if (/^\s{0,3}\[[^\]]+\]:\s/.test(line)) { out.push(''); continue; } // [id]: target
+    let s = line.replace(/`[^`]*`/g, ' ');   // inline code
+    s = stripInlineMath(s);
+    s = s.replace(/\[\[[^\]\n]*\]\]/g, ' '); // [[wikilink]]
+    s = s.replace(/\]\([^)]*\)/g, '] ');     // [text](target) / ![alt](src)
+    s = s.replace(/<[^>\n]*>/g, ' ');       // raw HTML tags + <autolinks>
     out.push(s);
+  }
+  return out;
+}
+
+/** Replace each inline `$…$` span (same delimiter rules as the editor) with a space. */
+function stripInlineMath(line: string): string {
+  if (!line.includes('$')) {return line;}
+  let out = '';
+  let i = 0;
+  while (i < line.length) {
+    const ch = line[i];
+    if (ch === '\\') { out += line.slice(i, i + 2); i += 2; continue; }
+    if (ch === '$') {
+      const m = matchInlineMath(line, i);
+      if (m) { out += ' '; i = m.end; continue; }
+    }
+    out += ch;
+    i++;
   }
   return out;
 }

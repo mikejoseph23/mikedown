@@ -15,12 +15,16 @@
  *   { type: 'settings', slashCommandsEnabled, slashCommandsDateFormat, slashCommandsTimeZone, ... }
  *       — settings broadcast; slash-command fields apply live via
  *       setSlashCommandsConfig() and update the empty-doc placeholder text.
+ *   { type: 'tags', tags: Array<{ tag, count }> } — workspace tag index (sidebar
+ *       Tags section + `#` autocomplete); pushed on ready and on index changes.
  *
  * Webview → Extension messages:
  *   { type: 'ready' }                    — webview is ready to receive content
  *   { type: 'edit', content: string }    — new full markdown text after user edit
  *   { type: 'stats', selection: { words, chars } | null } — selection stats for status bar (null = no selection)
  *   { type: 'toggleSource' }             — request to toggle source mode (M4 hook)
+ *   { type: 'openTag', tag: string }     — tag click; host shows a QuickPick of tagged docs
+ *   { type: 'getTags' }                  — ask the host to (re)send the `tags` list
  *   { type: 'openKeybindings' }          — Settings modal "Customize in VS Code…" button (Hotkeys tab);
  *       host opens VS Code's Keyboard Shortcuts UI filtered to mikedown.*
  *   { type: 'saveSettings', settings: {...}, source?: 'slashMenu' }
@@ -124,7 +128,8 @@ import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
 import { EmojiAutocomplete } from './emojiautocomplete';
 import { Highlight } from './highlight';
-import { TagDecorator } from './tag';
+import { TagDecorator, setTagsEnabled } from './tag';
+import { TagAutocomplete, receiveTagCandidates, setTagCandidateRequester } from './tagautocomplete';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
 import { Wikilink } from './wikilink-node';
 import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
@@ -136,6 +141,8 @@ import {
   initOutlineSidebar,
   applyOutlineState,
   applyBacklinks,
+  applyTags,
+  setTagsSectionEnabled,
   applyProperties,
   applyDocMeta,
   applyPlainText,
@@ -1407,6 +1414,11 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     'Display $inline$ and $$display$$ LaTeX as formulas (KaTeX). Click a formula to edit it.',
     currentRenderMath,
   );
+  const tagsField = makeCheckboxRow(
+    'Tags',
+    'Highlight inline #tags, suggest workspace tags as you type #, and list them in the sidebar. Cmd/Ctrl+click a tag to find its documents.',
+    currentTagsEnabled,
+  );
   const linkClickField = makeSelectRow<'navigateCurrentTab' | 'openNewTab' | 'showContextMenu'>(
     'Link click behavior',
     'What happens when you Cmd/Ctrl+click a link in the editor.',
@@ -1855,6 +1867,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
         autoReloadUnmodifiedFiles: autoReloadField.input.checked,
         renderMermaidDiagrams: mermaidField.input.checked,
         renderMath: mathField.input.checked,
+        tagsEnabled: tagsField.input.checked,
         linkClickBehavior: linkClickField.select.value,
         wikilinkCreateOnClick: wikilinkCreateField.input.checked,
         themeToggleScope: themeScopeField.select.value,
@@ -1885,6 +1898,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     currentRenderMermaidDiagrams = mermaidField.input.checked;
     currentRenderMath = mathField.input.checked;
     setMathRenderingEnabled(currentRenderMath);
+    currentTagsEnabled = tagsField.input.checked;
     currentWikilinkCreateOnClick = wikilinkCreateField.input.checked;
     currentLinkClickBehavior = linkClickField.select.value as typeof currentLinkClickBehavior;
     themeToggleScope = themeScopeField.select.value as typeof themeToggleScope;
@@ -1964,6 +1978,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   markdownPanel.append(
     mermaidField.row,
     mathField.row,
+    tagsField.row,
     normalizationField.row,
     boldMarkerField.row,
     italicMarkerField.row,
@@ -2124,6 +2139,7 @@ let currentDefaultEditor = false;
 let currentAutoReloadUnmodifiedFiles = true;
 let currentRenderMermaidDiagrams = true;
 let currentRenderMath = true;
+let currentTagsEnabled = true;
 let currentWikilinkCreateOnClick = false;
 let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
 let currentHeadingRenameUpdateLinks: 'ask' | 'always' | 'never' = 'ask';
@@ -3199,6 +3215,7 @@ if (!editorContainer) {
       Emoji,
       EmojiAutocomplete,
       WikilinkAutocomplete,
+      TagAutocomplete,
       // "/" command menu. Priority 1000 so its keys win over the autocompletes.
       SlashCommands,
 
@@ -3419,6 +3436,10 @@ if (!editorContainer) {
   // Wikilink autocomplete: lazily ask the host for the workspace file list the
   // first time the `[[` popup opens with an empty candidate cache.
   setWikilinkCandidateRequester(() => vscode.postMessage({ type: 'getLinkSuggestions' }));
+
+  // Tag autocomplete: the host pushes the tag list on ready + index changes;
+  // ask once if the `#` popup opens before that lands.
+  setTagCandidateRequester(() => vscode.postMessage({ type: 'getTags' }));
 
   // Re-render Mermaid diagrams when the color theme flips (VS Code light↔dark
   // toggles the <body> class). Mermaid bakes theme colors into the SVG, so
@@ -5061,6 +5082,11 @@ if (!editorContainer) {
         currentRenderMath = msg.renderMath;
         setMathRenderingEnabled(msg.renderMath);
       }
+      if (typeof msg.tagsEnabled === 'boolean') {
+        currentTagsEnabled = msg.tagsEnabled;
+        setTagsEnabled(editor, msg.tagsEnabled);
+        setTagsSectionEnabled(msg.tagsEnabled);
+      }
       if (typeof msg.extensionVersion === 'string') {
         currentExtensionVersion = msg.extensionVersion;
       }
@@ -5466,6 +5492,13 @@ if (!editorContainer) {
     // Sidebar Backlinks section — extension push of the current doc's backlinks.
     if (message.type === 'backlinks') {
       applyBacklinks((message as any).items || []);
+    }
+
+    // Workspace tag index (with doc counts) — sidebar Tags section + `#` autocomplete.
+    if (message.type === 'tags') {
+      const tags = (message as any).tags || [];
+      applyTags(tags);
+      receiveTagCandidates(tags);
     }
 
     // Sidebar footer — modified time + initial mtime push.

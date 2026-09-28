@@ -9,7 +9,8 @@ import { extractTags } from './tagExtract';
  *   - inline `#tag` tokens in the body (excluding code + link targets)
  *
  * Mirrors `BacklinkProvider`'s lifecycle: built on activate, updated on
- * save/create/delete. Backs the in-editor tag click → QuickPick flow.
+ * save/create/delete. Backs the in-editor tag click → QuickPick flow, the
+ * sidebar Tags section, and `#` autocomplete.
  */
 export class TagProvider {
   private docTags = new Map<string, Set<string>>(); // fsPath -> normalized tags
@@ -40,6 +41,20 @@ export class TagProvider {
       }
     }
     return out.sort();
+  }
+
+  /**
+   * Every indexed tag with the number of documents carrying it exactly
+   * (nested children count separately). Sorted by count desc, then name.
+   */
+  getAllTags(): Array<{ tag: string; count: number }> {
+    const counts = new Map<string, number>();
+    for (const tags of this.docTags.values()) {
+      for (const t of tags) {counts.set(t, (counts.get(t) ?? 0) + 1);}
+    }
+    return [...counts]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
   }
 
   private async indexFile(uri: vscode.Uri): Promise<void> {

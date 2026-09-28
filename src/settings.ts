@@ -10,6 +10,7 @@ export interface MikeDownSettings {
   autoReloadUnmodifiedFiles: boolean;
   renderMermaidDiagrams: boolean;
   renderMath: boolean;
+  tags: TagSettings;
   markdownNormalization: 'preserve' | 'normalize';
   headingRename: {
     updateLinks: 'ask' | 'always' | 'never';
@@ -27,6 +28,11 @@ export interface MikeDownSettings {
   spellCheck: SpellCheckSettings;
   support: SupportSettings;
   slashCommands: SlashCommandsSettings;
+}
+
+export interface TagSettings {
+  /** Inline `#tag` highlighting, `#` autocomplete, and the sidebar Tags section. */
+  enabled: boolean;
 }
 
 export interface SupportSettings {
@@ -96,6 +102,9 @@ export function getSettings(): MikeDownSettings {
     autoReloadUnmodifiedFiles: config.get<boolean>('autoReloadUnmodifiedFiles', true),
     renderMermaidDiagrams: config.get<boolean>('renderMermaidDiagrams', true),
     renderMath: config.get<boolean>('renderMath', true),
+    tags: {
+      enabled: config.get<boolean>('tags.enabled', true),
+    },
     markdownNormalization: config.get<'preserve' | 'normalize'>('markdownNormalization', 'preserve'),
     headingRename: {
       updateLinks: config.get<'ask' | 'always' | 'never'>('headingRename.updateLinks', 'ask'),

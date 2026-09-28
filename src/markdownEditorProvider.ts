@@ -74,6 +74,22 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   /**
+   * Broadcast the workspace tag list (with doc counts) to every open panel —
+   * feeds the sidebar Tags section and `#` autocomplete. Called by extension.ts
+   * whenever the tag index changes.
+   */
+  public static broadcastTags(): void {
+    for (const panel of MarkdownEditorProvider.openPanels.keys()) {
+      MarkdownEditorProvider.sendTagsToWebview(panel.webview);
+    }
+  }
+
+  private static sendTagsToWebview(webview: vscode.Webview): void {
+    const tags = MarkdownEditorProvider.tagProvider?.getAllTags() ?? [];
+    webview.postMessage({ type: 'tags', tags });
+  }
+
+  /**
    * M3 — First visible MikeDown panel, in open order. Used by the
    * `mikedown.support` command when no panel is currently active (e.g. focus
    * moved to a non-MikeDown editor) but one is still visible in a split.
@@ -247,6 +263,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     }
     if (typeof settings.renderMath === 'boolean') {
       config.update('renderMath', settings.renderMath, vscode.ConfigurationTarget.Global);
+    }
+    if (typeof settings.tagsEnabled === 'boolean') {
+      config.update('tags.enabled', settings.tagsEnabled, vscode.ConfigurationTarget.Global);
     }
     if (settings.themeToggleScope === 'vscode' || settings.themeToggleScope === 'editorOnly') {
       config.update('themeToggleScope', settings.themeToggleScope, vscode.ConfigurationTarget.Global);
@@ -669,6 +688,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           this.sendSettingsToWebview(webviewPanel.webview, document);
           this.sendOutlineStateToWebview(webviewPanel.webview, document);
           MarkdownEditorProvider.sendBacklinksToWebview(webviewPanel.webview, document);
+          MarkdownEditorProvider.sendTagsToWebview(webviewPanel.webview);
           void this.sendDocMetaToWebview(webviewPanel.webview, document);
           // Send initial git diff status so the toolbar diff button can be enabled/disabled
           if (document.uri.scheme === 'file') {
@@ -926,6 +946,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           }
 
           webviewPanel.webview.postMessage({ type: 'brokenLinks', hrefs: brokenLinks });
+          break;
+        }
+        case 'getTags': {
+          MarkdownEditorProvider.sendTagsToWebview(webviewPanel.webview);
           break;
         }
         case 'getLinkSuggestions': {
@@ -1334,6 +1358,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       autoReloadUnmodifiedFiles: settings.autoReloadUnmodifiedFiles,
       renderMermaidDiagrams: settings.renderMermaidDiagrams,
       renderMath: settings.renderMath,
+      tagsEnabled: settings.tags.enabled,
       markdownNormalization: settings.markdownNormalization,
       headingRenameUpdateLinks: settings.headingRename.updateLinks,
       normalizationStyle: settings.normalizationStyle,
@@ -2200,7 +2225,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'openTag' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'pickImage' | 'headingRenamed' | 'headingRenameAmbiguous' | 'openKeybindings' | 'supportAction' | 'supportCardShown' | 'busy';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'openTag' | 'getTags' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'pickImage' | 'headingRenamed' | 'headingRenameAmbiguous' | 'openKeybindings' | 'supportAction' | 'supportCardShown' | 'busy';
   /** supportAction payload — which "A note from Mike" card button was clicked, or 'open' from an entry point. */
   action?: SupportAction | 'open';
   content?: string;

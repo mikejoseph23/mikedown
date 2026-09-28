@@ -103,9 +103,11 @@
   font-style: italic;
 }
 
-/* Wikilink filename autocomplete — inline popup while typing `[[abc`. */
+/* Wikilink filename autocomplete — inline popup while typing `[[abc`.
+   The `#tag` autocomplete (`#abc`) shares the same look. */
 
-#mikedown-wikilink-ac {
+#mikedown-wikilink-ac,
+#mikedown-tag-ac {
   position: fixed;
   z-index: 1100;
   background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #252526));
@@ -141,4 +143,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Doc count beside each `#tag` suggestion. */
+.tac-count {
+  margin-left: auto;
+  opacity: 0.6;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }

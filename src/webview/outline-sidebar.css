@@ -123,8 +123,15 @@ body.mikedown-outline-right #mikedown-outline-sidebar {
 }
 
 .properties-section .sidebar-section-body,
-.backlinks-section .sidebar-section-body {
+.backlinks-section .sidebar-section-body,
+.tags-section .sidebar-section-body {
   padding: 4px 0 8px;
+}
+
+/* A big vault can carry hundreds of tags — cap the list so it can't push
+   Properties off the bottom of the sidebar. */
+.tags-section .sidebar-section-body {
+  max-height: 240px;
 }
 
 /* ─── Close (×) button (lives on Outline header for legacy reasons) ──────── */
@@ -189,6 +196,7 @@ body.mikedown-outline-right #mikedown-outline-sidebar {
 
 .outline-empty,
 .backlinks-empty,
+.tags-empty,
 .properties-empty {
   padding: 10px 14px;
   font-size: 11px;
@@ -258,6 +266,44 @@ body.mikedown-outline-right #mikedown-outline-sidebar {
 .backlinks-item:hover {
   background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
   opacity: 1;
+}
+
+/* ─── Tags (workspace-wide list; click → QuickPick of tagged docs) ───────── */
+
+.tags-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.tags-item:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
+}
+
+.tags-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tags-item-count {
+  flex: none;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  opacity: 0.55;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ─── Grouped backlinks (a source doc with >1 link) ──────────────────────── */

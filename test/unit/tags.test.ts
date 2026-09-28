@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { findInlineTags, normalizeTag, isValidTag } from '../../src/tagSyntax';
 import { extractTags } from '../../src/tagExtract';
+import { findTagMatches } from '../../src/webview/tagautocomplete';
+import { bootWebview, type Harness } from '../harness/webviewHarness';
 
 describe('inline tag syntax', () => {
   const tagsIn = (s: string) => findInlineTags(s).map(m => m.tag);
@@ -63,5 +65,214 @@ describe('extractTags (frontmatter + body)', () => {
   it('dedupes case-insensitively across sources', () => {
     const doc = ['---', 'tags: [Foo]', '---', 'body #foo #FOO'].join('\n');
     expect([...extractTags(doc)]).toEqual(['foo']);
+  });
+});
+
+describe('extractTags — things that look like tags but are not', () => {
+  const tagsOf = (doc: string) => [...extractTags(doc)].sort();
+
+  it('skips headings but keeps tags written inside them', () => {
+    expect(tagsOf('# Title\n\n## Sub #real')).toEqual(['real']);
+  });
+
+  it('skips URL fragments and page#anchor', () => {
+    expect(tagsOf('see https://example.com/page#frag and page#anchor and <https://x.dev/#top>')).toEqual([]);
+  });
+
+  it('skips wikilink heading targets', () => {
+    expect(tagsOf('[[Note#Heading]] and [[#Local Heading]] and [[Note#H|alias]]')).toEqual([]);
+  });
+
+  it('skips HTML attributes', () => {
+    expect(tagsOf('<a href="#section">jump</a> <span style="color:#fff">x</span>')).toEqual([]);
+  });
+
+  it('skips reference-link definitions', () => {
+    expect(tagsOf('[ref]\n\n[ref]: #anchor')).toEqual([]);
+  });
+
+  it('skips hex colors in inline and fenced code', () => {
+    expect(tagsOf('`#fff` and\n```css\na { color: #abc; }\n```\nok #kept')).toEqual(['kept']);
+  });
+
+  it('skips `#` inside inline and display math', () => {
+    const doc = ['inline $\\#x + #y$ then #after', '', '$$', '#nope', '$$', '', '$$ #also $$', 'tail #tail'].join('\n');
+    expect(tagsOf(doc)).toEqual(['after', 'tail']);
+  });
+
+  it('still reads tags next to prices', () => {
+    expect(tagsOf('costs $5 and #budget $10')).toEqual(['budget']);
+  });
+
+  it('does not end a fence on a shorter marker', () => {
+    expect(tagsOf('````\n```\n#nope\n````\n#yes')).toEqual(['yes']);
+  });
+});
+
+describe('findTagMatches', () => {
+  const list = [
+    { tag: 'project', count: 5 },
+    { tag: 'project/active', count: 2 },
+    { tag: 'myproject', count: 1 },
+    { tag: 'idea', count: 3 },
+  ];
+
+  it('puts prefix matches before substring matches', () => {
+    expect(findTagMatches(list, 'proj').map(t => t.tag)).toEqual(['project', 'project/active', 'myproject']);
+  });
+
+  it('is case-insensitive', () => {
+    expect(findTagMatches(list, 'IDE').map(t => t.tag)).toEqual(['idea']);
+  });
+
+  it('drops a lone exact match so Enter stays a newline', () => {
+    expect(findTagMatches(list, 'idea')).toEqual([]);
+  });
+
+  it('returns nothing for an empty query', () => {
+    expect(findTagMatches(list, '')).toEqual([]);
+  });
+});
+
+// ── Full webview harness ─────────────────────────────────────────────────────
+
+let harness: Harness | null = null;
+const settle = () => new Promise((r) => setTimeout(r, 30));
+
+afterEach(() => {
+  harness?.dispose();
+  harness = null;
+});
+
+/** Type like a user: each char goes through `handleTextInput` so input rules fire. */
+function typeWithRules(h: Harness, text: string): void {
+  const view = h.wysiwygEditor().view;
+  for (const ch of text) {
+    const { from, to } = view.state.selection;
+    const handled = view.someProp('handleTextInput', (f: any) => f(view, from, to, ch, () => view.state.tr.insertText(ch, from, to)));
+    if (!handled) {view.dispatch(view.state.tr.insertText(ch, from, to));}
+  }
+}
+
+async function boot(md: string): Promise<Harness> {
+  const h = await bootWebview();
+  harness = h;
+  h.send({ type: 'update', content: md });
+  await settle();
+  return h;
+}
+
+const markdownOf = (h: Harness): string => h.wysiwygEditor().storage.markdown.getMarkdown();
+const tagEls = (h: Harness): string[] =>
+  [...h.wysiwygEditor().view.dom.querySelectorAll('.mikedown-tag')].map(el => el.getAttribute('data-tag') ?? '');
+
+describe('inline tags — webview round-trip', () => {
+  const cases = [
+    'Plain #tag in prose.',
+    '#tag at the start of a line',
+    'Nested #project/active and #to_do-item here.',
+    '# Heading with #tag',
+    'Issue #1234 is not a tag.',
+    'A link [docs](./other.md#section) and page#anchor.',
+    'Math $a\\#b$ beside #real.',
+    'Code `#fff` and #kept.',
+    'See [[Note#Heading]] and #kept.',
+    '- item #one\n- item #two',
+    '> quoted #tag',
+  ];
+  for (const md of cases) {
+    it(`round-trips byte-for-byte: ${JSON.stringify(md)}`, async () => {
+      const h = await boot(md);
+      expect(markdownOf(h)).toBe(md);
+    });
+  }
+
+  it('decorates real tags only', async () => {
+    const h = await boot('Hi #alpha and `#code` and [link #x](https://a.b) and $#m$ and [[Note#H]] and #project/active');
+    expect(tagEls(h)).toEqual(['alpha', 'project/active']);
+  });
+
+  it('does not decorate a heading marker', async () => {
+    const h = await boot('# Title\n\n## Sub');
+    expect(tagEls(h)).toEqual([]);
+  });
+
+  it('turns decorations off and back on with the setting', async () => {
+    const h = await boot('Hi #alpha');
+    h.send({ type: 'settings', tagsEnabled: false });
+    await settle();
+    expect(tagEls(h)).toEqual([]);
+    h.send({ type: 'settings', tagsEnabled: true });
+    await settle();
+    expect(tagEls(h)).toEqual(['alpha']);
+  });
+
+  it('Cmd+click on a tag posts openTag', async () => {
+    const h = await boot('Hi #alpha');
+    const el = h.wysiwygEditor().view.dom.querySelector('.mikedown-tag')!;
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, metaKey: true, button: 0 }));
+    expect(h.last('openTag')).toEqual({ type: 'openTag', tag: 'alpha' });
+  });
+});
+
+describe('`#` autocomplete', () => {
+  const popup = () => document.getElementById('mikedown-tag-ac');
+  const TAGS = [{ tag: 'project', count: 3 }, { tag: 'project/active', count: 1 }, { tag: 'idea', count: 2 }];
+
+  it('suggests workspace tags mid-line and inserts the chosen one', async () => {
+    const h = await boot('');
+    h.send({ type: 'tags', tags: TAGS });
+    typeWithRules(h, 'note #pro');
+    await settle();
+    expect(popup()).not.toBeNull();
+    expect([...popup()!.querySelectorAll('.wac-label')].map(e => e.textContent)).toEqual(['#project', '#project/active']);
+    h.pressKeyInWysiwyg('ArrowDown');
+    h.pressKeyInWysiwyg('Enter');
+    await settle();
+    expect(popup()).toBeNull();
+    expect(markdownOf(h)).toBe('note #project/active ');
+  });
+
+  it('does not trigger at line start, and `# ` still makes a heading', async () => {
+    const h = await boot('');
+    h.send({ type: 'tags', tags: TAGS });
+    typeWithRules(h, '#pro');
+    await settle();
+    expect(popup()).toBeNull();
+
+    const h2 = await boot('');
+    h2.send({ type: 'tags', tags: TAGS });
+    typeWithRules(h2, '# Title');
+    await settle();
+    expect(popup()).toBeNull();
+    expect(h2.wysiwygEditor().state.doc.firstChild.type.name).toBe('heading');
+    expect(markdownOf(h2)).toBe('# Title');
+  });
+
+  it('does not trigger after a word character (page#anchor)', async () => {
+    const h = await boot('');
+    h.send({ type: 'tags', tags: TAGS });
+    typeWithRules(h, 'page#pro');
+    await settle();
+    expect(popup()).toBeNull();
+  });
+
+  it('asks the host once when the tag cache is empty', async () => {
+    const h = await boot('');
+    h.send({ type: 'tags', tags: [] });
+    h.clear();
+    typeWithRules(h, 'x #ab');
+    await settle();
+    expect(h.ofType('getTags').length).toBe(1);
+  });
+
+  it('stays closed while tags are disabled', async () => {
+    const h = await boot('');
+    h.send({ type: 'tags', tags: TAGS });
+    h.send({ type: 'settings', tagsEnabled: false });
+    typeWithRules(h, 'note #pro');
+    await settle();
+    expect(popup()).toBeNull();
+    h.send({ type: 'settings', tagsEnabled: true });
   });
 });

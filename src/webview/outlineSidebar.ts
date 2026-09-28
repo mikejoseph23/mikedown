@@ -1,5 +1,5 @@
-// In-editor document sidebar. As of 2.3.0 hosts three stacked sections —
-// Properties (when frontmatter is present), Outline, Backlinks — plus a
+// In-editor document sidebar. Hosts stacked sections — Outline, Backlinks,
+// Tags (workspace-wide), Properties — plus a
 // footer strip with modified time / word count / reading time.
 //
 // Visibility is binary across documents: pin on (`always`) shows the sidebar
@@ -80,6 +80,9 @@ let outlineListEl: HTMLElement | null = null;
 let backlinksListEl: HTMLElement | null = null;
 let backlinksCountEl: HTMLElement | null = null;
 let backlinksSectionEl: HTMLElement | null = null;
+let tagsListEl: HTMLElement | null = null;
+let tagsCountEl: HTMLElement | null = null;
+let tagsSectionEl: HTMLElement | null = null;
 let propertiesSectionEl: HTMLElement | null = null;
 let propertiesListEl: HTMLElement | null = null;
 let footerEl: HTMLElement | null = null;
@@ -106,7 +109,7 @@ const SIDEBAR_ICON_LEFT  = '<svg width="16" height="16" viewBox="0 0 16 16" fill
 const SIDEBAR_ICON_RIGHT = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1"/><rect x="10" y="4" width="3" height="8" fill="currentColor" stroke="none"/></svg>';
 
 // Per-document section collapse state (mirrored from host).
-const collapsedSections = new Set<string>(); // 'properties' | 'outline' | 'backlinks'
+const collapsedSections = new Set<string>(); // 'properties' | 'outline' | 'backlinks' | 'tags'
 
 // Sections the user has explicitly toggled at least once on this doc. Tracked
 // per-section (not a single global flag) so that toggling Outline doesn't
@@ -120,6 +123,13 @@ let lastBacklinksKey = '';
 // Source docs (by uri) whose multi-link group the user has expanded. Persists
 // across re-renders so a workspace resave elsewhere doesn't collapse the view.
 const expandedBacklinkGroups = new Set<string>();
+interface TagItem {
+  tag: string;
+  count: number;
+}
+let currentTags: TagItem[] = [];
+let lastTagsKey: string | null = null;
+let tagsSectionEnabled = true;
 let currentProperties: FrontmatterEntry[] = [];
 let propertiesEditable = false;
 let propertiesChangeCb: ((entries: FrontmatterEntry[]) => void) | null = null;
@@ -215,6 +225,23 @@ function buildSidebarSkeleton(root: HTMLElement): void {
   backlinksSectionEl.appendChild(backlinksListEl);
   root.appendChild(backlinksSectionEl);
 
+  // Tags — every tag in the workspace with its document count. Clicking one
+  // runs the same QuickPick flow as Cmd/Ctrl+clicking an inline #tag.
+  tagsSectionEl = document.createElement('section');
+  tagsSectionEl.className = 'sidebar-section tags-section';
+  tagsSectionEl.dataset.section = 'tags';
+  tagsSectionEl.hidden = !tagsSectionEnabled;
+  const tagsHeader = buildSectionHeader('Tags', 'tags');
+  tagsCountEl = document.createElement('span');
+  tagsCountEl.className = 'section-count';
+  tagsCountEl.hidden = true;
+  tagsHeader.querySelector('.section-title')?.appendChild(tagsCountEl);
+  tagsSectionEl.appendChild(tagsHeader);
+  tagsListEl = document.createElement('div');
+  tagsListEl.className = 'sidebar-section-body tags-list';
+  tagsSectionEl.appendChild(tagsListEl);
+  root.appendChild(tagsSectionEl);
+
   // Properties — always visible (renders an empty-state placeholder when no
   // frontmatter exists). Lives below Backlinks so the editor's primary
   // navigation (Outline + Backlinks) gets priority at the top.
@@ -250,6 +277,8 @@ function buildSidebarSkeleton(root: HTMLElement): void {
   root.appendChild(handle);
 
   renderBacklinksEmpty();
+  lastTagsKey = null;
+  renderTags();
   renderFooter();
 }
 
@@ -451,6 +480,18 @@ export function applyBacklinks(items: BacklinkItem[]): void {
   currentBacklinks = items || [];
   autoCollapseIfEmpty('backlinks', currentBacklinks.length === 0);
   renderBacklinks();
+}
+
+export function applyTags(items: TagItem[]): void {
+  currentTags = Array.isArray(items) ? items.filter(t => t && typeof t.tag === 'string') : [];
+  autoCollapseIfEmpty('tags', currentTags.length === 0);
+  renderTags();
+}
+
+/** Show/hide the Tags section (`mikedown.tags.enabled`). */
+export function setTagsSectionEnabled(enabled: boolean): void {
+  tagsSectionEnabled = enabled;
+  if (tagsSectionEl) {tagsSectionEl.hidden = !enabled;}
 }
 
 export function applyProperties(
@@ -861,6 +902,46 @@ function buildBacklinkGroup(uri: string, items: BacklinkItem[]): HTMLElement {
 
   wrap.append(header, children);
   return wrap;
+}
+
+// ── Tags rendering ─────────────────────────────────────────────────────────
+
+function renderTags(): void {
+  if (!tagsListEl || !tagsCountEl) {return;}
+  const sorted = [...currentTags].sort((a, b) => a.tag.localeCompare(b.tag));
+  const key = sorted.map(t => `${t.tag}|${t.count}`).join('\n');
+  if (key === lastTagsKey) {return;}
+  lastTagsKey = key;
+
+  tagsCountEl.hidden = sorted.length === 0;
+  tagsCountEl.textContent = sorted.length ? ` (${sorted.length})` : '';
+
+  tagsListEl.replaceChildren();
+  if (sorted.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'tags-empty';
+    empty.textContent = 'No tags.';
+    tagsListEl.appendChild(empty);
+    return;
+  }
+  for (const t of sorted) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'tags-item';
+    row.dataset.tag = t.tag;
+    row.title = `Find documents tagged #${t.tag} (${t.count} document${t.count === 1 ? '' : 's'})`;
+    const name = document.createElement('span');
+    name.className = 'tags-item-name';
+    name.textContent = `#${t.tag}`;
+    const count = document.createElement('span');
+    count.className = 'tags-item-count';
+    count.textContent = String(t.count);
+    row.append(name, count);
+    row.addEventListener('click', () => {
+      vscodeRef?.postMessage({ type: 'openTag', tag: t.tag });
+    });
+    tagsListEl.appendChild(row);
+  }
 }
 
 function renderBacklinksEmpty(): void {

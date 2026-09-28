@@ -9,7 +9,6 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## Nice-to-have
 
-- **Tags** — first-class support for `#tag` inline syntax and/or frontmatter `tags:` arrays: render as clickable pills in the editor, aggregate workspace-wide with a sidebar section showing all tags + their documents, autocomplete on `#`. _🚧 In progress on branch `feature/inline-tags` (parked for a later release): inline `#tag` decorations + frontmatter `tags:` pills, merged workspace index, click → QuickPick of tagged docs (nested tags supported). Still TODO before shipping: `#` autocomplete, a dedicated all-tags sidebar section, and possibly a VS Code-search click target instead of the QuickPick._
 - **Definition lists** — `term\n: definition` (pandoc / PHP Markdown Extra).
 - **Table of contents** — auto-generated `[[toc]]` block.
 - **Custom containers** — `:::note ... :::` style (VuePress / MkDocs).
@@ -39,6 +38,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## Recently shipped
 
+- **Tags** — inline `#tag` (nested `#project/active`) plus frontmatter `tags:`, merged into one workspace index. Cmd/Ctrl+click a tag → QuickPick of tagged docs; `#` autocomplete mid-line; sidebar Tags section with counts; `mikedown.tags.enabled` toggle. ✅ Done, unreleased.
 - **Math / LaTeX rendering** via KaTeX: inline and display, click to edit, input rules, slash commands, `mikedown.renderMath` toggle. ✅ Done, unreleased.
 - **Backlinks jump to the link.** Clicking a backlink scrolls the opened doc to the exact link (occurrence-aware) and flashes it. ✅ Shipped in 2.6.2.
 - **Consolidate toolbar utility buttons.** Folded View in Browser + Print/PDF into a single Share dropdown; removed the inert Diff toggle (palette command still works); Select All stays standalone as a diagnostic. ✅ Shipped (post-2.5.1).

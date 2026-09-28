@@ -421,6 +421,11 @@
           "default": true,
           "description": "Render $inline$ and $$display$$ LaTeX math with KaTeX. Click a formula to edit it. When off, formulas show as their raw source."
         },
+        "mikedown.tags.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Highlight inline #tags, suggest existing workspace tags as you type #, and show a Tags section in the sidebar. Cmd/Ctrl+click a tag to find the documents that carry it."
+        },
         "mikedown.markdownNormalization": {
           "type": "string",
           "enum": [
