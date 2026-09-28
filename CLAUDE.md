@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run compile             # webpack — builds both bundles (extension + webview)
 npm run watch               # webpack --watch
+npm run dev                 # build, then open a dev host on test/workspace (no debugger; F5 attach is flaky)
 npm run package             # production build (used by vscode:prepublish)
 npm run vsix                # patch-bump version, build, package .vsix
 npm run lint                # eslint on src/**/*.ts

@@ -635,6 +635,7 @@
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
     "watch": "webpack --watch",
+    "dev": "webpack && code --new-window --extensionDevelopmentPath=\"$PWD\" test/workspace",
     "package": "webpack --mode production --devtool hidden-source-map",
     "vsix": "npm version patch --no-git-tag-version && npm run package && vsce package",
     "lint": "eslint src --ext ts",
