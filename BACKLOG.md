@@ -20,7 +20,6 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## Polish
 
-- **Backlinks: jump to the line, not just the file.** Clicking a backlink (or an expanded child row) in the sidebar opens the source doc but lands at the top. It should navigate to the link's line number. The line is already indexed (`BacklinkProvider` stores `lineNumber`, and the webview `BacklinkItem` carries `line`); the `openLink` host handler just needs to scroll/reveal that line after opening (similar to the existing `#anchor` → `scrollToAnchor` path). _Requested 2026-06-14._
 - Word count / reading time in status bar — _scaffolding exists in `src/statusBar.ts` but isn't wired to the webview yet._ ✅ Shipped in 1.8.0.
 - **Buy Me A Coffee link in Settings → About tab.** Needs a final BMAC URL. The About panel in `src/webview/editor-main.ts#buildAboutPanel` already has GitHub / changelog / issue links — add a BMAC link there once the URL exists.
 - **Support card photo avatar.** Replace the "M" initial in the "A note from Mike" support card's avatar slot with a small photo of Mike. Needs an image asset shipped in the bundle (webview `localResourceRoots`, `asWebviewUri`) and a CSP check that `img-src` allows `${webview.cspSource}`. No card redesign needed — the slot is already built for it (`avatar: { kind: 'image', src, alt }` in `src/webview/supportCard.ts`). _From the review appeal follow-ups, 2026-09-26._
@@ -41,6 +40,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## Recently shipped
 
+- **Backlinks jump to the link.** Clicking a backlink scrolls the opened doc to the exact link (occurrence-aware) and flashes it. ✅ Shipped in 2.6.2.
 - **Consolidate toolbar utility buttons.** Folded View in Browser + Print/PDF into a single Share dropdown; removed the inert Diff toggle (palette command still works); Select All stays standalone as a diagnostic. ✅ Shipped (post-2.5.1).
 - **Mark / highlight** — `==highlighted==` syntax; toolbar button + Cmd+Shift+H + right-click; round-trips cleanly. ✅ Shipped in 2.3.0.
 - **Emoji shortcodes** — `:smile:` → 😄 with inline autocomplete and a searchable picker (toolbar button, Cmd+;, right-click → Insert Emoji…) including recents and category sections. ✅ Shipped in 2.3.0.
