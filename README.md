@@ -82,6 +82,14 @@ A condensed toolbar with dropdown menus for formatting, insert, and export actio
 
 Type `/` at the start of a line (or after whitespace) to open a menu of insertable blocks — headings (`/h1`–`/h6`), lists, callouts, tables, code blocks, links, images (via a file picker), properties, and date/time. An empty document shows a "Type / for commands…" placeholder, and the menu itself includes a "Turn off slash commands" option.
 
+### Math *(new in 2.12)*
+
+Inline `\$E = mc^2\$` and display `\$\$ … \$\$` LaTeX render as formulas with KaTeX, the same syntax GitHub renders. Click a formula to edit it in place (display blocks show a live preview). Type `\$x^2\$` followed by a space, or `\$\$` and a space on an empty line, or use `/math` and `/inline-math`. Prices like `\$5 and \$10` stay plain text.
+
+### Tags *(new in 2.12)*
+
+Inline `#tags` (nested with slashes, like `#project/active`) and frontmatter `tags:` are highlighted and indexed across the workspace. Typing `#` mid-line suggests existing tags, the sidebar's **Tags** section lists every tag with its document count, and Cmd/Ctrl+clicking a tag lists the documents that carry it. Headings, URL fragments, code, math, pure numbers, and hex colors like `#2563eb` are never tags.
+
 ### Smart Paste
 
 Paste content from Google Docs, Microsoft Word, Slack, web pages, and other rich-text sources. MikeDown converts it to clean markdown automatically.
@@ -253,6 +261,9 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 | `mikedown.slashCommands.enabled` | `true` | Show the slash command menu when typing `/` at the start of a line or after whitespace |
 | `mikedown.slashCommands.dateFormat` | `iso` | Date format used by the `/date` and `/datetime` slash commands: `iso` or `long` |
 | `mikedown.slashCommands.timeZone` | `local` | Time zone used by the `/date` and `/datetime` slash commands: `local`, `UTC`, or an IANA zone name |
+| `mikedown.renderMath` | `true` | Render `\$inline\$` and `\$\$display\$\$` LaTeX with KaTeX. When off, formulas show as raw source |
+| `mikedown.tags.enabled` | `true` | Highlight `#tags`, offer tag autocomplete, and show the sidebar Tags section |
+| `mikedown.renderMermaidDiagrams` | `true` | Render ```` ```mermaid ```` code blocks as diagrams |
 | `mikedown.support.showSidebarLink` | `true` | Show a small Support MikeDown link in the in-editor sidebar footer |
 
 ## Requirements
