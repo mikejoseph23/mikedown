@@ -200,7 +200,6 @@ setImagePastePostMessage(vscode.postMessage.bind(vscode));
 setImagePickPostMessage(vscode.postMessage.bind(vscode));
 setSlashPostMessage(vscode.postMessage.bind(vscode));
 
-console.log('MikeDown: editor-main.ts script executing');
 
 // ── Loading flag — prevents onUpdate from firing during programmatic content load ──
 
@@ -2972,7 +2971,6 @@ const editorContainer = document.getElementById('editor-container');
 // Declared here (after editorContainer) but only called after `editor` is created.
 // The actual function body is defined inside the `else` block where `editor` is in scope.
 
-console.log('MikeDown: about to create TipTap editor, container:', !!editorContainer);
 if (!editorContainer) {
   console.error('MikeDown: #editor-container element not found.');
 } else {
@@ -5501,22 +5499,15 @@ if (!editorContainer) {
     // user sees the warning treatment without having to reload the document.
     if (message.type === 'imageFileMissing') {
       const targetUri = (message as any).uri as string | undefined;
-      console.log('MikeDown:DIAG-WEBVIEW-V1: imageFileMissing received uri=', targetUri, 'fsPath=', (message as any).fsPath);
       if (!targetUri) {return;}
       const imgs = document.querySelectorAll<HTMLImageElement>('.ProseMirror img');
-      console.log('MikeDown:DIAG-WEBVIEW-V1: scanning', imgs.length, 'imgs in editor');
-      let matched = 0;
       imgs.forEach(img => {
         const src = img.getAttribute('src') ?? '';
-        const isMatch = src === targetUri || src.startsWith(targetUri + '?');
-        console.log('MikeDown:DIAG-WEBVIEW-V1: compare match=', isMatch, 'src=', src);
-        if (isMatch) {
-          matched++;
+        if (src === targetUri || src.startsWith(targetUri + '?')) {
           img.classList.add('broken-image');
           img.title = `Image not found on disk: ${(message as any).fsPath ?? src}`;
         }
       });
-      console.log('MikeDown:DIAG-WEBVIEW-V1: total matches=', matched);
     }
 
     // v1.6.0 — Image file came back. We only clear the broken-image class

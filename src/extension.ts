@@ -87,7 +87,6 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(registration);
 
-  console.log('MikeDown Editor is now active.');
 
   // M3 — Register formatting commands for VS Code keybindings.
   // Each command posts a message to the active webview panel so TipTap

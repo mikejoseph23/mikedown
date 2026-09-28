@@ -482,22 +482,17 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const imageWatcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(docDirUri, '**/*.{png,jpg,jpeg,gif,webp,svg,bmp,avif,ico,tiff,tif}')
     );
-    console.log('MikeDown:DIAG-WATCHER-V1: created image watcher for docDir', docDirUri.fsPath);
     const broadcastImageStatus = (uri: vscode.Uri, exists: boolean): void => {
-      const broadcastUri = webviewPanel.webview.asWebviewUri(uri).toString();
-      console.log('MikeDown:DIAG-WATCHER-V1: broadcastImageStatus exists=', exists, 'fsPath=', uri.fsPath, 'broadcastUri=', broadcastUri);
       webviewPanel.webview.postMessage({
         type: exists ? 'imageFileFound' : 'imageFileMissing',
-        uri: broadcastUri,
+        uri: webviewPanel.webview.asWebviewUri(uri).toString(),
         fsPath: uri.fsPath,
       });
     };
     const imageWatcherDeleteSub = imageWatcher.onDidDelete(uri => {
-      console.log('MikeDown:DIAG-WATCHER-V1: onDidDelete fired uri=', uri.fsPath);
       broadcastImageStatus(uri, false);
     });
     const imageWatcherCreateSub = imageWatcher.onDidCreate(uri => {
-      console.log('MikeDown:DIAG-WATCHER-V1: onDidCreate fired uri=', uri.fsPath);
       broadcastImageStatus(uri, true);
     });
 
@@ -775,11 +770,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }
         case 'printReady':
           // Print is handled by the webview's window.print() call — no host action needed.
-          console.log('MikeDown: printReady received');
           break;
         case 'copyRichText':
           // Copy-as-rich-text is handled entirely in the webview via Clipboard API.
-          console.log('MikeDown: copyRichText handled in webview');
           break;
         case 'openLink': {
           // M6a — Navigate to a link from the WYSIWYG editor.
