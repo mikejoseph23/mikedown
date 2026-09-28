@@ -243,6 +243,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     if (typeof settings.renderMermaidDiagrams === 'boolean') {
       config.update('renderMermaidDiagrams', settings.renderMermaidDiagrams, vscode.ConfigurationTarget.Global);
     }
+    if (typeof settings.renderMath === 'boolean') {
+      config.update('renderMath', settings.renderMath, vscode.ConfigurationTarget.Global);
+    }
     if (settings.themeToggleScope === 'vscode' || settings.themeToggleScope === 'editorOnly') {
       config.update('themeToggleScope', settings.themeToggleScope, vscode.ConfigurationTarget.Global);
     }
@@ -345,6 +348,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         vscode.Uri.file(path.join(this.context.extensionPath, 'out', 'webview')),
         // Hunspell dictionaries, fetched by the webview's spell checker.
         vscode.Uri.file(path.join(this.context.extensionPath, 'dictionaries')),
+        // KaTeX stylesheet + fonts for math rendering.
+        vscode.Uri.file(path.join(this.context.extensionPath, 'node_modules', 'katex', 'dist')),
         docDirUri,
         ...workspaceFolderRoots
       ]
@@ -1302,6 +1307,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       editorTheme: settings.editorTheme,
       autoReloadUnmodifiedFiles: settings.autoReloadUnmodifiedFiles,
       renderMermaidDiagrams: settings.renderMermaidDiagrams,
+      renderMath: settings.renderMath,
       markdownNormalization: settings.markdownNormalization,
       headingRenameUpdateLinks: settings.headingRename.updateLinks,
       normalizationStyle: settings.normalizationStyle,
@@ -2091,6 +2097,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'images.css',
       'codeblocks.css',
       'mermaid.css',
+      'math.css',
       'links.css',
       'findreplace.css',
       'contextmenu.css',
@@ -2104,8 +2111,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'slashcommands.css',
       'spellcheck.css',
     ];
-    const cssLinks = cssFiles.map(f => {
-      const uri = webview.asWebviewUri(vscode.Uri.file(path.join(cssDir, f)));
+    const cssPaths = [
+      // KaTeX ships its own stylesheet, which loads its fonts relative to itself.
+      path.join(this.context.extensionPath, 'node_modules', 'katex', 'dist', 'katex.min.css'),
+      ...cssFiles.map(f => path.join(cssDir, f)),
+    ];
+    const cssLinks = cssPaths.map(p => {
+      const uri = webview.asWebviewUri(vscode.Uri.file(p));
       return `  <link rel="stylesheet" href="${uri.toString()}">`;
     }).join('\n');
 
@@ -2123,6 +2135,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       `img-src ${webview.cspSource} https: data:`,
       `script-src ${webview.cspSource}`,
       `style-src ${webview.cspSource} 'unsafe-inline'`,
+      `font-src ${webview.cspSource}`,
       `connect-src ${webview.cspSource}`
     ].join('; ');
 

@@ -2,6 +2,13 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Math rendering with KaTeX: inline `\$...\$` and display `\$\$...\$\$` LaTeX, the same syntax GitHub renders. Click a formula to edit it (Enter to save, Esc to cancel; Cmd/Ctrl+Enter in display blocks). Type `\$x\$` followed by a space, or `\$\$` and a space on an empty line, to create one, or use `/math` and `/inline-math`. Prices like `\$5 and \$10` stay plain text.
+- Setting `mikedown.renderMath` (also in the Settings modal) to show formulas as raw source instead.
+
 ## [2.11.0] - 2026-09-26
 
 ### Changed

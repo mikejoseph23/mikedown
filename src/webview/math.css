@@ -1,0 +1,76 @@
+/* KaTeX math: inline `$…$` and display `$$…$$` (see math.ts). */
+
+.ProseMirror .mikedown-math-inline {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.ProseMirror .mikedown-math-block {
+  margin: 0.75em 0;
+  padding: 0.5em 1em;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.ProseMirror .mikedown-math-inline:hover,
+.ProseMirror .mikedown-math-block:hover {
+  background: var(--vscode-textCodeBlock-background);
+}
+
+.ProseMirror .mikedown-math-inline.is-selected,
+.ProseMirror .mikedown-math-block.is-selected {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+/* Raw source (rendering off), empty, and error states. */
+.ProseMirror .mikedown-math-rendered.is-raw,
+.ProseMirror .mikedown-math-rendered.has-error {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+.ProseMirror .mikedown-math-block .mikedown-math-rendered.is-raw,
+.ProseMirror .mikedown-math-block .mikedown-math-rendered.has-error {
+  text-align: left;
+}
+.ProseMirror .mikedown-math-rendered.has-error {
+  color: var(--vscode-errorForeground, #f48771);
+  text-decoration: underline wavy var(--vscode-errorForeground, #f48771);
+}
+.ProseMirror .mikedown-math-rendered.is-empty {
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+  font-size: 0.875em;
+}
+
+/* Editing: an input (inline) or textarea + live preview (block). */
+.ProseMirror .mikedown-math-block.is-editing {
+  text-align: left;
+  background: var(--vscode-textCodeBlock-background);
+  cursor: default;
+}
+.ProseMirror .mikedown-math-input {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: 3px;
+  padding: 1px 4px;
+  outline: none;
+}
+.ProseMirror .mikedown-math-block .mikedown-math-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 6px 8px;
+}
+.ProseMirror .mikedown-math-preview {
+  margin-top: 0.5em;
+  text-align: center;
+  min-height: 1.5em;
+}

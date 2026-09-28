@@ -4,6 +4,8 @@
 .claude/**
 .orchestrator/**
 node_modules/**
+!node_modules/katex/dist/katex.min.css
+!node_modules/katex/dist/fonts/*.woff2
 src/**
 !src/webview/*.css
 out/**

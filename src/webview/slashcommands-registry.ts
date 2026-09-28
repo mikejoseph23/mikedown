@@ -134,6 +134,22 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     icon: 'type-hierarchy',
   },
   {
+    id: 'math',
+    title: 'Math Block',
+    description: 'Display formula ($$ LaTeX $$)',
+    aliases: ['equation', 'latex', 'katex', 'formula'],
+    group: 'insert',
+    icon: 'math',
+  },
+  {
+    id: 'inline-math',
+    title: 'Inline Math',
+    description: 'Formula inside the line ($ LaTeX $)',
+    aliases: ['equation', 'latex'],
+    group: 'insert',
+    icon: 'math',
+  },
+  {
     id: 'table',
     title: 'Table',
     description: 'Insert a table with a size picker',

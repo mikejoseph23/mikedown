@@ -127,6 +127,10 @@ function handleSlashAction(
       return actionCode(editor, view, range);
     case 'mermaid':
       return actionMermaid(editor, view, range);
+    case 'math':
+      return actionMathBlock(editor, view, range);
+    case 'inline-math':
+      return actionMathInline(view, range);
     case 'table':
       return actionTable(editor, view, range);
 
@@ -242,6 +246,24 @@ function actionMermaid(editor: Editor, view: EditorView, range: Range): boolean 
   editor.chain().focus().toggleCodeBlock({ language: 'mermaid' }).run();
   const pos = editor.state.selection.from;
   view.dispatch(view.state.tr.insertText(MERMAID_STARTER_DIAGRAM, pos));
+  return true;
+}
+
+function actionMathBlock(editor: Editor, view: EditorView, range: Range): boolean {
+  if (!prepareSlashTarget(view, range)) {
+    return false;
+  }
+  // `editOnMount` opens the formula editor as soon as the node view mounts.
+  editor.chain().focus().insertContent({ type: 'mathBlock', attrs: { editOnMount: true } }).run();
+  return true;
+}
+
+function actionMathInline(view: EditorView, range: Range): boolean {
+  const { from, to } = range;
+  const tr = closeHistory(view.state.tr);
+  tr.delete(from, to);
+  tr.insert(from, view.state.schema.nodes.mathInline.create({ editOnMount: true }));
+  view.dispatch(tr.scrollIntoView());
   return true;
 }
 

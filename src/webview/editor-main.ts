@@ -130,6 +130,7 @@ import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRe
 import { SlashCommands, closeSlashMenu, setSlashFrontmatterProvider, setSlashPostMessage, setSlashSourceMode, setSlashCommandsConfig } from './slashcommands';
 import { initSlashCommandActions } from './slashcommands-actions';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
+import { MathInline, MathBlock, setMathRenderingEnabled } from './math';
 import {
   initOutlineSidebar,
   applyOutlineState,
@@ -1401,6 +1402,11 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     'Display ```mermaid code blocks as rendered diagrams. Click a diagram to edit its source.',
     currentRenderMermaidDiagrams,
   );
+  const mathField = makeCheckboxRow(
+    'Render math',
+    'Display $inline$ and $$display$$ LaTeX as formulas (KaTeX). Click a formula to edit it.',
+    currentRenderMath,
+  );
   const linkClickField = makeSelectRow<'navigateCurrentTab' | 'openNewTab' | 'showContextMenu'>(
     'Link click behavior',
     'What happens when you Cmd/Ctrl+click a link in the editor.',
@@ -1848,6 +1854,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
         defaultEditor: defaultEditorField.input.checked,
         autoReloadUnmodifiedFiles: autoReloadField.input.checked,
         renderMermaidDiagrams: mermaidField.input.checked,
+        renderMath: mathField.input.checked,
         linkClickBehavior: linkClickField.select.value,
         wikilinkCreateOnClick: wikilinkCreateField.input.checked,
         themeToggleScope: themeScopeField.select.value,
@@ -1876,6 +1883,8 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     currentDefaultEditor = defaultEditorField.input.checked;
     currentAutoReloadUnmodifiedFiles = autoReloadField.input.checked;
     currentRenderMermaidDiagrams = mermaidField.input.checked;
+    currentRenderMath = mathField.input.checked;
+    setMathRenderingEnabled(currentRenderMath);
     currentWikilinkCreateOnClick = wikilinkCreateField.input.checked;
     currentLinkClickBehavior = linkClickField.select.value as typeof currentLinkClickBehavior;
     themeToggleScope = themeScopeField.select.value as typeof themeToggleScope;
@@ -1954,6 +1963,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   const markdownPanel = makePanel();
   markdownPanel.append(
     mermaidField.row,
+    mathField.row,
     normalizationField.row,
     boldMarkerField.row,
     italicMarkerField.row,
@@ -2113,6 +2123,7 @@ let currentExtensionVersion = '';
 let currentDefaultEditor = false;
 let currentAutoReloadUnmodifiedFiles = true;
 let currentRenderMermaidDiagrams = true;
+let currentRenderMath = true;
 let currentWikilinkCreateOnClick = false;
 let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
 let currentHeadingRenameUpdateLinks: 'ask' | 'always' | 'never' = 'ask';
@@ -3059,6 +3070,11 @@ if (!editorContainer) {
       // Renders ```mermaid blocks as live SVG diagrams via decoration widgets,
       // leaving every other code block on the default CodeBlockLowlight path.
       MermaidPreview,
+
+      // ── Math ──────────────────────────────────────────────────────────────────
+      // `$inline$` and `$$display$$` LaTeX rendered with KaTeX; click to edit.
+      MathInline,
+      MathBlock,
 
       // ── Task Lists (M2c) ──────────────────────────────────────────────────────
       // "- [ ] " and "- [x] " input rules convert to checkable task list items.
@@ -5025,6 +5041,10 @@ if (!editorContainer) {
       if (typeof msg.renderMermaidDiagrams === 'boolean') {
         currentRenderMermaidDiagrams = msg.renderMermaidDiagrams;
         setMermaidEnabled(editor, msg.renderMermaidDiagrams);
+      }
+      if (typeof msg.renderMath === 'boolean') {
+        currentRenderMath = msg.renderMath;
+        setMathRenderingEnabled(msg.renderMath);
       }
       if (typeof msg.extensionVersion === 'string') {
         currentExtensionVersion = msg.extensionVersion;

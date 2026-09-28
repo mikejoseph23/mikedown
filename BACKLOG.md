@@ -4,7 +4,6 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## High-value features
 
-- **Math / LaTeX rendering** — inline `$...$` and block `$$...$$` via KaTeX. GitHub renders this now, so it's basically table stakes for a markdown editor.
 - ~~**Mermaid diagrams** — render ```` ```mermaid ```` fenced blocks (flowcharts, sequence, gantt, etc.). Also GitHub-rendered.~~ ✅ Shipped — diagrams render live; click to edit source. Toggle: `mikedown.renderMermaidDiagrams`.
 - **Footnotes** — `[^1]` reference syntax (CommonMark extension, not strictly GFM).
 
@@ -40,6 +39,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## Recently shipped
 
+- **Math / LaTeX rendering** via KaTeX: inline and display, click to edit, input rules, slash commands, `mikedown.renderMath` toggle. ✅ Done, unreleased.
 - **Backlinks jump to the link.** Clicking a backlink scrolls the opened doc to the exact link (occurrence-aware) and flashes it. ✅ Shipped in 2.6.2.
 - **Consolidate toolbar utility buttons.** Folded View in Browser + Print/PDF into a single Share dropdown; removed the inert Diff toggle (palette command still works); Select All stays standalone as a diagnostic. ✅ Shipped (post-2.5.1).
 - **Mark / highlight** — `==highlighted==` syntax; toolbar button + Cmd+Shift+H + right-click; round-trips cleanly. ✅ Shipped in 2.3.0.

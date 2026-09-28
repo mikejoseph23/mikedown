@@ -9,6 +9,7 @@ export interface MikeDownSettings {
   editorTheme: 'auto' | 'light' | 'dark';
   autoReloadUnmodifiedFiles: boolean;
   renderMermaidDiagrams: boolean;
+  renderMath: boolean;
   markdownNormalization: 'preserve' | 'normalize';
   headingRename: {
     updateLinks: 'ask' | 'always' | 'never';
@@ -94,6 +95,7 @@ export function getSettings(): MikeDownSettings {
     editorTheme: config.get<'auto' | 'light' | 'dark'>('editorTheme', 'auto'),
     autoReloadUnmodifiedFiles: config.get<boolean>('autoReloadUnmodifiedFiles', true),
     renderMermaidDiagrams: config.get<boolean>('renderMermaidDiagrams', true),
+    renderMath: config.get<boolean>('renderMath', true),
     markdownNormalization: config.get<'preserve' | 'normalize'>('markdownNormalization', 'preserve'),
     headingRename: {
       updateLinks: config.get<'ask' | 'always' | 'never'>('headingRename.updateLinks', 'ask'),

@@ -15,11 +15,14 @@
  *   • escapes `&` only when it starts a character reference that would
  *     otherwise decode on the next parse;
  *   • escapes `|` inside table cells so a literal pipe can't split the row;
+ *   • escapes `$` only where it would open inline math (`$x$`) or a display
+ *     block (`$$` at line start), so prices like `$5` stay untouched;
  *   • otherwise keeps prosemirror-markdown's escape set byte-for-byte, so no
  *     round-trip that worked before starts failing.
  *
  * Pure functions — unit tested by test/unit/markdownEscape.test.ts.
  */
+import { matchInlineMath } from './mathSyntax';
 
 /** `<scheme:...>` — CommonMark URI autolink. Parsed even with html: false. */
 const AUTOLINK_URI = /^<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^\s<>]*>/;
@@ -96,6 +99,9 @@ export function escapeMarkdownText(line: string, opts: MarkdownEscapeOptions = {
       case '|':
         out += opts.inTable ? '\\|' : ch;
         break;
+      case '$':
+        out += matchInlineMath(line, i) ? '\\$' : ch;
+        break;
       default:
         out += ch;
     }
@@ -105,7 +111,8 @@ export function escapeMarkdownText(line: string, opts: MarkdownEscapeOptions = {
     out = out
       .replace(/^(\+[ ]|[-*>])/, '\\$&')
       .replace(/^(\s*)(#{1,6})(\s|$)/, '$1\\$2$3')
-      .replace(/^(\s*\d+)\.\s/, '$1\\. ');
+      .replace(/^(\s*\d+)\.\s/, '$1\\. ')
+      .replace(/^(\s*)\$\$/, '$1\\$$$$');
   }
 
   return out;

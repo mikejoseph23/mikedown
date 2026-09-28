@@ -416,6 +416,11 @@
           "default": true,
           "description": "Render ```mermaid code blocks as diagrams in the editor. Click a diagram to edit its source."
         },
+        "mikedown.renderMath": {
+          "type": "boolean",
+          "default": true,
+          "description": "Render $inline$ and $$display$$ LaTeX math with KaTeX. Click a formula to edit it. When off, formulas show as their raw source."
+        },
         "mikedown.markdownNormalization": {
           "type": "string",
           "enum": [
@@ -677,6 +682,7 @@
     "@tiptap/starter-kit": "^3.20.0",
     "dictionary-en": "^4.0.0",
     "dictionary-en-gb": "^3.0.0",
+    "katex": "^0.16.47",
     "lowlight": "^3.3.0",
     "markdown-it-emoji": "^3.0.0",
     "markdown-it-mark": "^4.0.0",
