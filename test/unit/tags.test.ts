@@ -48,8 +48,8 @@ describe('inline tags — hex colors', () => {
     expect(tags('bg #2563eb, fg #ffffff, overlay #eef0f3cc')).toEqual([]);
   });
 
-  it('skips 3- and 4-digit hex colors that contain a digit', () => {
-    expect(tags('use #f0f or #fa08')).toEqual([]);
+  it('skips any all-hex token that contains a digit', () => {
+    expect(tags('use #f0f or #fa08 or #0a or #a1b2c')).toEqual([]);
   });
 
   it('keeps word-like hex tags', () => {

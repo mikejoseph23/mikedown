@@ -30,12 +30,12 @@ export function normalizeTag(raw: string): string | null {
   return t;
 }
 
-/** `#fff`-style colors: 6 or 8 hex digits, or 3–4 with a digit in them, so
- *  word-like tags such as `#bad`, `#cafe`, `#face` still count. */
+/** Hex-color-like tokens: any all-hex run containing a digit (`#0f`,
+ *  `#2563eb`), or 6/8 hex letters (`#ffffff`). All-letter words such as
+ *  `#bad`, `#cafe`, `#face` still count as tags. */
 export function looksLikeHexColor(tag: string): boolean {
   if (!/^[0-9a-f]+$/i.test(tag)) return false;
-  if (tag.length === 6 || tag.length === 8) return true;
-  return (tag.length === 3 || tag.length === 4) && /[0-9]/.test(tag);
+  return /[0-9]/.test(tag) || tag.length === 6 || tag.length === 8;
 }
 
 export interface InlineTagMatch {
