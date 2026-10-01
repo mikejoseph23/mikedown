@@ -179,7 +179,7 @@ import { showLanguagePicker } from './languagepicker';
 import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
 import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from '../imageDisplayPath';
 import { githubAnchorId } from '../anchoring';
-import { headingNumberingCss, parseHeadingNumbering, type HeadingNumbering } from '../headingNumbering';
+import { HEADING_NUMBERING_AVAILABLE, headingNumberingCss, parseHeadingNumbering, type HeadingNumbering } from '../headingNumbering';
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import { showSupportCard, isSupportCardOpen, showSupportCopied, type SupportCardCopy } from './supportCard';
@@ -1884,7 +1884,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
         wikilinkCreateOnClick: wikilinkCreateField.input.checked,
         themeToggleScope: themeScopeField.select.value,
         headingRenameUpdateLinks: headingRenameField.select.value,
-        headingNumbering: headingNumberingField.select.value,
+        ...(HEADING_NUMBERING_AVAILABLE ? { headingNumbering: headingNumberingField.select.value } : {}),
         slashCommandsEnabled: slashCommandsEnabledField.input.checked,
         slashCommandsDateFormat: slashCommandsDateFormatField.select.value,
         slashCommandsTimeZone: slashCommandsTimeZoneInput.value.trim() || 'local',
@@ -1972,7 +1972,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     fontSizeRow,
     fontThemeRow,
     widthRow,
-    headingNumberingField.row,
+    ...(HEADING_NUMBERING_AVAILABLE ? [headingNumberingField.row] : []),
     sidebarVisibilityField.row,
     sidebarPositionField.row,
     sidebarWidthRow,

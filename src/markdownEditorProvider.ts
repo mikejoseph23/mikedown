@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as cp from 'child_process';
 import { getSettings, ImagePasteSettings } from './settings';
+import { HEADING_NUMBERING_AVAILABLE } from './headingNumbering';
 import { writeRenderedHtml, openRenderedInBrowser } from './export';
 import {
   extensionFromMime,
@@ -284,9 +285,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       config.update('headingRename.updateLinks', settings.headingRenameUpdateLinks, vscode.ConfigurationTarget.Global);
     }
     if (
-      settings.headingNumbering === 'off' ||
-      settings.headingNumbering === 'fromH1' ||
-      settings.headingNumbering === 'fromH2'
+      HEADING_NUMBERING_AVAILABLE && (
+        settings.headingNumbering === 'off' ||
+        settings.headingNumbering === 'fromH1' ||
+        settings.headingNumbering === 'fromH2'
+      )
     ) {
       config.update('headingNumbering', settings.headingNumbering, vscode.ConfigurationTarget.Global);
     }
