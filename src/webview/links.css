@@ -50,14 +50,17 @@ body.cmd-held .ProseMirror a {
   position: relative;
 }
 
-.ProseMirror h1:hover::before,
-.ProseMirror h2:hover::before,
-.ProseMirror h3:hover::before,
-.ProseMirror h4:hover::before,
-.ProseMirror h5:hover::before,
-.ProseMirror h6:hover::before {
+/* ::after, not ::before — heading numbering (mikedown.headingNumbering)
+   renders its counter in ::before, and the two must coexist on hover. */
+.ProseMirror h1:hover::after,
+.ProseMirror h2:hover::after,
+.ProseMirror h3:hover::after,
+.ProseMirror h4:hover::after,
+.ProseMirror h5:hover::after,
+.ProseMirror h6:hover::after {
   content: '#';
   position: absolute;
+  top: 0;
   left: -1.2em;
   color: var(--vscode-textLink-foreground, #4e9de0);
   opacity: 0.5;
@@ -67,9 +70,9 @@ body.cmd-held .ProseMirror a {
   transition: opacity 0.12s ease;
 }
 
-.ProseMirror h1:hover::before,
-.ProseMirror h2:hover::before,
-.ProseMirror h3:hover::before {
+.ProseMirror h1:hover::after,
+.ProseMirror h2:hover::after,
+.ProseMirror h3:hover::after {
   opacity: 0.7;
 }
 

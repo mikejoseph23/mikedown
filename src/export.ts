@@ -4,13 +4,21 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { githubAnchorId } from './anchoring';
 import { serveExport, rewriteUrlsForServer } from './exportServer';
+import { headingNumberingCss, type HeadingNumbering } from './headingNumbering';
 
 /**
  * Build a standalone HTML document around the given rendered body HTML.
  * Shared by "Export as HTML" and "View in Browser" so styles stay in sync.
+ * `headingNumbering` mirrors the editor's `mikedown.headingNumbering` setting
+ * so exported and printed documents carry the same section numbers.
  */
-export function buildFullHtml(renderedHtml: string, title: string): string {
+export function buildFullHtml(
+  renderedHtml: string,
+  title: string,
+  headingNumbering: HeadingNumbering = 'off'
+): string {
   const body = fixInternalLinks(addHeadingIds(renderedHtml));
+  const numberingCss = headingNumberingCss(headingNumbering, 'body');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,7 +44,7 @@ export function buildFullHtml(renderedHtml: string, title: string): string {
   @media print {
     body { max-width: none; margin: 0; padding: 20px; }
   }
-</style>
+${numberingCss ? `  ${numberingCss.replace(/\n/g, '\n  ')}\n` : ''}</style>
 </head>
 <body>
 ${body}
@@ -135,7 +143,8 @@ export function exportViaPrint(panel: vscode.WebviewPanel): void {
  */
 export async function writeRenderedHtml(
   renderedHtml: string,
-  suggestedName: string
+  suggestedName: string,
+  headingNumbering: HeadingNumbering = 'off'
 ): Promise<void> {
   const uri = await vscode.window.showSaveDialog({
     defaultUri: vscode.Uri.file(suggestedName.replace(/\.md$/, '.html')),
@@ -145,7 +154,7 @@ export async function writeRenderedHtml(
   if (!uri) {return;}
 
   const title = path.basename(suggestedName, path.extname(suggestedName));
-  const fullHtml = buildFullHtml(renderedHtml, title);
+  const fullHtml = buildFullHtml(renderedHtml, title, headingNumbering);
   await vscode.workspace.fs.writeFile(uri, Buffer.from(fullHtml, 'utf8'));
   vscode.window.showInformationMessage(`Exported to ${path.basename(uri.fsPath)}`);
 }
@@ -242,7 +251,7 @@ async function saveForLocalOpen(
 export async function openRenderedInBrowser(
   renderedHtml: string,
   sourceDocPath: string,
-  options: { autoPrint?: boolean } = {}
+  options: { autoPrint?: boolean; headingNumbering?: HeadingNumbering } = {}
 ): Promise<void> {
   const baseDir = path.dirname(sourceDocPath);
   const title = path.basename(sourceDocPath, path.extname(sourceDocPath));
@@ -252,7 +261,7 @@ export async function openRenderedInBrowser(
       const localUri = await serveExport(
         (token) =>
           withAutoPrint(
-            buildFullHtml(rewriteUrlsForServer(renderedHtml, baseDir, token), title),
+            buildFullHtml(rewriteUrlsForServer(renderedHtml, baseDir, token), title, options.headingNumbering),
             options.autoPrint
           ),
         baseDir
@@ -266,14 +275,14 @@ export async function openRenderedInBrowser(
       // Leave relative URLs alone, exactly like "Export as HTML" does: a
       // `file://` URL built from a remote path is meaningless on the machine
       // that will actually open this file.
-      const fallbackHtml = buildFullHtml(renderedHtml, title);
+      const fallbackHtml = buildFullHtml(renderedHtml, title, options.headingNumbering);
       await saveForLocalOpen(fallbackHtml, title, options.autoPrint);
       return;
     }
   }
 
   const rewritten = rewriteRelativeUrls(renderedHtml, baseDir);
-  const fullHtml = withAutoPrint(buildFullHtml(rewritten, title), options.autoPrint);
+  const fullHtml = withAutoPrint(buildFullHtml(rewritten, title, options.headingNumbering), options.autoPrint);
 
   const prefix = options.autoPrint ? 'mikedown-print' : 'mikedown-preview';
   const safeName = sanitizeExportFilename(title);

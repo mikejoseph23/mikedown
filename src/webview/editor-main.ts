@@ -179,6 +179,7 @@ import { showLanguagePicker } from './languagepicker';
 import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
 import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from '../imageDisplayPath';
 import { githubAnchorId } from '../anchoring';
+import { headingNumberingCss, parseHeadingNumbering, type HeadingNumbering } from '../headingNumbering';
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import { showSupportCard, isSupportCardOpen, showSupportCopied, type SupportCardCopy } from './supportCard';
@@ -1454,6 +1455,16 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
       { value: 'never', label: 'Never fix links' },
     ],
   );
+  const headingNumberingField = makeSelectRow<HeadingNumbering>(
+    'Heading numbering',
+    'Show automatic section numbers (1, 1.1, 1.1.1) on headings here and in HTML/PDF exports. Display only — nothing is written into the markdown file.',
+    currentHeadingNumbering,
+    [
+      { value: 'off', label: 'Off' },
+      { value: 'fromH1', label: 'Number from Heading 1' },
+      { value: 'fromH2', label: 'Number from Heading 2 (Heading 1 is the title)' },
+    ],
+  );
 
   // ── Slash commands subsection (Behavior tab, M5) ────────────────────────────
   const slashCommandsSectionRow = makeRow(
@@ -1873,6 +1884,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
         wikilinkCreateOnClick: wikilinkCreateField.input.checked,
         themeToggleScope: themeScopeField.select.value,
         headingRenameUpdateLinks: headingRenameField.select.value,
+        headingNumbering: headingNumberingField.select.value,
         slashCommandsEnabled: slashCommandsEnabledField.input.checked,
         slashCommandsDateFormat: slashCommandsDateFormatField.select.value,
         slashCommandsTimeZone: slashCommandsTimeZoneInput.value.trim() || 'local',
@@ -1904,6 +1916,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     currentLinkClickBehavior = linkClickField.select.value as typeof currentLinkClickBehavior;
     themeToggleScope = themeScopeField.select.value as typeof themeToggleScope;
     currentHeadingRenameUpdateLinks = headingRenameField.select.value as typeof currentHeadingRenameUpdateLinks;
+    applyHeadingNumbering(parseHeadingNumbering(headingNumberingField.select.value));
     currentSlashCommandsEnabled = slashCommandsEnabledField.input.checked;
     currentSlashCommandsDateFormat = slashCommandsDateFormatField.select.value as typeof currentSlashCommandsDateFormat;
     currentSlashCommandsTimeZone = slashCommandsTimeZoneInput.value.trim() || 'local';
@@ -1959,6 +1972,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     fontSizeRow,
     fontThemeRow,
     widthRow,
+    headingNumberingField.row,
     sidebarVisibilityField.row,
     sidebarPositionField.row,
     sidebarWidthRow,
@@ -2144,6 +2158,23 @@ let currentTagsEnabled = true;
 let currentWikilinkCreateOnClick = false;
 let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
 let currentHeadingRenameUpdateLinks: 'ask' | 'always' | 'never' = 'ask';
+let currentHeadingNumbering: HeadingNumbering = 'off';
+
+/**
+ * Apply `mikedown.headingNumbering` by swapping a generated stylesheet in
+ * <head>. Pure CSS counters — the ProseMirror DOM itself is never touched.
+ */
+function applyHeadingNumbering(mode: HeadingNumbering): void {
+  currentHeadingNumbering = mode;
+  const id = 'mikedown-heading-numbering';
+  let styleEl = document.getElementById(id) as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = id;
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = headingNumberingCss(mode, '.ProseMirror');
+}
 
 // Support appeal entry points (M6), seeded from the host's 'settings'
 // broadcast (`supportShowSidebarLink`, `supportEntryCopy` = ENTRY_COPY in
@@ -2416,9 +2447,9 @@ function buildCondensedToolbar(editor: Editor): void {
 
   // Helper: get current block type label for the text format button
   function getBlockLabel(): string {
-    if (editor.isActive('heading', { level: 1 })) {return 'H1';}
-    if (editor.isActive('heading', { level: 2 })) {return 'H2';}
-    if (editor.isActive('heading', { level: 3 })) {return 'H3';}
+    for (let level = 1; level <= 6; level++) {
+      if (editor.isActive('heading', { level })) {return `H${level}`;}
+    }
     return 'Aa';
   }
 
@@ -2426,9 +2457,7 @@ function buildCondensedToolbar(editor: Editor): void {
   function isTextFormatActive(): boolean {
     return editor.isActive('bold') || editor.isActive('italic') ||
            editor.isActive('strike') || editor.isActive('code') ||
-           editor.isActive('heading', { level: 1 }) ||
-           editor.isActive('heading', { level: 2 }) ||
-           editor.isActive('heading', { level: 3 });
+           editor.isActive('heading');
   }
 
   // Helper: check if any list/block type is active
@@ -2471,6 +2500,9 @@ function buildCondensedToolbar(editor: Editor): void {
       { type: 'action', id: 'h1', label: 'Heading 1', icon: '<span style="font-weight:700;font-size:14px">H1</span>', isActive: () => editor.isActive('heading', { level: 1 }), action: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
       { type: 'action', id: 'h2', label: 'Heading 2', icon: '<span style="font-weight:600;font-size:13px">H2</span>', isActive: () => editor.isActive('heading', { level: 2 }), action: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
       { type: 'action', id: 'h3', label: 'Heading 3', icon: '<span style="font-weight:500;font-size:12px">H3</span>', isActive: () => editor.isActive('heading', { level: 3 }), action: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
+      { type: 'action', id: 'h4', label: 'Heading 4', icon: '<span style="font-weight:500;font-size:11px">H4</span>', isActive: () => editor.isActive('heading', { level: 4 }), action: () => editor.chain().focus().toggleHeading({ level: 4 }).run() },
+      { type: 'action', id: 'h5', label: 'Heading 5', icon: '<span style="font-weight:500;font-size:11px">H5</span>', isActive: () => editor.isActive('heading', { level: 5 }), action: () => editor.chain().focus().toggleHeading({ level: 5 }).run() },
+      { type: 'action', id: 'h6', label: 'Heading 6', icon: '<span style="font-weight:500;font-size:11px">H6</span>', isActive: () => editor.isActive('heading', { level: 6 }), action: () => editor.chain().focus().toggleHeading({ level: 6 }).run() },
       { type: 'action', id: 'paragraph', label: 'Paragraph', action: () => editor.chain().focus().setParagraph().run(), isActive: () => !editor.isActive('heading') && !editor.isActive('codeBlock') },
       { type: 'separator' },
       { type: 'mini-row', items: [
@@ -5067,6 +5099,9 @@ if (!editorContainer) {
       if (msg.headingRenameUpdateLinks) {
         headingRenamePref = msg.headingRenameUpdateLinks;
         currentHeadingRenameUpdateLinks = msg.headingRenameUpdateLinks;
+      }
+      if (typeof msg.headingNumbering === 'string') {
+        applyHeadingNumbering(parseHeadingNumbering(msg.headingNumbering));
       }
       if (
         typeof msg.slashCommandsEnabled === 'boolean'

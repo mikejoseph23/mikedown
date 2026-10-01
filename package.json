@@ -454,6 +454,21 @@
           "default": "ask",
           "description": "When you rename a heading, links that point at its anchor (#slug) break. This controls whether MikeDown fixes them. In-document links are always fixed silently; this setting governs cross-file links in other markdown files."
         },
+        "mikedown.headingNumbering": {
+          "type": "string",
+          "enum": [
+            "off",
+            "fromH1",
+            "fromH2"
+          ],
+          "enumDescriptions": [
+            "Headings are not numbered",
+            "Number every heading level, starting at H1 (1, 1.1, 1.1.1)",
+            "Treat H1 as the document title and start numbering at H2"
+          ],
+          "default": "off",
+          "description": "Show automatic section numbers on headings in the editor and in HTML/PDF exports. Display only: the numbers are not written into the markdown file, so they won't appear on GitHub or in other renderers."
+        },
         "mikedown.normalizationStyle.boldMarker": {
           "type": "string",
           "enum": [

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { parseHeadingNumbering, type HeadingNumbering } from './headingNumbering';
 
 export interface MikeDownSettings {
   defaultEditor: boolean;
@@ -15,6 +16,7 @@ export interface MikeDownSettings {
   headingRename: {
     updateLinks: 'ask' | 'always' | 'never';
   };
+  headingNumbering: HeadingNumbering;
   normalizationStyle: {
     boldMarker: '**' | '__';
     italicMarker: '*' | '_';
@@ -109,6 +111,7 @@ export function getSettings(): MikeDownSettings {
     headingRename: {
       updateLinks: config.get<'ask' | 'always' | 'never'>('headingRename.updateLinks', 'ask'),
     },
+    headingNumbering: parseHeadingNumbering(config.get<string>('headingNumbering', 'off')),
     normalizationStyle: {
       boldMarker: config.get<'**' | '__'>('normalizationStyle.boldMarker', '**'),
       italicMarker: config.get<'*' | '_'>('normalizationStyle.italicMarker', '*'),

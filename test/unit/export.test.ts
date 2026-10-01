@@ -67,6 +67,16 @@ describe('buildFullHtml', () => {
     expect(out).toContain('<h2 id="table-of-contents">Table of Contents</h2>');
     expect(out).toContain('<a href="#table-of-contents">top</a>');
   });
+
+  it('adds no numbering CSS by default', () => {
+    expect(buildFullHtml('<h1>Title</h1>', 'doc')).not.toContain('counter-increment');
+  });
+
+  it('includes heading numbering CSS scoped to body when enabled', () => {
+    const out = buildFullHtml('<h1>Title</h1><h2>Intro</h2>', 'doc', 'fromH2');
+    expect(out).toContain('body > h2::before { content: counter(mikedown-h2);');
+    expect(out).not.toContain('body > h1::before');
+  });
 });
 
 describe('sanitizeExportFilename', () => {

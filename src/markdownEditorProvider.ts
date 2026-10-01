@@ -283,6 +283,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     ) {
       config.update('headingRename.updateLinks', settings.headingRenameUpdateLinks, vscode.ConfigurationTarget.Global);
     }
+    if (
+      settings.headingNumbering === 'off' ||
+      settings.headingNumbering === 'fromH1' ||
+      settings.headingNumbering === 'fromH2'
+    ) {
+      config.update('headingNumbering', settings.headingNumbering, vscode.ConfigurationTarget.Global);
+    }
     if (settings.normalizationStyle && typeof settings.normalizationStyle === 'object') {
       const ns = settings.normalizationStyle;
       if (ns.boldMarker === '**' || ns.boldMarker === '__') {
@@ -781,15 +788,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }
         case 'exportHtml': {
           const suggestedName = document.fileName;
-          await writeRenderedHtml(message.html ?? '', suggestedName);
+          await writeRenderedHtml(message.html ?? '', suggestedName, getSettings().headingNumbering);
           break;
         }
         case 'viewInBrowser': {
-          await openRenderedInBrowser(message.html ?? '', document.uri.fsPath);
+          await openRenderedInBrowser(message.html ?? '', document.uri.fsPath, {
+            headingNumbering: getSettings().headingNumbering,
+          });
           break;
         }
         case 'printDocument': {
-          await openRenderedInBrowser(message.html ?? '', document.uri.fsPath, { autoPrint: true });
+          await openRenderedInBrowser(message.html ?? '', document.uri.fsPath, {
+            autoPrint: true,
+            headingNumbering: getSettings().headingNumbering,
+          });
           break;
         }
         case 'printReady':
@@ -1363,6 +1375,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       tagsEnabled: settings.tags.enabled,
       markdownNormalization: settings.markdownNormalization,
       headingRenameUpdateLinks: settings.headingRename.updateLinks,
+      headingNumbering: settings.headingNumbering,
       normalizationStyle: settings.normalizationStyle,
       imagePaste: settings.imagePaste,
       imageResize: settings.imageResize,

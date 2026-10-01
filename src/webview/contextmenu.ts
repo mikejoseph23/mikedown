@@ -235,6 +235,9 @@ export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
         { label: 'Heading 1', action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), isActive: () => editor.isActive('heading', { level: 1 }) },
         { label: 'Heading 2', action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), isActive: () => editor.isActive('heading', { level: 2 }) },
         { label: 'Heading 3', action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(), isActive: () => editor.isActive('heading', { level: 3 }) },
+        { label: 'Heading 4', action: () => editor.chain().focus().toggleHeading({ level: 4 }).run(), isActive: () => editor.isActive('heading', { level: 4 }) },
+        { label: 'Heading 5', action: () => editor.chain().focus().toggleHeading({ level: 5 }).run(), isActive: () => editor.isActive('heading', { level: 5 }) },
+        { label: 'Heading 6', action: () => editor.chain().focus().toggleHeading({ level: 6 }).run(), isActive: () => editor.isActive('heading', { level: 6 }) },
       ],
     },
     {
