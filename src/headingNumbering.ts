@@ -12,15 +12,6 @@
 
 export type HeadingNumbering = 'off' | 'fromH1' | 'fromH2';
 
-/**
- * Off while the design is settled with the requester of issue #6 (display-only
- * counters vs. writing the numbers into the markdown). While false the setting
- * is ignored and hidden from the Settings modal. To ship it, flip this and
- * restore the `mikedown.headingNumbering` schema entry in package.json plus
- * the README settings row and changelog note (all in commit 3e0f819).
- */
-export const HEADING_NUMBERING_AVAILABLE = false;
-
 export function parseHeadingNumbering(value: unknown): HeadingNumbering {
   return value === 'fromH1' || value === 'fromH2' ? value : 'off';
 }
