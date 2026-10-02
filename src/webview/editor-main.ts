@@ -727,22 +727,21 @@ let lastSettingsTab: SettingsTabId = 'appearance';
 function buildHotkeysPanel(): HTMLDivElement {
   const panel = document.createElement('div');
   panel.setAttribute('role', 'tabpanel');
-  panel.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+  panel.className = 'settings-panel settings-panel--hotkeys';
 
   const intro = document.createElement('div');
-  intro.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.4';
+  intro.className = 'settings-desc';
   intro.textContent = 'To remap any of these, use VS Code’s own Keyboard Shortcuts UI — MikeDown can’t rewrite keybindings.json itself.';
   panel.appendChild(intro);
 
   const table = document.createElement('table');
-  table.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px';
+  table.className = 'settings-hotkeys-table';
 
   const thead = document.createElement('thead');
   const headRow = document.createElement('tr');
   for (const label of ['Action', 'Shortcut']) {
     const th = document.createElement('th');
     th.textContent = label;
-    th.style.cssText = 'text-align:left;padding:6px 8px;font-weight:500;color:var(--vscode-descriptionForeground);border-bottom:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.25))';
     headRow.appendChild(th);
   }
   thead.appendChild(headRow);
@@ -756,10 +755,8 @@ function buildHotkeysPanel(): HTMLDivElement {
     const row = document.createElement('tr');
     const labelCell = document.createElement('td');
     labelCell.textContent = hk.label;
-    labelCell.style.cssText = 'padding:5px 8px;color:var(--vscode-editor-foreground)';
     const keyCell = document.createElement('td');
     keyCell.textContent = `${formatHotkeyChord(hk.mac)} / ${formatHotkeyChord(hk.win)}`;
-    keyCell.style.cssText = 'padding:5px 8px;color:var(--vscode-editor-foreground);font-family:var(--vscode-editor-font-family,monospace);white-space:nowrap';
     row.append(labelCell, keyCell);
     tbody.appendChild(row);
   }
@@ -769,13 +766,7 @@ function buildHotkeysPanel(): HTMLDivElement {
   const customizeBtn = document.createElement('button');
   customizeBtn.type = 'button';
   customizeBtn.textContent = 'Customize in VS Code…';
-  customizeBtn.style.cssText = 'align-self:flex-start;background:transparent;border:1px solid var(--vscode-button-border,var(--vscode-input-border,rgba(128,128,128,0.4)));color:var(--vscode-foreground);padding:5px 12px;border-radius:3px;font-size:12.5px;cursor:pointer;font-family:inherit';
-  customizeBtn.addEventListener('mouseenter', () => {
-    customizeBtn.style.background = 'var(--vscode-button-hoverBackground,rgba(255,255,255,0.05))';
-  });
-  customizeBtn.addEventListener('mouseleave', () => {
-    customizeBtn.style.background = 'transparent';
-  });
+  customizeBtn.className = 'settings-btn';
   customizeBtn.addEventListener('click', () => {
     vscode.postMessage({ type: 'openKeybindings' });
   });
@@ -800,20 +791,20 @@ function formatHotkeyChord(chord: string): string {
 function buildAboutPanel(closeModal: () => void): HTMLDivElement {
   const panel = document.createElement('div');
   panel.setAttribute('role', 'tabpanel');
-  panel.style.cssText = 'display:flex;flex-direction:column;gap:16px;align-items:flex-start';
+  panel.className = 'settings-panel settings-panel--about';
 
   const titleRow = document.createElement('div');
-  titleRow.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+  titleRow.className = 'settings-about-title';
   const name = document.createElement('div');
   name.textContent = 'MikeDown';
-  name.style.cssText = 'font-size:18px;font-weight:600;color:var(--vscode-editor-foreground)';
+  name.className = 'settings-about-name';
   const tagline = document.createElement('div');
   tagline.textContent = 'A WYSIWYG markdown editor for VS Code.';
-  tagline.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground)';
+  tagline.className = 'settings-desc';
   titleRow.append(name, tagline);
 
   const meta = document.createElement('div');
-  meta.style.cssText = 'font-size:13px;color:var(--vscode-editor-foreground);display:flex;flex-direction:column;gap:4px';
+  meta.className = 'settings-about-meta';
   const versionLine = document.createElement('div');
   versionLine.textContent = currentExtensionVersion ? `Version ${currentExtensionVersion}` : 'Version —';
   const licenseLine = document.createElement('div');
@@ -821,15 +812,12 @@ function buildAboutPanel(closeModal: () => void): HTMLDivElement {
   meta.append(versionLine, licenseLine);
 
   const linksRow = document.createElement('div');
-  linksRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:4px';
+  linksRow.className = 'settings-about-links';
 
   function makeLink(label: string, href: string): HTMLAnchorElement {
     const a = document.createElement('a');
     a.href = href;
     a.textContent = label;
-    a.style.cssText = 'color:var(--vscode-textLink-foreground,#3794ff);text-decoration:none;font-size:13px';
-    a.addEventListener('mouseenter', () => { a.style.textDecoration = 'underline'; });
-    a.addEventListener('mouseleave', () => { a.style.textDecoration = 'none'; });
     a.addEventListener('click', (e) => {
       e.preventDefault();
       vscode.postMessage({ type: 'openLink', href, behavior: 'openNewTab' });
@@ -851,34 +839,20 @@ function buildAboutPanel(closeModal: () => void): HTMLDivElement {
   const supportCopy = currentSupportEntryCopy;
   if (supportCopy) {
     const supportSection = document.createElement('div');
-    supportSection.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin-top:4px;padding-top:16px;border-top:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.2));align-self:stretch';
+    supportSection.className = 'settings-about-support';
     const heading = document.createElement('div');
     heading.setAttribute('role', 'heading');
     heading.setAttribute('aria-level', '3');
     heading.textContent = supportCopy.aboutHeading;
-    heading.style.cssText = 'font-size:13px;font-weight:600;color:var(--vscode-editor-foreground)';
+    heading.className = 'settings-label';
     const leadIn = document.createElement('div');
     leadIn.textContent = supportCopy.aboutLeadIn;
-    leadIn.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.4';
+    leadIn.className = 'settings-desc';
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.setAttribute('data-testid', 'about-support-button');
     btn.textContent = supportCopy.aboutButton;
-    btn.style.cssText = [
-      'margin-top:4px',
-      'padding:5px 14px',
-      'background:var(--vscode-button-secondaryBackground,#3a3d41)',
-      'color:var(--vscode-button-secondaryForeground,#ffffff)',
-      'border:1px solid var(--vscode-button-border,transparent)',
-      'border-radius:4px',
-      'cursor:pointer',
-      'font-size:13px',
-      'font-family:inherit',
-    ].join(';');
-    btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--vscode-button-secondaryHoverBackground,#45494e)'; });
-    btn.addEventListener('mouseleave', () => { btn.style.background = 'var(--vscode-button-secondaryBackground,#3a3d41)'; });
-    btn.addEventListener('focus', () => { if (!btn.matches(':focus-visible')) {return;} btn.style.outline = '1px solid var(--vscode-focusBorder,#007fd4)'; btn.style.outlineOffset = '2px'; });
-    btn.addEventListener('blur', () => { btn.style.outline = 'none'; });
+    btn.className = 'settings-btn settings-btn--secondary';
     btn.addEventListener('click', () => {
       closeModal();
       requestSupportCard();
@@ -895,24 +869,12 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
 
   const overlay = document.createElement('div');
   overlay.id = 'mikedown-settings-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:1050;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25)';
 
   const modal = document.createElement('div');
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
   modal.setAttribute('aria-label', 'MikeDown Settings');
-  modal.style.cssText = [
-    'background:var(--vscode-editorWidget-background,#252526)',
-    'border:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.35))',
-    'border-radius:10px',
-    'min-width:640px',
-    'max-width:760px',
-    'box-shadow:0 12px 40px rgba(0,0,0,0.5)',
-    'display:flex',
-    'flex-direction:column',
-    'max-height:80vh',
-    'overflow:hidden',
-  ].join(';');
+  modal.className = 'settings-modal';
 
   // Read current values from CSS custom properties
   const computed = getComputedStyle(document.documentElement);
@@ -922,61 +884,57 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
 
   // ── Title
   const title = document.createElement('div');
-  title.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:20px 24px 14px;flex-shrink:0';
+  title.className = 'settings-header';
   const titleText = document.createElement('h2');
   titleText.textContent = 'Settings';
-  titleText.style.cssText = 'margin:0;font-size:18px;font-weight:600;color:var(--vscode-editor-foreground)';
+  titleText.className = 'settings-title';
   const closeBtn = document.createElement('button');
   closeBtn.innerHTML = '&times;';
-  closeBtn.style.cssText = 'background:none;border:none;color:var(--vscode-editor-foreground);font-size:22px;cursor:pointer;padding:0 4px;opacity:0.6';
+  closeBtn.className = 'settings-close';
   closeBtn.addEventListener('click', () => overlay.remove());
   title.appendChild(titleText);
   title.appendChild(closeBtn);
 
-  // ── Helper to create a setting row
-  function makeRow(label: string, description: string): HTMLElement {
+  // ── Helper to create a setting row. Styling lives in settings-modal.css.
+  // 'inline' puts the control appended by the caller to the right of the
+  // label + hint (selects, short inputs); 'stacked' puts it underneath (long
+  // text inputs, lists, sections).
+  function makeRow(label: string, description: string, layout: 'inline' | 'stacked' = 'stacked'): HTMLElement {
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+    row.className = layout === 'inline' ? 'settings-row settings-row--inline' : 'settings-row';
+    const text = document.createElement('div');
+    text.className = 'settings-row-text';
     const lbl = document.createElement('label');
-    lbl.style.cssText = 'font-size:14px;font-weight:500;color:var(--vscode-editor-foreground)';
+    lbl.className = 'settings-label';
     lbl.textContent = label;
     const desc = document.createElement('div');
-    desc.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.4';
+    desc.className = 'settings-desc';
     desc.textContent = description;
-    row.appendChild(lbl);
-    row.appendChild(desc);
+    text.append(lbl, desc);
+    row.appendChild(text);
     return row;
   }
 
-  const inputStyle = [
-    'padding:6px 10px',
-    // Fall back to the editor's own theme tokens (always present) rather than
-    // a fixed dark literal — VS Code normally supplies --vscode-input-* on
-    // every webview, but contexts that don't (e.g. the test harness) would
-    // otherwise render a dark control inside a light-themed modal.
-    'background:var(--vscode-input-background,var(--vscode-editor-background,#3c3c3c))',
-    'color:var(--vscode-input-foreground,var(--vscode-editor-foreground,#d4d4d4))',
-    'border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35))',
-    'border-radius:4px',
-    'font-size:14px',
-    'outline:none',
-    'box-sizing:border-box',
-    'width:100%',
-  ].join(';');
+  // Boxed list of sub-rows under a section row (Slash commands, Image Paste…).
+  function makeGroup(...rows: HTMLElement[]): HTMLDivElement {
+    const group = document.createElement('div');
+    group.className = 'settings-group';
+    group.append(...rows);
+    return group;
+  }
 
   // ── Font Size
-  const fontSizeRow = makeRow('Font Size', 'Size in pixels for the editor content.');
+  const fontSizeRow = makeRow('Font Size', 'Size in pixels for the editor content.', 'inline');
   const fontSizeInput = document.createElement('input');
   fontSizeInput.type = 'range';
   fontSizeInput.min = '12';
   fontSizeInput.max = '28';
   fontSizeInput.value = String(currentFontSize);
-  fontSizeInput.style.cssText = 'width:100%;accent-color:var(--vscode-focusBorder,#007fd4)';
   const fontSizeLabel = document.createElement('span');
-  fontSizeLabel.style.cssText = 'font-size:13px;color:var(--vscode-descriptionForeground);font-variant-numeric:tabular-nums';
+  fontSizeLabel.className = 'settings-range-value';
   fontSizeLabel.textContent = `${currentFontSize}px`;
   const fontSizeControl = document.createElement('div');
-  fontSizeControl.style.cssText = 'display:flex;align-items:center;gap:10px';
+  fontSizeControl.className = 'settings-range-control';
   fontSizeControl.appendChild(fontSizeInput);
   fontSizeControl.appendChild(fontSizeLabel);
   fontSizeRow.appendChild(fontSizeControl);
@@ -1027,13 +985,13 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
 
   // Current indicator + revert
   const themeCurrentRow = document.createElement('div');
-  themeCurrentRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px';
+  themeCurrentRow.className = 'settings-theme-current';
   const themeIndicator = document.createElement('span');
-  themeIndicator.style.cssText = 'font-size:13px;color:#cccccc';
   themeIndicator.textContent = `Current: ${currentThemeLabel}`;
   const themeRevertBtn = document.createElement('button');
   themeRevertBtn.textContent = 'Revert';
-  themeRevertBtn.style.cssText = 'padding:3px 10px;background:transparent;color:#cccccc;border:1px solid rgba(128,128,128,0.4);border-radius:3px;cursor:pointer;font-size:12px;display:none';
+  themeRevertBtn.className = 'settings-btn';
+  themeRevertBtn.style.display = 'none';
   themeRevertBtn.addEventListener('click', () => {
     selectedBody = originalBody;
     selectedHeading = originalHeading;
@@ -1049,53 +1007,47 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   // Theme list
   const themeList = document.createElement('div');
   themeList.setAttribute('tabindex', '0');
-  themeList.style.cssText = 'max-height:400px;overflow-y:auto;border:1px solid rgba(128,128,128,0.25);border-radius:6px;background:#1e1e1e;outline:none';
+  themeList.className = 'settings-theme-list';
 
   const themeItems: Array<{ el: HTMLElement; theme: typeof fontThemes[0] }> = [];
 
   function updateThemeItems(): void {
     themeItems.forEach(({ el, theme }) => {
       const isActive = selectedBody === theme.body && selectedHeading === theme.heading;
-      el.style.background = isActive ? '#0e639c' : '';
-      const nameEl = el.querySelector('[data-role="name"]') as HTMLElement;
-      const descEl = el.querySelector('[data-role="desc"]') as HTMLElement;
-      const headEl = el.querySelector('[data-role="heading"]') as HTMLElement;
-      const bodyEl = el.querySelector('[data-role="body"]') as HTMLElement;
-      if (nameEl) {nameEl.style.color = isActive ? '#ffffff' : '#e0e0e0';}
-      if (descEl) {descEl.style.color = isActive ? 'rgba(255,255,255,0.7)' : '#888';}
-      if (headEl) {headEl.style.color = isActive ? '#ffffff' : '#cccccc';}
-      if (bodyEl) {bodyEl.style.color = isActive ? 'rgba(255,255,255,0.8)' : '#999';}
+      el.classList.toggle('is-active', isActive);
     });
   }
 
   fontThemes.forEach(theme => {
     const item = document.createElement('div');
-    item.style.cssText = 'padding:10px 12px;cursor:pointer;border-radius:4px;margin:2px 4px;transition:background 0.06s ease';
+    item.className = 'settings-theme-item';
 
     const topRow = document.createElement('div');
-    topRow.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px';
+    topRow.className = 'settings-theme-item-top';
     const nameSpan = document.createElement('span');
     nameSpan.setAttribute('data-role', 'name');
     nameSpan.textContent = theme.label;
-    nameSpan.style.cssText = 'font-size:13px;font-weight:600;color:#e0e0e0';
+    nameSpan.className = 'settings-theme-name';
     const descSpan = document.createElement('span');
     descSpan.setAttribute('data-role', 'desc');
     descSpan.textContent = theme.desc;
-    descSpan.style.cssText = 'font-size:11px;color:#888';
+    descSpan.className = 'settings-theme-desc';
     topRow.appendChild(nameSpan);
     topRow.appendChild(descSpan);
 
     const preview = document.createElement('div');
-    preview.style.cssText = 'background:rgba(0,0,0,0.2);border-radius:4px;padding:10px 12px;margin-top:4px';
+    preview.className = 'settings-theme-preview';
 
     const headingSample = document.createElement('div');
     headingSample.setAttribute('data-role', 'heading');
     headingSample.textContent = 'The Quick Brown Fox Jumps';
-    headingSample.style.cssText = `font-family:${theme.heading};font-size:18px;font-weight:700;color:#cccccc;line-height:1.3;margin-bottom:4px`;
+    headingSample.className = 'settings-theme-heading';
+    headingSample.style.fontFamily = theme.heading;
     const bodySample = document.createElement('div');
     bodySample.setAttribute('data-role', 'body');
     bodySample.textContent = 'Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump! 0123456789 — "quotes" & more.';
-    bodySample.style.cssText = `font-family:${theme.body};font-size:14px;color:#999;line-height:1.5`;
+    bodySample.className = 'settings-theme-body';
+    bodySample.style.fontFamily = theme.body;
 
     preview.appendChild(headingSample);
     preview.appendChild(bodySample);
@@ -1103,16 +1055,6 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     item.appendChild(topRow);
     item.appendChild(preview);
 
-    item.addEventListener('mouseenter', () => {
-      if (selectedBody !== theme.body || selectedHeading !== theme.heading) {
-        item.style.background = 'rgba(255,255,255,0.08)';
-      }
-    });
-    item.addEventListener('mouseleave', () => {
-      if (selectedBody !== theme.body || selectedHeading !== theme.heading) {
-        item.style.background = '';
-      }
-    });
     item.addEventListener('click', () => {
       selectedBody = theme.body;
       selectedHeading = theme.heading;
@@ -1164,48 +1106,39 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
 
   const ipSectionRow = makeRow('Image Paste', 'Save pasted or drag-dropped images automatically and insert a markdown link at the caret.');
 
-  const ipGrid = document.createElement('div');
-  ipGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-top:4px';
+  const ipGrid = makeGroup();
 
-  const labelStyle = 'display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--vscode-descriptionForeground)';
-  const subStyle = 'font-size:11px;color:var(--vscode-descriptionForeground);line-height:1.3;opacity:0.8';
-
-  function makeFieldLabel(text: string, hint: string): HTMLLabelElement {
+  // A sub-row whose <label> wraps both the text and the control the caller
+  // appends, so clicking the text focuses the control.
+  function makeFieldLabel(text: string, hint: string, layout: 'inline' | 'stacked' = 'inline'): HTMLLabelElement {
     const l = document.createElement('label');
-    l.style.cssText = labelStyle;
+    l.className = layout === 'inline' ? 'settings-row settings-row--inline' : 'settings-row';
+    const wrap = document.createElement('span');
+    wrap.className = 'settings-row-text';
     const top = document.createElement('span');
     top.textContent = text;
-    top.style.cssText = 'font-weight:500;color:var(--vscode-editor-foreground)';
+    top.className = 'settings-label';
     const sub = document.createElement('span');
-    sub.style.cssText = subStyle;
+    sub.className = 'settings-desc';
     sub.textContent = hint;
-    l.appendChild(top);
-    l.appendChild(sub);
+    wrap.append(top, sub);
+    l.appendChild(wrap);
     return l;
   }
 
-  // enabled (full width row)
-  const enabledRow = document.createElement('div');
-  enabledRow.style.cssText = 'grid-column:1 / -1;display:flex;align-items:center;gap:8px';
-  const enabledInput = document.createElement('input');
-  enabledInput.type = 'checkbox';
-  enabledInput.checked = ipState.enabled;
+  // enabled
+  const enabledField = makeCheckboxRow('Enable image paste & drop', '', ipState.enabled);
+  const enabledInput = enabledField.input;
   enabledInput.id = 'mikedown-ip-enabled';
   enabledInput.addEventListener('change', () => { ipState.enabled = enabledInput.checked; });
-  const enabledLabel = document.createElement('label');
-  enabledLabel.htmlFor = 'mikedown-ip-enabled';
-  enabledLabel.textContent = 'Enable image paste & drop';
-  enabledLabel.style.cssText = 'font-size:13px;color:var(--vscode-editor-foreground);cursor:pointer';
-  enabledRow.appendChild(enabledInput);
-  enabledRow.appendChild(enabledLabel);
-  ipGrid.appendChild(enabledRow);
+  ipGrid.appendChild(enabledField.row);
 
   // folder (text)
-  const folderField = makeFieldLabel('Folder', 'Where to save images, e.g. "images" or "assets/screens".');
+  const folderField = makeFieldLabel('Folder', 'Where to save images, e.g. "images" or "assets/screens".', 'stacked');
   const folderInput = document.createElement('input');
   folderInput.type = 'text';
   folderInput.value = ipState.folder;
-  folderInput.style.cssText = inputStyle;
+  folderInput.className = 'settings-input';
   folderInput.addEventListener('input', () => { ipState.folder = folderInput.value; });
   folderField.appendChild(folderInput);
   ipGrid.appendChild(folderField);
@@ -1213,7 +1146,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   // folderRelativeTo (select)
   const relField = makeFieldLabel('Resolve folder against', 'Document directory or workspace root.');
   const relSelect = document.createElement('select');
-  relSelect.style.cssText = inputStyle + ';cursor:pointer';
+  relSelect.className = 'settings-input';
   for (const [v, t] of [['document', 'Document folder'], ['workspace', 'Workspace root']] as const) {
     const o = document.createElement('option');
     o.value = v; o.textContent = t;
@@ -1227,20 +1160,19 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   ipGrid.appendChild(relField);
 
   // filenamePattern (text)
-  const patField = makeFieldLabel('Filename pattern', 'Tokens: ${docName} ${date} ${time} ${timestamp} ${hash} ${index}');
+  const patField = makeFieldLabel('Filename pattern', 'Tokens: ${docName} ${date} ${time} ${timestamp} ${hash} ${index}', 'stacked');
   const patInput = document.createElement('input');
   patInput.type = 'text';
   patInput.value = ipState.filenamePattern;
-  patInput.style.cssText = inputStyle;
+  patInput.className = 'settings-input';
   patInput.addEventListener('input', () => { ipState.filenamePattern = patInput.value; });
   patField.appendChild(patInput);
-  patField.style.gridColumn = '1 / -1';
   ipGrid.appendChild(patField);
 
   // pathStyle (select)
   const psField = makeFieldLabel('Path style', 'Form of the path written into the markdown.');
   const psSelect = document.createElement('select');
-  psSelect.style.cssText = inputStyle + ';cursor:pointer';
+  psSelect.className = 'settings-input';
   for (const [v, t] of [['relative', 'Relative to document'], ['workspace-absolute', 'Workspace-absolute (/...)']] as const) {
     const o = document.createElement('option');
     o.value = v; o.textContent = t;
@@ -1256,7 +1188,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   // altText (select)
   const altField = makeFieldLabel('Alt text', 'How alt text is populated on insert.');
   const altSelect = document.createElement('select');
-  altSelect.style.cssText = inputStyle + ';cursor:pointer';
+  altSelect.className = 'settings-input';
   for (const [v, t] of [['empty', 'Empty'], ['filename', 'Filename'], ['prompt', 'Prompt on each paste']] as const) {
     const o = document.createElement('option');
     o.value = v; o.textContent = t;
@@ -1276,7 +1208,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   sizeInput.min = '1';
   sizeInput.max = '200';
   sizeInput.value = String(ipState.maxSizeMB);
-  sizeInput.style.cssText = inputStyle;
+  sizeInput.className = 'settings-input settings-input--short';
   sizeInput.addEventListener('input', () => {
     const n = parseFloat(sizeInput.value);
     if (Number.isFinite(n) && n > 0) {ipState.maxSizeMB = n;}
@@ -1284,46 +1216,32 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   sizeField.appendChild(sizeInput);
   ipGrid.appendChild(sizeField);
 
-  // cleanupUnreferenced (full-width row)
-  const cleanupRow = document.createElement('div');
-  cleanupRow.style.cssText = 'grid-column:1 / -1;display:flex;align-items:center;gap:8px;margin-top:2px';
-  const cleanupInput = document.createElement('input');
-  cleanupInput.type = 'checkbox';
+  // cleanupUnreferenced
+  const cleanupField = makeCheckboxRow(
+    'Delete unreferenced images on save',
+    'Only inside the configured images folder.',
+    ipState.cleanupUnreferenced,
+  );
+  const cleanupInput = cleanupField.input;
   cleanupInput.id = 'mikedown-cleanup-unreferenced';
-  cleanupInput.checked = ipState.cleanupUnreferenced;
   cleanupInput.addEventListener('change', () => { ipState.cleanupUnreferenced = cleanupInput.checked; });
-  const cleanupLabel = document.createElement('label');
-  cleanupLabel.htmlFor = cleanupInput.id;
-  cleanupLabel.style.cssText = 'font-size:12px;color:var(--vscode-editor-foreground);cursor:pointer';
-  cleanupLabel.textContent = 'Delete unreferenced images on save (only inside the configured images folder)';
-  cleanupRow.appendChild(cleanupInput);
-  cleanupRow.appendChild(cleanupLabel);
-  ipGrid.appendChild(cleanupRow);
+  ipGrid.appendChild(cleanupField.row);
 
   ipSectionRow.appendChild(ipGrid);
 
   // ── Image Resize
   const irState: ImageResizeSettings = { ...currentImageResizeSettings };
   const irSectionRow = makeRow('Image Resize', 'Right-click an image and use the popover to downscale it. Useful for trimming high-DPI screenshots.');
-  const irRow = document.createElement('div');
-  irRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:4px';
-  const irOverwriteInput = document.createElement('input');
-  irOverwriteInput.type = 'checkbox';
+  const irOverwriteField = makeCheckboxRow('Overwrite original file when resizing', '', irState.overwrite);
+  const irOverwriteInput = irOverwriteField.input;
   irOverwriteInput.id = 'mikedown-img-resize-overwrite';
-  irOverwriteInput.checked = irState.overwrite;
   irOverwriteInput.addEventListener('change', () => { irState.overwrite = irOverwriteInput.checked; });
-  const irOverwriteLabel = document.createElement('label');
-  irOverwriteLabel.htmlFor = irOverwriteInput.id;
-  irOverwriteLabel.style.cssText = 'font-size:13px;color:var(--vscode-editor-foreground);cursor:pointer';
-  irOverwriteLabel.textContent = 'Overwrite original file when resizing';
-  irRow.appendChild(irOverwriteInput);
-  irRow.appendChild(irOverwriteLabel);
-  irSectionRow.appendChild(irRow);
+  irSectionRow.appendChild(makeGroup(irOverwriteField.row));
 
   // ── Content Width
-  const widthRow = makeRow('Content Width', 'Max width of the editor content area. Use "100%" for full width or a value like "800px".');
+  const widthRow = makeRow('Content Width', 'Max width of the editor content area. Use "100%" for full width or a value like "800px".', 'inline');
   const widthSelect = document.createElement('select');
-  widthSelect.style.cssText = inputStyle + ';cursor:pointer';
+  widthSelect.className = 'settings-input';
   const widthOptions = [
     { value: '100%', label: 'Full Width' },
     { value: '900px', label: 'Wide (900px)' },
@@ -1351,9 +1269,9 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     current: T,
     options: Array<{ value: T; label: string }>,
   ): { row: HTMLElement; select: HTMLSelectElement } {
-    const row = makeRow(label, description);
+    const row = makeRow(label, description, 'inline');
     const select = document.createElement('select');
-    select.style.cssText = inputStyle + ';cursor:pointer';
+    select.className = 'settings-input';
     for (const opt of options) {
       const o = document.createElement('option');
       o.value = opt.value;
@@ -1367,18 +1285,17 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
 
   function makeCheckboxRow(label: string, description: string, current: boolean): { row: HTMLElement; input: HTMLInputElement } {
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:flex-start;gap:10px';
+    row.className = 'settings-row settings-row--inline settings-row--check';
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.checked = current;
-    input.style.cssText = 'margin-top:3px;flex-shrink:0';
     const labelWrap = document.createElement('label');
-    labelWrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;cursor:pointer;flex:1';
+    labelWrap.className = 'settings-row-text';
     const lbl = document.createElement('span');
-    lbl.style.cssText = 'font-size:14px;font-weight:500;color:var(--vscode-editor-foreground)';
+    lbl.className = 'settings-label';
     lbl.textContent = label;
     const desc = document.createElement('span');
-    desc.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.4';
+    desc.className = 'settings-desc';
     desc.textContent = description;
     labelWrap.append(lbl);
     if (description) {labelWrap.append(desc);}
@@ -1391,7 +1308,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
         input.dispatchEvent(new Event('change'));
       }
     });
-    row.append(input, labelWrap);
+    row.append(labelWrap, input);
     return { row, input };
   }
 
@@ -1487,13 +1404,13 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     ],
   );
   slashCommandsDateFormatField.select.id = 'mikedown-slashcommands-dateformat';
-  const slashCommandsTimeZoneRow = makeRow('Time zone', 'Used by the /date and /datetime commands.');
+  const slashCommandsTimeZoneRow = makeRow('Time zone', 'Used by the /date and /datetime commands.', 'inline');
   const slashCommandsTimeZoneInput = document.createElement('input');
   slashCommandsTimeZoneInput.id = 'mikedown-slashcommands-timezone';
   slashCommandsTimeZoneInput.type = 'text';
   slashCommandsTimeZoneInput.placeholder = 'local, UTC, or e.g. America/New_York';
   slashCommandsTimeZoneInput.value = currentSlashCommandsTimeZone;
-  slashCommandsTimeZoneInput.style.cssText = inputStyle;
+  slashCommandsTimeZoneInput.className = 'settings-input settings-input--medium';
   slashCommandsTimeZoneRow.appendChild(slashCommandsTimeZoneInput);
   // Date format / time zone only matter when the menu is on — grey them out
   // (and disable interaction) while it's off, toggling live on the checkbox.
@@ -1501,16 +1418,14 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     const enabled = slashCommandsEnabledField.input.checked;
     slashCommandsDateFormatField.select.disabled = !enabled;
     slashCommandsTimeZoneInput.disabled = !enabled;
-    slashCommandsDateFormatField.select.style.opacity = enabled ? '1' : '0.5';
-    slashCommandsTimeZoneInput.style.opacity = enabled ? '1' : '0.5';
   }
   slashCommandsEnabledField.input.addEventListener('change', updateSlashCommandsDependentDisabled);
   updateSlashCommandsDependentDisabled();
-  slashCommandsSectionRow.append(
+  slashCommandsSectionRow.append(makeGroup(
     slashCommandsEnabledField.row,
     slashCommandsDateFormatField.row,
     slashCommandsTimeZoneRow,
-  );
+  ));
 
   // ── Markdown tab fields
   const normalizationField = makeSelectRow<'preserve' | 'normalize'>(
@@ -1587,6 +1502,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   const sidebarWidthRow = makeRow(
     'Default sidebar width',
     'Width in pixels (160–360) for newly-opened sidebars. Drag the resize handle in an open sidebar to adjust just that instance.',
+    'inline',
   );
   const sidebarWidthInput = document.createElement('input');
   sidebarWidthInput.type = 'number';
@@ -1594,7 +1510,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   sidebarWidthInput.max = '360';
   sidebarWidthInput.step = '10';
   sidebarWidthInput.value = String(currentSidebarWidthDefault);
-  sidebarWidthInput.style.cssText = inputStyle;
+  sidebarWidthInput.className = 'settings-input settings-input--short';
   sidebarWidthRow.appendChild(sidebarWidthInput);
 
   // Support appeal footer link (M6) — not a seed default: applies live to
@@ -1607,21 +1523,15 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
 
   // Note + Apply button — wires together below the sidebar default rows.
   const sidebarApplyRow = document.createElement('div');
-  sidebarApplyRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:11.5px;color:var(--vscode-descriptionForeground);line-height:1.4;padding:4px 0';
+  sidebarApplyRow.className = 'settings-row settings-row--inline';
   const sidebarApplyNote = document.createElement('span');
   sidebarApplyNote.textContent = 'Applies to documents opened after saving. Open documents keep their current sidebar state.';
-  sidebarApplyNote.style.cssText = 'flex:1';
+  sidebarApplyNote.className = 'settings-row-text settings-desc';
   const sidebarApplyBtn = document.createElement('button');
   sidebarApplyBtn.type = 'button';
   sidebarApplyBtn.textContent = 'Apply to open documents';
-  sidebarApplyBtn.style.cssText = 'background:transparent;border:1px solid var(--vscode-button-border,var(--vscode-input-border,rgba(128,128,128,0.4)));color:var(--vscode-foreground);padding:4px 10px;border-radius:3px;font-size:11.5px;cursor:pointer;font-family:inherit;flex-shrink:0';
+  sidebarApplyBtn.className = 'settings-btn';
   sidebarApplyBtn.title = 'Reset every open sidebar to the saved defaults above.';
-  sidebarApplyBtn.addEventListener('mouseenter', () => {
-    sidebarApplyBtn.style.background = 'var(--vscode-button-hoverBackground,rgba(255,255,255,0.05))';
-  });
-  sidebarApplyBtn.addEventListener('mouseleave', () => {
-    sidebarApplyBtn.style.background = 'transparent';
-  });
   sidebarApplyBtn.addEventListener('click', () => {
     vscode.postMessage({ type: 'sidebarApplyDefaults' });
     sidebarApplyBtn.textContent = 'Applied ✓';
@@ -1665,34 +1575,31 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   // variable-width chips wrapping mid-row defeat an alphabetical scan — so the
   // list switches to fixed columns, one word per row.
   const SPELL_DENSE_THRESHOLD = 25;
-  const CLOUD_LIST_STYLE = 'display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start';
-  const DENSE_LIST_STYLE = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1px 10px;align-content:start';
-  const LIST_BOX_STYLE = ';max-height:240px;overflow-y:auto;padding:6px;border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35));border-radius:4px;min-height:34px';
+  const CLOUD_LIST_CLASS = 'settings-words settings-words--cloud';
+  const DENSE_LIST_CLASS = 'settings-words settings-words--dense';
   const spellWordsRow = makeRow(
     'Custom dictionary',
     'Words MikeDown should always accept. Right-clicking a squiggle and choosing “Add to Dictionary” adds to this list.',
   );
 
   const spellWordsHeader = document.createElement('div');
-  spellWordsHeader.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between';
+  spellWordsHeader.className = 'settings-words-header';
   const spellWordsFilter = document.createElement('input');
   spellWordsFilter.type = 'search';
   spellWordsFilter.placeholder = 'Filter words…';
   spellWordsFilter.setAttribute('aria-label', 'Filter the custom dictionary');
-  spellWordsFilter.style.cssText = inputStyle + ';flex:1;font-size:12px;padding:4px 8px';
+  spellWordsFilter.className = 'settings-input settings-input--small settings-input--grow';
   const spellWordsCount = document.createElement('span');
   spellWordsCount.setAttribute('aria-live', 'polite');
-  spellWordsCount.style.cssText = 'font-size:11.5px;color:var(--vscode-descriptionForeground);flex-shrink:0;white-space:nowrap';
+  spellWordsCount.className = 'settings-words-count';
   spellWordsHeader.append(spellWordsFilter, spellWordsCount);
 
   const spellWordsList = document.createElement('div');
   spellWordsList.setAttribute('role', 'list');
-  spellWordsList.style.cssText = CLOUD_LIST_STYLE + LIST_BOX_STYLE;
+  spellWordsList.className = CLOUD_LIST_CLASS;
 
   const spellWordsLegend = document.createElement('div');
-  spellWordsLegend.style.cssText = 'font-size:11.5px;color:var(--vscode-descriptionForeground);line-height:1.4';
-
-  const emptyStyle = 'font-size:12px;color:var(--vscode-descriptionForeground);padding:2px 4px';
+  spellWordsLegend.className = 'settings-words-legend';
 
   function renderSpellWords(): void {
     const external = currentSpellCheckExternalWords;
@@ -1716,7 +1623,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     // Layout keys off the *unfiltered* total so typing in the filter never
     // reshuffles the list under the user's eyes.
     const dense = view.total >= SPELL_DENSE_THRESHOLD;
-    spellWordsList.style.cssText = (dense ? DENSE_LIST_STYLE : CLOUD_LIST_STYLE) + LIST_BOX_STYLE;
+    spellWordsList.className = dense ? DENSE_LIST_CLASS : CLOUD_LIST_CLASS;
     spellWordsLegend.textContent = dense
       ? 'Greyed, italic words come from the Code Spell Checker extension (cSpell.words) and are honoured here but edited there.'
       : 'Dashed words come from the Code Spell Checker extension (cSpell.words) and are honoured here but edited there.';
@@ -1725,7 +1632,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     spellWordsList.textContent = '';
     if (view.entries.length === 0) {
       const empty = document.createElement('span');
-      empty.style.cssText = emptyStyle;
+      empty.className = 'settings-words-empty';
       // Distinct empty states: an empty dictionary and a filter that matched
       // nothing look identical otherwise, and the second reads as data loss.
       empty.textContent = view.total === 0
@@ -1742,19 +1649,11 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
       const chip = document.createElement('span');
       chip.setAttribute('role', 'listitem');
       const isExternal = entry.source === 'external';
-      if (dense) {
-        // One word per row, in columns. No chip pill — at this length the
-        // pills are visual noise and the ragged edges are what break scanning.
-        chip.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:6px;padding:1px 4px;border-radius:3px;font-size:12px'
-          + (isExternal ? ';color:var(--vscode-descriptionForeground);font-style:italic' : '');
-      } else {
-        chip.style.cssText = isExternal
-          ? 'display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;background:transparent;border:1px dashed var(--vscode-input-border,rgba(128,128,128,0.5));color:var(--vscode-descriptionForeground);font-size:12px'
-          : 'display:inline-flex;align-items:center;gap:5px;padding:2px 6px 2px 8px;border-radius:10px;background:var(--vscode-badge-background,rgba(128,128,128,0.25));color:var(--vscode-badge-foreground,inherit);font-size:12px';
-      }
+      // Pill chips in the cloud, plain one-per-row entries when dense — the
+      // list's modifier class picks the look (settings-modal.css).
+      chip.className = isExternal ? 'settings-word settings-word--external' : 'settings-word';
       const label = document.createElement('span');
       label.textContent = entry.word;
-      if (dense) {label.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';}
       chip.appendChild(label);
 
       if (isExternal) {
@@ -1769,19 +1668,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
         remove.type = 'button';
         remove.textContent = '×';
         remove.setAttribute('aria-label', `Remove ${entry.word} from the custom dictionary`);
-        remove.style.cssText = 'background:transparent;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;font-family:inherit;flex-shrink:0';
-        if (dense) {
-          // Hover-to-remove: 100 always-on × glyphs is a wall of clutter. Kept
-          // faintly visible (not display:none) so it survives a keyboard tab
-          // and doesn't reflow the row when it appears.
-          remove.style.opacity = '0.25';
-          const show = (): void => { remove.style.opacity = '1'; chip.style.background = 'var(--vscode-list-hoverBackground,rgba(128,128,128,0.14))'; };
-          const hide = (): void => { remove.style.opacity = '0.25'; chip.style.background = 'transparent'; };
-          chip.addEventListener('mouseenter', show);
-          chip.addEventListener('mouseleave', hide);
-          remove.addEventListener('focus', show);
-          remove.addEventListener('blur', hide);
-        }
+        remove.className = 'settings-word-remove';
         remove.addEventListener('click', () => {
           // By value, never by index — the rendered order is sorted/filtered.
           spellWords = removeWordFromList(spellWords, entry.word);
@@ -1811,16 +1698,16 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   });
 
   const spellWordsAddRow = document.createElement('div');
-  spellWordsAddRow.style.cssText = 'display:flex;gap:8px;align-items:center';
+  spellWordsAddRow.className = 'settings-words-add';
   const spellWordInput = document.createElement('input');
   spellWordInput.type = 'text';
   spellWordInput.placeholder = 'Add a word…';
   spellWordInput.setAttribute('aria-label', 'Add a word to the custom dictionary');
-  spellWordInput.style.cssText = inputStyle + ';flex:1';
+  spellWordInput.className = 'settings-input settings-input--grow';
   const spellWordAddBtn = document.createElement('button');
   spellWordAddBtn.type = 'button';
   spellWordAddBtn.textContent = 'Add';
-  spellWordAddBtn.style.cssText = 'background:transparent;border:1px solid var(--vscode-button-border,var(--vscode-input-border,rgba(128,128,128,0.4)));color:var(--vscode-foreground);padding:4px 12px;border-radius:3px;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0';
+  spellWordAddBtn.className = 'settings-btn';
   const addSpellWord = (): void => {
     const next = addWordToList(spellWords, spellWordInput.value);
     spellWordInput.value = '';
@@ -1840,23 +1727,13 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
 
   // ── Save button + note
   const footer = document.createElement('div');
-  footer.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.2));flex-shrink:0';
+  footer.className = 'settings-footer';
   const note = document.createElement('span');
-  note.style.cssText = 'font-size:12px;color:var(--vscode-descriptionForeground)';
+  note.className = 'settings-footer-note';
   note.textContent = 'Changes apply instantly. Use VS Code settings for persistence.';
   const saveBtn = document.createElement('button');
   saveBtn.textContent = 'Save to Settings';
-  saveBtn.style.cssText = [
-    'padding:6px 16px',
-    'background:var(--vscode-button-background,#0e639c)',
-    'color:var(--vscode-button-foreground,#ffffff)',
-    'border:none',
-    'border-radius:4px',
-    'cursor:pointer',
-    'font-size:13px',
-    'font-weight:500',
-    'flex-shrink:0',
-  ].join(';');
+  saveBtn.className = 'settings-btn settings-btn--primary';
   saveBtn.addEventListener('click', () => {
     const normalizationStyle: NormalizationStyleSettings = {
       boldMarker: boldMarkerField.select.value as '**' | '__',
@@ -1950,20 +1827,20 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
 
   // ── Tabs scaffold ────────────────────────────────────────────────────────────
   const body = document.createElement('div');
-  body.style.cssText = 'display:flex;flex:1;min-height:0';
+  body.className = 'settings-body';
 
   const nav = document.createElement('div');
   nav.setAttribute('role', 'tablist');
   nav.setAttribute('aria-orientation', 'vertical');
-  nav.style.cssText = 'width:140px;flex-shrink:0;padding:8px;border-right:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.2));display:flex;flex-direction:column;gap:2px;overflow-y:auto';
+  nav.className = 'settings-nav';
 
   const content = document.createElement('div');
-  content.style.cssText = 'flex:1;min-width:0;overflow-y:auto;padding:16px 24px';
+  content.className = 'settings-content';
 
   function makePanel(): HTMLDivElement {
     const p = document.createElement('div');
     p.setAttribute('role', 'tabpanel');
-    p.style.cssText = 'display:flex;flex-direction:column;gap:20px';
+    p.className = 'settings-panel';
     return p;
   }
 
@@ -2044,10 +1921,6 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
       const isActive = btn.dataset.tabId === id;
       btn.setAttribute('aria-selected', String(isActive));
       btn.tabIndex = isActive ? 0 : -1;
-      btn.style.background = isActive ? 'var(--vscode-list-activeSelectionBackground,#0e639c)' : 'transparent';
-      btn.style.color = isActive
-        ? 'var(--vscode-list-activeSelectionForeground,#ffffff)'
-        : 'var(--vscode-foreground,#cccccc)';
     });
     (Object.keys(panels) as SettingsTabId[]).forEach((pid) => {
       panels[pid].style.display = pid === id ? '' : 'none';
@@ -2061,14 +1934,8 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     btn.setAttribute('role', 'tab');
     btn.dataset.tabId = tab.id;
     btn.textContent = tab.label;
-    btn.style.cssText = 'text-align:left;padding:7px 12px;background:transparent;border:none;color:var(--vscode-foreground,#cccccc);cursor:pointer;border-radius:4px;font-size:13px;font-family:inherit;outline:none';
+    btn.className = 'settings-tab';
     btn.addEventListener('click', () => { setActiveTab(tab.id); btn.focus(); });
-    btn.addEventListener('mouseenter', () => {
-      if (tab.id !== activeTab) {btn.style.background = 'var(--vscode-list-hoverBackground,rgba(255,255,255,0.06))';}
-    });
-    btn.addEventListener('mouseleave', () => {
-      if (tab.id !== activeTab) {btn.style.background = 'transparent';}
-    });
     btn.addEventListener('keydown', (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
