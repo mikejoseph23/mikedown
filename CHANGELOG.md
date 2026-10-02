@@ -6,7 +6,11 @@ All notable changes to MikeDown Editor are documented here.
 
 ### Added
 
-- Automatic heading numbering: section numbers (1, 1.1, 1.1.1) on headings in the editor and in HTML/PDF exports. Display only, so nothing is written into the markdown file. Setting `mikedown.headingNumbering` (`off` / `fromH1` / `fromH2`, default `off`; also in the Settings modal) picks whether numbering starts at Heading 1 or treats Heading 1 as the document title. (#6)
+- Heading numbering: a toolbar button writes section numbers (1, 1.1, 1.1.1) into heading text and keeps them updated as you add, remove, or move sections. The numbers are ordinary markdown, so they show on GitHub and in every other editor, and in-document links to renumbered headings are updated. Enable it with `mikedown.headingNumbering` (`off` / `fromH1` / `fromH2`, default `off`; also in the Settings modal); the button only appears while it is on. (#6)
+
+### Changed
+
+- Settings modal redesign: clearer spacing and dividers between settings, dropdowns sized to their options, and a stacked layout in narrow editors.
 
 ## [2.12.1] - 2026-10-01
 

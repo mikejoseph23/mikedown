@@ -462,12 +462,12 @@
             "fromH2"
           ],
           "enumDescriptions": [
-            "Headings are not numbered",
+            "No heading numbers and no toolbar button",
             "Number every heading level, starting at H1 (1, 1.1, 1.1.1)",
             "Treat H1 as the document title and start numbering at H2"
           ],
           "default": "off",
-          "description": "Show automatic section numbers on headings in the editor and in HTML/PDF exports. Display only: the numbers are not written into the markdown file, so they won't appear on GitHub or in other renderers."
+          "description": "Adds a toolbar button that writes section numbers into heading text (## 1.2 Setup) and keeps them updated as you edit. The numbers are part of the markdown, so they show in every renderer."
         },
         "mikedown.normalizationStyle.boldMarker": {
           "type": "string",

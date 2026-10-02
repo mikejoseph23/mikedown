@@ -179,7 +179,16 @@ import { showLanguagePicker } from './languagepicker';
 import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
 import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from '../imageDisplayPath';
 import { githubAnchorId } from '../anchoring';
-import { headingNumberingCss, parseHeadingNumbering, type HeadingNumbering } from '../headingNumbering';
+import {
+  applyPrefixEdit,
+  isNumbered,
+  parseHeadingNumbering,
+  renumberEdits,
+  stripEdits,
+  type HeadingInfo,
+  type HeadingNumbering,
+  type PrefixEdit,
+} from '../headingNumbering';
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import { showSupportCard, isSupportCardOpen, showSupportCopied, type SupportCardCopy } from './supportCard';
@@ -1374,7 +1383,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   );
   const headingNumberingField = makeSelectRow<HeadingNumbering>(
     'Heading numbering',
-    'Show automatic section numbers (1, 1.1, 1.1.1) on headings here and in HTML/PDF exports. Display only — nothing is written into the markdown file.',
+    'Adds a toolbar button that writes section numbers (1, 1.1, 1.1.1) into heading text and keeps them updated as you edit. The numbers are part of the markdown, so they show everywhere.',
     currentHeadingNumbering,
     [
       { value: 'off', label: 'Off' },
@@ -2027,20 +2036,20 @@ let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
 let currentHeadingRenameUpdateLinks: 'ask' | 'always' | 'never' = 'ask';
 let currentHeadingNumbering: HeadingNumbering = 'off';
 
+// Heading numbering (#6). Wired up next to the heading-rename detector in
+// initEditor, which shares its rename tracking; these are the entry points
+// the toolbar button uses before and after that wiring runs.
+let toggleHeadingNumbers: () => void = () => {};
+let documentIsNumbered: () => boolean = () => false;
+
 /**
- * Apply `mikedown.headingNumbering` by swapping a generated stylesheet in
- * <head>. Pure CSS counters — the ProseMirror DOM itself is never touched.
+ * Apply `mikedown.headingNumbering`: remember the scheme and show the
+ * toolbar toggle only while numbering is enabled.
  */
 function applyHeadingNumbering(mode: HeadingNumbering): void {
   currentHeadingNumbering = mode;
-  const id = 'mikedown-heading-numbering';
-  let styleEl = document.getElementById(id) as HTMLStyleElement | null;
-  if (!styleEl) {
-    styleEl = document.createElement('style');
-    styleEl.id = id;
-    document.head.appendChild(styleEl);
-  }
-  styleEl.textContent = headingNumberingCss(mode, '.ProseMirror');
+  const btn = document.querySelector<HTMLButtonElement>('button[data-action="headingNumbers"]');
+  if (btn) {btn.style.display = mode === 'off' ? 'none' : '';}
 }
 
 // Support appeal entry points (M6), seeded from the host's 'settings'
@@ -2176,6 +2185,7 @@ const toolbarIcons = {
   browser: toolbarSvg('<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><circle cx="3.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/><circle cx="6.5" cy="4.25" r="0.5" fill="currentColor" stroke="none"/>'),
   selectAll: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="1" stroke-dasharray="2 1.5"/><rect x="5" y="5" width="6" height="6" fill="currentColor" stroke="none"/>'),
   share: toolbarSvg('<path d="M8 2v9"/><polyline points="5 5 8 2 11 5"/><path d="M3.5 8.5v4a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-4"/>'),
+  headingNumbers: toolbarSvg('<text x="8" y="11.5" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor" stroke="none" font-family="sans-serif">1.2</text>', 0),
   emoji: toolbarSvg('<circle cx="8" cy="8" r="6"/><circle cx="6" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="10" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><path d="M5.5 9.5c.7 1.2 1.7 1.8 2.5 1.8s1.8-.6 2.5-1.8"/>'),
 };
 
@@ -2627,6 +2637,11 @@ function buildCondensedToolbar(editor: Editor): void {
   });
 
   // ── Emoji picker (top-level, separate from Insert) ──────────────────────
+  const headingNumbersBtn = makeBtn('headingNumbers', 'Number Headings', icons.headingNumbers);
+  headingNumbersBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  headingNumbersBtn.addEventListener('click', () => toggleHeadingNumbers());
+  headingNumbersBtn.style.display = currentHeadingNumbering === 'off' ? 'none' : '';
+
   const emojiBtn = makeBtn('emoji', 'Insert Emoji (Cmd+;)', icons.emoji);
   emojiBtn.addEventListener('mousedown', (e) => e.preventDefault());
   emojiBtn.addEventListener('click', () => {
@@ -2640,6 +2655,7 @@ function buildCondensedToolbar(editor: Editor): void {
   toolbar.appendChild(linkBtn);
   toolbar.appendChild(insertBtn);
   toolbar.appendChild(emojiBtn);
+  toolbar.appendChild(headingNumbersBtn);
   toolbar.appendChild(makeSeparator());
   toolbar.appendChild(undoBtn);
   toolbar.appendChild(redoBtn);
@@ -2662,6 +2678,7 @@ function buildCondensedToolbar(editor: Editor): void {
     textFormatBtn.classList.toggle('active', isTextFormatActive());
     listBlockBtn.classList.toggle('active', isBlockActive());
     linkBtn.classList.toggle('active', editor.isActive('link'));
+    headingNumbersBtn.classList.toggle('active', currentHeadingNumbering !== 'off' && documentIsNumbered());
 
     // Update dropdown active states if one is open
     updateDropdownActiveStates();
@@ -2676,7 +2693,7 @@ const SOURCE_MODE_DISABLED_ACTIONS = new Set([
   'bold', 'italic', 'strike', 'highlight', 'code', 'emoji',
   'h1', 'h2', 'h3',
   'bulletList', 'orderedList', 'taskList', 'blockquote', 'codeBlock',
-  'image', 'table', 'hr',
+  'image', 'table', 'hr', 'headingNumbers',
 ]);
 
 function updateToolbarState(editor: Editor): void {
@@ -3985,6 +4002,140 @@ if (!editorContainer) {
     if (headingIdleTimer) {clearTimeout(headingIdleTimer);}
     headingIdleTimer = setTimeout(settleTrackedHeading, 800);
   });
+
+  // ── Heading numbering (#6) ────────────────────────────────────────────────
+  // Section numbers are real heading text, so every change goes through a
+  // transaction. Only top-level headings count: headings inside blockquotes,
+  // callouts, or list items are quoted content (the outline skips them too).
+  // A document counts as numbered when its headings already carry numbers
+  // (see isNumbered), so the toolbar toggle needs no per-file state.
+
+  const RENUMBER_META = 'mikedownRenumber';
+  let renumberTimer: ReturnType<typeof setTimeout> | null = null;
+  // Set by a user edit, cleared once a pass has caught up. Keeps cursor moves
+  // (including the one a fresh load makes) from renumbering untouched files.
+  let numbersStale = false;
+
+  function topLevelHeadings(): Array<{ pos: number; info: HeadingInfo; firstText: string | null }> {
+    const list: Array<{ pos: number; info: HeadingInfo; firstText: string | null }> = [];
+    editor.state.doc.forEach((node, pos) => {
+      if (node.type.name !== 'heading') {return;}
+      const first = node.firstChild;
+      list.push({
+        pos,
+        info: { level: node.attrs.level as number, text: node.textContent },
+        firstText: first?.isText ? first.text ?? '' : null,
+      });
+    });
+    return list;
+  }
+
+  // Apply prefix edits in one transaction, and repoint in-doc `#slug` links
+  // at the renumbered headings. `live` edits stay out of the undo history so
+  // Cmd+Z undoes the user's own change (which then renumbers again).
+  function applyNumberingEdits(
+    edits: PrefixEdit[],
+    list: ReturnType<typeof topLevelHeadings>,
+    live: boolean,
+  ): void {
+    if (!edits.length) {return;}
+    const { state } = editor;
+    const tr = state.tr;
+    const slugMap = new Map<string, string>();
+    // Last heading first, so earlier positions stay valid.
+    for (const edit of [...edits].reverse()) {
+      const h = list[edit.index];
+      // The prefix must sit in the heading's first text node; skip headings
+      // that open with an emoji, image, or a mark boundary inside the number.
+      if (edit.oldPrefix && !(h.firstText ?? '').startsWith(edit.oldPrefix)) {continue;}
+      const from = h.pos + 1;
+      const to = from + edit.oldPrefix.length;
+      if (edit.newPrefix) {
+        tr.replaceWith(from, to, state.schema.text(edit.newPrefix));
+      } else {
+        tr.delete(from, to);
+      }
+      const oldSlug = githubAnchorId(h.info.text);
+      const newSlug = githubAnchorId(applyPrefixEdit(h.info.text, edit));
+      if (oldSlug && newSlug && oldSlug !== newSlug) {slugMap.set(oldSlug, newSlug);}
+    }
+    if (!tr.docChanged) {return;}
+
+    const linkType = state.schema.marks.link;
+    if (linkType && slugMap.size && headingRenamePref !== 'never') {
+      tr.doc.descendants((node, pos) => {
+        if (!node.isText) {return;}
+        for (const mark of node.marks) {
+          const href = mark.attrs.href as unknown;
+          if (mark.type !== linkType || typeof href !== 'string' || !href.startsWith('#')) {continue;}
+          const target = slugMap.get(href.slice(1));
+          if (target) {
+            const end = pos + node.nodeSize;
+            tr.removeMark(pos, end, linkType).addMark(pos, end, linkType.create({ ...mark.attrs, href: `#${target}` }));
+          }
+        }
+      });
+    }
+
+    // Keep the rename detector in step, or it would read our prefix change
+    // as the user renaming the heading.
+    if (trackedHeading) {
+      const tracked = trackedHeading;
+      const index = list.findIndex((h) => h.pos === tracked.startPos);
+      const edit = edits.find((e) => e.index === index);
+      if (edit && tracked.baselineText.startsWith(edit.oldPrefix)) {
+        tracked.baselineText = applyPrefixEdit(tracked.baselineText, edit);
+      }
+      tracked.startPos = tr.mapping.map(tracked.startPos);
+    }
+
+    tr.setMeta(RENUMBER_META, true);
+    if (live) {tr.setMeta('addToHistory', false);}
+    editor.view.dispatch(tr);
+  }
+
+  // Renumber after edits settle. The heading under the cursor is left alone
+  // so typing a new heading isn't interrupted; it gets its number on leave.
+  function renumberLive(): void {
+    renumberTimer = null;
+    if (!numbersStale || isLoading || sourceMode || currentHeadingNumbering === 'off') {return;}
+    const list = topLevelHeadings();
+    const infos = list.map((h) => h.info);
+    if (!isNumbered(infos, currentHeadingNumbering)) {
+      numbersStale = false;
+      return;
+    }
+    const here = headingAtSelection();
+    const skip = here ? list.findIndex((h) => h.pos === here.startPos) : -1;
+    // Still stale while the cursor sits in a heading we skipped.
+    numbersStale = skip !== -1;
+    applyNumberingEdits(renumberEdits(infos, currentHeadingNumbering, skip), list, true);
+  }
+
+  editor.on('update', ({ transaction }) => {
+    // isLoading: a document opened from disk is never renumbered on load,
+    // which would mark it dirty before the user touched it.
+    if (isLoading || currentHeadingNumbering === 'off' || transaction.getMeta(RENUMBER_META)) {return;}
+    numbersStale = true;
+    if (renumberTimer) {clearTimeout(renumberTimer);}
+    renumberTimer = setTimeout(renumberLive, 400);
+  });
+  // Leaving a heading lets its number catch up.
+  editor.on('selectionUpdate', () => {
+    if (numbersStale && !renumberTimer) {renumberTimer = setTimeout(renumberLive, 400);}
+  });
+
+  documentIsNumbered = () => isNumbered(topLevelHeadings().map((h) => h.info), currentHeadingNumbering);
+
+  toggleHeadingNumbers = () => {
+    if (sourceMode || currentHeadingNumbering === 'off') {return;}
+    const list = topLevelHeadings();
+    const infos = list.map((h) => h.info);
+    const edits = isNumbered(infos, currentHeadingNumbering)
+      ? stripEdits(infos, currentHeadingNumbering)
+      : renumberEdits(infos, currentHeadingNumbering, -1, true);
+    applyNumberingEdits(edits, list, false);
+  };
 
   // 2.4.0 — Sidebar inline editing: serialize the new entries back to YAML,
   // splice into the full doc, and post via the existing `edit` channel.

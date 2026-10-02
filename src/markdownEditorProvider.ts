@@ -788,19 +788,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         }
         case 'exportHtml': {
           const suggestedName = document.fileName;
-          await writeRenderedHtml(message.html ?? '', suggestedName, getSettings().headingNumbering);
+          await writeRenderedHtml(message.html ?? '', suggestedName);
           break;
         }
         case 'viewInBrowser': {
-          await openRenderedInBrowser(message.html ?? '', document.uri.fsPath, {
-            headingNumbering: getSettings().headingNumbering,
-          });
+          await openRenderedInBrowser(message.html ?? '', document.uri.fsPath);
           break;
         }
         case 'printDocument': {
           await openRenderedInBrowser(message.html ?? '', document.uri.fsPath, {
             autoPrint: true,
-            headingNumbering: getSettings().headingNumbering,
           });
           break;
         }

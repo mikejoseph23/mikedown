@@ -50,8 +50,6 @@ body.cmd-held .ProseMirror a {
   position: relative;
 }
 
-/* ::after, not ::before — heading numbering (mikedown.headingNumbering)
-   renders its counter in ::before, and the two must coexist on hover. */
 .ProseMirror h1:hover::after,
 .ProseMirror h2:hover::after,
 .ProseMirror h3:hover::after,
