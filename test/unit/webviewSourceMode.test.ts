@@ -133,3 +133,26 @@ describe('serialization through the real webview (issue #5)', () => {
     expect(written).toContain('line two');
   }, 30000);
 });
+
+describe('format hotkeys in source mode', () => {
+  it.each(['toggleBold', 'toggleItalic', 'toggleStrike', 'toggleHighlight', 'toggleCode'])(
+    '%s does not edit the hidden WYSIWYG doc',
+    async command => {
+      const onDisk = '# Title\n\nbody\n';
+      const h = await boot(onDisk);
+      h.wysiwygEditor().commands.selectAll();
+      h.send({ type: 'toggleSource' });
+      await settle();
+      expect(h.inSourceMode()).toBe(true);
+
+      h.send({ type: 'command', command });
+      await settle();
+
+      expect(h.sourceView().state.doc.toString()).toBe(onDisk);
+      // The hidden PM doc must stay untouched, or the two views desync.
+      expect(h.wysiwygEditor().storage.markdown.getMarkdown()).toBe(onDisk.trimEnd());
+      expect(h.last('edit')).toBeUndefined();
+    },
+    30000,
+  );
+});

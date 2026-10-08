@@ -5283,11 +5283,12 @@ if (!editorContainer) {
     // (triggered by VS Code keybindings registered in package.json).
     if (message.type === 'command') {
       switch (message.command) {
-        case 'toggleBold': editor.chain().focus().toggleBold().run(); break;
-        case 'toggleItalic': editor.chain().focus().toggleItalic().run(); break;
-        case 'toggleStrike': editor.chain().focus().toggleStrike().run(); break;
-        case 'toggleHighlight': editor.chain().focus().toggleHighlight().run(); break;
-        case 'toggleCode': editor.chain().focus().toggleCode().run(); break;
+        // Same desync hazard as the list toggles below: no-op in source mode.
+        case 'toggleBold': if (!sourceMode) {editor.chain().focus().toggleBold().run();} break;
+        case 'toggleItalic': if (!sourceMode) {editor.chain().focus().toggleItalic().run();} break;
+        case 'toggleStrike': if (!sourceMode) {editor.chain().focus().toggleStrike().run();} break;
+        case 'toggleHighlight': if (!sourceMode) {editor.chain().focus().toggleHighlight().run();} break;
+        case 'toggleCode': if (!sourceMode) {editor.chain().focus().toggleCode().run();} break;
         case 'pasteWithoutFormatting': editor.commands.focus(); requestPlainPaste(editor.view); break;
         case 'openEmojiPicker':
           if (isEmojiPickerOpen()) { hideEmojiPicker(); } else { showEmojiPicker(editor, {}); }
