@@ -10,7 +10,14 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 
 - Tests: 831 unit, 38 integration, lint 0 errors.
 
-## What's Done (this session)
+## Unreleased on main (not pushed, not versioned)
+
+- **Footnotes** (`src/webview/footnote.ts`, `footnotes.css`, `test/unit/footnotes.test.ts`): `[^n]` refs and `[^n]: text` defs round-trip in place with author labels; unreferenced defs kept; inline `^[x]` and dangling refs stay literal text. Uses `markdown-it-footnote` for tokenizing only (tail/hoisting disabled). `/footnote` slash command, typing `[^n]` creates ref + def, Cmd/Ctrl+click jumps. No toolbar button. Needs a manual look in the dev host (styling untested visually).
+- **Format hotkeys no-op in source mode** (`toggleBold`/`Italic`/`Strike`/`Highlight`/`Code`).
+- **Floating promises**: 0 lint findings; `updateSetting` helper in `markdownEditorProvider.ts`.
+- Tests: 845 unit, 22 edge, 38 integration.
+
+## What's Done (2.13.0 session)
 
 - **Heading numbering (#6), written into the markdown.** First built as display-only CSS counters, then reworked so numbers are real heading text (`## 1.2 Setup`) and portable to any renderer.
   - `mikedown.headingNumbering` (`off` / `fromH1` / `fromH2`, default `off`) only reveals a **1.2** toolbar toggle that numbers or un-numbers the current document.
@@ -27,8 +34,8 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 2. **Possible numbering follow-ups (not decided):** update cross-file links when headings renumber (left out to avoid a prompt on every renumber); headings that start with an emoji/image or have a mark boundary inside the number are skipped.
 3. **Optional follow-up offered earlier, not decided:** make `mikedown.renderMath = false` disable math entirely.
 4. **Review re-checks:** 2026-10-26 and 2026-11-25 (`npx vsce show interapp.mikedown-editor`, record in BACKLOG.md).
-5. **Backlog candidates:** footnotes, definition lists, `[[toc]]`, image captions (see `BACKLOG.md`).
-6. **Older carry-overs:** hotkeys `sourceMode` guard on `toggleBold`/`Italic`/`Strike`/`Highlight`/`Code`; Kevin's remote retest (WSL/Docker); `planning/kevin-feedback-aug-08.md` M3/M9.
+5. **Backlog candidates:** definition lists, `[[toc]]`, image captions (see `BACKLOG.md`).
+6. **Older carry-overs:** Kevin's remote retest (WSL/Docker); `planning/kevin-feedback-aug-08.md` M3/M9.
 
 ## Planning Docs
 
