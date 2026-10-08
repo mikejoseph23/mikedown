@@ -27,7 +27,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
   _Baseline (2026-09-26, pre-release): 391 installs, 5.00 average rating, 5 reviews, 982 lifetime downloads._
 
-- **Floating promises** — 84 `@typescript-eslint/no-floating-promises` findings (mostly `src/markdownEditorProvider.ts`, plus `extension.ts` and `export.ts`) to review; unhandled promises can hide real errors. Also ~945 webview type-safety warnings (`no-unsafe-*`, `no-explicit-any`) downgraded from errors in 2.11.0.
+- ~~**Floating promises** — 84 `@typescript-eslint/no-floating-promises` findings.~~ ✅ Done, 0 remaining (FPHASH): settings writes go through `updateSetting` (reports failures), `handleExternalChange` has a `.catch`, fire-and-forget `postMessage` / toasts are marked `void`. Still open: ~945 webview type-safety warnings (`no-unsafe-*`, `no-explicit-any`) downgraded from errors in 2.11.0.
 
 ## Product ideas
 

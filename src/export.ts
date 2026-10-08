@@ -129,7 +129,7 @@ export function rewriteRelativeUrls(html: string, baseDir: string): string {
  * "View in Browser" and inject a small auto-print script.
  */
 export function exportViaPrint(panel: vscode.WebviewPanel): void {
-  panel.webview.postMessage({ type: 'requestPrint' });
+  void panel.webview.postMessage({ type: 'requestPrint' });
 }
 
 /**
@@ -150,7 +150,7 @@ export async function writeRenderedHtml(
   const title = path.basename(suggestedName, path.extname(suggestedName));
   const fullHtml = buildFullHtml(renderedHtml, title);
   await vscode.workspace.fs.writeFile(uri, Buffer.from(fullHtml, 'utf8'));
-  vscode.window.showInformationMessage(`Exported to ${path.basename(uri.fsPath)}`);
+  void vscode.window.showInformationMessage(`Exported to ${path.basename(uri.fsPath)}`);
 }
 
 /**

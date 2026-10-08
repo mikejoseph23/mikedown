@@ -98,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand(`mikedown.${cmd}`, () => {
         const panel = MarkdownEditorProvider.activePanel;
         if (panel) {
-          panel.webview.postMessage({ type: 'command', command: cmd });
+          void panel.webview.postMessage({ type: 'command', command: cmd });
         }
       })
     );
@@ -109,7 +109,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('mikedown.toggleSourceMode', () => {
       const panel = MarkdownEditorProvider.activePanel;
       if (panel) {
-        panel.webview.postMessage({ type: 'toggleSource' });
+        void panel.webview.postMessage({ type: 'toggleSource' });
       }
     })
   );
@@ -119,9 +119,9 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('mikedown.exportHtml', () => {
       const panel = MarkdownEditorProvider.activePanel;
       if (panel) {
-        panel.webview.postMessage({ type: 'requestExportHtml' });
+        void panel.webview.postMessage({ type: 'requestExportHtml' });
       } else {
-        vscode.window.showWarningMessage('Open a markdown file in MikeDown to export.');
+        void vscode.window.showWarningMessage('Open a markdown file in MikeDown to export.');
       }
     })
   );
@@ -132,7 +132,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (panel) {
         exportViaPrint(panel);
       } else {
-        vscode.window.showWarningMessage('Open a markdown file in MikeDown to print.');
+        void vscode.window.showWarningMessage('Open a markdown file in MikeDown to print.');
       }
     })
   );
@@ -141,9 +141,9 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('mikedown.viewInBrowser', () => {
       const panel = MarkdownEditorProvider.activePanel;
       if (panel) {
-        panel.webview.postMessage({ type: 'requestViewInBrowser' });
+        void panel.webview.postMessage({ type: 'requestViewInBrowser' });
       } else {
-        vscode.window.showWarningMessage('Open a markdown file in MikeDown to view in browser.');
+        void vscode.window.showWarningMessage('Open a markdown file in MikeDown to view in browser.');
       }
     })
   );
@@ -152,7 +152,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('mikedown.copyAsRichText', () => {
       const panel = MarkdownEditorProvider.activePanel;
       if (panel) {
-        panel.webview.postMessage({ type: 'copyAsRichText' });
+        void panel.webview.postMessage({ type: 'copyAsRichText' });
       }
     })
   );
@@ -168,7 +168,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('mikedown.openWithMikeDown', async (uri?: vscode.Uri) => {
       const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (!targetUri) {
-        vscode.window.showWarningMessage('No markdown file selected.');
+        void vscode.window.showWarningMessage('No markdown file selected.');
         return;
       }
       await vscode.commands.executeCommand('vscode.openWith', targetUri, MarkdownEditorProvider.viewType);
@@ -191,7 +191,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('mikedown.showDiff', async (fileUri?: vscode.Uri) => {
       const uri = fileUri ?? MarkdownEditorProvider.activeDocument?.uri;
       if (!uri) {
-        vscode.window.showWarningMessage('No MikeDown editor is active.');
+        void vscode.window.showWarningMessage('No MikeDown editor is active.');
         return;
       }
 
@@ -202,7 +202,7 @@ export function activate(context: vscode.ExtensionContext) {
       try {
         headContent = cp.execSync(`git show HEAD:"${relativePath}"`, { cwd, encoding: 'utf-8' });
       } catch {
-        vscode.window.showWarningMessage('No git history found for this file.');
+        void vscode.window.showWarningMessage('No git history found for this file.');
         return;
       }
 

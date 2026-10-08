@@ -88,7 +88,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    *  tags so typed-but-unsaved tags show up immediately. */
   private static sendTagsToWebview(webview: vscode.Webview, document: vscode.TextDocument): void {
     const tags = MarkdownEditorProvider.tagProvider?.getAllTags(document.uri.fsPath) ?? [];
-    webview.postMessage({ type: 'tags', tags });
+    void webview.postMessage({ type: 'tags', tags });
   }
 
   /**
@@ -139,7 +139,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         occurrence,
       };
     });
-    webview.postMessage({ type: 'backlinks', items });
+    void webview.postMessage({ type: 'backlinks', items });
   }
 
   /**
@@ -198,13 +198,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const settings = (message as any).settings || {};
     const config = vscode.workspace.getConfiguration('mikedown');
     if (settings.fontSize) {
-      config.update('fontSize', settings.fontSize, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'fontSize', settings.fontSize);
     }
     if (settings.fontFamily !== undefined) {
-      config.update('fontFamily', settings.fontFamily, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'fontFamily', settings.fontFamily);
     }
     if (settings.headingFontFamily !== undefined) {
-      config.update('headingFontFamily', settings.headingFontFamily, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'headingFontFamily', settings.headingFontFamily);
     }
     if (settings.imagePaste && typeof settings.imagePaste === 'object') {
       const ip = settings.imagePaste;
@@ -220,26 +220,26 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       ];
       for (const [key, value] of pairs) {
         if (value !== undefined) {
-          config.update(key, value, vscode.ConfigurationTarget.Global);
+          updateSetting(config, key, value);
         }
       }
     }
     if (settings.imageResize && typeof settings.imageResize === 'object') {
       const ir = settings.imageResize;
       if (ir.overwrite !== undefined) {
-        config.update('imageResize.overwrite', ir.overwrite, vscode.ConfigurationTarget.Global);
+        updateSetting(config, 'imageResize.overwrite', ir.overwrite);
       }
     }
     if (typeof settings.wikilinkCreateOnClick === 'boolean') {
-      config.update('wikilink.createOnClick', settings.wikilinkCreateOnClick, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'wikilink.createOnClick', settings.wikilinkCreateOnClick);
     }
     // Sidebar defaults — only seed values for newly-opened panels.
     // Use "Apply to open documents" in the modal to push to open panels.
     if (settings.sidebarVisibility === 'always' || settings.sidebarVisibility === 'never') {
-      config.update('sidebar.visibility', settings.sidebarVisibility, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'sidebar.visibility', settings.sidebarVisibility);
     }
     if (settings.sidebarPosition === 'left' || settings.sidebarPosition === 'right') {
-      config.update('sidebar.position', settings.sidebarPosition, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'sidebar.position', settings.sidebarPosition);
     }
     // Support appeal footer link (M6) — the Appearance checkbox and the
     // footer's × (dismiss forever) both post this key.
@@ -248,72 +248,72 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       void config.update('support.showSidebarLink', supportShowSidebarLink, vscode.ConfigurationTarget.Global);
     }
     if (typeof settings.sidebarWidth === 'number' && settings.sidebarWidth >= 160 && settings.sidebarWidth <= 360) {
-      config.update('sidebar.width', Math.round(settings.sidebarWidth), vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'sidebar.width', Math.round(settings.sidebarWidth));
     }
     // Behavior tab
     if (typeof settings.defaultEditor === 'boolean') {
-      config.update('defaultEditor', settings.defaultEditor, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'defaultEditor', settings.defaultEditor);
     }
     if (settings.linkClickBehavior === 'navigateCurrentTab' || settings.linkClickBehavior === 'openNewTab' || settings.linkClickBehavior === 'showContextMenu') {
-      config.update('linkClickBehavior', settings.linkClickBehavior, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'linkClickBehavior', settings.linkClickBehavior);
     }
     if (typeof settings.autoReloadUnmodifiedFiles === 'boolean') {
-      config.update('autoReloadUnmodifiedFiles', settings.autoReloadUnmodifiedFiles, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'autoReloadUnmodifiedFiles', settings.autoReloadUnmodifiedFiles);
     }
     if (typeof settings.renderMermaidDiagrams === 'boolean') {
-      config.update('renderMermaidDiagrams', settings.renderMermaidDiagrams, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'renderMermaidDiagrams', settings.renderMermaidDiagrams);
     }
     if (typeof settings.renderMath === 'boolean') {
-      config.update('renderMath', settings.renderMath, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'renderMath', settings.renderMath);
     }
     if (typeof settings.tagsEnabled === 'boolean') {
-      config.update('tags.enabled', settings.tagsEnabled, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'tags.enabled', settings.tagsEnabled);
     }
     if (settings.themeToggleScope === 'vscode' || settings.themeToggleScope === 'editorOnly') {
-      config.update('themeToggleScope', settings.themeToggleScope, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'themeToggleScope', settings.themeToggleScope);
     }
     // Markdown tab
     if (settings.markdownNormalization === 'preserve' || settings.markdownNormalization === 'normalize') {
-      config.update('markdownNormalization', settings.markdownNormalization, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'markdownNormalization', settings.markdownNormalization);
     }
     if (
       settings.headingRenameUpdateLinks === 'ask' ||
       settings.headingRenameUpdateLinks === 'always' ||
       settings.headingRenameUpdateLinks === 'never'
     ) {
-      config.update('headingRename.updateLinks', settings.headingRenameUpdateLinks, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'headingRename.updateLinks', settings.headingRenameUpdateLinks);
     }
     if (
       settings.headingNumbering === 'off' ||
       settings.headingNumbering === 'fromH1' ||
       settings.headingNumbering === 'fromH2'
     ) {
-      config.update('headingNumbering', settings.headingNumbering, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'headingNumbering', settings.headingNumbering);
     }
     if (settings.normalizationStyle && typeof settings.normalizationStyle === 'object') {
       const ns = settings.normalizationStyle;
       if (ns.boldMarker === '**' || ns.boldMarker === '__') {
-        config.update('normalizationStyle.boldMarker', ns.boldMarker, vscode.ConfigurationTarget.Global);
+        updateSetting(config, 'normalizationStyle.boldMarker', ns.boldMarker);
       }
       if (ns.italicMarker === '*' || ns.italicMarker === '_') {
-        config.update('normalizationStyle.italicMarker', ns.italicMarker, vscode.ConfigurationTarget.Global);
+        updateSetting(config, 'normalizationStyle.italicMarker', ns.italicMarker);
       }
       if (ns.listMarker === '-' || ns.listMarker === '*' || ns.listMarker === '+') {
-        config.update('normalizationStyle.listMarker', ns.listMarker, vscode.ConfigurationTarget.Global);
+        updateSetting(config, 'normalizationStyle.listMarker', ns.listMarker);
       }
       if (ns.headingStyle === 'atx' || ns.headingStyle === 'setext') {
-        config.update('normalizationStyle.headingStyle', ns.headingStyle, vscode.ConfigurationTarget.Global);
+        updateSetting(config, 'normalizationStyle.headingStyle', ns.headingStyle);
       }
     }
     // Spelling tab
     if (typeof settings.spellCheckEnabled === 'boolean') {
-      config.update('spellCheck.enabled', settings.spellCheckEnabled, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'spellCheck.enabled', settings.spellCheckEnabled);
     }
     if (settings.spellCheckLanguage === 'en' || settings.spellCheckLanguage === 'en-GB') {
-      config.update('spellCheck.language', settings.spellCheckLanguage, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'spellCheck.language', settings.spellCheckLanguage);
     }
     if (typeof settings.spellCheckIgnoreCodeBlocks === 'boolean') {
-      config.update('spellCheck.ignoreCodeBlocks', settings.spellCheckIgnoreCodeBlocks, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'spellCheck.ignoreCodeBlocks', settings.spellCheckIgnoreCodeBlocks);
     }
     if (Array.isArray(settings.spellCheckUserWords)) {
       // Global scope so the custom dictionary follows the user across
@@ -321,38 +321,38 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       const words = (settings.spellCheckUserWords as unknown[])
         .filter((w): w is string => typeof w === 'string' && w.trim().length > 0)
         .map(w => w.trim());
-      config.update('spellCheck.userWords', words, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'spellCheck.userWords', words);
     }
     // Behavior tab — slash commands
     if (typeof settings.slashCommandsEnabled === 'boolean') {
-      config.update('slashCommands.enabled', settings.slashCommandsEnabled, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'slashCommands.enabled', settings.slashCommandsEnabled);
     }
     if (settings.slashCommandsDateFormat === 'iso' || settings.slashCommandsDateFormat === 'long') {
-      config.update('slashCommands.dateFormat', settings.slashCommandsDateFormat, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'slashCommands.dateFormat', settings.slashCommandsDateFormat);
     }
     if (typeof settings.slashCommandsTimeZone === 'string') {
-      config.update('slashCommands.timeZone', settings.slashCommandsTimeZone, vscode.ConfigurationTarget.Global);
+      updateSetting(config, 'slashCommands.timeZone', settings.slashCommandsTimeZone);
     }
     // The in-menu "Turn off slash commands" footer row saves with
     // source: 'slashMenu' — show a dedicated toast with Open Settings /
     // Undo instead of (not in addition to) the generic save toast.
     if (message.source === 'slashMenu') {
-      vscode.window.showInformationMessage(
+      void vscode.window.showInformationMessage(
         'Slash commands are turned off. You can turn them back on in MikeDown Settings → Behavior.',
         'Open Settings',
         'Undo'
       ).then(selection => {
         if (selection === 'Open Settings') {
-          webviewPanel.webview.postMessage({ type: 'command', command: 'openSettings', tab: 'behavior' });
+          void webviewPanel.webview.postMessage({ type: 'command', command: 'openSettings', tab: 'behavior' });
         } else if (selection === 'Undo') {
-          vscode.workspace.getConfiguration('mikedown').update('slashCommands.enabled', true, vscode.ConfigurationTarget.Global);
+          updateSetting(vscode.workspace.getConfiguration('mikedown'), 'slashCommands.enabled', true);
         }
         // Dismissing (selection undefined) does nothing.
       });
     } else if (!(message as any).silent) {
       // "Add to Dictionary" saves silently — a toast on every added word
       // would be noise.
-      vscode.window.showInformationMessage('MikeDown settings saved.');
+      void vscode.window.showInformationMessage('MikeDown settings saved.');
     }
   }
 
@@ -513,7 +513,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       new vscode.RelativePattern(docDirUri, '**/*.{png,jpg,jpeg,gif,webp,svg,bmp,avif,ico,tiff,tif}')
     );
     const broadcastImageStatus = (uri: vscode.Uri, exists: boolean): void => {
-      webviewPanel.webview.postMessage({
+      void webviewPanel.webview.postMessage({
         type: exists ? 'imageFileFound' : 'imageFileMissing',
         uri: webviewPanel.webview.asWebviewUri(uri).toString(),
         fsPath: uri.fsPath,
@@ -561,7 +561,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         // dirty-clearing save() would overwrite the real saved state on disk.
         // v1.6.0 — Send the resolved form so it matches the editor's serialized
         // output (image URIs are in webview-resolved form inside the editor).
-        webviewPanel.webview.postMessage({
+        void webviewPanel.webview.postMessage({
           type: 'saved',
           content: this.resolveImageUris(savedDoc.getText(), savedDoc.uri, webviewPanel.webview)
         });
@@ -604,7 +604,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         return; // Change was triggered by VS Code's save (e.g. trim whitespace) — not external
       }
 
-      this.handleExternalChange(document, webviewPanel, event);
+      void this.handleExternalChange(document, webviewPanel, event);
     });
 
     // Clean up the listener when the panel is closed
@@ -638,7 +638,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         panels.delete(entry);
         if (panels.size === 1) {
           for (const e of panels) {
-            e.webview.postMessage({ type: 'setReadOnly', readOnly: false });
+            void e.webview.postMessage({ type: 'setReadOnly', readOnly: false });
           }
         }
         if (panels.size === 0) {
@@ -731,7 +731,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         case 'toggleSource':
           // M4 — The webview toolbar button posts this message; forward it back
           // as a 'toggleSource' message so the webview handles the toggle.
-          webviewPanel.webview.postMessage({ type: 'toggleSource' });
+          void webviewPanel.webview.postMessage({ type: 'toggleSource' });
           break;
         case 'requestDiff': {
           // Get HEAD version of this file from git and send it to the webview
@@ -744,14 +744,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               `git show HEAD:"${relativePath}"`,
               { cwd, encoding: 'utf-8', timeout: 5000 }
             );
-            webviewPanel.webview.postMessage({
+            void webviewPanel.webview.postMessage({
               type: 'diffData',
               headContent,
               hasChanges: headContent !== document.getText(),
             });
           } catch {
             // File is untracked or no git repo
-            webviewPanel.webview.postMessage({
+            void webviewPanel.webview.postMessage({
               type: 'diffData',
               headContent: null,
               hasChanges: false,
@@ -817,20 +817,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // Internal anchor link (#section-name)
           if (href.startsWith('#')) {
             // Post back to webview to scroll to anchor
-            webviewPanel.webview.postMessage({ type: 'scrollToAnchor', anchor: href.slice(1) });
+            void webviewPanel.webview.postMessage({ type: 'scrollToAnchor', anchor: href.slice(1) });
             break;
           }
 
           // External URL
           if (href.startsWith('http://') || href.startsWith('https://')) {
-            vscode.env.openExternal(vscode.Uri.parse(href));
+            void vscode.env.openExternal(vscode.Uri.parse(href));
             break;
           }
 
           // Other URL schemes that should be handed to the OS (mail client,
           // dialer, etc.) rather than resolved as a relative file path.
           if (/^(mailto|tel|sms|ftp|ftps|news|nntp|magnet|irc|xmpp|skype|callto|geo|bitcoin):/i.test(href)) {
-            vscode.env.openExternal(vscode.Uri.parse(href));
+            void vscode.env.openExternal(vscode.Uri.parse(href));
             break;
           }
 
@@ -857,7 +857,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // If anchor included, post a scrollToAnchor after a brief delay
           if (anchor) {
             setTimeout(() => {
-              webviewPanel.webview.postMessage({ type: 'scrollToAnchor', anchor });
+              void webviewPanel.webview.postMessage({ type: 'scrollToAnchor', anchor });
             }, 300);
           }
 
@@ -873,7 +873,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               const panels = MarkdownEditorProvider.panelsByPath.get(targetPath);
               if (panels && panels.size > 0) {
                 for (const p of panels) {
-                  p.webview.postMessage({ type: 'revealLinkHref', href: revealHref, occurrence });
+                  void p.webview.postMessage({ type: 'revealLinkHref', href: revealHref, occurrence });
                 }
               } else if (attempts++ < 8) {
                 setTimeout(tryReveal, 150);
@@ -892,7 +892,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           const provider = MarkdownEditorProvider.tagProvider;
           const paths = provider ? provider.getDocsForTag(tag) : [];
           if (paths.length === 0) {
-            vscode.window.showInformationMessage(`No documents tagged #${tag}.`);
+            void vscode.window.showInformationMessage(`No documents tagged #${tag}.`);
             break;
           }
           const picks = paths.map(fsPath => {
@@ -956,7 +956,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             }
           }
 
-          webviewPanel.webview.postMessage({ type: 'brokenLinks', hrefs: brokenLinks });
+          void webviewPanel.webview.postMessage({ type: 'brokenLinks', hrefs: brokenLinks });
           break;
         }
         case 'getTags': {
@@ -992,7 +992,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             suggestions.push({ label: id, href: '#' + id, type: 'anchor' });
           }
 
-          webviewPanel.webview.postMessage({ type: 'linkSuggestions', suggestions });
+          void webviewPanel.webview.postMessage({ type: 'linkSuggestions', suggestions });
           break;
         }
         case 'getFileHeadings': {
@@ -1013,7 +1013,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             for (const id of collectHtmlAnchorIds(content)) {
               anchors.push({ label: id, href: '#' + id, type: 'anchor' });
             }
-            webviewPanel.webview.postMessage({ type: 'fileHeadings', filePath: targetPath, anchors });
+            void webviewPanel.webview.postMessage({ type: 'fileHeadings', filePath: targetPath, anchors });
           } catch { /* file not found — silently ignore */ }
           break;
         }
@@ -1044,7 +1044,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
               results.push({ target: rawTarget, href: rel, count: matches.length });
             }
           }
-          webviewPanel.webview.postMessage({ type: 'wikilinksResolved', results });
+          void webviewPanel.webview.postMessage({ type: 'wikilinksResolved', results });
           break;
         }
         case 'createWikilink': {
@@ -1056,7 +1056,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // Refuse path traversal; a wikilink target is a name (optionally with
           // forward-slash subpath), never an escape out of the workspace.
           if (rawTarget.split(/[\\/]/).some(seg => seg === '..')) {
-            vscode.window.showWarningMessage(`MikeDown: cannot create "${rawTarget}" — invalid path.`);
+            void vscode.window.showWarningMessage(`MikeDown: cannot create "${rawTarget}" — invalid path.`);
             break;
           }
           const fileName = /\.(md|markdown)$/i.test(rawTarget) ? rawTarget : rawTarget + '.md';
@@ -1079,10 +1079,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
             // flips from unresolved → resolved without a reload.
             let rel = path.relative(dir, newUri.fsPath).replace(/\\/g, '/');
             if (!rel.startsWith('.')) {rel = './' + rel;}
-            webviewPanel.webview.postMessage({ type: 'wikilinksResolved', results: [{ target: rawTarget, href: rel }] });
-            if (created) {vscode.window.showInformationMessage(`MikeDown: created ${fileName}`);}
+            void webviewPanel.webview.postMessage({ type: 'wikilinksResolved', results: [{ target: rawTarget, href: rel }] });
+            if (created) {void vscode.window.showInformationMessage(`MikeDown: created ${fileName}`);}
           } catch {
-            vscode.window.showErrorMessage(`MikeDown: could not create "${fileName}".`);
+            void vscode.window.showErrorMessage(`MikeDown: could not create "${fileName}".`);
           }
           break;
         }
@@ -1100,7 +1100,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // The renamed heading's base slug is duplicated — anchors are
           // ambiguous, so we refuse to rewrite and warn instead (v1 scope).
           const baseName = message.baseName || 'this heading';
-          vscode.window.showWarningMessage(
+          void vscode.window.showWarningMessage(
             `"#${baseName}" appears multiple times in this document — links may need manual review after renaming.`
           );
           break;
@@ -1205,7 +1205,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
    */
   private updateWebview(document: vscode.TextDocument, webview: vscode.Webview): void {
     const resolvedContent = this.resolveImageUris(document.getText(), document.uri, webview);
-    webview.postMessage({
+    void webview.postMessage({
       type: 'update',
       content: resolvedContent
     });
@@ -1314,7 +1314,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const config = vscode.workspace.getConfiguration('mikedown');
     const bodyFont = config.get<string>('fontFamily', '') || "Charter, 'Bitstream Charter', Cambria, Georgia, serif";
     const headingFont = config.get<string>('headingFontFamily', '') || "'Avenir Next', Avenir, 'Segoe UI', Calibri, sans-serif";
-    webview.postMessage({
+    void webview.postMessage({
       type: 'theme',
       fontFamily: bodyFont,
       headingFontFamily: headingFont,
@@ -1335,12 +1335,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         `git show HEAD:"${relativePath}"`,
         { cwd, encoding: 'utf-8', timeout: 5000 }
       );
-      webview.postMessage({
+      void webview.postMessage({
         type: 'diffStatus',
         hasChanges: headContent !== document.getText(),
       });
     } catch {
-      webview.postMessage({ type: 'diffStatus', hasChanges: false });
+      void webview.postMessage({ type: 'diffStatus', hasChanges: false });
     }
   }
 
@@ -1359,7 +1359,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const extensionVersion = vscode.extensions.getExtension('interapp.mikedown-editor')?.packageJSON?.version
       ?? this.context.extension?.packageJSON?.version
       ?? '';
-    webview.postMessage({
+    void webview.postMessage({
       type: 'settings',
       extensionVersion,
       defaultEditor: settings.defaultEditor,
@@ -1405,7 +1405,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // and the webview's auto-collapse-when-empty rule applies independently
     // per section.
     const sectionPrefs = readSectionPrefs(collapsedMap[docKey]);
-    webview.postMessage({
+    void webview.postMessage({
       type: 'sidebarState',
       pref,
       width,
@@ -1426,7 +1426,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         mtimeMs = stat.mtime;
       } catch { /* untracked or missing — leave null */ }
     }
-    webview.postMessage({ type: 'docMeta', mtimeMs });
+    void webview.postMessage({ type: 'docMeta', mtimeMs });
   }
 
   /**
@@ -1591,7 +1591,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       // No unsaved changes — auto-reload if the setting allows it
       if (settings.autoReloadUnmodifiedFiles) {
         // Send fresh content to webview silently
-        webviewPanel.webview.postMessage({
+        void webviewPanel.webview.postMessage({
           type: 'update',
           content: this.resolveImageUris(document.getText(), document.uri, webviewPanel.webview)
         });
@@ -1612,7 +1612,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     if (choice === 'Reload') {
       // VS Code has already updated the TextDocument from disk; send new content to webview
-      webviewPanel.webview.postMessage({
+      void webviewPanel.webview.postMessage({
         type: 'update',
         content: this.resolveImageUris(document.getText(), document.uri, webviewPanel.webview)
       });
@@ -1713,7 +1713,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   ): Promise<void> {
     const requestId = message.requestId ?? '';
     const reply = (payload: Record<string, unknown>): void => {
-      webview.postMessage({ type: 'pastedImageResult', requestId, ...payload });
+      void webview.postMessage({ type: 'pastedImageResult', requestId, ...payload });
     };
 
     const settings = getSettings().imagePaste;
@@ -1751,7 +1751,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const sizeMB = buffer.length / (1024 * 1024);
     if (sizeMB > settings.maxSizeMB) {
       const msg = `Pasted image is ${sizeMB.toFixed(1)} MB, exceeds the ${settings.maxSizeMB} MB limit (mikedown.imagePaste.maxSizeMB).`;
-      vscode.window.showErrorMessage(msg);
+      void vscode.window.showErrorMessage(msg);
       reply({ error: msg });
       return;
     }
@@ -1762,7 +1762,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     const written = await this.writeImageIntoTargetFolder(buffer, ext, settings, docPath, workspaceRoot);
     if ('error' in written) {
-      vscode.window.showErrorMessage(written.error);
+      void vscode.window.showErrorMessage(written.error);
       reply({ error: written.error });
       return;
     }
@@ -1806,7 +1806,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   ): Promise<void> {
     const requestId = message.requestId ?? '';
     const reply = (payload: Record<string, unknown>): void => {
-      webview.postMessage({ type: 'pickedImageResult', requestId, ...payload });
+      void webview.postMessage({ type: 'pickedImageResult', requestId, ...payload });
     };
 
     if (document.uri.scheme !== 'file') {
@@ -1829,7 +1829,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       });
     } catch (err) {
       const msg = `Failed to open the file picker: ${(err as Error).message}`;
-      vscode.window.showErrorMessage(msg);
+      void vscode.window.showErrorMessage(msg);
       reply({ error: msg });
       return;
     }
@@ -1853,7 +1853,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         buffer = await fs.promises.readFile(sourceAbsPath);
       } catch (err) {
         const msg = `Failed to read ${sourceAbsPath}: ${(err as Error).message}`;
-        vscode.window.showErrorMessage(msg);
+        void vscode.window.showErrorMessage(msg);
         reply({ error: msg });
         return;
       }
@@ -1861,7 +1861,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       const ext = path.extname(sourceAbsPath).replace(/^\./, '').toLowerCase() || 'png';
       const written = await this.writeImageIntoTargetFolder(buffer, ext, settings, docPath, workspaceRoot);
       if ('error' in written) {
-        vscode.window.showErrorMessage(written.error);
+        void vscode.window.showErrorMessage(written.error);
         reply({ error: written.error });
         return;
       }
@@ -1900,7 +1900,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   ): Promise<void> {
     const requestId = message.requestId ?? '';
     const reply = (payload: Record<string, unknown>): void => {
-      webview.postMessage({ type: 'resizeImageResult', requestId, ...payload });
+      void webview.postMessage({ type: 'resizeImageResult', requestId, ...payload });
     };
 
     if (document.uri.scheme !== 'file') {
@@ -1948,7 +1948,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       await fs.promises.writeFile(targetAbsPath, buffer);
     } catch (err) {
       const msg = `Failed to write ${targetAbsPath}: ${(err as Error).message}`;
-      vscode.window.showErrorMessage(msg);
+      void vscode.window.showErrorMessage(msg);
       reply({ error: msg });
       return;
     }
@@ -2297,6 +2297,13 @@ interface WebviewMessage {
  * collapses; sections not listed remain "untouched" so the webview's per-
  * section auto-collapse rule applies.
  */
+/** Write a global `mikedown.*` setting, surfacing a failure instead of dropping it. */
+function updateSetting(config: vscode.WorkspaceConfiguration, key: string, value: unknown): void {
+  config.update(key, value, vscode.ConfigurationTarget.Global).then(undefined, (err: unknown) => {
+    void vscode.window.showErrorMessage(`MikeDown: could not save setting "${key}": ${err instanceof Error ? err.message : String(err)}`);
+  });
+}
+
 function readSectionPrefs(raw: unknown): Record<string, boolean> {
   if (Array.isArray(raw)) {
     const out: Record<string, boolean> = {};
