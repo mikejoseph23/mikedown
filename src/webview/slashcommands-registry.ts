@@ -150,6 +150,14 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     icon: 'math',
   },
   {
+    id: 'footnote',
+    title: 'Footnote',
+    description: 'Reference at the cursor, note at the end of the document',
+    aliases: ['reference', 'citation', 'endnote'],
+    group: 'insert',
+    icon: 'note',
+  },
+  {
     id: 'table',
     title: 'Table',
     description: 'Insert a table with a size picker',

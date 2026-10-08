@@ -2,6 +2,16 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Footnotes: `[^1]` references render as superscripts and `[^1]: text` definitions as a labelled note. Type `[^1]` to create a reference (and its definition at the end of the document), or use `/footnote`. Cmd/Ctrl+click a reference to jump to its note. Definitions stay where you wrote them and keep your labels.
+
+### Fixed
+
+- Bold, italic, strikethrough, highlight and inline code hotkeys no longer edit the hidden rich-text document while source mode is showing.
+
 ## [2.13.0] - 2026-10-02
 
 ### Added

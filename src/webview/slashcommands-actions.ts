@@ -129,6 +129,8 @@ function handleSlashAction(
       return actionMermaid(editor, view, range);
     case 'math':
       return actionMathBlock(editor, view, range);
+    case 'footnote':
+      return actionFootnote(editor, view, range);
     case 'inline-math':
       return actionMathInline(view, range);
     case 'table':
@@ -265,6 +267,13 @@ function actionMathInline(view: EditorView, range: Range): boolean {
   tr.insert(from, view.state.schema.nodes.mathInline.create({ editOnMount: true }));
   view.dispatch(tr.scrollIntoView());
   return true;
+}
+
+function actionFootnote(editor: Editor, view: EditorView, range: Range): boolean {
+  const tr = closeHistory(view.state.tr);
+  tr.delete(range.from, range.to);
+  view.dispatch(tr);
+  return editor.chain().focus().insertFootnote().run();
 }
 
 function actionTable(editor: Editor, view: EditorView, range: Range): boolean {

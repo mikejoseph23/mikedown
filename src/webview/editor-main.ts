@@ -138,6 +138,7 @@ import { SlashCommands, closeSlashMenu, setSlashFrontmatterProvider, setSlashPos
 import { initSlashCommandActions } from './slashcommands-actions';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import { MathInline, MathBlock, setMathRenderingEnabled } from './math';
+import { FootnoteRef, FootnoteDef } from './footnote';
 import {
   initOutlineSidebar,
   applyOutlineState,
@@ -3007,6 +3008,11 @@ if (!editorContainer) {
       // `$inline$` and `$$display$$` LaTeX rendered with KaTeX; click to edit.
       MathInline,
       MathBlock,
+
+      // ── Footnotes ─────────────────────────────────────────────────────────────
+      // `[^1]` references and `[^1]: text` definitions, kept in place on save.
+      FootnoteRef,
+      FootnoteDef,
 
       // ── Task Lists (M2c) ──────────────────────────────────────────────────────
       // "- [ ] " and "- [x] " input rules convert to checkable task list items.

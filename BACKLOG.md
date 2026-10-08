@@ -5,7 +5,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 ## High-value features
 
 - ~~**Mermaid diagrams** — render ```` ```mermaid ```` fenced blocks (flowcharts, sequence, gantt, etc.). Also GitHub-rendered.~~ ✅ Shipped — diagrams render live; click to edit source. Toggle: `mikedown.renderMermaidDiagrams`.
-- **Footnotes** — `[^1]` reference syntax (CommonMark extension, not strictly GFM).
+- ~~**Footnotes** — `[^1]` reference syntax (CommonMark extension, not strictly GFM).~~ ✅ Done, unreleased (FOOTHASH). Inline `^[text]` form not supported.
 
 ## Nice-to-have
 
