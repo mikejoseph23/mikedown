@@ -1,0 +1,7 @@
+context-menu-dark.png
+context-menu-light.png
+dense-document-density.png
+empty-document-light.png
+misspellings-dark.png
+misspellings-light.png
+settings-modal-spelling.png
