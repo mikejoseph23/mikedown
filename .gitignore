@@ -9,3 +9,8 @@ dist/
 .playwright-cli/
 test/workspace/.vscode/settings.json
 .claude/worktrees/
+
+# Rendered video lives on the BEAST share, not in git
+*.mp4
+*.mov
+*.webm
