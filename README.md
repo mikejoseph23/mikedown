@@ -240,6 +240,7 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 | `mikedown.defaultEditor` | `false` | Open `.md` files in MikeDown by default |
 | `mikedown.fontFamily` | (system sans-serif) | Font family for the editing area |
 | `mikedown.fontSize` | `15` | Font size in pixels (10--36) |
+| `mikedown.ctrlWheelZoom` | `true` | Ctrl+scroll (Cmd on macOS) or trackpad pinch changes the editor font size |
 | `mikedown.linkClickBehavior` | `openNewTab` | What Cmd+Click does on links: navigate in current tab, open new tab, or show context menu |
 | `mikedown.themeToggleScope` | `editorOnly` | Whether the theme toggle affects only MikeDown or VS Code globally |
 | `mikedown.editorTheme` | `auto` | Override theme for MikeDown tabs: auto, light, or dark |
@@ -250,7 +251,7 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 | `mikedown.normalizationStyle.listMarker` | `-` | Unordered list marker when normalization is enabled |
 | `mikedown.normalizationStyle.headingStyle` | `atx` | Heading style when normalization is enabled: `atx` (`# Heading`) or `setext` (underline) |
 | `mikedown.imagePaste.enabled` | `true` | Save pasted/dropped images automatically. Disable to fall back to VS Code's default paste behavior |
-| `mikedown.imagePaste.folder` | `images` | Folder name (or relative path) where pasted images are saved; auto-created |
+| `mikedown.imagePaste.folder` | `images` | Folder name (or relative path) where pasted images are saved; auto-created. Supports `${docName}` for a folder per document (e.g. `assets/${docName}`) |
 | `mikedown.imagePaste.folderRelativeTo` | `document` | Resolve `folder` relative to the document directory or the workspace root |
 | `mikedown.imagePaste.filenamePattern` | `${docName}-${timestamp}` | Pattern with tokens `${docName}`, `${date}`, `${time}`, `${timestamp}`, `${hash}` (8-char SHA-1, enables dedupe), `${index}` |
 | `mikedown.imagePaste.pathStyle` | `relative` | Insert path relative to the document, or workspace-absolute (leading `/`) |

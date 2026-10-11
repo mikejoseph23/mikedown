@@ -4,8 +4,12 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-10-11
+
 ### Added
 
+- Per-document image folders: `mikedown.imagePaste.folder` accepts `${docName}`, so `assets/${docName}` saves images pasted into `tutorial.md` to `assets/tutorial/`. (#7)
+- Ctrl+scroll (Cmd+scroll on macOS) or a trackpad pinch changes the editor font size, within the `mikedown.fontSize` limits, and the new size is remembered. Turn it off with `mikedown.ctrlWheelZoom` (also in the Settings modal). (#8)
 - Footnotes: `[^1]` references render as superscripts and `[^1]: text` definitions as a labelled note. Type `[^1]` to create a reference (and its definition at the end of the document), or use `/footnote`. Cmd/Ctrl+click a reference to jump to its note. Definitions stay where you wrote them and keep your labels.
 
 ### Fixed
