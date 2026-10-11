@@ -6,36 +6,25 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 
 ## Current Status
 
-**2.13.0 is released**: committed, tagged (`v2.13.0`), pushed, and live on the Marketplace (confirmed with `npx vsce show`). Issue #6 has a reply describing the feature; waiting to see if the requester follows up.
+**2.14.0 is released**: committed, tagged (`v2.14.0`), pushed, `.vsix` uploaded to the Marketplace by Mike (verification was pending at session end). Issues #7 and #8 have replies and are closed.
 
-- Tests: 831 unit, 38 integration, lint 0 errors.
+- Tests: 856 unit, lint 0 errors. Both features checked by hand in the dev host.
+- Nothing unreleased on `main`.
 
-## Unreleased on main (not pushed, not versioned)
+## What's Done (2.14.0)
 
-- **Footnotes** (`src/webview/footnote.ts`, `footnotes.css`, `test/unit/footnotes.test.ts`): `[^n]` refs and `[^n]: text` defs round-trip in place with author labels; unreferenced defs kept; inline `^[x]` and dangling refs stay literal text. Uses `markdown-it-footnote` for tokenizing only (tail/hoisting disabled). `/footnote` slash command, typing `[^n]` creates ref + def, Cmd/Ctrl+click jumps. No toolbar button. Needs a manual look in the dev host (styling untested visually).
-- **Format hotkeys no-op in source mode** (`toggleBold`/`Italic`/`Strike`/`Highlight`/`Code`).
-- **Floating promises**: 0 lint findings; `updateSetting` helper in `markdownEditorProvider.ts`.
-- Tests: 845 unit, 22 edge, 38 integration.
-
-## What's Done (2.13.0 session)
-
-- **Heading numbering (#6), written into the markdown.** First built as display-only CSS counters, then reworked so numbers are real heading text (`## 1.2 Setup`) and portable to any renderer.
-  - `mikedown.headingNumbering` (`off` / `fromH1` / `fromH2`, default `off`) only reveals a **1.2** toolbar toggle that numbers or un-numbers the current document.
-  - Whether a doc is numbered is detected from its headings (`isNumbered`: at least half carry a plausible prefix of the right depth, no part larger than the heading count), so there's no per-file state. `## 2024 Review` doesn't count as a number.
-  - Numbered docs renumber live (400ms debounce, out of undo history). The heading under the cursor is skipped until the cursor leaves. Files are never renumbered on open (`numbersStale` is only set by user edits).
-  - In-doc `#slug` links are repointed; the rename detector's baseline is kept in step. Numbering starts at the shallowest level used (no `0.1`).
-  - CSS-counter plumbing removed from export (numbers are just text now).
-- **Settings modal redesign** (done in another context with Fable): row layout with dividers, selects sized to content, styling moved to `src/webview/settings-modal.css`.
-- 2.12.1 (H4 to H6 in the format menus) and 2.12.0 (KaTeX math, tags) were already on the Marketplace.
+- **#7 — per-document image folders:** `mikedown.imagePaste.folder` expands `${docName}` (only that token; time tokens would split one doc's images across folders and break orphan-cleanup scoping). `expandFolderPattern` in `src/imagePaste.ts`, used by `resolveTargetFolder` so writes and cleanup both follow it. No new setting.
+- **#8 — Ctrl/Cmd + wheel font size:** `src/webview/wheelZoom.ts` (trackpad pinch works too; deltas accumulate at 50 per 1px step; clamped 10–36; persisted silently 400ms after the gesture). New setting `mikedown.ctrlWheelZoom` (default `true`) wired in all three places; checkbox on the Appearance tab. Font-size slider widened from 12–28 to 10–36. Font size is global, so the zoom carries to other open tabs.
+- **Also shipped in 2.14.0** (previously unreleased): footnotes (`[^n]`), format hotkeys no-op in source mode, floating-promise cleanup.
+- **CLAUDE.md:** issue-reply convention: first person as Mike, name the release, one no-pressure Marketplace review ask per reporter.
 
 ## What's Next
 
-1. **Watch issue #6** for pushback on the numbering design.
-2. **Possible numbering follow-ups (not decided):** update cross-file links when headings renumber (left out to avoid a prompt on every renumber); headings that start with an emoji/image or have a mark boundary inside the number are skipped.
-3. **Optional follow-up offered earlier, not decided:** make `mikedown.renderMath = false` disable math entirely.
-4. **Review re-checks:** 2026-10-26 and 2026-11-25 (`npx vsce show interapp.mikedown-editor`, record in BACKLOG.md).
-5. **Backlog candidates:** definition lists, `[[toc]]`, image captions (see `BACKLOG.md`).
-6. **Older carry-overs:** Kevin's remote retest (WSL/Docker); `planning/kevin-feedback-aug-08.md` M3/M9.
+1. **Confirm 2.14.0 is live:** `npx vsce show interapp.mikedown-editor`.
+2. **Footnotes styling** never got a deliberate visual pass in the dev host; give it a look.
+3. **Watch issues #7/#8** for follow-ups (reporter may want `${date}` in folders; it was deliberately left out).
+4. **Review re-checks:** 2026-10-26 and 2026-11-25 (record in `BACKLOG.md`).
+5. **Carry-overs:** heading-numbering follow-ups (cross-file links on renumber); `renderMath = false` disabling math entirely; backlog candidates (definition lists, `[[toc]]`, image captions); Kevin's remote retest; `planning/kevin-feedback-aug-08.md` M3/M9.
 
 ## Planning Docs
 
@@ -46,27 +35,27 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 
 ## Key File Paths
 
-- `src/headingNumbering.ts` — pure numbering logic (`sectionNumbers`, `isNumbered`, `renumberEdits`, `stripEdits`)
-- `src/webview/editor-main.ts` — numbering wiring sits right after the Heading Rename block (`applyNumberingEdits`, `renumberLive`, `toggleHeadingNumbers`); toolbar button in `buildCondensedToolbar`; Settings modal (`showSettingsModal`)
-- `src/webview/settings-modal.css` — Settings modal styling
-- `test/unit/headingNumbering.test.ts`, `headingNumberingEditor.test.ts` — logic + harness tests
-- `test/harness/webviewHarness.ts` — jsdom harness that boots the real webview
+- `src/imagePaste.ts` — paste helpers; `expandFolderPattern`, `resolveTargetFolder`, `isInsideManagedFolder`
+- `src/webview/wheelZoom.ts` — Ctrl/Cmd + wheel zoom; installed in `editor-main.ts` just before the `message` listener
+- `src/markdownEditorProvider.ts` — `handleSaveSettings` (settings persistence; `silent: true` suppresses the toast), `sendSettingsToWebview`
+- `src/webview/editor-main.ts` — Settings modal (`showSettingsModal`), settings broadcast handler
+- `test/unit/imagePaste.test.ts`, `test/unit/wheelZoom.test.ts`
 
 ## Recent Git Log
 
-- `Release 2.13.0`
-- `216209c` Write heading numbers into the markdown (#6)
-- `1c93b55` Redesign Settings modal layout and move its styling to CSS
-- `061042c` Enable heading numbering (#6)
-- `193d94c` Release 2.12.1
+- `9cd2d76` Ask for a review only once per reporter
+- `9a8336e` Issue replies are written in first person
+- `c86fc3f` Release 2.14.0
+- `31fdda6` Note issue-reply convention: ask for a Marketplace review once shipped
+- `c7d71f4` Ctrl/Cmd + mouse wheel adjusts editor font size, with toggle setting (#8)
+- `f0dd1ee` Support ${docName} in image paste folder for per-document image folders (#7)
 
 ## Any Other Notes
 
 - **Launch the dev host with F5 or `npm run dev`** (no debugger). Cmd+R the dev window after every `npm run compile`.
-- Minor release recipe: `npm version minor --no-git-tag-version && npm run package && npx vsce package`, rename CHANGELOG `[Unreleased]`. (`npm run vsix` always patch-bumps.)
+- Minor release recipe: `npm version minor --no-git-tag-version && npm run package && npx vsce package`, rename CHANGELOG `[Unreleased]`, update README settings table, commit `Release X.Y.Z`, tag `vX.Y.Z`. (`npm run vsix` always patch-bumps.)
 - No Marketplace PAT is stored; Mike publishes by uploading the `.vsix` by hand.
 - Bare `vitest run` picks up integration files and fails — use `npm run test:unit` / `test:edge` / `test:integration`.
 - The harness's `typeInWysiwyg` bypasses input rules; use a `handleTextInput`-driven helper (see `math.test.ts`) to test them.
 - Mutating integration tests: use a private fixture with teardown, never `test/workspace/sample.md`.
 - Spell check defaults **off** — enable it before testing squiggles.
-- Check live marketplace state with `npx vsce show interapp.mikedown-editor` before assuming anything about what users have.
