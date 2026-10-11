@@ -84,4 +84,4 @@ Any new `mikedown.*` setting must be added in **three places**:
 - `ZOMBIE`-prefixed commented code blocks are intentional — leave them.
 - Markdown rules: escape `$` as `\$` (LaTeX would otherwise render), and put blank lines before and after lists (MD032). Not needed in codeblocks or HTML
 - Don't mention Claude or Anthropic in commit messages.
-- When replying to a GitHub issue after its fix/feature ships, thank the reporter, name the release it landed in, and close with a short, no-pressure ask for a VS Code Marketplace review if they're finding MikeDown useful. Skip the ask on unresolved or declined issues.
+- When replying to a GitHub issue after its fix/feature ships, write in first person as Mike (not as his AI assistant), thank the reporter, name the release it landed in, and close with a short, no-pressure ask for a VS Code Marketplace review if they're finding MikeDown useful. Skip the ask on unresolved or declined issues.
