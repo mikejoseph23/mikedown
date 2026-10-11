@@ -201,6 +201,7 @@ import { defaultKeymap, historyKeymap, history, undo as cmUndo, redo as cmRedo }
 import { markdown as cmMarkdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
+import { installWheelZoom, WHEEL_ZOOM_MIN, WHEEL_ZOOM_MAX } from './wheelZoom';
 
 const lowlight = createLowlight(all);
 
@@ -937,8 +938,8 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   const fontSizeRow = makeRow('Font Size', 'Size in pixels for the editor content.', 'inline');
   const fontSizeInput = document.createElement('input');
   fontSizeInput.type = 'range';
-  fontSizeInput.min = '12';
-  fontSizeInput.max = '28';
+  fontSizeInput.min = String(WHEEL_ZOOM_MIN);
+  fontSizeInput.max = String(WHEEL_ZOOM_MAX);
   fontSizeInput.value = String(currentFontSize);
   const fontSizeLabel = document.createElement('span');
   fontSizeLabel.className = 'settings-range-value';
@@ -1327,6 +1328,11 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     'Use MikeDown as default markdown editor',
     'When on, opening a .md file uses MikeDown instead of the plain text editor.',
     currentDefaultEditor,
+  );
+  const ctrlWheelZoomField = makeCheckboxRow(
+    'Ctrl + scroll changes font size',
+    'Hold Ctrl (Cmd on macOS) and scroll, or pinch on a trackpad, to resize editor text.',
+    currentCtrlWheelZoom,
   );
   const autoReloadField = makeCheckboxRow(
     'Auto-reload unmodified files',
@@ -1756,6 +1762,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
       type: 'saveSettings',
       settings: {
         fontSize: parseInt(fontSizeInput.value, 10),
+        ctrlWheelZoom: ctrlWheelZoomField.input.checked,
         fontFamily: selectedBody,
         headingFontFamily: selectedHeading,
         contentWidth: widthSelect.value,
@@ -1795,6 +1802,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
     currentImageResizeSettings = { ...irState };
     currentDefaultEditor = defaultEditorField.input.checked;
     currentAutoReloadUnmodifiedFiles = autoReloadField.input.checked;
+    currentCtrlWheelZoom = ctrlWheelZoomField.input.checked;
     currentRenderMermaidDiagrams = mermaidField.input.checked;
     currentRenderMath = mathField.input.checked;
     setMathRenderingEnabled(currentRenderMath);
@@ -1857,6 +1865,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   const appearancePanel = makePanel();
   appearancePanel.append(
     fontSizeRow,
+    ctrlWheelZoomField.row,
     fontThemeRow,
     widthRow,
     headingNumberingField.row,
@@ -2029,6 +2038,7 @@ let currentLinkClickBehavior: 'navigateCurrentTab' | 'openNewTab' | 'showContext
 let currentExtensionVersion = '';
 let currentDefaultEditor = false;
 let currentAutoReloadUnmodifiedFiles = true;
+let currentCtrlWheelZoom = true;
 let currentRenderMermaidDiagrams = true;
 let currentRenderMath = true;
 let currentTagsEnabled = true;
@@ -5087,6 +5097,15 @@ if (!editorContainer) {
   };
   editor.on('update', scheduleLiveTags);
 
+  // Ctrl/Cmd + wheel resizes editor text (issue #8). Persisted silently so
+  // every gesture doesn't pop a "settings saved" toast.
+  installWheelZoom(window, {
+    isEnabled: () => currentCtrlWheelZoom,
+    getSize: () => parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mikedown-font-size') || '17', 10),
+    setSize: (px) => document.documentElement.style.setProperty('--mikedown-font-size', `${px}px`),
+    persist: (px) => vscode.postMessage({ type: 'saveSettings', settings: { fontSize: px }, silent: true }),
+  });
+
   window.addEventListener('message', (event: MessageEvent) => {
     const message = event.data as {
       type: string;
@@ -5180,6 +5199,9 @@ if (!editorContainer) {
       }
       if (typeof msg.autoReloadUnmodifiedFiles === 'boolean') {
         currentAutoReloadUnmodifiedFiles = msg.autoReloadUnmodifiedFiles;
+      }
+      if (typeof msg.ctrlWheelZoom === 'boolean') {
+        currentCtrlWheelZoom = msg.ctrlWheelZoom;
       }
       if (typeof msg.wikilinkCreateOnClick === 'boolean') {
         currentWikilinkCreateOnClick = msg.wikilinkCreateOnClick;

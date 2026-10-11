@@ -200,6 +200,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     if (settings.fontSize) {
       updateSetting(config, 'fontSize', settings.fontSize);
     }
+    if (typeof settings.ctrlWheelZoom === 'boolean') {
+      updateSetting(config, 'ctrlWheelZoom', settings.ctrlWheelZoom);
+    }
     if (settings.fontFamily !== undefined) {
       updateSetting(config, 'fontFamily', settings.fontFamily);
     }
@@ -1363,6 +1366,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       type: 'settings',
       extensionVersion,
       defaultEditor: settings.defaultEditor,
+      ctrlWheelZoom: settings.ctrlWheelZoom,
       linkClickBehavior: settings.linkClickBehavior,
       themeToggleScope: settings.themeToggleScope,
       editorTheme: settings.editorTheme,

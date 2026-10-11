@@ -363,6 +363,11 @@
           "maximum": 36,
           "description": "Font size (in pixels) for the WYSIWYG editing area."
         },
+        "mikedown.ctrlWheelZoom": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hold Ctrl (Cmd on macOS) and scroll the mouse wheel, or pinch on a trackpad, to change the editor font size."
+        },
         "mikedown.linkClickBehavior": {
           "type": "string",
           "enum": [

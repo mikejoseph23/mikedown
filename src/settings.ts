@@ -5,6 +5,7 @@ export interface MikeDownSettings {
   defaultEditor: boolean;
   fontFamily: string;
   fontSize: number;
+  ctrlWheelZoom: boolean;
   linkClickBehavior: 'navigateCurrentTab' | 'openNewTab' | 'showContextMenu';
   themeToggleScope: 'vscode' | 'editorOnly';
   editorTheme: 'auto' | 'light' | 'dark';
@@ -98,6 +99,7 @@ export function getSettings(): MikeDownSettings {
     defaultEditor: config.get<boolean>('defaultEditor', false),
     fontFamily: config.get<string>('fontFamily', ''),
     fontSize: config.get<number>('fontSize', 16),
+    ctrlWheelZoom: config.get<boolean>('ctrlWheelZoom', true),
     linkClickBehavior: config.get<'navigateCurrentTab' | 'openNewTab' | 'showContextMenu'>('linkClickBehavior', 'openNewTab'),
     themeToggleScope: config.get<'vscode' | 'editorOnly'>('themeToggleScope', 'editorOnly'),
     editorTheme: config.get<'auto' | 'light' | 'dark'>('editorTheme', 'auto'),
