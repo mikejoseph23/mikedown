@@ -127,6 +127,28 @@ describe('resolveTargetFolder', () => {
     const absConfig = { ...baseConfig, folder: '/var/cache/mikedown', folderRelativeTo: 'document' as const };
     expect(resolveTargetFolder(absConfig, docPath, wsRoot)).toBe('/var/cache/mikedown');
   });
+
+  it('expands ${docName} into a per-document folder', () => {
+    const cfg = { ...baseConfig, folder: 'assets/${docName}' };
+    expect(resolveTargetFolder(cfg, docPath, wsRoot)).toBe('/Users/me/notes/assets/my-note');
+  });
+
+  it('expands ${docName} relative to the workspace root', () => {
+    const cfg = { ...baseConfig, folder: 'assets/${docName}', folderRelativeTo: 'workspace' as const };
+    expect(resolveTargetFolder(cfg, docPath, wsRoot)).toBe('/Users/me/assets/my-note');
+  });
+
+  it('sanitizes ${docName} and leaves other tokens untouched', () => {
+    const cfg = { ...baseConfig, folder: '${docName}/${date}' };
+    expect(resolveTargetFolder(cfg, '/Users/me/notes/My Note.md', wsRoot))
+      .toBe('/Users/me/notes/My-Note/${date}');
+  });
+
+  it('scopes isInsideManagedFolder to the per-document folder', () => {
+    const cfg = { ...baseConfig, folder: 'assets/${docName}' };
+    expect(isInsideManagedFolder('/Users/me/notes/assets/my-note/a.png', cfg, docPath, wsRoot)).toBe(true);
+    expect(isInsideManagedFolder('/Users/me/notes/assets/other/a.png', cfg, docPath, wsRoot)).toBe(false);
+  });
 });
 
 describe('resolveFilename', () => {

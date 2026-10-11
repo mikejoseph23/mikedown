@@ -99,13 +99,26 @@ export function resolveTargetFolder(
   documentPath: string,
   workspaceRoot: string | undefined
 ): string {
-  if (path.isAbsolute(config.folder)) {
-    return config.folder;
+  const folder = expandFolderPattern(config.folder, documentPath);
+  if (path.isAbsolute(folder)) {
+    return folder;
   }
   const base = config.folderRelativeTo === 'workspace' && workspaceRoot
     ? workspaceRoot
     : path.dirname(documentPath);
-  return path.resolve(base, config.folder);
+  return path.resolve(base, folder);
+}
+
+/**
+ * Expand `${docName}` in the configured folder so each document can get its
+ * own image folder (e.g. `assets/${docName}`). Only `${docName}` is supported:
+ * time-based tokens would scatter one document's images across folders and
+ * break orphan-cleanup scoping. Other tokens pass through untouched.
+ */
+export function expandFolderPattern(folder: string, documentPath: string): string {
+  const docName = path.basename(documentPath, path.extname(documentPath));
+  const safe = sanitizeForFilename(docName) || 'image';
+  return folder.replace(/\$\{docName\}/g, safe);
 }
 
 export interface FilenameResolution {

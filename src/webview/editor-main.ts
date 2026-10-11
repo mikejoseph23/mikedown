@@ -1144,7 +1144,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   ipGrid.appendChild(enabledField.row);
 
   // folder (text)
-  const folderField = makeFieldLabel('Folder', 'Where to save images, e.g. "images" or "assets/screens".', 'stacked');
+  const folderField = makeFieldLabel('Folder', 'Where to save images, e.g. "images" or "assets/${docName}" for a folder per document.', 'stacked');
   const folderInput = document.createElement('input');
   folderInput.type = 'text';
   folderInput.value = ipState.folder;

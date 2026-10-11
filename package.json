@@ -518,7 +518,7 @@
         "mikedown.imagePaste.folder": {
           "type": "string",
           "default": "images",
-          "description": "Folder name (or relative path) where pasted images are saved. Created if it does not exist."
+          "markdownDescription": "Folder name (or relative path) where pasted images are saved. Created if it does not exist. Supports `${docName}` for a folder per document, e.g. `assets/${docName}`."
         },
         "mikedown.imagePaste.folderRelativeTo": {
           "type": "string",
