@@ -10,6 +10,7 @@ import {
   setColumnAlign,
   getColumnAlign,
 } from '../../src/webview/table-align';
+import { MarkdownText, MarkdownHardBreak } from '../../src/webview/markdownText';
 
 let editor: Editor;
 
@@ -78,5 +79,49 @@ describe('Per-column table alignment', () => {
     editor = makeEditor(md);
     const out = editor.storage.markdown.getMarkdown().trim();
     expect(out).toBe(md);
+  });
+});
+
+describe('Line breaks in table cells (issue #9)', () => {
+  function makeMikeDownEditor(content: string) {
+    return new Editor({
+      extensions: [
+        StarterKit.configure({ text: false, hardBreak: false } as any),
+        MarkdownText,
+        MarkdownHardBreak,
+        Markdown.configure({ html: false, breaks: true }),
+        TableAligned.configure({ resizable: false }),
+        TableRow,
+        TableCellAligned,
+        TableHeaderAligned,
+      ],
+      content,
+      element: document.createElement('div'),
+    });
+  }
+
+  const table = (cell: string) => ['| A | B |', '| --- | --- |', `| ${cell} | x |`].join('\n');
+
+  it('parses <br> in a cell as a hard break even with html off', () => {
+    editor = makeMikeDownEditor(table('one<br>two'));
+    const types: string[] = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'hardBreak') types.push(node.type.name);
+    });
+    expect(types).toEqual(['hardBreak']);
+    expect(editor.storage.markdown.getMarkdown()).toContain('| one<br>two | x |');
+  });
+
+  it('keeps a pipe table when a cell is split into paragraphs', () => {
+    editor = makeMikeDownEditor(table('onetwo'));
+    let pos = -1;
+    editor.state.doc.descendants((node, p) => {
+      if (node.isText && node.text === 'onetwo') pos = p + 3;
+    });
+    editor.commands.setTextSelection(pos);
+    editor.commands.splitBlock();
+    const out = editor.storage.markdown.getMarkdown();
+    expect(out).not.toContain('<table');
+    expect(out).toContain('| one<br>two | x |');
   });
 });

@@ -13,7 +13,12 @@
 //   3. `TableAligned` overrides tiptap-markdown's table serializer so the
 //      delimiter row reflects each column's alignment, while preserving the
 //      library's HTML fallback for tables markdown can't represent (merged
-//      cells, header cells in the body, multi-block cells).
+//      cells, header cells in the body, non-paragraph blocks in cells).
+//   4. Line breaks in cells (issue #9). A pipe-table row is one line, so GFM
+//      writes cell breaks as `<br>`. Hard breaks already serialize that way;
+//      a cell split into several paragraphs (Enter) joins them with `<br>`
+//      too, and the parser turns `<br>` back into a hard break, even with
+//      markdown-it's `html` option off.
 // ============================================================================
 
 import { Editor, getHTMLFromFragment } from '@tiptap/core';
@@ -57,9 +62,15 @@ function hasSpan(node: PMNode): boolean {
   return node.attrs.colspan > 1 || node.attrs.rowspan > 1;
 }
 
+// A cell fits on one pipe-table line if it holds only paragraphs; extra
+// paragraphs are joined with `<br>` on output.
+function hasOnlyParagraphs(cell: PMNode): boolean {
+  return tableChildren(cell).every((child) => child.type.name === 'paragraph');
+}
+
 // Mirror of tiptap-markdown's internal `isMarkdownSerializable`: a GFM pipe
 // table requires a header-only first row, no header cells in the body, no
-// spans, and single-block cells. Anything else must fall back to raw HTML.
+// spans, and paragraph-only cells. Anything else must fall back to raw HTML.
 function isMarkdownSerializable(node: PMNode): boolean {
   const rows = tableChildren(node);
   const firstRow = rows[0];
@@ -67,7 +78,7 @@ function isMarkdownSerializable(node: PMNode): boolean {
   const bodyRows = rows.slice(1);
   if (
     tableChildren(firstRow).some(
-      (cell) => cell.type.name !== 'tableHeader' || hasSpan(cell) || cell.childCount > 1,
+      (cell) => cell.type.name !== 'tableHeader' || hasSpan(cell) || !hasOnlyParagraphs(cell),
     )
   ) {
     return false;
@@ -75,7 +86,7 @@ function isMarkdownSerializable(node: PMNode): boolean {
   if (
     bodyRows.some((row) =>
       tableChildren(row).some(
-        (cell) => cell.type.name === 'tableHeader' || hasSpan(cell) || cell.childCount > 1,
+        (cell) => cell.type.name === 'tableHeader' || hasSpan(cell) || !hasOnlyParagraphs(cell),
       ),
     )
   ) {
@@ -131,10 +142,10 @@ export const TableAligned = Table.extend({
             state.write('| ');
             row.forEach((col: PMNode, _p2: number, j: number) => {
               if (j) {state.write(' | ');}
-              const cellContent = col.firstChild;
-              if (cellContent && cellContent.textContent.trim()) {
-                state.renderInline(cellContent);
-              }
+              col.forEach((paragraph: PMNode, _p3: number, k: number) => {
+                if (k) {state.write('<br>');}
+                if (paragraph.textContent.trim()) {state.renderInline(paragraph);}
+              });
             });
             state.write(' |');
             state.ensureNewLine();
@@ -153,11 +164,45 @@ export const TableAligned = Table.extend({
         parse: {
           // Alignment arrives as inline `text-align` styles from markdown-it and
           // is captured by the cell `parseHTML` rules above.
+          setup(md: any) {
+            md.core.ruler.after('inline', 'mikedown_table_br', tableBreaksToHardBreaks);
+          },
         },
       },
     };
   },
 });
+
+// With `html: false`, markdown-it leaves `<br>` in a cell as literal text.
+// Split those text tokens so each `<br>` becomes a real hard break.
+const BR_PATTERN = /<br\s*\/?>/i;
+const BR_SPLIT = /<br\s*\/?>/gi;
+
+function tableBreaksToHardBreaks(state: any): void {
+  let inCell = false;
+  for (const token of state.tokens) {
+    if (token.type === 'td_open' || token.type === 'th_open') {inCell = true;}
+    else if (token.type === 'td_close' || token.type === 'th_close') {inCell = false;}
+    else if (inCell && token.type === 'inline' && token.children) {
+      const children: any[] = [];
+      for (const child of token.children) {
+        if (child.type !== 'text' || !BR_PATTERN.test(child.content)) {
+          children.push(child);
+          continue;
+        }
+        child.content.split(BR_SPLIT).forEach((part: string, i: number) => {
+          if (i) {children.push(new state.Token('hardbreak', 'br', 0));}
+          if (part) {
+            const text = new state.Token('text', '', 0);
+            text.content = part;
+            children.push(text);
+          }
+        });
+      }
+      token.children = children;
+    }
+  }
+}
 
 // ── Column alignment command ────────────────────────────────────────────────
 
