@@ -6,25 +6,24 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 
 ## Current Status
 
-**2.14.0 is released**: committed, tagged (`v2.14.0`), pushed, `.vsix` uploaded to the Marketplace by Mike (verification was pending at session end). Issues #7 and #8 have replies and are closed.
+**2.14.1 is tagged and pushed (`v2.14.1`); Mike still has to upload `mikedown-editor-2.14.1.vsix` to the Marketplace.** Issue #9 has a reply (already says "fixed in 2.14.1") and is closed.
 
-- Tests: 856 unit, lint 0 errors. Both features checked by hand in the dev host.
+- Tests: 858 unit, lint 0 errors. Fix verified by unit tests only, not by hand in the dev host.
 - Nothing unreleased on `main`.
 
-## What's Done (2.14.0)
+## What's Done
 
-- **#7 — per-document image folders:** `mikedown.imagePaste.folder` expands `${docName}` (only that token; time tokens would split one doc's images across folders and break orphan-cleanup scoping). `expandFolderPattern` in `src/imagePaste.ts`, used by `resolveTargetFolder` so writes and cleanup both follow it. No new setting.
-- **#8 — Ctrl/Cmd + wheel font size:** `src/webview/wheelZoom.ts` (trackpad pinch works too; deltas accumulate at 50 per 1px step; clamped 10–36; persisted silently 400ms after the gesture). New setting `mikedown.ctrlWheelZoom` (default `true`) wired in all three places; checkbox on the Appearance tab. Font-size slider widened from 12–28 to 10–36. Font size is global, so the zoom carries to other open tabs.
-- **Also shipped in 2.14.0** (previously unreleased): footnotes (`[^n]`), format hotkeys no-op in source mode, floating-promise cleanup.
-- **CLAUDE.md:** issue-reply convention: first person as Mike, name the release, one no-pressure Marketplace review ask per reporter.
+- **2.14.1 — #9, line breaks in table cells:** Enter in a cell made two paragraphs, so the whole table fell back to raw HTML on save, which reloads as literal text because `html: false`. Now `TableAligned` (`src/webview/table-align.ts`) joins paragraph-only cells with `<br>`, and a markdown-it core rule (`tableBreaksToHardBreaks`) turns `<br>` in cells into hard breaks. Files already converted to HTML are not repaired.
+- **2.14.0:** #7 `${docName}` image folders, #8 Ctrl/Cmd + wheel font size, footnotes, source-mode hotkey fix.
 
 ## What's Next
 
-1. **Confirm 2.14.0 is live:** `npx vsce show interapp.mikedown-editor`.
-2. **Footnotes styling** never got a deliberate visual pass in the dev host; give it a look.
-3. **Watch issues #7/#8** for follow-ups (reporter may want `${date}` in folders; it was deliberately left out).
-4. **Review re-checks:** 2026-10-26 and 2026-11-25 (record in `BACKLOG.md`).
-5. **Carry-overs:** heading-numbering follow-ups (cross-file links on renumber); `renderMath = false` disabling math entirely; backlog candidates (definition lists, `[[toc]]`, image captions); Kevin's remote retest; `planning/kevin-feedback-aug-08.md` M3/M9.
+1. **Confirm 2.14.1 is live** after Mike's upload: `npx vsce show interapp.mikedown-editor`.
+2. **Hand-check #9 in the dev host:** Enter and Shift+Enter in a table cell, save, reopen.
+3. **Possible follow-up:** HTML-fallback tables (merged cells, lists in cells) still reload as literal text with `html: false`. Decide whether to parse `<table>` blocks or keep tables pipe-only.
+4. **Footnotes styling** never got a deliberate visual pass in the dev host.
+5. **Review re-checks:** 2026-10-26 and 2026-11-25 (record in `BACKLOG.md`).
+6. **Carry-overs:** heading-numbering follow-ups (cross-file links on renumber); `renderMath = false` disabling math entirely; backlog candidates (definition lists, `[[toc]]`, image captions); Kevin's remote retest; `planning/kevin-feedback-aug-08.md` M3/M9.
 
 ## Planning Docs
 
@@ -35,24 +34,26 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 
 ## Key File Paths
 
-- `src/imagePaste.ts` — paste helpers; `expandFolderPattern`, `resolveTargetFolder`, `isInsideManagedFolder`
-- `src/webview/wheelZoom.ts` — Ctrl/Cmd + wheel zoom; installed in `editor-main.ts` just before the `message` listener
-- `src/markdownEditorProvider.ts` — `handleSaveSettings` (settings persistence; `silent: true` suppresses the toast), `sendSettingsToWebview`
-- `src/webview/editor-main.ts` — Settings modal (`showSettingsModal`), settings broadcast handler
-- `test/unit/imagePaste.test.ts`, `test/unit/wheelZoom.test.ts`
+- `src/webview/table-align.ts` — table serializer (alignment, `<br>` joins, HTML fallback) and `<br>` parse rule
+- `src/webview/markdownText.ts` — text/hardBreak serializers (hard break in a table writes `<br>`)
+- `src/markdownEditorProvider.ts` — host side; settings persistence, `postMessage` routing
+- `src/webview/editor-main.ts` — editor setup (`Markdown.configure`, `html: false`, `breaks: true`), Settings modal
+- `test/unit/table-align.test.ts` — includes the #9 regression tests
 
 ## Recent Git Log
 
+- `c8fc8c9` Release 2.14.1
+- `38ac3ad` Keep tables with line breaks in cells as markdown
+- `f260cc9` Update resume notes after the 2.14.0 release
 - `9cd2d76` Ask for a review only once per reporter
 - `9a8336e` Issue replies are written in first person
 - `c86fc3f` Release 2.14.0
-- `31fdda6` Note issue-reply convention: ask for a Marketplace review once shipped
-- `c7d71f4` Ctrl/Cmd + mouse wheel adjusts editor font size, with toggle setting (#8)
-- `f0dd1ee` Support ${docName} in image paste folder for per-document image folders (#7)
 
 ## Any Other Notes
 
 - **Launch the dev host with F5 or `npm run dev`** (no debugger). Cmd+R the dev window after every `npm run compile`.
+- Patch release: same recipe with `npm version patch` (no README change unless settings changed).
+- Review asks: check the memory note on reporters already asked (mzenker-PSS has been) before adding the Marketplace ask.
 - Minor release recipe: `npm version minor --no-git-tag-version && npm run package && npx vsce package`, rename CHANGELOG `[Unreleased]`, update README settings table, commit `Release X.Y.Z`, tag `vX.Y.Z`. (`npm run vsix` always patch-bumps.)
 - No Marketplace PAT is stored; Mike publishes by uploading the `.vsix` by hand.
 - Bare `vitest run` picks up integration files and fails — use `npm run test:unit` / `test:edge` / `test:integration`.
