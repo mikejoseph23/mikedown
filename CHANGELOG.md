@@ -4,6 +4,8 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [Unreleased]
 
+## [2.14.1] - 2026-10-17
+
 ### Fixed
 
 - Line breaks in table cells no longer turn the table into raw HTML on save. Pressing Enter in a cell now saves as `<br>`, and `<br>` in a cell shows as a line break instead of literal text. (#9)
