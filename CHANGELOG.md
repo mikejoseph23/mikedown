@@ -4,6 +4,10 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Math formulas now render properly in Print / Export as PDF, Export as HTML, and View in Browser. KaTeX's stylesheet and fonts are embedded in the exported page, so equation tags like `\tag{1}` line up too. (#10)
+
 ## [2.14.1] - 2026-10-17
 
 ### Fixed

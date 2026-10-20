@@ -14,6 +14,7 @@ export function buildFullHtml(
   title: string
 ): string {
   const body = fixInternalLinks(addHeadingIds(renderedHtml));
+  const mathCss = /class="katex/.test(body) ? katexStylesheet() : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,11 +41,48 @@ export function buildFullHtml(
     body { max-width: none; margin: 0; padding: 20px; }
   }
 </style>
-</head>
+${mathCss ? `<style>${mathCss}</style>\n` : ''}</head>
 <body>
 ${body}
 </body>
 </html>`;
+}
+
+let katexDistDir: string | undefined;
+let katexCssCache: string | undefined;
+
+/** Point the exporter at the extension's bundled KaTeX (called on activation). */
+export function setExportExtensionPath(extensionPath: string): void {
+  katexDistDir = path.join(extensionPath, 'node_modules', 'katex', 'dist');
+  katexCssCache = undefined;
+}
+
+/**
+ * KaTeX's stylesheet, self-contained for export. The live DOM the webview
+ * hands us already holds KaTeX's rendered markup, but without this sheet and
+ * its fonts the HTML and MathML halves both show and nothing lines up.
+ *
+ * Fonts are inlined as woff2 data URIs (the woff/ttf fallbacks are dropped)
+ * so an exported file still renders after it leaves this machine.
+ */
+export function katexStylesheet(): string {
+  if (katexCssCache !== undefined) {return katexCssCache;}
+  if (!katexDistDir) {return '';}
+  const dir = katexDistDir;
+  try {
+    const css = fs.readFileSync(path.join(dir, 'katex.min.css'), 'utf8');
+    katexCssCache = css.replace(/src:url\(fonts\/([^)]+\.woff2)\) format\("woff2"\)[^;}]*/g, (match: string, file: string) => {
+      try {
+        const data = fs.readFileSync(path.join(dir, 'fonts', file)).toString('base64');
+        return `src:url(data:font/woff2;base64,${data}) format("woff2")`;
+      } catch {
+        return match;
+      }
+    });
+  } catch {
+    katexCssCache = '';
+  }
+  return katexCssCache;
 }
 
 /**

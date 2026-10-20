@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { MarkdownEditorProvider } from './markdownEditorProvider';
 import { StatusBarManager } from './statusBar';
-import { exportViaPrint } from './export';
+import { exportViaPrint, setExportExtensionPath } from './export';
 import { disposeExportServer } from './exportServer';
 import { BacklinkProvider } from './backlinkProvider';
 import { TagProvider } from './tagProvider';
@@ -72,6 +72,7 @@ async function migrateOutlineSettings(context: vscode.ExtensionContext): Promise
 export function activate(context: vscode.ExtensionContext) {
   // Fire-and-forget — runs every activation but no-ops once migrated.
   migrateOutlineSettings(context).catch(() => {});
+  setExportExtensionPath(context.extensionPath);
 
   const provider = new MarkdownEditorProvider(context);
 

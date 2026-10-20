@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { addHeadingIds, fixInternalLinks, buildFullHtml, sanitizeExportFilename } from '../../src/export';
+import { addHeadingIds, fixInternalLinks, buildFullHtml, sanitizeExportFilename, setExportExtensionPath } from '../../src/export';
 
 describe('addHeadingIds', () => {
   it('matches GitHub slugs for numbered headings with punctuation', () => {
@@ -66,6 +66,15 @@ describe('buildFullHtml', () => {
     );
     expect(out).toContain('<h2 id="table-of-contents">Table of Contents</h2>');
     expect(out).toContain('<a href="#table-of-contents">top</a>');
+  });
+
+  it('inlines the KaTeX stylesheet and fonts only when the body has math', () => {
+    setExportExtensionPath(process.cwd());
+    const math = buildFullHtml('<p><span class="katex"><span class="katex-html">x</span></span></p>', 'doc');
+    expect(math).toContain('.katex-display');
+    expect(math).toContain('src:url(data:font/woff2;base64,');
+    expect(math).not.toMatch(/url\(fonts\//);
+    expect(buildFullHtml('<p>plain</p>', 'doc')).not.toContain('.katex');
   });
 });
 
