@@ -3107,8 +3107,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     focusPropertiesSection,
     pickImage: host.pickImage ? () => host.pickImage!() : undefined,
   });
-  // `/image` needs the host's file picker.
-  setSlashHiddenCommands(host.pickImage ? [] : ['image']);
+  // Hidden slash commands (`/image`, `/properties`) are set once, near the top
+  // of the factory, from the host's capabilities and the enabled features.
 
   // Entry point for the code-block context menu's "Set language…" (wired by
   // the code block overlay below).
