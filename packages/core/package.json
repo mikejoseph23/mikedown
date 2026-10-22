@@ -1,16 +1,17 @@
 {
   "name": "@mikedown/core",
-  "version": "0.0.0",
-  "description": "MikeDown WYSIWYG markdown editor core (TipTap + CodeMirror). Private until M4.",
-  "private": true,
+  "version": "0.1.0-rc.1",
+  "description": "MikeDown WYSIWYG markdown editor core (TipTap + CodeMirror), framework-agnostic.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
+    "build": "tsup && node scripts/build-css.mjs && node scripts/build-dictionaries.mjs",
     "build:css": "node scripts/build-css.mjs",
-    "demo": "node scripts/build-css.mjs && vite . --port 5199 --open /demo/"
+    "demo": "npm run build && vite . --port 5199 --open /demo/",
+    "prepack": "npm run build"
   },
   "exports": {
     ".": {
@@ -19,14 +20,15 @@
     },
     "./styles.css": "./dist/styles.css",
     "./tokens.css": "./dist/tokens.css",
-    "./shared/*": "./src/shared/*.ts",
     "./package.json": "./package.json"
   },
   "sideEffects": [
     "*.css"
   ],
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE.md"
   ],
   "peerDependencies": {
     "@codemirror/commands": "^6.8.0",
@@ -51,9 +53,9 @@
     "@tiptap/extension-text": "^3.20.0",
     "@tiptap/pm": "^3.20.0",
     "@tiptap/starter-kit": "^3.20.0",
+    "katex": "^0.16.47",
     "lowlight": "^3.3.0",
-    "mermaid": "^11.15.0",
-    "katex": "^0.16.47"
+    "mermaid": "^11.15.0"
   },
   "peerDependenciesMeta": {
     "mermaid": {
@@ -97,6 +99,15 @@
     "dictionary-en-gb": "^3.0.0",
     "katex": "^0.16.47",
     "lowlight": "^3.3.0",
-    "mermaid": "^11.15.0"
+    "mermaid": "^11.15.0",
+    "tsup": "^9.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mikejoseph23/mikedown.git",
+    "directory": "packages/core"
   }
 }

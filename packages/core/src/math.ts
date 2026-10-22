@@ -3,7 +3,6 @@ import type { Editor } from '@tiptap/core';
 import type { Node as PmNode } from '@tiptap/pm/model';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import type { EditorView, NodeView } from '@tiptap/pm/view';
-import katex from 'katex';
 
 // KaTeX math: inline `$...$` and display `$$...$$`, the syntax GitHub renders.
 //
@@ -30,6 +29,25 @@ import { matchInlineMath, serializeMathBlock } from './mathSyntax';
 // ── Rendering ─────────────────────────────────────────────────────────────
 
 let renderEnabled = true;
+
+// katex is an optional peer dependency, loaded on first formula. Until it
+// arrives a formula shows its raw source, then every live view re-renders.
+// The type is local so the published .d.ts never references katex's types.
+interface KatexApi {
+  render(latex: string, el: HTMLElement, options: Record<string, unknown>): void;
+}
+let katexApi: KatexApi | null = null;
+let katexLoading = false;
+function loadKatex(): void {
+  if (katexApi || katexLoading) {return;}
+  katexLoading = true;
+  import('katex')
+    .then((m) => {
+      katexApi = (m.default ?? m) as unknown as KatexApi;
+      for (const v of liveViews) {v.render();}
+    })
+    .catch(() => { katexLoading = false; });
+}
 const liveViews = new Set<MathNodeView>();
 
 export function isMathRenderingEnabled(): boolean {
@@ -55,8 +73,14 @@ function renderInto(el: HTMLElement, latex: string, displayMode: boolean): void 
     el.textContent = displayMode ? serializeMathBlock(latex) : `$${latex}$`;
     return;
   }
+  if (!katexApi) {
+    loadKatex();
+    el.classList.add('is-raw');
+    el.textContent = displayMode ? serializeMathBlock(latex) : `$${latex}$`;
+    return;
+  }
   try {
-    katex.render(latex, el, { displayMode, throwOnError: true, trust: false, output: 'htmlAndMathml' });
+    katexApi.render(latex, el, { displayMode, throwOnError: true, trust: false, output: 'htmlAndMathml' });
   } catch (err) {
     el.classList.add('has-error');
     el.textContent = displayMode ? latex : `$${latex}$`;

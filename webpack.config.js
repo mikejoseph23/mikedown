@@ -61,6 +61,9 @@ const webviewConfig = {
     // so the factory receives `undefined` for all its dependency parameters.
     mainFields: ['module', 'browser', 'main'],
     alias: {
+      // The extension always builds @mikedown/core from source, never from
+      // packages/core/dist or a published version, so edits hot-rebuild.
+      '@mikedown/core': path.resolve(__dirname, 'packages', 'core', 'src'),
       '@tiptap/core': path.resolve(__dirname, 'node_modules', '@tiptap', 'core'),
       '@tiptap/pm': path.resolve(__dirname, 'node_modules', '@tiptap', 'pm'),
       // Force the ES module build of tiptap-markdown (the UMD build breaks

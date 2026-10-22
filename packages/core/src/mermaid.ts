@@ -4,7 +4,6 @@ import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { EditorView } from '@tiptap/pm/view';
 import type { Node as PmNode } from '@tiptap/pm/model';
-import mermaid from 'mermaid';
 import { isDarkScheme } from './theme';
 
 // Renders ```mermaid fenced code blocks as live diagrams in the WYSIWYG view.
@@ -32,6 +31,22 @@ export const mermaidPluginKey = new PluginKey('mikedownMermaid');
 let enabled = true;
 let idCounter = 0;
 let initializedTheme: 'dark' | 'default' | null = null;
+
+// mermaid is an optional peer dependency, loaded on first diagram so a host
+// that never shows one does not pay for it in its initial bundle. The type is
+// kept local so the published .d.ts never references mermaid's types.
+interface MermaidApi {
+  initialize(config: Record<string, unknown>): void;
+  render(id: string, code: string): Promise<{ svg: string }>;
+}
+let mermaidPromise: Promise<MermaidApi> | null = null;
+function loadMermaid(): Promise<MermaidApi> {
+  if (!mermaidPromise) {
+    mermaidPromise = import('mermaid').then((m) => m.default as unknown as MermaidApi);
+    mermaidPromise.catch(() => { mermaidPromise = null; });
+  }
+  return mermaidPromise;
+}
 
 // Cache rendered output by diagram source so re-mounting a widget (e.g. when a
 // block above shifts position) is instant and doesn't re-run mermaid.
@@ -64,7 +79,7 @@ function forceRebuild(editor: Editor): void {
   editor.view.dispatch(editor.state.tr.setMeta(mermaidPluginKey, { force: true }));
 }
 
-function ensureInit(themeSource: Element): void {
+function ensureInit(mermaid: MermaidApi, themeSource: Element): void {
   const theme = isDarkScheme(themeSource) ? 'dark' : 'default';
   if (initializedTheme === theme) {return;}
   mermaid.initialize({
@@ -105,13 +120,15 @@ function fillPreview(container: HTMLElement, code: string, themeSource: Element)
   container.classList.add('is-loading');
   container.textContent = 'Rendering diagram…';
   const id = 'mikedown-mermaid-' + idCounter++;
-  try {
-    ensureInit(themeSource);
-  } catch {
-    // initialize failures fall through to render() which will reject
-  }
-  mermaid
-    .render(id, code)
+  loadMermaid()
+    .then((mermaid) => {
+      try {
+        ensureInit(mermaid, themeSource);
+      } catch {
+        // initialize failures fall through to render() which will reject
+      }
+      return mermaid.render(id, code);
+    })
     .then(({ svg }) => {
       svgCache.set(code, svg);
       container.classList.remove('is-loading');
