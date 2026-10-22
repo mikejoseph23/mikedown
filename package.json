@@ -669,6 +669,7 @@
     "test:unit:watch": "vitest test/unit packages/core/test",
     "test:integration": "vscode-test",
     "test:edge": "vitest run test/edge-cases test/performance --reporter=verbose",
+    "test:core-package": "npm run build -w packages/core && vitest run packages/core/test/package-shape.test.ts --reporter=verbose",
     "pretest": "npm run compile"
   },
   "devDependencies": {
