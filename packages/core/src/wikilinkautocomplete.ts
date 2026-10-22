@@ -20,6 +20,7 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { isSlashMenuOpen } from './slashcommands';
+import { getPortal } from './portal';
 
 const MAX_RESULTS = 8;
 
@@ -101,7 +102,7 @@ function ensurePopup(): HTMLElement {
     popupEl = document.createElement('div');
     popupEl.id = 'mikedown-wikilink-ac';
     popupEl.setAttribute('role', 'listbox');
-    document.body.appendChild(popupEl);
+    getPortal().appendChild(popupEl);
   }
   return popupEl;
 }

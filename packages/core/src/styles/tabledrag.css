@@ -1,6 +1,6 @@
 /* Table Drag Handles */
 
-.td-handle {
+:is(.mikedown-root, .mikedown-portal) .td-handle {
   position: fixed;
   z-index: 900;
   display: flex;
@@ -9,85 +9,85 @@
   width: 16px;
   height: 16px;
   font-size: 10px;
-  color: var(--vscode-editor-foreground);
+  color: var(--mikedown-text);
   opacity: 0;
   cursor: grab;
   border-radius: 3px;
   user-select: none;
-  background: var(--vscode-editorWidget-background, transparent);
+  background: var(--mikedown-surface-raised, transparent);
   transition: opacity 0.15s ease, background 0.1s ease;
   pointer-events: none;
 }
 
 /* Handles are on document.body, not siblings of the table, so we use a
    class toggled by JS instead of a sibling combinator. */
-.td-handles-visible .td-handle {
+:is(.mikedown-root, .mikedown-portal) .td-handles-visible .td-handle {
   opacity: 0.5;
   pointer-events: auto;
 }
 
-.td-handles-visible .td-handle:hover {
+:is(.mikedown-root, .mikedown-portal) .td-handles-visible .td-handle:hover {
   opacity: 1;
-  background: var(--vscode-toolbar-hoverBackground, rgba(90,93,94,0.31));
+  background: var(--mikedown-hover, rgba(90,93,94,0.31));
 }
 
-.td-handle:active {
+:is(.mikedown-root, .mikedown-portal) .td-handle:active {
   cursor: grabbing;
 }
 
-body.td-dragging * {
+body.td-dragging :is(.mikedown-root, .mikedown-portal) * {
   cursor: grabbing !important;
   user-select: none !important;
 }
 
-.td-drag-overlay {
+:is(.mikedown-root, .mikedown-portal) .td-drag-overlay {
   position: fixed;
   inset: 0;
   z-index: 899;
   cursor: grabbing;
 }
 
-.td-drop-line {
+:is(.mikedown-root, .mikedown-portal) .td-drop-line {
   position: fixed;
   z-index: 901;
   pointer-events: none;
   display: none;
-  background: var(--vscode-focusBorder, #007fd4);
+  background: var(--mikedown-focus-ring, #007fd4);
   border-radius: 1px;
 }
 
-.td-drop-line-row {
+:is(.mikedown-root, .mikedown-portal) .td-drop-line-row {
   height: 2px;
 }
 
-.td-drop-line-col {
+:is(.mikedown-root, .mikedown-portal) .td-drop-line-col {
   width: 2px;
 }
 
 /* Multi-Cell Selection */
 
-.ProseMirror td.mikedown-cell-selected,
-.ProseMirror th.mikedown-cell-selected {
-  background: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 15%, transparent) !important;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror td.mikedown-cell-selected,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror th.mikedown-cell-selected {
+  background: color-mix(in srgb, var(--mikedown-focus-ring, #007fd4) 15%, transparent) !important;
   position: relative;
 }
 
-.ProseMirror td.mikedown-cell-border-top,
-.ProseMirror th.mikedown-cell-border-top {
-  border-top: 2px solid var(--vscode-focusBorder, #007fd4) !important;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror td.mikedown-cell-border-top,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror th.mikedown-cell-border-top {
+  border-top: 2px solid var(--mikedown-focus-ring, #007fd4) !important;
 }
 
-.ProseMirror td.mikedown-cell-border-bottom,
-.ProseMirror th.mikedown-cell-border-bottom {
-  border-bottom: 2px solid var(--vscode-focusBorder, #007fd4) !important;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror td.mikedown-cell-border-bottom,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror th.mikedown-cell-border-bottom {
+  border-bottom: 2px solid var(--mikedown-focus-ring, #007fd4) !important;
 }
 
-.ProseMirror td.mikedown-cell-border-left,
-.ProseMirror th.mikedown-cell-border-left {
-  border-left: 2px solid var(--vscode-focusBorder, #007fd4) !important;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror td.mikedown-cell-border-left,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror th.mikedown-cell-border-left {
+  border-left: 2px solid var(--mikedown-focus-ring, #007fd4) !important;
 }
 
-.ProseMirror td.mikedown-cell-border-right,
-.ProseMirror th.mikedown-cell-border-right {
-  border-right: 2px solid var(--vscode-focusBorder, #007fd4) !important;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror td.mikedown-cell-border-right,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror th.mikedown-cell-border-right {
+  border-right: 2px solid var(--mikedown-focus-ring, #007fd4) !important;
 }

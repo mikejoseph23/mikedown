@@ -157,6 +157,8 @@ if (!editorRoot) {
 const handle = createMikeDownEditor(editorRoot, {
   host,
   features: { sidebar: true, supportCard: true },
+  // 'auto' follows the VS Code theme; the editorTheme setting overrides it.
+  theme: 'auto',
   // The extension stamps the dictionaries URL on <body> (the CSP allows no
   // inline script to pass it any other way).
   spellcheckDictionaryUrl: document.body.dataset.dictionaryBase ?? '',
@@ -169,6 +171,18 @@ const handle = createMikeDownEditor(editorRoot, {
     applyCorePolicy: (patch) => handle.updateSettings(patch),
   }),
 });
+
+// vscode-theme.css keys VS Code's forced light / dark palettes (and the
+// support card's) off <body>, so mirror the editor root's theme attribute there.
+const mikedownRoot = editorRoot.querySelector<HTMLElement>('.mikedown-root');
+if (mikedownRoot) {
+  const mirrorTheme = (): void => {
+    const theme = mikedownRoot.getAttribute('data-mikedown-theme');
+    if (theme) {document.body.setAttribute('data-mikedown-theme', theme);}
+  };
+  mirrorTheme();
+  new MutationObserver(mirrorTheme).observe(mikedownRoot, { attributes: true, attributeFilter: ['data-mikedown-theme'] });
+}
 
 // Test-only hook: gives the webview test harness (test/harness/webviewHarness.ts)
 // direct access to the live TipTap editor/PM view so it can drive real

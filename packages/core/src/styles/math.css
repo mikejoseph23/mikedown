@@ -1,75 +1,75 @@
 /* KaTeX math: inline `$…$` and display `$$…$$` (see math.ts). */
 
-.ProseMirror .mikedown-math-inline {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-inline {
   cursor: pointer;
   border-radius: 3px;
   padding: 0 1px;
 }
 
-.ProseMirror .mikedown-math-block {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-block {
   margin: 0.75em 0;
   padding: 0.5em 1em;
-  border-radius: 6px;
+  border-radius: var(--mikedown-radius, 6px);
   cursor: pointer;
   overflow-x: auto;
   text-align: center;
 }
 
-.ProseMirror .mikedown-math-inline:hover,
-.ProseMirror .mikedown-math-block:hover {
-  background: var(--vscode-textCodeBlock-background);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-inline:hover,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-block:hover {
+  background: var(--mikedown-code-bg);
 }
 
-.ProseMirror .mikedown-math-inline.is-selected,
-.ProseMirror .mikedown-math-block.is-selected {
-  outline: 1px solid var(--vscode-focusBorder);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-inline.is-selected,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-block.is-selected {
+  outline: 1px solid var(--mikedown-focus-ring);
 }
 
 /* Raw source (rendering off), empty, and error states. */
-.ProseMirror .mikedown-math-rendered.is-raw,
-.ProseMirror .mikedown-math-rendered.has-error {
-  font-family: var(--vscode-editor-font-family, monospace);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-rendered.is-raw,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-rendered.has-error {
+  font-family: var(--mikedown-font-mono, monospace);
   font-size: 0.9em;
   white-space: pre-wrap;
 }
-.ProseMirror .mikedown-math-block .mikedown-math-rendered.is-raw,
-.ProseMirror .mikedown-math-block .mikedown-math-rendered.has-error {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-block .mikedown-math-rendered.is-raw,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-block .mikedown-math-rendered.has-error {
   text-align: left;
 }
-.ProseMirror .mikedown-math-rendered.has-error {
-  color: var(--vscode-errorForeground, #f48771);
-  text-decoration: underline wavy var(--vscode-errorForeground, #f48771);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-rendered.has-error {
+  color: var(--mikedown-danger, #f48771);
+  text-decoration: underline wavy var(--mikedown-danger, #f48771);
 }
-.ProseMirror .mikedown-math-rendered.is-empty {
-  color: var(--vscode-descriptionForeground);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-rendered.is-empty {
+  color: var(--mikedown-text-muted);
   font-style: italic;
   font-size: 0.875em;
 }
 
 /* Editing: an input (inline) or textarea + live preview (block). */
-.ProseMirror .mikedown-math-block.is-editing {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-block.is-editing {
   text-align: left;
-  background: var(--vscode-textCodeBlock-background);
+  background: var(--mikedown-code-bg);
   cursor: default;
 }
-.ProseMirror .mikedown-math-input {
-  font-family: var(--vscode-editor-font-family, monospace);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-input {
+  font-family: var(--mikedown-font-mono, monospace);
   font-size: 0.9em;
-  color: var(--vscode-input-foreground);
-  background: var(--vscode-input-background);
-  border: 1px solid var(--vscode-focusBorder);
+  color: var(--mikedown-text-ui);
+  background: var(--mikedown-input-bg);
+  border: 1px solid var(--mikedown-focus-ring);
   border-radius: 3px;
   padding: 1px 4px;
   outline: none;
 }
-.ProseMirror .mikedown-math-block .mikedown-math-input {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-block .mikedown-math-input {
   display: block;
   width: 100%;
   box-sizing: border-box;
   resize: vertical;
   padding: 6px 8px;
 }
-.ProseMirror .mikedown-math-preview {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-math-preview {
   margin-top: 0.5em;
   text-align: center;
   min-height: 1.5em;

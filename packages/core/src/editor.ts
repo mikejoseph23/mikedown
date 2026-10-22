@@ -115,7 +115,7 @@ import type {
 import { DEFAULT_FEATURES } from './types';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
-import { Compartment, EditorState, Transaction as CmTransaction } from '@codemirror/state';
+import { Compartment, EditorState, Transaction as CmTransaction, type Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, historyKeymap, history, undo as cmUndo, redo as cmRedo } from '@codemirror/commands';
 import { markdown as cmMarkdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -189,6 +189,9 @@ export function buildEditorShell(container: HTMLElement, features: MikeDownFeatu
 
   return { root, toolbar, sidebar, sidebarToggle, editorContainer, sourceContainer };
 }
+
+import { getPortal, setPortalSource, releasePortalSource, syncPortal } from './portal';
+import { isDarkScheme } from './theme';
 
 const lowlight = createLowlight(all);
 // Reinitialize the PM state with the current doc and plugins so the undo
@@ -374,6 +377,21 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     mo.observe(target, init);
     disposers.push(() => mo.disconnect());
   }
+
+  // ── Per-instance CSS state ─────────────────────────────────────────────────
+  // Theme, fonts and widths are set on this editor's .mikedown-root (never on
+  // <html>/<body>) so two editors on a page stay independent. Overlays in the
+  // shared portal mirror the focused editor's values.
+  function setRootVar(name: string, value: string): void {
+    root.style.setProperty(name, value);
+    syncPortal();
+  }
+  // Light until options.theme / settings.editorTheme say otherwise.
+  root.setAttribute('data-mikedown-theme', 'light');
+  setPortalSource(root);
+  listen(root, 'focusin', () => setPortalSource(root));
+  listen(root, 'pointerdown', () => setPortalSource(root));
+  disposers.push(() => releasePortalSource(root));
 
   // ── Events ─────────────────────────────────────────────────────────────────
   const eventListeners = new Map<MikeDownEvent, Set<(...args: any[]) => void>>();
@@ -678,8 +696,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     dialog.setAttribute('aria-modal', 'true');
     dialog.setAttribute('aria-label', 'Insert Link');
     dialog.style.cssText = [
-      'background:var(--vscode-editorWidget-background,var(--vscode-editor-background,#252526))',
-      'border:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.35))',
+      'background:var(--mikedown-surface-raised,var(--mikedown-surface,#252526))',
+      'border:1px solid var(--mikedown-border,rgba(128,128,128,0.35))',
       'border-radius:8px',
       'padding:16px 20px',
       'min-width:420px',
@@ -691,12 +709,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     const title = document.createElement('div');
     title.textContent = 'Insert Link';
-    title.style.cssText = 'font-weight:600;font-size:14px;color:var(--vscode-editor-foreground,#d4d4d4)';
+    title.style.cssText = 'font-weight:600;font-size:14px;color:var(--mikedown-text,#d4d4d4)';
 
     const fieldWrapper = document.createElement('div');
     const fieldLabel = document.createElement('label');
     fieldLabel.textContent = 'URL';
-    fieldLabel.style.cssText = 'display:block;font-size:12px;font-weight:500;margin-bottom:4px;color:var(--vscode-descriptionForeground)';
+    fieldLabel.style.cssText = 'display:block;font-size:12px;font-weight:500;margin-bottom:4px;color:var(--mikedown-text-muted)';
 
     const urlInput = document.createElement('input');
     urlInput.type = 'text';
@@ -705,9 +723,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     urlInput.style.cssText = [
       'width:100%',
       'padding:5px 8px',
-      'background:var(--vscode-input-background,#3c3c3c)',
-      'color:var(--vscode-input-foreground,#d4d4d4)',
-      'border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35))',
+      'background:var(--mikedown-input-bg,#3c3c3c)',
+      'color:var(--mikedown-text-ui,#d4d4d4)',
+      'border:1px solid var(--mikedown-input-border,rgba(128,128,128,0.35))',
       'border-radius:4px',
       'font-size:13px',
       'outline:none',
@@ -725,8 +743,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     cancelBtn.style.cssText = [
       'padding:5px 14px',
       'background:transparent',
-      'color:var(--vscode-button-secondaryForeground,#d4d4d4)',
-      'border:1px solid var(--vscode-button-secondaryBackground,rgba(128,128,128,0.35))',
+      'color:var(--mikedown-button-text,#d4d4d4)',
+      'border:1px solid var(--mikedown-button-bg,rgba(128,128,128,0.35))',
       'border-radius:4px',
       'cursor:pointer',
       'font-size:13px'
@@ -736,8 +754,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     confirmBtn.textContent = existing ? 'Update' : 'Insert';
     confirmBtn.style.cssText = [
       'padding:5px 14px',
-      'background:var(--vscode-button-background,#0e639c)',
-      'color:var(--vscode-button-foreground,#ffffff)',
+      'background:var(--mikedown-accent,#0e639c)',
+      'color:var(--mikedown-accent-text,#ffffff)',
       'border:none',
       'border-radius:4px',
       'cursor:pointer',
@@ -751,7 +769,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     dialog.appendChild(fieldWrapper);
     dialog.appendChild(btnRow);
     overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
+    getPortal().appendChild(overlay);
 
     // Wire autocomplete with links already in the document
     const existingDocLinks = collectDocLinks(editorContainer);
@@ -812,8 +830,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     dialog.setAttribute('aria-modal', 'true');
     dialog.setAttribute('aria-label', 'Insert Image');
     dialog.style.cssText = [
-      'background:var(--vscode-editorWidget-background,var(--vscode-editor-background,#252526))',
-      'border:1px solid var(--vscode-editorWidget-border,rgba(128,128,128,0.35))',
+      'background:var(--mikedown-surface-raised,var(--mikedown-surface,#252526))',
+      'border:1px solid var(--mikedown-border,rgba(128,128,128,0.35))',
       'border-radius:8px',
       'padding:16px 20px',
       'min-width:360px',
@@ -825,13 +843,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     const title = document.createElement('div');
     title.textContent = 'Insert Image';
-    title.style.cssText = 'font-weight:600;font-size:14px;color:var(--vscode-editor-foreground,#d4d4d4)';
+    title.style.cssText = 'font-weight:600;font-size:14px;color:var(--mikedown-text,#d4d4d4)';
 
     const makeField = (label: string, placeholder: string, value: string): { wrapper: HTMLElement; input: HTMLInputElement } => {
       const wrapper = document.createElement('div');
       const lbl = document.createElement('label');
       lbl.textContent = label;
-      lbl.style.cssText = 'display:block;font-size:12px;font-weight:500;margin-bottom:4px;color:var(--vscode-descriptionForeground)';
+      lbl.style.cssText = 'display:block;font-size:12px;font-weight:500;margin-bottom:4px;color:var(--mikedown-text-muted)';
       const input = document.createElement('input');
       input.type = 'text';
       input.placeholder = placeholder;
@@ -839,9 +857,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       input.style.cssText = [
         'width:100%',
         'padding:5px 8px',
-        'background:var(--vscode-input-background,#3c3c3c)',
-        'color:var(--vscode-input-foreground,#d4d4d4)',
-        'border:1px solid var(--vscode-input-border,rgba(128,128,128,0.35))',
+        'background:var(--mikedown-input-bg,#3c3c3c)',
+        'color:var(--mikedown-text-ui,#d4d4d4)',
+        'border:1px solid var(--mikedown-input-border,rgba(128,128,128,0.35))',
         'border-radius:4px',
         'font-size:13px',
         'outline:none',
@@ -863,8 +881,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     cancelBtn.style.cssText = [
       'padding:5px 14px',
       'background:transparent',
-      'color:var(--vscode-button-secondaryForeground,#d4d4d4)',
-      'border:1px solid var(--vscode-button-secondaryBackground,rgba(128,128,128,0.35))',
+      'color:var(--mikedown-button-text,#d4d4d4)',
+      'border:1px solid var(--mikedown-button-bg,rgba(128,128,128,0.35))',
       'border-radius:4px',
       'cursor:pointer',
       'font-size:13px'
@@ -874,8 +892,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     confirmBtn.textContent = 'Insert';
     confirmBtn.style.cssText = [
       'padding:5px 14px',
-      'background:var(--vscode-button-background,#0e639c)',
-      'color:var(--vscode-button-foreground,#ffffff)',
+      'background:var(--mikedown-accent,#0e639c)',
+      'color:var(--mikedown-accent-text,#ffffff)',
       'border:none',
       'border-radius:4px',
       'cursor:pointer',
@@ -890,7 +908,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     dialog.appendChild(altField.wrapper);
     dialog.appendChild(btnRow);
     overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
+    getPortal().appendChild(overlay);
 
     setTimeout(() => srcField.input.focus(), 0);
 
@@ -1008,7 +1026,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     modal.className = 'settings-modal';
 
     // Read current values from CSS custom properties
-    const computed = getComputedStyle(document.documentElement);
+    const computed = getComputedStyle(root);
     const currentFontSize = parseInt(computed.getPropertyValue('--mikedown-font-size') || '17', 10);
     const currentFontFamily = computed.getPropertyValue('--mikedown-font-family').trim();
     const currentMaxWidth = computed.getPropertyValue('--mikedown-content-width').trim() || '100%';
@@ -1071,7 +1089,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     fontSizeRow.appendChild(fontSizeControl);
     fontSizeInput.addEventListener('input', () => {
       fontSizeLabel.textContent = `${fontSizeInput.value}px`;
-      document.documentElement.style.setProperty('--mikedown-font-size', `${fontSizeInput.value}px`);
+      setRootVar('--mikedown-font-size', `${fontSizeInput.value}px`);
     });
 
     // ── Font Theme
@@ -1126,8 +1144,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     themeRevertBtn.addEventListener('click', () => {
       selectedBody = originalBody;
       selectedHeading = originalHeading;
-      document.documentElement.style.setProperty('--mikedown-font-family', originalBody);
-      document.documentElement.style.setProperty('--mikedown-heading-font-family', originalHeading);
+      setRootVar('--mikedown-font-family', originalBody);
+      setRootVar('--mikedown-heading-font-family', originalHeading);
       themeRevertBtn.style.display = 'none';
       updateThemeItems();
     });
@@ -1189,8 +1207,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       item.addEventListener('click', () => {
         selectedBody = theme.body;
         selectedHeading = theme.heading;
-        document.documentElement.style.setProperty('--mikedown-font-family', theme.body);
-        document.documentElement.style.setProperty('--mikedown-heading-font-family', theme.heading);
+        setRootVar('--mikedown-font-family', theme.body);
+        setRootVar('--mikedown-heading-font-family', theme.heading);
         themeRevertBtn.style.display = (selectedBody !== originalBody || selectedHeading !== originalHeading) ? '' : 'none';
         updateThemeItems();
       });
@@ -1212,8 +1230,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         const { el, theme } = themeItems[themeFocusIdx];
         selectedBody = theme.body;
         selectedHeading = theme.heading;
-        document.documentElement.style.setProperty('--mikedown-font-family', theme.body);
-        document.documentElement.style.setProperty('--mikedown-heading-font-family', theme.heading);
+        setRootVar('--mikedown-font-family', theme.body);
+        setRootVar('--mikedown-heading-font-family', theme.heading);
         themeRevertBtn.style.display = (selectedBody !== originalBody || selectedHeading !== originalHeading) ? '' : 'none';
         updateThemeItems();
         el.scrollIntoView({ block: 'nearest' });
@@ -1268,7 +1286,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     });
     widthRow.appendChild(widthSelect);
     widthSelect.addEventListener('change', () => {
-      document.documentElement.style.setProperty('--mikedown-content-width', widthSelect.value);
+      setRootVar('--mikedown-content-width', widthSelect.value);
     });
 
     // ── Helper to build a labeled <select> populated from a list of options.
@@ -1902,7 +1920,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     modal.appendChild(body);
     modal.appendChild(footer);
     overlay.appendChild(modal);
-    document.body.appendChild(overlay);
+    getPortal().appendChild(overlay);
 
     // Close on backdrop click or Escape
     overlay.addEventListener('click', (e) => { if (e.target === overlay) {overlay.remove();} });
@@ -1974,12 +1992,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   let docDirFsPath = '';
 
   function isDarkTheme(): boolean {
-    if (document.body.classList.contains('mikedown-force-light')) {return false;}
-    if (document.body.classList.contains('mikedown-force-dark')) {return true;}
-    const kind = document.body.dataset.vscodeThemeKind;
-    if (kind !== undefined) {return !kind.includes('light');}
-    // Outside VS Code, 'auto' follows the OS preference.
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
+    return isDarkScheme(root);
   }
 
   function toggleTheme(): void {
@@ -1994,13 +2007,17 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     host.saveSettings?.({ editorTheme: next }, { silent: true });
   }
 
-  /** Apply the editorTheme setting ('auto' | 'light' | 'dark') to the body. */
+  /**
+   * Apply the editorTheme setting ('auto' | 'light' | 'dark') as
+   * data-mikedown-theme on the root. 'auto' follows the host: the OS
+   * preference by default, the VS Code theme in the VS Code shell.
+   */
   function applyEditorTheme(editorTheme: string): void {
-    document.body.classList.remove('mikedown-force-light', 'mikedown-force-dark');
-    if (editorTheme === 'light') {document.body.classList.add('mikedown-force-light');}
-    else if (editorTheme === 'dark') {document.body.classList.add('mikedown-force-dark');}
-    // 'auto' → no class override, follow the host (VS Code) theme
+    const theme = editorTheme === 'light' || editorTheme === 'dark' ? editorTheme : 'auto';
+    root.setAttribute('data-mikedown-theme', theme);
+    syncPortal();
     updateThemeToggleIcon();
+    refreshCmScheme();
   }
 
   function updateThemeToggleIcon(): void {
@@ -2014,10 +2031,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     btn.title = dark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
   }
 
-  // Watch for VS Code theme changes (body attribute updates)
+  // Host theme changes ('auto'): hosts such as VS Code swap a theme class on
+  // <body>. OS color-scheme flips are handled with the Mermaid refresh below.
   observe(new MutationObserver(updateThemeToggleIcon), document.body, {
     attributes: true,
-    attributeFilter: ['data-vscode-theme-kind'],
+    attributeFilter: ['class'],
   });
 
   // ── M3: Toolbar builder ────────────────────────────────────────────────────────
@@ -2371,15 +2389,15 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       const dropdown = document.createElement('div');
       dropdown.className = 'mikedown-font-quick-picker';
       fontPicker = dropdown;
-      dropdown.style.cssText = 'position:absolute;top:100%;right:0;z-index:1100;background:#252526;border:1px solid rgba(128,128,128,0.3);border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,0.3);padding:4px;min-width:300px;max-height:400px;overflow-y:auto';
+      dropdown.style.cssText = 'position:absolute;top:100%;right:0;z-index:1100;background:var(--mikedown-surface-raised,#252526);border:1px solid var(--mikedown-border,rgba(128,128,128,0.3));border-radius:var(--mikedown-radius,6px);box-shadow:0 6px 20px var(--mikedown-shadow,rgba(0,0,0,0.3));padding:4px;min-width:300px;max-height:400px;overflow-y:auto';
 
-      const currentBody = getComputedStyle(document.documentElement).getPropertyValue('--mikedown-font-family').trim();
-      const currentHeading = getComputedStyle(document.documentElement).getPropertyValue('--mikedown-heading-font-family').trim();
+      const currentBody = getComputedStyle(root).getPropertyValue('--mikedown-font-family').trim();
+      const currentHeading = getComputedStyle(root).getPropertyValue('--mikedown-heading-font-family').trim();
 
       fontThemes.forEach(theme => {
         const isActive = currentBody === theme.body && (currentHeading === theme.heading || (!currentHeading && theme.heading === theme.body));
         const item = document.createElement('div');
-        item.style.cssText = `padding:10px 12px;cursor:pointer;border-radius:4px;margin:2px 0;color:${isActive ? '#ffffff' : '#e0e0e0'};background:${isActive ? '#0e639c' : 'transparent'}`;
+        item.style.cssText = `padding:10px 12px;cursor:pointer;border-radius:var(--mikedown-radius-sm,4px);margin:2px 0;color:${isActive ? 'var(--mikedown-selected-text,#ffffff)' : 'var(--mikedown-text-ui,#e0e0e0)'};background:${isActive ? 'var(--mikedown-selected-bg,#0e639c)' : 'transparent'}`;
 
         // Theme name + description
         const topRow = document.createElement('div');
@@ -2389,7 +2407,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         nameSpan.style.cssText = 'font-size:13px;font-weight:600';
         const descSpan = document.createElement('span');
         descSpan.textContent = theme.desc;
-        descSpan.style.cssText = `font-size:11px;color:${isActive ? 'rgba(255,255,255,0.7)' : '#888'}`;
+        descSpan.style.cssText = `font-size:11px;opacity:0.75;color:${isActive ? 'inherit' : 'var(--mikedown-text-muted,#888)'}`;
         topRow.appendChild(nameSpan);
         topRow.appendChild(descSpan);
 
@@ -2397,10 +2415,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         const preview = document.createElement('div');
         const headingSample = document.createElement('div');
         headingSample.textContent = 'Heading Preview';
-        headingSample.style.cssText = `font-family:${theme.heading};font-size:15px;font-weight:600;color:${isActive ? '#ffffff' : '#cccccc'}`;
+        headingSample.style.cssText = `font-family:${theme.heading};font-size:15px;font-weight:600;color:inherit`;
         const bodySample = document.createElement('div');
         bodySample.textContent = 'Body text looks like this in the editor.';
-        bodySample.style.cssText = `font-family:${theme.body};font-size:13px;color:${isActive ? 'rgba(255,255,255,0.8)' : '#999'}`;
+        bodySample.style.cssText = `font-family:${theme.body};font-size:13px;opacity:0.8;color:inherit`;
         preview.appendChild(headingSample);
         preview.appendChild(bodySample);
 
@@ -2408,14 +2426,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         item.appendChild(preview);
 
         item.addEventListener('mouseenter', () => {
-          if (!isActive) {item.style.background = 'rgba(255,255,255,0.08)';}
+          if (!isActive) {item.style.background = 'var(--mikedown-hover,rgba(255,255,255,0.08))';}
         });
         item.addEventListener('mouseleave', () => {
-          if (!isActive) {item.style.background = isActive ? '#0e639c' : 'transparent';}
+          if (!isActive) {item.style.background = 'transparent';}
         });
         item.addEventListener('click', () => {
-          document.documentElement.style.setProperty('--mikedown-font-family', theme.body);
-          document.documentElement.style.setProperty('--mikedown-heading-font-family', theme.heading);
+          setRootVar('--mikedown-font-family', theme.body);
+          setRootVar('--mikedown-heading-font-family', theme.heading);
           dropdown.remove();
           host.saveSettings?.({ fontFamily: theme.body, headingFontFamily: theme.heading });
         });
@@ -3138,13 +3156,28 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // cached output would otherwise keep stale colors. Debounced to coalesce the
   // burst of class mutations VS Code emits during a theme switch.
   let mermaidThemeTimer: ReturnType<typeof setTimeout> | null = null;
+  function onHostSchemeChange(): void {
+    if (mermaidThemeTimer) {clearTimeout(mermaidThemeTimer);}
+    mermaidThemeTimer = setTimeout(() => refreshMermaidTheme(editor), 120);
+    refreshCmScheme();
+  }
   let lastBodyClass = document.body.className;
   observe(new MutationObserver(() => {
     if (document.body.className === lastBodyClass) {return;}
     lastBodyClass = document.body.className;
-    if (mermaidThemeTimer) {clearTimeout(mermaidThemeTimer);}
-    mermaidThemeTimer = setTimeout(() => refreshMermaidTheme(editor), 120);
+    onHostSchemeChange();
   }), document.body, { attributes: true, attributeFilter: ['class'] });
+  // 'auto' outside VS Code follows the OS color scheme.
+  const darkQuery = window.matchMedia?.('(prefers-color-scheme: dark)');
+  if (darkQuery?.addEventListener) {
+    const onOsScheme = (): void => {
+      if (root.getAttribute('data-mikedown-theme') !== 'auto') {return;}
+      updateThemeToggleIcon();
+      onHostSchemeChange();
+    };
+    darkQuery.addEventListener('change', onOsScheme);
+    disposers.push(() => darkQuery.removeEventListener('change', onOsScheme));
+  }
 
   // Build condensed toolbar (Apple Notes-style) and wire active-state updates.
   if (shell.toolbar) {
@@ -4110,7 +4143,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       if (anchorId) {
         navigator.clipboard?.writeText(`#${anchorId}`).catch(() => {});
         // Brief visual feedback
-        heading.style.outline = '1px solid var(--vscode-focusBorder)';
+        heading.style.outline = '1px solid var(--mikedown-focus-ring)';
         setTimeout(() => { heading.style.outline = ''; }, 600);
       }
     }
@@ -4344,10 +4377,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // ── M6a: Cmd-held class tracking (changes link cursor on hover) ─────────────
 
   listen(document, 'keydown', (e: KeyboardEvent) => {
-    if (e.metaKey || e.ctrlKey) {document.body.classList.add('cmd-held');}
+    if (e.metaKey || e.ctrlKey) {root.classList.add('cmd-held');}
   });
   listen(document, 'keyup', (e: KeyboardEvent) => {
-    if (!e.metaKey && !e.ctrlKey) {document.body.classList.remove('cmd-held');}
+    if (!e.metaKey && !e.ctrlKey) {root.classList.remove('cmd-held');}
   });
 
   // ── M15: Frontmatter UI block renderer ─────────────────────────────────────
@@ -4520,25 +4553,33 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   /** Source view read-only switch (handle.setReadOnly). */
   const cmReadOnly = new Compartment();
 
-  function buildCmTheme(): EditorView.Theme {
-    // Read VS Code CSS variables for theming
-    const computedStyle = getComputedStyle(document.body);
-    const bg = computedStyle.getPropertyValue('--vscode-editor-background').trim() || '#1e1e1e';
-    const fg = computedStyle.getPropertyValue('--vscode-editor-foreground').trim() || '#d4d4d4';
-    const selBg = computedStyle.getPropertyValue('--vscode-editor-selectionBackground').trim() || '#264f78';
-    const isLight = document.body.classList.contains('mikedown-force-light');
-    const activeLine = computedStyle.getPropertyValue('--vscode-editor-lineHighlightBackground').trim()
-      || (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)');
-    const gutterFg = computedStyle.getPropertyValue('--vscode-editorLineNumber-foreground').trim() || '#858585';
+  /** Source view light/dark (highlight style + CodeMirror's dark flag). */
+  const cmScheme = new Compartment();
 
+  function buildCmScheme(): Extension[] {
+    const dark = isDarkTheme();
+    return [
+      syntaxHighlighting(dark ? oneDarkHighlightStyle : defaultHighlightStyle),
+      EditorView.theme({
+        '.cm-activeLine': { backgroundColor: `var(--mikedown-line-highlight, ${dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'})` },
+      }, { dark }),
+    ];
+  }
+
+  /** Re-pick the source view's highlight style after a theme change. */
+  function refreshCmScheme(): void {
+    cmView?.dispatch({ effects: cmScheme.reconfigure(buildCmScheme()) });
+  }
+
+  function buildCmTheme(): Extension {
+    // Colors come from the theme tokens, so they follow theme changes live.
     return EditorView.theme({
-      '&': { backgroundColor: bg, color: fg, height: '100%' },
-      '.cm-scroller': { fontFamily: 'var(--vscode-editor-font-family, monospace)', overflow: 'auto', height: '100%' },
+      '&': { backgroundColor: 'var(--mikedown-surface, #1e1e1e)', color: 'var(--mikedown-text, #d4d4d4)', height: '100%' },
+      '.cm-scroller': { fontFamily: 'var(--mikedown-font-mono, monospace)', overflow: 'auto', height: '100%' },
       '.cm-content': { padding: '8px 0' },
-      '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: selBg },
-      '.cm-activeLine': { backgroundColor: activeLine },
-      '.cm-gutters': { backgroundColor: bg, color: gutterFg, border: 'none' },
-    }, { dark: !isLight });
+      '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: 'var(--mikedown-selection, #264f78)' },
+      '.cm-gutters': { backgroundColor: 'var(--mikedown-surface, #1e1e1e)', color: 'var(--mikedown-text-muted, #858585)', border: 'none' },
+    });
   }
 
   function initCmView(): EditorView {
@@ -4558,7 +4599,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         lineNumbers(),
         highlightActiveLine(),
         cmMarkdown({ base: markdownLanguage }),
-        syntaxHighlighting(document.body.classList.contains('mikedown-force-light') ? defaultHighlightStyle : oneDarkHighlightStyle),
+        cmScheme.of(buildCmScheme()),
         buildCmTheme(),
         cmReadOnly.of(EditorState.readOnly.of(readOnly)),
         EditorView.lineWrapping,
@@ -4897,8 +4938,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // every gesture doesn't pop a "settings saved" toast.
   disposers.push(installWheelZoom(window, {
     isEnabled: () => currentCtrlWheelZoom,
-    getSize: () => parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mikedown-font-size') || '17', 10),
-    setSize: (px) => document.documentElement.style.setProperty('--mikedown-font-size', `${px}px`),
+    getSize: () => parseInt(getComputedStyle(root).getPropertyValue('--mikedown-font-size') || '17', 10),
+    setSize: (px) => setRootVar('--mikedown-font-size', `${px}px`),
     persist: (px) => host.saveSettings?.({ fontSize: px }, { silent: true }),
   }));
 
@@ -5019,7 +5060,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // emitUpdate=false: toggling editability is not a document change.
     editor.setEditable(!next, false);
     if (cmView) {cmView.dispatch({ effects: cmReadOnly.reconfigure(EditorState.readOnly.of(next)) });}
-    document.body.classList.toggle('mikedown-readonly', next);
+    root.classList.toggle('mikedown-readonly', next);
   }
 
   /** Run a toolbar / keybinding command (M3). */
@@ -5092,11 +5133,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** Apply core settings (no persistence). Keys absent from the patch are left alone. */
   function updateSettings(patch: Partial<MikeDownSettings>): void {
-    const root = document.documentElement.style;
-    if (patch.fontFamily !== undefined) {root.setProperty('--mikedown-font-family', patch.fontFamily || '');}
-    if (patch.headingFontFamily !== undefined) {root.setProperty('--mikedown-heading-font-family', patch.headingFontFamily || '');}
-    if (patch.fontSize !== undefined) {root.setProperty('--mikedown-font-size', `${patch.fontSize || 17}px`);}
-    if (patch.contentWidth !== undefined) {root.setProperty('--mikedown-content-width', patch.contentWidth);}
+    if (patch.fontFamily !== undefined) {setRootVar('--mikedown-font-family', patch.fontFamily || '');}
+    if (patch.headingFontFamily !== undefined) {setRootVar('--mikedown-heading-font-family', patch.headingFontFamily || '');}
+    if (patch.fontSize !== undefined) {setRootVar('--mikedown-font-size', `${patch.fontSize || 17}px`);}
+    if (patch.contentWidth !== undefined) {setRootVar('--mikedown-content-width', patch.contentWidth);}
     if (patch.linkClickBehavior) {
       currentLinkClickBehavior = patch.linkClickBehavior;
     }

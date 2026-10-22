@@ -1,12 +1,12 @@
 /* Code Blocks (syntax highlighted via CodeBlockLowlight/lowlight) */
 
-.ProseMirror pre.mikedown-code-block {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre.mikedown-code-block {
   position: relative;
-  background: var(--vscode-textCodeBlock-background);
-  border-radius: 6px;
+  background: var(--mikedown-code-bg);
+  border-radius: var(--mikedown-radius, 6px);
   padding: 1em 1.2em;
   overflow-x: auto;
-  font-family: var(--vscode-editor-font-family, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace);
+  font-family: var(--mikedown-font-mono, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace);
   font-size: 0.875em;
   line-height: 1.6;
   margin: 0.75em 0;
@@ -16,13 +16,13 @@
 /* Floating clickable language pill — appears in the top-right corner of a
    hovered code block. Click to open the language picker. Lives in
    document.body to avoid mutating ProseMirror's managed DOM. */
-.mikedown-code-language-btn {
+:is(.mikedown-root, .mikedown-portal) .mikedown-code-language-btn {
   position: fixed;
   z-index: 1000;
   font-size: 11px;
   font-weight: 500;
-  color: var(--vscode-descriptionForeground);
-  font-family: var(--vscode-font-family, sans-serif);
+  color: var(--mikedown-text-muted);
+  font-family: var(--mikedown-font-ui, sans-serif);
   text-transform: lowercase;
   padding: 3px 10px;
   background: rgba(128,128,128,0.12);
@@ -35,28 +35,28 @@
   opacity: 0;
   transition: opacity 0.1s ease, background 0.1s ease, color 0.1s ease;
 }
-.mikedown-code-language-btn.visible {
+:is(.mikedown-root, .mikedown-portal) .mikedown-code-language-btn.visible {
   display: inline-flex;
   align-items: center;
   opacity: 1;
 }
-.mikedown-code-language-btn:hover {
-  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.25));
-  color: var(--vscode-foreground);
+:is(.mikedown-root, .mikedown-portal) .mikedown-code-language-btn:hover {
+  background: var(--mikedown-hover, rgba(128,128,128,0.25));
+  color: var(--mikedown-text-ui);
 }
-.mikedown-code-language-btn.placeholder {
-  color: var(--vscode-descriptionForeground);
+:is(.mikedown-root, .mikedown-portal) .mikedown-code-language-btn.placeholder {
+  color: var(--mikedown-text-muted);
   opacity: 0.7;
   font-style: italic;
 }
-.mikedown-code-language-btn.placeholder:hover {
+:is(.mikedown-root, .mikedown-portal) .mikedown-code-language-btn.placeholder:hover {
   opacity: 1;
 }
 
 /* Floating copy icon — appears on hover over a code block, just to the
    left of the language label. Lives in document.body (not the editor DOM)
    to avoid mutating ProseMirror's managed tree. */
-.mikedown-code-copy-btn {
+:is(.mikedown-root, .mikedown-portal) .mikedown-code-copy-btn {
   position: fixed;
   z-index: 1000;
   width: 22px;
@@ -65,125 +65,125 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  color: var(--vscode-descriptionForeground);
+  color: var(--mikedown-text-muted);
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   cursor: pointer;
   user-select: none;
   opacity: 0;
   transition: opacity 0.1s ease, background 0.1s ease, color 0.1s ease;
 }
-.mikedown-code-copy-btn.visible {
+:is(.mikedown-root, .mikedown-portal) .mikedown-code-copy-btn.visible {
   display: inline-flex;
   opacity: 0.7;
 }
-.mikedown-code-copy-btn:hover {
+:is(.mikedown-root, .mikedown-portal) .mikedown-code-copy-btn:hover {
   opacity: 1;
-  color: var(--vscode-foreground);
-  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+  color: var(--mikedown-text-ui);
+  background: var(--mikedown-hover, rgba(128,128,128,0.15));
 }
-.mikedown-code-copy-btn.copied {
+:is(.mikedown-root, .mikedown-portal) .mikedown-code-copy-btn.copied {
   opacity: 1;
-  color: var(--vscode-charts-green, #4caf50);
+  color: var(--mikedown-success, #4caf50);
 }
-.mikedown-code-copy-btn svg {
+:is(.mikedown-root, .mikedown-portal) .mikedown-code-copy-btn svg {
   width: 14px;
   height: 14px;
   pointer-events: none;
 }
 
 /* Language picker popover */
-#mikedown-language-picker {
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker {
   position: fixed;
   z-index: 1100;
   width: 260px;
   max-height: 320px;
   display: flex;
   flex-direction: column;
-  background: var(--vscode-menu-background, var(--vscode-editorWidget-background, #252526));
-  border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border, #454545));
+  background: var(--mikedown-surface-raised, #252526);
+  border: 1px solid var(--mikedown-border, #454545);
   box-shadow: 0 6px 20px rgba(0,0,0,0.35), 0 0 1px rgba(0,0,0,0.2);
-  border-radius: 6px;
+  border-radius: var(--mikedown-radius, 6px);
   padding: 6px;
   user-select: none;
-  animation: cm-fade-in 0.08s ease-out;
+  animation: mikedown-cm-fade-in 0.08s ease-out;
 }
 
-#mikedown-language-picker .lp-input {
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-input {
   font-size: 12px;
   padding: 5px 8px;
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border: 1px solid var(--vscode-input-border, var(--vscode-editorWidget-border, transparent));
-  border-radius: 4px;
+  background: var(--mikedown-input-bg);
+  color: var(--mikedown-text-ui);
+  border: 1px solid var(--mikedown-input-border, var(--mikedown-border, transparent));
+  border-radius: var(--mikedown-radius-sm, 4px);
   outline: none;
   margin-bottom: 4px;
 }
 
-#mikedown-language-picker .lp-input:focus {
-  border-color: var(--vscode-focusBorder);
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-input:focus {
+  border-color: var(--mikedown-focus-ring);
 }
 
-#mikedown-language-picker .lp-list {
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-list {
   overflow-y: auto;
   flex: 1;
   min-height: 60px;
 }
 
-#mikedown-language-picker .lp-item {
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 5px 8px;
   font-size: 12px;
-  color: var(--vscode-menu-foreground, var(--vscode-editor-foreground));
+  color: var(--mikedown-text-ui, var(--mikedown-text));
   cursor: pointer;
   border-radius: 3px;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--mikedown-font-mono, monospace);
   white-space: nowrap;
   gap: 12px;
 }
 
-#mikedown-language-picker .lp-item:hover,
-#mikedown-language-picker .lp-item.lp-focused {
-  background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground));
-  color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground));
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-item:hover,
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-item.lp-focused {
+  background: var(--mikedown-selected-bg);
+  color: var(--mikedown-selected-text);
 }
 
-#mikedown-language-picker .lp-item.lp-item-current::after {
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-item.lp-item-current::after {
   content: '✓';
   font-size: 11px;
   opacity: 0.6;
 }
 
-#mikedown-language-picker .lp-item-label {
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-item-label {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-#mikedown-language-picker .lp-item-hint {
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-item-hint {
   font-size: 10px;
   opacity: 0.55;
-  font-family: var(--vscode-font-family, sans-serif);
+  font-family: var(--mikedown-font-ui, sans-serif);
 }
 
-#mikedown-language-picker .lp-item-clear {
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-item-clear {
   font-style: italic;
   opacity: 0.85;
 }
 
-#mikedown-language-picker .lp-section-header {
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-section-header {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   opacity: 0.55;
   padding: 6px 8px 3px;
-  font-family: var(--vscode-font-family, sans-serif);
+  font-family: var(--mikedown-font-ui, sans-serif);
 }
 
-#mikedown-language-picker .lp-empty {
+:is(.mikedown-root, .mikedown-portal) #mikedown-language-picker .lp-empty {
   padding: 8px;
   font-size: 12px;
   opacity: 0.6;
@@ -191,41 +191,41 @@
 }
 
 /* lowlight syntax tokens */
-.ProseMirror pre .hljs-keyword,
-.ProseMirror pre .hljs-selector-tag { color: var(--vscode-symbolIcon-keywordForeground, #569cd6); }
-.ProseMirror pre .hljs-string,
-.ProseMirror pre .hljs-attr { color: var(--vscode-debugTokenExpression-string, #ce9178); }
-.ProseMirror pre .hljs-comment { color: var(--vscode-descriptionForeground, #6a9955); font-style: italic; }
-.ProseMirror pre .hljs-number,
-.ProseMirror pre .hljs-literal { color: var(--vscode-debugTokenExpression-number, #b5cea8); }
-.ProseMirror pre .hljs-built_in,
-.ProseMirror pre .hljs-type { color: var(--vscode-symbolIcon-classForeground, #4ec9b0); }
-.ProseMirror pre .hljs-title,
-.ProseMirror pre .hljs-function { color: var(--vscode-symbolIcon-functionForeground, #dcdcaa); }
-.ProseMirror pre .hljs-variable,
-.ProseMirror pre .hljs-params { color: var(--vscode-symbolIcon-variableForeground, #9cdcfe); }
-.ProseMirror pre .hljs-meta { color: var(--vscode-descriptionForeground, #c8c8c8); }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-keyword,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-selector-tag { color: var(--mikedown-syntax-keyword, #569cd6); }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-string,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-attr { color: var(--mikedown-syntax-string, #ce9178); }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-comment { color: var(--mikedown-text-muted, #6a9955); font-style: italic; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-number,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-literal { color: var(--mikedown-syntax-number, #b5cea8); }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-built_in,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-type { color: var(--mikedown-syntax-type, #4ec9b0); }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-title,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-function { color: var(--mikedown-syntax-function, #dcdcaa); }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-variable,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-params { color: var(--mikedown-syntax-variable, #9cdcfe); }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre .hljs-meta { color: var(--mikedown-text-muted, #c8c8c8); }
 
 /* Inline code */
-.ProseMirror code:not(pre code) {
-  background: var(--vscode-textCodeBlock-background);
-  border-radius: 4px;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror code:not(pre code) {
+  background: var(--mikedown-code-bg);
+  border-radius: var(--mikedown-radius-sm, 4px);
   padding: 0.15em 0.4em;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--mikedown-font-mono, monospace);
   font-size: 0.875em;
 }
 
 /* Frontmatter Block */
 
-.frontmatter-block {
+:is(.mikedown-root, .mikedown-portal) .frontmatter-block {
   margin-bottom: 1em;
-  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.2));
-  border-radius: 6px;
+  border: 1px solid var(--mikedown-border, rgba(128,128,128,0.2));
+  border-radius: var(--mikedown-radius, 6px);
   overflow: hidden;
-  background: var(--vscode-textCodeBlock-background);
+  background: var(--mikedown-code-bg);
 }
 
-.frontmatter-header {
+:is(.mikedown-root, .mikedown-portal) .frontmatter-header {
   display: flex;
   align-items: center;
   gap: 0.5em;
@@ -233,35 +233,35 @@
   cursor: pointer;
   user-select: none;
   font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-  background: var(--vscode-editorGroupHeader-tabsBackground);
+  color: var(--mikedown-text-muted);
+  background: var(--mikedown-surface-toolbar);
   transition: background 0.1s ease;
 }
 
-.frontmatter-header:hover {
-  background: var(--vscode-list-hoverBackground);
+:is(.mikedown-root, .mikedown-portal) .frontmatter-header:hover {
+  background: var(--mikedown-hover);
 }
 
-.frontmatter-icon {
+:is(.mikedown-root, .mikedown-portal) .frontmatter-icon {
   font-size: 10px;
   line-height: 1;
   transition: transform 0.15s ease;
 }
 
-.frontmatter-block.expanded .frontmatter-icon {
+:is(.mikedown-root, .mikedown-portal) .frontmatter-block.expanded .frontmatter-icon {
   transform: rotate(90deg);
 }
 
-.frontmatter-content {
+:is(.mikedown-root, .mikedown-portal) .frontmatter-content {
   margin: 0;
   padding: 0.75em 1em;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--mikedown-font-mono, monospace);
   font-size: 0.85em;
   line-height: 1.5;
   white-space: pre;
   overflow-x: auto;
   outline: none;
   background: transparent;
-  color: var(--vscode-editor-foreground);
+  color: var(--mikedown-text);
   border: none;
 }

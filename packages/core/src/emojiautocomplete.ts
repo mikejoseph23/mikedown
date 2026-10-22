@@ -15,6 +15,7 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { isSlashMenuOpen } from './slashcommands';
 import emojiData from 'markdown-it-emoji/lib/data/full.mjs';
+import { getPortal } from './portal';
 
 const EMOJI_MAP = emojiData as Record<string, string>;
 const EMOJI_KEYS = Object.keys(EMOJI_MAP);
@@ -71,7 +72,7 @@ function ensurePopup(): HTMLElement {
     popupEl = document.createElement('div');
     popupEl.id = 'mikedown-emoji-ac';
     popupEl.setAttribute('role', 'listbox');
-    document.body.appendChild(popupEl);
+    getPortal().appendChild(popupEl);
   }
   return popupEl;
 }

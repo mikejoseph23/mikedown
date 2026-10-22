@@ -13,28 +13,22 @@
 
 /* ── Tokens ──────────────────────────────────────────────────────────────── */
 
-.settings-modal {
-  --settings-fg: var(--vscode-editor-foreground, #d4d4d4);
-  --settings-muted: var(--vscode-descriptionForeground, rgba(128, 128, 128, 0.9));
-  --settings-border: var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.35));
-  --settings-divider: var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.2));
-  --settings-control-border: var(--vscode-input-border, rgba(128, 128, 128, 0.35));
-  --settings-hover-bg: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
-  --settings-active-bg: var(--vscode-list-activeSelectionBackground, #0e639c);
-  --settings-active-fg: var(--vscode-list-activeSelectionForeground, #ffffff);
-  --settings-focus: var(--vscode-focusBorder, #007fd4);
+:is(.mikedown-root, .mikedown-portal) .settings-modal {
+  --settings-fg: var(--mikedown-text, #d4d4d4);
+  --settings-muted: var(--mikedown-text-muted, rgba(128, 128, 128, 0.9));
+  --settings-border: var(--mikedown-border, rgba(128, 128, 128, 0.35));
+  --settings-divider: var(--mikedown-border, rgba(128, 128, 128, 0.2));
+  --settings-control-border: var(--mikedown-input-border, rgba(128, 128, 128, 0.35));
+  --settings-hover-bg: var(--mikedown-hover, rgba(128, 128, 128, 0.15));
+  --settings-active-bg: var(--mikedown-selected-bg, #0e639c);
+  --settings-active-fg: var(--mikedown-selected-text, #ffffff);
+  --settings-focus: var(--mikedown-focus-ring, #007fd4);
 }
 
-body.vscode-high-contrast .settings-modal,
-body.vscode-high-contrast-light .settings-modal {
-  --settings-border: var(--vscode-contrastBorder, currentColor);
-  --settings-divider: var(--vscode-contrastBorder, currentColor);
-  --settings-control-border: var(--vscode-contrastBorder, currentColor);
-}
 
 /* ── Shell ───────────────────────────────────────────────────────────────── */
 
-#mikedown-settings-overlay {
+:is(.mikedown-root, .mikedown-portal) #mikedown-settings-overlay {
   position: fixed;
   inset: 0;
   z-index: 1050;
@@ -44,24 +38,24 @@ body.vscode-high-contrast-light .settings-modal {
   background: rgba(0, 0, 0, 0.25);
 }
 
-.settings-modal {
+:is(.mikedown-root, .mikedown-portal) .settings-modal {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   width: min(760px, calc(100vw - 32px));
   height: min(640px, 80vh);
   overflow: hidden;
-  background: var(--vscode-editorWidget-background, #252526);
+  background: var(--mikedown-surface-raised, #252526);
   color: var(--settings-fg);
   border: 1px solid var(--settings-border);
   border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  font-family: var(--vscode-font-family, system-ui, -apple-system, sans-serif);
+  font-family: var(--mikedown-font-ui, system-ui, -apple-system, sans-serif);
   font-size: 13px;
   line-height: 1.4;
 }
 
-.settings-header {
+:is(.mikedown-root, .mikedown-portal) .settings-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -69,17 +63,17 @@ body.vscode-high-contrast-light .settings-modal {
   flex-shrink: 0;
 }
 
-.settings-title {
+:is(.mikedown-root, .mikedown-portal) .settings-title {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
   color: var(--settings-fg);
 }
 
-.settings-close {
+:is(.mikedown-root, .mikedown-portal) .settings-close {
   background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   color: var(--settings-fg);
   font-size: 22px;
   line-height: 1;
@@ -87,16 +81,16 @@ body.vscode-high-contrast-light .settings-modal {
   padding: 2px 6px;
   opacity: 0.6;
 }
-.settings-close:hover { opacity: 1; }
+:is(.mikedown-root, .mikedown-portal) .settings-close:hover { opacity: 1; }
 
-.settings-body {
+:is(.mikedown-root, .mikedown-portal) .settings-body {
   display: flex;
   flex: 1;
   min-height: 0;
   border-top: 1px solid var(--settings-divider);
 }
 
-.settings-nav {
+:is(.mikedown-root, .mikedown-portal) .settings-nav {
   width: 140px;
   flex-shrink: 0;
   padding: 10px 8px;
@@ -107,13 +101,13 @@ body.vscode-high-contrast-light .settings-modal {
   overflow-y: auto;
 }
 
-.settings-tab {
+:is(.mikedown-root, .mikedown-portal) .settings-tab {
   text-align: left;
   padding: 7px 12px;
   background: transparent;
   border: none;
-  border-radius: 4px;
-  color: var(--vscode-foreground, var(--settings-fg));
+  border-radius: var(--mikedown-radius-sm, 4px);
+  color: var(--mikedown-text-ui, var(--settings-fg));
   cursor: pointer;
   font-size: 13px;
   font-family: inherit;
@@ -121,15 +115,15 @@ body.vscode-high-contrast-light .settings-modal {
   flex-shrink: 0;
   outline: none;
 }
-.settings-tab:hover { background: var(--settings-hover-bg); }
-.settings-tab[aria-selected="true"] {
+:is(.mikedown-root, .mikedown-portal) .settings-tab:hover { background: var(--settings-hover-bg); }
+:is(.mikedown-root, .mikedown-portal) .settings-tab[aria-selected="true"] {
   background: var(--settings-active-bg);
   color: var(--settings-active-fg);
-  outline: 1px solid var(--vscode-contrastActiveBorder, transparent);
+  outline: 1px solid var(--mikedown-contrast-border, transparent);
   outline-offset: -1px;
 }
 
-.settings-content {
+:is(.mikedown-root, .mikedown-portal) .settings-content {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
@@ -137,7 +131,7 @@ body.vscode-high-contrast-light .settings-modal {
   container: settings-content / inline-size;
 }
 
-.settings-footer {
+:is(.mikedown-root, .mikedown-portal) .settings-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -147,14 +141,14 @@ body.vscode-high-contrast-light .settings-modal {
   flex-shrink: 0;
 }
 
-.settings-footer-note {
+:is(.mikedown-root, .mikedown-portal) .settings-footer-note {
   font-size: 12px;
   color: var(--settings-muted);
 }
 
 /* ── Rows ────────────────────────────────────────────────────────────────── */
 
-.settings-row {
+:is(.mikedown-root, .mikedown-portal) .settings-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 10px 24px;
@@ -162,100 +156,99 @@ body.vscode-high-contrast-light .settings-modal {
   padding: 14px 0;
 }
 
-.settings-row + .settings-row { border-top: 1px solid var(--settings-divider); }
+:is(.mikedown-root, .mikedown-portal) .settings-row + .settings-row { border-top: 1px solid var(--settings-divider); }
 
-.settings-panel > .settings-row:first-child { padding-top: 0; }
-.settings-panel > .settings-row:last-child { padding-bottom: 0; }
+:is(.mikedown-root, .mikedown-portal) .settings-panel > .settings-row:first-child { padding-top: 0; }
+:is(.mikedown-root, .mikedown-portal) .settings-panel > .settings-row:last-child { padding-bottom: 0; }
 
-.settings-row--inline {
+:is(.mikedown-root, .mikedown-portal) .settings-row--inline {
   grid-template-columns: minmax(0, 1fr) minmax(0, auto);
 }
-.settings-row--inline > :not(.settings-row-text) { justify-self: end; }
+:is(.mikedown-root, .mikedown-portal) .settings-row--inline > :not(.settings-row-text) { justify-self: end; }
 
 /* Label and hint read as one unit: tight gap between them, generous gap to
    the next row. */
-.settings-row-text {
+:is(.mikedown-root, .mikedown-portal) .settings-row-text {
   display: flex;
   flex-direction: column;
   gap: 3px;
   min-width: 0;
 }
 
-.settings-label {
+:is(.mikedown-root, .mikedown-portal) .settings-label {
   font-size: 13px;
   font-weight: 600;
   color: var(--settings-fg);
 }
 
-.settings-desc {
+:is(.mikedown-root, .mikedown-portal) .settings-desc {
   font-size: 12px;
   line-height: 1.45;
   color: var(--settings-muted);
 }
 
-.settings-row--check .settings-row-text { cursor: pointer; }
-.settings-row--check > input[type="checkbox"] {
+:is(.mikedown-root, .mikedown-portal) .settings-row--check .settings-row-text { cursor: pointer; }
+:is(.mikedown-root, .mikedown-portal) .settings-row--check > input[type="checkbox"] {
   margin: 2px 0 0;
   width: 16px;
   height: 16px;
   flex-shrink: 0;
   cursor: pointer;
-  accent-color: var(--vscode-button-background, #0e639c);
+  accent-color: var(--mikedown-accent, #0e639c);
 }
 
 /* A section row (Slash commands, Image Paste, …) owns a boxed group of
    sub-rows. */
-.settings-group {
+:is(.mikedown-root, .mikedown-portal) .settings-group {
   border: 1px solid var(--settings-divider);
-  border-radius: 6px;
+  border-radius: var(--mikedown-radius, 6px);
   padding: 0 14px;
 }
-.settings-group > .settings-row { padding: 11px 0; }
+:is(.mikedown-root, .mikedown-portal) .settings-group > .settings-row { padding: 11px 0; }
 
 /* ── Controls ────────────────────────────────────────────────────────────── */
 
-.settings-input {
+:is(.mikedown-root, .mikedown-portal) .settings-input {
   box-sizing: border-box;
   width: 100%;
   padding: 5px 9px;
-  /* Fall back to the editor's own theme tokens (always present) rather than
-     a fixed dark literal — VS Code normally supplies --vscode-input-* on
-     every webview, but contexts that don't (e.g. the test harness) would
-     otherwise render a dark control inside a light-themed modal. */
-  background: var(--vscode-input-background, var(--vscode-editor-background, #3c3c3c));
-  color: var(--vscode-input-foreground, var(--vscode-editor-foreground, #d4d4d4));
+  /* Fall back to the surface and text tokens rather than a fixed dark
+     literal, so a host that leaves the input tokens undefined does not get a
+     dark control inside a light-themed modal. */
+  background: var(--mikedown-input-bg, var(--mikedown-surface, #3c3c3c));
+  color: var(--mikedown-text-ui, var(--mikedown-text, #d4d4d4));
   border: 1px solid var(--settings-control-border);
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   font-family: inherit;
   font-size: 13px;
   outline: none;
 }
-.settings-input:disabled { opacity: 0.5; cursor: default; }
+:is(.mikedown-root, .mikedown-portal) .settings-input:disabled { opacity: 0.5; cursor: default; }
 
 /* Selects size to their longest option instead of the row. */
-select.settings-input {
+:is(.mikedown-root, .mikedown-portal) select.settings-input {
   width: auto;
   max-width: 280px;
   cursor: pointer;
   text-overflow: ellipsis;
 }
 
-.settings-input--short { width: 88px; }
-.settings-input--medium { width: 250px; max-width: 100%; }
-.settings-input--small { font-size: 12px; padding: 4px 8px; }
-.settings-input--grow { flex: 1; min-width: 0; }
+:is(.mikedown-root, .mikedown-portal) .settings-input--short { width: 88px; }
+:is(.mikedown-root, .mikedown-portal) .settings-input--medium { width: 250px; max-width: 100%; }
+:is(.mikedown-root, .mikedown-portal) .settings-input--small { font-size: 12px; padding: 4px 8px; }
+:is(.mikedown-root, .mikedown-portal) .settings-input--grow { flex: 1; min-width: 0; }
 
-.settings-range-control {
+:is(.mikedown-root, .mikedown-portal) .settings-range-control {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.settings-range-control input[type="range"] {
+:is(.mikedown-root, .mikedown-portal) .settings-range-control input[type="range"] {
   width: 180px;
   max-width: 100%;
   accent-color: var(--settings-focus);
 }
-.settings-range-value {
+:is(.mikedown-root, .mikedown-portal) .settings-range-value {
   min-width: 36px;
   text-align: right;
   font-size: 13px;
@@ -263,11 +256,11 @@ select.settings-input {
   font-variant-numeric: tabular-nums;
 }
 
-.settings-btn {
+:is(.mikedown-root, .mikedown-portal) .settings-btn {
   background: transparent;
-  border: 1px solid var(--vscode-button-border, var(--settings-control-border));
-  border-radius: 4px;
-  color: var(--vscode-foreground, var(--settings-fg));
+  border: 1px solid var(--mikedown-button-border, var(--settings-control-border));
+  border-radius: var(--mikedown-radius-sm, 4px);
+  color: var(--mikedown-text-ui, var(--settings-fg));
   padding: 4px 12px;
   font-size: 12px;
   font-family: inherit;
@@ -275,42 +268,42 @@ select.settings-input {
   flex-shrink: 0;
   white-space: nowrap;
 }
-.settings-btn:hover { background: var(--settings-hover-bg); }
+:is(.mikedown-root, .mikedown-portal) .settings-btn:hover { background: var(--settings-hover-bg); }
 
-.settings-btn--primary {
+:is(.mikedown-root, .mikedown-portal) .settings-btn--primary {
   padding: 6px 16px;
-  background: var(--vscode-button-background, #0e639c);
-  color: var(--vscode-button-foreground, #ffffff);
-  border-color: var(--vscode-button-border, transparent);
+  background: var(--mikedown-accent, #0e639c);
+  color: var(--mikedown-accent-text, #ffffff);
+  border-color: var(--mikedown-button-border, transparent);
   font-size: 13px;
   font-weight: 500;
 }
-.settings-btn--primary:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
+:is(.mikedown-root, .mikedown-portal) .settings-btn--primary:hover { background: var(--mikedown-accent-hover, #1177bb); }
 
-.settings-btn--secondary {
+:is(.mikedown-root, .mikedown-portal) .settings-btn--secondary {
   padding: 5px 14px;
-  background: var(--vscode-button-secondaryBackground, #3a3d41);
-  color: var(--vscode-button-secondaryForeground, #ffffff);
-  border-color: var(--vscode-button-border, transparent);
+  background: var(--mikedown-button-bg, #3a3d41);
+  color: var(--mikedown-button-text, #ffffff);
+  border-color: var(--mikedown-button-border, transparent);
   font-size: 13px;
 }
-.settings-btn--secondary:hover { background: var(--vscode-button-secondaryHoverBackground, #45494e); }
+:is(.mikedown-root, .mikedown-portal) .settings-btn--secondary:hover { background: var(--mikedown-button-hover, #45494e); }
 
-.settings-input:focus-visible,
-.settings-btn:focus-visible,
-.settings-tab:focus-visible,
-.settings-close:focus-visible,
-.settings-theme-list:focus-visible,
-.settings-row--check > input[type="checkbox"]:focus-visible,
-.settings-word-remove:focus-visible {
+:is(.mikedown-root, .mikedown-portal) .settings-input:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .settings-btn:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .settings-tab:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .settings-close:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .settings-theme-list:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .settings-row--check > input[type="checkbox"]:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .settings-word-remove:focus-visible {
   outline: 1px solid var(--settings-focus);
   outline-offset: 1px;
 }
-.settings-input:focus-visible { outline-offset: -1px; }
+:is(.mikedown-root, .mikedown-portal) .settings-input:focus-visible { outline-offset: -1px; }
 
 /* ── Appearance: font theme picker ───────────────────────────────────────── */
 
-.settings-theme-current {
+:is(.mikedown-root, .mikedown-portal) .settings-theme-current {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -320,54 +313,54 @@ select.settings-input {
   color: var(--settings-fg);
 }
 
-.settings-theme-list {
+:is(.mikedown-root, .mikedown-portal) .settings-theme-list {
   max-height: 320px;
   overflow-y: auto;
   padding: 2px 0;
   border: 1px solid var(--settings-control-border);
-  border-radius: 6px;
-  background: var(--vscode-editor-background, #1e1e1e);
+  border-radius: var(--mikedown-radius, 6px);
+  background: var(--mikedown-surface, #1e1e1e);
   outline: none;
 }
 
-.settings-theme-item {
+:is(.mikedown-root, .mikedown-portal) .settings-theme-item {
   padding: 10px 12px;
   margin: 2px 4px;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   cursor: pointer;
   color: var(--settings-fg);
   transition: background 0.06s ease;
 }
-.settings-theme-item:hover { background: var(--settings-hover-bg); }
-.settings-theme-item.is-active {
+:is(.mikedown-root, .mikedown-portal) .settings-theme-item:hover { background: var(--settings-hover-bg); }
+:is(.mikedown-root, .mikedown-portal) .settings-theme-item.is-active {
   background: var(--settings-active-bg);
   color: var(--settings-active-fg);
-  outline: 1px solid var(--vscode-contrastActiveBorder, transparent);
+  outline: 1px solid var(--mikedown-contrast-border, transparent);
   outline-offset: -1px;
 }
 
-.settings-theme-item-top {
+:is(.mikedown-root, .mikedown-portal) .settings-theme-item-top {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
   margin-bottom: 6px;
 }
-.settings-theme-name { font-size: 13px; font-weight: 600; }
-.settings-theme-desc { font-size: 11px; opacity: 0.65; }
+:is(.mikedown-root, .mikedown-portal) .settings-theme-name { font-size: 13px; font-weight: 600; }
+:is(.mikedown-root, .mikedown-portal) .settings-theme-desc { font-size: 11px; opacity: 0.65; }
 
-.settings-theme-preview {
+:is(.mikedown-root, .mikedown-portal) .settings-theme-preview {
   padding: 10px 12px;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   background: rgba(128, 128, 128, 0.12);
 }
-.settings-theme-heading {
+:is(.mikedown-root, .mikedown-portal) .settings-theme-heading {
   font-size: 18px;
   font-weight: 700;
   line-height: 1.3;
   margin-bottom: 4px;
 }
-.settings-theme-body {
+:is(.mikedown-root, .mikedown-portal) .settings-theme-body {
   font-size: 14px;
   line-height: 1.5;
   opacity: 0.75;
@@ -375,76 +368,76 @@ select.settings-input {
 
 /* ── Spelling: custom dictionary ─────────────────────────────────────────── */
 
-.settings-words-header,
-.settings-words-add {
+:is(.mikedown-root, .mikedown-portal) .settings-words-header,
+:is(.mikedown-root, .mikedown-portal) .settings-words-add {
   display: flex;
   gap: 8px;
   align-items: center;
 }
-.settings-words-header { justify-content: space-between; }
+:is(.mikedown-root, .mikedown-portal) .settings-words-header { justify-content: space-between; }
 
-.settings-words-count {
+:is(.mikedown-root, .mikedown-portal) .settings-words-count {
   font-size: 11.5px;
   color: var(--settings-muted);
   flex-shrink: 0;
   white-space: nowrap;
 }
 
-.settings-words {
+:is(.mikedown-root, .mikedown-portal) .settings-words {
   max-height: 240px;
   min-height: 34px;
   box-sizing: border-box;
   overflow-y: auto;
   padding: 6px;
   border: 1px solid var(--settings-control-border);
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
 }
-.settings-words--cloud {
+:is(.mikedown-root, .mikedown-portal) .settings-words--cloud {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-content: flex-start;
 }
-.settings-words--dense {
+:is(.mikedown-root, .mikedown-portal) .settings-words--dense {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 1px 10px;
   align-content: start;
 }
 
-.settings-words-empty {
+:is(.mikedown-root, .mikedown-portal) .settings-words-empty {
   font-size: 12px;
   color: var(--settings-muted);
   padding: 2px 4px;
 }
 
-.settings-words-legend {
+:is(.mikedown-root, .mikedown-portal) .settings-words-legend {
   font-size: 11.5px;
   line-height: 1.4;
   color: var(--settings-muted);
 }
 
-.settings-word { font-size: 12px; }
+:is(.mikedown-root, .mikedown-portal) .settings-word { font-size: 12px; }
 
-.settings-words--cloud .settings-word {
+:is(.mikedown-root, .mikedown-portal) .settings-words--cloud .settings-word {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 2px 6px 2px 8px;
   border-radius: 10px;
-  background: var(--vscode-badge-background, rgba(128, 128, 128, 0.25));
-  color: var(--vscode-badge-foreground, inherit);
+  background: var(--mikedown-active, rgba(128, 128, 128, 0.25));
+  color: var(--mikedown-text, inherit);
 }
-.settings-words--cloud .settings-word--external {
+:is(.mikedown-root, .mikedown-portal) .settings-words--cloud .settings-word--external {
   padding: 2px 8px;
   background: transparent;
-  border: 1px dashed var(--vscode-input-border, rgba(128, 128, 128, 0.5));
+  border: 1px dashed var(--mikedown-input-border, rgba(128, 128, 128, 0.5));
   color: var(--settings-muted);
 }
 
 /* Dense: one word per row, in columns. No chip pill — at this length the
    pills are visual noise and the ragged edges are what break scanning. */
-.settings-words--dense .settings-word {
+:is(.mikedown-root, .mikedown-portal) .settings-words--dense .settings-word {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -452,17 +445,17 @@ select.settings-input {
   padding: 1px 4px;
   border-radius: 3px;
 }
-.settings-words--dense .settings-word--external {
+:is(.mikedown-root, .mikedown-portal) .settings-words--dense .settings-word--external {
   color: var(--settings-muted);
   font-style: italic;
 }
-.settings-words--dense .settings-word > span:first-child {
+:is(.mikedown-root, .mikedown-portal) .settings-words--dense .settings-word > span:first-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.settings-word-remove {
+:is(.mikedown-root, .mikedown-portal) .settings-word-remove {
   background: transparent;
   border: none;
   color: inherit;
@@ -476,67 +469,67 @@ select.settings-input {
 /* Hover-to-remove: 100 always-on × glyphs is a wall of clutter. Kept faintly
    visible (not display:none) so it survives a keyboard tab and doesn't reflow
    the row when it appears. */
-.settings-words--dense .settings-word-remove { opacity: 0.25; }
-.settings-words--dense .settings-word:hover,
-.settings-words--dense .settings-word:focus-within {
-  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.14));
+:is(.mikedown-root, .mikedown-portal) .settings-words--dense .settings-word-remove { opacity: 0.25; }
+:is(.mikedown-root, .mikedown-portal) .settings-words--dense .settings-word:hover,
+:is(.mikedown-root, .mikedown-portal) .settings-words--dense .settings-word:focus-within {
+  background: var(--mikedown-hover, rgba(128, 128, 128, 0.14));
 }
-.settings-words--dense .settings-word:hover .settings-word-remove,
-.settings-words--dense .settings-word-remove:focus { opacity: 1; }
+:is(.mikedown-root, .mikedown-portal) .settings-words--dense .settings-word:hover .settings-word-remove,
+:is(.mikedown-root, .mikedown-portal) .settings-words--dense .settings-word-remove:focus { opacity: 1; }
 
 /* ── Hotkeys ─────────────────────────────────────────────────────────────── */
 
-.settings-panel--hotkeys {
+:is(.mikedown-root, .mikedown-portal) .settings-panel--hotkeys {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 14px;
 }
 
-.settings-hotkeys-table {
+:is(.mikedown-root, .mikedown-portal) .settings-hotkeys-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
 }
-.settings-hotkeys-table th {
+:is(.mikedown-root, .mikedown-portal) .settings-hotkeys-table th {
   text-align: left;
   padding: 6px 8px;
   font-weight: 500;
   color: var(--settings-muted);
   border-bottom: 1px solid var(--settings-border);
 }
-.settings-hotkeys-table td {
+:is(.mikedown-root, .mikedown-portal) .settings-hotkeys-table td {
   padding: 6px 8px;
   color: var(--settings-fg);
   border-bottom: 1px solid var(--settings-divider);
 }
-.settings-hotkeys-table tbody tr:last-child td { border-bottom: none; }
-.settings-hotkeys-table td:last-child {
-  font-family: var(--vscode-editor-font-family, monospace);
+:is(.mikedown-root, .mikedown-portal) .settings-hotkeys-table tbody tr:last-child td { border-bottom: none; }
+:is(.mikedown-root, .mikedown-portal) .settings-hotkeys-table td:last-child {
+  font-family: var(--mikedown-font-mono, monospace);
   white-space: nowrap;
 }
 
 /* ── About ───────────────────────────────────────────────────────────────── */
 
-.settings-panel--about {
+:is(.mikedown-root, .mikedown-portal) .settings-panel--about {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 16px;
 }
 
-.settings-about-title {
+:is(.mikedown-root, .mikedown-portal) .settings-about-title {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.settings-about-name {
+:is(.mikedown-root, .mikedown-portal) .settings-about-name {
   font-size: 18px;
   font-weight: 600;
   color: var(--settings-fg);
 }
 
-.settings-about-meta {
+:is(.mikedown-root, .mikedown-portal) .settings-about-meta {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -544,19 +537,19 @@ select.settings-input {
   color: var(--settings-fg);
 }
 
-.settings-about-links {
+:is(.mikedown-root, .mikedown-portal) .settings-about-links {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.settings-about-links a {
-  color: var(--vscode-textLink-foreground, #3794ff);
+:is(.mikedown-root, .mikedown-portal) .settings-about-links a {
+  color: var(--mikedown-link, #3794ff);
   text-decoration: none;
   font-size: 13px;
 }
-.settings-about-links a:hover { text-decoration: underline; }
+:is(.mikedown-root, .mikedown-portal) .settings-about-links a:hover { text-decoration: underline; }
 
-.settings-about-support {
+:is(.mikedown-root, .mikedown-portal) .settings-about-support {
   align-self: stretch;
   display: flex;
   flex-direction: column;
@@ -565,30 +558,30 @@ select.settings-input {
   padding-top: 16px;
   border-top: 1px solid var(--settings-divider);
 }
-.settings-about-support .settings-btn { margin-top: 4px; }
+:is(.mikedown-root, .mikedown-portal) .settings-about-support .settings-btn { margin-top: 4px; }
 
 /* ── Narrow layouts ──────────────────────────────────────────────────────── */
 
 /* Content pane too narrow for two columns: stack the control under its label.
    Checkbox rows stay two-column — the control is only 16px wide. */
 @container settings-content (max-width: 440px) {
-  .settings-row--inline:not(.settings-row--check) {
+  :is(.mikedown-root, .mikedown-portal) .settings-row--inline:not(.settings-row--check) {
     grid-template-columns: minmax(0, 1fr);
   }
-  .settings-row--inline:not(.settings-row--check) > :not(.settings-row-text) {
+  :is(.mikedown-root, .mikedown-portal) .settings-row--inline:not(.settings-row--check) > :not(.settings-row-text) {
     justify-self: start;
   }
-  select.settings-input { max-width: 100%; }
-  .settings-input--medium { width: 100%; }
+  :is(.mikedown-root, .mikedown-portal) select.settings-input { max-width: 100%; }
+  :is(.mikedown-root, .mikedown-portal) .settings-input--medium { width: 100%; }
 }
 
 /* Narrow editor: the tab list moves from a left rail to a scrolling strip
    above the content. */
 @media (max-width: 600px) {
-  .settings-modal { height: min(640px, 90vh); }
-  .settings-header { padding: 14px 16px 10px; }
-  .settings-body { flex-direction: column; }
-  .settings-nav {
+  :is(.mikedown-root, .mikedown-portal) .settings-modal { height: min(640px, 90vh); }
+  :is(.mikedown-root, .mikedown-portal) .settings-header { padding: 14px 16px 10px; }
+  :is(.mikedown-root, .mikedown-portal) .settings-body { flex-direction: column; }
+  :is(.mikedown-root, .mikedown-portal) .settings-nav {
     width: auto;
     flex-direction: row;
     padding: 6px 8px;
@@ -597,6 +590,6 @@ select.settings-input {
     overflow-x: auto;
     overflow-y: hidden;
   }
-  .settings-content { padding: 14px 16px; }
-  .settings-footer { padding: 10px 16px; }
+  :is(.mikedown-root, .mikedown-portal) .settings-content { padding: 14px 16px; }
+  :is(.mikedown-root, .mikedown-portal) .settings-footer { padding: 10px 16px; }
 }

@@ -1,36 +1,36 @@
 /* Footnotes: `[^label]` references and definitions (see footnote.ts). */
 
-.ProseMirror .mikedown-footnote-ref {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-footnote-ref {
   font-size: 0.75em;
   line-height: 0;
-  color: var(--vscode-textLink-foreground);
+  color: var(--mikedown-link);
   cursor: pointer;
   padding: 0 1px;
 }
 
-.ProseMirror .mikedown-footnote-ref.ProseMirror-selectednode {
-  outline: 1px solid var(--vscode-focusBorder);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-footnote-ref.ProseMirror-selectednode {
+  outline: 1px solid var(--mikedown-focus-ring);
   border-radius: 2px;
 }
 
-.ProseMirror .mikedown-footnote-def {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-footnote-def {
   display: grid;
   grid-template-columns: max-content 1fr;
   column-gap: 0.5em;
   margin: 0.25em 0;
   font-size: 0.9em;
-  color: var(--vscode-descriptionForeground);
+  color: var(--mikedown-text-muted);
 }
 
-.ProseMirror .mikedown-footnote-def::before {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-footnote-def::before {
   content: '[' attr(data-footnote-def) ']';
   grid-column: 1;
   grid-row: 1;
-  color: var(--vscode-textLink-foreground);
+  color: var(--mikedown-link);
   font-variant-numeric: tabular-nums;
 }
 
-.ProseMirror .mikedown-footnote-def > * {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-footnote-def > * {
   grid-column: 2;
   margin-top: 0;
   margin-bottom: 0.25em;

@@ -5,6 +5,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { EditorView } from '@tiptap/pm/view';
 import type { Node as PmNode } from '@tiptap/pm/model';
 import mermaid from 'mermaid';
+import { isDarkScheme } from './theme';
 
 // Renders ```mermaid fenced code blocks as live diagrams in the WYSIWYG view.
 //
@@ -63,16 +64,8 @@ function forceRebuild(editor: Editor): void {
   editor.view.dispatch(editor.state.tr.setMeta(mermaidPluginKey, { force: true }));
 }
 
-function isDarkTheme(): boolean {
-  const cls = document.body.classList;
-  if (cls.contains('mikedown-force-dark')) {return true;}
-  if (cls.contains('mikedown-force-light')) {return false;}
-  // Fall back to the VS Code theme classes the webview host sets on <body>.
-  return cls.contains('vscode-dark') || cls.contains('vscode-high-contrast');
-}
-
-function ensureInit(): void {
-  const theme = isDarkTheme() ? 'dark' : 'default';
+function ensureInit(themeSource: Element): void {
+  const theme = isDarkScheme(themeSource) ? 'dark' : 'default';
   if (initializedTheme === theme) {return;}
   mermaid.initialize({
     startOnLoad: false,
@@ -90,7 +83,7 @@ function cleanupOrphan(id: string): void {
   document.getElementById('d' + id)?.remove();
 }
 
-function fillPreview(container: HTMLElement, code: string): void {
+function fillPreview(container: HTMLElement, code: string, themeSource: Element): void {
   const trimmed = code.trim();
   if (!trimmed) {
     container.classList.add('is-empty');
@@ -113,7 +106,7 @@ function fillPreview(container: HTMLElement, code: string): void {
   container.textContent = 'Rendering diagram…';
   const id = 'mikedown-mermaid-' + idCounter++;
   try {
-    ensureInit();
+    ensureInit(themeSource);
   } catch {
     // initialize failures fall through to render() which will reject
   }
@@ -155,7 +148,7 @@ function createPreview(view: EditorView, getPos: () => number | undefined, code:
     view.focus();
   });
 
-  fillPreview(container, code);
+  fillPreview(container, code, view.dom);
   return container;
 }
 

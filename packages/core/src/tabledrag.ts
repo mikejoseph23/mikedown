@@ -1,6 +1,7 @@
 import { Editor } from '@tiptap/core';
 import { Node as PMNode } from '@tiptap/pm/model';
 import { Transaction } from '@tiptap/pm/state';
+import { getPortal } from './portal';
 
 // =============================================
 // DRAG HANDLE STATE
@@ -145,7 +146,7 @@ function updateDragHandles(editor: Editor): void {
     // Skip header row (rowIdx === 0)
     if (rowIdx === 0) {return;}
     const handle = createDragHandle('row', rowIdx, row as HTMLElement);
-    document.body.appendChild(handle);
+    getPortal().appendChild(handle);
     handleOverlays.push(handle);
 
     handle.addEventListener('mousedown', (e) => {
@@ -161,7 +162,7 @@ function updateDragHandles(editor: Editor): void {
     const headerCells = Array.from(headerRow.querySelectorAll('th, td'));
     headerCells.forEach((cell, colIdx) => {
       const handle = createDragHandle('col', colIdx, cell as HTMLElement);
-      document.body.appendChild(handle);
+      getPortal().appendChild(handle);
       handleOverlays.push(handle);
 
       handle.addEventListener('mousedown', (e) => {
@@ -230,11 +231,11 @@ function createDragHandle(type: 'row' | 'col', index: number, anchorEl: HTMLElem
 function startDrag(type: 'row' | 'col', sourceIndex: number, tablePos: number, _handleEl: HTMLElement): void {
   const overlay = document.createElement('div');
   overlay.className = 'td-drag-overlay';
-  document.body.appendChild(overlay);
+  getPortal().appendChild(overlay);
 
   const dropLine = document.createElement('div');
   dropLine.className = `td-drop-line td-drop-line-${type}`;
-  document.body.appendChild(dropLine);
+  getPortal().appendChild(dropLine);
 
   dragState = { type, sourceIndex, currentIndex: sourceIndex, tablePos, overlayEl: overlay, dropLineEl: dropLine };
   document.body.classList.add('td-dragging');

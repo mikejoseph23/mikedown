@@ -1,13 +1,13 @@
 /* Toolbar Dropdown Menu */
 
-#toolbar-dropdown {
+:is(.mikedown-root, .mikedown-portal) #toolbar-dropdown {
   position: fixed;
   z-index: 1001;
-  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
-  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
-  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-editorWidget-border));
+  background: var(--mikedown-surface-raised);
+  color: var(--mikedown-text-ui, var(--mikedown-text));
+  border: 1px solid var(--mikedown-border);
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  border-radius: 6px;
+  border-radius: var(--mikedown-radius, 6px);
   padding: 4px;
   min-width: 180px;
   max-width: 280px;
@@ -18,39 +18,39 @@
   pointer-events: none;
 }
 
-#toolbar-dropdown.toolbar-dropdown-visible {
+:is(.mikedown-root, .mikedown-portal) #toolbar-dropdown.toolbar-dropdown-visible {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
 }
 
 /* Action item */
-.tdd-item {
+:is(.mikedown-root, .mikedown-portal) .tdd-item {
   display: flex;
   align-items: center;
   height: 28px;
   padding: 0 8px;
   font-size: 13px;
-  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
+  color: var(--mikedown-text-ui, var(--mikedown-text));
   cursor: pointer;
   white-space: nowrap;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   transition: background 0.06s ease;
   gap: 8px;
   outline: none;
 }
 
-.tdd-item:hover,
-.tdd-item.tdd-focused {
-  background: var(--vscode-toolbar-hoverBackground);
+:is(.mikedown-root, .mikedown-portal) .tdd-item:hover,
+:is(.mikedown-root, .mikedown-portal) .tdd-item.tdd-focused {
+  background: var(--mikedown-hover);
 }
 
-.tdd-item.tdd-focused {
-  outline: 2px solid var(--vscode-focusBorder);
+:is(.mikedown-root, .mikedown-portal) .tdd-item.tdd-focused {
+  outline: 2px solid var(--mikedown-focus-ring);
   outline-offset: -2px;
 }
 
-.tdd-item-icon {
+:is(.mikedown-root, .mikedown-portal) .tdd-item-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -59,44 +59,44 @@
   flex-shrink: 0;
 }
 
-.tdd-item-icon svg {
+:is(.mikedown-root, .mikedown-portal) .tdd-item-icon svg {
   width: 16px;
   height: 16px;
 }
 
-.tdd-item-label {
+:is(.mikedown-root, .mikedown-portal) .tdd-item-label {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 /* Active indicator — small dot on the left */
-.tdd-item-active-indicator {
+:is(.mikedown-root, .mikedown-portal) .tdd-item-active-indicator {
   display: none;
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--vscode-focusBorder, var(--vscode-textLink-foreground));
+  background: var(--mikedown-focus-ring, var(--mikedown-link));
   flex-shrink: 0;
 }
 
-.tdd-item.tdd-active .tdd-item-active-indicator {
+:is(.mikedown-root, .mikedown-portal) .tdd-item.tdd-active .tdd-item-active-indicator {
   display: block;
 }
 
-.tdd-item.tdd-active {
-  background: var(--vscode-toolbar-activeBackground, rgba(255,255,255,0.07));
+:is(.mikedown-root, .mikedown-portal) .tdd-item.tdd-active {
+  background: var(--mikedown-active, rgba(255,255,255,0.07));
 }
 
 /* Separator */
-.tdd-separator {
+:is(.mikedown-root, .mikedown-portal) .tdd-separator {
   height: 1px;
-  background: var(--vscode-editorHoverWidget-border, rgba(128,128,128,0.2));
+  background: var(--mikedown-border, rgba(128,128,128,0.2));
   margin: 4px 8px;
 }
 
 /* Mini-row: horizontal strip of icon buttons */
-.tdd-mini-row {
+:is(.mikedown-root, .mikedown-portal) .tdd-mini-row {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -104,7 +104,7 @@
   padding: 2px 4px;
 }
 
-.tdd-mini-btn {
+:is(.mikedown-root, .mikedown-portal) .tdd-mini-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -112,40 +112,40 @@
   height: 28px;
   border: none;
   background: transparent;
-  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-icon-foreground));
-  border-radius: 4px;
+  color: var(--mikedown-text-ui, var(--mikedown-icon));
+  border-radius: var(--mikedown-radius-sm, 4px);
   cursor: pointer;
   transition: background 0.06s ease;
   outline: none;
   padding: 0;
 }
 
-.tdd-mini-btn svg {
+:is(.mikedown-root, .mikedown-portal) .tdd-mini-btn svg {
   width: 16px;
   height: 16px;
 }
 
-.tdd-mini-btn:hover,
-.tdd-mini-btn.tdd-focused {
-  background: var(--vscode-toolbar-hoverBackground);
+:is(.mikedown-root, .mikedown-portal) .tdd-mini-btn:hover,
+:is(.mikedown-root, .mikedown-portal) .tdd-mini-btn.tdd-focused {
+  background: var(--mikedown-hover);
 }
 
-.tdd-mini-btn.tdd-focused {
-  outline: 2px solid var(--vscode-focusBorder);
+:is(.mikedown-root, .mikedown-portal) .tdd-mini-btn.tdd-focused {
+  outline: 2px solid var(--mikedown-focus-ring);
   outline-offset: -2px;
 }
 
-.tdd-mini-btn.tdd-active {
-  background: var(--vscode-toolbar-activeBackground, rgba(255,255,255,0.12));
-  color: var(--vscode-foreground);
+:is(.mikedown-root, .mikedown-portal) .tdd-mini-btn.tdd-active {
+  background: var(--mikedown-active, rgba(255,255,255,0.12));
+  color: var(--mikedown-text-ui);
 }
 
 /* Print: hide dropdown */
 @media print {
-  #toolbar-dropdown { display: none !important; }
+  :is(.mikedown-root, .mikedown-portal) #toolbar-dropdown { display: none !important; }
 }
 
 /* High contrast */
 @media (forced-colors: active) {
-  #toolbar-dropdown { forced-color-adjust: auto; }
+  :is(.mikedown-root, .mikedown-portal) #toolbar-dropdown { forced-color-adjust: auto; }
 }

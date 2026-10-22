@@ -1,6 +1,7 @@
 // Link autocomplete dropdown for the link dialog URL input
 
 import type { LinkSuggestion } from './host';
+import { getPortal } from './portal';
 
 export type { LinkSuggestion };
 
@@ -226,7 +227,7 @@ function showDropdown(sections: Section[], externalEntry: LinkSuggestion | null)
     dropdownEl = document.createElement('div');
     dropdownEl.id = 'mikedown-link-ac';
     dropdownEl.setAttribute('role', 'listbox');
-    document.body.appendChild(dropdownEl);
+    getPortal().appendChild(dropdownEl);
   }
   renderGrouped(sections, externalEntry);
 

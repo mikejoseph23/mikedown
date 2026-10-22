@@ -11,6 +11,7 @@
 
 import { Editor } from '@tiptap/core';
 import emojiData from 'markdown-it-emoji/lib/data/full.mjs';
+import { getPortal } from './portal';
 
 const EMOJI_MAP = emojiData as Record<string, string>;
 const ALL_KEYS = Object.keys(EMOJI_MAP);
@@ -426,7 +427,7 @@ export function showEmojiPicker(editor: Editor, opts: ShowOptions = {}): void {
     }
   });
 
-  document.body.appendChild(pickerEl);
+  getPortal().appendChild(pickerEl);
   render('');
 
   // Position — match languagepicker.ts logic.

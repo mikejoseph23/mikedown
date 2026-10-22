@@ -4,6 +4,7 @@
  * Supports action items, separators, and mini-rows (horizontal icon strips).
  * Keyboard navigable, auto-positions, only one open at a time.
  */
+import { getPortal } from './portal';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ export function showToolbarDropdown(
     }
   }
 
-  document.body.appendChild(dropdownEl);
+  getPortal().appendChild(dropdownEl);
 
   // Position relative to anchor
   positionDropdown(dropdownEl, anchorEl);

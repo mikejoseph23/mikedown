@@ -8,6 +8,7 @@
  */
 
 import { Editor } from '@tiptap/core';
+import { getPortal } from './portal';
 
 const CURATED: string[] = [
   'json', 'javascript', 'typescript', 'python', 'bash',
@@ -245,7 +246,7 @@ export function showLanguagePicker(editor: Editor, opts: ShowOptions): void {
     }
   });
 
-  document.body.appendChild(popoverEl);
+  getPortal().appendChild(popoverEl);
   render('');
 
   // Position

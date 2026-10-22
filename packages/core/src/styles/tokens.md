@@ -25,7 +25,7 @@ The "Also replaces" column lists the other VS Code variables the core CSS used f
 | `--mikedown-radius-lg` | Dialog corners | literal `8px` | — | `12px` | `12px` |
 | `--mikedown-surface` | Editor page background | `--vscode-editor-background` (fallback `#1e1e1e`) | — | `#ffffff` | `#1f1f21` |
 | `--mikedown-surface-raised` | Popovers, menus, dialogs, tooltips, toasts | `--vscode-editorWidget-background` (fallback `#252526`) | `--vscode-editorHoverWidget-background`, `--vscode-menu-background`, `--vscode-notifications-background` | `#ffffff` | `#2a2a2d` |
-| `--mikedown-surface-toolbar` | Toolbar strip | `--vscode-editorGroupHeader-tabsBackground` (fallback `#252526`) | — | `#fbfbfa` | `#1b1b1d` |
+| `--mikedown-surface-toolbar` | Toolbar strip | `--vscode-editorGroupHeader-tabsBackground` (no fallback) | — | `#fbfbfa` | `#1b1b1d` |
 | `--mikedown-input-bg` | Text inputs and selects | `--vscode-input-background` (fallback `#3c3c3c`) | — | `#ffffff` | `#26262a` |
 | `--mikedown-code-bg` | Inline code and code blocks | `--vscode-textCodeBlock-background` (no fallback) | — | `#f6f6f4` | `rgba(255, 255, 255, 0.06)` |
 | `--mikedown-quote-bg` | Blockquote fill | `--vscode-textBlockQuote-background` (no fallback) | — | `rgba(55, 53, 47, 0.03)` | `rgba(255, 255, 255, 0.03)` |
@@ -33,8 +33,8 @@ The "Also replaces" column lists the other VS Code variables the core CSS used f
 | `--mikedown-text-ui` | Chrome text (menus, dialogs, inputs) | `--vscode-foreground` (fallback `#cccccc`) | `--vscode-editorWidget-foreground`, `--vscode-editorHoverWidget-foreground`, `--vscode-menu-foreground`, `--vscode-notifications-foreground`, `--vscode-input-foreground`, `--vscode-list-hoverForeground` | `#3a3a3d` | `#d6d6da` |
 | `--mikedown-text-muted` | Hints, placeholders, line numbers, descriptions | `--vscode-descriptionForeground` (fallback `#a0a0a0`) | `--vscode-input-placeholderForeground`, `--vscode-editorGhostText-foreground`, `--vscode-editorLineNumber-foreground` | `#6f6f74` | `#9b9ba3` |
 | `--mikedown-icon` | Toolbar icons | `--vscode-icon-foreground` (fallback `#c5c5c5`) | — | `#55555c` | `#c2c2c9` |
-| `--mikedown-border` | Popover and widget outlines | `--vscode-editorWidget-border` (fallback `#454545`) | `--vscode-editorHoverWidget-border`, `--vscode-menu-border`, `--vscode-notifications-border`, `--vscode-widget-border` | `rgba(15, 15, 20, 0.10)` | `rgba(255, 255, 255, 0.10)` |
-| `--mikedown-divider` | Hairlines between regions (toolbar, sidebar, separators, hr) | `--vscode-editorGroup-border` (fallback `#444444`) | `--vscode-panel-border`, `--vscode-menu-separatorBackground`, `--vscode-editorRuler-foreground` | `rgba(15, 15, 20, 0.08)` | `rgba(255, 255, 255, 0.07)` |
+| `--mikedown-border` | Popover and widget outlines | `--vscode-editorWidget-border` (fallback `#454545`) | `--vscode-editorHoverWidget-border`, `--vscode-menu-border`, `--vscode-notifications-border`, `--vscode-widget-border`, `--vscode-editorRuler-foreground` | `rgba(15, 15, 20, 0.10)` | `rgba(255, 255, 255, 0.10)` |
+| `--mikedown-divider` | Hairlines between regions (toolbar, sidebar, separators, hr) | `--vscode-editorGroup-border` (fallback `#444444`) | `--vscode-panel-border`, `--vscode-menu-separatorBackground` | `rgba(15, 15, 20, 0.08)` | `rgba(255, 255, 255, 0.07)` |
 | `--mikedown-input-border` | Input outlines | `--vscode-input-border` (no fallback) | — | `rgba(15, 15, 20, 0.16)` | `rgba(255, 255, 255, 0.14)` |
 | `--mikedown-button-border` | Button outlines | `--vscode-button-border` (no fallback) | — | `transparent` | `transparent` |
 | `--mikedown-quote-border` | Blockquote bar | `--vscode-textBlockQuote-border` (no fallback) | — | `rgba(55, 53, 47, 0.22)` | `rgba(255, 255, 255, 0.22)` |

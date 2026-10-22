@@ -2,29 +2,42 @@
 
 /* MikeDown Editor — Webview Styles */
 
-*,
-*::before,
-*::after {
+/* Zero-specificity reset so third-party styles inside the editor (KaTeX,
+   CodeMirror, Mermaid) keep winning where they did against a bare `*`. */
+:where(.mikedown-root, .mikedown-portal) *,
+:where(.mikedown-root, .mikedown-portal) *::before,
+:where(.mikedown-root, .mikedown-portal) *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html,
-body {
-  height: 100%;
+.mikedown-root,
+.mikedown-portal {
+  font-size: var(--mikedown-font-size-ui, 14px);
+  color: var(--mikedown-text, #d4d4d4);
+}
+
+/* The editor fills its container; the toolbar, sidebar and views are
+   absolutely positioned inside it. Give the container a height. */
+.mikedown-root {
+  position: relative;
   width: 100%;
+  height: 100%;
   overflow: hidden;
-  font-family: var(--mikedown-font-family, Charter, 'Bitstream Charter', Cambria, Georgia, serif);
-  font-size: var(--vscode-editor-font-size, 14px);
-  color: var(--vscode-editor-foreground, #d4d4d4);
-  background-color: var(--vscode-editor-background, #1e1e1e);
+  background-color: var(--mikedown-surface, #1e1e1e);
+}
+
+/* The portal is a box-less wrapper on <body>; it only carries the theme
+   attribute and variables down to the overlays inside it. */
+.mikedown-portal {
+  display: contents;
 }
 
 /* ─── Toolbar ─────────────────────────────────────────────────────────────── */
 
-.mikedown-toolbar {
-  position: fixed;
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar {
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
@@ -34,24 +47,24 @@ body {
   align-items: center;
   padding: 0 10px;
   gap: 1px;
-  background-color: var(--vscode-editorGroupHeader-tabsBackground, #252526);
-  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+  background-color: var(--mikedown-surface-toolbar, #252526);
+  border-bottom: 1px solid var(--mikedown-divider, #3c3c3c);
   user-select: none;
 }
 
-.toolbar-placeholder {
+:is(.mikedown-root, .mikedown-portal) .toolbar-placeholder {
   font-size: 11px;
   font-weight: 500;
   opacity: 0.5;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--vscode-foreground, #cccccc);
+  color: var(--mikedown-text-ui, #cccccc);
 }
 
 /* ─── Editor Container ────────────────────────────────────────────────────── */
 
-.mikedown-editor-container {
-  position: fixed;
+:is(.mikedown-root, .mikedown-portal) .mikedown-editor-container {
+  position: absolute;
   top: 40px;
   left: 0;
   right: 0;
@@ -63,7 +76,7 @@ body {
 
 /* ─── Editor Content Area ─────────────────────────────────────────────────── */
 
-#editor {
+:is(.mikedown-root, .mikedown-portal) #editor {
   max-width: var(--mikedown-content-width, 100%);
   margin: 0 auto;
   min-height: 100%;
@@ -71,121 +84,121 @@ body {
   line-height: 1.7;
   white-space: pre-wrap;
   word-wrap: break-word;
-  caret-color: var(--vscode-editorCursor-foreground, #aeafad);
+  caret-color: var(--mikedown-text, #aeafad);
 }
 
 /* ─── Typography ──────────────────────────────────────────────────────────── */
 
-#editor h1,
-#editor h2,
-#editor h3,
-#editor h4,
-#editor h5,
-#editor h6 {
+:is(.mikedown-root, .mikedown-portal) #editor h1,
+:is(.mikedown-root, .mikedown-portal) #editor h2,
+:is(.mikedown-root, .mikedown-portal) #editor h3,
+:is(.mikedown-root, .mikedown-portal) #editor h4,
+:is(.mikedown-root, .mikedown-portal) #editor h5,
+:is(.mikedown-root, .mikedown-portal) #editor h6 {
   margin-top: 1.5em;
   margin-bottom: 0.5em;
   font-weight: 600;
   font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   line-height: 1.3;
-  color: var(--vscode-editor-foreground, #d4d4d4);
+  color: var(--mikedown-text, #d4d4d4);
 }
 
-#editor h1 { font-size: 2em; }
-#editor h2 { font-size: 1.5em; }
-#editor h3 { font-size: 1.25em; }
-#editor h4 { font-size: 1.1em; }
-#editor h5 { font-size: 1em; }
-#editor h6 { font-size: 0.9em; opacity: 0.8; }
+:is(.mikedown-root, .mikedown-portal) #editor h1 { font-size: 2em; }
+:is(.mikedown-root, .mikedown-portal) #editor h2 { font-size: 1.5em; }
+:is(.mikedown-root, .mikedown-portal) #editor h3 { font-size: 1.25em; }
+:is(.mikedown-root, .mikedown-portal) #editor h4 { font-size: 1.1em; }
+:is(.mikedown-root, .mikedown-portal) #editor h5 { font-size: 1em; }
+:is(.mikedown-root, .mikedown-portal) #editor h6 { font-size: 0.9em; opacity: 0.8; }
 
-#editor p {
+:is(.mikedown-root, .mikedown-portal) #editor p {
   margin-bottom: 1em;
 }
 
-#editor a {
-  color: var(--vscode-textLink-foreground, #3794ff);
+:is(.mikedown-root, .mikedown-portal) #editor a {
+  color: var(--mikedown-link, #3794ff);
   text-decoration: none;
 }
 
-#editor a:hover {
+:is(.mikedown-root, .mikedown-portal) #editor a:hover {
   text-decoration: underline;
 }
 
 /* Brief highlight when a backlink scrolls the rendered body to its `<a>`. */
-.ProseMirror a.mikedown-backlink-flash {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a.mikedown-backlink-flash {
   border-radius: 3px;
-  background-color: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 38%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 38%, transparent);
+  background-color: color-mix(in srgb, var(--mikedown-warning, #cca700) 38%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mikedown-warning, #cca700) 38%, transparent);
   transition: background-color 0.4s ease, box-shadow 0.4s ease;
 }
 
-#editor code {
-  font-family: var(--vscode-editor-font-family, 'Courier New', monospace);
+:is(.mikedown-root, .mikedown-portal) #editor code {
+  font-family: var(--mikedown-font-mono, 'Courier New', monospace);
   font-size: 0.9em;
-  background-color: var(--vscode-textCodeBlock-background, #2d2d2d);
+  background-color: var(--mikedown-code-bg, #2d2d2d);
   padding: 0.1em 0.3em;
   border-radius: 3px;
 }
 
-#editor pre {
-  background-color: var(--vscode-textCodeBlock-background, #2d2d2d);
+:is(.mikedown-root, .mikedown-portal) #editor pre {
+  background-color: var(--mikedown-code-bg, #2d2d2d);
   padding: 1em;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   overflow-x: auto;
   margin-bottom: 1em;
 }
 
-#editor pre code {
+:is(.mikedown-root, .mikedown-portal) #editor pre code {
   background: none;
   padding: 0;
   font-size: 0.88em;
 }
 
-#editor blockquote {
-  border-left: 3px solid var(--vscode-textBlockQuote-border, #606060);
-  background-color: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.1));
+:is(.mikedown-root, .mikedown-portal) #editor blockquote {
+  border-left: 3px solid var(--mikedown-quote-border, #606060);
+  background-color: var(--mikedown-quote-bg, rgba(127, 127, 127, 0.1));
   margin: 0 0 1em;
   padding: 0.5em 1em;
-  color: var(--vscode-foreground, #cccccc);
+  color: var(--mikedown-text-ui, #cccccc);
   opacity: 0.85;
 }
 
-#editor ul,
-#editor ol {
+:is(.mikedown-root, .mikedown-portal) #editor ul,
+:is(.mikedown-root, .mikedown-portal) #editor ol {
   margin-bottom: 1em;
   padding-left: 2em;
 }
 
-#editor li {
+:is(.mikedown-root, .mikedown-portal) #editor li {
   margin-bottom: 0.25em;
 }
 
-#editor hr {
+:is(.mikedown-root, .mikedown-portal) #editor hr {
   border: none;
-  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-top: 1px solid var(--mikedown-divider, #3c3c3c);
   margin: 1.5em 0;
 }
 
-#editor table {
+:is(.mikedown-root, .mikedown-portal) #editor table {
   border-collapse: collapse;
   width: 100%;
   margin-bottom: 1em;
 }
 
-#editor th,
-#editor td {
-  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+:is(.mikedown-root, .mikedown-portal) #editor th,
+:is(.mikedown-root, .mikedown-portal) #editor td {
+  border: 1px solid var(--mikedown-divider, #3c3c3c);
   padding: 0.5em 0.75em;
   text-align: left;
 }
 
-#editor th {
-  background-color: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+:is(.mikedown-root, .mikedown-portal) #editor th {
+  background-color: var(--mikedown-surface-toolbar, #252526);
   font-weight: 600;
 }
 
 /* ─── TipTap ProseMirror Editor ───────────────────────────────────────────── */
 
-.ProseMirror {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror {
   max-width: var(--mikedown-content-width, 100%);
   margin: 0 auto;
   min-height: calc(100vh - 40px - 120px);
@@ -193,13 +206,13 @@ body {
   font-size: var(--mikedown-font-size, 17px);
   line-height: 1.75;
   word-wrap: break-word;
-  caret-color: var(--vscode-editorCursor-foreground, #aeafad);
+  caret-color: var(--mikedown-text, #aeafad);
 }
 
 /* Placeholder text */
-.ProseMirror p.is-editor-empty:first-child::before {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  color: var(--vscode-input-placeholderForeground, var(--vscode-editorGhostText-foreground, #666));
+  color: var(--mikedown-text-muted, #666);
   pointer-events: none;
   float: left;
   height: 0;
@@ -209,7 +222,7 @@ body {
 
 /* ─── Headings ────────────────────────────────────────────────────────────── */
 
-.ProseMirror h1 {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h1 {
   font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   font-size: 2em;
   font-weight: 700;
@@ -217,9 +230,9 @@ body {
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
-.ProseMirror h1:first-child { margin-top: 0; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h1:first-child { margin-top: 0; }
 
-.ProseMirror h2 {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h2 {
   font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   font-size: 1.5em;
   font-weight: 600;
@@ -227,10 +240,10 @@ body {
   letter-spacing: -0.01em;
   line-height: 1.25;
   padding-bottom: 0.2em;
-  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+  border-bottom: 1px solid var(--mikedown-divider, rgba(128,128,128,0.2));
 }
 
-.ProseMirror h3 {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h3 {
   font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   font-size: 1.25em;
   font-weight: 600;
@@ -238,22 +251,22 @@ body {
   line-height: 1.3;
 }
 
-.ProseMirror h4 {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h4 {
   font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   font-size: 1.1em;
   font-weight: 600;
   margin: 1em 0 0.25em;
 }
 
-.ProseMirror h5,
-.ProseMirror h6 {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h5,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h6 {
   font-family: var(--mikedown-heading-font-family, var(--mikedown-font-family));
   font-size: 1em;
   font-weight: 600;
   margin: 1em 0 0.2em;
 }
 
-.ProseMirror h6 {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h6 {
   opacity: 0.75;
   text-transform: uppercase;
   font-size: 0.85em;
@@ -262,25 +275,25 @@ body {
 
 /* ─── Lists ───────────────────────────────────────────────────────────────── */
 
-.ProseMirror ul, .ProseMirror ol {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul, :is(.mikedown-root, .mikedown-portal) .ProseMirror ol {
   padding-left: 1.5em;
   margin: 0.5em 0;
 }
-.ProseMirror li {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror li {
   margin: 0.15em 0;
 }
-.ProseMirror li > p {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror li > p {
   margin: 0;
 }
 
 /* ─── Blockquote ──────────────────────────────────────────────────────────── */
 
-.ProseMirror blockquote {
-  border-left: 3px solid var(--vscode-textBlockQuote-border, rgba(150,150,150,0.5));
+:is(.mikedown-root, .mikedown-portal) .ProseMirror blockquote {
+  border-left: 3px solid var(--mikedown-quote-border, rgba(150,150,150,0.5));
   margin: 0.75em 0;
   padding: 0.3em 1em;
-  color: var(--vscode-textBlockQuote-foreground);
-  background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.06));
+  color: var(--mikedown-text);
+  background: var(--mikedown-quote-bg, rgba(128,128,128,0.06));
   border-radius: 0 4px 4px 0;
 }
 
@@ -289,16 +302,16 @@ body {
    styled, icon-prefixed panel via a CSS ::before pseudo-element so the label
    never becomes part of the document content. */
 
-.ProseMirror .mikedown-callout {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-callout {
   border-left: 4px solid var(--mikedown-callout-accent, #888);
   background: var(--mikedown-callout-bg, rgba(128, 128, 128, 0.08));
-  color: var(--vscode-editor-foreground);
+  color: var(--mikedown-text);
   margin: 0.75em 0;
   padding: 0.5em 1em 0.6em 1em;
   border-radius: 0 6px 6px 0;
 }
 
-.ProseMirror .mikedown-callout::before {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-callout::before {
   content: var(--mikedown-callout-icon, "ⓘ") "  " var(--mikedown-callout-label, "Note");
   display: block;
   font-weight: 600;
@@ -310,42 +323,42 @@ body {
   user-select: none;
 }
 
-.ProseMirror .mikedown-callout > :first-child {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-callout > :first-child {
   margin-top: 0;
 }
-.ProseMirror .mikedown-callout > :last-child {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-callout > :last-child {
   margin-bottom: 0;
 }
 
 /* Per-kind accent / icon / label tokens — kept generic enough that the
    ::before rule above can render any kind without per-kind selectors. */
 
-.ProseMirror .mikedown-callout--note    { --mikedown-callout-accent: #0969da; --mikedown-callout-bg: rgba(9, 105, 218, 0.08);   --mikedown-callout-icon: "ⓘ"; --mikedown-callout-label: "Note"; }
-.ProseMirror .mikedown-callout--tip     { --mikedown-callout-accent: #1a7f37; --mikedown-callout-bg: rgba(26, 127, 55, 0.08);   --mikedown-callout-icon: "★"; --mikedown-callout-label: "Tip"; }
-.ProseMirror .mikedown-callout--important { --mikedown-callout-accent: #8250df; --mikedown-callout-bg: rgba(130, 80, 223, 0.08); --mikedown-callout-icon: "❗"; --mikedown-callout-label: "Important"; }
-.ProseMirror .mikedown-callout--warning { --mikedown-callout-accent: #9a6700; --mikedown-callout-bg: rgba(212, 167, 44, 0.12); --mikedown-callout-icon: "⚠"; --mikedown-callout-label: "Warning"; }
-.ProseMirror .mikedown-callout--caution { --mikedown-callout-accent: #cf222e; --mikedown-callout-bg: rgba(207, 34, 46, 0.10);  --mikedown-callout-icon: "⛔"; --mikedown-callout-label: "Caution"; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-callout--note    { --mikedown-callout-accent: #0969da; --mikedown-callout-bg: rgba(9, 105, 218, 0.08);   --mikedown-callout-icon: "ⓘ"; --mikedown-callout-label: "Note"; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-callout--tip     { --mikedown-callout-accent: #1a7f37; --mikedown-callout-bg: rgba(26, 127, 55, 0.08);   --mikedown-callout-icon: "★"; --mikedown-callout-label: "Tip"; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-callout--important { --mikedown-callout-accent: #8250df; --mikedown-callout-bg: rgba(130, 80, 223, 0.08); --mikedown-callout-icon: "❗"; --mikedown-callout-label: "Important"; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-callout--warning { --mikedown-callout-accent: #9a6700; --mikedown-callout-bg: rgba(212, 167, 44, 0.12); --mikedown-callout-icon: "⚠"; --mikedown-callout-label: "Warning"; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-callout--caution { --mikedown-callout-accent: #cf222e; --mikedown-callout-bg: rgba(207, 34, 46, 0.10);  --mikedown-callout-icon: "⛔"; --mikedown-callout-label: "Caution"; }
 
 /* Dark-mode accents pull a slightly lighter hue so the foreground label
    stays readable against the editor's dark background. */
-body.mikedown-force-dark .ProseMirror .mikedown-callout--note    { --mikedown-callout-accent: #58a6ff; --mikedown-callout-bg: rgba(56, 139, 253, 0.15); }
-body.mikedown-force-dark .ProseMirror .mikedown-callout--tip     { --mikedown-callout-accent: #3fb950; --mikedown-callout-bg: rgba(46, 160, 67, 0.15); }
-body.mikedown-force-dark .ProseMirror .mikedown-callout--important { --mikedown-callout-accent: #a371f7; --mikedown-callout-bg: rgba(163, 113, 247, 0.15); }
-body.mikedown-force-dark .ProseMirror .mikedown-callout--warning { --mikedown-callout-accent: #d29922; --mikedown-callout-bg: rgba(187, 128, 9, 0.20); }
-body.mikedown-force-dark .ProseMirror .mikedown-callout--caution { --mikedown-callout-accent: #f85149; --mikedown-callout-bg: rgba(248, 81, 73, 0.15); }
+:is(.mikedown-root, .mikedown-portal)[data-mikedown-theme="dark"] .ProseMirror .mikedown-callout--note    { --mikedown-callout-accent: #58a6ff; --mikedown-callout-bg: rgba(56, 139, 253, 0.15); }
+:is(.mikedown-root, .mikedown-portal)[data-mikedown-theme="dark"] .ProseMirror .mikedown-callout--tip     { --mikedown-callout-accent: #3fb950; --mikedown-callout-bg: rgba(46, 160, 67, 0.15); }
+:is(.mikedown-root, .mikedown-portal)[data-mikedown-theme="dark"] .ProseMirror .mikedown-callout--important { --mikedown-callout-accent: #a371f7; --mikedown-callout-bg: rgba(163, 113, 247, 0.15); }
+:is(.mikedown-root, .mikedown-portal)[data-mikedown-theme="dark"] .ProseMirror .mikedown-callout--warning { --mikedown-callout-accent: #d29922; --mikedown-callout-bg: rgba(187, 128, 9, 0.20); }
+:is(.mikedown-root, .mikedown-portal)[data-mikedown-theme="dark"] .ProseMirror .mikedown-callout--caution { --mikedown-callout-accent: #f85149; --mikedown-callout-bg: rgba(248, 81, 73, 0.15); }
 
 /* When following VS Code's theme (no force-light/force-dark class), match
    the active scheme via prefers-color-scheme so the colors track. */
 @media (prefers-color-scheme: dark) {
-  body:not(.mikedown-force-light) .ProseMirror .mikedown-callout--note    { --mikedown-callout-accent: #58a6ff; --mikedown-callout-bg: rgba(56, 139, 253, 0.15); }
-  body:not(.mikedown-force-light) .ProseMirror .mikedown-callout--tip     { --mikedown-callout-accent: #3fb950; --mikedown-callout-bg: rgba(46, 160, 67, 0.15); }
-  body:not(.mikedown-force-light) .ProseMirror .mikedown-callout--important { --mikedown-callout-accent: #a371f7; --mikedown-callout-bg: rgba(163, 113, 247, 0.15); }
-  body:not(.mikedown-force-light) .ProseMirror .mikedown-callout--warning { --mikedown-callout-accent: #d29922; --mikedown-callout-bg: rgba(187, 128, 9, 0.20); }
-  body:not(.mikedown-force-light) .ProseMirror .mikedown-callout--caution { --mikedown-callout-accent: #f85149; --mikedown-callout-bg: rgba(248, 81, 73, 0.15); }
+  :is(.mikedown-root, .mikedown-portal):not([data-mikedown-theme="light"]) .ProseMirror .mikedown-callout--note    { --mikedown-callout-accent: #58a6ff; --mikedown-callout-bg: rgba(56, 139, 253, 0.15); }
+  :is(.mikedown-root, .mikedown-portal):not([data-mikedown-theme="light"]) .ProseMirror .mikedown-callout--tip     { --mikedown-callout-accent: #3fb950; --mikedown-callout-bg: rgba(46, 160, 67, 0.15); }
+  :is(.mikedown-root, .mikedown-portal):not([data-mikedown-theme="light"]) .ProseMirror .mikedown-callout--important { --mikedown-callout-accent: #a371f7; --mikedown-callout-bg: rgba(163, 113, 247, 0.15); }
+  :is(.mikedown-root, .mikedown-portal):not([data-mikedown-theme="light"]) .ProseMirror .mikedown-callout--warning { --mikedown-callout-accent: #d29922; --mikedown-callout-bg: rgba(187, 128, 9, 0.20); }
+  :is(.mikedown-root, .mikedown-portal):not([data-mikedown-theme="light"]) .ProseMirror .mikedown-callout--caution { --mikedown-callout-accent: #f85149; --mikedown-callout-bg: rgba(248, 81, 73, 0.15); }
 }
 
 /* Small badges used in the toolbar Lists & Blocks mini-row picker. */
-.mikedown-callout-badge {
+:is(.mikedown-root, .mikedown-portal) .mikedown-callout-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -357,15 +370,15 @@ body.mikedown-force-dark .ProseMirror .mikedown-callout--caution { --mikedown-ca
   color: #ffffff;
   line-height: 1;
 }
-.mikedown-callout-badge--note      { background: #0969da; }
-.mikedown-callout-badge--tip       { background: #1a7f37; }
-.mikedown-callout-badge--important { background: #8250df; }
-.mikedown-callout-badge--warning   { background: #9a6700; }
-.mikedown-callout-badge--caution   { background: #cf222e; }
+:is(.mikedown-root, .mikedown-portal) .mikedown-callout-badge--note      { background: #0969da; }
+:is(.mikedown-root, .mikedown-portal) .mikedown-callout-badge--tip       { background: #1a7f37; }
+:is(.mikedown-root, .mikedown-portal) .mikedown-callout-badge--important { background: #8250df; }
+:is(.mikedown-root, .mikedown-portal) .mikedown-callout-badge--warning   { background: #9a6700; }
+:is(.mikedown-root, .mikedown-portal) .mikedown-callout-badge--caution   { background: #cf222e; }
 
 /* ─── Highlight / mark (==text==) ─────────────────────────────────────────── */
 
-.ProseMirror mark {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror mark {
   background: #fff3a0;
   color: inherit;
   padding: 0 0.15em;
@@ -373,12 +386,12 @@ body.mikedown-force-dark .ProseMirror .mikedown-callout--caution { --mikedown-ca
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
-body.mikedown-force-dark .ProseMirror mark {
+:is(.mikedown-root, .mikedown-portal)[data-mikedown-theme="dark"] .ProseMirror mark {
   background: rgba(255, 213, 79, 0.28);
   color: inherit;
 }
 @media (prefers-color-scheme: dark) {
-  body:not(.mikedown-force-light) .ProseMirror mark {
+  :is(.mikedown-root, .mikedown-portal):not([data-mikedown-theme="light"]) .ProseMirror mark {
     background: rgba(255, 213, 79, 0.28);
     color: inherit;
   }
@@ -388,37 +401,37 @@ body.mikedown-force-dark .ProseMirror mark {
 /* Decoration spans painted over `#tag` text (see webview/tag.ts). Cmd/Ctrl+
    click navigates to the tag's documents; plain click still edits the text. */
 
-.ProseMirror .mikedown-tag {
-  color: var(--vscode-textLink-foreground, #3794ff);
-  background: color-mix(in srgb, var(--vscode-textLink-foreground, #3794ff) 12%, transparent);
-  border-radius: 4px;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-tag {
+  color: var(--mikedown-link, #3794ff);
+  background: color-mix(in srgb, var(--mikedown-link, #3794ff) 12%, transparent);
+  border-radius: var(--mikedown-radius-sm, 4px);
   padding: 0 0.2em;
   cursor: pointer;
 }
 
-.ProseMirror .mikedown-tag:hover {
-  background: color-mix(in srgb, var(--vscode-textLink-foreground, #3794ff) 24%, transparent);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-tag:hover {
+  background: color-mix(in srgb, var(--mikedown-link, #3794ff) 24%, transparent);
   text-decoration: underline;
 }
 
 /* ─── Code block ──────────────────────────────────────────────────────────── */
 
-.ProseMirror pre {
-  background: var(--vscode-textCodeBlock-background);
-  border-radius: 6px;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre {
+  background: var(--mikedown-code-bg);
+  border-radius: var(--mikedown-radius, 6px);
   padding: 0.85em 1em;
   overflow-x: auto;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--mikedown-font-mono, monospace);
   font-size: 0.9em;
 }
 
 /* ─── Inline code ─────────────────────────────────────────────────────────── */
 
-.ProseMirror code {
-  background: var(--vscode-textCodeBlock-background);
-  border-radius: 4px;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror code {
+  background: var(--mikedown-code-bg);
+  border-radius: var(--mikedown-radius-sm, 4px);
   padding: 0.15em 0.4em;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--mikedown-font-mono, monospace);
   font-size: 0.88em;
 }
 
@@ -427,72 +440,72 @@ body.mikedown-force-dark .ProseMirror mark {
    0.4em padding-left lands only at the start of the very first line and indents
    it ~one character relative to the rest (GitHub issue #2). Vertical padding and
    background stay, so the highlight look is unchanged. */
-.ProseMirror pre code {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror pre code {
   padding-left: 0;
   padding-right: 0;
 }
 
 /* ─── Horizontal rule ─────────────────────────────────────────────────────── */
 
-.ProseMirror hr {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror hr {
   border: none;
   height: 1px;
-  background: var(--vscode-editorRuler-foreground, rgba(150,150,150,0.3));
+  background: var(--mikedown-border, rgba(150,150,150,0.3));
   margin: 2em 0;
 }
 
 /* ─── Paragraph spacing ──────────────────────────────────────────────────── */
 
-.ProseMirror p { margin: 0; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror p { margin: 0; }
 /* Spacing between top-level blocks. The per-element selectors below match
    `.ProseMirror p`'s (0,1,1) specificity so paragraphs don't override the
    margin via the universal `> * + *` rule (which is only (0,1,0)). */
-.ProseMirror > * + * { margin-top: 1em; }
-.ProseMirror > p + p,
-.ProseMirror > p + ul,
-.ProseMirror > p + ol,
-.ProseMirror > ul + p,
-.ProseMirror > ol + p,
-.ProseMirror > ul + ul,
-.ProseMirror > ol + ol { margin-top: 1em; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror > * + * { margin-top: 1em; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror > p + p,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror > p + ul,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror > p + ol,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror > ul + p,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror > ol + p,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror > ul + ul,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror > ol + ol { margin-top: 1em; }
 
 /* ─── Task lists (GFM checkboxes) ─────────────────────────────────────────── */
 
-.ProseMirror ul[data-type="taskList"] {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] {
   list-style: none;
   padding-left: 0.25em;
 }
 
-.ProseMirror ul[data-type="taskList"] li {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li {
   display: flex;
   align-items: flex-start;
   gap: 0.5em;
 }
 
-.ProseMirror ul[data-type="taskList"] li > label {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label {
   flex-shrink: 0;
   margin-top: 0.2em;
 }
 
-.ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
   cursor: pointer;
   width: 14px;
   height: 14px;
-  accent-color: var(--vscode-textLink-foreground, #3794ff);
+  accent-color: var(--mikedown-link, #3794ff);
 }
 
-.ProseMirror ul[data-type="taskList"] li > div {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > div {
   flex: 1;
 }
 
-.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
   opacity: 0.6;
   text-decoration: line-through;
 }
 
 /* ─── Diff Highlighting ───────────────────────────────────────────────────── */
 
-.ProseMirror .mikedown-diff-changed {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-diff-changed {
   background-color: rgba(40, 167, 69, 0.12);
   border-left: 3px solid rgba(40, 167, 69, 0.6);
   padding-left: 0.5em;
@@ -500,23 +513,19 @@ body.mikedown-force-dark .ProseMirror mark {
   border-radius: 2px;
 }
 
-body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
-  background-color: rgba(40, 167, 69, 0.08);
-  border-left-color: rgba(40, 167, 69, 0.5);
-}
 
 /* ─── Table Checkboxes ────────────────────────────────────────────────────── */
 
-.ProseMirror .table-checkbox {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .table-checkbox {
   cursor: pointer;
   width: 14px;
   height: 14px;
-  accent-color: var(--vscode-textLink-foreground, #3794ff);
+  accent-color: var(--mikedown-link, #3794ff);
   vertical-align: middle;
   margin: 0 0.15em 0 0;
 }
 
-.ProseMirror .table-checkbox-hidden {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .table-checkbox-hidden {
   position: absolute;
   width: 0;
   overflow: hidden;
@@ -527,29 +536,29 @@ body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
 
 /* ─── Tables ──────────────────────────────────────────────────────────────── */
 
-.ProseMirror table {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror table {
   border-collapse: collapse;
   width: 100%;
   margin-bottom: 1em;
   table-layout: auto;
 }
 
-.ProseMirror table th,
-.ProseMirror table td {
-  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror table th,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror table td {
+  border: 1px solid var(--mikedown-divider, #3c3c3c);
   padding: 0.5em 0.75em;
   text-align: left;
   position: relative;
 }
 
-.ProseMirror table th {
-  background-color: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror table th {
+  background-color: var(--mikedown-surface-toolbar, #252526);
   font-weight: 600;
   font-size: 0.92em;
   text-transform: none;
 }
 
-.ProseMirror table .selectedCell::after {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror table .selectedCell::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -559,23 +568,23 @@ body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
 
 /* ─── Scrollbar ───────────────────────────────────────────────────────────── */
 
-.mikedown-editor-container::-webkit-scrollbar {
+:is(.mikedown-root, .mikedown-portal) .mikedown-editor-container::-webkit-scrollbar {
   width: 10px;
 }
 
-.mikedown-editor-container::-webkit-scrollbar-track {
+:is(.mikedown-root, .mikedown-portal) .mikedown-editor-container::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.mikedown-editor-container::-webkit-scrollbar-thumb {
-  background-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
+:is(.mikedown-root, .mikedown-portal) .mikedown-editor-container::-webkit-scrollbar-thumb {
+  background-color: var(--mikedown-scrollbar, rgba(121, 121, 121, 0.4));
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
-.mikedown-editor-container::-webkit-scrollbar-thumb:hover {
-  background-color: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
+:is(.mikedown-root, .mikedown-portal) .mikedown-editor-container::-webkit-scrollbar-thumb:hover {
+  background-color: var(--mikedown-scrollbar-hover, rgba(100, 100, 100, 0.7));
 }
 
 /* CSS files are loaded as separate <link> tags by the extension host.
@@ -586,24 +595,24 @@ body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
 /* Used when the user hits Print / Export as PDF — hide chrome, let the
    content fill the page. */
 @media print {
-  .mikedown-toolbar,
-  #mikedown-find-bar,
-  #mikedown-context-menu,
-  #mikedown-link-autocomplete,
-  #mikedown-table-grid-picker,
-  .toolbar-dropdown {
+  :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar,
+  :is(.mikedown-root, .mikedown-portal) #mikedown-find-bar,
+  :is(.mikedown-root, .mikedown-portal) #mikedown-context-menu,
+  :is(.mikedown-root, .mikedown-portal) #mikedown-link-autocomplete,
+  :is(.mikedown-root, .mikedown-portal) #mikedown-table-grid-picker,
+  :is(.mikedown-root, .mikedown-portal) .toolbar-dropdown {
     display: none !important;
   }
 
-  html, body {
+  .mikedown-root {
     background: #fff !important;
     color: #000 !important;
     height: auto !important;
     overflow: visible !important;
   }
 
-  .mikedown-editor-container,
-  .mikedown-source-container {
+  :is(.mikedown-root, .mikedown-portal) .mikedown-editor-container,
+  :is(.mikedown-root, .mikedown-portal) .mikedown-source-container {
     position: static !important;
     height: auto !important;
     max-height: none !important;
@@ -612,26 +621,26 @@ body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
     margin: 0 !important;
   }
 
-  .ProseMirror {
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror {
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
     color: #000 !important;
   }
 
-  .ProseMirror a { color: #000 !important; text-decoration: underline; }
-  .ProseMirror pre, .ProseMirror code {
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror a { color: #000 !important; text-decoration: underline; }
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror pre, :is(.mikedown-root, .mikedown-portal) .ProseMirror code {
     background: #f6f8fa !important;
     color: #000 !important;
   }
 
   /* Avoid page breaks inside atomic blocks */
-  .ProseMirror h1, .ProseMirror h2, .ProseMirror h3,
-  .ProseMirror h4, .ProseMirror h5, .ProseMirror h6 {
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror h1, :is(.mikedown-root, .mikedown-portal) .ProseMirror h2, :is(.mikedown-root, .mikedown-portal) .ProseMirror h3,
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror h4, :is(.mikedown-root, .mikedown-portal) .ProseMirror h5, :is(.mikedown-root, .mikedown-portal) .ProseMirror h6 {
     page-break-after: avoid;
     break-after: avoid;
   }
-  .ProseMirror pre, .ProseMirror blockquote, .ProseMirror table, .ProseMirror img {
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror pre, :is(.mikedown-root, .mikedown-portal) .ProseMirror blockquote, :is(.mikedown-root, .mikedown-portal) .ProseMirror table, :is(.mikedown-root, .mikedown-portal) .ProseMirror img {
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -639,4 +648,17 @@ body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
   @page {
     margin: 0.75in;
   }
+}
+
+/* No toolbar (features.toolbar off): the views start at the top edge. */
+.mikedown-root.mikedown-no-toolbar .mikedown-editor-container,
+.mikedown-root.mikedown-no-toolbar .mikedown-source-container,
+.mikedown-root.mikedown-no-toolbar .mikedown-outline-sidebar {
+  top: 0;
+}
+.mikedown-root.mikedown-no-toolbar .mikedown-outline-toggle {
+  top: 8px;
+}
+.mikedown-root.mikedown-no-toolbar .mikedown-find-replace-bar {
+  top: 2px;
 }

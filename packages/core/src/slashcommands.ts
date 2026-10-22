@@ -33,6 +33,7 @@ import {
   type SlashCommand,
   type SlashCommandGroup
 } from './slashcommands-registry';
+import { getPortal } from './portal';
 
 // ── Public config ─────────────────────────────────────────────────────────────
 
@@ -321,7 +322,7 @@ function ensurePopup(): HTMLElement {
     listEl.className = 'slash-menu-list';
     listEl.setAttribute('role', 'presentation');
     popupEl.appendChild(listEl);
-    document.body.appendChild(popupEl);
+    getPortal().appendChild(popupEl);
     document.addEventListener('mousedown', onDocumentMouseDown, true);
   }
   return popupEl;

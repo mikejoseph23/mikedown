@@ -26,7 +26,7 @@
 
   --mikedown-surface: var(--vscode-editor-background, #1e1e1e);
   --mikedown-surface-raised: var(--vscode-editorWidget-background, #252526);
-  --mikedown-surface-toolbar: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+  --mikedown-surface-toolbar: var(--vscode-editorGroupHeader-tabsBackground);
   --mikedown-input-bg: var(--vscode-input-background, #3c3c3c);
   --mikedown-code-bg: var(--vscode-textCodeBlock-background);
   --mikedown-quote-bg: var(--vscode-textBlockQuote-background);
@@ -81,4 +81,244 @@
   --mikedown-syntax-type: var(--vscode-symbolIcon-classForeground, #4ec9b0);
   --mikedown-syntax-function: var(--vscode-symbolIcon-functionForeground, #dcdcaa);
   --mikedown-syntax-variable: var(--vscode-symbolIcon-variableForeground, #9cdcfe);
+}
+
+/* ── Page shell ─────────────────────────────────────────────────────────── */
+
+/* The webview page is the editor. The core styles only .mikedown-root and
+   .mikedown-portal, so the page reset and the body styles live here. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--mikedown-font-family, Charter, 'Bitstream Charter', Cambria, Georgia, serif);
+  font-size: var(--vscode-editor-font-size, 14px);
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  background-color: var(--vscode-editor-background, #1e1e1e);
+}
+
+body {
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Subtle edge border so split-view panels have a visible boundary */
+  border-right: 1px solid var(--vscode-editorGroup-border);
+}
+
+/* The editor root spans the full width, under the body's 1px right border,
+   and stays transparent so that border and the body background show through
+   exactly as when the editor's views were fixed to the viewport. */
+#editor-root {
+  height: 100%;
+  margin-right: -1px;
+}
+
+.mikedown-root {
+  background-color: transparent;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
+
+/* Light or dark, for the script (Mermaid theme, source-view highlighting). */
+body { --mikedown-scheme: dark; }
+body.vscode-light,
+body.vscode-high-contrast-light { --mikedown-scheme: light; }
+body[data-mikedown-theme="light"] { --mikedown-scheme: light; }
+body[data-mikedown-theme="dark"] { --mikedown-scheme: dark; }
+
+/* ── VS Code-only theme rules ───────────────────────────────────────────── */
+
+/* Moved from the core theme.css forced palettes. */
+/* Forced light / dark (editorTheme 'light' or 'dark'). These override VS Code's
+   injected variables so the editor can run in the opposite theme without
+   changing VS Code's own appearance. The shell mirrors the root's
+   data-mikedown-theme onto <body> (src/webview/editor-main.ts). */
+
+body[data-mikedown-theme="light"] {
+  --vscode-editor-background: #ffffff;
+  --vscode-editor-foreground: #1e1e1e;
+  --vscode-foreground: #333333;
+  --vscode-editorGroupHeader-tabsBackground: #f0f0f0;
+  --vscode-editorGroup-border: #c8c8c8;
+  --vscode-icon-foreground: #424242;
+  --vscode-toolbar-hoverBackground: rgba(0, 0, 0, 0.07);
+  --vscode-toolbar-activeBackground: rgba(0, 0, 0, 0.12);
+  --vscode-textLink-foreground: #006ab1;
+  --vscode-textLink-activeForeground: #0078d4;
+  --vscode-scrollbarSlider-background: rgba(100, 100, 100, 0.3);
+  --vscode-scrollbarSlider-hoverBackground: rgba(100, 100, 100, 0.5);
+  --vscode-editor-selectionBackground: #add6ff;
+  --vscode-focusBorder: #0078d4;
+  --vscode-editorHoverWidget-background: #f3f3f3;
+  --vscode-editorHoverWidget-foreground: #1e1e1e;
+  --vscode-editorHoverWidget-border: #c8c8c8;
+  --vscode-errorForeground: #e51400;
+  --vscode-input-background: #ffffff;
+  --vscode-input-foreground: #1e1e1e;
+  --vscode-input-border: #cecece;
+  --vscode-textBlockQuote-background: rgba(0, 0, 0, 0.04);
+  --vscode-textBlockQuote-foreground: #1e1e1e;
+  --vscode-textBlockQuote-border: rgba(0, 0, 0, 0.15);
+  --vscode-textCodeBlock-background: rgba(0, 0, 0, 0.04);
+  --vscode-descriptionForeground: #717171;
+  --vscode-editorWidget-background: #f3f3f3;
+  --vscode-editorWidget-border: #c8c8c8;
+  --vscode-menu-background: #f3f3f3;
+  --vscode-menu-foreground: #1e1e1e;
+  --vscode-menu-border: #c8c8c8;
+  --vscode-menu-selectionBackground: #e8e8e8;
+  --vscode-menu-selectionForeground: #1e1e1e;
+  --vscode-menu-separatorBackground: #d4d4d4;
+  --vscode-editor-lineHighlightBackground: rgba(0, 0, 0, 0.06);
+  --vscode-editorLineNumber-foreground: #237893;
+  --vscode-list-activeSelectionBackground: #e8e8e8;
+  --vscode-list-activeSelectionForeground: #1e1e1e;
+  --vscode-symbolIcon-keywordForeground: #0000ff;
+  --vscode-debugTokenExpression-string: #a31515;
+  --vscode-debugTokenExpression-number: #098658;
+  --vscode-symbolIcon-classForeground: #267f99;
+  --vscode-symbolIcon-functionForeground: #795e26;
+  --vscode-symbolIcon-variableForeground: #001080;
+  color-scheme: light;
+}
+
+body[data-mikedown-theme="dark"] {
+  /* Widget surfaces: the toolbar tooltips read these through
+     --mikedown-surface-raised / --mikedown-border. */
+  --vscode-editorWidget-background: #252526;
+  --vscode-editorWidget-border: #454545;
+  --vscode-editor-background: #1e1e1e;
+  --vscode-editor-foreground: #d4d4d4;
+  --vscode-foreground: #cccccc;
+  --vscode-editorGroupHeader-tabsBackground: #252526;
+  --vscode-editorGroup-border: #444444;
+  --vscode-icon-foreground: #c5c5c5;
+  --vscode-toolbar-hoverBackground: rgba(255, 255, 255, 0.1);
+  --vscode-toolbar-activeBackground: rgba(255, 255, 255, 0.15);
+  --vscode-textLink-foreground: #4e9de0;
+  --vscode-textLink-activeForeground: #6aafee;
+  --vscode-scrollbarSlider-background: rgba(121, 121, 121, 0.4);
+  --vscode-scrollbarSlider-hoverBackground: rgba(100, 100, 100, 0.7);
+  --vscode-editor-selectionBackground: #264f78;
+  --vscode-editor-lineHighlightBackground: rgba(255, 255, 255, 0.1);
+  --vscode-editorLineNumber-foreground: #858585;
+  --vscode-focusBorder: #007fd4;
+  --vscode-editorHoverWidget-background: #252526;
+  --vscode-editorHoverWidget-foreground: #cccccc;
+  --vscode-editorHoverWidget-border: #454545;
+  --vscode-errorForeground: #f44747;
+  --vscode-input-background: #3c3c3c;
+  --vscode-input-foreground: #cccccc;
+  --vscode-input-border: #3c3c3c;
+  --vscode-textBlockQuote-background: rgba(255, 255, 255, 0.05);
+  --vscode-textBlockQuote-foreground: #d4d4d4;
+  --vscode-textBlockQuote-border: rgba(255, 255, 255, 0.15);
+  --vscode-textCodeBlock-background: rgba(255, 255, 255, 0.06);
+  --vscode-descriptionForeground: #8a8a8a;
+  --vscode-symbolIcon-keywordForeground: #569cd6;
+  --vscode-debugTokenExpression-string: #ce9178;
+  --vscode-debugTokenExpression-number: #b5cea8;
+  --vscode-symbolIcon-classForeground: #4ec9b0;
+  --vscode-symbolIcon-functionForeground: #dcdcaa;
+  --vscode-symbolIcon-variableForeground: #9cdcfe;
+  color-scheme: dark;
+}
+
+
+/* Moved from the core editor.css diff. */
+body[data-mikedown-theme="light"] :is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-diff-changed {
+  background-color: rgba(40, 167, 69, 0.08);
+  border-left-color: rgba(40, 167, 69, 0.5);
+}
+
+/* Moved from the core emojipicker.css. */
+/* Light-mode tweaks via the force class — same pattern as other pickers. */
+body[data-mikedown-theme="light"] :is(.mikedown-root, .mikedown-portal) #mikedown-emoji-ac,
+body[data-mikedown-theme="light"] :is(.mikedown-root, .mikedown-portal) #mikedown-emoji-picker {
+  background: #ffffff;
+  color: #1f1f1f;
+}
+
+body[data-mikedown-theme="light"] :is(.mikedown-root, .mikedown-portal) .emoji-picker-section-header {
+  background: #ffffff;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+body[data-mikedown-theme="light"] :is(.mikedown-root, .mikedown-portal) .emoji-picker-search input {
+  background: #ffffff;
+  color: #1f1f1f;
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+/* Moved from the core slashcommands.css. */
+/* Editor-only light override: theme.css swaps most tokens already; fill in
+   the ones it doesn't define so hover/shadow/tiles read as light. */
+body[data-mikedown-theme="light"] :is(.mikedown-root, .mikedown-portal) #mikedown-slash-menu {
+  --slash-fg: var(--vscode-editor-foreground, #1e1e1e);
+  --slash-shadow: rgba(0, 0, 0, 0.16);
+  --slash-hover-bg: rgba(0, 0, 0, 0.05);
+  --slash-hover-fg: var(--vscode-editor-foreground, #1e1e1e);
+  --slash-tile-bg: var(--vscode-editor-background, #ffffff);
+  --slash-tile-border: var(--vscode-editorWidget-border, #c8c8c8);
+  --slash-active-bg: var(--vscode-list-activeSelectionBackground, #e8e8e8);
+  --slash-active-fg: var(--vscode-list-activeSelectionForeground, #1e1e1e);
+}
+
+body[data-mikedown-theme="dark"] :is(.mikedown-root, .mikedown-portal) #mikedown-slash-menu {
+  --slash-fg: var(--vscode-editor-foreground, #d4d4d4);
+  --slash-hover-bg: rgba(255, 255, 255, 0.06);
+  --slash-hover-fg: var(--vscode-editor-foreground, #d4d4d4);
+}
+
+/* High contrast: no fills doing the work alone — borders carry state. */
+body.vscode-high-contrast :is(.mikedown-root, .mikedown-portal) #mikedown-slash-menu,
+body.vscode-high-contrast-light :is(.mikedown-root, .mikedown-portal) #mikedown-slash-menu {
+  --slash-border: var(--vscode-contrastBorder, currentColor);
+  --slash-divider: var(--vscode-contrastBorder, currentColor);
+  --slash-tile-border: var(--vscode-contrastBorder, currentColor);
+  box-shadow: none;
+}
+
+body.vscode-high-contrast :is(.mikedown-root, .mikedown-portal) .slash-menu-item:hover:not(.is-active),
+body.vscode-high-contrast :is(.mikedown-root, .mikedown-portal) .slash-menu-footer:hover:not(.is-active),
+body.vscode-high-contrast-light :is(.mikedown-root, .mikedown-portal) .slash-menu-item:hover:not(.is-active),
+body.vscode-high-contrast-light :is(.mikedown-root, .mikedown-portal) .slash-menu-footer:hover:not(.is-active) {
+  background: transparent;
+  outline: 1px dashed var(--vscode-contrastActiveBorder, var(--slash-focus));
+}
+
+body.vscode-high-contrast :is(.mikedown-root, .mikedown-portal) .slash-menu-item.is-active,
+body.vscode-high-contrast :is(.mikedown-root, .mikedown-portal) .slash-menu-footer.is-active,
+body.vscode-high-contrast-light :is(.mikedown-root, .mikedown-portal) .slash-menu-item.is-active,
+body.vscode-high-contrast-light :is(.mikedown-root, .mikedown-portal) .slash-menu-footer.is-active {
+  outline: 1px solid var(--vscode-contrastActiveBorder, var(--slash-focus));
+}
+
+/* Moved from the core settings-modal.css. */
+body.vscode-high-contrast :is(.mikedown-root, .mikedown-portal) .settings-modal,
+body.vscode-high-contrast-light :is(.mikedown-root, .mikedown-portal) .settings-modal {
+  --settings-border: var(--vscode-contrastBorder, currentColor);
+  --settings-divider: var(--vscode-contrastBorder, currentColor);
+  --settings-control-border: var(--vscode-contrastBorder, currentColor);
+}
+
+/* Moved from the core outline-sidebar.css. */
+/* Light mode — bump contrast since the muted foreground is faint on white. */
+body.vscode-light :is(.mikedown-root, .mikedown-portal) .sidebar-footer,
+body[data-mikedown-theme="light"] :is(.mikedown-root, .mikedown-portal) .sidebar-footer {
+  opacity: 0.9;
+  color: var(--vscode-foreground, #333);
 }

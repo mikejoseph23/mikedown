@@ -1,57 +1,57 @@
 /* Find & Replace Bar */
 
-.mikedown-find-replace-bar {
-  position: fixed;
+:is(.mikedown-root, .mikedown-portal) .mikedown-find-replace-bar {
+  position: absolute;
   top: 42px;
   right: 20px;
   z-index: 500;
-  background: var(--vscode-editorWidget-background);
-  border: 1px solid var(--vscode-editorWidget-border);
-  border-radius: 6px;
+  background: var(--mikedown-surface-raised);
+  border: 1px solid var(--mikedown-border);
+  border-radius: var(--mikedown-radius, 6px);
   box-shadow: 0 4px 16px rgba(0,0,0,0.2), 0 0 1px rgba(0,0,0,0.1);
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 360px;
-  animation: fr-slide-in 0.12s ease-out;
+  animation: mikedown-fr-slide-in 0.12s ease-out;
 }
 
-@keyframes fr-slide-in {
+@keyframes mikedown-fr-slide-in {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.fr-row {
+:is(.mikedown-root, .mikedown-portal) .fr-row {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.mikedown-find-replace-bar input[type="text"] {
+:is(.mikedown-root, .mikedown-portal) .mikedown-find-replace-bar input[type="text"] {
   flex: 1;
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border: 1px solid var(--vscode-input-border, transparent);
+  background: var(--mikedown-input-bg);
+  color: var(--mikedown-text-ui);
+  border: 1px solid var(--mikedown-input-border, transparent);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   font-size: 13px;
   font-family: inherit;
   outline: none;
   transition: border-color 0.1s ease;
 }
-.mikedown-find-replace-bar input[type="text"]:focus {
-  border-color: var(--vscode-focusBorder);
+:is(.mikedown-root, .mikedown-portal) .mikedown-find-replace-bar input[type="text"]:focus {
+  border-color: var(--mikedown-focus-ring);
 }
-.mikedown-find-replace-bar input[type="text"]::placeholder {
+:is(.mikedown-root, .mikedown-portal) .mikedown-find-replace-bar input[type="text"]::placeholder {
   opacity: 0.5;
 }
 
-.mikedown-find-replace-bar button {
+:is(.mikedown-root, .mikedown-portal) .mikedown-find-replace-bar button {
   background: transparent;
-  color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground));
+  color: var(--mikedown-button-text, var(--mikedown-text));
   border: none;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   padding: 4px 6px;
   cursor: pointer;
   font-size: 13px;
@@ -62,72 +62,72 @@
   justify-content: center;
   min-width: 24px;
 }
-.mikedown-find-replace-bar button:hover {
-  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+:is(.mikedown-root, .mikedown-portal) .mikedown-find-replace-bar button:hover {
+  background: var(--mikedown-hover);
 }
 
-.fr-replace-btn,
-.fr-replace-all-btn {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+:is(.mikedown-root, .mikedown-portal) .fr-replace-btn,
+:is(.mikedown-root, .mikedown-portal) .fr-replace-all-btn {
+  background: var(--mikedown-accent);
+  color: var(--mikedown-accent-text);
   padding: 4px 10px;
   font-weight: 500;
 }
-.fr-replace-btn:hover,
-.fr-replace-all-btn:hover {
-  background: var(--vscode-button-hoverBackground);
+:is(.mikedown-root, .mikedown-portal) .fr-replace-btn:hover,
+:is(.mikedown-root, .mikedown-portal) .fr-replace-all-btn:hover {
+  background: var(--mikedown-accent-hover);
 }
 
-.fr-count {
+:is(.mikedown-root, .mikedown-portal) .fr-count {
   font-size: 12px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--mikedown-text-muted);
   white-space: nowrap;
   min-width: 70px;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
-.fr-options {
+:is(.mikedown-root, .mikedown-portal) .fr-options {
   display: flex;
   gap: 2px;
   align-items: center;
 }
 
-.fr-options label {
+:is(.mikedown-root, .mikedown-portal) .fr-options label {
   display: flex;
   align-items: center;
   gap: 2px;
   font-size: 12px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--mikedown-text-muted);
   cursor: pointer;
   padding: 3px 5px;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   border: 1px solid transparent;
   user-select: none;
   transition: background 0.1s ease, border-color 0.1s ease;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--mikedown-font-mono, monospace);
 }
-.fr-options label:hover {
-  background: var(--vscode-list-hoverBackground);
+:is(.mikedown-root, .mikedown-portal) .fr-options label:hover {
+  background: var(--mikedown-hover);
 }
-.fr-options input[type="checkbox"] {
+:is(.mikedown-root, .mikedown-portal) .fr-options input[type="checkbox"] {
   display: none;
 }
-.fr-options label:has(input:checked) {
-  border-color: var(--vscode-focusBorder);
-  background: color-mix(in srgb, var(--vscode-focusBorder) 15%, transparent);
-  color: var(--vscode-editor-foreground);
+:is(.mikedown-root, .mikedown-portal) .fr-options label:has(input:checked) {
+  border-color: var(--mikedown-focus-ring);
+  background: color-mix(in srgb, var(--mikedown-focus-ring) 15%, transparent);
+  color: var(--mikedown-text);
 }
 
 /* Match highlights */
-.search-match {
-  background: var(--vscode-editor-findMatchHighlightBackground, rgba(255,215,0,0.3));
+:is(.mikedown-root, .mikedown-portal) .search-match {
+  background: var(--mikedown-find-match, rgba(255,215,0,0.3));
   border-radius: 2px;
 }
 
-.search-match-active {
-  background: var(--vscode-editor-findMatchBackground, rgba(255,160,0,0.6));
+:is(.mikedown-root, .mikedown-portal) .search-match-active {
+  background: var(--mikedown-find-current, rgba(255,160,0,0.6));
   border-radius: 2px;
-  outline: 2px solid var(--vscode-editor-findMatchBorder, rgba(255,140,0,0.7));
+  outline: 2px solid var(--mikedown-find-current-border, rgba(255,140,0,0.7));
   outline-offset: -1px;
 }

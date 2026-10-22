@@ -1,6 +1,7 @@
 import { Editor } from '@tiptap/core';
 import { hideTableToolbar } from './tablepicker';
 import { setColumnAlign } from './table-align';
+import { getPortal } from './portal';
 
 export interface ContextMenuItem {
   label: string;
@@ -116,7 +117,7 @@ function buildSubmenuParentEl(entry: ContextMenuSubmenu): HTMLElement {
     submenuOwnerEl = el;
     el.classList.add('cm-submenu-open');
     submenuEl = renderMenuContainer(entry.items, true);
-    document.body.appendChild(submenuEl);
+    getPortal().appendChild(submenuEl);
     positionSubmenu(submenuEl, el);
   };
 
@@ -210,7 +211,7 @@ export function showContextMenu(
   hideTableToolbar();
 
   menuEl = renderMenuContainer(items, false);
-  document.body.appendChild(menuEl);
+  getPortal().appendChild(menuEl);
 
   const vw = window.innerWidth, vh = window.innerHeight;
   const rect = menuEl.getBoundingClientRect();

@@ -1,36 +1,36 @@
 /* Link Navigation & Anchor System */
 
 /* Link styles */
-.ProseMirror a {
-  color: var(--vscode-textLink-foreground, #4e9de0);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a {
+  color: var(--mikedown-link, #4e9de0);
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--vscode-textLink-foreground, #4e9de0) 35%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--mikedown-link, #4e9de0) 35%, transparent);
   transition: color 0.12s ease, border-color 0.12s ease;
   cursor: text;
 }
-.ProseMirror a:hover {
-  color: var(--vscode-textLink-activeForeground, #6aafee);
-  border-bottom-color: var(--vscode-textLink-activeForeground, #6aafee);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a:hover {
+  color: var(--mikedown-link-hover, #6aafee);
+  border-bottom-color: var(--mikedown-link-hover, #6aafee);
 }
 
 /* Cmd+Click hint cursor */
-body.cmd-held .ProseMirror a {
+.mikedown-root.cmd-held .ProseMirror a {
   cursor: pointer;
   border-bottom-style: dashed;
 }
 
 /* Link tooltip */
-.mikedown-link-tooltip {
+:is(.mikedown-root, .mikedown-portal) .mikedown-link-tooltip {
   display: none;
   position: fixed;
   z-index: 1000;
-  background: var(--vscode-editorHoverWidget-background);
-  color: var(--vscode-editorHoverWidget-foreground);
-  border: 1px solid var(--vscode-editorHoverWidget-border);
+  background: var(--mikedown-surface-raised);
+  color: var(--mikedown-text-ui);
+  border: 1px solid var(--mikedown-border);
   padding: 4px 10px;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   font-size: 12px;
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--mikedown-font-mono, monospace);
   max-width: 420px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -41,26 +41,26 @@ body.cmd-held .ProseMirror a {
 
 /* Heading hover anchor icon — no data-anchor-id dependency since
    ProseMirror's DOM patching strips custom attributes. */
-.ProseMirror h1,
-.ProseMirror h2,
-.ProseMirror h3,
-.ProseMirror h4,
-.ProseMirror h5,
-.ProseMirror h6 {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h1,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h2,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h3,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h4,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h5,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h6 {
   position: relative;
 }
 
-.ProseMirror h1:hover::after,
-.ProseMirror h2:hover::after,
-.ProseMirror h3:hover::after,
-.ProseMirror h4:hover::after,
-.ProseMirror h5:hover::after,
-.ProseMirror h6:hover::after {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h1:hover::after,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h2:hover::after,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h3:hover::after,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h4:hover::after,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h5:hover::after,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h6:hover::after {
   content: '#';
   position: absolute;
   top: 0;
   left: -1.2em;
-  color: var(--vscode-textLink-foreground, #4e9de0);
+  color: var(--mikedown-link, #4e9de0);
   opacity: 0.5;
   font-weight: normal;
   cursor: pointer;
@@ -68,23 +68,23 @@ body.cmd-held .ProseMirror a {
   transition: opacity 0.12s ease;
 }
 
-.ProseMirror h1:hover::after,
-.ProseMirror h2:hover::after,
-.ProseMirror h3:hover::after {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h1:hover::after,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h2:hover::after,
+:is(.mikedown-root, .mikedown-portal) .ProseMirror h3:hover::after {
   opacity: 0.7;
 }
 
 /* Broken link indicator */
-.ProseMirror a.mikedown-broken-link {
-  color: var(--vscode-errorForeground, #f44747) !important;
-  text-decoration: underline wavy var(--vscode-errorForeground, #f44747) !important;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a.mikedown-broken-link {
+  color: var(--mikedown-danger, #f44747) !important;
+  text-decoration: underline wavy var(--mikedown-danger, #f44747) !important;
   border-bottom: none !important;
 }
 
-.ProseMirror a.mikedown-broken-link::after {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a.mikedown-broken-link::after {
   content: ' \26A0';
   font-size: 0.75em;
-  color: var(--vscode-errorForeground, #f44747);
+  color: var(--mikedown-danger, #f44747);
 }
 
 /* Wikilink styles — Obsidian-style [[wikilink]] rendered as
@@ -92,26 +92,26 @@ body.cmd-held .ProseMirror a {
    accent so they read differently from normal [text](path) links. When the host
    reports the target can't be resolved, .mikedown-unresolved adds a muted, dashed
    treatment (softer than the red broken-link state). */
-.ProseMirror a[data-wikilink] {
-  color: var(--vscode-charts-purple, #b180d7);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a[data-wikilink] {
+  color: var(--mikedown-wikilink, #b180d7);
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 35%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--mikedown-wikilink, #b180d7) 35%, transparent);
   cursor: text;
 }
-.ProseMirror a[data-wikilink]:hover {
-  color: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 80%, white);
-  border-bottom-color: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 55%, transparent);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a[data-wikilink]:hover {
+  color: color-mix(in srgb, var(--mikedown-wikilink, #b180d7) 80%, white);
+  border-bottom-color: color-mix(in srgb, var(--mikedown-wikilink, #b180d7) 55%, transparent);
 }
 
 /* Cmd+Click hint cursor for resolved wikilinks */
-body.cmd-held .ProseMirror a[data-wikilink] {
+.mikedown-root.cmd-held .ProseMirror a[data-wikilink] {
   cursor: pointer;
 }
 
 /* Unresolved wikilink — target file doesn't exist yet (soft, not an error) */
-.ProseMirror a[data-wikilink].mikedown-unresolved {
-  color: var(--vscode-descriptionForeground, #8c8c8c);
-  border-bottom: 1px dashed color-mix(in srgb, var(--vscode-descriptionForeground, #8c8c8c) 45%, transparent);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a[data-wikilink].mikedown-unresolved {
+  color: var(--mikedown-text-muted, #8c8c8c);
+  border-bottom: 1px dashed color-mix(in srgb, var(--mikedown-text-muted, #8c8c8c) 45%, transparent);
   cursor: default;
 }
 
@@ -119,7 +119,7 @@ body.cmd-held .ProseMirror a[data-wikilink] {
    resolved to the *nearest* one. Still a working link (keeps the purple accent),
    just flagged with a dotted underline + hover hint so the name can be
    disambiguated. */
-.ProseMirror a[data-wikilink].mikedown-wikilink-ambiguous {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a[data-wikilink].mikedown-wikilink-ambiguous {
   border-bottom-style: dotted;
-  border-bottom-color: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 65%, var(--vscode-editorWarning-foreground, #cca700));
+  border-bottom-color: color-mix(in srgb, var(--mikedown-wikilink, #b180d7) 65%, var(--mikedown-warning, #cca700));
 }

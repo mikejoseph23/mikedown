@@ -1,52 +1,50 @@
-/* MikeDown Editor — VS Code Theme Integration */
+/* MikeDown Editor — base theme: root and portal text, links, scrollbars, toolbar */
 
-body {
-  background: var(--vscode-editor-background);
-  color: var(--vscode-editor-foreground);
+/* Base text for the editor root and the overlay portal (menus and dialogs
+   appended to <body>). The page itself is the host's. */
+.mikedown-root,
+.mikedown-portal {
   font-family: var(--mikedown-font-family, Charter, 'Bitstream Charter', Cambria, Georgia, serif);
-  font-size: var(--mikedown-font-size, 17px);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  /* Subtle edge border so split-view panels have a visible boundary */
-  border-right: 1px solid var(--vscode-editorGroup-border);
 }
 
 /* Selection */
-.ProseMirror ::selection { background: var(--vscode-editor-selectionBackground); }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ::selection { background: var(--mikedown-selection); }
 
 /* Links */
-.ProseMirror a {
-  color: var(--vscode-textLink-foreground);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a {
+  color: var(--mikedown-link);
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--vscode-textLink-foreground) 40%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--mikedown-link) 40%, transparent);
   transition: border-color 0.15s ease, color 0.15s ease;
   cursor: text;
 }
-.ProseMirror a:hover {
-  color: var(--vscode-textLink-activeForeground);
-  border-bottom-color: var(--vscode-textLink-activeForeground);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror a:hover {
+  color: var(--mikedown-link-hover);
+  border-bottom-color: var(--mikedown-link-hover);
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--vscode-scrollbarSlider-background, rgba(121,121,121,0.4));
+:is(.mikedown-root, .mikedown-portal) ::-webkit-scrollbar { width: 10px; }
+:is(.mikedown-root, .mikedown-portal) ::-webkit-scrollbar-track { background: transparent; }
+:is(.mikedown-root, .mikedown-portal) ::-webkit-scrollbar-thumb {
+  background: var(--mikedown-scrollbar, rgba(121,121,121,0.4));
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100,100,100,0.7));
+:is(.mikedown-root, .mikedown-portal) ::-webkit-scrollbar-thumb:hover {
+  background: var(--mikedown-scrollbar-hover, rgba(100,100,100,0.7));
   background-clip: padding-box;
 }
 
 /* Toolbar */
-.mikedown-toolbar {
-  background: var(--vscode-editorGroupHeader-tabsBackground);
-  border-bottom: 1px solid var(--vscode-editorGroup-border);
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar {
+  background: var(--mikedown-surface-toolbar);
+  border-bottom: 1px solid var(--mikedown-divider);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   padding: 2px 8px;
   display: flex;
@@ -58,11 +56,11 @@ body {
   z-index: 100;
 }
 
-.mikedown-toolbar button {
-  color: var(--vscode-icon-foreground);
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button {
+  color: var(--mikedown-icon);
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   padding: 5px 8px;
   margin: 3px 0;
   cursor: pointer;
@@ -78,16 +76,16 @@ body {
 
 /* Custom hover tooltip for toolbar buttons (VS Code webviews don't
    reliably render native HTML title tooltips). Pulls text from data-tip. */
-.mikedown-toolbar button[data-tip]::after {
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button[data-tip]::after {
   content: attr(data-tip);
   position: absolute;
   top: calc(100% + 4px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--vscode-editorHoverWidget-background, #252526);
-  color: var(--vscode-editorHoverWidget-foreground, #cccccc);
-  border: 1px solid var(--vscode-editorHoverWidget-border, rgba(128,128,128,0.35));
-  border-radius: 4px;
+  background: var(--mikedown-surface-raised, #252526);
+  color: var(--mikedown-text-ui, #cccccc);
+  border: 1px solid var(--mikedown-border, rgba(128,128,128,0.35));
+  border-radius: var(--mikedown-radius-sm, 4px);
   padding: 4px 8px;
   font-size: 11px;
   line-height: 1.2;
@@ -99,152 +97,62 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   transition: opacity 0.1s ease 0.5s, visibility 0s linear 0.6s;
 }
-.mikedown-toolbar button[data-tip]:hover::after {
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button[data-tip]:hover::after {
   opacity: 1;
   visibility: visible;
   transition: opacity 0.1s ease 0.5s, visibility 0s linear 0.5s;
 }
 
-.mikedown-toolbar button svg {
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button svg {
   width: 18px;
   height: 18px;
 }
 
-.mikedown-toolbar button:hover {
-  background: var(--vscode-toolbar-hoverBackground);
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button:hover {
+  background: var(--mikedown-hover);
 }
-.mikedown-toolbar button.active {
-  background: var(--vscode-toolbar-activeBackground, rgba(255,255,255,0.12));
-  color: var(--vscode-foreground);
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button.active {
+  background: var(--mikedown-active, rgba(255,255,255,0.12));
+  color: var(--mikedown-text-ui);
 }
-.mikedown-toolbar button:disabled {
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
-.mikedown-toolbar .toolbar-separator {
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar .toolbar-separator {
   width: 1px;
-  background: var(--vscode-editorGroup-border);
+  background: var(--mikedown-divider);
   margin: 6px 3px;
   align-self: stretch;
 }
 
 /* High contrast / forced-colors mode */
 @media (forced-colors: active) {
-  .ProseMirror a { color: LinkText; }
-  .mikedown-toolbar button { forced-color-adjust: auto; }
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror a { color: LinkText; }
+  :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button { forced-color-adjust: auto; }
 }
 
 /* Print / PDF export */
 @media print {
-  .mikedown-toolbar,
-  .mikedown-find-replace-bar,
-  #mikedown-context-menu,
-  .cm-container {
+  :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar,
+  :is(.mikedown-root, .mikedown-portal) .mikedown-find-replace-bar,
+  :is(.mikedown-root, .mikedown-portal) #mikedown-context-menu,
+  :is(.mikedown-root, .mikedown-portal) .cm-container {
     display: none !important;
   }
-  body {
+  .mikedown-root {
     background: white !important;
     color: black !important;
   }
-  .ProseMirror {
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror {
     max-width: none !important;
     padding: 0 !important;
   }
 }
 
-/* Editor-only light/dark overrides — applied when themeToggleScope is 'editorOnly'.
-   These override VS Code's injected CSS variables so the editor can run in the
-   opposite theme without changing VS Code's global appearance. */
-
-body.mikedown-force-light {
-  --vscode-editor-background: #ffffff;
-  --vscode-editor-foreground: #1e1e1e;
-  --vscode-foreground: #333333;
-  --vscode-editorGroupHeader-tabsBackground: #f0f0f0;
-  --vscode-editorGroup-border: #c8c8c8;
-  --vscode-icon-foreground: #424242;
-  --vscode-toolbar-hoverBackground: rgba(0, 0, 0, 0.07);
-  --vscode-toolbar-activeBackground: rgba(0, 0, 0, 0.12);
-  --vscode-textLink-foreground: #006ab1;
-  --vscode-textLink-activeForeground: #0078d4;
-  --vscode-scrollbarSlider-background: rgba(100, 100, 100, 0.3);
-  --vscode-scrollbarSlider-hoverBackground: rgba(100, 100, 100, 0.5);
-  --vscode-editor-selectionBackground: #add6ff;
-  --vscode-focusBorder: #0078d4;
-  --vscode-editorHoverWidget-background: #f3f3f3;
-  --vscode-editorHoverWidget-foreground: #1e1e1e;
-  --vscode-editorHoverWidget-border: #c8c8c8;
-  --vscode-errorForeground: #e51400;
-  --vscode-input-background: #ffffff;
-  --vscode-input-foreground: #1e1e1e;
-  --vscode-input-border: #cecece;
-  --vscode-textBlockQuote-background: rgba(0, 0, 0, 0.04);
-  --vscode-textBlockQuote-foreground: #1e1e1e;
-  --vscode-textBlockQuote-border: rgba(0, 0, 0, 0.15);
-  --vscode-textCodeBlock-background: rgba(0, 0, 0, 0.04);
-  --vscode-descriptionForeground: #717171;
-  --vscode-editorWidget-background: #f3f3f3;
-  --vscode-editorWidget-border: #c8c8c8;
-  --vscode-menu-background: #f3f3f3;
-  --vscode-menu-foreground: #1e1e1e;
-  --vscode-menu-border: #c8c8c8;
-  --vscode-menu-selectionBackground: #e8e8e8;
-  --vscode-menu-selectionForeground: #1e1e1e;
-  --vscode-menu-separatorBackground: #d4d4d4;
-  --vscode-editor-lineHighlightBackground: rgba(0, 0, 0, 0.06);
-  --vscode-editorLineNumber-foreground: #237893;
-  --vscode-list-activeSelectionBackground: #e8e8e8;
-  --vscode-list-activeSelectionForeground: #1e1e1e;
-  --vscode-symbolIcon-keywordForeground: #0000ff;
-  --vscode-debugTokenExpression-string: #a31515;
-  --vscode-debugTokenExpression-number: #098658;
-  --vscode-symbolIcon-classForeground: #267f99;
-  --vscode-symbolIcon-functionForeground: #795e26;
-  --vscode-symbolIcon-variableForeground: #001080;
-  color-scheme: light;
-}
-
-body.mikedown-force-dark {
-  --vscode-editor-background: #1e1e1e;
-  --vscode-editor-foreground: #d4d4d4;
-  --vscode-foreground: #cccccc;
-  --vscode-editorGroupHeader-tabsBackground: #252526;
-  --vscode-editorGroup-border: #444444;
-  --vscode-icon-foreground: #c5c5c5;
-  --vscode-toolbar-hoverBackground: rgba(255, 255, 255, 0.1);
-  --vscode-toolbar-activeBackground: rgba(255, 255, 255, 0.15);
-  --vscode-textLink-foreground: #4e9de0;
-  --vscode-textLink-activeForeground: #6aafee;
-  --vscode-scrollbarSlider-background: rgba(121, 121, 121, 0.4);
-  --vscode-scrollbarSlider-hoverBackground: rgba(100, 100, 100, 0.7);
-  --vscode-editor-selectionBackground: #264f78;
-  --vscode-editor-lineHighlightBackground: rgba(255, 255, 255, 0.1);
-  --vscode-editorLineNumber-foreground: #858585;
-  --vscode-focusBorder: #007fd4;
-  --vscode-editorHoverWidget-background: #252526;
-  --vscode-editorHoverWidget-foreground: #cccccc;
-  --vscode-editorHoverWidget-border: #454545;
-  --vscode-errorForeground: #f44747;
-  --vscode-input-background: #3c3c3c;
-  --vscode-input-foreground: #cccccc;
-  --vscode-input-border: #3c3c3c;
-  --vscode-textBlockQuote-background: rgba(255, 255, 255, 0.05);
-  --vscode-textBlockQuote-foreground: #d4d4d4;
-  --vscode-textBlockQuote-border: rgba(255, 255, 255, 0.15);
-  --vscode-textCodeBlock-background: rgba(255, 255, 255, 0.06);
-  --vscode-descriptionForeground: #8a8a8a;
-  --vscode-symbolIcon-keywordForeground: #569cd6;
-  --vscode-debugTokenExpression-string: #ce9178;
-  --vscode-debugTokenExpression-number: #b5cea8;
-  --vscode-symbolIcon-classForeground: #4ec9b0;
-  --vscode-symbolIcon-functionForeground: #dcdcaa;
-  --vscode-symbolIcon-variableForeground: #9cdcfe;
-  color-scheme: dark;
-}
-
 /* ── Condensed Toolbar Mode (Apple Notes-style) ───────────────────────────── */
 
-.mikedown-toolbar.toolbar-condensed {
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-condensed {
   flex-wrap: nowrap;
   /* overflow-x clips any off-screen buttons when the toolbar is narrower
      than its contents; overflow-y must stay visible so button hover
@@ -253,41 +161,41 @@ body.mikedown-force-dark {
   overflow-y: visible;
 }
 
-.condensed-dropdown-trigger {
+:is(.mikedown-root, .mikedown-portal) .condensed-dropdown-trigger {
   display: inline-flex !important;
   align-items: center;
   gap: 2px;
 }
 
-.condensed-btn-label {
+:is(.mikedown-root, .mikedown-portal) .condensed-btn-label {
   font-weight: 600;
   font-size: 13px;
   line-height: 1;
 }
 
-.condensed-chevron {
+:is(.mikedown-root, .mikedown-portal) .condensed-chevron {
   opacity: 0.5;
   display: inline-flex;
   align-items: center;
 }
 
-.condensed-chevron svg {
+:is(.mikedown-root, .mikedown-portal) .condensed-chevron svg {
   width: 12px;
   height: 12px;
 }
 
 /* Source mode container */
-.mikedown-source-container {
-  position: fixed;
+:is(.mikedown-root, .mikedown-portal) .mikedown-source-container {
+  position: absolute;
   top: 40px;
   left: 0;
   right: 0;
   bottom: 0;
   overflow: hidden;
 }
-.mikedown-source-container .cm-editor {
+:is(.mikedown-root, .mikedown-portal) .mikedown-source-container .cm-editor {
   height: 100%;
 }
-.mikedown-source-container .cm-editor.cm-focused {
+:is(.mikedown-root, .mikedown-portal) .mikedown-source-container .cm-editor.cm-focused {
   outline: none;
 }

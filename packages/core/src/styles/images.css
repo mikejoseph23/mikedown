@@ -1,110 +1,110 @@
 /* Image rendering */
 
-.ProseMirror img {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror img {
   max-width: 100%;
   height: auto;
   display: inline-block;
   vertical-align: middle;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--mikedown-radius, 6px);
   margin: 0.5em 0;
   transition: outline-color 0.15s ease, box-shadow 0.15s ease;
 }
-.ProseMirror img:hover {
-  outline: 2px solid var(--vscode-focusBorder);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror img:hover {
+  outline: 2px solid var(--mikedown-focus-ring);
   outline-offset: 2px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
-.ProseMirror img.broken-image {
-  border: 2px dashed var(--vscode-editorWarning-foreground, #e5a003);
+:is(.mikedown-root, .mikedown-portal) .ProseMirror img.broken-image {
+  border: 2px dashed var(--mikedown-warning, #e5a003);
   min-height: 40px;
   min-width: 80px;
-  background: var(--vscode-editorWidget-background);
+  background: var(--mikedown-surface-raised);
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--mikedown-radius, 6px);
 }
 
 /* Image edit popover */
-.mikedown-image-edit-popover {
+:is(.mikedown-root, .mikedown-portal) .mikedown-image-edit-popover {
   display: none;
   position: fixed;
-  background: var(--vscode-editorWidget-background);
-  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.3));
+  background: var(--mikedown-surface-raised);
+  border: 1px solid var(--mikedown-border, rgba(128,128,128,0.3));
   padding: 14px 16px;
-  border-radius: 8px;
+  border-radius: var(--mikedown-radius-lg, 8px);
   z-index: 200;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.1);
   min-width: 300px;
-  animation: img-pop-in 0.1s ease-out;
+  animation: mikedown-img-pop-in 0.1s ease-out;
 }
 
-@keyframes img-pop-in {
+@keyframes mikedown-img-pop-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.mikedown-image-edit-popover label {
+:is(.mikedown-root, .mikedown-portal) .mikedown-image-edit-popover label {
   display: block;
   font-size: 12px;
   font-weight: 500;
   margin-bottom: 4px;
-  color: var(--vscode-descriptionForeground);
+  color: var(--mikedown-text-muted);
 }
-.mikedown-image-edit-popover input {
+:is(.mikedown-root, .mikedown-portal) .mikedown-image-edit-popover input {
   width: 100%;
   padding: 5px 8px;
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
-  border-radius: 4px;
+  background: var(--mikedown-input-bg);
+  color: var(--mikedown-text-ui);
+  border: 1px solid var(--mikedown-input-border, rgba(128,128,128,0.3));
+  border-radius: var(--mikedown-radius-sm, 4px);
   font-size: 13px;
   margin-bottom: 10px;
   box-sizing: border-box;
   outline: none;
   transition: border-color 0.1s ease;
 }
-.mikedown-image-edit-popover input:focus {
-  border-color: var(--vscode-focusBorder);
+:is(.mikedown-root, .mikedown-portal) .mikedown-image-edit-popover input:focus {
+  border-color: var(--mikedown-focus-ring);
 }
-.mikedown-image-edit-popover .popover-actions {
+:is(.mikedown-root, .mikedown-portal) .mikedown-image-edit-popover .popover-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
   padding-top: 2px;
 }
-.mikedown-image-edit-popover button {
+:is(.mikedown-root, .mikedown-portal) .mikedown-image-edit-popover button {
   padding: 5px 14px;
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+  background: var(--mikedown-accent);
+  color: var(--mikedown-accent-text);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--mikedown-radius-sm, 4px);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
   transition: background 0.1s ease;
 }
-.mikedown-image-edit-popover button:hover {
-  background: var(--vscode-button-hoverBackground);
+:is(.mikedown-root, .mikedown-portal) .mikedown-image-edit-popover button:hover {
+  background: var(--mikedown-accent-hover);
 }
-.mikedown-image-edit-popover button.secondary {
+:is(.mikedown-root, .mikedown-portal) .mikedown-image-edit-popover button.secondary {
   background: transparent;
-  color: var(--vscode-button-secondaryForeground);
-  border: 1px solid var(--vscode-button-secondaryBackground, rgba(128,128,128,0.3));
+  color: var(--mikedown-button-text);
+  border: 1px solid var(--mikedown-button-bg, rgba(128,128,128,0.3));
 }
-.mikedown-image-edit-popover button.secondary:hover {
-  background: var(--vscode-list-hoverBackground);
+:is(.mikedown-root, .mikedown-portal) .mikedown-image-edit-popover button.secondary:hover {
+  background: var(--mikedown-hover);
 }
 
 /* Transient toast used for image-resize feedback (no popover anymore). */
-.mikedown-toast {
-  position: fixed;
+:is(.mikedown-root, .mikedown-portal) .mikedown-toast {
+  position: absolute;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(8px);
-  background: var(--vscode-notifications-background, var(--vscode-editorWidget-background));
-  color: var(--vscode-notifications-foreground, var(--vscode-editor-foreground));
-  border: 1px solid var(--vscode-notifications-border, var(--vscode-editorWidget-border, rgba(128,128,128,0.3)));
-  border-radius: 6px;
+  background: var(--mikedown-surface-raised);
+  color: var(--mikedown-text-ui, var(--mikedown-text));
+  border: 1px solid var(--mikedown-border, rgba(128,128,128,0.3));
+  border-radius: var(--mikedown-radius, 6px);
   padding: 8px 14px;
   font-size: 12px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
@@ -113,11 +113,11 @@
   z-index: 1000;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
-.mikedown-toast.visible {
+:is(.mikedown-root, .mikedown-portal) .mikedown-toast.visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
-.mikedown-toast.error {
-  border-color: var(--vscode-errorForeground, #f48771);
-  color: var(--vscode-errorForeground, #f48771);
+:is(.mikedown-root, .mikedown-portal) .mikedown-toast.error {
+  border-color: var(--mikedown-danger, #f48771);
+  color: var(--mikedown-danger, #f48771);
 }

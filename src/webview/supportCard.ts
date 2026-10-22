@@ -469,9 +469,10 @@ const SUPPORT_CARD_CSS = `
   outline-offset: 2px;
 }
 
-/* MikeDown force light / force dark editor theme: theme.css overrides the
+/* MikeDown force light / force dark editor theme (the shell mirrors the
+   editor's data-mikedown-theme onto <body>): vscode-theme.css overrides the
    editor tokens but not the widget and button ones, so pin those here. */
-body.mikedown-force-light .support-card {
+body[data-mikedown-theme="light"] .support-card {
   --sc-bg: var(--vscode-editorWidget-background, #f3f3f3);
   --sc-title: var(--vscode-editor-foreground, #1e1e1e);
   --sc-shadow: rgba(0, 0, 0, 0.16);
@@ -480,7 +481,7 @@ body.mikedown-force-light .support-card {
   --sc-secondary-hover: #cccccc;
   --sc-hover: rgba(0, 0, 0, 0.07);
 }
-body.mikedown-force-dark .support-card {
+body[data-mikedown-theme="dark"] .support-card {
   --sc-title: var(--vscode-editor-foreground, #cccccc);
   --sc-shadow: rgba(0, 0, 0, 0.5);
   --sc-secondary-bg: #313131;

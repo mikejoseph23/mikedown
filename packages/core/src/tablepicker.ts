@@ -1,5 +1,6 @@
 import { Editor } from '@tiptap/core';
 import { setColumnAlign, getColumnAlign } from './table-align';
+import { getPortal } from './portal';
 
 // ================================================================
 // TABLE GRID PICKER
@@ -129,7 +130,7 @@ export function showTableGridPicker(
   pickerEl.appendChild(grid);
   pickerEl.appendChild(label);
   pickerEl.appendChild(manualRow);
-  document.body.appendChild(pickerEl);
+  getPortal().appendChild(pickerEl);
 
   // Position below anchor
   const rect = anchor instanceof HTMLElement ? anchor.getBoundingClientRect() : anchor;
@@ -209,7 +210,7 @@ function showTableTooltip(anchor: HTMLElement, text: string): void {
   if (!tableTooltipEl) {
     tableTooltipEl = document.createElement('div');
     tableTooltipEl.id = 'mikedown-table-tooltip';
-    document.body.appendChild(tableTooltipEl);
+    getPortal().appendChild(tableTooltipEl);
   }
   tableTooltipEl.textContent = text;
   tableTooltipEl.style.visibility = 'hidden';
@@ -240,10 +241,10 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
   const tIcons = {
     rowAbove: tsvg('<rect x="1" y="4" width="12" height="9" rx="1"/><line x1="1" y1="8" x2="13" y2="8"/><line x1="7" y1="4" x2="7" y2="8"/><line x1="7" y1="0.5" x2="7" y2="3"/><line x1="5.5" y1="1.5" x2="7" y2="0.5"/><line x1="8.5" y1="1.5" x2="7" y2="0.5"/>'),
     rowBelow: tsvg('<rect x="1" y="1" width="12" height="9" rx="1"/><line x1="1" y1="5.5" x2="13" y2="5.5"/><line x1="7" y1="5.5" x2="7" y2="10"/><line x1="7" y1="10.5" x2="7" y2="13.5"/><line x1="5.5" y1="12.5" x2="7" y2="13.5"/><line x1="8.5" y1="12.5" x2="7" y2="13.5"/>'),
-    rowDel: tsvg('<rect x="1" y="3" width="12" height="8" rx="1"/><line x1="1" y1="7" x2="13" y2="7"/><line x1="3" y1="5" x2="11" y2="5" stroke="var(--vscode-errorForeground,#f44747)"/>'),
+    rowDel: tsvg('<rect x="1" y="3" width="12" height="8" rx="1"/><line x1="1" y1="7" x2="13" y2="7"/><line x1="3" y1="5" x2="11" y2="5" stroke="var(--mikedown-danger,#f44747)"/>'),
     colLeft: tsvg('<rect x="4" y="1" width="9" height="12" rx="1"/><line x1="8" y1="1" x2="8" y2="13"/><line x1="4" y1="7" x2="8" y2="7"/><line x1="0.5" y1="7" x2="3" y2="7"/><line x1="1.5" y1="5.5" x2="0.5" y2="7"/><line x1="1.5" y1="8.5" x2="0.5" y2="7"/>'),
     colRight: tsvg('<rect x="1" y="1" width="9" height="12" rx="1"/><line x1="5.5" y1="1" x2="5.5" y2="13"/><line x1="5.5" y1="7" x2="10" y2="7"/><line x1="10.5" y1="7" x2="13.5" y2="7"/><line x1="12.5" y1="5.5" x2="13.5" y2="7"/><line x1="12.5" y1="8.5" x2="13.5" y2="7"/>'),
-    colDel: tsvg('<rect x="3" y="1" width="8" height="12" rx="1"/><line x1="7" y1="1" x2="7" y2="13"/><line x1="5" y1="3" x2="5" y2="11" stroke="var(--vscode-errorForeground,#f44747)"/>'),
+    colDel: tsvg('<rect x="3" y="1" width="8" height="12" rx="1"/><line x1="7" y1="1" x2="7" y2="13"/><line x1="5" y1="3" x2="5" y2="11" stroke="var(--mikedown-danger,#f44747)"/>'),
     alignL: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="2" y1="6.5" x2="9" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
     alignC: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="3.5" y1="6.5" x2="10.5" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
     alignR: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="5" y1="6.5" x2="12" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
@@ -342,7 +343,7 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
     tableToolbarEl!.appendChild(el);
   });
 
-  document.body.appendChild(tableToolbarEl);
+  getPortal().appendChild(tableToolbarEl);
   tableToolbarAnchor = tableEl;
   positionTableToolbar(tableEl);
 

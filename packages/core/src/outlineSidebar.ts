@@ -553,12 +553,21 @@ export function toggleSidebarVisible(): void {
   setVisible(sidebarEl.hidden);
 }
 
+/**
+ * The element that carries the sidebar's layout classes and width variable:
+ * the editor's .mikedown-root (never <body>, so two editors stay independent).
+ */
+function stateRoot(): HTMLElement | null {
+  if (!sidebarEl) {return null;}
+  return sidebarEl.closest<HTMLElement>('.mikedown-root') ?? sidebarEl.parentElement;
+}
+
 function setVisible(visible: boolean): void {
   // Visibility is session-only when manually toggled; the pin pref is what
   // persists. Nothing posted back to the host on a manual show/hide.
   if (!sidebarEl || !toggleEl) {return;}
   sidebarEl.hidden = !visible;
-  document.body.classList.toggle('mikedown-outline-open', visible);
+  stateRoot()?.classList.toggle('mikedown-outline-open', visible);
   toggleEl.setAttribute('aria-expanded', visible ? 'true' : 'false');
   if (visible) {
     rebuildHeadings();
@@ -575,13 +584,13 @@ function applyVisibilityFromPref(): void {
 
 function setWidth(px: number): void {
   width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(px)));
-  document.documentElement.style.setProperty('--mikedown-outline-width', `${width}px`);
+  stateRoot()?.style.setProperty('--mikedown-outline-width', `${width}px`);
 }
 
 function setPosition(next: OutlinePosition): void {
   position = next;
-  document.body.classList.toggle('mikedown-outline-left', position === 'left');
-  document.body.classList.toggle('mikedown-outline-right', position === 'right');
+  stateRoot()?.classList.toggle('mikedown-outline-left', position === 'left');
+  stateRoot()?.classList.toggle('mikedown-outline-right', position === 'right');
   if (toggleEl) {
     toggleEl.innerHTML = position === 'left' ? SIDEBAR_ICON_LEFT : SIDEBAR_ICON_RIGHT;
   }
@@ -592,7 +601,7 @@ function wireResize(handle: HTMLElement): void {
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
     sidebarEl?.classList.add('resizing');
-    document.body.classList.add('mikedown-outline-resizing');
+    stateRoot()?.classList.add('mikedown-outline-resizing');
     const startX = e.clientX;
     const startWidth = width;
 
@@ -607,7 +616,7 @@ function wireResize(handle: HTMLElement): void {
       // Settings → Appearance and only seeds newly-opened documents.
       handle.releasePointerCapture(ev.pointerId);
       sidebarEl?.classList.remove('resizing');
-      document.body.classList.remove('mikedown-outline-resizing');
+      stateRoot()?.classList.remove('mikedown-outline-resizing');
       handle.removeEventListener('pointermove', onMove);
       handle.removeEventListener('pointerup', onUp);
     };

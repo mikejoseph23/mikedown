@@ -4,15 +4,17 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // (~line 4681), which calls outlineSidebar.ts's toggleSidebarVisible()
 // (~line 454). That function flips visibility via the module's private
 // setVisible(sidebarEl.hidden) — this asserts the DOM-level effect
-// (sidebarEl.hidden flipping, aria-expanded, and the body open class)
+// (sidebarEl.hidden flipping, aria-expanded, and the root's open class)
 // since there's no pure logic to isolate. Mirrors the DOM scaffolding
 // pattern in sidebarBacklinks.test.ts.
 
 function mountSidebarHost(): void {
   document.body.innerHTML = `
-    <aside id="mikedown-outline-sidebar" hidden></aside>
-    <button id="mikedown-outline-toggle" aria-expanded="false"></button>
-    <div id="editor-container"></div>
+    <div class="mikedown-root">
+      <aside id="mikedown-outline-sidebar" hidden></aside>
+      <button id="mikedown-outline-toggle" aria-expanded="false"></button>
+      <div id="editor-container"></div>
+    </div>
   `;
 }
 
@@ -55,7 +57,7 @@ describe('toggleSidebarVisible', () => {
     toggleSidebarVisible();
     expect(sidebarEl.hidden).toBe(false);
     expect(toggleEl.getAttribute('aria-expanded')).toBe('true');
-    expect(document.body.classList.contains('mikedown-outline-open')).toBe(true);
+    expect(document.querySelector('.mikedown-root')!.classList.contains('mikedown-outline-open')).toBe(true);
   });
 
   it('hides the sidebar again on a second toggle', () => {
@@ -63,7 +65,7 @@ describe('toggleSidebarVisible', () => {
     toggleSidebarVisible();
     expect(sidebarEl.hidden).toBe(true);
     expect(toggleEl.getAttribute('aria-expanded')).toBe('false');
-    expect(document.body.classList.contains('mikedown-outline-open')).toBe(false);
+    expect(document.querySelector('.mikedown-root')!.classList.contains('mikedown-outline-open')).toBe(false);
   });
 
   it('is a no-op before init (sidebarEl not yet resolved)', async () => {

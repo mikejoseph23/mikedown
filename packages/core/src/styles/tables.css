@@ -1,20 +1,20 @@
 /* Table Rendering & Cell Editing */
 
-.tableWrapper {
+:is(.mikedown-root, .mikedown-portal) .tableWrapper {
   overflow-x: auto;
   margin: 1em 0;
-  border-radius: 6px;
+  border-radius: var(--mikedown-radius, 6px);
 }
 
-.ProseMirror table {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror table {
   border-collapse: collapse;
   width: 100%;
   min-width: 200px;
   table-layout: auto;
 }
 
-.ProseMirror th, .ProseMirror td {
-  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.3));
+:is(.mikedown-root, .mikedown-portal) .ProseMirror th, :is(.mikedown-root, .mikedown-portal) .ProseMirror td {
+  border: 1px solid var(--mikedown-border, rgba(128,128,128,0.3));
   padding: 8px 14px;
   text-align: left;
   vertical-align: top;
@@ -22,29 +22,29 @@
   line-height: 1.5;
 }
 
-.ProseMirror th {
-  background: var(--vscode-editorGroupHeader-tabsBackground, rgba(255,255,255,0.04));
+:is(.mikedown-root, .mikedown-portal) .ProseMirror th {
+  background: var(--mikedown-surface-toolbar, rgba(255,255,255,0.04));
   font-weight: 600;
   font-size: 0.92em;
-  color: var(--vscode-editor-foreground);
+  color: var(--mikedown-text);
 }
 
-.ProseMirror tr:nth-child(even) td {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror tr:nth-child(even) td {
   background: rgba(128, 128, 128, 0.035);
 }
 
-.ProseMirror .selectedCell {
-  background: var(--vscode-editor-selectionBackground, rgba(38,79,120,0.4)) !important;
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .selectedCell {
+  background: var(--mikedown-selection, rgba(38,79,120,0.4)) !important;
 }
 
 /* Column resize handle */
-.ProseMirror .column-resize-handle {
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .column-resize-handle {
   position: absolute;
   right: -2px;
   top: 0;
   bottom: 0;
   width: 4px;
-  background: var(--vscode-focusBorder);
+  background: var(--mikedown-focus-ring);
   pointer-events: none;
   border-radius: 2px;
 }
