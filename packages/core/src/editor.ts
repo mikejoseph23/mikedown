@@ -10,7 +10,7 @@
  * TipTap (ProseMirror) renders the WYSIWYG surface with tiptap-markdown for
  * parse/serialize; CodeMirror 6 is the source view (Cmd+/).
  */
-import { Editor, mergeAttributes } from '@tiptap/core';
+import { Editor, Extension, mergeAttributes } from '@tiptap/core';
 import { Selection, TextSelection, EditorState as PmEditorState } from '@tiptap/pm/state';
 import { undoDepth as pmUndoDepth, closeHistory } from '@tiptap/pm/history';
 import { StarterKit } from '@tiptap/starter-kit';
@@ -356,6 +356,8 @@ function selectAllDocument(editor: Editor): void {
 
 export function createMikeDownEditor(container: HTMLElement, options: MikeDownOptions): MikeDownEditorHandle {
   const host: MikeDownHost = options.host;
+  /** True when the host binds Mod-/ itself (VS Code keybinding). */
+  const hostOwnsShortcuts = options.hostOwnsShortcuts === true;
   const features = resolveFeatures(options.features);
   const shell = buildEditorShell(container, features);
   const { root, editorContainer, sourceContainer } = shell;
@@ -2855,6 +2857,17 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // `resolveImageSrc`); the stored `src` attribute is never rewritten.
       createPolicyImage().configure({ inline: true }),
 
+      // ── Mod-/ source toggle ───────────────────────────────────────────────────
+      // Off when the host binds the shortcut itself (VS Code keybinding), so
+      // one keystroke never toggles twice.
+      Extension.create({
+        name: 'mikedownSourceShortcut',
+        addKeyboardShortcuts() {
+          if (hostOwnsShortcuts) {return {};}
+          return { 'Mod-/': () => { toggleSourceMode(); return true; } };
+        },
+      }),
+
       // ── Placeholder (M2c / M5) ────────────────────────────────────────────────
       // "Type / for commands…" is shown when the slash-command menu is enabled;
       // "Start writing…" otherwise. The CSS rule
@@ -4627,6 +4640,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         // otherwise ALSO run on the same keystroke, wrapping the current line
         // with <!-- --> before the mode switch fires.
         keymap.of([
+          // Without a host-owned shortcut the core handles Mod-/ itself.
+          ...(hostOwnsShortcuts ? [] : [{ key: 'Mod-/', run: () => { toggleSourceMode(); return true; } }]),
           ...defaultKeymap.filter(b => b.key !== 'Mod-/' && b.mac !== 'Mod-/'),
           ...historyKeymap,
         ]),

@@ -182,6 +182,13 @@ export interface MikeDownOptions {
   extraSettingsSections?: MikeDownSettingsSection[];
   /** Text beside the Settings modal's Save button. */
   settingsFooterNote?: string;
+  /**
+   * True when the host binds editor shortcuts itself, as the VS Code
+   * keybinding does for Cmd/Ctrl+/. The core then leaves `Mod-/` alone so the
+   * source toggle never fires twice. Default false: the core binds it, in both
+   * the rich editor and source mode.
+   */
+  hostOwnsShortcuts?: boolean;
 }
 
 // ── Handle ────────────────────────────────────────────────────────────────────

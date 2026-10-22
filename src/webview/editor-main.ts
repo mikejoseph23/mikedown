@@ -157,6 +157,8 @@ if (!editorRoot) {
 const handle = createMikeDownEditor(editorRoot, {
   host,
   features: { sidebar: true, supportCard: true },
+  // The mikedown.toggleSourceMode keybinding owns Cmd/Ctrl+/ in VS Code.
+  hostOwnsShortcuts: true,
   // 'auto' follows the VS Code theme; the editorTheme setting overrides it.
   theme: 'auto',
   // The extension stamps the dictionaries URL on <body> (the CSP allows no

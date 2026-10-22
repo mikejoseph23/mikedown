@@ -100,6 +100,10 @@ createMikeDownEditor(el, { host, spellcheckDictionaryUrl: '/assets/mikedown-dict
 
 Without `spellcheckDictionaryUrl`, spell check stays off and nothing is fetched. In an Angular app, add `{ "glob": "**/*", "input": "node_modules/@mikedown/core/dist/dictionaries", "output": "assets/mikedown-dictionaries" }` to the `assets` array in `angular.json`.
 
+## Shortcuts
+
+The core binds `Mod-/` (Cmd on macOS, Ctrl elsewhere) to the source toggle in both the rich editor and source mode. A host that binds the shortcut itself, such as the VS Code keybinding, passes `hostOwnsShortcuts: true` so one keystroke never toggles twice.
+
 ## Peer dependencies
 
 The app must have exactly one copy of ProseMirror and CodeMirror, so these are peers.
