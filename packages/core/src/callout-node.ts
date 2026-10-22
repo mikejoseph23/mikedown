@@ -143,15 +143,10 @@ export const Callout = Node.create({
                 const stripped = content.slice(m[0].length).replace(/^\r?\n+/, '');
                 inlineTok.content = stripped;
 
-                if (Array.isArray(inlineTok.children)) {
-                  if (stripped.length === 0) {
-                    inlineTok.children = [];
-                  } else {
-                    const newChildren: any[] = [];
-                    md.inline.parse(stripped, md, state.env, newChildren);
-                    inlineTok.children = newChildren;
-                  }
-                }
+                // Leave children empty: markdown-it's own `inline` core rule runs
+                // after this one and appends parsed children for the stripped
+                // content. Pre-parsing here would make it append a second copy.
+                inlineTok.children = [];
 
                 open.attrSet('data-callout', kind);
                 open.attrJoin('class', `mikedown-callout mikedown-callout--${kind}`);
