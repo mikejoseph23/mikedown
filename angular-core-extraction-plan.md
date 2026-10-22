@@ -34,7 +34,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ✅ Complete | 12 | `lymestack-shared/mikedown/`; demo `/dev/markdown-editor` |
 | [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ✅ Complete (signed off) | 8 | TestBed CVA specs + hands-on |
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ✅ Complete | 16 | KB article editor; Material token mapping |
-| [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ✅ Automated done, hands-on pending | — | hands-on |
+| [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ✅ Signed off | — | hands-on |
 | [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 Part 1 done (docs + release scripts); version bumps pending | — | vsix + core publish in one step |
 | [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | ⬜ Not Started | — | API endpoint + `uploadImage` host hook |
 | [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional) | Sonnet | ✅ Complete | 3 | Angular 19; lead-panel notes editor |
@@ -526,6 +526,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ---
 
 ## Progress Log / Notes
+
+**2026-10-22 19:25** - T4 hands-on signed off by Mike in the running app (KB article editor renders, edits, preview matches). Follow-up gap-fill dispatched: remove the redundant ngx-markdown preview pane now that the editor is WYSIWYG.
 
 **2026-10-22 19:05** - T4 automated part done (Quantico Creek `master` `06af745`, not pushed). New `kb-article-editor.component.spec.ts` checks the markdown field is populated from the loaded article and the save payload carries the edited markdown. Specs 115 to 117, all green. CommonJS build warnings silenced via `allowedCommonJsDependencies`. No `required` validator on markdown, so the required-field hands-on step does not apply. Hands-on recipe in `.orchestrator/angular-core-extraction-plan/worker-summary-t4.md`.
 
