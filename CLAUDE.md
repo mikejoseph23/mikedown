@@ -9,7 +9,10 @@ npm run compile             # webpack — builds both bundles (extension + webvi
 npm run watch               # webpack --watch
 npm run dev                 # build, then open a dev host on test/workspace (no debugger; F5 attach is flaky)
 npm run package             # production build (used by vscode:prepublish)
-npm run vsix                # patch-bump version, build, package .vsix
+npm run vsix                # patch-bump version (root + packages/core), build:core, build, package .vsix
+npm run release:core        # publish @mikedown/core (or pack it when npm whoami fails)
+npm run build:core          # build packages/core dist (tsup + CSS + dictionaries)
+npm run test:core-package   # build core, then package-shape test
 npm run lint                # eslint on src/**/*.ts
 npm run format              # prettier
 npm run test:unit           # vitest (jsdom) — pure logic + DOM utilities
@@ -72,6 +75,16 @@ Always send full document content for `update`/`edit`. The host re-applies into 
 - **VS Code's built-in Outline view cannot host webviews** (it binds to `activeTextEditor`, undefined for custom editors — VS Code issue #105448). The in-webview outline sidebar is the workaround; don't try to surface it via `vscode.SymbolProvider` again.
 - **Custom editor uses** `retainContextWhenHidden: true`**.** Webview state survives tab switches — don't rely on re-init for cleanup. Listen to `onDidDispose`.
 - **Diff view detection.** When VS Code opens a Git diff, two panels resolve for the same `fsPath`. The provider detects this (second `resolveCustomTextEditor` for the same path) and redirects to the source-text diff. Don't break that path; non-`file://` URIs (e.g. `git:`) also trigger it.
+
+## Releasing
+
+Core publish comes first, then the vsix:
+
+1. Bump: `npm run vsix` patch-bumps the root version, copies it to `packages/core` (`scripts/sync-core-version.js`), runs `build:core`, builds and packages the `.vsix`. (To release core alone, bump both versions by hand.)
+2. `npm run release:core` publishes `@mikedown/core` (`--tag rc` while the version is a prerelease). If `npm whoami` fails it packs the tarball to `/Volumes/Storage/LymeStack/packages/npm/`, falling back to `.orchestrator/angular-core-extraction-plan/artifacts/`, and prints which.
+3. Upload the `.vsix` to the Marketplace by hand, then commit `Release X.Y.Z` and tag `vX.Y.Z`.
+
+Downstream apps (LymeStarter, Quantico Creek) pin `@mikedown/core`; bump them after the real publish.
 
 ## Settings rule
 

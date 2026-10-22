@@ -4,6 +4,14 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Callout body text no longer duplicates when a note, tip or other callout is parsed. This bug shipped in 2.14.2, so the fix is for the next release.
+
+### Internal
+
+- The editor now lives in a new workspace package, `@mikedown/core` (`packages/core`), which also powers an Angular wrapper. There is no user-facing change in VS Code. The package is published separately from the extension.
+
 ## [2.14.2] - 2026-10-20
 
 ### Fixed
