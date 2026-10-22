@@ -2,30 +2,14 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 
-// VS Code only allows ONE call to acquireVsCodeApi() per webview, and
-// editor-main.ts already owns it. The host module sets the postMessage
-// reference at startup; we never call acquireVsCodeApi() ourselves.
-let postMessageImpl: ((msg: unknown) => void) | null = null;
-export function setPostMessage(fn: (msg: unknown) => void): void {
-  postMessageImpl = fn;
-}
-function postMessage(msg: unknown): void {
-  if (!postMessageImpl) {
-    throw new Error('imagepaste: setPostMessage was never called');
-  }
-  postMessageImpl(msg);
-}
+import type { ImageInsertResult, ImageUploadRequest } from './host';
 
-interface PendingRequest {
-  view: EditorView;
-  /** Position in the document where the image should be inserted. */
-  pos: number;
-}
+/** Stores image bytes and returns where the image now lives (`host.uploadImage`). */
+export type ImageUploader = (file: ImageUploadRequest) => Promise<ImageInsertResult>;
 
-const pending = new Map<string, PendingRequest>();
-
-function nextRequestId(): string {
-  return `imgpaste-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+export interface ImagePasteOptions {
+  /** Absent turns image paste and drop off: the events fall through to other handlers. */
+  upload: ImageUploader | null;
 }
 
 /**
@@ -59,64 +43,28 @@ function extractImageFiles(transfer: DataTransfer | null): File[] {
   return out;
 }
 
-function arrayBufferToBase64(buf: ArrayBuffer): string {
-  // chunked to avoid blowing the call stack on large images via apply()
-  const bytes = new Uint8Array(buf);
-  const chunkSize = 0x8000;
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize) as unknown as number[];
-    binary += String.fromCharCode.apply(null, chunk);
-  }
-  return btoa(binary);
-}
-
-async function uploadAndInsert(view: EditorView, pos: number, file: File): Promise<void> {
-  const buf = await file.arrayBuffer();
-  const dataBase64 = arrayBufferToBase64(buf);
-  const requestId = nextRequestId();
-  pending.set(requestId, { view, pos });
-  postMessage({
-    type: 'savePastedImage',
-    requestId,
-    mime: file.type,
-    dataBase64,
-  });
-}
-
-interface PastedImageResult {
-  requestId: string;
-  success?: boolean;
-  insertPath?: string;
-  webviewUri?: string;
-  alt?: string;
-  reused?: boolean;
-  error?: string;
-}
-
-/**
- * Called by the global webview message dispatcher in editor-main.ts when the
- * extension host replies with the resolved insert path.
- */
-export function handlePastedImageResult(message: PastedImageResult): void {
-  const req = pending.get(message.requestId);
-  if (!req) {return;}
-  pending.delete(message.requestId);
-
-  if (!message.success) {
-    if (message.error && !/document not saved|imagePaste\.enabled is false/.test(message.error)) {
-      console.warn('MikeDown: image paste failed —', message.error);
+async function uploadAndInsert(view: EditorView, pos: number, file: File, upload: ImageUploader): Promise<void> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let result: ImageInsertResult;
+  try {
+    result = await upload({ mime: file.type, bytes, name: file.name || undefined });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err ?? '');
+    if (message && !/document not saved|imagePaste\.enabled is false/.test(message)) {
+      console.warn('MikeDown: image paste failed —', message);
     }
     return;
   }
+  insertImageAt(view, pos, result);
+}
 
-  const { view, pos } = req;
-  const alt = message.alt ?? '';
-  // Insert with the webview-display URI so the image renders inline. The host
-  // converts these URIs back to the relative `insertPath` form before writing
-  // to disk (see `unresolveImageUris` in markdownEditorProvider.ts), so the
-  // markdown source stays clean on round-trip.
-  const displaySrc = message.webviewUri ?? message.insertPath ?? '';
+/** Insert an uploaded image at `pos` (clamped to the document). */
+function insertImageAt(view: EditorView, pos: number, result: ImageInsertResult): void {
+  const alt = result.alt ?? '';
+  // Insert with the display src so the image renders inline. A host that
+  // serves images from a different URL than it writes into the markdown
+  // (VS Code webview URIs) maps it back when it receives the document.
+  const displaySrc = result.src ?? '';
 
   const schema = view.state.schema;
   const imageType = schema.nodes.image;
@@ -133,13 +81,19 @@ export function handlePastedImageResult(message: PastedImageResult): void {
   view.dispatch(tr.scrollIntoView());
 }
 
-export const ImagePasteExtension = Extension.create({
+export const ImagePasteExtension = Extension.create<ImagePasteOptions>({
   name: 'imagePaste',
   // Higher priority so this runs before SmartPaste when the clipboard has both
   // image bytes and an HTML representation (some screenshot apps include both).
   priority: 200,
 
+  addOptions() {
+    return { upload: null };
+  },
+
   addProseMirrorPlugins() {
+    const upload = this.options.upload;
+    if (!upload) {return [];}
     return [
       new Plugin({
         key: new PluginKey('imagePaste'),
@@ -151,7 +105,7 @@ export const ImagePasteExtension = Extension.create({
             const insertPos = view.state.selection.from;
             // Run uploads in parallel; each insert is a separate transaction.
             for (const file of files) {
-              uploadAndInsert(view, insertPos, file).catch((err) => {
+              uploadAndInsert(view, insertPos, file, upload).catch((err) => {
                 console.warn('MikeDown: image paste read failed —', err);
               });
             }
@@ -166,7 +120,7 @@ export const ImagePasteExtension = Extension.create({
             const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
             const dropPos = coords?.pos ?? view.state.selection.from;
             for (const file of files) {
-              uploadAndInsert(view, dropPos, file).catch((err) => {
+              uploadAndInsert(view, dropPos, file, upload).catch((err) => {
                 console.warn('MikeDown: image drop read failed —', err);
               });
             }

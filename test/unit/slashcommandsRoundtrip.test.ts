@@ -470,6 +470,7 @@ describe('round-trip — image', () => {
     await typeCommand(harness, 'image');
     const { requestId } = harness.last('pickImage');
     harness.send({ type: 'pickedImageResult', requestId, insertPath: 'images/cat.png', alt: 'cat' });
+    await new Promise((r) => setTimeout(r, 0)); // reply resolves host.pickImage()
     const md = markdown(harness);
     expect(md).toContain('![cat](images/cat.png)');
     await expectReloadStable(md);
@@ -481,6 +482,7 @@ describe('round-trip — image', () => {
     await typeCommand(harness, 'image');
     const { requestId } = harness.last('pickImage');
     harness.send({ type: 'pickedImageResult', requestId, insertPath: 'images/cat.png', alt: 'cat' });
+    await new Promise((r) => setTimeout(r, 0)); // reply resolves host.pickImage()
     const md = markdown(harness);
     expect(md).toContain('foo');
     expect(md).toContain('![cat](images/cat.png)');

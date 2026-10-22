@@ -1,11 +1,15 @@
 // Link autocomplete dropdown for the link dialog URL input
 
-export interface LinkSuggestion {
-  label: string;
-  href: string;
-  type: 'file' | 'anchor' | 'inDoc' | 'external';
-  /** Heading level (1-6) for anchor items, used for hierarchical indentation. */
-  level?: number;
+import type { LinkSuggestion } from './host';
+
+export type { LinkSuggestion };
+
+/** Where the dropdown gets workspace data. Each callback fetches and then
+ *  feeds the result back through receiveSuggestions / receiveFileHeadings.
+ *  Absent callbacks leave the dropdown with in-document links only. */
+export interface LinkSuggestionSources {
+  requestSuggestions?(): void;
+  requestFileHeadings?(filePath: string): void;
 }
 
 interface Section {
@@ -26,12 +30,14 @@ let flatItems: LinkSuggestion[] = [];
 let activeIndex = -1;
 let inputEl: HTMLInputElement | null = null;
 let onSelectCallback: ((href: string) => void) | null = null;
+let sources: LinkSuggestionSources = {};
 
-/** Collect deduplicated links already present in the ProseMirror document. */
-export function collectDocLinks(): LinkSuggestion[] {
+/** Collect deduplicated links already present in the ProseMirror document
+ *  under `root` (the editor's own surface; defaults to the whole page). */
+export function collectDocLinks(root: ParentNode = document): LinkSuggestion[] {
   const seen = new Set<string>();
   const results: LinkSuggestion[] = [];
-  document.querySelectorAll('.ProseMirror a[href]').forEach(el => {
+  root.querySelectorAll('.ProseMirror a[href]').forEach(el => {
     const href = el.getAttribute('href') || '';
     if (!href || seen.has(href)) {return;}
     seen.add(href);
@@ -44,15 +50,17 @@ export function collectDocLinks(): LinkSuggestion[] {
 export function initLinkAutocomplete(
   input: HTMLInputElement,
   onSelect: (href: string) => void,
-  existingDocLinks?: LinkSuggestion[]
+  existingDocLinks?: LinkSuggestion[],
+  suggestionSources: LinkSuggestionSources = {}
 ): void {
   inputEl = input;
   onSelectCallback = onSelect;
   activeIndex = -1;
   docLinks = existingDocLinks ?? collectDocLinks();
+  sources = suggestionSources;
 
-  // Request suggestions from host
-  (window as any).__vscode?.postMessage({ type: 'getLinkSuggestions' });
+  // Request workspace suggestions from the host
+  sources.requestSuggestions?.();
 
   input.addEventListener('input', onInputChange);
   input.addEventListener('keydown', onInputKeydown);
@@ -78,6 +86,7 @@ export function destroyLinkAutocomplete(): void {
   inputEl?.removeEventListener('focus', onInputFocus);
   inputEl = null;
   onSelectCallback = null;
+  sources = {};
   suggestions = [];
   docLinks = [];
 }
@@ -101,7 +110,7 @@ function onInputChange(): void {
   if (hashIdx > 0) {
     const filePath = val.slice(0, hashIdx);
     if (filePath.endsWith('.md') || filePath.endsWith('.markdown')) {
-      (window as any).__vscode?.postMessage({ type: 'getFileHeadings', filePath });
+      sources.requestFileHeadings?.(filePath);
     }
   }
 

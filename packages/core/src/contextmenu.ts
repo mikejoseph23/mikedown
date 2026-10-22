@@ -21,6 +21,16 @@ export interface ContextMenuSubmenu {
 }
 export type ContextMenuEntry = ContextMenuItem | ContextMenuSeparator | ContextMenuSubmenu;
 
+/** Editor-level actions the menus trigger. Supplied by the editor instance
+ *  that opened the menu, so several editors on a page stay independent. */
+export interface ContextMenuActions {
+  showLinkDialog(): void;
+  showImageDialog(): void;
+  showEmojiPicker(): void;
+  showLanguagePicker(): void;
+  openLink(href: string, behavior: 'navigateCurrentTab' | 'openNewTab'): void;
+}
+
 let menuEl: HTMLElement | null = null;
 let submenuEl: HTMLElement | null = null;
 let submenuHoverTimer: number | null = null;
@@ -218,7 +228,7 @@ export function hideContextMenu(): void {
   }
 }
 
-export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
+export function buildTextMenu(editor: Editor, actions?: ContextMenuActions): ContextMenuEntry[] {
   const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+';
   const shift = navigator.platform.includes('Mac') ? '⇧' : 'Shift+';
   return [
@@ -266,14 +276,14 @@ export function buildTextMenu(editor: Editor): ContextMenuEntry[] {
       submenu: true,
       label: 'Insert',
       items: [
-        { label: 'Link…', shortcut: `${mod}K`, action: () => (window as any).__mikedownShowLinkDialog?.() },
-        { label: 'Image…', action: () => (window as any).__mikedownShowImageDialog?.() },
+        { label: 'Link…', shortcut: `${mod}K`, action: () => actions?.showLinkDialog() },
+        { label: 'Image…', action: () => actions?.showImageDialog() },
         { label: 'Table', action: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
         { label: 'Horizontal Rule', action: () => editor.chain().focus().setHorizontalRule().run() },
       ],
     },
     { separator: true },
-    { label: 'Insert Emoji…', shortcut: `${mod};`, action: () => (window as any).__mikedownShowEmojiPicker?.() },
+    { label: 'Insert Emoji…', shortcut: `${mod};`, action: () => actions?.showEmojiPicker() },
   ];
 }
 
@@ -290,7 +300,8 @@ export function buildSpellingMenu(
     replace: (from: number, to: number, replacement: string) => void;
     addToDictionary: (word: string) => void;
     ignore: (word: string) => void;
-  }
+  },
+  menuActions?: ContextMenuActions
 ): ContextMenuEntry[] {
   const { from, to, word } = misspelling;
   const entries: ContextMenuEntry[] = [];
@@ -311,16 +322,16 @@ export function buildSpellingMenu(
   entries.push({ label: 'Add to Dictionary', action: () => actions.addToDictionary(word) });
   entries.push({ label: 'Ignore', action: () => actions.ignore(word) });
   entries.push({ separator: true });
-  entries.push(...buildTextMenu(editor));
+  entries.push(...buildTextMenu(editor, menuActions));
 
   return entries;
 }
 
-export function buildCodeBlockMenu(editor: Editor): ContextMenuEntry[] {
+export function buildCodeBlockMenu(editor: Editor, actions?: ContextMenuActions): ContextMenuEntry[] {
   return [
     {
       label: 'Set language…',
-      action: () => (window as any).__mikedownShowLanguagePicker?.(),
+      action: () => actions?.showLanguagePicker(),
     },
     {
       label: 'Copy code',
@@ -359,8 +370,7 @@ function getCurrentCodeBlockText(editor: Editor): string | null {
   return null;
 }
 
-export function buildLinkMenu(editor: Editor, href: string): ContextMenuEntry[] {
-  const vscode = (window as any).__vscode ?? null;
+export function buildLinkMenu(editor: Editor, href: string, actions?: ContextMenuActions): ContextMenuEntry[] {
   const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+';
   const isExternal = href.startsWith('http://') || href.startsWith('https://');
   const isMailto = /^mailto:/i.test(href);
@@ -373,17 +383,15 @@ export function buildLinkMenu(editor: Editor, href: string): ContextMenuEntry[] 
     {
       label: openLabel,
       shortcut: `${mod}Click`,
-      action: () => { if (vscode) {vscode.postMessage({ type: 'openLink', href, behavior: 'navigateCurrentTab' });} },
+      action: () => actions?.openLink(href, 'navigateCurrentTab'),
     },
     ...(isUriScheme ? [] : [{
       label: 'Open Link in New Tab',
-      action: () => { if (vscode) {vscode.postMessage({ type: 'openLink', href, behavior: 'openNewTab' });} },
+      action: () => actions?.openLink(href, 'openNewTab'),
     } as ContextMenuItem]),
     { separator: true } as ContextMenuSeparator,
     { label: copyLabel, action: () => { void navigator.clipboard?.writeText(copyValue).catch(() => {}); } },
-    { label: 'Edit Link…', action: () => {
-      (window as any).__mikedownShowLinkDialog?.();
-    }},
+    { label: 'Edit Link…', action: () => actions?.showLinkDialog() },
     { label: 'Remove Link', action: () => editor.chain().focus().extendMarkRange('link').unsetLink().run() },
   ];
 }

@@ -59,7 +59,7 @@ import { MERMAID_STARTER_DIAGRAM } from './slashcommands-registry';
 import { showLanguagePicker } from './languagepicker';
 import { showTableGridPicker } from './tablepicker';
 import { showEmojiPicker } from './emojipicker';
-import { requestImagePick } from './imagepick';
+import { requestImagePick, type ImagePicker } from './imagepick';
 import { formatSlashDate } from './slashcommands-date';
 
 type Range = { from: number; to: number };
@@ -84,6 +84,9 @@ export interface SlashActionDeps {
   /** M6 `/properties`: shows the sidebar, un-collapses Properties, and
    *  focuses its "+ Add property" control. */
   focusPropertiesSection: () => void;
+  /** `/image`: the host's file picker. Absent means `/image` is hidden and
+   *  does nothing if run anyway. */
+  pickImage?: ImagePicker;
 }
 
 const CALLOUT_IDS = new Set(['note', 'tip', 'important', 'warning', 'caution']);
@@ -145,8 +148,11 @@ function handleSlashAction(
     case 'emoji':
       return actionEmoji(editor, view, range);
     case 'image':
+      if (!deps.pickImage) {
+        return false;
+      }
       markSlashDismissed(range.from);
-      requestImagePick(view, range.from, range.to);
+      requestImagePick(view, range.from, range.to, deps.pickImage);
       return true;
 
     case 'properties':

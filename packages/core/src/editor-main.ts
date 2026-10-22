@@ -121,8 +121,7 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
 import { SmartPasteExtension } from './smartpaste';
 import { PlainPasteExtension, requestPlainPaste } from './plainpaste';
-import { ImagePasteExtension, handlePastedImageResult, setPostMessage as setImagePastePostMessage } from './imagepaste';
-import { handlePickedImageResult, setPostMessage as setImagePickPostMessage } from './imagepick';
+import { ImagePasteExtension } from './imagepaste';
 import { TableCheckboxExtension } from './tablecheckbox';
 import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
@@ -134,7 +133,7 @@ import { extractTags } from './shared/tagExtract';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
 import { Wikilink } from './wikilink-node';
 import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
-import { SlashCommands, closeSlashMenu, setSlashFrontmatterProvider, setSlashPostMessage, setSlashSourceMode, setSlashCommandsConfig } from './slashcommands';
+import { SlashCommands, closeSlashMenu, setSlashFrontmatterProvider, setSlashDisableHandler, setSlashHiddenCommands, setSlashSourceMode, setSlashCommandsConfig } from './slashcommands';
 import { initSlashCommandActions } from './slashcommands-actions';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import { MathInline, MathBlock, setMathRenderingEnabled } from './math';
@@ -165,7 +164,7 @@ import {
   cmFindReplaceExtension, cmUpdateSearch, cmClearSearch, cmFindNext, cmFindPrev,
   cmReplaceCurrent, cmReplaceAll,
 } from './findreplace';
-import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu, buildCodeBlockMenu, buildSpellingMenu } from './contextmenu';
+import { showContextMenu, hideContextMenu, buildTextMenu, buildLinkMenu, buildTableMenu, buildImageMenu, buildCodeBlockMenu, buildSpellingMenu, type ContextMenuActions } from './contextmenu';
 import {
   SpellCheckExtension, configureSpellCheck, getMisspellingAt, getSuggestions,
   addWordToDictionary, ignoreWord,
@@ -174,7 +173,7 @@ import {
 } from './spellcheck';
 import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
 import { initTableDrag, clearCellSelection, clearDragHandles } from './tabledrag';
-import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks } from './linkautocomplete';
+import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks, type LinkSuggestion } from './linkautocomplete';
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates } from './toolbar-dropdown';
 import { showLanguagePicker } from './languagepicker';
 import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
@@ -193,6 +192,10 @@ import {
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import { showSupportCard, isSupportCardOpen, showSupportCopied, type SupportCardCopy } from './supportCard';
+import type { MikeDownHost, LinkOpenBehavior } from './host';
+import type { MikeDownSettings } from './types';
+// Temporary (removed by the shell rewrite): see the Host adapter block below.
+import { VsCodeHost, type VsCodeApi } from '../../../src/webview/vsCodeHost';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
 import { EditorState, Transaction as CmTransaction } from '@codemirror/state';
@@ -205,21 +208,65 @@ import { installWheelZoom, WHEEL_ZOOM_MIN, WHEEL_ZOOM_MAX } from './wheelZoom';
 
 const lowlight = createLowlight(all);
 
-// ── VS Code Webview API ────────────────────────────────────────────────────────
+// ── Host adapter ───────────────────────────────────────────────────────────────
+// Temporary: the VS Code host is constructed here until the shell rewrite
+// moves it (and acquireVsCodeApi) into src/webview/editor-main.ts.
 
-declare const acquireVsCodeApi: () => {
-  postMessage: (msg: unknown) => void;
-  getState: () => unknown;
-  setState: (state: unknown) => void;
-};
+declare const acquireVsCodeApi: () => VsCodeApi;
 
 const vscode = acquireVsCodeApi();
-// Hand the same vscode handle to the image-paste module so it doesn't try to
-// call acquireVsCodeApi() a second time (which throws — only one call per
-// webview is allowed).
-setImagePastePostMessage(vscode.postMessage.bind(vscode));
-setImagePickPostMessage(vscode.postMessage.bind(vscode));
-setSlashPostMessage(vscode.postMessage.bind(vscode));
+const vsCodeHost = new VsCodeHost(vscode);
+const host: MikeDownHost = vsCodeHost;
+
+/**
+ * Open a link through the host. Without `host.openLink`, external links open
+ * in a new browser tab and everything else is ignored.
+ */
+function openLinkViaHost(href: string, behavior?: LinkOpenBehavior): void {
+  if (host.openLink) {
+    host.openLink(href, behavior);
+    return;
+  }
+  if (/^(https?:|mailto:|tel:)/i.test(href)) {
+    window.open(href, '_blank', 'noopener');
+  }
+}
+
+/** Fetch workspace link suggestions and feed both autocompletes. */
+function requestLinkSuggestions(): void {
+  host.getLinkSuggestions?.().then(applyLinkSuggestions, () => { /* host failed: keep in-doc links only */ });
+}
+
+/** Link dialog autocomplete + `[[` wikilink candidates from one suggestion list. */
+function applyLinkSuggestions(list: LinkSuggestion[]): void {
+  receiveSuggestions(list);
+  // Also feed the wikilink autocomplete: file suggestions only, mapped to
+  // bare basenames without the .md/.markdown extension, deduped.
+  const rawSuggestions = (list || []) as Array<{ label: string; type: string }>;
+  const seen = new Set<string>();
+  const wikiNames: string[] = [];
+  for (const s of rawSuggestions) {
+    if (!s || s.type !== 'file' || typeof s.label !== 'string') {continue;}
+    const base = s.label.replace(/^.*[\\/]/, '').replace(/\.(md|markdown)$/i, '');
+    if (seen.has(base)) {continue;}
+    seen.add(base);
+    wikiNames.push(base);
+  }
+  receiveWikilinkCandidates(wikiNames);
+}
+
+const linkSuggestionSources = {
+  requestSuggestions: requestLinkSuggestions,
+  requestFileHeadings: (filePath: string) => {
+    host.getFileHeadings?.(filePath).then(receiveFileHeadings, () => { /* missing file: no anchors */ });
+  },
+};
+
+// Slash menu "Turn off slash commands": persist with the slashMenu source so
+// the host shows its Open Settings / Undo toast.
+setSlashDisableHandler(() => {
+  host.saveSettings?.({ slashCommandsEnabled: false }, { source: 'slashMenu' });
+});
 
 
 // ── Loading flag — prevents onUpdate from firing during programmatic content load ──
@@ -289,9 +336,7 @@ const sourceSync = new SourceModeSync();
  *   selection — selected text; `null` (or empty string) hides the selection item
  */
 function postStats(opts: { document?: string; selection?: string | null }): void {
-  const payload: { type: 'stats'; document?: string; selection?: { words: number; chars: number } | null } = {
-    type: 'stats',
-  };
+  const payload: { document?: string; selection?: { words: number; chars: number } | null } = {};
   if (typeof opts.document === 'string') {payload.document = opts.document;}
   if (opts.selection !== undefined) {
     if (opts.selection === null || opts.selection === '') {
@@ -300,7 +345,7 @@ function postStats(opts: { document?: string; selection?: string | null }): void
       payload.selection = { words: countWords(opts.selection), chars: opts.selection.length };
     }
   }
-  vscode.postMessage(payload);
+  host.onStats?.(payload);
 }
 
 // ── Undo / redo routing ───────────────────────────────────────────────────────
@@ -361,6 +406,9 @@ let headContent: string | null = null;
 // ── M6a: Link tooltip state ────────────────────────────────────────────────────
 
 let linkTooltip: HTMLDivElement | null = null;
+
+/** Toolbar / command entry point for the source-mode toggle (wired in the editor setup). */
+let toggleSourceMode: () => void = () => {};
 
 // ── M15: Frontmatter state ─────────────────────────────────────────────────────
 
@@ -559,7 +607,7 @@ function showLinkDialog(editor: Editor, slashRange?: { from: number; to: number 
   const existingDocLinks = collectDocLinks();
   initLinkAutocomplete(urlInput, (href) => {
     urlInput.value = href;
-  }, existingDocLinks);
+  }, existingDocLinks, linkSuggestionSources);
 
   // Focus the input
   setTimeout(() => urlInput.focus(), 0);
@@ -779,7 +827,7 @@ function buildHotkeysPanel(): HTMLDivElement {
   customizeBtn.textContent = 'Customize in VS Code…';
   customizeBtn.className = 'settings-btn';
   customizeBtn.addEventListener('click', () => {
-    vscode.postMessage({ type: 'openKeybindings' });
+    host.openKeybindings?.();
   });
   panel.appendChild(customizeBtn);
 
@@ -831,7 +879,7 @@ function buildAboutPanel(closeModal: () => void): HTMLDivElement {
     a.textContent = label;
     a.addEventListener('click', (e) => {
       e.preventDefault();
-      vscode.postMessage({ type: 'openLink', href, behavior: 'openNewTab' });
+      openLinkViaHost(href, 'openNewTab');
     });
     return a;
   }
@@ -1549,7 +1597,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
   sidebarApplyBtn.className = 'settings-btn';
   sidebarApplyBtn.title = 'Reset every open sidebar to the saved defaults above.';
   sidebarApplyBtn.addEventListener('click', () => {
-    vscode.postMessage({ type: 'sidebarApplyDefaults' });
+    host.sidebarPrefs?.applyDefaults();
     sidebarApplyBtn.textContent = 'Applied ✓';
     setTimeout(() => { sidebarApplyBtn.textContent = 'Apply to open documents'; }, 1400);
   });
@@ -1758,9 +1806,7 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
       headingStyle: headingStyleField.select.value as 'atx' | 'setext',
     };
     const parsedSidebarWidth = Math.max(160, Math.min(360, Math.round(parseFloat(sidebarWidthInput.value) || 200)));
-    vscode.postMessage({
-      type: 'saveSettings',
-      settings: {
+    host.saveSettings?.({
         fontSize: parseInt(fontSizeInput.value, 10),
         ctrlWheelZoom: ctrlWheelZoomField.input.checked,
         fontFamily: selectedBody,
@@ -1774,16 +1820,16 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
         renderMermaidDiagrams: mermaidField.input.checked,
         renderMath: mathField.input.checked,
         tagsEnabled: tagsField.input.checked,
-        linkClickBehavior: linkClickField.select.value,
+        linkClickBehavior: linkClickField.select.value as MikeDownSettings['linkClickBehavior'],
         wikilinkCreateOnClick: wikilinkCreateField.input.checked,
         themeToggleScope: themeScopeField.select.value,
-        headingRenameUpdateLinks: headingRenameField.select.value,
-        headingNumbering: headingNumberingField.select.value,
+        headingRenameUpdateLinks: headingRenameField.select.value as MikeDownSettings['headingRenameUpdateLinks'],
+        headingNumbering: headingNumberingField.select.value as MikeDownSettings['headingNumbering'],
         slashCommandsEnabled: slashCommandsEnabledField.input.checked,
-        slashCommandsDateFormat: slashCommandsDateFormatField.select.value,
+        slashCommandsDateFormat: slashCommandsDateFormatField.select.value as MikeDownSettings['slashCommandsDateFormat'],
         slashCommandsTimeZone: slashCommandsTimeZoneInput.value.trim() || 'local',
         // Markdown
-        markdownNormalization: normalizationField.select.value,
+        markdownNormalization: normalizationField.select.value as MikeDownSettings['markdownNormalization'],
         normalizationStyle,
         // Sidebar defaults (seed values for newly-opened documents)
         sidebarVisibility: sidebarVisibilityField.select.value,
@@ -1792,10 +1838,9 @@ function showSettingsModal(initialTab?: SettingsTabId): void {
         ...(supportSidebarLinkField ? { supportShowSidebarLink: supportSidebarLinkField.input.checked } : {}),
         // Spelling
         spellCheckEnabled: spellEnabledField.input.checked,
-        spellCheckLanguage: spellLanguageField.select.value,
+        spellCheckLanguage: spellLanguageField.select.value as MikeDownSettings['spellCheckLanguage'],
         spellCheckIgnoreCodeBlocks: spellIgnoreCodeField.input.checked,
         spellCheckUserWords: [...spellWords],
-      }
     });
     // Mirror into local state so subsequent reads don't wait on the broadcast.
     currentImagePasteSettings = { ...ipState };
@@ -2134,9 +2179,15 @@ function isDarkTheme(): boolean {
 }
 
 function toggleTheme(): void {
-  // Always delegate to extension host — it handles both scopes,
-  // persists the setting, and broadcasts to all open tabs.
-  vscode.postMessage({ type: 'toggleTheme' });
+  // Delegate to the host when it can (VS Code handles both scopes, persists
+  // the setting and broadcasts to all open tabs); otherwise flip locally.
+  if (host.toggleTheme) {
+    host.toggleTheme();
+    return;
+  }
+  const next = isDarkTheme() ? 'light' : 'dark';
+  applyEditorTheme(next);
+  host.saveSettings?.({ editorTheme: next }, { silent: true });
 }
 
 /** Apply the editorTheme setting ('auto' | 'light' | 'dark') to the body. */
@@ -2283,10 +2334,10 @@ function buildToolbar(editor: Editor): void {
     { id: 'undo', title: 'Undo (Cmd+Z)', icon: icons.undo, action: () => doUndo(editor), isActive: () => false },
     { id: 'redo', title: 'Redo (Cmd+Shift+Z)', icon: icons.redo, action: () => doRedo(editor), isActive: () => false },
     { separator: true },
-    { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: icons.source, action: () => vscode.postMessage({ type: 'toggleSource' }), isActive: () => false },
+    { id: 'sourceToggle', title: 'Toggle Source Mode (Cmd+/)', icon: icons.source, action: () => toggleSourceMode(), isActive: () => false },
     { separator: true },
-    { id: 'viewInBrowser', title: 'View in Browser', icon: icons.browser, action: () => vscode.postMessage({ type: 'viewInBrowser', html: (document.querySelector('.ProseMirror') as HTMLElement)?.innerHTML ?? '' }), isActive: () => false },
-    { id: 'print', title: 'Print / Export as PDF', icon: icons.print, action: () => vscode.postMessage({ type: 'printDocument', html: (document.querySelector('.ProseMirror') as HTMLElement)?.innerHTML ?? '' }), isActive: () => false },
+    { id: 'viewInBrowser', title: 'View in Browser', icon: icons.browser, action: () => host.viewInBrowser?.((document.querySelector('.ProseMirror') as HTMLElement)?.innerHTML ?? ''), isActive: () => false },
+    { id: 'print', title: 'Print / Export as PDF', icon: icons.print, action: () => host.printDocument?.((document.querySelector('.ProseMirror') as HTMLElement)?.innerHTML ?? ''), isActive: () => false },
     { separator: true },
     { id: 'themeToggle', title: 'Toggle Light/Dark Mode', icon: icons.sun, action: () => toggleTheme(), isActive: () => false },
     { id: 'settings', title: 'Settings', icon: icons.gear, action: () => showSettingsModal(), isActive: () => false },
@@ -2452,7 +2503,8 @@ function buildCondensedToolbar(editor: Editor): void {
   redoBtn.addEventListener('click', () => doRedo(editor));
 
   const sourceBtn = makeBtn('sourceToggle', 'Toggle Source Mode (Cmd+/)', icons.source);
-  sourceBtn.addEventListener('click', () => vscode.postMessage({ type: 'toggleSource' }));
+  // The core toggles locally (the old host round-trip was a pure echo).
+  sourceBtn.addEventListener('click', () => toggleSourceMode());
 
   // ── Share dropdown (View in Browser, Print / Export as PDF) ─────────────
   const shareBtn = makeDropdownTrigger('share', 'Share', icons.share);
@@ -2461,11 +2513,11 @@ function buildCondensedToolbar(editor: Editor): void {
     showToolbarDropdown(shareBtn, [
       { type: 'action', id: 'viewInBrowser', label: 'View in Browser', icon: icons.browser, action: () => {
         const el = document.querySelector('.ProseMirror');
-        vscode.postMessage({ type: 'viewInBrowser', html: el?.innerHTML ?? '' });
+        host.viewInBrowser?.(el?.innerHTML ?? '');
       }},
       { type: 'action', id: 'print', label: 'Print / Export as PDF', icon: icons.print, action: () => {
         const el = document.querySelector('.ProseMirror');
-        vscode.postMessage({ type: 'printDocument', html: el?.innerHTML ?? '' });
+        host.printDocument?.(el?.innerHTML ?? '');
       }},
     ]);
   });
@@ -2628,7 +2680,7 @@ function buildCondensedToolbar(editor: Editor): void {
         document.documentElement.style.setProperty('--mikedown-font-family', theme.body);
         document.documentElement.style.setProperty('--mikedown-heading-font-family', theme.heading);
         dropdown.remove();
-        vscode.postMessage({ type: 'saveSettings', settings: { fontFamily: theme.body, headingFontFamily: theme.heading } });
+        host.saveSettings?.({ fontFamily: theme.body, headingFontFamily: theme.heading });
       });
       dropdown.appendChild(item);
     });
@@ -3109,7 +3161,9 @@ if (!editorContainer) {
       // mikedown.imagePaste.* settings) and returns the resolved path. Higher
       // priority than SmartPaste so it wins when the clipboard carries both
       // image bytes and HTML (some screenshot apps include both).
-      ImagePasteExtension,
+      ImagePasteExtension.configure({
+        upload: host.uploadImage ? (file) => host.uploadImage!(file) : null,
+      }),
 
       // ── Smart Paste (M12a) ─────────────────────────────────────────────────
       // Intercepts paste events that carry text/html clipboard data, cleans the
@@ -3343,7 +3397,7 @@ if (!editorContainer) {
       const newDirty = contentToSend !== originalContent;
       if (newDirty !== isDirty) {isDirty = newDirty;}
 
-      vscode.postMessage({ type: 'edit', content: contentToSend, pristine: isPristine });
+      host.onChange(contentToSend, { pristine: isPristine });
 
       // Mirror plain text into the sidebar footer + status bar so word count
       // and reading time update live without an extra round-trip.
@@ -3364,15 +3418,33 @@ if (!editorContainer) {
     showLinkDialog,
     insertEmptyFrontmatter,
     focusPropertiesSection,
+    pickImage: host.pickImage ? () => host.pickImage!() : undefined,
   });
+  // `/image` needs the host's file picker.
+  setSlashHiddenCommands(host.pickImage ? [] : ['image']);
+
+  // Entry point for the code-block context menu's "Set language…" (wired by
+  // the code block overlay below).
+  let showLanguagePickerForSelection: () => void = () => {};
+
+  // Actions the right-click menus trigger on this editor.
+  const menuActions: ContextMenuActions = {
+    showLinkDialog: () => showLinkDialog(editor),
+    showImageDialog: () => showImageInsertDialog(editor),
+    showEmojiPicker: () => showEmojiPicker(editor, {}),
+    showLanguagePicker: () => showLanguagePickerForSelection(),
+    openLink: (href, behavior) => openLinkViaHost(href, behavior),
+  };
 
   // Wikilink autocomplete: lazily ask the host for the workspace file list the
   // first time the `[[` popup opens with an empty candidate cache.
-  setWikilinkCandidateRequester(() => vscode.postMessage({ type: 'getLinkSuggestions' }));
+  setWikilinkCandidateRequester(() => requestLinkSuggestions());
 
   // Tag autocomplete: the host pushes the tag list on ready + index changes;
   // ask once if the `#` popup opens before that lands.
-  setTagCandidateRequester(() => vscode.postMessage({ type: 'getTags' }));
+  setTagCandidateRequester(() => {
+    host.getTags?.().then(applyWorkspaceTags, () => { /* keep document tags only */ });
+  });
 
   // Re-render Mermaid diagrams when the color theme flips (VS Code light↔dark
   // toggles the <body> class). Mermaid bakes theme colors into the SVG, so
@@ -3443,18 +3515,14 @@ if (!editorContainer) {
             currentSpellCheckUserWords = [...currentSpellCheckUserWords, word];
           }
           addWordToDictionary(editor, word);
-          vscode.postMessage({
-            type: 'saveSettings',
-            silent: true,
-            settings: { spellCheckUserWords: currentSpellCheckUserWords },
-          });
+          host.saveSettings?.({ spellCheckUserWords: currentSpellCheckUserWords }, { silent: true });
         },
         ignore: (word) => ignoreWord(editor, word),
-      });
+      }, menuActions);
     } else if (linkEl) {
-      items = buildLinkMenu(editor, linkEl.getAttribute('href') || '');
+      items = buildLinkMenu(editor, linkEl.getAttribute('href') || '', menuActions);
     } else if (imgEl) {
-      items = buildImageMenu(editor, imgEl, (window as any).mikedownImageActions);
+      items = buildImageMenu(editor, imgEl, imageMenuActions);
     } else if (preEl || editor.isActive('codeBlock')) {
       if (preEl && !editor.isActive('codeBlock')) {
         const pos = editor.view.posAtDOM(preEl, 0);
@@ -3462,11 +3530,11 @@ if (!editorContainer) {
           editor.commands.setTextSelection(pos + 1);
         }
       }
-      items = buildCodeBlockMenu(editor);
+      items = buildCodeBlockMenu(editor, menuActions);
     } else if (tableEl) {
       items = buildTableMenu(editor);
     } else {
-      items = buildTextMenu(editor);
+      items = buildTextMenu(editor, menuActions);
     }
 
     showContextMenu(editor, event.clientX, event.clientY, items);
@@ -3484,8 +3552,6 @@ if (!editorContainer) {
     }
   });
 
-  // Expose vscode for contextmenu.ts link opening
-  (window as any).__vscode = vscode;
   // Test-only hook: gives the webview test harness (test/harness/webviewHarness.ts)
   // direct access to the live TipTap editor/PM view so it can drive real
   // transactions and keydown events rather than only posting host messages.
@@ -3635,21 +3701,6 @@ if (!editorContainer) {
 
   // ── M7 — Image popover for editing alt/src on click ────────────────────────
 
-  // v1.6.0 — pending resize-image requests (popover → host → reply).
-  interface PendingResize { pos: number; percent: number; }
-  const pendingResizeRequests = new Map<string, PendingResize>();
-
-  function arrayBufferToBase64Webview(buf: ArrayBuffer): string {
-    const bytes = new Uint8Array(buf);
-    const chunkSize = 0x8000;
-    let binary = '';
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.subarray(i, i + chunkSize) as unknown as number[];
-      binary += String.fromCharCode.apply(null, chunk);
-    }
-    return btoa(binary);
-  }
-
   const imagePopover = document.createElement('div');
   imagePopover.id = 'image-edit-popover';
   imagePopover.innerHTML = `
@@ -3792,26 +3843,35 @@ if (!editorContainer) {
       showTransientToast('Failed to encode resized image.', true);
       return;
     }
-    const buf = await blob.arrayBuffer();
-    const dataBase64 = arrayBufferToBase64Webview(buf);
-    const requestId = `imgresize-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    pendingResizeRequests.set(requestId, { pos, percent });
-    vscode.postMessage({
-      type: 'resizeImage',
-      requestId,
-      currentSrc: rawSrc,
-      mime,
-      dataBase64,
-      percent,
-    });
+    if (!host.resizeImage) {return;}
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let result: { src: string; overwritten: boolean };
+    try {
+      result = await host.resizeImage({ currentSrc: rawSrc, mime, bytes, percent });
+    } catch (err) {
+      showTransientToast(`Resize failed: ${(err as Error)?.message || 'unknown error'}`, true);
+      return;
+    }
+    // Replace the in-editor image's src (via PM transaction, never direct DOM
+    // writes) so the new bytes render. For overwrite, append a `?v=…`
+    // cache-bust so the browser re-fetches; the host strips the query.
+    if (typeof result.src !== 'string') {return;}
+    const newSrc = result.overwritten ? `${result.src}?v=${Date.now()}` : result.src;
+    try {
+      editor.commands.setNodeSelection(pos);
+      editor.commands.updateAttributes('image', { src: newSrc });
+    } catch { /* node may have been removed */ }
+    showTransientToast(
+      result.overwritten
+        ? `Resized to ${percent}% — original overwritten.`
+        : `Resized to ${percent}% — saved as a new file.`
+    );
   }
 
-  // Exposed via a window-level dispatcher so contextmenu.ts can call back.
-  // Keeping the actual canvas/postMessage logic here lets us reuse the
-  // pendingResizeRequests map and the resizeImageResult handler below.
-  (window as any).mikedownImageActions = {
-    resize: (img: HTMLImageElement, percent: number) => { void applyResizeFromMenu(img, percent); },
-  };
+  // Resize items in the image context menu; absent when the host can't save.
+  const imageMenuActions = host.resizeImage
+    ? { resize: (img: HTMLImageElement, percent: number) => { void applyResizeFromMenu(img, percent); } }
+    : undefined;
 
   // Close popover when clicking outside
   document.addEventListener('click', (e) => {
@@ -3859,8 +3919,8 @@ if (!editorContainer) {
         links.push({ href, type: 'file' });
       }
     });
-    if (links.length > 0) {
-      vscode.postMessage({ type: 'checkLinks', links });
+    if (links.length > 0 && host.checkLinks) {
+      host.checkLinks(links).then(applyBrokenLinks, () => { /* host failed: leave marks as they are */ });
     }
   }
 
@@ -3874,7 +3934,13 @@ if (!editorContainer) {
 
   initOutlineSidebar({
     editor,
-    vscode,
+    prefs: host.sidebarPrefs,
+    onOpenTag: host.openTag ? (tag) => host.openTag?.(tag) : undefined,
+    onOpenBacklink: (item) => {
+      // A backlinks panel is a reference tool: open the source beside the
+      // current doc and scroll it to the link back here.
+      host.openLink?.(item.uri, 'openNewTab', { href: item.linkHref, occurrence: item.occurrence });
+    },
     anchorFn: githubAnchorId,
     onPropertiesChange: applyFrontmatterEdit,
     // Support appeal entry point (M6). Opening goes through the host
@@ -3883,7 +3949,7 @@ if (!editorContainer) {
     onSupportOpen: requestSupportCard,
     onSupportDismiss: () => {
       currentSupportShowSidebarLink = false;
-      vscode.postMessage({ type: 'saveSettings', settings: { supportShowSidebarLink: false } });
+      host.saveSettings?.({ supportShowSidebarLink: false });
     },
   });
 
@@ -3969,14 +4035,14 @@ if (!editorContainer) {
     if (headingRenamePref === 'never') {return;}
     // Duplicate-slug guard — refuse to guess when anchors are ambiguous.
     if (isRenameAmbiguous(allHeadingTexts(), oldSlug, newSlug)) {
-      vscode.postMessage({ type: 'headingRenameAmbiguous', baseName: oldSlug });
+      host.onHeadingRenameAmbiguous?.(oldSlug);
       return;
     }
     // In-doc TOC links are low-risk and self-contained: fix them immediately.
     rewriteInDocLinks(oldSlug, newSlug);
     // Cross-file backlinks live in files the host owns — hand off for the
     // count + (per pref) the prompt + WorkspaceEdit.
-    vscode.postMessage({ type: 'headingRenamed', oldSlug, newSlug });
+    host.onHeadingRenamed?.(oldSlug, newSlug);
   }
 
   // Compare the tracked heading's current text against its baseline; if the slug
@@ -4167,7 +4233,7 @@ if (!editorContainer) {
     const body = editor.storage.markdown.getMarkdown() as string;
     const markdown = restoreFrontmatter(frontmatterContent, body);
     isDirty = markdown !== originalContent;
-    vscode.postMessage({ type: 'edit', content: markdown, pristine: false });
+    host.onChange(markdown, { pristine: false });
     renderFrontmatterBlock();
     refreshPropertiesSidebar();
   }
@@ -4197,7 +4263,7 @@ if (!editorContainer) {
     frontmatterExpanded = true;
     const body = editor.storage.markdown.getMarkdown() as string;
     isDirty = restoreFrontmatter(frontmatterContent, body) !== originalContent;
-    vscode.postMessage({ type: 'edit', content: restoreFrontmatter(frontmatterContent, body), pristine: false });
+    host.onChange(restoreFrontmatter(frontmatterContent, body), { pristine: false });
     renderFrontmatterBlock();
     refreshPropertiesSidebar();
 
@@ -4211,11 +4277,7 @@ if (!editorContainer) {
         frontmatterExpanded = previousExpanded;
         const revertedBody = editor.storage.markdown.getMarkdown() as string;
         isDirty = restoreFrontmatter(frontmatterContent, revertedBody) !== originalContent;
-        vscode.postMessage({
-          type: 'edit',
-          content: restoreFrontmatter(frontmatterContent, revertedBody),
-          pristine: false,
-        });
+        host.onChange(restoreFrontmatter(frontmatterContent, revertedBody), { pristine: false });
         renderFrontmatterBlock();
         refreshPropertiesSidebar();
       },
@@ -4241,7 +4303,7 @@ if (!editorContainer) {
       event.preventDefault();
       event.stopPropagation();
       const tag = tagEl.getAttribute('data-tag');
-      if (tag) {vscode.postMessage({ type: 'openTag', tag });}
+      if (tag) {host.openTag?.(tag);}
       return;
     }
 
@@ -4255,7 +4317,11 @@ if (!editorContainer) {
       event.preventDefault();
       event.stopPropagation();
       const wikiTarget = wikiEl.getAttribute('data-target') || '';
-      if (wikiTarget) {vscode.postMessage({ type: 'createWikilink', target: wikiTarget });}
+      if (wikiTarget && host.createWikilink) {
+        void Promise.resolve(host.createWikilink(wikiTarget)).then((results) => {
+          if (results) {applyWikilinkResults(results);}
+        }, () => { /* host could not create the file */ });
+      }
       return;
     }
 
@@ -4269,10 +4335,10 @@ if (!editorContainer) {
 
     if (linkClickBehavior === 'showContextMenu') {
       // Show a mini context menu with navigation options
-      const items = buildLinkMenu(editor, href);
+      const items = buildLinkMenu(editor, href, menuActions);
       showContextMenu(editor, event.clientX, event.clientY, items);
     } else {
-      vscode.postMessage({ type: 'openLink', href });
+      openLinkViaHost(href);
     }
   }, true);
 
@@ -4335,8 +4401,8 @@ if (!editorContainer) {
     const need = collectWikilinkTargets().filter(
       (t) => !wikilinkResolutionCache.has(t.toLowerCase())
     );
-    if (need.length > 0) {
-      vscode.postMessage({ type: 'resolveWikilinks', targets: need });
+    if (need.length > 0 && host.resolveWikilinks) {
+      host.resolveWikilinks(need).then(applyWikilinkResults, () => { /* leave unresolved */ });
     } else {
       applyWikilinkResolution();
     }
@@ -4566,7 +4632,7 @@ if (!editorContainer) {
     });
 
     // Expose entry point for the context menu "Set language…" action.
-    (window as any).__mikedownShowLanguagePicker = () => {
+    showLanguagePickerForSelection = () => {
       let pre: HTMLElement | null = hoveredPre;
       if (!pre) {
         // Fall back to the code block at the current selection.
@@ -4635,7 +4701,7 @@ if (!editorContainer) {
         // Trigger an edit to propagate changes
         const body = editor.storage.markdown.getMarkdown() as string;
         const markdown = restoreFrontmatter(frontmatterContent, body);
-        vscode.postMessage({ type: 'edit', content: markdown });
+        host.onChange(markdown, { pristine: false });
       });
       block.appendChild(content);
     }
@@ -4754,8 +4820,12 @@ if (!editorContainer) {
     diffHighlightActive = !diffHighlightActive;
 
     if (diffHighlightActive && !headContent) {
-      // Request HEAD content from extension host
-      vscode.postMessage({ type: 'requestDiff' });
+      // Request HEAD content from the host
+      host.getDiffBaseline?.().then((baseline) => {
+        headContent = baseline.headContent;
+        fileHasGitChanges = baseline.hasChanges;
+        if (diffHighlightActive) {applyDiffDecorations();}
+      }, () => { /* no baseline available */ });
     } else {
       applyDiffDecorations();
     }
@@ -4812,7 +4882,7 @@ if (!editorContainer) {
             const isPristine = md === originalContent;
             const newDirty = !isPristine;
             if (newDirty !== isDirty) {isDirty = newDirty;}
-            vscode.postMessage({ type: 'edit', content: md, pristine: isPristine });
+            host.onChange(md, { pristine: isPristine });
             // Source mode is markdown text directly — fine to send as document
             // stats. ATX symbols/etc. get stripped by countWords on the host.
             postStats({ document: md });
@@ -5070,6 +5140,10 @@ if (!editorContainer) {
     (window as any).__mikedownResyncFind?.();
   }
 
+  toggleSourceMode = () => {
+    if (sourceMode) { switchToWysiwyg(); } else { switchToSource(); }
+  };
+
   // ── Message Handling — Extension → Webview ─────────────────────────────────
 
   // ── Live tags ─────────────────────────────────────────────────────────────
@@ -5097,13 +5171,48 @@ if (!editorContainer) {
   };
   editor.on('update', scheduleLiveTags);
 
+  /** Workspace tag index from the host (push or getTags reply). */
+  function applyWorkspaceTags(tags: Array<{ tag: string; count: number }>): void {
+    workspaceTags = tags || [];
+    refreshLiveTags();
+  }
+
+  /** Cache host wikilink resolutions and stamp them onto matching nodes. */
+  function applyWikilinkResults(results: Array<{ target: string; href: string | null; count?: number }>): void {
+    for (const r of results || []) {
+      wikilinkResolutionCache.set(String(r.target).toLowerCase(), {
+        href: r.href ?? null,
+        count: typeof r.count === 'number' ? r.count : (r.href ? 1 : 0),
+      });
+    }
+    applyWikilinkResolution();
+  }
+
+  /** M6c — Broken link indicator: apply/remove CSS class to broken links. */
+  function applyBrokenLinks(hrefs: string[]): void {
+    // Remove old broken link classes
+    document.querySelectorAll('.mikedown-broken-link').forEach(el => {
+      el.classList.remove('mikedown-broken-link');
+      (el as HTMLElement).title = '';
+    });
+    // Apply broken link class to matching anchors
+    const brokenSet = new Set<string>(hrefs || []);
+    document.querySelectorAll('.ProseMirror a[href]').forEach(el => {
+      const href = el.getAttribute('href') || '';
+      if (brokenSet.has(href)) {
+        el.classList.add('mikedown-broken-link');
+        (el as HTMLElement).title = `Broken link: ${href}`;
+      }
+    });
+  }
+
   // Ctrl/Cmd + wheel resizes editor text (issue #8). Persisted silently so
   // every gesture doesn't pop a "settings saved" toast.
   installWheelZoom(window, {
     isEnabled: () => currentCtrlWheelZoom,
     getSize: () => parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mikedown-font-size') || '17', 10),
     setSize: (px) => document.documentElement.style.setProperty('--mikedown-font-size', `${px}px`),
-    persist: (px) => vscode.postMessage({ type: 'saveSettings', settings: { fontSize: px }, silent: true }),
+    persist: (px) => host.saveSettings?.({ fontSize: px }, { silent: true }),
   });
 
   window.addEventListener('message', (event: MessageEvent) => {
@@ -5116,6 +5225,9 @@ if (!editorContainer) {
       /** command: 'openSettings' payload — which Settings modal tab to open on. */
       tab?: SettingsTabId;
     };
+
+    // Replies to host requests resolve their Promises inside the host.
+    if (vsCodeHost.handleReply(message)) {return;}
 
     if (message.type === 'theme') {
       document.documentElement.style.setProperty(
@@ -5259,15 +5371,6 @@ if (!editorContainer) {
       fileHasGitChanges = msg.hasChanges;
     }
 
-    // Handle diff data (HEAD content) from the extension host
-    if (message.type === 'diffData') {
-      const msg = message as any;
-      headContent = msg.headContent;
-      fileHasGitChanges = msg.hasChanges;
-      if (diffHighlightActive) {
-        applyDiffDecorations();
-      }
-    }
 
     // Host reports the document has been saved to disk. Rebaseline our
     // pristine-detection state so subsequent undos compare against the
@@ -5441,7 +5544,7 @@ if (!editorContainer) {
     if (message.type === 'requestExportHtml') {
       const editorEl = document.querySelector('.ProseMirror') as HTMLElement;
       if (editorEl) {
-        vscode.postMessage({ type: 'exportHtml', html: editorEl.innerHTML });
+        host.exportHtml?.(editorEl.innerHTML);
       }
     }
 
@@ -5449,7 +5552,7 @@ if (!editorContainer) {
     if (message.type === 'requestViewInBrowser') {
       const editorEl = document.querySelector('.ProseMirror') as HTMLElement;
       if (editorEl) {
-        vscode.postMessage({ type: 'viewInBrowser', html: editorEl.innerHTML });
+        host.viewInBrowser?.(editorEl.innerHTML);
       }
     }
 
@@ -5459,7 +5562,7 @@ if (!editorContainer) {
     if (message.type === 'requestPrint') {
       const editorEl = document.querySelector('.ProseMirror') as HTMLElement;
       if (editorEl) {
-        vscode.postMessage({ type: 'printDocument', html: editorEl.innerHTML });
+        host.printDocument?.(editorEl.innerHTML);
       }
     }
 
@@ -5546,41 +5649,10 @@ if (!editorContainer) {
       }
     }
 
-    // M6b — Link autocomplete: receive workspace file suggestions from host.
+    // M6b — Link suggestions pushed without a request (a reply resolves
+    // host.getLinkSuggestions instead).
     if (message.type === 'linkSuggestions') {
-      receiveSuggestions((message as any).suggestions);
-      // Also feed the wikilink autocomplete: file suggestions only, mapped to
-      // bare basenames without the .md/.markdown extension, deduped.
-      const rawSuggestions = ((message as any).suggestions || []) as Array<{ label: string; type: string }>;
-      const seen = new Set<string>();
-      const wikiNames: string[] = [];
-      for (const s of rawSuggestions) {
-        if (!s || s.type !== 'file' || typeof s.label !== 'string') {continue;}
-        const base = s.label.replace(/^.*[\\/]/, '').replace(/\.(md|markdown)$/i, '');
-        if (seen.has(base)) {continue;}
-        seen.add(base);
-        wikiNames.push(base);
-      }
-      receiveWikilinkCandidates(wikiNames);
-    }
-
-    // M6b — Link autocomplete: receive heading anchors for a specific file.
-    if (message.type === 'fileHeadings') {
-      receiveFileHeadings((message as any).anchors);
-    }
-
-    // Wikilink resolution: host replies with { target, href|null } per name.
-    // Cache each result and stamp the resolved state onto matching nodes.
-    if (message.type === 'wikilinksResolved') {
-      const results: Array<{ target: string; href: string | null; count?: number }> =
-        (message as any).results || [];
-      for (const r of results) {
-        wikilinkResolutionCache.set(String(r.target).toLowerCase(), {
-          href: r.href ?? null,
-          count: typeof r.count === 'number' ? r.count : (r.href ? 1 : 0),
-        });
-      }
-      applyWikilinkResolution();
+      applyLinkSuggestions((message as any).suggestions || []);
     }
 
     // Sidebar — extension push of width/pref/position/per-doc state
@@ -5604,51 +5676,12 @@ if (!editorContainer) {
 
     // Workspace tag index (with doc counts) — sidebar Tags section + `#` autocomplete.
     if (message.type === 'tags') {
-      workspaceTags = (message as any).tags || [];
-      refreshLiveTags();
+      applyWorkspaceTags((message as any).tags || []);
     }
 
     // Sidebar footer — modified time + initial mtime push.
     if (message.type === 'docMeta') {
       applyDocMeta({ mtimeMs: (message as any).mtimeMs });
-    }
-
-    // v1.6.0 — Image paste host response: insert the saved image at the
-    // position recorded when the request was sent.
-    if (message.type === 'pastedImageResult') {
-      handlePastedImageResult(message as any);
-    }
-
-    // M4 — Image picker host response (`/image` slash command): replace
-    // `/query` with the picked image exactly like a paste result; cancelled
-    // or errored leaves `/query` untouched (see imagepick.ts).
-    if (message.type === 'pickedImageResult') {
-      handlePickedImageResult(message as any);
-    }
-
-    // v1.6.0 — Image resize host response: replace the in-editor image's src
-    // (via PM transaction, never direct DOM writes) so the new bytes render.
-    // For overwrite, append a `?v=…` cache-bust so the browser re-fetches;
-    // unresolveImageUris on the host strips the query before saving.
-    if (message.type === 'resizeImageResult') {
-      const m = message as any;
-      const req = pendingResizeRequests.get(m.requestId);
-      if (req) {pendingResizeRequests.delete(m.requestId);}
-      if (!m.success) {
-        showTransientToast(`Resize failed: ${m.error || 'unknown error'}`, true);
-        return;
-      }
-      if (!req || typeof m.webviewUri !== 'string') {return;}
-      const newSrc = m.overwritten ? `${m.webviewUri}?v=${Date.now()}` : m.webviewUri;
-      try {
-        editor.commands.setNodeSelection(req.pos);
-        editor.commands.updateAttributes('image', { src: newSrc });
-      } catch { /* node may have been removed */ }
-      showTransientToast(
-        m.overwritten
-          ? `Resized to ${req.percent}% — original overwritten.`
-          : `Resized to ${req.percent}% — saved as a new file.`
-      );
     }
 
     // v1.6.0 — Filesystem watcher reports an image file went missing while the
@@ -5685,23 +5718,6 @@ if (!editorContainer) {
       });
     }
 
-    // M6c — Broken link indicator: apply/remove CSS class to broken links.
-    if (message.type === 'brokenLinks') {
-      // Remove old broken link classes
-      document.querySelectorAll('.mikedown-broken-link').forEach(el => {
-        el.classList.remove('mikedown-broken-link');
-        (el as HTMLElement).title = '';
-      });
-      // Apply broken link class to matching anchors
-      const brokenSet = new Set<string>((message as any).hrefs || []);
-      document.querySelectorAll('.ProseMirror a[href]').forEach(el => {
-        const href = el.getAttribute('href') || '';
-        if (brokenSet.has(href)) {
-          el.classList.add('mikedown-broken-link');
-          (el as HTMLElement).title = `Broken link: ${href}`;
-        }
-      });
-    }
   });
 
   // ── Signal readiness to the extension host ─────────────────────────────────

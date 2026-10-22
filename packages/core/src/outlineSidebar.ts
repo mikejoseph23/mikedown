@@ -9,8 +9,7 @@
 
 import { countWords, readingMinutes } from './shared/wordCount';
 import { formatRelativeTime } from './relativeTime';
-
-type VsApi = { postMessage(msg: any): void };
+import type { BacklinkItem, MikeDownSidebarPrefs } from './host';
 
 export type OutlineVisibilityPref = 'always' | 'never';
 export type OutlinePosition = 'left' | 'right';
@@ -22,18 +21,6 @@ interface Heading {
   pos: number;
 }
 
-interface BacklinkItem {
-  uri: string;
-  displayPath: string;
-  line: number;
-  lineText?: string;
-  /** Href of the link in the source doc, so the opened doc can scroll to it. */
-  linkHref?: string;
-  /** Which occurrence of linkHref this is (0-based), for docs that link back
-   *  more than once. */
-  occurrence?: number;
-}
-
 interface FrontmatterEntry {
   key: string;
   /** Either a scalar string or an array of strings (for `tags: [a, b]`-style). */
@@ -42,7 +29,12 @@ interface FrontmatterEntry {
 
 interface InitOptions {
   editor: any;
-  vscode: VsApi;
+  /** Pref persistence (pin default, section collapse). Absent = in-memory only. */
+  prefs?: MikeDownSidebarPrefs;
+  /** Tag click in the Tags section or a Properties tag pill. */
+  onOpenTag?: (tag: string) => void;
+  /** Backlink row click: open the source beside this document. */
+  onOpenBacklink?: (item: BacklinkItem) => void;
   anchorFn: (text: string) => string;
   /**
    * Invoked when the user edits properties inline. The callback owns the
@@ -70,7 +62,9 @@ let pref: OutlineVisibilityPref = 'never';
 let position: OutlinePosition = 'right';
 let width = DEFAULT_WIDTH;
 let editorRef: any = null;
-let vscodeRef: VsApi | null = null;
+let prefsRef: MikeDownSidebarPrefs | null = null;
+let openTagCb: ((tag: string) => void) | null = null;
+let openBacklinkCb: ((item: BacklinkItem) => void) | null = null;
 let anchorFnRef: (text: string) => string = (t) => t;
 let activeAnchor = '';
 let lastHeadingsKey = '';
@@ -152,7 +146,9 @@ const SUPPORT_STATUS_MS = 4000;
 
 export function initOutlineSidebar(opts: InitOptions): void {
   editorRef = opts.editor;
-  vscodeRef = opts.vscode;
+  prefsRef = opts.prefs ?? null;
+  openTagCb = opts.onOpenTag ?? null;
+  openBacklinkCb = opts.onOpenBacklink ?? null;
   anchorFnRef = opts.anchorFn;
   propertiesChangeCb = opts.onPropertiesChange ?? null;
   supportOpenCb = opts.onSupportOpen ?? null;
@@ -184,8 +180,8 @@ export function initOutlineSidebar(opts: InitOptions): void {
   // accurate without spamming layout work.
   startFooterTick();
 
-  // Ask the extension for our persisted prefs/state.
-  vscodeRef.postMessage({ type: 'sidebarRequestState' });
+  // Ask the host for our persisted prefs/state.
+  prefsRef?.requestState();
 }
 
 /**
@@ -367,11 +363,7 @@ function toggleSectionCollapsed(section: string): void {
   // rule stops applying to that section. Other sections are unaffected.
   userTouchedSections.add(section);
   applySectionCollapsedDom();
-  vscodeRef?.postMessage({
-    type: 'sidebarSectionCollapsed',
-    section,
-    collapsed: collapsedSections.has(section),
-  });
+  prefsRef?.sectionCollapsed(section, collapsedSections.has(section));
 }
 
 function applySectionCollapsedDom(): void {
@@ -443,7 +435,7 @@ function togglePin(): void {
   pref = next;
   updatePinState();
   setVisible(next === 'always');
-  vscodeRef?.postMessage({ type: 'sidebarSetPref', pref: next });
+  prefsRef?.setPref(next);
 }
 
 function updatePinState(): void {
@@ -823,13 +815,7 @@ function renderBacklinks(): void {
  */
 function attachBacklinkOpenHandlers(el: HTMLElement, item: BacklinkItem): void {
   el.addEventListener('click', () => {
-    vscodeRef?.postMessage({
-      type: 'openLink',
-      href: item.uri,
-      behavior: 'openNewTab',
-      revealHref: item.linkHref,
-      revealOccurrence: item.occurrence,
-    });
+    openBacklinkCb?.(item);
   });
 }
 
@@ -938,7 +924,7 @@ function renderTags(): void {
     count.textContent = String(t.count);
     row.append(name, count);
     row.addEventListener('click', () => {
-      vscodeRef?.postMessage({ type: 'openTag', tag: t.tag });
+      openTagCb?.(t.tag);
     });
     tagsListEl.appendChild(row);
   }
@@ -1066,7 +1052,7 @@ function buildPill(text: string, rowIdx: number, pillIdx: number, isTag = false)
     pill.title = `Find documents tagged #${tag}`;
     pill.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      vscodeRef?.postMessage({ type: 'openTag', tag });
+      openTagCb?.(tag);
     });
     return pill;
   }

@@ -44,7 +44,8 @@ export interface SlashCommandsConfig {
 
 let config: SlashCommandsConfig = { enabled: true, dateFormat: 'iso', timeZone: 'local' };
 let sourceModeActive = false;
-let postMessage: ((msg: unknown) => void) | null = null;
+let disableHandler: (() => void) | null = null;
+let hiddenCommands: ReadonlySet<string> = new Set();
 let frontmatterProvider: () => boolean = () => false;
 /** Optional external executor for commands beyond H1–H6/Paragraph (M3/M6).
  *  Return true when the command was handled. */
@@ -71,9 +72,16 @@ export function setSlashSourceMode(active: boolean): void {
   }
 }
 
-/** Host messaging hook (the webview's single `acquireVsCodeApi()` instance). */
-export function setSlashPostMessage(fn: (msg: unknown) => void): void {
-  postMessage = fn;
+/** Called when the user picks the menu's "Turn off slash commands" row. The
+ *  owner persists `slashCommandsEnabled: false` (with `source: 'slashMenu'`). */
+export function setSlashDisableHandler(fn: (() => void) | null): void {
+  disableHandler = fn;
+}
+
+/** Command ids left out of the menu because the host lacks the feature
+ *  (e.g. `image` without `host.pickImage`). */
+export function setSlashHiddenCommands(ids: Iterable<string>): void {
+  hiddenCommands = new Set(ids);
 }
 
 /** Reports whether the current document has YAML frontmatter. */
@@ -518,11 +526,7 @@ function chooseDisable(): void {
   // Leaves `/query` in the document: no transaction.
   closeSlashMenu();
   config = { ...config, enabled: false };
-  postMessage?.({
-    type: 'saveSettings',
-    settings: { slashCommandsEnabled: false },
-    source: 'slashMenu'
-  });
+  disableHandler?.();
   viewRef?.focus();
 }
 
@@ -807,7 +811,7 @@ function update(view: EditorView): void {
     return hidePopup();
   }
 
-  const ranked = matchCommands(match.query, { hasFrontmatter: frontmatterProvider() });
+  const ranked = matchCommands(match.query, { hasFrontmatter: frontmatterProvider(), hidden: hiddenCommands });
   if (ranked.length === 0) {
     return hidePopup();
   } // no empty state: just close

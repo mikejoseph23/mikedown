@@ -293,6 +293,7 @@ describe('slash menu — image (M4)', () => {
     await runCommand(h, 'image');
     const { requestId } = h.last('pickImage');
     h.send({ type: 'pickedImageResult', requestId, insertPath: 'images/cat.png', alt: 'cat' });
+    await new Promise((r) => setTimeout(r, 0)); // reply resolves host.pickImage()
     expect(markdown(h)).not.toContain('/image');
     expect(markdown(h)).toContain('![cat](images/cat.png)');
     h.wysiwygEditor().commands.undo();
@@ -304,6 +305,7 @@ describe('slash menu — image (M4)', () => {
     await runCommand(h, 'image');
     const { requestId } = h.last('pickImage');
     h.send({ type: 'pickedImageResult', requestId, cancelled: true });
+    await new Promise((r) => setTimeout(r, 0)); // reply resolves host.pickImage()
     expect(markdown(h).trim()).toBe('/image');
   });
 
@@ -312,6 +314,7 @@ describe('slash menu — image (M4)', () => {
     await runCommand(h, 'image');
     const { requestId } = h.last('pickImage');
     h.send({ type: 'pickedImageResult', requestId, error: 'document not saved' });
+    await new Promise((r) => setTimeout(r, 0)); // reply resolves host.pickImage()
     expect(markdown(h).trim()).toBe('/image');
   });
 });

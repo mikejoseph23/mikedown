@@ -33,7 +33,21 @@ describe('Sidebar Tags section', () => {
     postMessageSpy = vi.fn();
     mod.initOutlineSidebar({
       editor: fakeEditor() as any,
-      vscode: { postMessage: postMessageSpy },
+      prefs: {
+        requestState: () => postMessageSpy({ type: 'sidebarRequestState' }),
+        setPref: (pref: string) => postMessageSpy({ type: 'sidebarSetPref', pref }),
+        applyDefaults: () => postMessageSpy({ type: 'sidebarApplyDefaults' }),
+        sectionCollapsed: (section: string, collapsed: boolean) =>
+          postMessageSpy({ type: 'sidebarSectionCollapsed', section, collapsed }),
+      },
+      onOpenTag: (tag: string) => postMessageSpy({ type: 'openTag', tag }),
+      onOpenBacklink: (item: any) => postMessageSpy({
+        type: 'openLink',
+        href: item.uri,
+        behavior: 'openNewTab',
+        revealHref: item.linkHref,
+        revealOccurrence: item.occurrence,
+      }),
       anchorFn: (t: string) => t,
     } as any);
   });

@@ -280,6 +280,8 @@ export const MERMAID_STARTER_DIAGRAM = `flowchart TD
 
 export interface MatchContext {
   hasFrontmatter: boolean;
+  /** Command ids to leave out entirely (features the host doesn't provide). */
+  hidden?: ReadonlySet<string>;
 }
 
 /**
@@ -299,7 +301,9 @@ export function matchCommands(
   ctx: MatchContext,
   commands: readonly SlashCommand[] = SLASH_COMMANDS
 ): SlashCommand[] {
-  const available = commands.filter((cmd) => !(cmd.requiresNoFrontmatter && ctx.hasFrontmatter));
+  const available = commands.filter(
+    (cmd) => !(cmd.requiresNoFrontmatter && ctx.hasFrontmatter) && !ctx.hidden?.has(cmd.id)
+  );
 
   const q = query.toLowerCase();
   if (q.length === 0) {

@@ -38,7 +38,6 @@ describe('toggleSidebarVisible', () => {
     toggleSidebarVisible = mod.toggleSidebarVisible;
     mod.initOutlineSidebar({
       editor: fakeEditor(),
-      vscode: { postMessage: vi.fn() },
       anchorFn: (t: string) => t,
     });
     sidebarEl = document.getElementById('mikedown-outline-sidebar')!;

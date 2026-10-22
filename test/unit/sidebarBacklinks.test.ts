@@ -38,7 +38,21 @@ describe('Sidebar Backlinks rendering', () => {
     postMessageSpy = vi.fn();
     initOutlineSidebar({
       editor: fakeEditor(),
-      vscode: { postMessage: postMessageSpy },
+      prefs: {
+        requestState: () => postMessageSpy({ type: 'sidebarRequestState' }),
+        setPref: (pref: string) => postMessageSpy({ type: 'sidebarSetPref', pref }),
+        applyDefaults: () => postMessageSpy({ type: 'sidebarApplyDefaults' }),
+        sectionCollapsed: (section: string, collapsed: boolean) =>
+          postMessageSpy({ type: 'sidebarSectionCollapsed', section, collapsed }),
+      },
+      onOpenTag: (tag: string) => postMessageSpy({ type: 'openTag', tag }),
+      onOpenBacklink: (item: any) => postMessageSpy({
+        type: 'openLink',
+        href: item.uri,
+        behavior: 'openNewTab',
+        revealHref: item.linkHref,
+        revealOccurrence: item.occurrence,
+      }),
       anchorFn: (t: string) => t,
     });
   });
