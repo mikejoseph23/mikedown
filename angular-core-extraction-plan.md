@@ -31,7 +31,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | ✅ Complete | 31 | 81 `--vscode-*` vars → 54 `--mikedown-*` tokens |
 | [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | ✅ Complete (publish pending npm login) | 6 | ESM + d.ts + css, `0.1.0-rc.1` |
 | [T2 — Core package tests](#t2--core-package-tests) | Sonnet | ✅ Complete (signed off; orchestrator ran hands-on in Chrome) | 5 | demo page hands-on, bundle checks; 3 gap-fills |
-| [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | 🔄 In Progress | — | `lymestack-shared/mikedown/` |
+| [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ✅ Complete | 12 | `lymestack-shared/mikedown/`; demo `/dev/markdown-editor` |
 | [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ⬜ Not Started | — | TestBed CVA specs + hands-on |
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ⬜ Not Started | — | Angular 14 |
 | [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ⬜ Not Started | — | hands-on |
@@ -530,6 +530,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 **2026-10-22 18:20** - M7 part 1 complete. `vsix` syncs core version and builds core; `release:core` publishes or packs; release order in CLAUDE.md; CHANGELOG, RESUME, BACKLOG updated. Tests: unit 933/2 todo, edge 22, integration 47, core-package 7, lint 0 errors. LymeStarter and Quantico Creek version bumps pending.
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-22 18:27** - M5 complete (LymeStarter `develop` `3574592`, `1ad8b86`, `ec75b35`, not pushed). The standalone `lyme-markdown-editor` CVA and `AngularMikeDownHost` are in `lymestack-shared/mikedown/`. The core is vendored as a `file:` tarball in `ng-app/vendor/`. Its CSS loads from `styles.scss`, with `--mikedown-*` mapped to `--ls-*`, so it follows theme, skin and dark mode. Demo at `/dev/markdown-editor`. `ng build` green; there is no `ng lint` target, and an ad hoc angular-eslint run was clean. Headless Chromium checks passed (debounce, pristine load, invalid/disabled states, `.form-control` parity in light, dark and airy, KaTeX, Mermaid, placeholder, destroy). Deviations: no Angular Material in the template, so the editor matches Bootstrap `.form-control`. Open: downstream sync does not carry the npm dependency (orchestrator decision), and lowlight is 1 MB of the 2.6 MB lazy chunk. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m5.md`.
 
 **2026-10-22 18:11** - Image source gap fill: core now has `host.resolveImageSrc` (qualified `http/https/data/blob` render as is, others go through the host, else the placeholder with the raw path; stored `src` untouched), a `Mod-/` source toggle gated by `hostOwnsShortcuts` (VS Code passes true), and host-neutral Settings copy for spelling and tags. 933 unit, 22 edge, 47 integration, 7 core-package, lint 0 errors. Tarball repacked. See worker-summary-imagesrc-gapfill.md.
 
