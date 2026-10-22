@@ -33,7 +33,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [T2 — Core package tests](#t2--core-package-tests) | Sonnet | ✅ Complete (signed off; orchestrator ran hands-on in Chrome) | 5 | demo page hands-on, bundle checks; 3 gap-fills |
 | [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ✅ Complete | 12 | `lymestack-shared/mikedown/`; demo `/dev/markdown-editor` |
 | [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ✅ Complete (signed off) | 8 | TestBed CVA specs + hands-on |
-| [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | 🔄 In Progress | — | Angular 14 |
+| [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ✅ Complete | 16 | KB article editor; Material token mapping |
 | [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ⬜ Not Started | — | hands-on |
 | [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 Part 1 done (docs + release scripts); version bumps pending | — | vsix + core publish in one step |
 | [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | ⬜ Not Started | — | API endpoint + `uploadImage` host hook |
@@ -389,12 +389,12 @@ Start: `cd ~/git/lymestarter/ng-app && npm start` and the API per the LymeStarte
 
 **Tasks**
 
-- [ ] Install `@mikedown/core` (same version as M5) and apply the M0 spike's mitigation (`skipLibCheck`, or nothing if compatible). `ng build` must pass before any UI work.
-- [ ] Copy `lymestack-shared/mikedown/` from LymeStarter into `src/app/shared/mikedown/` and adapt for Angular 14: convert the standalone component to one declared and exported by a new `MikeDownModule` (standalone is only developer preview in 14); replace any `inject()`-style or signal APIs with constructor injection; keep the file names identical so future re-syncs are a diff, and add a header comment `// Copied from lymestarter ng-app/src/app/lymestack-shared/mikedown @ <commit>`.
-- [ ] Add the global styles (`styles.css`, `tokens.css`) to `angular.json` `styles` or `src/styles.scss`, and map `--mikedown-*` tokens from the app's Material theme (`@use '@angular/material' as mat; mat.get-color-from-palette(...)` or the existing theme SCSS variables).
-- [ ] Replace the chosen screen's markdown `textarea` (or add the editor beside the existing `ngx-markdown` rendering) with `<lyme-markdown-editor formControlName="…">`. Keep the existing save path untouched: the control emits a markdown string, the form posts the same field it did before. Preserve any existing `required`/length validators.
-- [ ] Make sure read-only views of the same field still render through `ngx-markdown` (no behavior change for readers).
-- [ ] `ng build --configuration production` green, `ng lint` clean, existing specs green. Commit on the branch the Quantico Creek `CLAUDE.md` prescribes.
+- [x] Install `@mikedown/core` (same version as M5) and apply the M0 spike's mitigation (`skipLibCheck`, or nothing if compatible). `ng build` must pass before any UI work.
+- [x] Copy `lymestack-shared/mikedown/` from LymeStarter into `src/app/shared/mikedown/` and adapt for Angular 14: convert the standalone component to one declared and exported by a new `MikeDownModule` (standalone is only developer preview in 14); replace any `inject()`-style or signal APIs with constructor injection; keep the file names identical so future re-syncs are a diff, and add a header comment `// Copied from lymestarter ng-app/src/app/lymestack-shared/mikedown @ <commit>`.
+- [x] Add the global styles (`styles.css`, `tokens.css`) to `angular.json` `styles` or `src/styles.scss`, and map `--mikedown-*` tokens from the app's Material theme (`@use '@angular/material' as mat; mat.get-color-from-palette(...)` or the existing theme SCSS variables).
+- [x] Replace the chosen screen's markdown `textarea` (or add the editor beside the existing `ngx-markdown` rendering) with `<lyme-markdown-editor formControlName="…">`. Keep the existing save path untouched: the control emits a markdown string, the form posts the same field it did before. Preserve any existing `required`/length validators.
+- [x] Make sure read-only views of the same field still render through `ngx-markdown` (no behavior change for readers).
+- [x] `ng build --configuration production` green, `ng lint` clean, existing specs green. Commit on the branch the Quantico Creek `CLAUDE.md` prescribes.
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
 
@@ -526,6 +526,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ---
 
 ## Progress Log / Notes
+
+**2026-10-22 18:57** - M6 complete (Quantico Creek `master` `0cc63c4`, `2db4ce1`, `a23f051`, `58cf5f7`, not pushed). The KB article editor (`/admin/knowledge-base/edit/:id`) now uses `<lyme-markdown-editor>` through `[(ngModel)]="model.markdown"`. The save payload is unchanged and the ngx-markdown preview stays. The wrapper lives in `src/app/shared/mikedown/` behind a new `MikeDownModule`, with constructor injection, `.dark-theme` shell detection and tokens from the Material theme (no `color-mix()`). Only `skipLibCheck` was needed. Production build green, with the editor in the lazy KB chunk (632 kB transfer). Specs went from 105 to 115, all green, and eslint shows no new problems. Headless check against a mocked API passed. All 15 shipped KB articles round-trip with their `<!-- -->` notes intact; two tables normalize spacing. T4 note: the markdown field has no `required` validator. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m6.md`.
 
 **2026-10-22 18:45** - M9 complete. Wrapper copied into the assistant app (`src/app/shared/mikedown/`), `@mikedown/core` vendored as a tarball, theme mapped onto the assistant palette. No editable markdown field existed, so a "Notes for our team" editor was added to the lead panel (session-persisted, not yet sent to the API). Build green, 43 tests pass, headless open/edit/reload verified. Quantico commits `7da3600`, `ec6eb5e`. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m9.md`.
 
