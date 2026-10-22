@@ -24,8 +24,8 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [M0 — Decisions and compatibility spike](#m0--decisions-and-compatibility-spike) | Opus | ✅ Complete (awaiting approval) | 10 | Gate: user approves `core-extraction-decisions.md` |
-| [M1 — Workspace restructure](#m1--workspace-restructure) | Sonnet | ⬜ Not Started | — | npm workspaces, `packages/core` |
+| [M0 — Decisions and compatibility spike](#m0--decisions-and-compatibility-spike) | Opus | ✅ Complete (approved) | 10 | Gate: user approves `core-extraction-decisions.md` |
+| [M1 — Workspace restructure](#m1--workspace-restructure) | Sonnet | 🔄 In Progress | — | npm workspaces, `packages/core` |
 | [M2 — Host adapter and factory](#m2--host-adapter-and-factory) | Opus | ⬜ Not Started | — | Replaces ~50 `postMessage` sites |
 | [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ⬜ Not Started | — | unit + integration + hands-on |
 | [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | ⬜ Not Started | — | 81 `--vscode-*` vars → `--mikedown-*` |
