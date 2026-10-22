@@ -27,7 +27,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M0 — Decisions and compatibility spike](#m0--decisions-and-compatibility-spike) | Opus | ✅ Complete (approved) | 10 | Gate: user approves `core-extraction-decisions.md` |
 | [M1 — Workspace restructure](#m1--workspace-restructure) | Sonnet | ✅ Complete | 7 | npm workspaces, `packages/core` |
 | [M2 — Host adapter and factory](#m2--host-adapter-and-factory) | Opus | ✅ Complete | 31 | Replaces ~50 `postMessage` sites |
-| [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | 🔄 In Progress | — | unit + integration + hands-on |
+| [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ✅ Automated done, hands-on pending | ~10 min | unit + integration + hands-on |
 | [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | ⬜ Not Started | — | 81 `--vscode-*` vars → `--mikedown-*` |
 | [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | ⬜ Not Started | — | ESM + d.ts + css, `0.1.0-rc.1` |
 | [T2 — Core package tests](#t2--core-package-tests) | Sonnet | ⬜ Not Started | — | demo page hands-on, bundle checks |
@@ -527,6 +527,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-22 16:16** - T1 automated block complete; hands-on pending (user). Added `packages/core/test/factory.test.ts`, `packages/core/test/host-gating.test.ts` and `test/unit/vscodeHost.test.ts`. Counts: unit 859 to 906 passed (2 todo), edge 22, integration 38, lint 0 errors. Found and fixed one core bug: a second `setSlashHiddenCommands` call made `/properties` show with the sidebar off. Removed stray `tagExtract.ts-E`. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-t1.md`.
 
 **2026-10-22 16:04** - M2 complete. `createMikeDownEditor` (`packages/core/src/editor.ts`) builds its DOM inside the container with classes, not ids, keeps state per instance and tears down every global listener in `destroy()`. `MikeDownHost` and the handle follow decisions section 5. `src/webview/editor-main.ts` is the VS Code shell (`VsCodeHost`, listener, support card, VS Code settings rows through `extraSettingsSections`); the provider changed only in its HTML (`#editor-root`). Compile, 859 unit, 22 edge, lint 0 errors, 38 integration. Content width stays unpersisted (known gap). Some module singletons and body-level classes remain shared across instances (follow-up for M3/M4). Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m2.md`.
 
