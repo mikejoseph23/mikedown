@@ -27,8 +27,8 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M0 — Decisions and compatibility spike](#m0--decisions-and-compatibility-spike) | Opus | ✅ Complete (approved) | 10 | Gate: user approves `core-extraction-decisions.md` |
 | [M1 — Workspace restructure](#m1--workspace-restructure) | Sonnet | ✅ Complete | 7 | npm workspaces, `packages/core` |
 | [M2 — Host adapter and factory](#m2--host-adapter-and-factory) | Opus | ✅ Complete | 31 | Replaces ~50 `postMessage` sites |
-| [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ✅ Automated done, hands-on pending | ~10 min | unit + integration + hands-on |
-| [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | ⬜ Not Started | — | 81 `--vscode-*` vars → `--mikedown-*` |
+| [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ✅ Complete (signed off) | 11 | unit + integration + hands-on; gap-fill added 9 integration tests |
+| [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | 🔄 In Progress | — | 81 `--vscode-*` vars → `--mikedown-*` |
 | [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | ⬜ Not Started | — | ESM + d.ts + css, `0.1.0-rc.1` |
 | [T2 — Core package tests](#t2--core-package-tests) | Sonnet | ⬜ Not Started | — | demo page hands-on, bundle checks |
 | [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ⬜ Not Started | — | `lymestack-shared/mikedown/` |
@@ -267,7 +267,7 @@ Apply to every milestone below.
 
 Start: `cd ~/git/mikedown && npm run dev` (opens a dev VS Code on `test/workspace`). Open any `.md` with MikeDown and walk through:
 
-- [ ] Type, bold (`Cmd+B`), insert a table from the toolbar picker, paste an image from the clipboard (file appears next to the doc), `Cmd+/` to source mode and back, `/date` slash command, open Settings from the gear and change the body font (persists after reload), toggle the sidebar and click an Outline entry, print via toolbar (print dialog opens), close and reopen the tab (content intact, not dirty). Expected: each behaves as in 2.14.2. Orchestrator pauses here for sign-off.
+- [x] Type, bold (`Cmd+B`), insert a table from the toolbar picker, paste an image from the clipboard (file appears next to the doc), `Cmd+/` to source mode and back, `/date` slash command, open Settings from the gear and change the body font (persists after reload), toggle the sidebar and click an Outline entry, print via toolbar (print dialog opens), close and reopen the tab (content intact, not dirty). Expected: each behaves as in 2.14.2. Orchestrator pauses here for sign-off.
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
 
