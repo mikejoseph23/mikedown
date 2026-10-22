@@ -37,7 +37,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ⬜ Not Started | — | hands-on |
 | [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 Part 1 done (docs + release scripts); version bumps pending | — | vsix + core publish in one step |
 | [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | ⬜ Not Started | — | API endpoint + `uploadImage` host hook |
-| [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional) | Sonnet | 🔄 In Progress | — | Angular 19 |
+| [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional) | Sonnet | ✅ Complete | 3 | Angular 19; lead-panel notes editor |
 | [M10 — Bot protection for AI endpoints](#m10--bot-protection-for-ai-endpoints) | Opus | ⬜ Not Started | — | Rate limiting + CAPTCHA in the Quantico Creek API; independent of the core work |
 
 **Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
@@ -458,9 +458,9 @@ Start: API via `~/git/quanticocreek/Run.bat` equivalent on macOS per `CLAUDE.md`
 
 **Tasks**
 
-- [ ] Copy `lymestack-shared/mikedown/` into `quantico-creek-assistant-app/src/app/shared/mikedown/` with the origin-commit header; install `@mikedown/core`; add styles and token mapping.
-- [ ] Use it on the assistant app's first markdown-editable field (worker identifies it: the app renders markdown with `marked` 15 somewhere).
-- [ ] `ng build` green; a short hands-on pass (open, edit, save, reload).
+- [x] Copy `lymestack-shared/mikedown/` into `quantico-creek-assistant-app/src/app/shared/mikedown/` with the origin-commit header; install `@mikedown/core`; add styles and token mapping.
+- [x] Use it on the assistant app's first markdown-editable field (worker identifies it: the app renders markdown with `marked` 15 somewhere).
+- [x] `ng build` green; a short hands-on pass (open, edit, save, reload).
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
 
@@ -526,6 +526,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ---
 
 ## Progress Log / Notes
+
+**2026-10-22 18:45** - M9 complete. Wrapper copied into the assistant app (`src/app/shared/mikedown/`), `@mikedown/core` vendored as a tarball, theme mapped onto the assistant palette. No editable markdown field existed, so a "Notes for our team" editor was added to the lead panel (session-persisted, not yet sent to the API). Build green, 43 tests pass, headless open/edit/reload verified. Quantico commits `7da3600`, `ec6eb5e`. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m9.md`.
 
 **2026-10-22 18:45** - T3 automated block done (LymeStarter `develop` `f86e512`, not pushed). 9 new Karma specs for `lyme-markdown-editor`: writeValue, debounce, disabled, destroy and window listeners, image paste with and without `imageUpload`, FormGroup required/reset, ngModel. `ng test --watch=false`: 549 before, 558 after, all green. Hands-on at http://localhost:4200/dev/markdown-editor (no login on `/dev`; API must answer `localhost:5218/AppConfig`; CLAUDE.md names no API start command or dev account). Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-t3.md`.
 
