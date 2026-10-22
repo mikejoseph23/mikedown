@@ -220,3 +220,19 @@ describe('VsCodeHost reply routing', () => {
     expect(host.handleReply(undefined)).toBe(false);
   });
 });
+
+describe('VsCodeHost.resolveImageSrc', () => {
+  it('maps a relative path through the broadcast prefixes and docDir', () => {
+    const { host } = setup();
+    host.setImagePaths([{ prefix: 'https://x.vscode-cdn.net/proj', fsPath: '/proj' }], '/proj/docs');
+    expect(host.resolveImageSrc('images/a b.png')).toBe('https://x.vscode-cdn.net/proj/docs/images/a%20b.png');
+    expect(host.resolveImageSrc('../shared/c.png')).toBe('https://x.vscode-cdn.net/proj/shared/c.png');
+  });
+
+  it('returns null when no prefix owns the path', () => {
+    const { host } = setup();
+    expect(host.resolveImageSrc('images/a.png')).toBeNull();
+    host.setImagePaths([{ prefix: 'https://x.vscode-cdn.net/proj', fsPath: '/proj' }], '/proj/docs');
+    expect(host.resolveImageSrc('/elsewhere/a.png')).toBeNull();
+  });
+});

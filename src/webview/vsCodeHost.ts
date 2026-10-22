@@ -23,6 +23,7 @@ import type {
   WikilinkResolution,
 } from '../../packages/core/src/host';
 import type { MikeDownSettingsPatch } from '../../packages/core/src/types';
+import { resolveSrcForEditor, type ImagePathPrefix } from '../../packages/core/src/shared/imageDisplayPath';
 
 export interface VsCodeApi {
   postMessage(msg: unknown): void;
@@ -59,7 +60,22 @@ export class VsCodeHost implements MikeDownHost {
   private tagWaiters: Array<Resolver<TagCount[]>> = [];
   private diffWaiters: Array<Resolver<DiffBaseline>> = [];
 
+  private imagePathMappings: ImagePathPrefix[] = [];
+  private docDir = '';
+
   constructor(private readonly vscode: VsCodeApi) {}
+
+  /** Webview URI prefixes and the document folder, from the `settings` broadcast. */
+  setImagePaths(mappings: ImagePathPrefix[] | undefined, docDir: string | undefined): void {
+    if (Array.isArray(mappings)) {this.imagePathMappings = mappings;}
+    if (typeof docDir === 'string') {this.docDir = docDir;}
+  }
+
+  /** Map a relative or absolute path to the webview URI that serves it. */
+  resolveImageSrc(src: string): string | null {
+    const resolved = resolveSrcForEditor(src, this.imagePathMappings, this.docDir);
+    return resolved !== src ? resolved : null;
+  }
 
   post(msg: unknown): void {
     this.vscode.postMessage(msg);

@@ -86,6 +86,7 @@ import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyL
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates } from './toolbar-dropdown';
 import { showLanguagePicker } from './languagepicker';
 import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
+import { resolveImageRenderSrc } from './imageSrcPolicy';
 import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from './shared/imageDisplayPath';
 import { githubAnchorId } from './shared/anchoring';
 import {
@@ -1988,6 +1989,38 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 // Webview-URI → fs-path mappings broadcast by the host with each 'settings'
   // message. Used to display image srcs in their on-disk relative form (the
   // image popover in particular). Empty until the first broadcast lands.
+  const createPolicyImage = () => Image.extend({
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        src: {
+          default: null,
+          // Prefer the raw path a prior render recorded, so copy and paste
+          // never bakes a resolved URL into the stored markdown.
+          parseHTML: (el: HTMLElement) => el.getAttribute('data-mikedown-src') ?? el.getAttribute('src'),
+          renderHTML: (attrs: Record<string, unknown>) => {
+            const raw = typeof attrs.src === 'string' ? attrs.src : '';
+            const rendered = resolveImageRenderSrc(raw, host);
+            if (rendered === null) {
+              return { 'data-mikedown-src': raw, class: 'broken-image' };
+            }
+            return rendered === raw ? { src: raw } : { src: rendered, 'data-mikedown-src': raw };
+          },
+        },
+        // The image's own title wins; an unresolved image falls back to a
+        // "not found" tooltip carrying the raw path.
+        title: {
+          default: null,
+          parseHTML: (el: HTMLElement) => el.getAttribute('title'),
+          renderHTML: (attrs: Record<string, unknown>) => {
+            if (attrs.title) {return { title: attrs.title };}
+            const raw = typeof attrs.src === 'string' ? attrs.src : '';
+            return resolveImageRenderSrc(raw, host) === null ? { title: `Image not found: ${raw}` } : {};
+          },
+        },
+      };
+    },
+  });
   let imagePathMappings: ImagePathPrefix[] = [];
   let docDirFsPath = '';
 
@@ -2818,7 +2851,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // `inline: true` matches CommonMark — multiple `![]()` on one line stay in
       // a single paragraph (e.g. shields.io badge rows) instead of each becoming
       // its own block. A solo image on its own paragraph still renders the same.
-      Image.configure({ inline: true }),
+      // Rendering goes through the image source policy (host.ts
+      // `resolveImageSrc`); the stored `src` attribute is never rewritten.
+      createPolicyImage().configure({ inline: true }),
 
       // ── Placeholder (M2c / M5) ────────────────────────────────────────────────
       // "Type / for commands…" is shown when the slash-command menu is enabled;
@@ -3446,7 +3481,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // the session-scoped webview URI. The Update handler re-resolves it
       // back to a webview URI before writing — done via a PM transaction so
       // PM's MutationObserver isn't poisoned by an out-of-band DOM write.
-      const rawSrc = img.getAttribute('src') ?? '';
+      const rawSrc = (editor.state.doc.nodeAt(pos)?.attrs.src as string | undefined) ?? img.getAttribute('src') ?? '';
       imgSrcInput.value =
         unresolveSrcForDisplay(rawSrc, imagePathMappings, docDirFsPath);
       const rect = img.getBoundingClientRect();

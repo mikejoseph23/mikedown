@@ -232,6 +232,7 @@ function settingsBroadcastToCore(msg: any): Partial<MikeDownSettings> {
   copy('normalizationStyle', msg.normalizationStyle);
   copy('imagePathMappings', msg.imagePastePathMappings);
   copy('docDir', msg.docDirFs);
+  host.setImagePaths(msg.imagePastePathMappings, msg.docDirFs);
   const sc = msg.spellCheck;
   if (sc && typeof sc === 'object') {
     copy('spellCheckEnabled', sc.enabled);

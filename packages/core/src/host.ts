@@ -161,6 +161,16 @@ export interface MikeDownHost {
   /** Save a resized copy of an image. Absent hides the resize menu items. */
   resizeImage?(req: ImageResizeRequest): Promise<ImageResizeResult>;
 
+  /**
+   * Image source policy. The core renders `http:`, `https:`, `data:` and
+   * `blob:` sources as they are. For any other source (a relative or
+   * absolute path) it calls this and renders the non-null result. Absent, or
+   * returning null, the image shows the missing-image placeholder with the raw
+   * path. Only the rendered `<img src>` changes; the stored `src`, and so the
+   * markdown, is never rewritten.
+   */
+  resolveImageSrc?(src: string): string | null;
+
   // ── Knowledge-base features (absent = feature off) ────────────────────────
   /** Files and anchors for link autocomplete and `[[` wikilink autocomplete. */
   getLinkSuggestions?(): Promise<LinkSuggestion[]>;

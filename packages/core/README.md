@@ -50,6 +50,7 @@ The editor fills its container (`height: 100%`), so give the container a height.
 | `uploadImage` | image paste and drop disabled |
 | `pickImage` | `/image` hidden |
 | `resizeImage` | image resize items hidden |
+| `resolveImageSrc` | relative or absolute image paths show the missing-image placeholder with the raw path |
 | `getLinkSuggestions`, `getFileHeadings` | link and `[[` wikilink autocomplete off |
 | `resolveWikilinks`, `createWikilink`, `checkLinks` | wikilinks and broken-link marking off |
 | `getTags`, `openTag` | tag autocomplete and sidebar tags off |
