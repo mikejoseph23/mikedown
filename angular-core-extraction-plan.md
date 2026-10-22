@@ -32,7 +32,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | ✅ Complete (publish pending npm login) | 6 | ESM + d.ts + css, `0.1.0-rc.1` |
 | [T2 — Core package tests](#t2--core-package-tests) | Sonnet | ✅ Complete (signed off; orchestrator ran hands-on in Chrome) | 5 | demo page hands-on, bundle checks; 3 gap-fills |
 | [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ✅ Complete | 12 | `lymestack-shared/mikedown/`; demo `/dev/markdown-editor` |
-| [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ⬜ Not Started | — | TestBed CVA specs + hands-on |
+| [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | 🔄 In Progress | — | TestBed CVA specs + hands-on |
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ⬜ Not Started | — | Angular 14 |
 | [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ⬜ Not Started | — | hands-on |
 | [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 Part 1 done (docs + release scripts); version bumps pending | — | vsix + core publish in one step |
@@ -345,15 +345,15 @@ Start: `cd ~/git/mikedown && npm run demo:core`, open the printed URL (default `
 
 **Tasks**
 
-- [ ] Wire `host.resolveImageSrc(src)` in the wrapper (added to core by the image-src gap-fill, 2026-10-22): map relative image paths to an API URL when one exists; otherwise leave them unresolved so the core shows its missing-image placeholder.
-- [ ] `npm install @mikedown/core@rc` (or the `file:` tarball per M0) in `ng-app`; add `@import '@mikedown/core/styles.css'` and `tokens.css` to the shared styles entry the LymeStack skins use (find where `lymestack-skins` loads global SCSS and follow that pattern), and map the `--mikedown-*` tokens from the skin's own CSS variables so the editor follows the active skin.
-- [ ] Create `mikedown-editor.component.ts` (`selector: 'lyme-markdown-editor'`, **standalone** for Angular 19; M6 adapts for 14): `ControlValueAccessor` registered via `NG_VALUE_ACCESSOR`; `@Input() theme: 'light'|'dark'|'auto'`, `features`, `readOnly`, `placeholder`, `minHeight`, `imageUpload?: (file) => Observable<{ src: string; alt?: string }>`; `@Output() ready`. Create the editor in `ngAfterViewInit` inside `NgZone.runOutsideAngular`, re-enter the zone to emit CVA changes, debounce `onChange` 150ms, `writeValue` → `setMarkdown(value ?? '', { pristine: true })`, `setDisabledState` → `setReadOnly`, `ngOnDestroy` → `destroy()`.
-- [ ] Host implementation `AngularMikeDownHost`: `onChange` → CVA, `openLink` → `window.open` for http(s) and `Router.navigateByUrl` for relative paths, `uploadImage` → the input callback (absent = disabled), `loadSettings`/`saveSettings` → `localStorage` key `mikedown.settings` (per-user convenience only).
-- [ ] Add `mikedown-editor.component.html/.scss` with the host-side chrome: a 1px border using the skin's border token, focus-within accent ring, `min-height`, and an invalid state (`.ng-invalid.ng-touched`) that matches Material form-field error styling. Design it to sit naturally beside `mat-form-field` controls: same corner radius, same label typography.
-- [ ] Add a demo page under `lymestack-dev` (the template's dev-only folder) with a reactive form: the editor bound to `notes`, a plain `mat-input` beside it, a "Load sample" button calling `patchValue`, a "Disable" toggle, and a `<pre>` showing `form.value.notes` live. Register its route following the folder's existing pattern.
-- [ ] Add `index.ts` barrel and a short `README.md` in the folder (usage, inputs, how to pass an `imageUpload`).
-- [ ] If `lymestack-ownership.json` needs the new path listed (it should not, being under `lymestack-shared`), say so in the summary rather than editing the file.
-- [ ] `ng build` green, `ng lint` clean. Commit per the LymeStarter `CLAUDE.md` branch rules.
+- [x] Wire `host.resolveImageSrc(src)` in the wrapper (added to core by the image-src gap-fill, 2026-10-22): map relative image paths to an API URL when one exists; otherwise leave them unresolved so the core shows its missing-image placeholder.
+- [x] `npm install @mikedown/core@rc` (or the `file:` tarball per M0) in `ng-app`; add `@import '@mikedown/core/styles.css'` and `tokens.css` to the shared styles entry the LymeStack skins use (find where `lymestack-skins` loads global SCSS and follow that pattern), and map the `--mikedown-*` tokens from the skin's own CSS variables so the editor follows the active skin.
+- [x] Create `mikedown-editor.component.ts` (`selector: 'lyme-markdown-editor'`, **standalone** for Angular 19; M6 adapts for 14): `ControlValueAccessor` registered via `NG_VALUE_ACCESSOR`; `@Input() theme: 'light'|'dark'|'auto'`, `features`, `readOnly`, `placeholder`, `minHeight`, `imageUpload?: (file) => Observable<{ src: string; alt?: string }>`; `@Output() ready`. Create the editor in `ngAfterViewInit` inside `NgZone.runOutsideAngular`, re-enter the zone to emit CVA changes, debounce `onChange` 150ms, `writeValue` → `setMarkdown(value ?? '', { pristine: true })`, `setDisabledState` → `setReadOnly`, `ngOnDestroy` → `destroy()`.
+- [x] Host implementation `AngularMikeDownHost`: `onChange` → CVA, `openLink` → `window.open` for http(s) and `Router.navigateByUrl` for relative paths, `uploadImage` → the input callback (absent = disabled), `loadSettings`/`saveSettings` → `localStorage` key `mikedown.settings` (per-user convenience only).
+- [x] Add `mikedown-editor.component.html/.scss` with the host-side chrome: a 1px border using the skin's border token, focus-within accent ring, `min-height`, and an invalid state (`.ng-invalid.ng-touched`) that matches Material form-field error styling. Design it to sit naturally beside `mat-form-field` controls: same corner radius, same label typography.
+- [x] Add a demo page under `lymestack-dev` (the template's dev-only folder) with a reactive form: the editor bound to `notes`, a plain `mat-input` beside it, a "Load sample" button calling `patchValue`, a "Disable" toggle, and a `<pre>` showing `form.value.notes` live. Register its route following the folder's existing pattern.
+- [x] Add `index.ts` barrel and a short `README.md` in the folder (usage, inputs, how to pass an `imageUpload`).
+- [x] If `lymestack-ownership.json` needs the new path listed (it should not, being under `lymestack-shared`), say so in the summary rather than editing the file.
+- [x] `ng build` green, `ng lint` clean. Commit per the LymeStarter `CLAUDE.md` branch rules.
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
 
