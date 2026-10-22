@@ -35,8 +35,8 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ✅ Complete (signed off) | 8 | TestBed CVA specs + hands-on |
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ✅ Complete | 16 | KB article editor; Material token mapping |
 | [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ✅ Signed off | — | hands-on |
-| [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 Part 1 done (docs + release scripts); version bumps pending | — | vsix + core publish in one step |
-| [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | ⬜ Not Started | — | API endpoint + `uploadImage` host hook |
+| [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 Part 2 in progress (docs + sync wiring); version bumps blocked on publish | — | vsix + core publish in one step |
+| [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | 🔄 In Progress | — | API endpoint + `uploadImage` host hook |
 | [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional) | Sonnet | ✅ Complete | 3 | Angular 19; lead-panel notes editor |
 | [M10 — Bot protection for AI endpoints](#m10--bot-protection-for-ai-endpoints) | Opus | ⬜ Not Started | — | Rate limiting + CAPTCHA in the Quantico Creek API; independent of the core work |
 
