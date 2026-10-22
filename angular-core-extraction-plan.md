@@ -367,9 +367,9 @@ Start: `cd ~/git/mikedown && npm run demo:core`, open the printed URL (default `
 
 **Automated**
 
-- [ ] `mikedown-editor.component.spec.ts` (Karma/Jest, whichever `ng-app` uses): `writeValue('# Hi')` renders an `h1` inside `.mikedown-root` and does **not** emit a change; a dispatched edit through the handle emits exactly one debounced `onChange` with the new markdown; `setDisabledState(true)` makes the editor read-only and the toolbar inert; destroying the fixture removes the editor DOM and leaves no `window` listeners; `imageUpload` absent → pasting an image does nothing; present → the returned `src` appears in the markdown.
-- [ ] A spec mounting the component inside `FormGroup` with `Validators.required`: empty → invalid, typed text → valid, `reset()` → empty and pristine.
-- [ ] `ng test --watch=false` green.
+- [x] `mikedown-editor.component.spec.ts` (Karma/Jest, whichever `ng-app` uses): `writeValue('# Hi')` renders an `h1` inside `.mikedown-root` and does **not** emit a change; a dispatched edit through the handle emits exactly one debounced `onChange` with the new markdown; `setDisabledState(true)` makes the editor read-only and the toolbar inert; destroying the fixture removes the editor DOM and leaves no `window` listeners; `imageUpload` absent → pasting an image does nothing; present → the returned `src` appears in the markdown.
+- [x] A spec mounting the component inside `FormGroup` with `Validators.required`: empty → invalid, typed text → valid, `reset()` → empty and pristine.
+- [x] `ng test --watch=false` green.
 
 **Hands-on (user, about 5 minutes)**
 
