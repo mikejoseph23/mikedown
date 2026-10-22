@@ -32,7 +32,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | ✅ Complete (publish pending npm login) | 6 | ESM + d.ts + css, `0.1.0-rc.1` |
 | [T2 — Core package tests](#t2--core-package-tests) | Sonnet | ✅ Complete (signed off; orchestrator ran hands-on in Chrome) | 5 | demo page hands-on, bundle checks; 3 gap-fills |
 | [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ✅ Complete | 12 | `lymestack-shared/mikedown/`; demo `/dev/markdown-editor` |
-| [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | 🔄 In Progress | — | TestBed CVA specs + hands-on |
+| [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ✅ Automated done, hands-on pending | 15 min | TestBed CVA specs + hands-on |
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ⬜ Not Started | — | Angular 14 |
 | [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ⬜ Not Started | — | hands-on |
 | [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 Part 1 done (docs + release scripts); version bumps pending | — | vsix + core publish in one step |
@@ -526,6 +526,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ---
 
 ## Progress Log / Notes
+
+**2026-10-22 18:45** - T3 automated block done (LymeStarter `develop` `f86e512`, not pushed). 9 new Karma specs for `lyme-markdown-editor`: writeValue, debounce, disabled, destroy and window listeners, image paste with and without `imageUpload`, FormGroup required/reset, ngModel. `ng test --watch=false`: 549 before, 558 after, all green. Hands-on at http://localhost:4200/dev/markdown-editor (no login on `/dev`; API must answer `localhost:5218/AppConfig`; CLAUDE.md names no API start command or dev account). Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-t3.md`.
 
 **2026-10-22 18:20** - M7 part 1 complete. `vsix` syncs core version and builds core; `release:core` publishes or packs; release order in CLAUDE.md; CHANGELOG, RESUME, BACKLOG updated. Tests: unit 933/2 todo, edge 22, integration 47, core-package 7, lint 0 errors. LymeStarter and Quantico Creek version bumps pending.
 
