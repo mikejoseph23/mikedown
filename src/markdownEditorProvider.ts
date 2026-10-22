@@ -377,6 +377,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       enableScripts: true,
       localResourceRoots: [
         vscode.Uri.file(path.join(this.context.extensionPath, 'packages', 'core', 'src', 'styles')),
+        // vscode-theme.css: maps the VS Code theme onto the core's --mikedown-* tokens.
+        vscode.Uri.file(path.join(this.context.extensionPath, 'src', 'webview')),
         vscode.Uri.file(path.join(this.context.extensionPath, 'dist')),
         vscode.Uri.file(path.join(this.context.extensionPath, 'out', 'webview')),
         // Hunspell dictionaries, fetched by the webview's spell checker.
@@ -2184,6 +2186,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       // KaTeX ships its own stylesheet, which loads its fonts relative to itself.
       path.join(this.context.extensionPath, 'node_modules', 'katex', 'dist', 'katex.min.css'),
       ...cssFiles.map(f => path.join(cssDir, f)),
+      // VS Code shell only: sets every --mikedown-* token from the matching
+      // --vscode-* theme variable. Must load after the core stylesheets.
+      path.join(this.context.extensionPath, 'src', 'webview', 'vscode-theme.css'),
     ];
     const cssLinks = cssPaths.map(p => {
       const uri = webview.asWebviewUri(vscode.Uri.file(p));

@@ -1,0 +1,84 @@
+/*
+ * VS Code theme bridge (VS Code shell only, not part of @mikedown/core).
+ *
+ * The core CSS reads only --mikedown-* tokens (packages/core/src/styles/
+ * tokens.md). This file sets each token from the VS Code theme variable it
+ * replaced, so the editor keeps following the active VS Code theme. It loads
+ * after the core stylesheets. tokens.css is not loaded in VS Code: every
+ * token the core uses is defined here.
+ *
+ * Fallback rule: a token whose VS Code source is defined by every built-in
+ * theme gets a literal fallback (the Dark+ value). A token whose source some
+ * themes leave undefined (input.border, button.border, contrastBorder,
+ * list.activeSelectionBackground in high contrast, ...) has no fallback. The
+ * token is then invalid, and each consuming rule's own var() fallback applies
+ * exactly as it did when the rule read the --vscode-* variable directly.
+ */
+
+.mikedown-root,
+.mikedown-portal {
+  --mikedown-font-ui: var(--vscode-font-family, system-ui, -apple-system, sans-serif);
+  --mikedown-font-mono: var(--vscode-editor-font-family, monospace);
+  --mikedown-font-size-ui: var(--vscode-editor-font-size, 14px);
+  --mikedown-radius-sm: 4px;
+  --mikedown-radius: 6px;
+  --mikedown-radius-lg: 8px;
+
+  --mikedown-surface: var(--vscode-editor-background, #1e1e1e);
+  --mikedown-surface-raised: var(--vscode-editorWidget-background, #252526);
+  --mikedown-surface-toolbar: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+  --mikedown-input-bg: var(--vscode-input-background, #3c3c3c);
+  --mikedown-code-bg: var(--vscode-textCodeBlock-background);
+  --mikedown-quote-bg: var(--vscode-textBlockQuote-background);
+
+  --mikedown-text: var(--vscode-editor-foreground, #d4d4d4);
+  --mikedown-text-ui: var(--vscode-foreground, #cccccc);
+  --mikedown-text-muted: var(--vscode-descriptionForeground, #a0a0a0);
+  --mikedown-icon: var(--vscode-icon-foreground, #c5c5c5);
+
+  --mikedown-border: var(--vscode-editorWidget-border, #454545);
+  --mikedown-divider: var(--vscode-editorGroup-border, #444444);
+  --mikedown-input-border: var(--vscode-input-border);
+  --mikedown-button-border: var(--vscode-button-border);
+  --mikedown-quote-border: var(--vscode-textBlockQuote-border);
+  --mikedown-contrast-border: var(--vscode-contrastActiveBorder);
+
+  --mikedown-hover: var(--vscode-toolbar-hoverBackground);
+  --mikedown-active: var(--vscode-toolbar-activeBackground);
+  --mikedown-selected-bg: var(--vscode-list-activeSelectionBackground);
+  --mikedown-selected-text: var(--vscode-list-activeSelectionForeground);
+  --mikedown-line-highlight: var(--vscode-editor-lineHighlightBackground);
+  --mikedown-selection: var(--vscode-editor-selectionBackground, #264f78);
+  --mikedown-focus-ring: var(--vscode-focusBorder, #007fd4);
+
+  --mikedown-accent: var(--vscode-button-background, #0e639c);
+  --mikedown-accent-hover: var(--vscode-button-hoverBackground);
+  --mikedown-accent-text: var(--vscode-button-foreground, #ffffff);
+  --mikedown-button-bg: var(--vscode-button-secondaryBackground);
+  --mikedown-button-text: var(--vscode-button-secondaryForeground);
+  --mikedown-button-hover: var(--vscode-button-secondaryHoverBackground);
+
+  --mikedown-link: var(--vscode-textLink-foreground, #3794ff);
+  --mikedown-link-hover: var(--vscode-textLink-activeForeground, #3794ff);
+  --mikedown-wikilink: var(--vscode-charts-purple, #b180d7);
+
+  --mikedown-success: var(--vscode-charts-green, #89d185);
+  --mikedown-danger: var(--vscode-errorForeground, #f48771);
+  --mikedown-warning: var(--vscode-editorWarning-foreground, #cca700);
+  --mikedown-info: var(--vscode-editorInfo-foreground, #3794ff);
+
+  --mikedown-find-match: var(--vscode-editor-findMatchHighlightBackground);
+  --mikedown-find-current: var(--vscode-editor-findMatchBackground);
+  --mikedown-find-current-border: var(--vscode-editor-findMatchBorder);
+
+  --mikedown-scrollbar: var(--vscode-scrollbarSlider-background);
+  --mikedown-scrollbar-hover: var(--vscode-scrollbarSlider-hoverBackground);
+  --mikedown-shadow: var(--vscode-widget-shadow);
+
+  --mikedown-syntax-keyword: var(--vscode-symbolIcon-keywordForeground, #569cd6);
+  --mikedown-syntax-string: var(--vscode-debugTokenExpression-string, #ce9178);
+  --mikedown-syntax-number: var(--vscode-debugTokenExpression-number, #b5cea8);
+  --mikedown-syntax-type: var(--vscode-symbolIcon-classForeground, #4ec9b0);
+  --mikedown-syntax-function: var(--vscode-symbolIcon-functionForeground, #dcdcaa);
+  --mikedown-syntax-variable: var(--vscode-symbolIcon-variableForeground, #9cdcfe);
+}

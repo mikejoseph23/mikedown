@@ -7,6 +7,7 @@ node_modules/**
 !node_modules/katex/dist/katex.min.css
 !node_modules/katex/dist/fonts/*.woff2
 src/**
+!src/webview/vscode-theme.css
 packages/**
 !packages/core/src/styles/*.css
 out/**
