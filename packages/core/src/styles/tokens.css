@@ -1,0 +1,209 @@
+/*
+ * MikeDown design tokens: default values for the --mikedown-* custom
+ * properties the editor CSS reads. See tokens.md for the full list and the
+ * VS Code mapping.
+ *
+ * Every rule here is wrapped in :where(), so it has zero specificity. To
+ * re-theme, set the tokens on .mikedown-root (light) and on
+ * .mikedown-root[data-mikedown-theme="dark"] (dark) in your own stylesheet.
+ *
+ * The editor root carries data-mikedown-theme="light" | "dark" | "auto".
+ * "auto" follows the operating system through prefers-color-scheme.
+ *
+ * The look aims at Apple Notes and Notion rather than an IDE panel: white
+ * page, warm-neutral grays, 1px hairlines, soft shadows, an indigo accent
+ * that sits next to Angular Material's default indigo/pink, and no pure black.
+ */
+
+:where(:root) {
+  --mikedown-scheme: light;
+
+  /* Type and shape */
+  --mikedown-font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mikedown-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --mikedown-font-size-ui: 14px;
+  --mikedown-radius-sm: 6px;
+  --mikedown-radius: 8px;
+  --mikedown-radius-lg: 12px;
+
+  /* Surfaces */
+  --mikedown-surface: #ffffff;
+  --mikedown-surface-raised: #ffffff;
+  --mikedown-surface-toolbar: #fbfbfa;
+  --mikedown-input-bg: #ffffff;
+  --mikedown-code-bg: #f6f6f4;
+  --mikedown-quote-bg: rgba(55, 53, 47, 0.03);
+
+  /* Text */
+  --mikedown-text: #2b2b2b;
+  --mikedown-text-ui: #3a3a3d;
+  --mikedown-text-muted: #6f6f74;
+  --mikedown-icon: #55555c;
+
+  /* Lines */
+  --mikedown-border: rgba(15, 15, 20, 0.10);
+  --mikedown-divider: rgba(15, 15, 20, 0.08);
+  --mikedown-input-border: rgba(15, 15, 20, 0.16);
+  --mikedown-button-border: transparent;
+  --mikedown-quote-border: rgba(55, 53, 47, 0.22);
+  --mikedown-contrast-border: transparent;
+
+  /* States */
+  --mikedown-hover: rgba(55, 53, 47, 0.06);
+  --mikedown-active: rgba(55, 53, 47, 0.10);
+  --mikedown-selected-bg: #e8eaf6;
+  --mikedown-selected-text: #1a237e;
+  --mikedown-line-highlight: rgba(55, 53, 47, 0.035);
+  --mikedown-selection: rgba(63, 81, 181, 0.18);
+  --mikedown-focus-ring: rgba(63, 81, 181, 0.55);
+
+  /* Accent and buttons */
+  --mikedown-accent: #3f51b5;
+  --mikedown-accent-hover: #3546a0;
+  --mikedown-accent-text: #ffffff;
+  --mikedown-button-bg: #f1f1ef;
+  --mikedown-button-text: #2b2b2b;
+  --mikedown-button-hover: #e7e7e4;
+
+  /* Links */
+  --mikedown-link: #3949ab;
+  --mikedown-link-hover: #283593;
+  --mikedown-wikilink: #8e24aa;
+
+  /* Status */
+  --mikedown-success: #2e7d32;
+  --mikedown-danger: #c62828;
+  --mikedown-warning: #b26a00;
+  --mikedown-info: #1e70d6;
+
+  /* Find and replace */
+  --mikedown-find-match: rgba(255, 196, 0, 0.32);
+  --mikedown-find-current: rgba(255, 152, 0, 0.45);
+  --mikedown-find-current-border: rgba(230, 120, 0, 0.85);
+
+  /* Chrome */
+  --mikedown-scrollbar: rgba(15, 15, 20, 0.16);
+  --mikedown-scrollbar-hover: rgba(15, 15, 20, 0.30);
+  --mikedown-shadow: rgba(15, 15, 20, 0.12);
+
+  /* Code syntax */
+  --mikedown-syntax-keyword: #cf222e;
+  --mikedown-syntax-string: #0a3069;
+  --mikedown-syntax-number: #0550ae;
+  --mikedown-syntax-type: #953800;
+  --mikedown-syntax-function: #8250df;
+  --mikedown-syntax-variable: #24292f;
+}
+
+:where(.mikedown-root, .mikedown-portal) {
+  color-scheme: light;
+}
+
+/* Dark. Kept in sync with the prefers-color-scheme block below. */
+:where([data-mikedown-theme="dark"]) {
+  color-scheme: dark;
+  --mikedown-scheme: dark;
+  --mikedown-surface: #1f1f21;
+  --mikedown-surface-raised: #2a2a2d;
+  --mikedown-surface-toolbar: #1b1b1d;
+  --mikedown-input-bg: #26262a;
+  --mikedown-code-bg: rgba(255, 255, 255, 0.06);
+  --mikedown-quote-bg: rgba(255, 255, 255, 0.03);
+  --mikedown-text: #e4e4e6;
+  --mikedown-text-ui: #d6d6da;
+  --mikedown-text-muted: #9b9ba3;
+  --mikedown-icon: #c2c2c9;
+  --mikedown-border: rgba(255, 255, 255, 0.10);
+  --mikedown-divider: rgba(255, 255, 255, 0.07);
+  --mikedown-input-border: rgba(255, 255, 255, 0.14);
+  --mikedown-button-border: transparent;
+  --mikedown-quote-border: rgba(255, 255, 255, 0.22);
+  --mikedown-contrast-border: transparent;
+  --mikedown-hover: rgba(255, 255, 255, 0.06);
+  --mikedown-active: rgba(255, 255, 255, 0.10);
+  --mikedown-selected-bg: rgba(121, 134, 203, 0.26);
+  --mikedown-selected-text: #eef0fb;
+  --mikedown-line-highlight: rgba(255, 255, 255, 0.04);
+  --mikedown-selection: rgba(121, 134, 203, 0.38);
+  --mikedown-focus-ring: rgba(140, 158, 255, 0.6);
+  --mikedown-accent: #5c6bc0;
+  --mikedown-accent-hover: #6f7dd0;
+  --mikedown-accent-text: #ffffff;
+  --mikedown-button-bg: rgba(255, 255, 255, 0.08);
+  --mikedown-button-text: #e4e4e6;
+  --mikedown-button-hover: rgba(255, 255, 255, 0.14);
+  --mikedown-link: #9fa8ff;
+  --mikedown-link-hover: #c0c6ff;
+  --mikedown-wikilink: #d39ce0;
+  --mikedown-success: #81c784;
+  --mikedown-danger: #ef6b6b;
+  --mikedown-warning: #ffb74d;
+  --mikedown-info: #64b5f6;
+  --mikedown-find-match: rgba(255, 213, 79, 0.22);
+  --mikedown-find-current: rgba(255, 160, 0, 0.42);
+  --mikedown-find-current-border: rgba(255, 176, 64, 0.85);
+  --mikedown-scrollbar: rgba(255, 255, 255, 0.14);
+  --mikedown-scrollbar-hover: rgba(255, 255, 255, 0.26);
+  --mikedown-shadow: rgba(0, 0, 0, 0.45);
+  --mikedown-syntax-keyword: #ff7b72;
+  --mikedown-syntax-string: #a5d6ff;
+  --mikedown-syntax-number: #79c0ff;
+  --mikedown-syntax-type: #ffa657;
+  --mikedown-syntax-function: #d2a8ff;
+  --mikedown-syntax-variable: #e6edf3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :where([data-mikedown-theme="auto"]) {
+    color-scheme: dark;
+    --mikedown-scheme: dark;
+    --mikedown-surface: #1f1f21;
+    --mikedown-surface-raised: #2a2a2d;
+    --mikedown-surface-toolbar: #1b1b1d;
+    --mikedown-input-bg: #26262a;
+    --mikedown-code-bg: rgba(255, 255, 255, 0.06);
+    --mikedown-quote-bg: rgba(255, 255, 255, 0.03);
+    --mikedown-text: #e4e4e6;
+    --mikedown-text-ui: #d6d6da;
+    --mikedown-text-muted: #9b9ba3;
+    --mikedown-icon: #c2c2c9;
+    --mikedown-border: rgba(255, 255, 255, 0.10);
+    --mikedown-divider: rgba(255, 255, 255, 0.07);
+    --mikedown-input-border: rgba(255, 255, 255, 0.14);
+    --mikedown-button-border: transparent;
+    --mikedown-quote-border: rgba(255, 255, 255, 0.22);
+    --mikedown-contrast-border: transparent;
+    --mikedown-hover: rgba(255, 255, 255, 0.06);
+    --mikedown-active: rgba(255, 255, 255, 0.10);
+    --mikedown-selected-bg: rgba(121, 134, 203, 0.26);
+    --mikedown-selected-text: #eef0fb;
+    --mikedown-line-highlight: rgba(255, 255, 255, 0.04);
+    --mikedown-selection: rgba(121, 134, 203, 0.38);
+    --mikedown-focus-ring: rgba(140, 158, 255, 0.6);
+    --mikedown-accent: #5c6bc0;
+    --mikedown-accent-hover: #6f7dd0;
+    --mikedown-accent-text: #ffffff;
+    --mikedown-button-bg: rgba(255, 255, 255, 0.08);
+    --mikedown-button-text: #e4e4e6;
+    --mikedown-button-hover: rgba(255, 255, 255, 0.14);
+    --mikedown-link: #9fa8ff;
+    --mikedown-link-hover: #c0c6ff;
+    --mikedown-wikilink: #d39ce0;
+    --mikedown-success: #81c784;
+    --mikedown-danger: #ef6b6b;
+    --mikedown-warning: #ffb74d;
+    --mikedown-info: #64b5f6;
+    --mikedown-find-match: rgba(255, 213, 79, 0.22);
+    --mikedown-find-current: rgba(255, 160, 0, 0.42);
+    --mikedown-find-current-border: rgba(255, 176, 64, 0.85);
+    --mikedown-scrollbar: rgba(255, 255, 255, 0.14);
+    --mikedown-scrollbar-hover: rgba(255, 255, 255, 0.26);
+    --mikedown-shadow: rgba(0, 0, 0, 0.45);
+    --mikedown-syntax-keyword: #ff7b72;
+    --mikedown-syntax-string: #a5d6ff;
+    --mikedown-syntax-number: #79c0ff;
+    --mikedown-syntax-type: #ffa657;
+    --mikedown-syntax-function: #d2a8ff;
+    --mikedown-syntax-variable: #e6edf3;
+  }
+}
