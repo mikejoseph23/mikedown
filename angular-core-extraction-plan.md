@@ -36,7 +36,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ✅ Complete | 16 | KB article editor; Material token mapping |
 | [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ✅ Signed off | — | hands-on |
 | [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | ✅ Done except version bumps (blocked on publish) | — | vsix + core publish in one step |
-| [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | 🔄 In Progress | — | API endpoint + `uploadImage` host hook |
+| [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | ✅ Code done, hands-on pending | — | API endpoint + `uploadImage` host hook |
 | [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional) | Sonnet | ✅ Complete | 3 | Angular 19; lead-panel notes editor |
 | [M10 — Bot protection for AI endpoints](#m10--bot-protection-for-ai-endpoints) | Opus | ⬜ Not Started | — | Rate limiting + CAPTCHA in the Quantico Creek API; independent of the core work |
 
@@ -443,9 +443,9 @@ Start: API via `~/git/quanticocreek/Run.bat` equivalent on macOS per `CLAUDE.md`
 
 **Tasks**
 
-- [ ] In `QuanticoCreekApi`, add `POST /api/markdown-images` (multipart, authenticated) that stores the file where the app already keeps uploaded documents (follow the existing Azure OCR document upload path for storage location and naming) and returns `{ src }` as a URL the SPA can load.
-- [ ] Angular: an `imageUpload` function in the target component that posts the file and maps the response, passed as `[imageUpload]` to the editor.
-- [ ] Unit test the controller (happy path, rejects non-image MIME, size cap).
+- [x] In `QuanticoCreekApi`, add `POST /api/markdown-images` (multipart, authenticated) that stores the file where the app already keeps uploaded documents (follow the existing Azure OCR document upload path for storage location and naming) and returns `{ src }` as a URL the SPA can load.
+- [x] Angular: an `imageUpload` function in the target component that posts the file and maps the response, passed as `[imageUpload]` to the editor.
+- [x] Unit test the controller (happy path, rejects non-image MIME, size cap).
 - [ ] Hands-on: paste a screenshot into the notes field, save, reload, the image renders in both the editor and the `ngx-markdown` view.
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
@@ -526,6 +526,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ---
 
 ## Progress Log / Notes
+
+**2026-10-22 19:45** - M8 code done (Quantico Creek `master` `99d7e30` API, `3274bbb` SPA, not pushed). `POST /api/markdown-images` (authenticated, image MIME + size cap) stores under the existing documents data folder and returns `{ src }`; anonymous GET serves only image types by random name. KB article editor passes `[imageUpload]`; AI prompt form intentionally left out (prompt text goes to the model as plain text). Fixed a macOS relative data-path 500 on GET. 958 .NET tests (10 new), 125 SPA specs, build green. Hands-on paste/save/reload pending (Google SSO blocks curl). Follow-ups: anonymous GET policy, orphan image cleanup.
 
 **2026-10-22 19:40** - M7 part 2 done (LymeStarter `develop` `6509da5`, Quantico Creek `master` `a7f3f40`, not pushed): shared-components doc entry for `<lyme-markdown-editor>`, `ng-app/package.json` added to `mergeFiles` in `lymestack-ownership.json` (JSON parses; no `lymetools` on this machine to dry-run the sync), Quantico `CLAUDE.md` pointer to `src/app/shared/mikedown/`. Version bumps remain blocked on the `@mikedown/core` publish.
 
