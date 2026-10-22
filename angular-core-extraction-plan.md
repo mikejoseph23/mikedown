@@ -35,7 +35,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ⬜ Not Started | — | TestBed CVA specs + hands-on |
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ⬜ Not Started | — | Angular 14 |
 | [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ⬜ Not Started | — | hands-on |
-| [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 In Progress (docs part) | — | vsix + core publish in one step |
+| [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 Part 1 done (docs + release scripts); version bumps pending | — | vsix + core publish in one step |
 | [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | ⬜ Not Started | — | API endpoint + `uploadImage` host hook |
 | [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional) | Sonnet | ⬜ Not Started | — | Angular 19 |
 | [M10 — Bot protection for AI endpoints](#m10--bot-protection-for-ai-endpoints) | Opus | ⬜ Not Started | — | Rate limiting + CAPTCHA in the Quantico Creek API; independent of the core work |
@@ -526,6 +526,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ---
 
 ## Progress Log / Notes
+
+**2026-10-22 18:20** - M7 part 1 complete. `vsix` syncs core version and builds core; `release:core` publishes or packs; release order in CLAUDE.md; CHANGELOG, RESUME, BACKLOG updated. Tests: unit 933/2 todo, edge 22, integration 47, core-package 7, lint 0 errors. LymeStarter and Quantico Creek version bumps pending.
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
