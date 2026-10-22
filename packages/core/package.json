@@ -8,6 +8,9 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "scripts": {
+    "build:css": "node scripts/build-css.mjs"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
