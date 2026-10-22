@@ -35,7 +35,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ✅ Complete (signed off) | 8 | TestBed CVA specs + hands-on |
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ✅ Complete | 16 | KB article editor; Material token mapping |
 | [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ✅ Signed off | — | hands-on |
-| [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 Part 2 in progress (docs + sync wiring); version bumps blocked on publish | — | vsix + core publish in one step |
+| [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | ✅ Done except version bumps (blocked on publish) | — | vsix + core publish in one step |
 | [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | 🔄 In Progress | — | API endpoint + `uploadImage` host hook |
 | [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional) | Sonnet | ✅ Complete | 3 | Angular 19; lead-panel notes editor |
 | [M10 — Bot protection for AI endpoints](#m10--bot-protection-for-ai-endpoints) | Opus | ⬜ Not Started | — | Rate limiting + CAPTCHA in the Quantico Creek API; independent of the core work |
@@ -428,8 +428,8 @@ Start: API via `~/git/quanticocreek/Run.bat` equivalent on macOS per `CLAUDE.md`
 
 - [x] `npm run vsix` also bumps `packages/core` to the same version and runs `build:core`; add `npm run release:core` that publishes (or packs to the share). Document the order in `CLAUDE.md`: core publish first, then vsix.
 - [x] `CHANGELOG.md`: entry for the extraction (no user-facing change in VS Code; note the new package).
-- [ ] `~/git/lymestarter`: note the new shared control in whatever doc lists `lymestack-shared` components; bump the pinned `@mikedown/core` version from rc to the released one. Also add `ng-app/package.json` to `mergeFiles` in `lymestack-ownership.json` (decision 2026-10-22) so downstream syncs surface the `@mikedown/core` dependency; drop the vendored tarball once the registry version is pinned.
-- [ ] `~/git/quanticocreek`: same version bump; add a line to its `CLAUDE.md` pointing at `src/app/shared/mikedown/` and its LymeStarter origin.
+- [x] (docs + `mergeFiles` done; version bump blocked on publish) `~/git/lymestarter`: note the new shared control in whatever doc lists `lymestack-shared` components; bump the pinned `@mikedown/core` version from rc to the released one. Also add `ng-app/package.json` to `mergeFiles` in `lymestack-ownership.json` (decision 2026-10-22) so downstream syncs surface the `@mikedown/core` dependency; drop the vendored tarball once the registry version is pinned.
+- [x] (CLAUDE.md note done; version bump blocked on publish) `~/git/quanticocreek`: same version bump; add a line to its `CLAUDE.md` pointing at `src/app/shared/mikedown/` and its LymeStarter origin.
 - [x] Update `RESUME.md` and `BACKLOG.md` in MikeDown (follow-ups: M8/M9 if not done, a React wrapper if ever wanted, publishing dictionaries separately).
 - [x] Final full test run in MikeDown (`test:unit`, `test:edge`, `test:integration`) green. Commit in each repo.
 
@@ -526,6 +526,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ---
 
 ## Progress Log / Notes
+
+**2026-10-22 19:40** - M7 part 2 done (LymeStarter `develop` `6509da5`, Quantico Creek `master` `a7f3f40`, not pushed): shared-components doc entry for `<lyme-markdown-editor>`, `ng-app/package.json` added to `mergeFiles` in `lymestack-ownership.json` (JSON parses; no `lymetools` on this machine to dry-run the sync), Quantico `CLAUDE.md` pointer to `src/app/shared/mikedown/`. Version bumps remain blocked on the `@mikedown/core` publish.
 
 **2026-10-22 19:35** - Gap-fill: AI prompt form (`/admin/ai/ai-prompts/edit/:id`) now uses `<lyme-markdown-editor>`; textarea and preview removed (Quantico Creek `master` `3cfd785`, not pushed). The serializer escaped `[Token]` placeholders to `\[Token\]`, so the wrapper gained a `preserveBrackets` input; a core-level option is logged as a follow-up. 124 specs green, build green.
 
