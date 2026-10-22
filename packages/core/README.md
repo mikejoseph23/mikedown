@@ -33,7 +33,7 @@ handle.setTheme('dark');
 handle.destroy();
 ```
 
-The editor fills its container (`height: 100%`), so give the container a height.
+The editor fills its container (`height: 100%`), so give the container a height. Without one the editor falls back to a `240px` minimum height; set `--mikedown-min-height` to change that floor.
 
 ## Host interface
 

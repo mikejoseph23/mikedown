@@ -120,6 +120,8 @@ body {
 
 .mikedown-root {
   background-color: transparent;
+  /* The page is the editor and always has a height: no fallback floor. */
+  --mikedown-min-height: 0;
 }
 
 @media print {
