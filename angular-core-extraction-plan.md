@@ -30,7 +30,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ✅ Complete (signed off) | 11 | unit + integration + hands-on; gap-fill added 9 integration tests |
 | [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | ✅ Complete | 31 | 81 `--vscode-*` vars → 54 `--mikedown-*` tokens |
 | [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | ✅ Complete (publish pending npm login) | 6 | ESM + d.ts + css, `0.1.0-rc.1` |
-| [T2 — Core package tests](#t2--core-package-tests) | Sonnet | 🔄 In Progress | — | demo page hands-on, bundle checks |
+| [T2 — Core package tests](#t2--core-package-tests) | Sonnet | ✅ Automated done, hands-on pending | 5 | demo page hands-on, bundle checks |
 | [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ⬜ Not Started | — | `lymestack-shared/mikedown/` |
 | [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ⬜ Not Started | — | TestBed CVA specs + hands-on |
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ⬜ Not Started | — | Angular 14 |
@@ -322,10 +322,10 @@ Start: `cd ~/git/mikedown && npm run dev` (opens a dev VS Code on `test/workspac
 
 **Automated**
 
-- [ ] `packages/core/test/package-shape.test.ts`: after `npm run build -w packages/core`, assert `dist/index.js` exists, is ESM (no `require(`), contains no `acquireVsCodeApi` or `--vscode-` strings; `dist/styles.css` contains no `--vscode-` and every selector is scoped under `.mikedown-root` (parse with `postcss` and walk rules); `dist/index.d.ts` exports `createMikeDownEditor`, `MikeDownHost`, `MikeDownEditorHandle`.
-- [ ] Consumer smoke test: in the scratchpad, `npm init -y`, install the packed tarball, `node -e "import('@mikedown/core')"` succeeds (jsdom not needed for import).
-- [ ] Bundle size budget: `dist/index.js` gzipped under 400 KB with externals excluded; record the number.
-- [ ] All MikeDown suites still green.
+- [x] `packages/core/test/package-shape.test.ts`: after `npm run build -w packages/core`, assert `dist/index.js` exists, is ESM (no `require(`), contains no `acquireVsCodeApi` or `--vscode-` strings; `dist/styles.css` contains no `--vscode-` and every selector is scoped under `.mikedown-root` (parse with `postcss` and walk rules); `dist/index.d.ts` exports `createMikeDownEditor`, `MikeDownHost`, `MikeDownEditorHandle`.
+- [x] Consumer smoke test: in the scratchpad, `npm init -y`, install the packed tarball, `node -e "import('@mikedown/core')"` succeeds (jsdom not needed for import).
+- [x] Bundle size budget: `dist/index.js` gzipped under 400 KB with externals excluded; record the number.
+- [x] All MikeDown suites still green.
 
 **Hands-on (user, about 10 minutes)**
 
@@ -527,6 +527,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-22 17:57** - T2 automated block complete; hands-on pending (user). Added `packages/core/test/package-shape.test.ts` (7 tests) and root script `test:core-package`. `dist/index.js` is 112.3 KB gzipped (budget 400 KB). Packed tarball installs and imports in a clean project; TS 4.7.4 fixture passes with `skipLibCheck`, no mermaid/katex/nspell types in `.d.ts`. Unit 916 / 2 todo, edge 22, integration 47, lint 0 errors. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-t2.md`.
 
 **2026-10-22 17:50** - Callout gap fill done. Body text duplicated on parse ("TextText") because the callout markdown-it rule pre-parsed inline children and markdown-it's own inline rule appended a second copy. Fixed in `callout-node.ts` (children left empty); full-extension-set regression test added. **v2.14.2 is affected**, so a patch release is needed. Unit 909 / edge 22 / integration 47 green. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-callout-gapfill.md`.
 
