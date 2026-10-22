@@ -563,4 +563,6 @@ Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
 **2026-10-22 17:52** - M4 complete. `@mikedown/core` `0.1.0-rc.1` builds with tsup (ESM, d.ts, styles.css, tokens.css, dictionaries); Mermaid and KaTeX load lazily; two-editor demo (`npm run demo:core`) and package README added; the extension builds core from source via a webpack alias. Compile, 909 unit, 22 edge, 47 integration, lint 0 errors; VSIX still about 4.5 MB. Not published: `npm whoami` is ENEEDAUTH. Tarball packed at `.orchestrator/angular-core-extraction-plan/artifacts/mikedown-core-0.1.0-rc.1.tgz`; run `npm publish -w packages/core --tag rc --access public` after `npm login` and creating the `mikedown` org. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m4.md`.
 
+**2026-10-22 18:49** - M9 gap-fill: lead panel "Notes for our team" editor now hidden behind `leadNotesEditor` environment flag, default off (API field pending). Quanticocreek commit 4bc6303; build and 45 specs green. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m9-gapfill.md`.
+
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
