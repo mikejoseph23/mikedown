@@ -527,6 +527,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 
 ## Progress Log / Notes
 
+**2026-10-22 19:30** - Gap-fill: KB article editor preview pane removed (Quantico Creek `master` `3ad1a39`, not pushed); editor spans full width at 480 px min height. 117 specs green, build green. Next gap-fill dispatched: AI prompt form (`/admin/ai/ai-prompts/edit/:id`) moves from textarea + preview to `<lyme-markdown-editor>`.
+
 **2026-10-22 19:25** - T4 hands-on signed off by Mike in the running app (KB article editor renders, edits, preview matches). Follow-up gap-fill dispatched: remove the redundant ngx-markdown preview pane now that the editor is WYSIWYG.
 
 **2026-10-22 19:05** - T4 automated part done (Quantico Creek `master` `06af745`, not pushed). New `kb-article-editor.component.spec.ts` checks the markdown field is populated from the loaded article and the save payload carries the edited markdown. Specs 115 to 117, all green. CommonJS build warnings silenced via `allowedCommonJsDependencies`. No `required` validator on markdown, so the required-field hands-on step does not apply. Hands-on recipe in `.orchestrator/angular-core-extraction-plan/worker-summary-t4.md`.
