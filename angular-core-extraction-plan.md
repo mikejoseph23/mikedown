@@ -536,6 +536,8 @@ Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
 **2026-10-22 15:23** - Added M10 (bot protection for AI endpoints: rate limiting, CAPTCHA, usage cap in the Quantico Creek API). Previously discussed, never recorded. Independent of the core chain; parallel group E.
 
+**2026-10-22 16:26** - T1 gap-fill complete. Nine hands-on items automated in `test/integration/parityGapfill.test.ts` (table, bold, source toggle, `/date`, font persistence, sidebar pref, reopen, diff redirect, HTML export) through an env-gated webview test hook. Integration 38 to 47; unit 906 and edge 22 unchanged. Remaining hands-on: clipboard image paste, print dialog, visual checks. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-t1-gapfill.md`.
+
 **2026-10-22 15:00** - M0 complete. `@mikedown/core` scope is free. Angular 14 / TS 4.7 is compatible with `skipLibCheck` (build and runtime pass; core `.d.ts` must not expose mermaid/nspell/katex types). Angular 19 builds clean (+0.55 kB initial). Build tool tsup; tiptap-markdown stays a plain dependency. Message and settings tables written. Quantico target: KB article editor. Awaiting approval of `core-extraction-decisions.md`.
 
 **2026-10-22 14:40** - Planning document created. Verified facts recorded in [Current state](#current-state-verified-2026-10-22): webview bundle has ~50 `postMessage` sites and one `acquireVsCodeApi` call, 81 `--vscode-*` CSS variables, TipTap 3.20 / tiptap-markdown 0.9; LymeStarter Angular is vendored via `lymetools sync` (no npm feed); Quantico Creek legacy app is Angular 14 / TS 4.7, assistant app Angular 19. `npm whoami` is not logged in (needed before M4). Playwright declined. Open gate: M0 decisions file.
