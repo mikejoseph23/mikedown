@@ -261,9 +261,14 @@ function positionDropdown(menu: HTMLElement, anchor: HTMLElement): void {
   const menuRect = menu.getBoundingClientRect();
   menu.style.visibility = '';
 
-  // Center horizontally relative to anchor, clamp to viewport
+  // Center horizontally relative to anchor, clamped to the editor's own box
+  // (an embedded editor need not start at the viewport's left edge) and to
+  // the viewport. In the full-page VS Code webview the two are the same.
+  const bounds = anchor.closest('.mikedown-root')?.getBoundingClientRect();
+  const minLeft = Math.max(4, (bounds?.left ?? 0) + 4);
+  const maxLeft = Math.min(vw, bounds?.right ?? vw) - menuRect.width - 4;
   let left = anchorRect.left + anchorRect.width / 2 - menuRect.width / 2;
-  left = Math.max(4, Math.min(left, vw - menuRect.width - 4));
+  left = Math.max(minLeft, Math.min(left, maxLeft));
 
   // Prefer below the anchor, flip above if not enough room
   const gapBelow = vh - anchorRect.bottom;
