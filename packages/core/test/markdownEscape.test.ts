@@ -11,8 +11,8 @@ import {
   escapeMarkdownRun,
   needsAmpersandEscape,
   needsLessThanEscape,
-} from '@mikedown/core/markdownEscape';
-import { MarkdownText, MarkdownHardBreak } from '@mikedown/core/markdownText';
+} from '../src/markdownEscape';
+import { MarkdownText, MarkdownHardBreak } from '../src/markdownText';
 
 // ---------------------------------------------------------------------------
 // Pure escaper

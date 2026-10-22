@@ -7,7 +7,7 @@ import {
   findNext,
   findPrev,
   clearSearch,
-} from '@mikedown/core/findreplace';
+} from '../src/findreplace';
 
 let editor: Editor;
 

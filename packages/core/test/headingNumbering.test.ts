@@ -8,7 +8,7 @@ import {
   sectionNumbers,
   stripEdits,
   type HeadingInfo,
-} from '@mikedown/core/shared/headingNumbering';
+} from '../src/shared/headingNumbering';
 
 const h = (level: number, text: string): HeadingInfo => ({ level, text });
 

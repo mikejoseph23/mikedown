@@ -3,7 +3,7 @@ import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from 'tiptap-markdown';
 import Link from '@tiptap/extension-link';
-import { HtmlAnchor } from '@mikedown/core/htmlanchor';
+import { HtmlAnchor } from '../src/htmlanchor';
 
 function makeEditor(content = '') {
   return new Editor({

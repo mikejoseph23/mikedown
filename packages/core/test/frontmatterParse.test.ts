@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFrontmatter } from '@mikedown/core/frontmatterParse';
+import { parseFrontmatter } from '../src/frontmatterParse';
 
 describe('parseFrontmatter', () => {
   it('returns [] for empty input', () => {

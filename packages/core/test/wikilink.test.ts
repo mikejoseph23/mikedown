@@ -3,7 +3,7 @@ import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from 'tiptap-markdown';
 import Link from '@tiptap/extension-link';
-import { Wikilink, parseWikilink, serializeWikilink } from '@mikedown/core/wikilink-node';
+import { Wikilink, parseWikilink, serializeWikilink } from '../src/wikilink-node';
 
 function makeEditor(content = '') {
   return new Editor({
