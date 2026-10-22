@@ -192,13 +192,13 @@ import {
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import { showSupportCard, isSupportCardOpen, showSupportCopied, type SupportCardCopy } from './supportCard';
-import type { MikeDownHost, LinkOpenBehavior } from './host';
-import type { MikeDownSettings } from './types';
+import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
+import type { MikeDownSettings, SidebarStateUpdate } from './types';
 // Temporary (removed by the shell rewrite): see the Host adapter block below.
 import { VsCodeHost, type VsCodeApi } from '../../../src/webview/vsCodeHost';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
-import { EditorState, Transaction as CmTransaction } from '@codemirror/state';
+import { Compartment, EditorState, Transaction as CmTransaction } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, historyKeymap, history, undo as cmUndo, redo as cmRedo } from '@codemirror/commands';
 import { markdown as cmMarkdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -261,6 +261,72 @@ const linkSuggestionSources = {
     host.getFileHeadings?.(filePath).then(receiveFileHeadings, () => { /* missing file: no anchors */ });
   },
 };
+
+/**
+ * Temporary (moves to the VS Code shell): the `settings` broadcast mixes core
+ * settings with VS Code-only ones. This picks out the core subset, renaming
+ * the broadcast's keys to MikeDownSettings names.
+ */
+function vsCodeSettingsToCore(msg: any): Partial<MikeDownSettings> {
+  const patch: Partial<MikeDownSettings> = {};
+  const copy = <K extends keyof MikeDownSettings>(key: K, value: unknown): void => {
+    if (value !== undefined && value !== null) {patch[key] = value as MikeDownSettings[K];}
+  };
+  copy('linkClickBehavior', msg.linkClickBehavior || undefined);
+  copy('headingRenameUpdateLinks', msg.headingRenameUpdateLinks || undefined);
+  copy('headingNumbering', msg.headingNumbering);
+  copy('slashCommandsEnabled', msg.slashCommandsEnabled);
+  copy('slashCommandsDateFormat', msg.slashCommandsDateFormat);
+  copy('slashCommandsTimeZone', msg.slashCommandsTimeZone);
+  copy('editorTheme', msg.editorTheme || undefined);
+  copy('renderMermaidDiagrams', msg.renderMermaidDiagrams);
+  copy('renderMath', msg.renderMath);
+  copy('tagsEnabled', msg.tagsEnabled);
+  copy('ctrlWheelZoom', msg.ctrlWheelZoom);
+  copy('wikilinkCreateOnClick', msg.wikilinkCreateOnClick);
+  copy('markdownNormalization', msg.markdownNormalization);
+  copy('normalizationStyle', msg.normalizationStyle);
+  copy('imagePathMappings', msg.imagePastePathMappings);
+  copy('docDir', msg.docDirFs);
+  const sc = msg.spellCheck;
+  if (sc && typeof sc === 'object') {
+    copy('spellCheckEnabled', sc.enabled);
+    copy('spellCheckLanguage', sc.language);
+    copy('spellCheckIgnoreCodeBlocks', sc.ignoreCodeBlocks);
+    copy('spellCheckUserWords', sc.userWords);
+    copy('spellCheckExternalWords', sc.externalWords);
+  }
+  return patch;
+}
+
+/** Temporary (moves to the VS Code shell): VS Code-only fields of the `settings` broadcast. */
+function applyVsCodeOnlySettings(msg: any): void {
+  if (msg.themeToggleScope) {
+    themeToggleScope = msg.themeToggleScope;
+  }
+  if (typeof msg.extensionVersion === 'string') {
+    currentExtensionVersion = msg.extensionVersion;
+  }
+  if (typeof msg.defaultEditor === 'boolean') {
+    currentDefaultEditor = msg.defaultEditor;
+  }
+  if (typeof msg.autoReloadUnmodifiedFiles === 'boolean') {
+    currentAutoReloadUnmodifiedFiles = msg.autoReloadUnmodifiedFiles;
+  }
+  if (msg.supportEntryCopy && typeof msg.supportEntryCopy === 'object') {
+    currentSupportEntryCopy = msg.supportEntryCopy as SupportEntryCopy;
+  }
+  if (typeof msg.supportShowSidebarLink === 'boolean') {
+    currentSupportShowSidebarLink = msg.supportShowSidebarLink;
+  }
+  applySupportLink({ visible: currentSupportShowSidebarLink && !!currentSupportEntryCopy, copy: currentSupportEntryCopy });
+  if (msg.imagePaste && typeof msg.imagePaste === 'object') {
+    currentImagePasteSettings = { ...currentImagePasteSettings, ...msg.imagePaste };
+  }
+  if (msg.imageResize && typeof msg.imageResize === 'object') {
+    currentImageResizeSettings = { ...currentImageResizeSettings, ...msg.imageResize };
+  }
+}
 
 // Slash menu "Turn off slash commands": persist with the slashMenu source so
 // the host shows its Open Settings / Undo toast.
@@ -3924,13 +3990,16 @@ if (!editorContainer) {
     }
   }
 
-  // Wire link scan on editor updates (debounced) so heading renames are caught.
-  editor.on('update', () => {
-    clearTimeout((window as any).__mikedownLinkCheckTimer);
-    (window as any).__mikedownLinkCheckTimer = setTimeout(() => {
+  let linkCheckTimer: ReturnType<typeof setTimeout> | undefined;
+  function scheduleLinkCheck(): void {
+    clearTimeout(linkCheckTimer);
+    linkCheckTimer = setTimeout(() => {
       scanAndCheckLinks();
     }, 500);
-  });
+  }
+
+  // Wire link scan on editor updates (debounced) so heading renames are caught.
+  editor.on('update', scheduleLinkCheck);
 
   initOutlineSidebar({
     editor,
@@ -4289,8 +4358,6 @@ if (!editorContainer) {
   // mousedown handler (which would consume the event for cursor placement).
   // This ensures Cmd+Click / Ctrl+Click reliably navigates links.
 
-  let linkClickBehavior: 'navigateCurrentTab' | 'openNewTab' | 'showContextMenu' = 'openNewTab';
-
   editorContainer.addEventListener('mousedown', (event) => {
     if (!event.metaKey && !event.ctrlKey) {return;}
     if (event.button !== 0) {return;} // left-click only
@@ -4333,7 +4400,7 @@ if (!editorContainer) {
 
     const href = linkEl.getAttribute('href') || '';
 
-    if (linkClickBehavior === 'showContextMenu') {
+    if (currentLinkClickBehavior === 'showContextMenu') {
       // Show a mini context menu with navigation options
       const items = buildLinkMenu(editor, href, menuActions);
       showContextMenu(editor, event.clientX, event.clientY, items);
@@ -4835,6 +4902,9 @@ if (!editorContainer) {
 
   const sourceContainer = document.getElementById('source-container') as HTMLElement;
 
+  /** Source view read-only switch (handle.setReadOnly). */
+  const cmReadOnly = new Compartment();
+
   function buildCmTheme(): EditorView.Theme {
     // Read VS Code CSS variables for theming
     const computedStyle = getComputedStyle(document.body);
@@ -4875,6 +4945,7 @@ if (!editorContainer) {
         cmMarkdown({ base: markdownLanguage }),
         syntaxHighlighting(document.body.classList.contains('mikedown-force-light') ? defaultHighlightStyle : oneDarkHighlightStyle),
         buildCmTheme(),
+        cmReadOnly.of(EditorState.readOnly.of(readOnly)),
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
           if (update.docChanged && !cmLoading) {
@@ -5215,500 +5286,379 @@ if (!editorContainer) {
     persist: (px) => host.saveSettings?.({ fontSize: px }, { silent: true }),
   });
 
-  window.addEventListener('message', (event: MessageEvent) => {
-    const message = event.data as {
-      type: string;
-      content?: string;
-      fontFamily?: string;
-      fontSize?: number;
-      command?: string;
-      /** command: 'openSettings' payload — which Settings modal tab to open on. */
-      tab?: SettingsTabId;
-    };
+  // ── Editor handle: push methods the host calls ─────────────────────────────
 
-    // Replies to host requests resolve their Promises inside the host.
-    if (vsCodeHost.handleReply(message)) {return;}
-
-    if (message.type === 'theme') {
-      document.documentElement.style.setProperty(
-        '--mikedown-font-family', message.fontFamily || ''
-      );
-      document.documentElement.style.setProperty(
-        '--mikedown-heading-font-family', (message as any).headingFontFamily || ''
-      );
-      document.documentElement.style.setProperty(
-        '--mikedown-font-size', `${message.fontSize || 17}px`
-      );
-    }
-
-    // Receive user-facing settings from the extension host.
-    if (message.type === 'settings') {
-      const msg = message as any;
-      if (msg.linkClickBehavior) {
-        linkClickBehavior = msg.linkClickBehavior;
-        currentLinkClickBehavior = msg.linkClickBehavior;
-      }
-      if (msg.themeToggleScope) {
-        themeToggleScope = msg.themeToggleScope;
-      }
-      if (msg.headingRenameUpdateLinks) {
-        headingRenamePref = msg.headingRenameUpdateLinks;
-        currentHeadingRenameUpdateLinks = msg.headingRenameUpdateLinks;
-      }
-      if (typeof msg.headingNumbering === 'string') {
-        applyHeadingNumbering(parseHeadingNumbering(msg.headingNumbering));
-      }
-      if (
-        typeof msg.slashCommandsEnabled === 'boolean'
-        || msg.slashCommandsDateFormat === 'iso' || msg.slashCommandsDateFormat === 'long'
-        || typeof msg.slashCommandsTimeZone === 'string'
-      ) {
-        if (typeof msg.slashCommandsEnabled === 'boolean') {
-          currentSlashCommandsEnabled = msg.slashCommandsEnabled;
-        }
-        if (msg.slashCommandsDateFormat === 'iso' || msg.slashCommandsDateFormat === 'long') {
-          currentSlashCommandsDateFormat = msg.slashCommandsDateFormat;
-        }
-        if (typeof msg.slashCommandsTimeZone === 'string' && msg.slashCommandsTimeZone.trim()) {
-          currentSlashCommandsTimeZone = msg.slashCommandsTimeZone.trim();
-        }
-        // The trigger/popup plugin (M2/M3) is expected to close its own
-        // popup (no document transaction) if `enabled` just flipped false
-        // while it was open — this call is its single live-config entry point.
-        setSlashCommandsConfig({
-          enabled: currentSlashCommandsEnabled,
-          dateFormat: currentSlashCommandsDateFormat,
-          timeZone: currentSlashCommandsTimeZone,
-        });
-        // Force the placeholder decoration to recompute with the new "Type /
-        // for commands…" / "Start writing…" text. ProseMirror re-evaluates a
-        // plugin's `decorations` prop on every dispatched transaction, so a
-        // no-op transaction is enough — never touch editor.view.dom directly.
-        editor.view.dispatch(editor.state.tr.setMeta('slashPlaceholder', true));
-      }
-      if (msg.editorTheme) {
-        applyEditorTheme(msg.editorTheme);
-        refreshMermaidTheme(editor);
-      }
-      if (typeof msg.renderMermaidDiagrams === 'boolean') {
-        currentRenderMermaidDiagrams = msg.renderMermaidDiagrams;
-        setMermaidEnabled(editor, msg.renderMermaidDiagrams);
-      }
-      if (typeof msg.renderMath === 'boolean') {
-        currentRenderMath = msg.renderMath;
-        setMathRenderingEnabled(msg.renderMath);
-      }
-      if (typeof msg.tagsEnabled === 'boolean') {
-        currentTagsEnabled = msg.tagsEnabled;
-        setTagsEnabled(editor, msg.tagsEnabled);
-        setTagsSectionEnabled(msg.tagsEnabled);
-      }
-      if (typeof msg.extensionVersion === 'string') {
-        currentExtensionVersion = msg.extensionVersion;
-      }
-      if (typeof msg.defaultEditor === 'boolean') {
-        currentDefaultEditor = msg.defaultEditor;
-      }
-      if (typeof msg.autoReloadUnmodifiedFiles === 'boolean') {
-        currentAutoReloadUnmodifiedFiles = msg.autoReloadUnmodifiedFiles;
-      }
-      if (typeof msg.ctrlWheelZoom === 'boolean') {
-        currentCtrlWheelZoom = msg.ctrlWheelZoom;
-      }
-      if (typeof msg.wikilinkCreateOnClick === 'boolean') {
-        currentWikilinkCreateOnClick = msg.wikilinkCreateOnClick;
-      }
-      if (msg.supportEntryCopy && typeof msg.supportEntryCopy === 'object') {
-        currentSupportEntryCopy = msg.supportEntryCopy as SupportEntryCopy;
-      }
-      if (typeof msg.supportShowSidebarLink === 'boolean') {
-        currentSupportShowSidebarLink = msg.supportShowSidebarLink;
-      }
-      applySupportLink({ visible: currentSupportShowSidebarLink && !!currentSupportEntryCopy, copy: currentSupportEntryCopy });
-      if (msg.markdownNormalization === 'preserve' || msg.markdownNormalization === 'normalize') {
-        currentMarkdownNormalization = msg.markdownNormalization;
-      }
-      if (msg.normalizationStyle && typeof msg.normalizationStyle === 'object') {
-        currentNormalizationStyle = { ...currentNormalizationStyle, ...msg.normalizationStyle };
-      }
-      if (msg.imagePaste && typeof msg.imagePaste === 'object') {
-        currentImagePasteSettings = { ...currentImagePasteSettings, ...msg.imagePaste };
-      }
-      if (msg.imageResize && typeof msg.imageResize === 'object') {
-        currentImageResizeSettings = { ...currentImageResizeSettings, ...msg.imageResize };
-      }
-      if (Array.isArray(msg.imagePastePathMappings)) {
-        imagePathMappings = msg.imagePastePathMappings as ImagePathPrefix[];
-      }
-      if (typeof msg.docDirFs === 'string') {
-        docDirFsPath = msg.docDirFs;
-      }
-      if (msg.spellCheck && typeof msg.spellCheck === 'object') {
-        const sc = msg.spellCheck;
-        if (typeof sc.enabled === 'boolean') {currentSpellCheckEnabled = sc.enabled;}
-        if (sc.language === 'en' || sc.language === 'en-GB') {currentSpellCheckLanguage = sc.language;}
-        if (typeof sc.ignoreCodeBlocks === 'boolean') {currentSpellCheckIgnoreCodeBlocks = sc.ignoreCodeBlocks;}
-        if (Array.isArray(sc.userWords)) {
-          currentSpellCheckUserWords = sc.userWords.filter((w: unknown) => typeof w === 'string');
-        }
-        if (Array.isArray(sc.externalWords)) {
-          currentSpellCheckExternalWords = sc.externalWords.filter((w: unknown) => typeof w === 'string');
-        }
-        // Toggles live: off clears the decorations and never loads a
-        // dictionary; a language change rebuilds and re-scans.
-        configureSpellCheck(editor, {
-          enabled: currentSpellCheckEnabled,
-          language: currentSpellCheckLanguage,
-          ignoreCodeBlocks: currentSpellCheckIgnoreCodeBlocks,
-          userWords: [...currentSpellCheckUserWords, ...currentSpellCheckExternalWords],
-        });
-      }
-    }
-
-    // Handle diff status updates from the extension host
-    if (message.type === 'diffStatus') {
-      const msg = message as any;
-      fileHasGitChanges = msg.hasChanges;
-    }
-
-
-    // Host reports the document has been saved to disk. Rebaseline our
-    // pristine-detection state so subsequent undos compare against the
-    // newly saved content instead of the pre-load content — otherwise
-    // undoing back to the old load state would silently revert the saved
-    // file on disk (because we'd send the stale `originalContent` with
-    // pristine:true and the host would save() over the real saved state).
-    if (message.type === 'saved') {
-      const msg = message as any;
-      originalContent = msg.content ?? '';
-      lastSavedUndoDepth = pmUndoDepth(editor.state);
-    }
-
-    // Support appeal: "A note from Mike" card (render in ./supportCard.ts).
-    // An auto card never stacks on the Settings modal or on another card;
-    // it replies `busy` so the host does not count it as shown.
-    if (message.type === 'showSupportCard') {
-      const msg = message as any;
-      const reason: 'auto' | 'manual' = msg.reason === 'manual' ? 'manual' : 'auto';
-      const settingsOpen = !!document.getElementById('mikedown-settings-overlay');
-      if (reason === 'auto' && (settingsOpen || isSupportCardOpen())) {
-        vscode.postMessage({ type: 'busy' });
-      } else if (msg.copy && typeof msg.copy === 'object') {
-        showSupportCard({
-          reason,
-          copy: msg.copy as SupportCardCopy,
-          onAction: action => vscode.postMessage({ type: 'supportAction', action }),
-          restoreFocus: () => {
-            if (!sourceMode) {editor.commands.focus();}
-          },
-        });
-        vscode.postMessage({ type: 'supportCardShown' });
-      }
-    }
-
-    if (message.type === 'supportCopied') {
-      showSupportCopied();
-    }
-
-    // M3 — Handle formatting commands posted from the extension host
-    // (triggered by VS Code keybindings registered in package.json).
-    if (message.type === 'command') {
-      switch (message.command) {
-        // Same desync hazard as the list toggles below: no-op in source mode.
-        case 'toggleBold': if (!sourceMode) {editor.chain().focus().toggleBold().run();} break;
-        case 'toggleItalic': if (!sourceMode) {editor.chain().focus().toggleItalic().run();} break;
-        case 'toggleStrike': if (!sourceMode) {editor.chain().focus().toggleStrike().run();} break;
-        case 'toggleHighlight': if (!sourceMode) {editor.chain().focus().toggleHighlight().run();} break;
-        case 'toggleCode': if (!sourceMode) {editor.chain().focus().toggleCode().run();} break;
-        case 'pasteWithoutFormatting': editor.commands.focus(); requestPlainPaste(editor.view); break;
-        case 'openEmojiPicker':
-          if (isEmojiPickerOpen()) { hideEmojiPicker(); } else { showEmojiPicker(editor, {}); }
-          break;
-        case 'undo': doUndo(editor); break;
-        case 'redo': doRedo(editor); break;
-        case 'toggleSource':
-          if (sourceMode) { switchToWysiwyg(); } else { switchToSource(); }
-          break;
-        // M2 — list-toggle keybindings mirror the toolbar's bulletList/
-        // orderedList/taskList buttons, which are disabled in source mode
-        // (SOURCE_MODE_DISABLED_ACTIONS) because CodeMirror owns the visible
-        // doc there; firing a TipTap command would silently edit the hidden
-        // PM doc and desync the two views. No-op rather than throw.
-        case 'toggleBulletList':
-          if (!sourceMode) {editor.chain().focus().toggleBulletList().run();}
-          break;
-        case 'toggleOrderedList':
-          if (!sourceMode) {editor.chain().focus().toggleOrderedList().run();}
-          break;
-        case 'toggleTaskList':
-          if (!sourceMode) {editor.chain().focus().toggleTaskList().run();}
-          break;
-        // Sidebar toggle isn't a doc edit, so it stays available in source
-        // mode too. Routes through the same setVisible the header
-        // discovery/close buttons use — no duplicated open/close state.
-        case 'toggleSidebar':
-          toggleSidebarVisible();
-          break;
-        // M5 — the slash-menu footer row's "Turn off slash commands" toast
-        // posts this from the host after a saveSettings round-trip so the
-        // user can jump straight to the Behavior tab to re-enable it.
-        case 'openSettings':
-          showSettingsModal(message.tab);
-          break;
-      }
-    }
-
-    // M4 — Handle toggleSource message (forwarded from extension host or toolbar button)
-    if (message.type === 'toggleSource') {
-      if (sourceMode) {
-        switchToWysiwyg();
-      } else {
-        switchToSource();
-      }
-    }
-
-    if (message.type === 'update') {
-      // M2d — Load content from disk and establish the originalContent baseline.
-      // isLoading prevents the onUpdate handler from echoing this back as an
-      // 'edit' message, which would incorrectly mark the document as dirty.
-      closeSlashMenu({ reload: true });
-      isLoading = true;
-      originalContent = message.content ?? '';
-
-      // M15 — Extract frontmatter before passing body to TipTap.
-      const { frontmatter, body } = extractFrontmatter(originalContent);
+  /** Load a document. Pristine loads become the clean baseline. */
+  function setMarkdown(markdown: string, opts?: { pristine?: boolean }): void {
+    if (opts?.pristine === false) {
+      // A host-driven edit: replace the content as if the user typed it, so
+      // the change reaches onChange and the undo history.
+      const { frontmatter, body } = extractFrontmatter(markdown);
       frontmatterContent = frontmatter;
-
-      editor.commands.setContent(body);
-
-      // Clear the undo history so pressing Cmd+Z right after opening a file
-      // doesn't revert the document to empty (setContent adds to history by
-      // default).
-      resetPmHistory(editor);
-      lastSavedUndoDepth = 0;
-
-      // M2d — After TipTap parses and re-sets the content, immediately serialize
-      // back to check for round-trip fidelity. If the serialized form differs from
-      // the original, log a warning but continue using originalContent as the
-      // dirty-detection baseline so the document is not marked as modified on open.
-      const reserialized = restoreFrontmatter(frontmatterContent, editor.storage.markdown.getMarkdown() as string);
-      if (reserialized !== originalContent) {
-        console.warn(
-          'MikeDown: serialization round-trip mismatch — using original as baseline'
-        );
-        // Still use originalContent as baseline, not the reserialized version.
-      }
-
-      isDirty = false;
-      isLoading = false;
-
-      // Mirror external updates into CodeMirror when source mode is active.
       if (sourceMode && cmView) {
-        cmLoading = true;
-        cmView.dispatch({
-          changes: { from: 0, to: cmView.state.doc.length, insert: originalContent },
-          annotations: CmTransaction.addToHistory.of(false),
-        });
-        cmLoading = false;
-        // TipTap was just reloaded from the same content, so CodeMirror and the
-        // PM doc agree again — rebaseline or the next toggle back would treat
-        // this reload as a source-side edit.
-        sourceSync.rebaseline(originalContent);
+        cmView.dispatch({ changes: { from: 0, to: cmView.state.doc.length, insert: markdown } });
+      } else {
+        editor.commands.setContent(body, { emitUpdate: true });
       }
-
-      // M15 — Render frontmatter UI block (collapsed by default above editor).
       renderFrontmatterBlock();
-
-      // 2.3.0 — Push parsed frontmatter entries to the sidebar Properties section.
-      // 2.4.0 — Gate inline editing on whether the YAML round-trips cleanly;
-      // anything we'd silently drop on save stays read-only.
       refreshPropertiesSidebar();
+      return;
+    }
+    // M2d — Load content from disk and establish the originalContent baseline.
+    // isLoading prevents the onUpdate handler from echoing this back as an
+    // 'edit' message, which would incorrectly mark the document as dirty.
+    closeSlashMenu({ reload: true });
+    isLoading = true;
+    originalContent = markdown ?? '';
 
-      // M6c — Trigger broken link check after content loads (debounced 500ms).
-      clearTimeout((window as any).__mikedownLinkCheckTimer);
-      (window as any).__mikedownLinkCheckTimer = setTimeout(() => {
-        scanAndCheckLinks();
-      }, 500);
+    // M15 — Extract frontmatter before passing body to TipTap.
+    const { frontmatter, body } = extractFrontmatter(originalContent);
+    frontmatterContent = frontmatter;
 
-      // Resolve `[[wikilinks]]` present in the freshly-loaded document.
-      scheduleWikilinkResolution();
+    editor.commands.setContent(body);
 
-      // Seed the sidebar footer + status bar with the initial document text.
-      // No selection on first load.
-      const initialText = editor.getText();
-      applyPlainText(initialText);
-      postStats({ document: initialText, selection: null });
+    // Clear the undo history so pressing Cmd+Z right after opening a file
+    // doesn't revert the document to empty (setContent adds to history by
+    // default).
+    resetPmHistory(editor);
+    lastSavedUndoDepth = 0;
+
+    // M2d — After TipTap parses and re-sets the content, immediately serialize
+    // back to check for round-trip fidelity. If the serialized form differs from
+    // the original, log a warning but continue using originalContent as the
+    // dirty-detection baseline so the document is not marked as modified on open.
+    const reserialized = restoreFrontmatter(frontmatterContent, editor.storage.markdown.getMarkdown() as string);
+    if (reserialized !== originalContent) {
+      console.warn(
+        'MikeDown: serialization round-trip mismatch — using original as baseline'
+      );
+      // Still use originalContent as baseline, not the reserialized version.
     }
 
-    // M11 — Export: get rendered HTML from the editor DOM and send to extension host.
-    if (message.type === 'requestExportHtml') {
-      const editorEl = document.querySelector('.ProseMirror') as HTMLElement;
-      if (editorEl) {
-        host.exportHtml?.(editorEl.innerHTML);
-      }
+    isDirty = false;
+    isLoading = false;
+
+    // Mirror external updates into CodeMirror when source mode is active.
+    if (sourceMode && cmView) {
+      cmLoading = true;
+      cmView.dispatch({
+        changes: { from: 0, to: cmView.state.doc.length, insert: originalContent },
+        annotations: CmTransaction.addToHistory.of(false),
+      });
+      cmLoading = false;
+      // TipTap was just reloaded from the same content, so CodeMirror and the
+      // PM doc agree again — rebaseline or the next toggle back would treat
+      // this reload as a source-side edit.
+      sourceSync.rebaseline(originalContent);
     }
 
-    // View in Browser: get rendered HTML from the editor DOM and send to host.
-    if (message.type === 'requestViewInBrowser') {
-      const editorEl = document.querySelector('.ProseMirror') as HTMLElement;
-      if (editorEl) {
-        host.viewInBrowser?.(editorEl.innerHTML);
-      }
-    }
+    // M15 — Render frontmatter UI block (collapsed by default above editor).
+    renderFrontmatterBlock();
 
-    // Print: VS Code webviews are sandboxed and cannot call window.print()
-    // directly, so we hand the rendered HTML to the host which opens it in
-    // the system browser with an auto-print script.
-    if (message.type === 'requestPrint') {
-      const editorEl = document.querySelector('.ProseMirror') as HTMLElement;
-      if (editorEl) {
-        host.printDocument?.(editorEl.innerHTML);
-      }
-    }
+    // 2.3.0 — Push parsed frontmatter entries to the sidebar Properties section.
+    // 2.4.0 — Gate inline editing on whether the YAML round-trips cleanly;
+    // anything we'd silently drop on save stays read-only.
+    refreshPropertiesSidebar();
 
-    // M11 — Copy as rich text: write HTML + plain text to clipboard.
-    if (message.type === 'copyAsRichText') {
-      const editorEl2 = document.querySelector('.ProseMirror') as HTMLElement;
-      if (editorEl2 && navigator.clipboard) {
-        (async () => {
-          try {
-            const htmlBlob = new Blob([editorEl2.innerHTML], { type: 'text/html' });
-            const textBlob = new Blob([editorEl2.innerText], { type: 'text/plain' });
-            await navigator.clipboard.write([
-              new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })
-            ]);
-          } catch {
-            // Fallback: copy plain text only
-            await navigator.clipboard.writeText(editorEl2.innerText).catch(() => {});
-          }
-        })().catch(() => {});
-      }
-    }
+    // M6c — Trigger broken link check after content loads (debounced 500ms).
+    scheduleLinkCheck();
 
-    // M6a — Scroll to an anchor in the editor (posted from openLink handler for # links).
-    if (message.type === 'scrollToAnchor') {
-      const anchor = (message as any).anchor as string;
-      // Compute anchor IDs dynamically from heading text instead of relying
-      // on data-anchor-id attributes (ProseMirror's DOM patching strips them).
-      const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
-      const seenIds = new Map<string, number>();
-      let targetEl: HTMLElement | null = null;
-      for (const h of headings) {
-        const base = githubAnchorId(h.textContent || '');
-        const count = seenIds.get(base) ?? 0;
-        const id = count === 0 ? base : `${base}-${count}`;
-        seenIds.set(base, count + 1);
-        if (id === anchor) { targetEl = h; break; }
-      }
-      // Fallback: custom HTML anchors (`<a id="foo"></a>` / `<a name="foo"></a>`)
-      // rendered by the HtmlAnchor node.
-      if (!targetEl) {
-        const cssAnchor = (window as any).CSS?.escape ? (window as any).CSS.escape(anchor) : anchor.replace(/"/g, '\\"');
-        targetEl = editorContainer.querySelector<HTMLElement>(
-          `.ProseMirror a[id="${cssAnchor}"], .ProseMirror a[name="${cssAnchor}"]`
-        );
-      }
-      if (targetEl) {
-        smoothScrollHeadingIntoView(targetEl);
-      }
-    }
+    // Resolve `[[wikilinks]]` present in the freshly-loaded document.
+    scheduleWikilinkResolution();
 
-    // Backlink reveal — scroll the rendered body to the `<a>` that links back
-    // to the doc the user came from. The href matches what's written in source
-    // (TipTap preserves it), so we match on the raw `href` attribute. Retries a
-    // few times because the doc may still be rendering right after open.
-    if (message.type === 'revealLinkHref') {
-      const want = (message as any).href as string;
-      const occurrence = (message as any).occurrence as number | undefined;
-      if (want) {
-        const norm = (h: string) => h.replace(/^\.\//, '');
-        const want0 = occurrence ?? 0;
-        let tries = 0;
-        const tryFind = (): void => {
-          const anchors = editorContainer.querySelectorAll<HTMLElement>('.ProseMirror a[href]');
-          const matches: HTMLElement[] = [];
-          for (const a of anchors) {
-            const raw = a.getAttribute('href') || '';
-            if (raw === want || norm(raw) === norm(want)) {matches.push(a);}
-          }
-          // Wait until the wanted occurrence has rendered; only after retries
-          // run out do we settle for whatever's available (fall back to first).
-          const exhausted = tries++ >= 6;
-          if (matches.length <= want0 && !exhausted) {
-            setTimeout(tryFind, 150);
-            return;
-          }
-          const hit: HTMLElement | null = matches[want0] ?? matches[0] ?? null;
-          if (hit) {
-            smoothScrollHeadingIntoView(hit);
-            hit.classList.add('mikedown-backlink-flash');
-            setTimeout(() => hit?.classList.remove('mikedown-backlink-flash'), 1600);
-          }
-        };
-        tryFind();
+    // Seed the sidebar footer + status bar with the initial document text.
+    // No selection on first load.
+    const initialText = editor.getText();
+    applyPlainText(initialText);
+    postStats({ document: initialText, selection: null });
+  }
+
+  /** Current markdown, including frontmatter, from whichever view is showing. */
+  function getMarkdown(): string {
+    if (sourceMode && cmView) {return cmView.state.doc.toString();}
+    return restoreFrontmatter(frontmatterContent, editor.storage.markdown.getMarkdown() as string);
+  }
+
+  /** Rendered HTML of the WYSIWYG surface (export, print, view in browser). */
+  function getHtml(): string {
+    return editor.view.dom.innerHTML;
+  }
+
+  /**
+   * Host reports the document has been saved. Rebaseline pristine detection
+   * so later undos compare against the newly saved content instead of the
+   * pre-load content — otherwise undoing back to the old load state would
+   * silently revert the saved file (we'd send the stale `originalContent`
+   * with pristine:true and the host would save() over the real saved state).
+   */
+  function markSaved(content?: string): void {
+    originalContent = content ?? getMarkdown();
+    lastSavedUndoDepth = pmUndoDepth(editor.state);
+  }
+
+  let readOnly = false;
+  function setReadOnly(next: boolean): void {
+    if (next === readOnly) {return;}
+    readOnly = next;
+    // emitUpdate=false: toggling editability is not a document change.
+    editor.setEditable(!next, false);
+    if (cmView) {cmView.dispatch({ effects: cmReadOnly.reconfigure(EditorState.readOnly.of(next)) });}
+    document.body.classList.toggle('mikedown-readonly', next);
+  }
+
+  /** Run a toolbar / keybinding command (M3). */
+  function runCommand(name: string, args?: { tab?: string }): void {
+    switch (name) {
+      // Same desync hazard as the list toggles below: no-op in source mode.
+      case 'toggleBold': if (!sourceMode) {editor.chain().focus().toggleBold().run();} break;
+      case 'toggleItalic': if (!sourceMode) {editor.chain().focus().toggleItalic().run();} break;
+      case 'toggleStrike': if (!sourceMode) {editor.chain().focus().toggleStrike().run();} break;
+      case 'toggleHighlight': if (!sourceMode) {editor.chain().focus().toggleHighlight().run();} break;
+      case 'toggleCode': if (!sourceMode) {editor.chain().focus().toggleCode().run();} break;
+      case 'pasteWithoutFormatting': editor.commands.focus(); requestPlainPaste(editor.view); break;
+      case 'openEmojiPicker':
+        if (isEmojiPickerOpen()) { hideEmojiPicker(); } else { showEmojiPicker(editor, {}); }
+        break;
+      case 'undo': doUndo(editor); break;
+      case 'redo': doRedo(editor); break;
+      case 'toggleSource':
+        toggleSourceMode();
+        break;
+      // M2 — list-toggle keybindings mirror the toolbar's bulletList/
+      // orderedList/taskList buttons, which are disabled in source mode
+      // (SOURCE_MODE_DISABLED_ACTIONS) because CodeMirror owns the visible
+      // doc there; firing a TipTap command would silently edit the hidden
+      // PM doc and desync the two views. No-op rather than throw.
+      case 'toggleBulletList':
+        if (!sourceMode) {editor.chain().focus().toggleBulletList().run();}
+        break;
+      case 'toggleOrderedList':
+        if (!sourceMode) {editor.chain().focus().toggleOrderedList().run();}
+        break;
+      case 'toggleTaskList':
+        if (!sourceMode) {editor.chain().focus().toggleTaskList().run();}
+        break;
+      // Sidebar toggle isn't a doc edit, so it stays available in source
+      // mode too. Routes through the same setVisible the header
+      // discovery/close buttons use — no duplicated open/close state.
+      case 'toggleSidebar':
+        toggleSidebarVisible();
+        break;
+      // M5 — the slash-menu footer row's "Turn off slash commands" toast
+      // posts this from the host after a saveSettings round-trip so the
+      // user can jump straight to the Behavior tab to re-enable it.
+      case 'openSettings':
+        showSettingsModal(args?.tab as SettingsTabId | undefined);
+        break;
+      // M11 — Copy as rich text: write HTML + plain text to clipboard.
+      case 'copyAsRichText':
+        copyAsRichText();
+        break;
+    }
+  }
+
+  function copyAsRichText(): void {
+    const editorEl2 = editor.view.dom;
+    if (!navigator.clipboard) {return;}
+    (async () => {
+      try {
+        const htmlBlob = new Blob([editorEl2.innerHTML], { type: 'text/html' });
+        const textBlob = new Blob([editorEl2.innerText], { type: 'text/plain' });
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })
+        ]);
+      } catch {
+        // Fallback: copy plain text only
+        await navigator.clipboard.writeText(editorEl2.innerText).catch(() => {});
       }
-    }
+    })().catch(() => {});
+  }
 
-    // M6b — Link suggestions pushed without a request (a reply resolves
-    // host.getLinkSuggestions instead).
-    if (message.type === 'linkSuggestions') {
-      applyLinkSuggestions((message as any).suggestions || []);
+  /** Apply core settings (no persistence). Keys absent from the patch are left alone. */
+  function updateSettings(patch: Partial<MikeDownSettings>): void {
+    const root = document.documentElement.style;
+    if (patch.fontFamily !== undefined) {root.setProperty('--mikedown-font-family', patch.fontFamily || '');}
+    if (patch.headingFontFamily !== undefined) {root.setProperty('--mikedown-heading-font-family', patch.headingFontFamily || '');}
+    if (patch.fontSize !== undefined) {root.setProperty('--mikedown-font-size', `${patch.fontSize || 17}px`);}
+    if (patch.contentWidth !== undefined) {root.setProperty('--mikedown-content-width', patch.contentWidth);}
+    if (patch.linkClickBehavior) {
+      currentLinkClickBehavior = patch.linkClickBehavior;
     }
-
-    // Sidebar — extension push of width/pref/position/per-doc state
-    if (message.type === 'sidebarState') {
-      const m = message as any;
-      if (m.pref === 'always' || m.pref === 'never') {currentSidebarVisibilityDefault = m.pref;}
-      if (m.position === 'left' || m.position === 'right') {currentSidebarPositionDefault = m.position;}
-      if (typeof m.width === 'number') {currentSidebarWidthDefault = m.width;}
-      applyOutlineState({
-        pref: m.pref,
-        width: m.width,
-        position: m.position,
-        sectionPrefs: m.sectionPrefs,
+    if (patch.headingRenameUpdateLinks) {
+      headingRenamePref = patch.headingRenameUpdateLinks;
+      currentHeadingRenameUpdateLinks = patch.headingRenameUpdateLinks;
+    }
+    if (typeof patch.headingNumbering === 'string') {
+      applyHeadingNumbering(parseHeadingNumbering(patch.headingNumbering));
+    }
+    if (
+      typeof patch.slashCommandsEnabled === 'boolean'
+      || patch.slashCommandsDateFormat === 'iso' || patch.slashCommandsDateFormat === 'long'
+      || typeof patch.slashCommandsTimeZone === 'string'
+    ) {
+      if (typeof patch.slashCommandsEnabled === 'boolean') {
+        currentSlashCommandsEnabled = patch.slashCommandsEnabled;
+      }
+      if (patch.slashCommandsDateFormat === 'iso' || patch.slashCommandsDateFormat === 'long') {
+        currentSlashCommandsDateFormat = patch.slashCommandsDateFormat;
+      }
+      if (typeof patch.slashCommandsTimeZone === 'string' && patch.slashCommandsTimeZone.trim()) {
+        currentSlashCommandsTimeZone = patch.slashCommandsTimeZone.trim();
+      }
+      // The trigger/popup plugin (M2/M3) is expected to close its own
+      // popup (no document transaction) if `enabled` just flipped false
+      // while it was open — this call is its single live-config entry point.
+      setSlashCommandsConfig({
+        enabled: currentSlashCommandsEnabled,
+        dateFormat: currentSlashCommandsDateFormat,
+        timeZone: currentSlashCommandsTimeZone,
+      });
+      // Force the placeholder decoration to recompute with the new "Type /
+      // for commands…" / "Start writing…" text. ProseMirror re-evaluates a
+      // plugin's `decorations` prop on every dispatched transaction, so a
+      // no-op transaction is enough — never touch editor.view.dom directly.
+      editor.view.dispatch(editor.state.tr.setMeta('slashPlaceholder', true));
+    }
+    if (patch.editorTheme) {
+      applyEditorTheme(patch.editorTheme);
+      refreshMermaidTheme(editor);
+    }
+    if (typeof patch.renderMermaidDiagrams === 'boolean') {
+      currentRenderMermaidDiagrams = patch.renderMermaidDiagrams;
+      setMermaidEnabled(editor, patch.renderMermaidDiagrams);
+    }
+    if (typeof patch.renderMath === 'boolean') {
+      currentRenderMath = patch.renderMath;
+      setMathRenderingEnabled(patch.renderMath);
+    }
+    if (typeof patch.tagsEnabled === 'boolean') {
+      currentTagsEnabled = patch.tagsEnabled;
+      setTagsEnabled(editor, patch.tagsEnabled);
+      setTagsSectionEnabled(patch.tagsEnabled);
+    }
+    if (typeof patch.ctrlWheelZoom === 'boolean') {
+      currentCtrlWheelZoom = patch.ctrlWheelZoom;
+    }
+    if (typeof patch.wikilinkCreateOnClick === 'boolean') {
+      currentWikilinkCreateOnClick = patch.wikilinkCreateOnClick;
+    }
+    if (patch.markdownNormalization === 'preserve' || patch.markdownNormalization === 'normalize') {
+      currentMarkdownNormalization = patch.markdownNormalization;
+    }
+    if (patch.normalizationStyle && typeof patch.normalizationStyle === 'object') {
+      currentNormalizationStyle = { ...currentNormalizationStyle, ...patch.normalizationStyle };
+    }
+    if (Array.isArray(patch.imagePathMappings)) {
+      imagePathMappings = patch.imagePathMappings as ImagePathPrefix[];
+    }
+    if (typeof patch.docDir === 'string') {
+      docDirFsPath = patch.docDir;
+    }
+    const spellKeys: Array<keyof MikeDownSettings> = [
+      'spellCheckEnabled', 'spellCheckLanguage', 'spellCheckIgnoreCodeBlocks', 'spellCheckUserWords', 'spellCheckExternalWords',
+    ];
+    if (spellKeys.some(k => patch[k] !== undefined)) {
+      if (typeof patch.spellCheckEnabled === 'boolean') {currentSpellCheckEnabled = patch.spellCheckEnabled;}
+      if (patch.spellCheckLanguage === 'en' || patch.spellCheckLanguage === 'en-GB') {currentSpellCheckLanguage = patch.spellCheckLanguage;}
+      if (typeof patch.spellCheckIgnoreCodeBlocks === 'boolean') {currentSpellCheckIgnoreCodeBlocks = patch.spellCheckIgnoreCodeBlocks;}
+      if (Array.isArray(patch.spellCheckUserWords)) {
+        currentSpellCheckUserWords = patch.spellCheckUserWords.filter((w: unknown) => typeof w === 'string');
+      }
+      if (Array.isArray(patch.spellCheckExternalWords)) {
+        currentSpellCheckExternalWords = patch.spellCheckExternalWords.filter((w: unknown) => typeof w === 'string');
+      }
+      // Toggles live: off clears the decorations and never loads a
+      // dictionary; a language change rebuilds and re-scans.
+      configureSpellCheck(editor, {
+        enabled: currentSpellCheckEnabled,
+        language: currentSpellCheckLanguage,
+        ignoreCodeBlocks: currentSpellCheckIgnoreCodeBlocks,
+        userWords: [...currentSpellCheckUserWords, ...currentSpellCheckExternalWords],
       });
     }
+  }
 
-    // Sidebar Backlinks section — extension push of the current doc's backlinks.
-    if (message.type === 'backlinks') {
-      applyBacklinks((message as any).items || []);
+  /** M6a — Scroll to an anchor (heading slug or a raw HTML `<a id|name>`). */
+  function scrollToAnchor(anchor: string): void {
+    // Compute anchor IDs dynamically from heading text instead of relying
+    // on data-anchor-id attributes (ProseMirror's DOM patching strips them).
+    const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
+    const seenIds = new Map<string, number>();
+    let targetEl: HTMLElement | null = null;
+    for (const h of headings) {
+      const base = githubAnchorId(h.textContent || '');
+      const count = seenIds.get(base) ?? 0;
+      const id = count === 0 ? base : `${base}-${count}`;
+      seenIds.set(base, count + 1);
+      if (id === anchor) { targetEl = h; break; }
     }
-
-    // Workspace tag index (with doc counts) — sidebar Tags section + `#` autocomplete.
-    if (message.type === 'tags') {
-      applyWorkspaceTags((message as any).tags || []);
+    // Fallback: custom HTML anchors (`<a id="foo"></a>` / `<a name="foo"></a>`)
+    // rendered by the HtmlAnchor node.
+    if (!targetEl) {
+      const cssAnchor = (window as any).CSS?.escape ? (window as any).CSS.escape(anchor) : anchor.replace(/"/g, '\\"');
+      targetEl = editorContainer.querySelector<HTMLElement>(
+        `.ProseMirror a[id="${cssAnchor}"], .ProseMirror a[name="${cssAnchor}"]`
+      );
     }
-
-    // Sidebar footer — modified time + initial mtime push.
-    if (message.type === 'docMeta') {
-      applyDocMeta({ mtimeMs: (message as any).mtimeMs });
+    if (targetEl) {
+      smoothScrollHeadingIntoView(targetEl);
     }
+  }
 
-    // v1.6.0 — Filesystem watcher reports an image file went missing while the
-    // editor is open. Flag any <img> rendered from that URI as broken so the
-    // user sees the warning treatment without having to reload the document.
-    if (message.type === 'imageFileMissing') {
-      const targetUri = (message as any).uri as string | undefined;
-      if (!targetUri) {return;}
-      const imgs = document.querySelectorAll<HTMLImageElement>('.ProseMirror img');
-      imgs.forEach(img => {
+  /**
+   * Backlink reveal — scroll the rendered body to the `<a>` that links back
+   * to the doc the user came from. The href matches what's written in source
+   * (TipTap preserves it), so we match on the raw `href` attribute. Retries a
+   * few times because the doc may still be rendering right after open.
+   */
+  function revealLink(want: string, occurrence?: number): void {
+    if (!want) {return;}
+    const norm = (h: string) => h.replace(/^\.\//, '');
+    const want0 = occurrence ?? 0;
+    let tries = 0;
+    const tryFind = (): void => {
+      const anchors = editorContainer.querySelectorAll<HTMLElement>('.ProseMirror a[href]');
+      const matches: HTMLElement[] = [];
+      for (const a of anchors) {
+        const raw = a.getAttribute('href') || '';
+        if (raw === want || norm(raw) === norm(want)) {matches.push(a);}
+      }
+      // Wait until the wanted occurrence has rendered; only after retries
+      // run out do we settle for whatever's available (fall back to first).
+      const exhausted = tries++ >= 6;
+      if (matches.length <= want0 && !exhausted) {
+        setTimeout(tryFind, 150);
+        return;
+      }
+      const hit: HTMLElement | null = matches[want0] ?? matches[0] ?? null;
+      if (hit) {
+        smoothScrollHeadingIntoView(hit);
+        hit.classList.add('mikedown-backlink-flash');
+        setTimeout(() => hit?.classList.remove('mikedown-backlink-flash'), 1600);
+      }
+    };
+    tryFind();
+  }
+
+  /**
+   * v1.6.0 — A watched image file went missing or came back. Missing flags
+   * every <img> rendered from `src` as broken; found only clears the class
+   * (no src mutation: writing to an <img> attribute inside ProseMirror's
+   * managed DOM poisons its MutationObserver). The browser keeps its
+   * failed-fetch state, so the image won't re-appear until a reload — but
+   * the warning chrome stops showing once the file is back.
+   */
+  function setImageStatus(targetUri: string, status: 'found' | 'missing', detail?: string): void {
+    if (!targetUri) {return;}
+    if (status === 'missing') {
+      document.querySelectorAll<HTMLImageElement>('.ProseMirror img').forEach(img => {
         const src = img.getAttribute('src') ?? '';
         if (src === targetUri || src.startsWith(targetUri + '?')) {
           img.classList.add('broken-image');
-          img.title = `Image not found on disk: ${(message as any).fsPath ?? src}`;
+          img.title = `Image not found on disk: ${detail ?? src}`;
         }
       });
-    }
-
-    // v1.6.0 — Image file came back. We only clear the broken-image class
-    // (no src mutation: writing to an <img> attribute inside ProseMirror's
-    // managed DOM poisons its MutationObserver). The browser keeps its
-    // failed-fetch state, so the rendered image won't actually re-appear
-    // until the user reloads the document — but at least the warning
-    // chrome stops showing once the file is back.
-    if (message.type === 'imageFileFound') {
-      const targetUri = (message as any).uri as string | undefined;
-      if (!targetUri) {return;}
+    } else {
       document.querySelectorAll<HTMLImageElement>('.ProseMirror img.broken-image').forEach(img => {
         const src = img.getAttribute('src') ?? '';
         if (src === targetUri || src.startsWith(targetUri + '?')) {
@@ -5717,7 +5667,107 @@ if (!editorContainer) {
         }
       });
     }
+  }
 
+  /** Sidebar — host push of width/pref/position/per-doc state. */
+  function setSidebarState(state: SidebarStateUpdate): void {
+    applyOutlineState({
+      pref: state.pref,
+      width: state.width,
+      position: state.position,
+      sectionPrefs: state.sectionPrefs,
+    });
+  }
+
+  const handle = {
+    setMarkdown,
+    getMarkdown,
+    getHtml,
+    markSaved,
+    setReadOnly,
+    command: runCommand,
+    updateSettings,
+    scrollToAnchor,
+    revealLink,
+    setImageStatus,
+    setTags: applyWorkspaceTags,
+    setLinkSuggestions: applyLinkSuggestions,
+    setBacklinks: (items: BacklinkItem[]) => applyBacklinks(items || []),
+    setDocMeta: (meta: { mtimeMs?: number | null }) => applyDocMeta({ mtimeMs: meta.mtimeMs }),
+    setSidebarState,
+    setDiffAvailable: (available: boolean) => { fileHasGitChanges = available; },
+    isModalOpen: () => !!document.getElementById('mikedown-settings-overlay'),
+    focus: () => { if (sourceMode && cmView) {cmView.focus();} else {editor.commands.focus();} },
+  };
+
+  // ── VS Code message listener (moves to the shell in the next step) ────────
+  window.addEventListener('message', (event: MessageEvent) => {
+    const message: any = event.data;
+
+    // Replies to host requests resolve their Promises inside the host.
+    if (vsCodeHost.handleReply(message)) {return;}
+
+    switch (message?.type) {
+      case 'update': handle.setMarkdown(message.content ?? '', { pristine: true }); break;
+      case 'command': handle.command(message.command, { tab: message.tab }); break;
+      case 'toggleSource': handle.command('toggleSource'); break;
+      case 'copyAsRichText': handle.command('copyAsRichText'); break;
+      case 'theme':
+        handle.updateSettings({
+          fontFamily: message.fontFamily || '',
+          headingFontFamily: message.headingFontFamily || '',
+          fontSize: message.fontSize || 17,
+        });
+        break;
+      case 'settings':
+        applyVsCodeOnlySettings(message);
+        handle.updateSettings(vsCodeSettingsToCore(message));
+        break;
+      case 'saved': handle.markSaved(message.content ?? ''); break;
+      case 'setReadOnly': handle.setReadOnly(!!message.readOnly); break;
+      case 'diffStatus': handle.setDiffAvailable(!!message.hasChanges); break;
+      case 'requestExportHtml': host.exportHtml?.(handle.getHtml()); break;
+      case 'requestViewInBrowser': host.viewInBrowser?.(handle.getHtml()); break;
+      // Print: VS Code webviews are sandboxed and cannot call window.print()
+      // directly, so we hand the rendered HTML to the host which opens it in
+      // the system browser with an auto-print script.
+      case 'requestPrint': host.printDocument?.(handle.getHtml()); break;
+      case 'scrollToAnchor': handle.scrollToAnchor(message.anchor); break;
+      case 'revealLinkHref': handle.revealLink(message.href, message.occurrence); break;
+      case 'linkSuggestions': handle.setLinkSuggestions(message.suggestions || []); break;
+      case 'sidebarState':
+        if (message.pref === 'always' || message.pref === 'never') {currentSidebarVisibilityDefault = message.pref;}
+        if (message.position === 'left' || message.position === 'right') {currentSidebarPositionDefault = message.position;}
+        if (typeof message.width === 'number') {currentSidebarWidthDefault = message.width;}
+        handle.setSidebarState(message);
+        break;
+      case 'backlinks': handle.setBacklinks(message.items || []); break;
+      case 'tags': handle.setTags(message.tags || []); break;
+      case 'docMeta': handle.setDocMeta({ mtimeMs: message.mtimeMs }); break;
+      case 'imageFileMissing': handle.setImageStatus(message.uri, 'missing', message.fsPath); break;
+      case 'imageFileFound': handle.setImageStatus(message.uri, 'found'); break;
+      // Support appeal: "A note from Mike" card (render in ./supportCard.ts).
+      // An auto card never stacks on the Settings modal or on another card;
+      // it replies `busy` so the host does not count it as shown.
+      case 'showSupportCard': {
+        const reason: 'auto' | 'manual' = message.reason === 'manual' ? 'manual' : 'auto';
+        if (reason === 'auto' && (handle.isModalOpen() || isSupportCardOpen())) {
+          vscode.postMessage({ type: 'busy' });
+        } else if (message.copy && typeof message.copy === 'object') {
+          showSupportCard({
+            reason,
+            copy: message.copy as SupportCardCopy,
+            onAction: action => vscode.postMessage({ type: 'supportAction', action }),
+            restoreFocus: () => {
+              if (!sourceMode) {editor.commands.focus();}
+            },
+          });
+          vscode.postMessage({ type: 'supportCardShown' });
+        }
+        break;
+      }
+      case 'supportCopied': showSupportCopied(); break;
+    }
   });
 
   // ── Signal readiness to the extension host ─────────────────────────────────
