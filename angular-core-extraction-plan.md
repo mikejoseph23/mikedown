@@ -30,7 +30,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ✅ Complete (signed off) | 11 | unit + integration + hands-on; gap-fill added 9 integration tests |
 | [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | ✅ Complete | 31 | 81 `--vscode-*` vars → 54 `--mikedown-*` tokens |
 | [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | ✅ Complete (publish pending npm login) | 6 | ESM + d.ts + css, `0.1.0-rc.1` |
-| [T2 — Core package tests](#t2--core-package-tests) | Sonnet | ⬜ Not Started | — | demo page hands-on, bundle checks |
+| [T2 — Core package tests](#t2--core-package-tests) | Sonnet | 🔄 In Progress | — | demo page hands-on, bundle checks |
 | [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ⬜ Not Started | — | `lymestack-shared/mikedown/` |
 | [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ⬜ Not Started | — | TestBed CVA specs + hands-on |
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ⬜ Not Started | — | Angular 14 |
