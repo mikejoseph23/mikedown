@@ -529,6 +529,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
+**2026-10-22 18:11** - Image source gap fill: core now has `host.resolveImageSrc` (qualified `http/https/data/blob` render as is, others go through the host, else the placeholder with the raw path; stored `src` untouched), a `Mod-/` source toggle gated by `hostOwnsShortcuts` (VS Code passes true), and host-neutral Settings copy for spelling and tags. 933 unit, 22 edge, 47 integration, 7 core-package, lint 0 errors. Tarball repacked. See worker-summary-imagesrc-gapfill.md.
+
 **2026-10-22 18:03** - T2 gap fill: Editor B was blank because its demo container had no height and every core child is absolutely positioned, so the root collapsed to 0px. Core root now has a `--mikedown-min-height` floor (240px; VS Code sets 0), demo sizes Editor B and fits at 400px. Regression test `packages/core/test/two-editors.test.ts`. Hands-on walk: pass except Cmd+/ (no core keybinding outside VS Code) and two VS Code-worded settings descriptions; both left as follow-ups. Unit 920 / 2 todo, edge 22, integration 47, core package 7, lint 0 errors. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-t2-gapfill.md`.
 
 **2026-10-22 17:57** - T2 automated block complete; hands-on pending (user). Added `packages/core/test/package-shape.test.ts` (7 tests) and root script `test:core-package`. `dist/index.js` is 112.3 KB gzipped (budget 400 KB). Packed tarball installs and imports in a clean project; TS 4.7.4 fixture passes with `skipLibCheck`, no mermaid/katex/nspell types in `.d.ts`. Unit 916 / 2 todo, edge 22, integration 47, lint 0 errors. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-t2.md`.
