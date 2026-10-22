@@ -16,7 +16,7 @@
 /* Floating clickable language pill — appears in the top-right corner of a
    hovered code block. Click to open the language picker. Lives in
    document.body to avoid mutating ProseMirror's managed DOM. */
-#mikedown-code-language-btn {
+.mikedown-code-language-btn {
   position: fixed;
   z-index: 1000;
   font-size: 11px;
@@ -35,28 +35,28 @@
   opacity: 0;
   transition: opacity 0.1s ease, background 0.1s ease, color 0.1s ease;
 }
-#mikedown-code-language-btn.visible {
+.mikedown-code-language-btn.visible {
   display: inline-flex;
   align-items: center;
   opacity: 1;
 }
-#mikedown-code-language-btn:hover {
+.mikedown-code-language-btn:hover {
   background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.25));
   color: var(--vscode-foreground);
 }
-#mikedown-code-language-btn.placeholder {
+.mikedown-code-language-btn.placeholder {
   color: var(--vscode-descriptionForeground);
   opacity: 0.7;
   font-style: italic;
 }
-#mikedown-code-language-btn.placeholder:hover {
+.mikedown-code-language-btn.placeholder:hover {
   opacity: 1;
 }
 
 /* Floating copy icon — appears on hover over a code block, just to the
    left of the language label. Lives in document.body (not the editor DOM)
    to avoid mutating ProseMirror's managed tree. */
-#mikedown-code-copy-btn {
+.mikedown-code-copy-btn {
   position: fixed;
   z-index: 1000;
   width: 22px;
@@ -74,20 +74,20 @@
   opacity: 0;
   transition: opacity 0.1s ease, background 0.1s ease, color 0.1s ease;
 }
-#mikedown-code-copy-btn.visible {
+.mikedown-code-copy-btn.visible {
   display: inline-flex;
   opacity: 0.7;
 }
-#mikedown-code-copy-btn:hover {
+.mikedown-code-copy-btn:hover {
   opacity: 1;
   color: var(--vscode-foreground);
   background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
 }
-#mikedown-code-copy-btn.copied {
+.mikedown-code-copy-btn.copied {
   opacity: 1;
   color: var(--vscode-charts-green, #4caf50);
 }
-#mikedown-code-copy-btn svg {
+.mikedown-code-copy-btn svg {
   width: 14px;
   height: 14px;
   pointer-events: none;
@@ -217,7 +217,7 @@
 
 /* Frontmatter Block */
 
-#frontmatter-block {
+.frontmatter-block {
   margin-bottom: 1em;
   border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.2));
   border-radius: 6px;

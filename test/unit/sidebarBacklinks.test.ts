@@ -38,6 +38,9 @@ describe('Sidebar Backlinks rendering', () => {
     postMessageSpy = vi.fn();
     initOutlineSidebar({
       editor: fakeEditor(),
+      sidebarEl: document.getElementById('mikedown-outline-sidebar')!,
+      toggleEl: document.getElementById('mikedown-outline-toggle') as HTMLButtonElement,
+      scrollContainer: document.getElementById('editor-container')!,
       prefs: {
         requestState: () => postMessageSpy({ type: 'sidebarRequestState' }),
         setPref: (pref: string) => postMessageSpy({ type: 'sidebarSetPref', pref }),

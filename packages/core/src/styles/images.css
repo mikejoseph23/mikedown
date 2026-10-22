@@ -25,7 +25,7 @@
 }
 
 /* Image edit popover */
-#image-edit-popover {
+.mikedown-image-edit-popover {
   display: none;
   position: fixed;
   background: var(--vscode-editorWidget-background);
@@ -43,14 +43,14 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-#image-edit-popover label {
+.mikedown-image-edit-popover label {
   display: block;
   font-size: 12px;
   font-weight: 500;
   margin-bottom: 4px;
   color: var(--vscode-descriptionForeground);
 }
-#image-edit-popover input {
+.mikedown-image-edit-popover input {
   width: 100%;
   padding: 5px 8px;
   background: var(--vscode-input-background);
@@ -63,16 +63,16 @@
   outline: none;
   transition: border-color 0.1s ease;
 }
-#image-edit-popover input:focus {
+.mikedown-image-edit-popover input:focus {
   border-color: var(--vscode-focusBorder);
 }
-#image-edit-popover .popover-actions {
+.mikedown-image-edit-popover .popover-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
   padding-top: 2px;
 }
-#image-edit-popover button {
+.mikedown-image-edit-popover button {
   padding: 5px 14px;
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
@@ -83,20 +83,20 @@
   font-weight: 500;
   transition: background 0.1s ease;
 }
-#image-edit-popover button:hover {
+.mikedown-image-edit-popover button:hover {
   background: var(--vscode-button-hoverBackground);
 }
-#image-edit-popover button.secondary {
+.mikedown-image-edit-popover button.secondary {
   background: transparent;
   color: var(--vscode-button-secondaryForeground);
   border: 1px solid var(--vscode-button-secondaryBackground, rgba(128,128,128,0.3));
 }
-#image-edit-popover button.secondary:hover {
+.mikedown-image-edit-popover button.secondary:hover {
   background: var(--vscode-list-hoverBackground);
 }
 
 /* Transient toast used for image-resize feedback (no popover anymore). */
-#mikedown-toast {
+.mikedown-toast {
   position: fixed;
   bottom: 24px;
   left: 50%;
@@ -113,11 +113,11 @@
   z-index: 1000;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
-#mikedown-toast.visible {
+.mikedown-toast.visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
-#mikedown-toast.error {
+.mikedown-toast.error {
   border-color: var(--vscode-errorForeground, #f48771);
   color: var(--vscode-errorForeground, #f48771);
 }

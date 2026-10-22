@@ -154,6 +154,8 @@ export interface MikeDownSettingsSection {
   tabLabel?: string;
   /** Insert a new tab after this tab id. Default: after the last tab. */
   afterTab?: string;
+  /** Extra class on a new tab's panel (e.g. 'settings-panel--about'). */
+  panelClassName?: string;
   /**
    * Where the rows go inside the tab: before the core rows, after them
    * (default), or after the core row with this setting key.

@@ -8,7 +8,7 @@
   Minimal standalone harness for exercising the spell-check TipTap extension
   outside VS Code. Not a faithful reproduction of markdownEditorProvider's
   getWebviewContent() — no CSP, no vscode-webview: URI scheme — just enough
-  DOM scaffolding (#toolbar, #editor-container, data-dictionary-base, the
+  DOM scaffolding (#editor-root, data-dictionary-base, the
   same acquireVsCodeApi + postMessage protocol) for out/webview/editor-main.js
   to boot, mount TipTap, and load the real bundled dictionaries over a plain
   fetch. Serve this from the repo root (e.g. `python3 -m http.server`) so the
@@ -63,18 +63,12 @@
 </style>
 </head>
 <body data-dictionary-base="/dictionaries">
-  <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">
-    <span class="toolbar-placeholder">MikeDown</span>
-  </div>
-  <aside id="mikedown-outline-sidebar" aria-label="Document sidebar" hidden></aside>
-  <button type="button" id="mikedown-outline-toggle" aria-label="Show sidebar" title="Show sidebar" aria-expanded="false"></button>
-  <div id="editor-container" role="main" aria-label="Markdown editor"></div>
-  <div id="source-container" style="display:none;"></div>
+  <div id="editor-root"></div>
   <div id="harness-log"></div>
 
 <script>
   // ── Fake VS Code webview host ─────────────────────────────────────────
-  // Mirrors the postMessage protocol documented at the top of editor-main.ts.
+  // Mirrors the postMessage protocol documented at the top of src/webview/editor-main.ts.
   // 'ready' from the webview triggers our scripted 'update' + 'settings'
   // replies, standing in for MarkdownEditorProvider on the host side.
   // Content and spell-check config can be driven by query string, so a

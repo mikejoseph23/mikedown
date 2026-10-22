@@ -2225,14 +2225,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 ${cssLinks}
 </head>
 <body data-dictionary-base="${dictionaryBaseUri}">
-  <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">
-    <span class="toolbar-placeholder">MikeDown</span>
-  </div>
-  <aside id="mikedown-outline-sidebar" aria-label="Document sidebar" hidden></aside>
-  <button type="button" id="mikedown-outline-toggle" aria-label="Show sidebar" title="Show sidebar" aria-expanded="false"></button>
-  <!-- TipTap mounts directly into #editor-container -->
-  <div id="editor-container" role="main" aria-label="Markdown editor"></div>
-  <div id="source-container" style="display:none;"></div>
+  <!-- createMikeDownEditor builds the toolbar, sidebar, editor and source view inside #editor-root -->
+  <div id="editor-root"></div>
   <script src="${scriptUri.toString()}"></script>
 </body>
 </html>`;

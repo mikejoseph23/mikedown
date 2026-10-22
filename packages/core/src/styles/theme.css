@@ -44,7 +44,7 @@ body {
 }
 
 /* Toolbar */
-#toolbar {
+.mikedown-toolbar {
   background: var(--vscode-editorGroupHeader-tabsBackground);
   border-bottom: 1px solid var(--vscode-editorGroup-border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -58,7 +58,7 @@ body {
   z-index: 100;
 }
 
-#toolbar button {
+.mikedown-toolbar button {
   color: var(--vscode-icon-foreground);
   background: transparent;
   border: none;
@@ -78,7 +78,7 @@ body {
 
 /* Custom hover tooltip for toolbar buttons (VS Code webviews don't
    reliably render native HTML title tooltips). Pulls text from data-tip. */
-#toolbar button[data-tip]::after {
+.mikedown-toolbar button[data-tip]::after {
   content: attr(data-tip);
   position: absolute;
   top: calc(100% + 4px);
@@ -99,29 +99,29 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   transition: opacity 0.1s ease 0.5s, visibility 0s linear 0.6s;
 }
-#toolbar button[data-tip]:hover::after {
+.mikedown-toolbar button[data-tip]:hover::after {
   opacity: 1;
   visibility: visible;
   transition: opacity 0.1s ease 0.5s, visibility 0s linear 0.5s;
 }
 
-#toolbar button svg {
+.mikedown-toolbar button svg {
   width: 18px;
   height: 18px;
 }
 
-#toolbar button:hover {
+.mikedown-toolbar button:hover {
   background: var(--vscode-toolbar-hoverBackground);
 }
-#toolbar button.active {
+.mikedown-toolbar button.active {
   background: var(--vscode-toolbar-activeBackground, rgba(255,255,255,0.12));
   color: var(--vscode-foreground);
 }
-#toolbar button:disabled {
+.mikedown-toolbar button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
-#toolbar .toolbar-separator {
+.mikedown-toolbar .toolbar-separator {
   width: 1px;
   background: var(--vscode-editorGroup-border);
   margin: 6px 3px;
@@ -131,13 +131,13 @@ body {
 /* High contrast / forced-colors mode */
 @media (forced-colors: active) {
   .ProseMirror a { color: LinkText; }
-  #toolbar button { forced-color-adjust: auto; }
+  .mikedown-toolbar button { forced-color-adjust: auto; }
 }
 
 /* Print / PDF export */
 @media print {
-  #toolbar,
-  #find-replace-bar,
+  .mikedown-toolbar,
+  .mikedown-find-replace-bar,
   #mikedown-context-menu,
   .cm-container {
     display: none !important;
@@ -244,7 +244,7 @@ body.mikedown-force-dark {
 
 /* ── Condensed Toolbar Mode (Apple Notes-style) ───────────────────────────── */
 
-#toolbar.toolbar-condensed {
+.mikedown-toolbar.toolbar-condensed {
   flex-wrap: nowrap;
   /* overflow-x clips any off-screen buttons when the toolbar is narrower
      than its contents; overflow-y must stay visible so button hover
@@ -277,7 +277,7 @@ body.mikedown-force-dark {
 }
 
 /* Source mode container */
-#source-container {
+.mikedown-source-container {
   position: fixed;
   top: 40px;
   left: 0;
@@ -285,9 +285,9 @@ body.mikedown-force-dark {
   bottom: 0;
   overflow: hidden;
 }
-#source-container .cm-editor {
+.mikedown-source-container .cm-editor {
   height: 100%;
 }
-#source-container .cm-editor.cm-focused {
+.mikedown-source-container .cm-editor.cm-focused {
   outline: none;
 }

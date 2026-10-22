@@ -33,6 +33,9 @@ describe('Sidebar Tags section', () => {
     postMessageSpy = vi.fn();
     mod.initOutlineSidebar({
       editor: fakeEditor() as any,
+      sidebarEl: document.getElementById('mikedown-outline-sidebar')!,
+      toggleEl: document.getElementById('mikedown-outline-toggle') as HTMLButtonElement,
+      scrollContainer: document.getElementById('editor-container')!,
       prefs: {
         requestState: () => postMessageSpy({ type: 'sidebarRequestState' }),
         setPref: (pref: string) => postMessageSpy({ type: 'sidebarSetPref', pref }),

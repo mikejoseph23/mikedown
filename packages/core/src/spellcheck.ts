@@ -88,12 +88,18 @@ let caretSkip: { from: number; to: number } | null = null;
 // ─── Dictionary loading ──────────────────────────────────────────────────────
 
 /**
- * Base URI for the shipped `dictionaries/` folder. The host stamps it onto
- * `<body data-dictionary-base>` because the CSP has no inline-script allowance.
+ * Base URL of the dictionaries folder (contains `en/` and `en-GB/`), set by
+ * the editor from its `spellcheckDictionaryUrl` option. Empty means no
+ * dictionary can load, so spell check stays inert.
  */
+let dictionaryBaseUrl = '';
+
+export function setSpellCheckDictionaryBase(url: string): void {
+  dictionaryBaseUrl = (url || '').replace(/\/+$/, '');
+}
+
 function dictionaryBase(): string {
-  const raw = document.body?.dataset?.dictionaryBase ?? '';
-  return raw.replace(/\/+$/, '');
+  return dictionaryBaseUrl;
 }
 
 function dictionaryDir(language: SpellCheckLanguage): string {

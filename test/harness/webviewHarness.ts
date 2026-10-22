@@ -1,5 +1,6 @@
 /**
- * Boots the REAL webview bundle (src/webview/editor-main.ts) inside jsdom so a
+ * Boots the REAL webview bundle (src/webview/editor-main.ts, the VS Code shell
+ * around @mikedown/core) inside jsdom so a
  * test can drive it the way the extension host does — post the same messages,
  * type into the same editors, and read back the `edit` messages it sends.
  *
@@ -46,8 +47,8 @@ export interface Harness {
   /** Whether source mode is the visible surface. */
   inSourceMode(): boolean;
   /**
-   * The live TipTap editor instance (exposed by editor-main.ts as
-   * `window.__mikedownEditor` for tests only). Use `.view` for the raw
+   * The live TipTap editor instance (exposed by the shell as
+   * `window.__mikedownEditor` = handle.tiptap, for tests only). Use `.view` for the raw
    * ProseMirror EditorView, `.state`, or `.storage.markdown.getMarkdown()`.
    */
   wysiwygEditor(): { view: PmEditorView; state: any; storage: any; [k: string]: any };
@@ -125,12 +126,12 @@ export async function bootWebview(): Promise<Harness> {
   });
 
   vi.resetModules();
-  await import('@mikedown/core/editor-main');
+  await import('../../src/webview/editor-main');
 
   targets.forEach((t, i) => { t.addEventListener = originals[i]; });
 
-  const sourceContainer = () => document.getElementById('source-container') as HTMLElement;
-  const editorContainer = () => document.getElementById('editor-container') as HTMLElement;
+  const sourceContainer = () => document.querySelector('.mikedown-source-container') as HTMLElement;
+  const editorContainer = () => document.querySelector('.mikedown-editor-container') as HTMLElement;
 
   return {
     posted,

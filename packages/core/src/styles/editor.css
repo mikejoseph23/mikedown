@@ -23,7 +23,7 @@ body {
 
 /* ─── Toolbar ─────────────────────────────────────────────────────────────── */
 
-#toolbar {
+.mikedown-toolbar {
   position: fixed;
   top: 0;
   left: 0;
@@ -50,7 +50,7 @@ body {
 
 /* ─── Editor Container ────────────────────────────────────────────────────── */
 
-#editor-container {
+.mikedown-editor-container {
   position: fixed;
   top: 40px;
   left: 0;
@@ -559,22 +559,22 @@ body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
 
 /* ─── Scrollbar ───────────────────────────────────────────────────────────── */
 
-#editor-container::-webkit-scrollbar {
+.mikedown-editor-container::-webkit-scrollbar {
   width: 10px;
 }
 
-#editor-container::-webkit-scrollbar-track {
+.mikedown-editor-container::-webkit-scrollbar-track {
   background: transparent;
 }
 
-#editor-container::-webkit-scrollbar-thumb {
+.mikedown-editor-container::-webkit-scrollbar-thumb {
   background-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
-#editor-container::-webkit-scrollbar-thumb:hover {
+.mikedown-editor-container::-webkit-scrollbar-thumb:hover {
   background-color: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
 }
 
@@ -586,7 +586,7 @@ body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
 /* Used when the user hits Print / Export as PDF — hide chrome, let the
    content fill the page. */
 @media print {
-  #toolbar,
+  .mikedown-toolbar,
   #mikedown-find-bar,
   #mikedown-context-menu,
   #mikedown-link-autocomplete,
@@ -602,8 +602,8 @@ body.mikedown-force-light .ProseMirror .mikedown-diff-changed {
     overflow: visible !important;
   }
 
-  #editor-container,
-  #source-container {
+  .mikedown-editor-container,
+  .mikedown-source-container {
     position: static !important;
     height: auto !important;
     max-height: none !important;

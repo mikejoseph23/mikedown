@@ -114,7 +114,7 @@ describe('slash menu — /properties hands the sidebar over (checklist step 23)'
     harness.typeInWysiwyg('/properties');
     harness.pressKeyInWysiwyg('Enter');
 
-    const sidebar = document.getElementById('mikedown-outline-sidebar') as HTMLElement | null;
+    const sidebar = document.querySelector('.mikedown-outline-sidebar') as HTMLElement | null;
     expect(sidebar).not.toBeNull();
     expect(sidebar!.hidden).toBe(false);
     expect(document.querySelector('.properties-add-trigger')).not.toBeNull();

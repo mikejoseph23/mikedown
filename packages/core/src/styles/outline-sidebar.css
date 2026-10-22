@@ -2,7 +2,7 @@
 /* Hosts (top-to-bottom): optional Properties section, Outline, Backlinks,
    then a footer strip with modified time / word count / reading time. */
 
-#mikedown-outline-sidebar {
+.mikedown-outline-sidebar {
   position: fixed;
   top: 40px;
   bottom: 0;
@@ -19,14 +19,14 @@
   overflow: hidden;
 }
 
-body.mikedown-outline-right #mikedown-outline-sidebar {
+body.mikedown-outline-right .mikedown-outline-sidebar {
   left: auto;
   right: 0;
   border-right: 0;
   border-left: 1px solid var(--vscode-editorGroup-border, #3c3c3c);
 }
 
-#mikedown-outline-sidebar[hidden] {
+.mikedown-outline-sidebar[hidden] {
   display: none;
 }
 
@@ -776,7 +776,7 @@ body.mikedown-force-light .sidebar-footer {
 
 /* ─── Resize handle ──────────────────────────────────────────────────────── */
 
-#mikedown-outline-sidebar .outline-resize-handle {
+.mikedown-outline-sidebar .outline-resize-handle {
   position: absolute;
   top: 0;
   right: -3px;
@@ -786,13 +786,13 @@ body.mikedown-force-light .sidebar-footer {
   z-index: 1;
 }
 
-body.mikedown-outline-right #mikedown-outline-sidebar .outline-resize-handle {
+body.mikedown-outline-right .mikedown-outline-sidebar .outline-resize-handle {
   right: auto;
   left: -3px;
 }
 
-#mikedown-outline-sidebar .outline-resize-handle:hover,
-#mikedown-outline-sidebar.resizing .outline-resize-handle {
+.mikedown-outline-sidebar .outline-resize-handle:hover,
+.mikedown-outline-sidebar.resizing .outline-resize-handle {
   background-color: var(--vscode-focusBorder, #007fd4);
   opacity: 0.4;
 }
@@ -804,7 +804,7 @@ body.mikedown-outline-resizing {
 
 /* ─── Discovery toggle (visible when sidebar collapsed) ──────────────────── */
 
-#mikedown-outline-toggle {
+.mikedown-outline-toggle {
   position: fixed;
   top: 48px;
   left: 8px;
@@ -825,31 +825,31 @@ body.mikedown-outline-resizing {
   transition: opacity 120ms ease-out, background-color 120ms ease-out;
 }
 
-body.mikedown-outline-right #mikedown-outline-toggle {
+body.mikedown-outline-right .mikedown-outline-toggle {
   left: auto;
   right: 8px;
 }
 
-#mikedown-outline-toggle:hover {
+.mikedown-outline-toggle:hover {
   opacity: 1;
   background-color: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
 }
 
-#mikedown-outline-toggle[hidden] {
+.mikedown-outline-toggle[hidden] {
   display: none;
 }
 
 /* ─── Editor padding when sidebar is open ────────────────────────────────── */
 
-body.mikedown-outline-open #editor-container {
+body.mikedown-outline-open .mikedown-editor-container {
   left: var(--mikedown-outline-width, 200px);
 }
 
-body.mikedown-outline-open.mikedown-outline-right #editor-container {
+body.mikedown-outline-open.mikedown-outline-right .mikedown-editor-container {
   left: 0;
   right: var(--mikedown-outline-width, 200px);
 }
 
-body.mikedown-outline-open #mikedown-outline-toggle {
+body.mikedown-outline-open .mikedown-outline-toggle {
   display: none;
 }

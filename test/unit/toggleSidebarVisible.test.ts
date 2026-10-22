@@ -38,6 +38,9 @@ describe('toggleSidebarVisible', () => {
     toggleSidebarVisible = mod.toggleSidebarVisible;
     mod.initOutlineSidebar({
       editor: fakeEditor(),
+      sidebarEl: document.getElementById('mikedown-outline-sidebar')!,
+      toggleEl: document.getElementById('mikedown-outline-toggle') as HTMLButtonElement,
+      scrollContainer: document.getElementById('editor-container')!,
       anchorFn: (t: string) => t,
     });
     sidebarEl = document.getElementById('mikedown-outline-sidebar')!;

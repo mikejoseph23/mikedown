@@ -76,7 +76,7 @@ async function boot(content = ''): Promise<Harness> {
 
 function placeholderText(): string | null {
   return document
-    .getElementById('editor-container')
+    .querySelector('.mikedown-editor-container')
     ?.querySelector('[data-placeholder]')
     ?.getAttribute('data-placeholder') ?? null;
 }

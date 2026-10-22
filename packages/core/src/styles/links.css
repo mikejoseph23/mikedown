@@ -20,7 +20,7 @@ body.cmd-held .ProseMirror a {
 }
 
 /* Link tooltip */
-#link-tooltip {
+.mikedown-link-tooltip {
   display: none;
   position: fixed;
   z-index: 1000;

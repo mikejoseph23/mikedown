@@ -1,6 +1,6 @@
 /* Find & Replace Bar */
 
-#find-replace-bar {
+.mikedown-find-replace-bar {
   position: fixed;
   top: 42px;
   right: 20px;
@@ -28,7 +28,7 @@
   gap: 4px;
 }
 
-#find-replace-bar input[type="text"] {
+.mikedown-find-replace-bar input[type="text"] {
   flex: 1;
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
@@ -40,14 +40,14 @@
   outline: none;
   transition: border-color 0.1s ease;
 }
-#find-replace-bar input[type="text"]:focus {
+.mikedown-find-replace-bar input[type="text"]:focus {
   border-color: var(--vscode-focusBorder);
 }
-#find-replace-bar input[type="text"]::placeholder {
+.mikedown-find-replace-bar input[type="text"]::placeholder {
   opacity: 0.5;
 }
 
-#find-replace-bar button {
+.mikedown-find-replace-bar button {
   background: transparent;
   color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground));
   border: none;
@@ -62,19 +62,19 @@
   justify-content: center;
   min-width: 24px;
 }
-#find-replace-bar button:hover {
+.mikedown-find-replace-bar button:hover {
   background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 }
 
-#fr-replace-btn,
-#fr-replace-all-btn {
+.fr-replace-btn,
+.fr-replace-all-btn {
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   padding: 4px 10px;
   font-weight: 500;
 }
-#fr-replace-btn:hover,
-#fr-replace-all-btn:hover {
+.fr-replace-btn:hover,
+.fr-replace-all-btn:hover {
   background: var(--vscode-button-hoverBackground);
 }
 

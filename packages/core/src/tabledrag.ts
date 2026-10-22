@@ -37,7 +37,12 @@ let isMouseDown = false;
 // PUBLIC API
 // =============================================
 
-export function initTableDrag(editor: Editor): void {
+/**
+ * Wire drag handles and multi-cell selection for one editor. Returns a
+ * function that removes every listener this attached to `document` and the
+ * scroll container.
+ */
+export function initTableDrag(editor: Editor, scrollContainer: HTMLElement): () => void {
   // Listen to selectionUpdate to show/hide drag handles
   editor.on('selectionUpdate', () => {
     updateDragHandles(editor);
@@ -47,34 +52,44 @@ export function initTableDrag(editor: Editor): void {
   });
 
   // Reposition fixed handles when the editor container scrolls
-  const editorContainer = document.getElementById('editor-container');
-  if (editorContainer) {
-    editorContainer.addEventListener('scroll', () => {
-      if (handleOverlays.length > 0) {repositionHandles();}
-    }, { passive: true });
-  }
+  const onScroll = (): void => {
+    if (handleOverlays.length > 0) {repositionHandles();}
+  };
+  scrollContainer.addEventListener('scroll', onScroll, { passive: true });
 
   // Global mouseup to end drags
-  document.addEventListener('mouseup', () => {
+  const onMouseUp = (): void => {
     if (dragState) {finalizeDrag(editor);}
     isMouseDown = false;
-  });
+  };
+  document.addEventListener('mouseup', onMouseUp);
 
   // Global mousemove for drag tracking
-  document.addEventListener('mousemove', (e) => {
+  const onMouseMove = (e: MouseEvent): void => {
     if (dragState) {onDragMove(e, editor);}
     if (isMouseDown && cellSelection) {onCellSelectionMove(e);}
-  });
+  };
+  document.addEventListener('mousemove', onMouseMove);
 
   // Keyboard: Delete/Backspace on cell selection
-  document.addEventListener('keydown', (e) => {
+  const onKeyDown = (e: KeyboardEvent): void => {
     if (!cellSelection) {return;}
     if (e.key === 'Escape') { clearCellSelection(); return; }
     if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
       clearSelectedCellContents(editor);
     }
-  });
+  };
+  document.addEventListener('keydown', onKeyDown);
+
+  return () => {
+    scrollContainer.removeEventListener('scroll', onScroll);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('keydown', onKeyDown);
+    clearDragHandles();
+    clearCellSelection();
+  };
 }
 
 export function clearDragHandles(): void {

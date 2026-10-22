@@ -43,8 +43,9 @@ async function freshSpellCheck() {
   vi.resetModules();
   installFetchMock();
   document.body.innerHTML = '';
-  document.body.dataset.dictionaryBase = 'mock://dictionaries';
   const mod = await import('../src/spellcheck');
+  // The editor passes its spellcheckDictionaryUrl option through this setter.
+  mod.setSpellCheckDictionaryBase('mock://dictionaries');
   return mod;
 }
 

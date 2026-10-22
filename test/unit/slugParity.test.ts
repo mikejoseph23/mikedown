@@ -52,7 +52,7 @@ describe('no divergent githubAnchorId copies remain', () => {
   const filesThatUseSlugs = [
     'src/outlineProvider.ts',
     'src/markdownEditorProvider.ts',
-    'packages/core/src/editor-main.ts',
+    'packages/core/src/editor.ts',
   ];
 
   for (const rel of filesThatUseSlugs) {

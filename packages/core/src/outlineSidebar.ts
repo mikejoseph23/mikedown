@@ -29,6 +29,11 @@ interface FrontmatterEntry {
 
 interface InitOptions {
   editor: any;
+  /** The sidebar `<aside>` (rebuilt here) and its show button, owned by the editor instance. */
+  sidebarEl: HTMLElement;
+  toggleEl: HTMLButtonElement;
+  /** The editor's scrolling container, for the outline's scroll spy. */
+  scrollContainer: HTMLElement;
   /** Pref persistence (pin default, section collapse). Absent = in-memory only. */
   prefs?: MikeDownSidebarPrefs;
   /** Tag click in the Tags section or a Properties tag pill. */
@@ -70,6 +75,7 @@ let activeAnchor = '';
 let lastHeadingsKey = '';
 
 let sidebarEl: HTMLElement | null = null;
+let scrollContainerEl: HTMLElement | null = null;
 let outlineListEl: HTMLElement | null = null;
 let backlinksListEl: HTMLElement | null = null;
 let backlinksCountEl: HTMLElement | null = null;
@@ -113,6 +119,8 @@ const collapsedSections = new Set<string>(); // 'properties' | 'outline' | 'back
 const userTouchedSections = new Set<string>();
 
 let currentBacklinks: BacklinkItem[] = [];
+// Set by the first applyBacklinks call; until then the section stays hidden.
+let backlinksReceived = false;
 let lastBacklinksKey = '';
 // Source docs (by uri) whose multi-link group the user has expanded. Persists
 // across re-renders so a workspace resave elsewhere doesn't collapse the view.
@@ -154,8 +162,9 @@ export function initOutlineSidebar(opts: InitOptions): void {
   supportOpenCb = opts.onSupportOpen ?? null;
   supportDismissCb = opts.onSupportDismiss ?? null;
 
-  sidebarEl = document.getElementById('mikedown-outline-sidebar');
-  toggleEl = document.getElementById('mikedown-outline-toggle') as HTMLButtonElement | null;
+  sidebarEl = opts.sidebarEl;
+  toggleEl = opts.toggleEl;
+  scrollContainerEl = opts.scrollContainer;
   if (!sidebarEl || !toggleEl) {return;}
 
   buildSidebarSkeleton(sidebarEl);
@@ -219,6 +228,9 @@ function buildSidebarSkeleton(root: HTMLElement): void {
   backlinksListEl = document.createElement('div');
   backlinksListEl.className = 'sidebar-section-body backlinks-list';
   backlinksSectionEl.appendChild(backlinksListEl);
+  // Hidden until the host pushes backlinks: a host without a link index has
+  // nothing to show here.
+  backlinksSectionEl.hidden = !backlinksReceived;
   root.appendChild(backlinksSectionEl);
 
   // Tags — every tag in the workspace with its document count. Clicking one
@@ -469,6 +481,8 @@ function updatePositionToggle(): void {
 }
 
 export function applyBacklinks(items: BacklinkItem[]): void {
+  backlinksReceived = true;
+  if (backlinksSectionEl) {backlinksSectionEl.hidden = false;}
   currentBacklinks = items || [];
   autoCollapseIfEmpty('backlinks', currentBacklinks.length === 0);
   renderBacklinks();
@@ -707,7 +721,7 @@ function scrollActiveIntoView(el: HTMLElement): void {
 // ── Scroll spy ─────────────────────────────────────────────────────────────
 
 function wireScrollSpy(): void {
-  const editorContainer = document.getElementById('editor-container');
+  const editorContainer = scrollContainerEl;
   if (!editorContainer) {return;}
   let scrollTimer: number | undefined;
   editorContainer.addEventListener('scroll', () => {
@@ -719,7 +733,7 @@ function wireScrollSpy(): void {
 
 function updateActiveFromScroll(): void {
   if (!outlineListEl || sidebarEl?.hidden) {return;}
-  const editorContainer = document.getElementById('editor-container');
+  const editorContainer = scrollContainerEl;
   if (!editorContainer) {return;}
   const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
   if (headings.length === 0) {return;}
@@ -747,7 +761,7 @@ function updateActiveFromScroll(): void {
 }
 
 function scrollEditorToAnchor(anchor: string): void {
-  const editorContainer = document.getElementById('editor-container');
+  const editorContainer = scrollContainerEl;
   if (!editorContainer) {return;}
   const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
   const seen = new Map<string, number>();
@@ -1436,6 +1450,28 @@ export function applySupportLink(opts: { visible: boolean; copy?: SupportLinkCop
   if (supportLinkVisible === opts.visible) {return;}
   supportLinkVisible = opts.visible;
   renderFooter();
+}
+
+/**
+ * Stop the footer clock and forget the DOM this module was bound to. Called
+ * when the owning editor is destroyed.
+ */
+export function destroyOutlineSidebar(): void {
+  if (footerTickTimer !== null) {
+    window.clearInterval(footerTickTimer);
+    footerTickTimer = null;
+  }
+  if (supportStatusTimer !== null) {
+    window.clearTimeout(supportStatusTimer);
+    supportStatusTimer = null;
+  }
+  editorRef = null;
+  sidebarEl = null;
+  toggleEl = null;
+  scrollContainerEl = null;
+  prefsRef = null;
+  openTagCb = null;
+  openBacklinkCb = null;
 }
 
 function startFooterTick(): void {
