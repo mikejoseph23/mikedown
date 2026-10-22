@@ -25,7 +25,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
 | [M0 — Decisions and compatibility spike](#m0--decisions-and-compatibility-spike) | Opus | ✅ Complete (approved) | 10 | Gate: user approves `core-extraction-decisions.md` |
-| [M1 — Workspace restructure](#m1--workspace-restructure) | Sonnet | 🔄 In Progress | — | npm workspaces, `packages/core` |
+| [M1 — Workspace restructure](#m1--workspace-restructure) | Sonnet | ✅ Complete | 7 | npm workspaces, `packages/core` |
 | [M2 — Host adapter and factory](#m2--host-adapter-and-factory) | Opus | ⬜ Not Started | — | Replaces ~50 `postMessage` sites |
 | [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ⬜ Not Started | — | unit + integration + hands-on |
 | [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | ⬜ Not Started | — | 81 `--vscode-*` vars → `--mikedown-*` |
@@ -527,6 +527,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-22 15:35** - M1 complete. `packages/core` (`@mikedown/core`, private) holds the former `src/webview` with history, styles in `styles/`, host-shared modules in `shared/` (imported by the host as `@mikedown/core/shared/*` through aliases). Compile, 859 unit, 22 edge tests and lint unchanged; `.vsix` +0.6% vs 2.14.2. Katex stays a root dependency so its CSS ships. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m1.md`.
 
 **2026-10-22 15:23** - Added M10 (bot protection for AI endpoints: rate limiting, CAPTCHA, usage cap in the Quantico Creek API). Previously discussed, never recorded. Independent of the core chain; parallel group E.
 
