@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import type { EditorView as PmEditorView } from '@tiptap/pm/view';
 import { bootWebview, type Harness } from '../harness/webviewHarness';
-import { matchCommands, SLASH_COMMANDS } from '../../src/webview/slashcommands-registry';
+import { matchCommands, SLASH_COMMANDS } from '@mikedown/core/slashcommands-registry';
 
 /**
  * Integration tests for the slash-command menu (M2), driven through the real

@@ -4,7 +4,7 @@ import {
   serializeFrontmatter,
   isSimpleFrontmatter,
   type ParsedEntry,
-} from '../../src/frontmatterYaml';
+} from '@mikedown/core/shared/frontmatterYaml';
 
 describe('serializeFrontmatter', () => {
   it('returns empty string for no entries', () => {

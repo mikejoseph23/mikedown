@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { findInlineTags, normalizeTag, isValidTag } from '../../src/tagSyntax';
-import { extractTags } from '../../src/tagExtract';
-import { findTagMatches } from '../../src/webview/tagautocomplete';
+import { findInlineTags, normalizeTag, isValidTag } from '@mikedown/core/shared/tagSyntax';
+import { extractTags } from '@mikedown/core/shared/tagExtract';
+import { findTagMatches } from '@mikedown/core/tagautocomplete';
 import { bootWebview, type Harness } from '../harness/webviewHarness';
 
 describe('inline tag syntax', () => {

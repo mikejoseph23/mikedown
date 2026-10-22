@@ -34,7 +34,7 @@ describe('toggleSidebarVisible', () => {
   beforeEach(async () => {
     mountSidebarHost();
     vi.resetModules();
-    const mod = await import('../../src/webview/outlineSidebar');
+    const mod = await import('@mikedown/core/outlineSidebar');
     toggleSidebarVisible = mod.toggleSidebarVisible;
     mod.initOutlineSidebar({
       editor: fakeEditor(),
@@ -67,7 +67,7 @@ describe('toggleSidebarVisible', () => {
   it('is a no-op before init (sidebarEl not yet resolved)', async () => {
     vi.resetModules();
     document.body.innerHTML = '';
-    const mod = await import('../../src/webview/outlineSidebar');
+    const mod = await import('@mikedown/core/outlineSidebar');
     expect(() => mod.toggleSidebarVisible()).not.toThrow();
   });
 });

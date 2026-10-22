@@ -3,9 +3,9 @@ import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from 'tiptap-markdown';
 import Link from '@tiptap/extension-link';
-import { Wikilink } from '../../src/webview/wikilink-node';
-import { Highlight } from '../../src/webview/highlight';
-import { tokenize } from '../../src/webview/spellcheck';
+import { Wikilink } from '@mikedown/core/wikilink-node';
+import { Highlight } from '@mikedown/core/highlight';
+import { tokenize } from '@mikedown/core/spellcheck';
 
 // ─── Fixture dictionary ────────────────────────────────────────────────────
 //
@@ -44,7 +44,7 @@ async function freshSpellCheck() {
   installFetchMock();
   document.body.innerHTML = '';
   document.body.dataset.dictionaryBase = 'mock://dictionaries';
-  const mod = await import('../../src/webview/spellcheck');
+  const mod = await import('@mikedown/core/spellcheck');
   return mod;
 }
 

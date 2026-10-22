@@ -125,7 +125,7 @@ export async function bootWebview(): Promise<Harness> {
   });
 
   vi.resetModules();
-  await import('../../src/webview/editor-main');
+  await import('@mikedown/core/editor-main');
 
   targets.forEach((t, i) => { t.addEventListener = originals[i]; });
 

@@ -3,7 +3,7 @@ import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from 'tiptap-markdown';
 import Link from '@tiptap/extension-link';
-import { Callout } from '../../src/webview/callout-node';
+import { Callout } from '@mikedown/core/callout-node';
 
 function makeEditor(content = '') {
   return new Editor({

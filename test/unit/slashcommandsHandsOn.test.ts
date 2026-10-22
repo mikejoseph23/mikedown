@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { bootWebview, type Harness } from '../harness/webviewHarness';
-import { SLASH_COMMANDS } from '../../src/webview/slashcommands-registry';
+import { SLASH_COMMANDS } from '@mikedown/core/slashcommands-registry';
 
 /**
  * Fills the specific gaps left by the other slashcommands* suites while

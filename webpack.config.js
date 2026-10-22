@@ -19,7 +19,10 @@ const extensionConfig = {
     vscode: 'commonjs vscode'
   },
   resolve: {
-    extensions: ['.ts', '.js']
+    extensions: ['.ts', '.js'],
+    alias: {
+      '@mikedown/core/shared': path.resolve(__dirname, 'packages', 'core', 'src', 'shared')
+    }
   },
   module: {
     rules: [

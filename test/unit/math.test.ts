@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { matchInlineMath, serializeMathBlock } from '../../src/webview/mathSyntax';
-import { escapeMarkdownText } from '../../src/webview/markdownEscape';
+import { matchInlineMath, serializeMathBlock } from '@mikedown/core/mathSyntax';
+import { escapeMarkdownText } from '@mikedown/core/markdownEscape';
 import { bootWebview, type Harness } from '../harness/webviewHarness';
 
 describe('matchInlineMath — delimiter rules', () => {

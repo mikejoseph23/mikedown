@@ -32,7 +32,7 @@ describe('Sidebar Backlinks rendering', () => {
   beforeEach(async () => {
     mountSidebarHost();
     vi.resetModules();
-    const mod = await import('../../src/webview/outlineSidebar');
+    const mod = await import('@mikedown/core/outlineSidebar');
     initOutlineSidebar = mod.initOutlineSidebar;
     applyBacklinks = mod.applyBacklinks;
     postMessageSpy = vi.fn();

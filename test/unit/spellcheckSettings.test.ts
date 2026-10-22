@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { splitWordLists } from '../../src/settings';
-import { buildDictionaryView, removeWordFromList, addWordToList } from '../../src/webview/spellcheck';
+import { buildDictionaryView, removeWordFromList, addWordToList } from '@mikedown/core/spellcheck';
 
 describe('splitWordLists', () => {
   it('cleans MikeDown\'s own list: trims, dedupes case-insensitively, drops empties', () => {

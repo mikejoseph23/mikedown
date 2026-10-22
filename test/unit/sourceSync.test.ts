@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SourceModeSync } from '../../src/webview/sourceSync';
+import { SourceModeSync } from '@mikedown/core/sourceSync';
 
 /**
  * These replay the message/toggle sequences editor-main puts SourceModeSync

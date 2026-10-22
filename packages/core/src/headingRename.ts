@@ -4,7 +4,7 @@
 // editor wiring in editor-main.ts feeds it heading text and decides what to do
 // with the result. See planning/HEADING-RENAME-LINKS.md.
 
-import { githubAnchorId } from '../anchoring';
+import { githubAnchorId } from './shared/anchoring';
 
 export interface RenameEvent {
   oldSlug: string;

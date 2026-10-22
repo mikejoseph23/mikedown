@@ -9,8 +9,8 @@ import {
   TableHeaderAligned,
   setColumnAlign,
   getColumnAlign,
-} from '../../src/webview/table-align';
-import { MarkdownText, MarkdownHardBreak } from '../../src/webview/markdownText';
+} from '@mikedown/core/table-align';
+import { MarkdownText, MarkdownHardBreak } from '@mikedown/core/markdownText';
 
 let editor: Editor;
 

@@ -651,6 +651,9 @@
       }
     }
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
@@ -658,10 +661,10 @@
     "dev": "webpack && code --new-window --extensionDevelopmentPath=\"$PWD\" test/workspace",
     "package": "webpack --mode production --devtool hidden-source-map",
     "vsix": "npm version patch --no-git-tag-version && npm run package && vsce package",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint src packages/core/src --ext ts",
     "format": "prettier --write \"src/**/*.{ts,html,css,js}\"",
-    "test:unit": "vitest run test/unit --reporter=verbose",
-    "test:unit:watch": "vitest test/unit",
+    "test:unit": "vitest run test/unit packages/core/test --reporter=verbose",
+    "test:unit:watch": "vitest test/unit packages/core/test",
     "test:integration": "vscode-test",
     "test:edge": "vitest run test/edge-cases test/performance --reporter=verbose",
     "pretest": "npm run compile"
@@ -684,37 +687,6 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "@codemirror/commands": "^6.8.0",
-    "@codemirror/lang-markdown": "^6.3.2",
-    "@codemirror/language": "^6.10.8",
-    "@codemirror/state": "^6.5.2",
-    "@codemirror/theme-one-dark": "^6.1.2",
-    "@codemirror/view": "^6.36.4",
-    "@tiptap/core": "^3.20.0",
-    "@tiptap/extension-code-block-lowlight": "^3.20.0",
-    "@tiptap/extension-hard-break": "^3.20.0",
-    "@tiptap/extension-highlight": "^3.23.5",
-    "@tiptap/extension-image": "^3.20.0",
-    "@tiptap/extension-link": "^3.20.0",
-    "@tiptap/extension-placeholder": "^3.20.0",
-    "@tiptap/extension-table": "^3.20.0",
-    "@tiptap/extension-table-cell": "^3.20.0",
-    "@tiptap/extension-table-header": "^3.20.0",
-    "@tiptap/extension-table-row": "^3.20.0",
-    "@tiptap/extension-task-item": "^3.20.0",
-    "@tiptap/extension-task-list": "^3.20.0",
-    "@tiptap/extension-text": "^3.20.0",
-    "@tiptap/pm": "^3.20.0",
-    "@tiptap/starter-kit": "^3.20.0",
-    "dictionary-en": "^4.0.0",
-    "dictionary-en-gb": "^3.0.0",
-    "katex": "^0.16.47",
-    "lowlight": "^3.3.0",
-    "markdown-it-emoji": "^3.0.0",
-    "markdown-it-footnote": "^4.0.0",
-    "markdown-it-mark": "^4.0.0",
-    "mermaid": "^11.15.0",
-    "nspell": "^2.1.5",
-    "tiptap-markdown": "^0.9.0"
+    "katex": "^0.16.47"
   }
 }

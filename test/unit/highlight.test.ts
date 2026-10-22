@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from 'tiptap-markdown';
-import { Highlight } from '../../src/webview/highlight';
+import { Highlight } from '@mikedown/core/highlight';
 
 function makeEditor(content = '') {
   return new Editor({

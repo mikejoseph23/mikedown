@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { normalizeTag } from './tagSyntax';
-import { extractTags } from './tagExtract';
+import { normalizeTag } from '@mikedown/core/shared/tagSyntax';
+import { extractTags } from '@mikedown/core/shared/tagExtract';
 
 /**
  * Workspace-wide tag index. Tags come from two sources, merged into one

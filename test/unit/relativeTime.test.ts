@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatRelativeTime } from '../../src/webview/relativeTime';
+import { formatRelativeTime } from '@mikedown/core/relativeTime';
 
 const NOW = new Date('2026-05-20T12:00:00Z').getTime();
 const seconds = (n: number): number => n * 1000;

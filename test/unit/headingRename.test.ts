@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectHeadingRename, isRenameAmbiguous } from '../../src/webview/headingRename';
+import { detectHeadingRename, isRenameAmbiguous } from '@mikedown/core/headingRename';
 
 describe('detectHeadingRename', () => {
   it('emits a rename when the slug changes', () => {

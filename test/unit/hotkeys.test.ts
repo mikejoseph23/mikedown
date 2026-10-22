@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
 import * as fs from 'fs';
-import { MIKEDOWN_HOTKEYS } from '../../src/webview/hotkeys';
+import { MIKEDOWN_HOTKEYS } from '@mikedown/core/hotkeys';
 
 // Guards against the Hotkeys settings table silently drifting from the real
 // keybindings declared in package.json#contributes.keybindings.

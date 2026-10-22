@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import type { EditorView as PmEditorView } from '@tiptap/pm/view';
 import { bootWebview, type Harness } from '../harness/webviewHarness';
-import { formatSlashDate } from '../../src/webview/slashcommands-date';
+import { formatSlashDate } from '@mikedown/core/slashcommands-date';
 
 /**
  * M3/M4/M6 coverage: the action map wired in `slashcommands-actions.ts`
@@ -397,7 +397,7 @@ describe('slash menu — unhandled commands (T1 regression)', () => {
     // would be bound to a stale module instance by now — re-import to reach
     // the live one `editor-main.ts` (and its `initSlashCommandActions`)
     // registered its real handler on.
-    const live = await import('../../src/webview/slashcommands');
+    const live = await import('@mikedown/core/slashcommands');
     live.setSlashCommandHandler(() => false);
     await runCommand(h, 'quote');
     expect(menuEl()).toBeNull();

@@ -11,8 +11,8 @@ import {
   escapeMarkdownRun,
   needsAmpersandEscape,
   needsLessThanEscape,
-} from '../../src/webview/markdownEscape';
-import { MarkdownText, MarkdownHardBreak } from '../../src/webview/markdownText';
+} from '@mikedown/core/markdownEscape';
+import { MarkdownText, MarkdownHardBreak } from '@mikedown/core/markdownText';
 
 // ---------------------------------------------------------------------------
 // Pure escaper

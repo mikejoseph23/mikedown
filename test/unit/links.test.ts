@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
-import { shouldAutolinkText } from '../../src/webview/linkAutolink';
+import { shouldAutolinkText } from '@mikedown/core/linkAutolink';
 
 // Replicate the githubAnchorId function from editor-main.ts
 function githubAnchorId(text: string): string {

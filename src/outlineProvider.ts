@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { githubAnchorId } from './anchoring';
+import { githubAnchorId } from '@mikedown/core/shared/anchoring';
 
 // ── Shared heading parser ───────────────────────────────────────────────────
 

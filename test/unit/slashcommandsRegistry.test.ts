@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SLASH_COMMANDS, matchCommands, extractSlashQuery } from '../../src/webview/slashcommands-registry';
+import { SLASH_COMMANDS, matchCommands, extractSlashQuery } from '@mikedown/core/slashcommands-registry';
 
 /** Runs a query and returns just the matched ids, in ranked order. */
 function idsFor(query: string, hasFrontmatter = false): string[] {

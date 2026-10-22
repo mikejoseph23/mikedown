@@ -7,7 +7,7 @@
 // toggle button can still surface it for the current session; nothing about
 // that ad-hoc visibility persists.
 
-import { countWords, readingMinutes } from '../wordCount';
+import { countWords, readingMinutes } from './shared/wordCount';
 import { formatRelativeTime } from './relativeTime';
 
 type VsApi = { postMessage(msg: any): void };

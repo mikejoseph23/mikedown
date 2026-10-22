@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { parseHeadingNumbering, type HeadingNumbering } from './headingNumbering';
+import { parseHeadingNumbering, type HeadingNumbering } from '@mikedown/core/shared/headingNumbering';
 
 export interface MikeDownSettings {
   defaultEditor: boolean;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { githubAnchorId, dedupedAnchorIdAt } from '../../src/anchoring';
+import { githubAnchorId, dedupedAnchorIdAt } from '@mikedown/core/shared/anchoring';
 
 // The Heading Rename → Fix Links feature relies on host and webview computing
 // byte-identical anchor slugs. They now share src/anchoring.ts; these tests lock
@@ -52,7 +52,7 @@ describe('no divergent githubAnchorId copies remain', () => {
   const filesThatUseSlugs = [
     'src/outlineProvider.ts',
     'src/markdownEditorProvider.ts',
-    'src/webview/editor-main.ts',
+    'packages/core/src/editor-main.ts',
   ];
 
   for (const rel of filesThatUseSlugs) {

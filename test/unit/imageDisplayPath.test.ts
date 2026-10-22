@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from '../../src/imageDisplayPath';
+import { unresolveSrcForDisplay, resolveSrcForEditor, type ImagePathPrefix } from '@mikedown/core/shared/imageDisplayPath';
 
 const docDirPrefix = 'https://abc.vscode-cdn.net/Users/me/proj/notes';
 const workspacePrefix = 'https://abc.vscode-cdn.net/Users/me/proj';

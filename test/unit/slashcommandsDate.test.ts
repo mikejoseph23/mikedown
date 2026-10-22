@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { formatSlashDate, resolveTimeZone } from '../../src/webview/slashcommands-date';
+import { formatSlashDate, resolveTimeZone } from '@mikedown/core/slashcommands-date';
 
 // This suite assumes the process time zone is pinned to UTC (see
 // vitest.config.ts `test.env.TZ`), so "local" results are deterministic.

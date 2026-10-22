@@ -18,7 +18,7 @@ import {
   resolveTargetFolder,
   resizeSiblingPath,
 } from './imagePaste';
-import { githubAnchorId } from './anchoring';
+import { githubAnchorId } from '@mikedown/core/shared/anchoring';
 import { BacklinkEntry } from './backlinkProvider';
 import { pickBestWikilinkTarget } from './wikilinkResolve';
 import { SupportPrompt, SessionTracker } from './supportPrompt';
@@ -376,7 +376,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.webview.options = {
       enableScripts: true,
       localResourceRoots: [
-        vscode.Uri.file(path.join(this.context.extensionPath, 'src', 'webview')),
+        vscode.Uri.file(path.join(this.context.extensionPath, 'packages', 'core', 'src', 'styles')),
         vscode.Uri.file(path.join(this.context.extensionPath, 'dist')),
         vscode.Uri.file(path.join(this.context.extensionPath, 'out', 'webview')),
         // Hunspell dictionaries, fetched by the webview's spell checker.
@@ -2157,7 +2157,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // CSS lives in the source webview directory (not compiled).
     // Each file gets its own <link> tag because CSS @import with relative
     // paths cannot resolve in the webview's vscode-webview: URI scheme.
-    const cssDir = path.join(this.context.extensionPath, 'src', 'webview');
+    const cssDir = path.join(this.context.extensionPath, 'packages', 'core', 'src', 'styles');
     const cssFiles = [
       'editor.css',
       'tables.css',

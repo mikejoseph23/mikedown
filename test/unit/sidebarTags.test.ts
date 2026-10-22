@@ -22,14 +22,14 @@ function fakeEditor() {
 }
 
 describe('Sidebar Tags section', () => {
-  let mod: typeof import('../../src/webview/outlineSidebar');
+  let mod: typeof import('@mikedown/core/outlineSidebar');
   let postMessageSpy: ReturnType<typeof vi.fn>;
   const section = () => document.querySelector('.tags-section') as HTMLElement;
 
   beforeEach(async () => {
     mountSidebarHost();
     vi.resetModules();
-    mod = await import('../../src/webview/outlineSidebar');
+    mod = await import('@mikedown/core/outlineSidebar');
     postMessageSpy = vi.fn();
     mod.initOutlineSidebar({
       editor: fakeEditor() as any,

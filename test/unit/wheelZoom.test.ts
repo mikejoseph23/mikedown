@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installWheelZoom, WHEEL_ZOOM_MAX } from '../../src/webview/wheelZoom';
+import { installWheelZoom, WHEEL_ZOOM_MAX } from '@mikedown/core/wheelZoom';
 
 describe('installWheelZoom', () => {
   let size: number;

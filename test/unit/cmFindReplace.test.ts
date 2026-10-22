@@ -10,7 +10,7 @@ import {
   cmClearSearch,
   cmReplaceCurrent,
   cmReplaceAll,
-} from '../../src/webview/findreplace';
+} from '@mikedown/core/findreplace';
 
 let view: EditorView;
 

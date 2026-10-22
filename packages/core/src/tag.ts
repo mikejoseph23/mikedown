@@ -3,7 +3,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import type { Editor } from '@tiptap/core';
-import { findInlineTags } from '../tagSyntax';
+import { findInlineTags } from './shared/tagSyntax';
 
 // Inline `#tag` support — decoration only.
 //

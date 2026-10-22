@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { countWords, readingMinutes } from './wordCount';
+import { countWords, readingMinutes } from '@mikedown/core/shared/wordCount';
 
 /**
  * Status bar items for a MikeDown document:
