@@ -426,12 +426,12 @@ Start: API via `~/git/quanticocreek/Run.bat` equivalent on macOS per `CLAUDE.md`
 
 **Tasks**
 
-- [ ] `npm run vsix` also bumps `packages/core` to the same version and runs `build:core`; add `npm run release:core` that publishes (or packs to the share). Document the order in `CLAUDE.md`: core publish first, then vsix.
-- [ ] `CHANGELOG.md`: entry for the extraction (no user-facing change in VS Code; note the new package).
+- [x] `npm run vsix` also bumps `packages/core` to the same version and runs `build:core`; add `npm run release:core` that publishes (or packs to the share). Document the order in `CLAUDE.md`: core publish first, then vsix.
+- [x] `CHANGELOG.md`: entry for the extraction (no user-facing change in VS Code; note the new package).
 - [ ] `~/git/lymestarter`: note the new shared control in whatever doc lists `lymestack-shared` components; bump the pinned `@mikedown/core` version from rc to the released one.
 - [ ] `~/git/quanticocreek`: same version bump; add a line to its `CLAUDE.md` pointing at `src/app/shared/mikedown/` and its LymeStarter origin.
-- [ ] Update `RESUME.md` and `BACKLOG.md` in MikeDown (follow-ups: M8/M9 if not done, a React wrapper if ever wanted, publishing dictionaries separately).
-- [ ] Final full test run in MikeDown (`test:unit`, `test:edge`, `test:integration`) green. Commit in each repo.
+- [x] Update `RESUME.md` and `BACKLOG.md` in MikeDown (follow-ups: M8/M9 if not done, a React wrapper if ever wanted, publishing dictionaries separately).
+- [x] Final full test run in MikeDown (`test:unit`, `test:edge`, `test:integration`) green. Commit in each repo.
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
 
