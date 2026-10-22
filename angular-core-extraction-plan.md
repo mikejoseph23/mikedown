@@ -26,7 +26,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 |---|---|---|---|---|
 | [M0 — Decisions and compatibility spike](#m0--decisions-and-compatibility-spike) | Opus | ✅ Complete (approved) | 10 | Gate: user approves `core-extraction-decisions.md` |
 | [M1 — Workspace restructure](#m1--workspace-restructure) | Sonnet | ✅ Complete | 7 | npm workspaces, `packages/core` |
-| [M2 — Host adapter and factory](#m2--host-adapter-and-factory) | Opus | ⬜ Not Started | — | Replaces ~50 `postMessage` sites |
+| [M2 — Host adapter and factory](#m2--host-adapter-and-factory) | Opus | 🔄 In Progress | — | Replaces ~50 `postMessage` sites |
 | [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ⬜ Not Started | — | unit + integration + hands-on |
 | [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | ⬜ Not Started | — | 81 `--vscode-*` vars → `--mikedown-*` |
 | [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | ⬜ Not Started | — | ESM + d.ts + css, `0.1.0-rc.1` |
@@ -215,14 +215,14 @@ Apply to every milestone below.
 
 **Tasks**
 
-- [ ] Add `"workspaces": ["packages/*"]` to the root `package.json`; create `packages/core/package.json` (name from M0, `"private": true` until M4, `"type": "module"`, `main`/`module`/`types`/`exports` placeholders, `peerDependencies` per M0, `license: MIT`).
-- [ ] `git mv src/webview packages/core/src` (keep every file name; `editor.js` and the `.d.ts` shims go too). Move `src/imageDisplayPath.ts`, `src/tagExtract.ts`, `src/wordCount.ts` and any other `src/*.ts` the webview bundle imports into `packages/core/src/shared/`, and re-import them from the extension host via the package path (they are the only host-side files the webview bundle used).
-- [ ] Re-create `src/webview/editor-main.ts` as a thin file that `import`s the moved entry (`packages/core/src/editor-main.ts` for now; M2 replaces this with the factory). Update `webpack.config.js` webview `entry`, `tsconfig.webview.json` `include`/`rootDir`, and the CSS path list in `markdownEditorProvider.ts#getHtmlForWebview` to `packages/core/src/styles/` (move the `.css` files into `styles/` in the same commit).
-- [ ] Move dependencies used only by the webview bundle (`@tiptap/*`, `tiptap-markdown`, `@codemirror/*`, `mermaid`, `katex`, `lowlight`, `nspell`, `markdown-it-footnote`, …) from the root `package.json` into `packages/core/package.json`; keep `katex` CSS and `dictionaries/` resolvable from the extension (`node_modules` hoisting handles the CSS path; verify the `katex.min.css` path in the provider still resolves, otherwise reference `require.resolve`).
-- [ ] Update `vitest.config.ts` so `npm run test:unit` and `npm run test:edge` still find every test; move tests that import only core modules into `packages/core/test/` and leave host-side tests in `test/unit/`. Fix import paths.
-- [ ] Update `.vscodeignore` / `vsce` packaging so `packages/core/src` and `packages/core/node_modules` are not shipped in the `.vsix` (only `out/webview/editor-main.js`, the CSS, `dictionaries/`, `katex.min.css`). Build with `npm run vsix` and check the `.vsix` size is within 10% of `mikedown-editor-2.14.2.vsix`.
-- [ ] Update `CLAUDE.md` (architecture table, file paths) and `README.md` developer section for the new layout.
-- [ ] `npm run compile`, `npm run lint`, `npm run test:unit`, `npm run test:edge` green. Commit.
+- [x] Add `"workspaces": ["packages/*"]` to the root `package.json`; create `packages/core/package.json` (name from M0, `"private": true` until M4, `"type": "module"`, `main`/`module`/`types`/`exports` placeholders, `peerDependencies` per M0, `license: MIT`).
+- [x] `git mv src/webview packages/core/src` (keep every file name; `editor.js` and the `.d.ts` shims go too). Move `src/imageDisplayPath.ts`, `src/tagExtract.ts`, `src/wordCount.ts` and any other `src/*.ts` the webview bundle imports into `packages/core/src/shared/`, and re-import them from the extension host via the package path (they are the only host-side files the webview bundle used).
+- [x] Re-create `src/webview/editor-main.ts` as a thin file that `import`s the moved entry (`packages/core/src/editor-main.ts` for now; M2 replaces this with the factory). Update `webpack.config.js` webview `entry`, `tsconfig.webview.json` `include`/`rootDir`, and the CSS path list in `markdownEditorProvider.ts#getHtmlForWebview` to `packages/core/src/styles/` (move the `.css` files into `styles/` in the same commit).
+- [x] Move dependencies used only by the webview bundle (`@tiptap/*`, `tiptap-markdown`, `@codemirror/*`, `mermaid`, `katex`, `lowlight`, `nspell`, `markdown-it-footnote`, …) from the root `package.json` into `packages/core/package.json`; keep `katex` CSS and `dictionaries/` resolvable from the extension (`node_modules` hoisting handles the CSS path; verify the `katex.min.css` path in the provider still resolves, otherwise reference `require.resolve`).
+- [x] Update `vitest.config.ts` so `npm run test:unit` and `npm run test:edge` still find every test; move tests that import only core modules into `packages/core/test/` and leave host-side tests in `test/unit/`. Fix import paths.
+- [x] Update `.vscodeignore` / `vsce` packaging so `packages/core/src` and `packages/core/node_modules` are not shipped in the `.vsix` (only `out/webview/editor-main.js`, the CSS, `dictionaries/`, `katex.min.css`). Build with `npm run vsix` and check the `.vsix` size is within 10% of `mikedown-editor-2.14.2.vsix`.
+- [x] Update `CLAUDE.md` (architecture table, file paths) and `README.md` developer section for the new layout.
+- [x] `npm run compile`, `npm run lint`, `npm run test:unit`, `npm run test:edge` green. Commit.
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
 
