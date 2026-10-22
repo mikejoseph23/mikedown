@@ -258,10 +258,10 @@ Apply to every milestone below.
 
 **Automated**
 
-- [ ] Add `packages/core/test/factory.test.ts` (jsdom): `createMikeDownEditor` with `NoopHost` mounts into a bare `<div>`, `setMarkdown` then `getMarkdown` round-trips the `test/fixtures` documents used by `roundtrip.test.ts`, `onChange` fires once per user edit with `pristine: false`, `destroy()` leaves no listeners on `window` (spy on `addEventListener`/`removeEventListener` and assert the counts match) and removes all child nodes.
-- [ ] Add `packages/core/test/host-gating.test.ts`: with `uploadImage` absent, pasting an image is a no-op and `/image` is missing from the slash menu; with `printDocument` absent the print toolbar button is not rendered; two editors on one page keep independent state and toolbar active states.
-- [ ] Add `test/unit/vscodeHost.test.ts`: every `VsCodeHost` method posts exactly the message shape documented in the shell header (snapshot the payloads).
-- [ ] `npm run test:unit`, `npm run test:edge`, `npm run test:integration` all green. Record counts in the Progress Log.
+- [x] Add `packages/core/test/factory.test.ts` (jsdom): `createMikeDownEditor` with `NoopHost` mounts into a bare `<div>`, `setMarkdown` then `getMarkdown` round-trips the `test/fixtures` documents used by `roundtrip.test.ts`, `onChange` fires once per user edit with `pristine: false`, `destroy()` leaves no listeners on `window` (spy on `addEventListener`/`removeEventListener` and assert the counts match) and removes all child nodes.
+- [x] Add `packages/core/test/host-gating.test.ts`: with `uploadImage` absent, pasting an image is a no-op and `/image` is missing from the slash menu; with `printDocument` absent the print toolbar button is not rendered; two editors on one page keep independent state and toolbar active states.
+- [x] Add `test/unit/vscodeHost.test.ts`: every `VsCodeHost` method posts exactly the message shape documented in the shell header (snapshot the payloads).
+- [x] `npm run test:unit`, `npm run test:edge`, `npm run test:integration` all green. Record counts in the Progress Log.
 
 **Hands-on (user, about 10 minutes)**
 
