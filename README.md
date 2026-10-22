@@ -282,6 +282,10 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 
 MikeDown is open source under the [MIT License](LICENSE.md). Bug reports, feature requests, and contributions are welcome on [GitHub](https://github.com/mikejoseph23/mikedown).
 
+### Repository layout
+
+The repo is an npm workspace. The editor sources live in `packages/core` (`@mikedown/core`); the VS Code extension host is `src/`. Run `npm install` at the root, then `npm run compile`, `npm run test:unit` and `npm run test:edge`. Editor styles are in `packages/core/src/styles/`, and core-only tests are in `packages/core/test/`.
+
 ## License
 
 [MIT](LICENSE.md)

@@ -18,7 +18,7 @@ npm run test:integration    # @vscode/test-electron — boots real VS Code again
 npm run test:edge           # vitest on test/edge-cases + test/performance
 
 # Single unit test (file or by name)
-npx vitest run test/unit/links.test.ts
+npx vitest run test/unit/links.test.ts   # core-only tests: packages/core/test/
 npx vitest run -t 'highlight round-trip'
 ```
 
@@ -30,8 +30,10 @@ This is a VS Code custom editor extension. It compiles into **two separate bundl
 
 | Bundle | Target | Entry | Out | tsconfig |
 | --- | --- | --- | --- | --- |
-| Extension host | `node` | `src/extension.ts` | `dist/extension.js` | `tsconfig.json` (excludes `src/webview`) |
-| Webview | `web` | `src/webview/editor-main.ts` | `out/webview/editor-main.js` | `tsconfig.webview.json` (DOM lib, transpile-only) |
+| Extension host | `node` | `src/extension.ts` | `dist/extension.js` | `tsconfig.json` (excludes `src/webview`; includes `packages/core/src/shared`) |
+| Webview | `web` | `src/webview/editor-main.ts` (thin; imports `packages/core/src/editor-main.ts`) | `out/webview/editor-main.js` | `tsconfig.webview.json` (DOM lib, transpile-only) |
+
+The repo is an npm workspace (`"workspaces": ["packages/*"]`). The editor sources live in `packages/core` (`@mikedown/core`, private until M4 of `angular-core-extraction-plan.md`); the VS Code extension at the root consumes them.
 
 The extension host has zero DOM types. The webview has zero `vscode` Node APIs. They only communicate via `postMessage`.
 
@@ -43,9 +45,11 @@ The extension host has zero DOM types. The webview has zero `vscode` Node APIs. 
 - `settings.ts` — reads `mikedown.*` from `vscode.workspace.getConfiguration`. **If you add a setting, also register it in** `package.json#contributes.configuration` **AND wire it into the in-editor Settings modal** (see Settings rule below).
 - `backlinkProvider.ts` / `outlineProvider.ts` — workspace-wide markdown link index + outline symbol provider.
 - `export.ts` — HTML/PDF export by reusing the webview's rendered HTML (Chromium print).
-- `imageDisplayPath.ts` — converts between on-disk paths and webview-resolvable URIs. Used on **both sides** (only file in src/ imported by the webview bundle).
+- Host-and-webview pure modules (`imageDisplayPath`, `tagExtract`, `tagSyntax`, `wordCount`, `anchoring`, `frontmatterYaml`, `headingNumbering`) live in `packages/core/src/shared/`. The host imports them as `@mikedown/core/shared/<name>` (alias in `tsconfig.json`, `webpack.config.js` and `vitest.config.ts`).
 
-### Webview (`src/webview/`)
+### Webview (`packages/core/src/`)
+
+Stylesheets are in `packages/core/src/styles/` (the CSS list in `markdownEditorProvider.ts#getWebviewContent` points there). Core-only unit tests are in `packages/core/test/`; host-side tests stay in `test/unit/`. `.vscodeignore` ships only `out/webview/editor-main.js`, the CSS, `dictionaries/` and `katex.min.css`. Webview-only npm dependencies are declared in `packages/core/package.json`; the root keeps `katex` so its CSS ships in the `.vsix`.
 
 - `editor-main.ts` — \~3800 LOC. Constructs the TipTap editor (ProseMirror under the hood) with `tiptap-markdown` for parse/serialize. Also constructs a CodeMirror 6 instance for source mode (`Cmd+/` toggles). Wires every UI extension below. Sets CSS custom properties (`--mikedown-font-*`, `--mikedown-content-width`, etc.) from settings broadcasts.
 - TipTap extensions (custom): `smartpaste.ts`, `imagepaste.ts`, `callout-node.ts` (GFM `[!NOTE]` admonitions), `emoji.ts` + `emojiautocomplete.ts` + `emojipicker.ts`, `highlight.ts` (`==text==`), `htmlanchor.ts`, `linkAutolink.ts`, `tablecheckbox.ts`, `taskitem-drag.ts`, `findreplace.ts`.
@@ -54,7 +58,7 @@ The extension host has zero DOM types. The webview has zero `vscode` Node APIs. 
 
 ### Webview ↔ extension protocol
 
-Message shapes are documented at the top of `src/webview/editor-main.ts`. Key flows:
+Message shapes are documented at the top of `packages/core/src/editor-main.ts`. Key flows:
 
 - Host → webview: `update` (full markdown), `command` (toolbar/keybinding), `settings` (broadcast on config change), `backlinks`, `properties`, `linkSuggestions`, `imagePathPrefix`.
 - Webview → host: `ready`, `edit` (full markdown back), `stats` (plain text for status bar), `saveSettings`, `openLink`, `savePastedImage` (binary → host writes file → host returns inserted path).
@@ -75,7 +79,7 @@ Any new `mikedown.*` setting must be added in **three places**:
 
 1. `package.json#contributes.configuration.properties` (schema + default).
 2. `src/settings.ts` (reader).
-3. The in-editor Settings modal in `src/webview/editor-main.ts#showSettingsModal` — the toolbar gear button is the primary UX, the VS Code settings UI is secondary.
+3. The in-editor Settings modal in `packages/core/src/editor-main.ts#showSettingsModal` — the toolbar gear button is the primary UX, the VS Code settings UI is secondary.
 
 ## Repo conventions
 
