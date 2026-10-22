@@ -1362,7 +1362,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     );
     const tagsField = makeCheckboxRow(
       'Tags',
-      'Highlight inline #tags, suggest workspace tags as you type #, and list them in the sidebar. Cmd/Ctrl+click a tag to find its documents.',
+      'Highlight inline #tags and list them in the sidebar.'
+        + (tagsAvailable ? ' Known tags are suggested as you type #.' : '')
+        + (host.openTag ? ' Cmd/Ctrl+click a tag to find other documents that use it.' : ''),
       currentTagsEnabled,
     );
     const linkClickField = makeSelectRow<'navigateCurrentTab' | 'openNewTab' | 'showContextMenu'>(
@@ -1481,7 +1483,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // ── Spelling tab fields
     const spellEnabledField = makeCheckboxRow(
       'Check spelling',
-      'Underline misspelled words in the editor. VS Code turns off the browser’s own spell checker, so MikeDown ships its own dictionary.',
+      'Underline misspelled words in the editor, using the dictionary that ships with MikeDown.',
       currentSpellCheckEnabled,
     );
     const spellLanguageField = makeSelectRow<SpellCheckLanguage>(
