@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MikeDown core demo</title>
-  <!-- Built CSS: run `npm run build:css -w packages/core` first. -->
+  <!-- Built CSS: `npm run demo -w packages/core` builds the package first. -->
   <link rel="stylesheet" href="../dist/styles.css">
   <style>
     /* A neutral host page in the spirit of an Angular Material app. */
@@ -25,7 +25,7 @@
     .demo-bar label { font-size: 0.875rem; display: inline-flex; gap: 6px; align-items: center; }
     .demo-bar select, .demo-bar button { font: inherit; font-size: 0.875rem; }
     .demo-bar button { background: #ff4081; color: #fff; border: 0; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
-    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    main { max-width: 1400px; margin: 24px auto; padding: 0 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
     .demo-card {
       background: #fff; border-radius: 4px; overflow: hidden;
       box-shadow: 0 2px 1px -1px rgba(0,0,0,.2), 0 1px 1px 0 rgba(0,0,0,.14), 0 1px 3px 0 rgba(0,0,0,.12);
@@ -46,13 +46,18 @@
       <select id="base"><option>14</option><option selected>16</option></select>
     </label>
     <button id="settings" type="button">Settings</button>
+    <button id="log" type="button">Log markdown</button>
   </div>
   <main>
     <div class="demo-card">
-      <h2>Knowledge base article</h2>
+      <h2>Editor A: knowledge base article</h2>
       <div id="editor"></div>
     </div>
+    <div class="demo-card">
+      <h2>Editor B: meeting notes</h2>
+      <div id="editor-b"></div>
+    </div>
   </main>
-  <script type="module" src="./main.ts"></script>
+  <script type="module" src="./demo.ts"></script>
 </body>
 </html>
