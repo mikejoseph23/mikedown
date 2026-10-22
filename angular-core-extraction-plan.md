@@ -34,7 +34,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ✅ Complete | 12 | `lymestack-shared/mikedown/`; demo `/dev/markdown-editor` |
 | [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ✅ Complete (signed off) | 8 | TestBed CVA specs + hands-on |
 | [M6 — Quantico Creek legacy app integration](#m6--quantico-creek-legacy-app-integration) | Opus | ✅ Complete | 16 | KB article editor; Material token mapping |
-| [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | 🔄 In Progress | — | hands-on |
+| [T4 — Quantico Creek hands-on](#t4--quantico-creek-hands-on) | Sonnet | ✅ Automated done, hands-on pending | — | hands-on |
 | [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | 🔄 Part 1 done (docs + release scripts); version bumps pending | — | vsix + core publish in one step |
 | [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | ⬜ Not Started | — | API endpoint + `uploadImage` host hook |
 | [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional) | Sonnet | ✅ Complete | 3 | Angular 19; lead-panel notes editor |
@@ -408,7 +408,7 @@ Start: `cd ~/git/lymestarter/ng-app && npm start` and the API per the LymeStarte
 
 **Automated**
 
-- [ ] If the target component has a spec, extend it: the form field is populated from the loaded entity and the save payload carries the edited markdown. `ng test --watch=false` green.
+- [x] If the target component has a spec, extend it: the form field is populated from the loaded entity and the save payload carries the edited markdown. `ng test --watch=false` green.
 
 **Hands-on (user, about 10 minutes)**
 
@@ -526,6 +526,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ---
 
 ## Progress Log / Notes
+
+**2026-10-22 19:05** - T4 automated part done (Quantico Creek `master` `06af745`, not pushed). New `kb-article-editor.component.spec.ts` checks the markdown field is populated from the loaded article and the save payload carries the edited markdown. Specs 115 to 117, all green. CommonJS build warnings silenced via `allowedCommonJsDependencies`. No `required` validator on markdown, so the required-field hands-on step does not apply. Hands-on recipe in `.orchestrator/angular-core-extraction-plan/worker-summary-t4.md`.
 
 **2026-10-22 18:57** - M6 complete (Quantico Creek `master` `0cc63c4`, `2db4ce1`, `a23f051`, `58cf5f7`, not pushed). The KB article editor (`/admin/knowledge-base/edit/:id`) now uses `<lyme-markdown-editor>` through `[(ngModel)]="model.markdown"`. The save payload is unchanged and the ngx-markdown preview stays. The wrapper lives in `src/app/shared/mikedown/` behind a new `MikeDownModule`, with constructor injection, `.dark-theme` shell detection and tokens from the Material theme (no `color-mix()`). Only `skipLibCheck` was needed. Production build green, with the editor in the lazy KB chunk (632 kB transfer). Specs went from 105 to 115, all green, and eslint shows no new problems. Headless check against a mocked API passed. All 15 shipped KB articles round-trip with their `<!-- -->` notes intact; two tables normalize spacing. T4 note: the markdown field has no `required` validator. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m6.md`.
 
