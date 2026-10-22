@@ -28,7 +28,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M1 — Workspace restructure](#m1--workspace-restructure) | Sonnet | ✅ Complete | 7 | npm workspaces, `packages/core` |
 | [M2 — Host adapter and factory](#m2--host-adapter-and-factory) | Opus | ✅ Complete | 31 | Replaces ~50 `postMessage` sites |
 | [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ✅ Complete (signed off) | 11 | unit + integration + hands-on; gap-fill added 9 integration tests |
-| [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | 🔄 In Progress | — | 81 `--vscode-*` vars → `--mikedown-*` |
+| [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | ✅ Complete | 31 | 81 `--vscode-*` vars → 54 `--mikedown-*` tokens |
 | [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | ⬜ Not Started | — | ESM + d.ts + css, `0.1.0-rc.1` |
 | [T2 — Core package tests](#t2--core-package-tests) | Sonnet | ⬜ Not Started | — | demo page hands-on, bundle checks |
 | [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ⬜ Not Started | — | `lymestack-shared/mikedown/` |
@@ -281,13 +281,13 @@ Start: `cd ~/git/mikedown && npm run dev` (opens a dev VS Code on `test/workspac
 
 **Tasks**
 
-- [ ] Inventory the 81 `--vscode-*` properties used across `packages/core/src/styles/*.css` (`grep -oh -- '--vscode-[a-zA-Z-]*' | sort -u`) and group them into a token set of roughly 25–35 `--mikedown-*` names (surface, surface-raised, text, text-muted, border, accent, accent-text, selection, code-bg, link, danger, scrollbar, focus-ring, shadow, radius, font-ui, font-mono …). Write the mapping table into `packages/core/src/styles/tokens.md`.
-- [ ] Create `packages/core/src/styles/tokens.css`: `:root` light defaults and `[data-mikedown-theme="dark"]` dark defaults, plus `@media (prefers-color-scheme: dark)` when `theme: 'auto'`. Pick values that read well next to Angular Material's default indigo/pink and a neutral gray page: generous line height, 1px hairline borders, soft focus ring, no hard black. Reference the look of Apple Notes and Notion over VS Code.
-- [ ] Rewrite every `var(--vscode-…)` in the core CSS to `var(--mikedown-…)`. Concatenate the 20 CSS files into `styles.css` at build time (order matters: editor, tables, images, codeblocks, mermaid, math, footnotes, links, findreplace, contextmenu, tablepicker, tabledrag, tasklist, linkautocomplete, toolbar-dropdown, outline-sidebar, emojipicker, slashcommands, spellcheck, settings-modal). Scope every selector under `.mikedown-root` so the styles cannot leak into a host app's page.
-- [ ] Create `src/webview/vscode-theme.css` (VS Code shell only) that sets each `--mikedown-*` token from the matching `--vscode-*` variable, and load it after `styles.css` in `getHtmlForWebview`. Verify the three VS Code themes used in `manual-test-script.md` look unchanged.
-- [ ] `katex.min.css`: import it from `styles.css` via the package (`@import 'katex/dist/katex.min.css'`) so consumers get it automatically; keep the VS Code shell loading its own copy (CSP).
-- [ ] Settings modal and toolbar: audit spacing, icon sizes and hover states at 14px and 16px base font sizes outside VS Code (the demo page in M4 is the test bed; stub it early with a plain `index.html` if needed). Fix anything that depended on VS Code's compact density.
-- [ ] `npm run compile`, tests green. Commit.
+- [x] Inventory the 81 `--vscode-*` properties used across `packages/core/src/styles/*.css` (`grep -oh -- '--vscode-[a-zA-Z-]*' | sort -u`) and group them into a token set of roughly 25–35 `--mikedown-*` names (surface, surface-raised, text, text-muted, border, accent, accent-text, selection, code-bg, link, danger, scrollbar, focus-ring, shadow, radius, font-ui, font-mono …). Write the mapping table into `packages/core/src/styles/tokens.md`.
+- [x] Create `packages/core/src/styles/tokens.css`: `:root` light defaults and `[data-mikedown-theme="dark"]` dark defaults, plus `@media (prefers-color-scheme: dark)` when `theme: 'auto'`. Pick values that read well next to Angular Material's default indigo/pink and a neutral gray page: generous line height, 1px hairline borders, soft focus ring, no hard black. Reference the look of Apple Notes and Notion over VS Code.
+- [x] Rewrite every `var(--vscode-…)` in the core CSS to `var(--mikedown-…)`. Concatenate the 20 CSS files into `styles.css` at build time (order matters: editor, tables, images, codeblocks, mermaid, math, footnotes, links, findreplace, contextmenu, tablepicker, tabledrag, tasklist, linkautocomplete, toolbar-dropdown, outline-sidebar, emojipicker, slashcommands, spellcheck, settings-modal). Scope every selector under `.mikedown-root` so the styles cannot leak into a host app's page.
+- [x] Create `src/webview/vscode-theme.css` (VS Code shell only) that sets each `--mikedown-*` token from the matching `--vscode-*` variable, and load it after `styles.css` in `getHtmlForWebview`. Verify the three VS Code themes used in `manual-test-script.md` look unchanged.
+- [x] `katex.min.css`: import it from `styles.css` via the package (`@import 'katex/dist/katex.min.css'`) so consumers get it automatically; keep the VS Code shell loading its own copy (CSP).
+- [x] Settings modal and toolbar: audit spacing, icon sizes and hover states at 14px and 16px base font sizes outside VS Code (the demo page in M4 is the test bed; stub it early with a plain `index.html` if needed). Fix anything that depended on VS Code's compact density.
+- [x] `npm run compile`, tests green. Commit.
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
 
@@ -527,6 +527,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-22 17:41** - M3 complete. The core CSS reads only `--mikedown-*` tokens (54, mapped in `packages/core/src/styles/tokens.md`; more than the 25 to 35 aimed for, to keep the VS Code themes unchanged) and every selector is scoped under `.mikedown-root` or the new `.mikedown-portal` overlay container. `tokens.css` has light, dark and auto defaults; `src/webview/vscode-theme.css` maps the VS Code theme onto the tokens and holds the VS Code-only rules. Theme is `data-mikedown-theme` on the root; font, width and sidebar state moved off `<html>`/`<body>`. `npm run build:css -w packages/core` writes `dist/styles.css` (with the KaTeX import) and `dist/tokens.css`; `npm run demo -w packages/core` opens a stub demo. A headless-Chrome computed-style diff of the webview in five themes shows only the documented merges. Unit 907 (2 todo), edge 22, integration 47, lint 0 errors. Found a pre-existing bug for routing: callout bodies duplicate on parse (`> [!NOTE]\n> Text` loads as "TextText", present at the M1 tip). Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m3.md`.
 
 **2026-10-22 16:16** - T1 automated block complete; hands-on pending (user). Added `packages/core/test/factory.test.ts`, `packages/core/test/host-gating.test.ts` and `test/unit/vscodeHost.test.ts`. Counts: unit 859 to 906 passed (2 todo), edge 22, integration 38, lint 0 errors. Found and fixed one core bug: a second `setSlashHiddenCommands` call made `/properties` show with the sidebar off. Removed stray `tagExtract.ts-E`. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-t1.md`.
 
