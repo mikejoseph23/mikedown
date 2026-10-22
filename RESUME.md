@@ -6,11 +6,12 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 
 ## Current Status
 
-**New initiative planned, not started: extract the webview editor into `@mikedown/core` and wrap it for Angular.** Plan is in `angular-core-extraction-plan.md` (uncommitted, repo root). 2.14.2 is live on the Marketplace; `main` is 3 commits ahead of `origin/main` and tag `v2.14.2` is not pushed.
+**Core extraction mostly built (2026-10-22).** The editor now lives in `packages/core` (`@mikedown/core`, version `0.1.0-rc.1`, built with tsup). The VS Code extension consumes it through a webpack alias. The Angular wrapper (M5) is in progress in `~/git/lymestarter`. M7 part 1 (release scripts, CHANGELOG, these docs) is done. Plan: `angular-core-extraction-plan.md`.
 
-- The plan's first milestone (M0) is a decisions file + Angular 14 / TS 4.7 compatibility spike that Mike approves before any code moves.
-- `npm whoami` is not logged in; needed before M4 (publish).
-- Push still needs Mike's say-so: `git push origin main v2.14.2`.
+- The callout body duplication fix (f1befc5) is in `[Unreleased]`. It affects 2.14.2, so cut **2.14.3** soon.
+- `npm whoami` is not logged in, so `@mikedown/core` is not published. Run `npm login`, then `npm run release:core` (core first, then `npm run vsix`; see CLAUDE.md Releasing).
+- `/Volumes/Storage/LymeStack/packages/npm/` was not writable from agent sessions; tarballs fall back to `.orchestrator/.../artifacts/`.
+- Push still needs Mike's say-so (`main` and tag `v2.14.2` are unpushed).
 
 ## What's Done
 
@@ -19,14 +20,15 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 
 ## What's Next
 
-1. **Commit the plan** (`angular-core-extraction-plan.md`) if Mike hasn't.
-2. **Run M0** from the plan (Opus): check the `@mikedown` npm scope, spike TipTap 3 under Angular 14 / TS 4.7 in the scratchpad, pick the core build tool (default tsup), produce the message-disposition table, find the Quantico Creek target screen, write `core-extraction-decisions.md`. **Stop for Mike's approval** before M1.
-3. Then M1 (workspace restructure) → M2 (host adapter + `createMikeDownEditor`) → T1, strictly sequential in this repo. See the plan's Parallel Development section.
-4. Carry-overs: push `main` + `v2.14.2`; hand-check #9/#10 in the dev host; review re-checks 2026-10-26 and 2026-11-25 (`BACKLOG.md`); `planning/kevin-feedback-aug-08.md` M3/M9.
+1. `npm login`, then `npm run release:core` to publish the rc (or the stable version after vsix sync).
+2. Finish M5 (LymeStarter wrapper), M6 (Quantico Creek), then the version bumps of the pinned `@mikedown/core` in both apps (M7 part 2).
+3. Release 2.14.3 (callout fix). Note `npm run vsix` now also sets `packages/core` to the same version.
+4. Optional: M8 (image upload API for Quantico Creek), M9.
+5. Carry-overs: hand-check #9/#10 in the dev host; review re-checks 2026-10-26 and 2026-11-25 (`BACKLOG.md`); `planning/kevin-feedback-aug-08.md` M3/M9.
 
 ## Planning Docs
 
-- `angular-core-extraction-plan.md` — **active.** Core package extraction + Angular wrapper + Quantico Creek integration. M0 not started.
+- `angular-core-extraction-plan.md` — **active.** Core package extraction + Angular wrapper + Quantico Creek integration. M0 to M4, T1, T2, M7 part 1 done; M5/M6 pending.
 - `slash-commands-planning.md` — complete (2.11.0); ready to archive into `docs/`.
 - `planning/kevin-feedback-aug-08.md` — M3 and M9 still open.
 - `planning/HEADING-RENAME-LINKS.md`, `planning/IMAGE-PASTE.md` — shipped features' plans.
@@ -36,9 +38,10 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 ## Key File Paths
 
 - `angular-core-extraction-plan.md` — the plan; "Target architecture" has the intended `MikeDownHost` / `createMikeDownEditor` API
-- `src/webview/editor-main.ts` — 5,712 lines; `acquireVsCodeApi` at ~216, `postMessage` sites throughout, inbound message switch near the end; header documents every message shape
-- `src/markdownEditorProvider.ts` — host side; `getHtmlForWebview` (~2160) is the DOM/CSS shell the core will own
-- `src/webview/*.css` — 20 stylesheets using `--vscode-*` vars (M3 tokenizes)
+- `packages/core/src/editor-main.ts` — editor entry; header documents every message shape. `src/webview/editor-main.ts` is a thin import.
+- `scripts/release-core.sh`, `scripts/sync-core-version.js` — core publish/pack and version sync
+- `src/markdownEditorProvider.ts` — VS Code host side
+- `packages/core/src/styles/` — stylesheets (tokenized in M3)
 - `webpack.config.js` — the `tiptap-markdown` ES alias and `mainFields` ordering to preserve
 - `~/git/lymestarter/lymestack-ownership.json`, `framework-package-design.md` — how LymeStack core folders/packages are owned and fed
 - `~/git/quanticocreek/CLAUDE.md`, `agents.md` — target app conventions
@@ -54,7 +57,7 @@ MikeDown is a VS Code custom editor extension: a WYSIWYG markdown editor built o
 ## Any Other Notes
 
 - **Launch the dev host with F5 or `npm run dev`** (no debugger). Cmd+R the dev window after every `npm run compile`.
-- Patch release: `npm version patch --no-git-tag-version && npm run package && npx vsce package`, rename CHANGELOG `[Unreleased]`, commit `Release X.Y.Z`, lightweight tag `vX.Y.Z`. (`npm run vsix` always patch-bumps.) M7 of the plan adds a core publish step to this.
+- Patch release: `npm version patch --no-git-tag-version && npm run package && npx vsce package`, rename CHANGELOG `[Unreleased]`, commit `Release X.Y.Z`, lightweight tag `vX.Y.Z`. (`npm run vsix` always patch-bumps.) Core publish goes first; see CLAUDE.md Releasing.
 - No Marketplace PAT is stored; Mike publishes by uploading the `.vsix` by hand.
 - Bare `vitest run` picks up integration files and fails — use `npm run test:unit` / `test:edge` / `test:integration`.
 - Quick GFM render check without a browser: `gh api markdown -f mode=gfm -f text='…'`.

@@ -29,6 +29,16 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 - ~~**Floating promises** — 84 `@typescript-eslint/no-floating-promises` findings.~~ ✅ Done, 0 remaining (86f22b7): settings writes go through `updateSetting` (reports failures), `handleExternalChange` has a `.catch`, fire-and-forget `postMessage` / toasts are marked `void`. Still open: ~945 webview type-safety warnings (`no-unsafe-*`, `no-explicit-any`) downgraded from errors in 2.11.0.
 
+## Core extraction follow-ups
+
+- **M8 / M9** of `angular-core-extraction-plan.md`: Quantico Creek image upload API (M8, optional) and the remaining M9 work.
+- **Patch release 2.14.3** for the callout body duplication fix (f1befc5, in `[Unreleased]`).
+- **React wrapper** around `@mikedown/core`, only if ever wanted.
+- **Publish dictionaries separately** (e.g. `@mikedown/dictionaries`) instead of copying them into core `dist`.
+- **Content width setting is not persisted by VS Code** (setting round-trip gap in the host).
+- **Shared module singletons across two editors**: the portal mirrors the last-focused editor and the Mermaid theme init is global.
+- **Fixed-position overlays under transformed ancestors** misplace when a host wraps the editor in a CSS transform.
+
 ## Product ideas
 
 - **Standalone desktop app for writers** — a side-car product built on the MikeDown editor core, for writers who don't live in VS Code. The market is crowded, so do market research before committing; could be a good addition to the portfolio if it's refined enough. Key differentiator idea: built-in version control with two modes:
