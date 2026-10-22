@@ -18,14 +18,14 @@
     body.demo-dark { background: #303030; color: #fff; }
     .demo-bar {
       display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-      padding: 0 16px; height: 56px; background: #3f51b5; color: #fff;
+      padding: 8px 16px; min-height: 56px; box-sizing: border-box; background: #3f51b5; color: #fff;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
     .demo-bar h1 { font-size: 1.25rem; font-weight: 500; margin: 0 16px 0 0; }
     .demo-bar label { font-size: 0.875rem; display: inline-flex; gap: 6px; align-items: center; }
     .demo-bar select, .demo-bar button { font: inherit; font-size: 0.875rem; }
     .demo-bar button { background: #ff4081; color: #fff; border: 0; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
-    main { max-width: 1400px; margin: 24px auto; padding: 0 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+    main { max-width: 1400px; margin: 24px auto; padding: 0 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; align-items: start; }
     .demo-card {
       background: #fff; border-radius: 4px; overflow: hidden;
       box-shadow: 0 2px 1px -1px rgba(0,0,0,.2), 0 1px 1px 0 rgba(0,0,0,.14), 0 1px 3px 0 rgba(0,0,0,.12);
@@ -33,7 +33,7 @@
     body.demo-dark .demo-card { background: #424242; }
     .demo-card h2 { font-size: 1rem; font-weight: 500; margin: 0; padding: 16px 16px 8px; }
     /* The editor fills its container, so the container needs a height. */
-    #editor { height: 560px; }
+    #editor, #editor-b { height: 560px; }
   </style>
 </head>
 <body>
