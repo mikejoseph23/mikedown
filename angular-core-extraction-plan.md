@@ -29,7 +29,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M2 — Host adapter and factory](#m2--host-adapter-and-factory) | Opus | ✅ Complete | 31 | Replaces ~50 `postMessage` sites |
 | [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ✅ Complete (signed off) | 11 | unit + integration + hands-on; gap-fill added 9 integration tests |
 | [M3 — Theme tokens and CSS packaging](#m3--theme-tokens-and-css-packaging) | Opus | ✅ Complete | 31 | 81 `--vscode-*` vars → 54 `--mikedown-*` tokens |
-| [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | 🔄 In Progress | — | ESM + d.ts + css, `0.1.0-rc.1` |
+| [M4 — Core package build, demo and publish](#m4--core-package-build-demo-and-publish) | Sonnet | ✅ Complete (publish pending npm login) | 6 | ESM + d.ts + css, `0.1.0-rc.1` |
 | [T2 — Core package tests](#t2--core-package-tests) | Sonnet | ⬜ Not Started | — | demo page hands-on, bundle checks |
 | [M5 — Angular wrapper in LymeStarter](#m5--angular-wrapper-in-lymestarter) | Opus | ⬜ Not Started | — | `lymestack-shared/mikedown/` |
 | [T3 — Wrapper tests](#t3--wrapper-tests) | Sonnet | ⬜ Not Started | — | TestBed CVA specs + hands-on |
@@ -301,14 +301,14 @@ Start: `cd ~/git/mikedown && npm run dev` (opens a dev VS Code on `test/workspac
 
 **Tasks**
 
-- [ ] Add the build tool chosen in M0 (default: `tsup`) to `packages/core` with `entry: src/index.ts`, `format: ['esm']`, `dts: true`, `sourcemap: true`, externals per M0, `tiptap-markdown` bundled from its ES entry via an alias/`noExternal`. Add a CSS step (`postcss-import` or a 10-line Node script) that concatenates and scopes the stylesheets into `dist/styles.css`.
-- [ ] `package.json` `exports`: `"."` → `dist/index.js` + types, `"./styles.css"`, `"./tokens.css"`; `files: ["dist", "README.md", "LICENSE.md"]`; `sideEffects: ["*.css"]`; remove `"private"`.
-- [ ] Dictionaries: expose `dictionaries/en_US.aff|dic` under `dist/dictionaries/` and document `settings.spellcheckDictionaryUrl` pointing at them (consumers copy them to their assets).
-- [ ] Add `packages/core/demo/index.html` plus `demo.ts` (served by `vite` dev server or `npx serve` after build): two editors side by side, a theme toggle, a "log markdown" button, an `uploadImage` stub returning an object URL. No Angular.
-- [ ] Add `README.md` for the package: install, minimal example, host interface, features table, theming, CSP note (mermaid), peer dependency list and versions.
-- [ ] Root scripts: `build:core`, `demo:core`; make `npm run compile` for the extension consume **source** (webpack alias `@mikedown/core` → `packages/core/src`) so VS Code development keeps hot rebuilds and never depends on a published version.
-- [ ] Publish: `npm login` is the user's step (prompt them, do not attempt credentials). Then `npm publish -w packages/core --tag rc --access public` (or `npm pack` to `/Volumes/Storage/LymeStack/packages/npm/` per M0). Record the version in the Progress Log.
-- [ ] Commit.
+- [x] Add the build tool chosen in M0 (default: `tsup`) to `packages/core` with `entry: src/index.ts`, `format: ['esm']`, `dts: true`, `sourcemap: true`, externals per M0, `tiptap-markdown` bundled from its ES entry via an alias/`noExternal`. Add a CSS step (`postcss-import` or a 10-line Node script) that concatenates and scopes the stylesheets into `dist/styles.css`.
+- [x] `package.json` `exports`: `"."` → `dist/index.js` + types, `"./styles.css"`, `"./tokens.css"`; `files: ["dist", "README.md", "LICENSE.md"]`; `sideEffects: ["*.css"]`; remove `"private"`.
+- [x] Dictionaries: expose `dictionaries/en_US.aff|dic` under `dist/dictionaries/` and document `settings.spellcheckDictionaryUrl` pointing at them (consumers copy them to their assets).
+- [x] Add `packages/core/demo/index.html` plus `demo.ts` (served by `vite` dev server or `npx serve` after build): two editors side by side, a theme toggle, a "log markdown" button, an `uploadImage` stub returning an object URL. No Angular.
+- [x] Add `README.md` for the package: install, minimal example, host interface, features table, theming, CSP note (mermaid), peer dependency list and versions.
+- [x] Root scripts: `build:core`, `demo:core`; make `npm run compile` for the extension consume **source** (webpack alias `@mikedown/core` → `packages/core/src`) so VS Code development keeps hot rebuilds and never depends on a published version.
+- [ ] Publish: `npm login` is the user's step (prompt them, do not attempt credentials). Then `npm publish -w packages/core --tag rc --access public` (or `npm pack` to `/Volumes/Storage/LymeStack/packages/npm/` per M0). Record the version in the Progress Log. **Pending:** npm not logged in; packed `0.1.0-rc.1` instead (see worker-summary-m4.md).
+- [x] Commit.
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
 
@@ -545,5 +545,7 @@ Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 **2026-10-22 15:00** - M0 complete. `@mikedown/core` scope is free. Angular 14 / TS 4.7 is compatible with `skipLibCheck` (build and runtime pass; core `.d.ts` must not expose mermaid/nspell/katex types). Angular 19 builds clean (+0.55 kB initial). Build tool tsup; tiptap-markdown stays a plain dependency. Message and settings tables written. Quantico target: KB article editor. Awaiting approval of `core-extraction-decisions.md`.
 
 **2026-10-22 14:40** - Planning document created. Verified facts recorded in [Current state](#current-state-verified-2026-10-22): webview bundle has ~50 `postMessage` sites and one `acquireVsCodeApi` call, 81 `--vscode-*` CSS variables, TipTap 3.20 / tiptap-markdown 0.9; LymeStarter Angular is vendored via `lymetools sync` (no npm feed); Quantico Creek legacy app is Angular 14 / TS 4.7, assistant app Angular 19. `npm whoami` is not logged in (needed before M4). Playwright declined. Open gate: M0 decisions file.
+
+**2026-10-22 17:52** - M4 complete. `@mikedown/core` `0.1.0-rc.1` builds with tsup (ESM, d.ts, styles.css, tokens.css, dictionaries); Mermaid and KaTeX load lazily; two-editor demo (`npm run demo:core`) and package README added; the extension builds core from source via a webpack alias. Compile, 909 unit, 22 edge, 47 integration, lint 0 errors; VSIX still about 4.5 MB. Not published: `npm whoami` is ENEEDAUTH. Tarball packed at `.orchestrator/angular-core-extraction-plan/artifacts/mikedown-core-0.1.0-rc.1.tgz`; run `npm publish -w packages/core --tag rc --access public` after `npm login` and creating the `mikedown` org. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m4.md`.
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
