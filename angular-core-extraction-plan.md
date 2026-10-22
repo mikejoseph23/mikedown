@@ -38,6 +38,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M7 — Release wiring and docs](#m7--release-wiring-and-docs) | Sonnet | ⬜ Not Started | — | vsix + core publish in one step |
 | [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | ⬜ Not Started | — | API endpoint + `uploadImage` host hook |
 | [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional) | Sonnet | ⬜ Not Started | — | Angular 19 |
+| [M10 — Bot protection for AI endpoints](#m10--bot-protection-for-ai-endpoints) | Opus | ⬜ Not Started | — | Rate limiting + CAPTCHA in the Quantico Creek API; independent of the core work |
 
 **Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
 
@@ -65,6 +66,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 - [M7 — Release wiring and docs](#m7--release-wiring-and-docs)
 - [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional)
 - [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional)
+- [M10 — Bot protection for AI endpoints](#m10--bot-protection-for-ai-endpoints)
 - [Parallel Development Recommendations](#parallel-development-recommendations)
 - [Gap-Filling Prompts](#gap-filling-prompts)
 - [Progress Log / Notes](#progress-log--notes)
@@ -463,6 +465,25 @@ Start: API via `~/git/quanticocreek/Run.bat` equivalent on macOS per `CLAUDE.md`
 
 ---
 
+## M10 — Bot protection for AI endpoints
+
+**Recommended model:** Opus. Touches auth, entitlements and request limits in the Quantico Creek API.
+
+**Goal:** stop bots and scripted callers from burning AI usage credits through the assistant app's API. Requirement raised 2026-10-22; it was discussed earlier but never recorded. Independent of the core extraction chain; can run at any time (read `~/git/quanticocreek/CLAUDE.md` first).
+
+**Tasks**
+
+- [ ] Inventory every API endpoint that calls an AI provider (grep the Quantico Creek API for the AI client / SDK usage) and record which are anonymous versus authenticated.
+- [ ] Add server-side rate limiting on those endpoints (per user when authenticated, per IP otherwise), with limits in configuration and a clear 429 response the Angular app can show.
+- [ ] Add a CAPTCHA challenge (Cloudflare Turnstile or hCaptcha, worker recommends one) on the anonymous entry points, verified server-side before any AI call is made.
+- [ ] Add a daily per-user / per-IP usage cap on AI calls and log usage so abuse is visible.
+- [ ] Wire the assistant app (Angular 19) to render the challenge and handle 429 / cap-reached responses.
+- [ ] Tests for the limiter and the cap logic; hands-on pass showing a blocked bot-style burst and a normal user unaffected.
+
+[Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
+
+---
+
 ## Parallel Development Recommendations
 
 **Sequential blockers**
@@ -481,6 +502,7 @@ Start: API via `~/git/quanticocreek/Run.bat` equivalent on macOS per `CLAUDE.md`
 | B | M5 (LymeStarter) and M7's documentation items | After T2. Different repos, no shared files. |
 | C | M6 (legacy app) and M9 (assistant app) | After T3. Different app folders in the same repo; commit on separate commits. |
 | D | M8 (API) and M7 | After T4. |
+| E | M10 (API bot protection) | No dependency on the core chain; any time, but not in the same wave as M8 (both touch the Quantico Creek API). |
 
 **Orchestrator context management.** Dispatching several worker prompts fills the orchestrator context. When waiting on workers, prompt the user to run `/compact`; monitor context usage and suggest compacting proactively near the limit. After compacting, resume from `.orchestrator/state.json`.
 
@@ -505,6 +527,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-22 15:23** - Added M10 (bot protection for AI endpoints: rate limiting, CAPTCHA, usage cap in the Quantico Creek API). Previously discussed, never recorded. Independent of the core chain; parallel group E.
 
 **2026-10-22 15:00** - M0 complete. `@mikedown/core` scope is free. Angular 14 / TS 4.7 is compatible with `skipLibCheck` (build and runtime pass; core `.d.ts` must not expose mermaid/nspell/katex types). Angular 19 builds clean (+0.55 kB initial). Build tool tsup; tiptap-markdown stays a plain dependency. Message and settings tables written. Quantico target: KB article editor. Awaiting approval of `core-extraction-decisions.md`.
 
