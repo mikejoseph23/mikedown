@@ -322,8 +322,33 @@ window.addEventListener('message', (event: MessageEvent) => {
       break;
     }
     case 'supportCopied': showSupportCopied(); break;
+    // Integration-test hook. Honoured only when the host rendered the page
+    // with data-test-hooks="1" (MIKEDOWN_TEST_HOOKS=1 in the extension host),
+    // so it is inert for real users. Drives the same editor commands the
+    // toolbar picker and slash menu run, since the real Electron webview
+    // cannot be clicked or typed into from Mocha.
+    case '__testOp': if (document.body.dataset.testHooks === '1') {runTestOp(message);} break;
   }
 });
+
+function runTestOp(message: any): void {
+  const ed = handle.tiptap;
+  switch (message.op) {
+    case 'click': document.querySelector<HTMLElement>(String(message.selector))?.click(); break;
+    case 'selectAll': ed.chain().focus().selectAll().run(); break;
+    case 'endOfDoc': ed.chain().focus('end').run(); break;
+    // Same call the toolbar table picker and the /table slash action make.
+    case 'insertTable': ed.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); break;
+    case 'type': ed.chain().focus().insertContent(String(message.text ?? '')).run(); break;
+    // Feeds a key through ProseMirror's handleKeyDown props (slash menu, etc).
+    case 'key': {
+      const view = ed.view;
+      const ev = new KeyboardEvent('keydown', { key: String(message.key), bubbles: true, cancelable: true });
+      view.someProp('handleKeyDown', (f: any) => f(view, ev));
+      break;
+    }
+  }
+}
 
 // The provider answers `ready` with the document (`update`) and settings.
 handle.on('ready', () => vscode.postMessage({ type: 'ready' }));

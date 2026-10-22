@@ -399,6 +399,9 @@ export function activate(context: vscode.ExtensionContext) {
       dispatchMessage: (document: vscode.TextDocument, panel: vscode.WebviewPanel, message: unknown) =>
         provider.dispatchTestMessage(document, panel, message as never),
       getActivePanel: () => MarkdownEditorProvider.activePanel,
+      // Post a message straight to the active webview (used for __testOp).
+      postToActivePanel: (message: unknown) =>
+        MarkdownEditorProvider.activePanel?.webview.postMessage(message),
     },
   };
 }

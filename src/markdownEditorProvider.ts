@@ -2224,7 +2224,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   <title>MikeDown Editor</title>
 ${cssLinks}
 </head>
-<body data-dictionary-base="${dictionaryBaseUri}">
+<body data-dictionary-base="${dictionaryBaseUri}"${process.env.MIKEDOWN_TEST_HOOKS === '1' ? ' data-test-hooks="1"' : ''}>
   <!-- createMikeDownEditor builds the toolbar, sidebar, editor and source view inside #editor-root -->
   <div id="editor-root"></div>
   <script src="${scriptUri.toString()}"></script>
