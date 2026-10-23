@@ -63,8 +63,15 @@ the Rust shell (`src-tauri/`, ~1 min cold, seconds warm), opens the window, and
 hot-reloads the webview on every edit under `src/` **and** `packages/core/src`.
 Rust edits rebuild and relaunch the window.
 
-- `Cmd+/` (Ctrl on Windows) toggles source mode, `Cmd+,` opens Settings. The
-  app owns these (`hostOwnsShortcuts: true`); M2 moves them to the shortcut table.
+- `npm run dev -w packages/desktop -- -- /abs/path/file.md` (or
+  `npx tauri dev -- /abs/path/file.md` from this folder) opens the window on a
+  file, the same path a double-click or `open -a MikeDown file.md` takes.
+- App shortcuts live in one table, `src/menu/shortcuts.ts`
+  (`hostOwnsShortcuts: true`): `Cmd+S` save, `Cmd+Shift+S` Save As, `Cmd+O`
+  open, `Cmd+/` source mode, `Cmd+,` Settings, `Cmd+Shift+O` Open Containing
+  Folder (stub until M3). Ctrl on Windows. M8's native menu reads the same rows.
+- `window.mikedownModel` (dev builds) is the document model: path, dirty,
+  eol, bom, encoding, readOnly.
 - Web Inspector: right-click → Inspect Element in a debug build (macOS needs
   `defaults write com.interappdev.mikedown WebKitDeveloperExtras -bool true`
   once if the item is missing). `window.mikedown` is the editor handle.
@@ -143,18 +150,48 @@ Results for both webviews live in `docs/webview-notes.md`.
 
 ```
 packages/desktop/
-├── index.html, src/main.ts         boot: mount one core editor (M0: the fixture)
+├── index.html, src/main.ts         boot: mount core with TauriHost, open the launch file, bind shortcuts
+├── src/host/tauriHost.ts           class TauriHost implements MikeDownHost
+├── src/host/imagePipeline.ts       uploadImage / pickImage / resizeImage over fs + core's shared helpers
+├── src/host/pathOps.ts             synchronous posix/win32 path ops for the helpers
+├── src/host/linkRouting.ts         external / anchor / local decision for openLink (edge 13)
+├── src/documents/documentModel.ts  model: path, text, dirty, eol, bom, encoding, readOnly; title; open plan
+├── src/documents/fsApi.ts          the only `invoke` wrapper (read/write/stat/bytes, window, launch queue)
+├── src/app/documentController.ts   open / save / Save As / read-only / dirty guard / window title
+├── src/menu/shortcuts.ts           the single CmdOrCtrl shortcut table
+├── src/settings/desktopSettings.ts desktop-only settings (image paste policy), in memory until M5
+├── src/ui/                         chrome (tab strip, status footer), dialogs + toast, image viewer
 ├── src/smoke/                      fixture + in-app harness
 ├── src/styles/app.css              app chrome only; editor styling stays in core
 ├── vite.config.ts                  core alias rule, dictionaries, Tauri port/targets
 ├── vitest.config.ts, test/unit/    jsdom unit tests
 ├── scripts/                        smoke-compare.mjs, e2e.mjs (placeholder until T1)
-└── src-tauri/                      Cargo.toml, tauri.conf.json, capabilities/, icons/, src/lib.rs
+└── src-tauri/                      Cargo.toml, tauri.conf.json, capabilities/, icons/, src/lib.rs, src/commands/
 ```
 
 Tauri plugins registered in `src-tauri/src/lib.rs`: single-instance (first),
 window-state, fs, dialog, shell, process, updater. Window and menu APIs are
 part of the Tauri 2 core crate. There is no `tauri-plugin-trash` on crates.io;
-the `trash` crate is in `Cargo.toml` for the M3 delete command. The only
-capability (`capabilities/default.json`) is `core:default`, which lets the
-main window read its own state; every later feature adds the minimum it needs.
+the `trash` crate is in `Cargo.toml` for the M3 delete command.
+
+### Disk, scope and native window state
+
+All disk I/O goes through the app's own commands in `src-tauri/src/commands/`
+(`fs.rs`: `read_text`, `write_text`, `stat`, `exists`, `list_dir`, `mkdir`,
+`read_bytes`, `write_bytes`, `open_in_default_app`, `allow_asset`), called
+only from `src/documents/fsApi.ts`. `read_text` detects a BOM, CRLF and
+non-UTF-8 (lossy decode, opened read-only), returns `\n` text, and
+`write_text` puts the same BOM and line ending back through a temp-file +
+rename write that keeps the file mode. `cargo test` in `src-tauri/` covers it.
+
+Every command checks the fs scope from `capabilities/default.json`
+(`$HOME/**`, `$APPDATA/**`); dialog picks, double-clicked files and
+command-line paths are added at runtime, and reading a document also allows
+its folder so the images beside it render through the asset protocol
+(`convertFileSrc`, `app.security.assetProtocol`).
+
+`window.rs` adds what the JS window API lacks: `set_document_edited` (the
+macOS close-button dot) and `set_represented_file` (the title-bar proxy icon)
+through `objc2-app-kit`; both are no-ops elsewhere. `launch.rs` queues files
+from argv, the single-instance callback and macOS `RunEvent::Opened` until the
+page calls `frontend_ready`, then emits `mikedown:open-files`.
