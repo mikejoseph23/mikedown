@@ -1,0 +1,7 @@
+//! Tauri commands. These are the only path from the webview to the disk, the
+//! OS dialogs and the native window: the TypeScript side calls them through
+//! the typed wrapper in `src/documents/fsApi.ts` and nowhere else.
+
+pub mod fs;
+pub mod launch;
+pub mod window;

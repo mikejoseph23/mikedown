@@ -18,7 +18,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # Tauri 2 core. Window and menu APIs are part of the core crate (no plugin).
-tauri = { version = "2", features = [] }
+# `protocol-asset`: images next to a document render through `convertFileSrc`
+# (asset://), scoped by `app.security.assetProtocol` in tauri.conf.json.
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-process = "2"
@@ -33,6 +35,12 @@ serde_json = "1"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
+
+# macOS title-bar state Tauri does not wrap: NSWindow.documentEdited (dirty
+# dot) and representedFilename (proxy icon). Same crates Tauri itself uses.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder"] }
+objc2-foundation = { version = "0.3", features = ["NSString"] }
 
 [profile.release]
 codegen-units = 1

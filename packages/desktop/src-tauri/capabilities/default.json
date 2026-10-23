@@ -1,7 +1,29 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "M0 minimum: the main window may read its own window state (size, position, theme, focus). File system, dialogs, shell and updater permissions are added per feature in later milestones.",
+  "description": "M2: the main window may read its own state, set its title and focus, show native dialogs, open http(s) links in the browser, and reach files under the home and app-data folders. Dialog picks, double-clicked files and command-line arguments extend the fs scope at runtime. All disk I/O goes through the app's own commands (src/commands/fs.rs), which check this same fs scope.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-title",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:event:allow-listen",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-message",
+    "dialog:allow-ask",
+    "dialog:allow-confirm",
+    "shell:allow-open",
+    "fs:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$APPDATA/**" }
+      ]
+    }
+  ]
 }
