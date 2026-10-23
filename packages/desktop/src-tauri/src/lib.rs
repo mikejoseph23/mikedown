@@ -3,8 +3,7 @@
 //! Plugin registration, windows, the launch-file queue, the menu bar and the
 //! commands under `src/commands/` (file I/O and the folder tree's operations,
 //! the per-directory watcher, native window state, hot-exit backups and
-//! sessions, multi-window routing and the quit handshake). Search arrives
-//! with a later milestone.
+//! sessions, multi-window routing and the quit handshake, folder search).
 
 use std::path::PathBuf;
 
@@ -92,6 +91,7 @@ pub fn run() {
         .manage(commands::multiwindow::WindowRegistry::default())
         .manage(commands::multiwindow::QuitState::default())
         .manage(commands::print::PrintJobs::default())
+        .manage(commands::search::Searches::default())
         .menu(|handle| menu::build(handle))
         .on_menu_event(|app, event| menu::handle(app, event.id().as_ref()))
         .setup(|app| {
@@ -150,6 +150,8 @@ pub fn run() {
             commands::settings::settings_read,
             commands::settings::settings_write,
             commands::settings::open_default_apps_settings,
+            commands::search::search_folder,
+            commands::search::search_cancel,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MikeDown");
