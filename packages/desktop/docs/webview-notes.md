@@ -57,7 +57,8 @@ behavior, identical in VS Code, not webview artifacts.
 | `spellcheck="false"` on `<body>` | PASS | No double underlines; core's Hunspell squiggles only |
 | Typing via TipTap + `toggleBold` | PASS | `**bold**` in markdown |
 | Insert 2×2 table | PASS | 4 → 7 table lines |
-| `/date` slash command | MANUAL | `insertContent('/date')` does not trigger the suggestion matcher (same in jsdom); real keystrokes do, see the manual checklist |
+| `/date` slash command | PASS (real keystrokes) | `insertContent('/date')` does not trigger the suggestion matcher (same in jsdom), so the harness reports MANUAL; typed through `osascript keystroke "/date"` + Enter the menu opened and `2026-10-23` was inserted (`slash-menu.png`, `typed.png`) |
+| Typing a sentence with real keystrokes (`Teh quick brown fox typed by osascript.`) | PASS | Text landed once, caret stayed put; core's spell checker underlined `Teh` and `osascript` with a single squiggle (no native WebKit underline underneath) |
 | `openSettings` → `isModalOpen()` | PASS | |
 | Escape closes the modal | PASS | |
 | `toggleSource` shows CodeMirror, markdown unchanged | PASS | |
@@ -129,14 +130,22 @@ for the GUI pass:
 
 ## Release bundle (macOS)
 
-See the summary for the numbers recorded on 2026-10-23; the section is
-updated in place once the measurement is in:
+`npm run tauri build` on the Mac, 2026-10-23, x86_64 (see Toolchain), release
+profile with `opt-level = "s"`, LTO, `strip`, `panic = "abort"`. Tauri embeds
+the Vite output (7.7 MB on disk, mostly Mermaid chunks, KaTeX and the two
+Hunspell dictionaries) into the executable, brotli-compressed, so the app is
+one binary plus the icon:
 
 | Item | Value |
 | --- | --- |
-| `MikeDown.app` | (filled below) |
-| `.dmg` | (filled below) |
-| Cold start to first paint | (filled below) |
+| `MikeDown.app` | 9.6 MiB (binary 9.2 MiB, `Resources/` 416 KiB = icon) |
+| `MikeDown_0.1.0_x64.dmg` | 6.36 MiB |
+| Rust compile, release, cold | 2 min 14 s; Vite build 4.4 s |
+| First launch after the build, to window visible | 3.5 s (unsigned x86_64 binary: Gatekeeper scan plus Rosetta translation on first run; a native arm64 signed build will not pay this) |
+| Warm relaunch, to window visible | 0.52 to 0.59 s over three runs, measured with `open -n` and an AppleScript poll (about 0.3 s of that is the poll's own overhead, so the real figure is under half a second) |
+
+Target was ≤ 15 MB before resources: met with room for the welcome document
+and app chrome. The equivalent Electron app would start near 100 MB.
 
 ## Toolchain
 

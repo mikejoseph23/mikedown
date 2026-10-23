@@ -18,6 +18,10 @@ Everything below is checked by `npx tauri info` (run it from this folder).
 - Recorded on the Mac Studio (2026-10-23): rustc 1.94.1 and cargo 1.94.1 from
   Homebrew (no rustup installed), Xcode 27.1, Node 22.20.0, npm 11.6.1,
   macOS 26.6.2. `npx tauri --version` → `tauri-cli 2.12.4`.
+  **Caveat:** that Homebrew is the Intel one at `/usr/local`, so its `rustc`
+  targets `x86_64-apple-darwin` and the `.app` runs under Rosetta. Fine for
+  M0; before M10 install rustup (native `aarch64-apple-darwin`, and
+  `rustup target add x86_64-apple-darwin` for a universal build).
 
 ### Windows (BEAST, 192.168.50.39)
 
