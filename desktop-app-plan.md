@@ -27,7 +27,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M1 — imagePaste helpers into core shared](#m1--imagepaste-helpers-into-core-shared) | Sonnet | ✅ Complete | 4 | `test/unit/imagePaste.test.ts` must keep passing |
 | [M2 — Tauri host adapter and lone-file window](#m2--tauri-host-adapter-and-lone-file-window) | Opus | ✅ Complete (2 GUI checks pending) | 34 | `TauriHost implements MikeDownHost`; file associations |
 | [T1 — Host and single-file tests](#t1--host-and-single-file-tests) | Sonnet | ✅ Complete (signed off) | 27 | unit + e2e + hands-on both OSes |
-| [M3 — Folder sidebar and file tree](#m3--folder-sidebar-and-file-tree) | Opus | ⬜ Not Started | — | lazy tree, CRUD, watcher, drag-drop, Trash |
+| [M3 — Folder sidebar and file tree](#m3--folder-sidebar-and-file-tree) | Opus | 🔄 In Progress | — | lazy tree, CRUD, watcher, drag-drop, Trash |
 | [M4 — Tabs, panes, document model, hot exit](#m4--tabs-panes-document-model-hot-exit) | Opus | ⬜ Not Started | — | one model per path per window; backups; session restore |
 | [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | ⬜ Not Started | — | tree + tabs + hot exit |
 | [M5 — Settings: global, folder override, App tab](#m5--settings-global-folder-override-app-tab) | Sonnet | ⬜ Not Started | — | reuses core settings modal via `extraSettingsSections` |
@@ -694,6 +694,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 17:56** - Polish pass P1 (`4c16627`, outside the milestone list, requested by Mike after T1): desktop default `contentWidth` is the core "Wide (900px)" option, centered (Full Width still selectable); Open Containing Folder is a real toolbar button with icon, hover/focus states and `aria-label`. Desktop unit 83, e2e 4, typecheck green in the main tree. Checked in Playwright on the Vite page only; native window look unchecked. Screenshots in `.orchestrator/desktop-app-plan/artifacts/p1-polish/`. M3 dispatched next.
 
 **2026-10-23 17:53** - T1 signed off by Mike: Mac screenshots reviewed, MSI installed on DevBox1 and "looks good in Windows". Whether the M0 WebView2 GUI items (IME, pinch, cross-app paste) were covered is unconfirmed; M0's checkbox stays open. Installer format still open: Tauri builds both MSI and NSIS by default; NSIS suits per-user installs and Tauri's updater, MSI matches the LymeScribe signing flow. Decide in M10 and ship one. Next: a small polish pass (content width cap, Open Containing Folder as a real button) before M3; sparse chrome is left to M4's tabs.
 
