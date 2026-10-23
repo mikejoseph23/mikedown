@@ -23,6 +23,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+# Keeps runtime scope grants (files and folders the user picked or launched
+# with, often outside $HOME) across restarts so session restore and hot-exit
+# backups can reopen them.
+tauri-plugin-persisted-scope = "2"
 tauri-plugin-process = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
