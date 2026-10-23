@@ -1,0 +1,150 @@
+# OS webview notes (M0 smoke test)
+
+How `@mikedown/core` behaves inside the two OS webviews Tauri uses, compared
+with the jsdom reference (`test/unit/smoke.expected.md`, the same code path the
+VS Code bundle runs). Method: `src/smoke/harness.ts` inside the real window
+(`VITE_MIKEDOWN_SMOKE=1`, report via the Rust `smoke_report` command), then
+`scripts/smoke-compare.mjs`, plus screenshots and the manual checklist at the
+end. See the README's "smoke fixture and harness" section for the commands.
+
+Legend: PASS / FAIL from the harness, MANUAL = needs a human at the GUI,
+PENDING = not run yet (why, and the exact steps).
+
+## WKWebView, macOS (2026-10-23)
+
+- Machine: Mac Studio (arm64), macOS 26.6.2. The dev build ran under Rosetta
+  because the Homebrew Rust at `/usr/local` is the x86_64 build (see
+  "Toolchain" below); WebKit itself is the system framework either way.
+- Reported by the harness: `webview_version` 21624.5.1.11.3 (WebKit 621 /
+  Safari 26), Tauri 2.12.5, UA `Mozilla/5.0 (Macintosh; Intel Mac OS X
+  10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)` (no Safari/Version token,
+  the usual WKWebView UA), `devicePixelRatio` 2, window inner size 1200×768
+  (the 800 px window minus the 32 px title bar).
+
+### Round-trip
+
+| Check | Result |
+| --- | --- |
+| `initialMarkdown` → `getMarkdown()` equals `setMarkdown(fixture)` → `getMarkdown()` | PASS (deterministic) |
+| Second pass through `setMarkdown(getMarkdown())` unchanged | PASS (idempotent) |
+| Output identical to the jsdom reference (`smoke.expected.md`) | PASS, byte-identical |
+
+So the serializer differences that exist (hard break `\` dropped, task list
+items spaced out as a loose list, bare fence becomes `plaintext`) are core
+behavior, identical in VS Code, not webview artifacts.
+
+### Rendering
+
+| Block | Result |
+| --- | --- |
+| Table (with alignment row) | PASS, 1 table |
+| Task list incl. nested | PASS, 3 items |
+| Callouts `[!NOTE]` / `[!WARNING]` | PASS, 2, kinds kept (screenshot) |
+| Highlight `==…==` | PASS |
+| Code fences (`ts`, bare, mermaid source) | PASS, 3 `<pre>` |
+| Footnote ref | PASS |
+| Image element | PASS (element; the fixture path is relative, so it shows the missing-image state until M2 resolves `images/` through the host) |
+| KaTeX inline + display | PASS, 2 `.katex` |
+| Mermaid SVG | PASS, 1 svg, rendered within the 10 s wait |
+
+### Editing and UI
+
+| Check | Result | Notes |
+| --- | --- | --- |
+| `focus()` → `activeElement` is `.ProseMirror`, selection inside it | PASS | |
+| `document.hasFocus()` | FAIL as expected | The window was not frontmost while the harness ran; true once the window is activated |
+| `contenteditable="true"` on the PM root | PASS | |
+| `spellcheck="false"` on `<body>` | PASS | No double underlines; core's Hunspell squiggles only |
+| Typing via TipTap + `toggleBold` | PASS | `**bold**` in markdown |
+| Insert 2×2 table | PASS | 4 → 7 table lines |
+| `/date` slash command | MANUAL | `insertContent('/date')` does not trigger the suggestion matcher (same in jsdom); real keystrokes do, see the manual checklist |
+| `openSettings` → `isModalOpen()` | PASS | |
+| Escape closes the modal | PASS | |
+| `toggleSource` shows CodeMirror, markdown unchanged | PASS | |
+| `toggleSource` back to rich text, markdown unchanged | PASS | |
+| Paste plain text (synthetic `ClipboardEvent` with `DataTransfer`) | PASS | WebKit lets a page construct `DataTransfer` + `ClipboardEvent`; PM's paste handler consumed it (`defaultPrevented=true`) and both lines landed |
+| `navigator.clipboard` read/write/readText/writeText, `ClipboardItem` | present | All functions exist; actual reads need user activation, see manual list |
+| Cmd+wheel zoom | PASS | `--mikedown-font-size` unset → 21px after three synthetic wheel-ups (`metaKey`+`ctrlKey`); core listens on `window`, works in WKWebView |
+| `setTheme('dark'/'light')` swaps tokens | PASS | surface `#1f1f21` / `#ffffff` |
+| `theme: 'auto'` follows the OS appearance | PASS | Flipped with `osascript … set dark mode to true` while the window was open; screenshots `light.png` / `dark.png` show the editor recolored with no reload |
+| Scrollbars | overlay (width 0) | macOS overlay scrollbars; nothing to style |
+| `CompositionEvent`, `InputEvent.getTargetRanges` (beforeinput) | present | ProseMirror uses beforeinput on WebKit; IME itself is manual |
+
+### WebKit-specific differences found
+
+None functional. Cosmetic / environmental only:
+
+1. UA string lacks a `Version/x Safari/x` token; anything that sniffs for
+   Safari would miss. Core does not sniff (it feature-tests), so no change.
+2. Overlay scrollbars: the content column shows no gutter, so the editor's
+   right padding is the only inset. Looks fine; VS Code shows a scrollbar
+   gutter instead. No action.
+3. `document.hasFocus()` is false until the window is activated (normal for
+   every webview); core's focus logic uses `activeElement`, not `hasFocus()`.
+
+### Manual checklist (macOS)
+
+Run `npm run dev:desktop`, click into the editor, then:
+
+- [ ] Type `/date` then Enter: today's date is inserted (ISO by default).
+- [ ] Type a sentence with a deliberate misspelling: red squiggle appears once
+      (core's), not twice (no native WebKit underline).
+- [ ] IME: switch to a Japanese or Chinese input source, type `nihongo`, pick a
+      candidate, confirm: text lands once, no duplicated or dropped characters,
+      no selection jump. Also check a dead-key accent (Option+e, then e).
+- [ ] Cmd+V with real clipboard content from another app (plain text, rich
+      text from a browser, an image): plain text pastes as paragraphs, rich
+      text converts to markdown, an image is refused with the core notice
+      (no `uploadImage` host in M0).
+- [ ] Cmd+C in the editor, Cmd+V in another app: markdown-ish rich text arrives.
+- [ ] Cmd+wheel / trackpad pinch: zoom steps feel like the VS Code extension.
+- [ ] System Settings → Appearance → Dark: the window recolors without reload
+      (scripted equivalent already passed).
+- [ ] Right-click: core's context menu, not the WebKit default (M2 confirms once
+      the native menu exists).
+
+## WebView2, Windows (PENDING)
+
+Target: BEAST (192.168.50.39, Windows 11 Pro, WebView2 runtime 155.0.4283.62,
+Visual Studio 18 Community with the C++ tools, Node 22.20.0). SSH works
+(`michaeljoseph@192.168.50.39`), but a GUI pass needs a console or RDP
+session; a program launched over SSH runs in a non-interactive session with
+no visible window, and the only logged-on session was disconnected
+(`query user` → `Disc`).
+
+Status 2026-10-23: see the summary for what was done over SSH. Remaining steps
+for the GUI pass:
+
+1. RDP to BEAST as `michaeljoseph` (disconnect afterwards, do not sign out).
+2. In the repo clone, `npm install`, `npm run build:core`, then
+   `set VITE_MIKEDOWN_SMOKE=1 && set MIKEDOWN_SMOKE_DIR=C:\temp\smoke && npm run dev -w packages/desktop`
+   (PowerShell: `$env:VITE_MIKEDOWN_SMOKE='1'; $env:MIKEDOWN_SMOKE_DIR='C:\temp\smoke'`).
+3. Wait for the window, flip Settings → Personalization → Colors → Dark within
+   30 s of the window appearing, then
+   `node packages/desktop/scripts/smoke-compare.mjs C:\temp\smoke\webkit-or-webview2.json`.
+4. Walk the manual checklist above with Ctrl instead of Cmd; add the Windows
+   IME (Microsoft Pinyin or Japanese) and classic scrollbars (WebView2 shows a
+   17 px gutter unless `overflow` styling hides it) to the notes.
+5. Paste the table of results into this file under a "WebView2" heading.
+
+## Release bundle (macOS)
+
+See the summary for the numbers recorded on 2026-10-23; the section is
+updated in place once the measurement is in:
+
+| Item | Value |
+| --- | --- |
+| `MikeDown.app` | (filled below) |
+| `.dmg` | (filled below) |
+| Cold start to first paint | (filled below) |
+
+## Toolchain
+
+- macOS: rustc/cargo 1.94.1 from Homebrew at `/usr/local` (the Intel Homebrew
+  prefix, so the compiler and every artifact are x86_64 and run under
+  Rosetta on this arm64 Mac). Tauri builds fine with it, but a shipping build
+  must be native: install rustup (`curl https://sh.rustup.rs -sSf | sh`),
+  which defaults to `aarch64-apple-darwin` on Apple Silicon, or `brew install
+  rust` from the arm64 Homebrew at `/opt/homebrew`. For a universal binary add
+  the other target and build with `--target universal-apple-darwin` (M10).
+- Windows: see README "Prerequisites".

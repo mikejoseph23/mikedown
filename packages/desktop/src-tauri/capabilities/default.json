@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "M0 minimum: the main window may read its own window state (size, position, theme, focus). File system, dialogs, shell and updater permissions are added per feature in later milestones.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

@@ -1,0 +1,3 @@
+# Vite output (the Tauri frontendDist)
+/dist/
+/node_modules/

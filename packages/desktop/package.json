@@ -1,0 +1,32 @@
+{
+  "name": "@mikedown/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MikeDown Desktop: the standalone markdown editor (Tauri 2) built on @mikedown/core.",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri",
+    "dev:vite": "vite",
+    "build:vite": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:e2e": "node scripts/e2e.mjs",
+    "smoke:compare": "node scripts/smoke-compare.mjs"
+  },
+  "dependencies": {
+    "@mikedown/core": "0.1.0-rc.1",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "@tauri-apps/plugin-fs": "^2.7.1",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-shell": "^2.5.0",
+    "@tauri-apps/plugin-updater": "^2.14.0",
+    "@tauri-apps/plugin-window-state": "^2.5.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "vite": "^7.3.7"
+  }
+}
