@@ -862,7 +862,24 @@ pub fn trash<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<(), String>
     if stdfs::symlink_metadata(&path).is_err() {
         return Err(format!("“{}” no longer exists.", display_name(&path)));
     }
-    trash::delete(&path).map_err(|e| format!("Could not move “{}” to the Trash: {e}", display_name(&path)))
+    move_to_trash(&path).map_err(|e| format!("Could not move “{}” to the Trash: {e}", display_name(&path)))
+}
+
+/// The OS Trash / Recycle Bin. On macOS through `NSFileManager.trashItemAtURL`
+/// rather than the crate's default (AppleScript to Finder), which would ask
+/// the user to let MikeDown control Finder on the first delete.
+pub fn move_to_trash(path: &Path) -> Result<(), trash::Error> {
+    #[cfg(target_os = "macos")]
+    {
+        use trash::macos::{DeleteMethod, TrashContextExtMacos};
+        let mut ctx = trash::TrashContext::default();
+        ctx.set_delete_method(DeleteMethod::NsFileManager);
+        ctx.delete(path)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        trash::delete(path)
+    }
 }
 
 /// Markdown files under a folder, for the folder `.md` index.
@@ -1291,6 +1308,21 @@ mod tests {
         assert!(is_mikedown_temp(".doc.md.mikedown-rename-1-2.tmp"));
         assert!(!is_mikedown_temp("doc.md"));
         assert!(!is_mikedown_temp(".hidden.tmp"));
+    }
+
+    /// Puts a real file in the user's Trash, so it only runs on request:
+    /// `cargo test trash_moves -- --ignored`.
+    #[test]
+    #[ignore]
+    fn trash_moves_a_file_out_of_its_folder() {
+        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
+        let dir = home.join("tmp-mikedown-m3").join("trash-check");
+        stdfs::create_dir_all(&dir).unwrap();
+        let file = dir.join(format!("mikedown-trash-check-{}.md", std::process::id()));
+        stdfs::write(&file, b"# trash me\n").unwrap();
+        move_to_trash(&file).unwrap();
+        assert!(!file.exists());
+        eprintln!("trashed {}", file.display());
     }
 
     #[cfg(unix)]

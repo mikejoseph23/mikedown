@@ -80,6 +80,9 @@ export interface FileTree {
 }
 
 const TYPEAHEAD_RESET_MS = 700;
+/** Must match `.mdapp-tree__row { height }` in sidebar.css. */
+const ROW_HEIGHT = 24;
+const OVERSCAN = 20;
 const DRAG_THRESHOLD_PX = 4;
 
 let nextTreeId = 1;
@@ -95,6 +98,9 @@ export function createFileTree(deps: FileTreeDeps): FileTree {
 
   let rootNode: TreeNode | null = null;
   let rows: TreeNode[] = [];
+  let rowIndex = new Map<TreeNode, number>();
+  let painted: [number, number] = [-1, -1];
+  let scrollHost: HTMLElement | null = null;
   let focused: TreeNode | null = null;
   let activePath: string | null = null;
   let dropTarget: string | null = null;
@@ -162,17 +168,70 @@ export function createFileTree(deps: FileTreeDeps): FileTree {
     return id;
   }
 
+  /**
+   * Rebuild the visible-row list and paint the rows in view. Rows are
+   * virtualised (fixed height, spacers above and below) so a folder with
+   * thousands of entries in one directory stays fast; `aria-setsize` and
+   * `aria-posinset` keep the structure for assistive technology.
+   */
   function render(): void {
     rows = flatten();
-    if (focused && !rows.includes(focused)) {
+    rowIndex = new Map(rows.map((r, i) => [r, i]));
+    if (focused && !rowIndex.has(focused)) {
       focused = rows.find((r) => r.path === focused?.path) ?? null;
     }
     if (!focused && rows.length > 0) {focused = rows[0];}
+    const hadFocus = el.contains(document.activeElement);
+    paint(true);
+    el.classList.toggle('mdapp-tree--drop-root', dropTarget !== null && dropTarget === rootNode?.path);
+    if (hadFocus && !editing) {focusRow(focused, { scroll: false });}
+    syncWatches();
+  }
+
+  function scroller(): HTMLElement | null {
+    return el.parentElement;
+  }
+
+  /** The [start, end) slice of `rows` in view, with overscan. */
+  function windowRange(): [number, number] {
+    const sc = scroller();
+    const viewTop = sc ? Math.max(0, sc.scrollTop - el.offsetTop) : 0;
+    const viewH = sc && sc.clientHeight > 0 ? sc.clientHeight : 2000;
+    const start = Math.max(0, Math.floor(viewTop / ROW_HEIGHT) - OVERSCAN);
+    const end = Math.min(rows.length, Math.ceil((viewTop + viewH) / ROW_HEIGHT) + OVERSCAN);
+    return [start, end];
+  }
+
+  function paint(force: boolean, around?: number): void {
+    const sc = scroller();
+    if (sc && sc !== scrollHost) {
+      scrollHost?.removeEventListener('scroll', onScroll);
+      scrollHost = sc;
+      sc.addEventListener('scroll', onScroll, { passive: true });
+    }
+    let [start, end] = windowRange();
+    // Keep the row being renamed (or asked for) painted whatever the scroll
+    // position says (no layout yet, a hidden sidebar).
+    const editIdx = editing ? rows.findIndex((r) => r.path === editing?.path) : -1;
+    const keep = around ?? (editIdx >= 0 ? editIdx : undefined);
+    if (keep !== undefined && (keep < start || keep >= end)) {
+      start = Math.max(0, keep - OVERSCAN);
+      end = Math.min(rows.length, keep + OVERSCAN + 1);
+    }
+    if (!force && start === painted[0] && end === painted[1]) {return;}
+    painted = [start, end];
+    const posIn = new Map<TreeNode, number>();
     const frag = document.createDocumentFragment();
+    const top = document.createElement('div');
+    top.setAttribute('role', 'presentation');
+    top.style.height = `${start * ROW_HEIGHT}px`;
+    frag.appendChild(top);
     const liveIds = new Map<string, string>();
     const liveEls = new Map<string, HTMLElement>();
-    for (const node of rows) {
+    for (let i = start; i < end; i++) {
+      const node = rows[i];
       const siblings = node.parent?.children ?? [];
+      if (!posIn.has(node)) {siblings.forEach((s, k) => posIn.set(s, k + 1));}
       const row = document.createElement('div');
       row.className = 'mdapp-tree__row';
       row.id = rowId(node);
@@ -181,7 +240,7 @@ export function createFileTree(deps: FileTreeDeps): FileTree {
       row.setAttribute('role', 'treeitem');
       row.setAttribute('aria-level', String(node.depth));
       row.setAttribute('aria-setsize', String(siblings.length));
-      row.setAttribute('aria-posinset', String(siblings.indexOf(node) + 1));
+      row.setAttribute('aria-posinset', String(posIn.get(node) ?? 1));
       row.setAttribute('aria-selected', node === focused ? 'true' : 'false');
       if (node.isDir) {row.setAttribute('aria-expanded', node.expanded ? 'true' : 'false');}
       row.dataset.path = node.path;
@@ -190,17 +249,15 @@ export function createFileTree(deps: FileTreeDeps): FileTree {
       row.title = node.path;
       if (node.path === activePath) {row.classList.add('mdapp-tree__row--active');}
       if (node.isDir && node.path === dropTarget) {row.classList.add('mdapp-tree__row--drop');}
-
+      // The twisty is drawn by CSS from aria-expanded, so the row's text is just its name.
+      if (node.loading) {row.classList.add('mdapp-tree__row--loading');}
       const twisty = document.createElement('span');
       twisty.className = 'mdapp-tree__twisty';
       twisty.setAttribute('aria-hidden', 'true');
-      // Drawn by CSS from aria-expanded, so the row's text is just its name.
-      if (node.loading) {row.classList.add('mdapp-tree__row--loading');}
       const icon = document.createElement('span');
       icon.className = `mdapp-tree__icon ${node.isDir ? 'mdapp-tree__icon--dir' : /\.(md|markdown)$/i.test(node.name) ? 'mdapp-tree__icon--md' : 'mdapp-tree__icon--file'}`;
       icon.setAttribute('aria-hidden', 'true');
       row.append(twisty, icon);
-
       if (editing && editing.path === node.path) {
         row.appendChild(renameField(node, editing.selectStem));
       } else {
@@ -211,13 +268,34 @@ export function createFileTree(deps: FileTreeDeps): FileTree {
       }
       frag.appendChild(row);
     }
+    const bottom = document.createElement('div');
+    bottom.setAttribute('role', 'presentation');
+    bottom.style.height = `${(rows.length - end) * ROW_HEIGHT}px`;
+    frag.appendChild(bottom);
     rowIds = liveIds;
     rowEls = liveEls;
-    const hadFocus = el.contains(document.activeElement);
+    const hadFocus = el.contains(document.activeElement) && !editing;
     el.replaceChildren(frag);
-    el.classList.toggle('mdapp-tree--drop-root', dropTarget !== null && dropTarget === rootNode?.path);
-    if (hadFocus && !editing) {focusRow(focused, { scroll: false });}
-    syncWatches();
+    if (hadFocus && focused && rowEls.has(focused.path)) {
+      rowEls.get(focused.path)!.focus({ preventScroll: true });
+    } else if (hadFocus) {
+      el.focus({ preventScroll: true });
+    }
+  }
+
+  /** Scroll so row `i` is in view (nearest edge), then paint. */
+  function ensureVisible(i: number): void {
+    const sc = scroller();
+    if (sc && sc.clientHeight > 0) {
+      const rowTop = el.offsetTop + i * ROW_HEIGHT;
+      if (rowTop < sc.scrollTop) {sc.scrollTop = rowTop;}
+      else if (rowTop + ROW_HEIGHT > sc.scrollTop + sc.clientHeight) {sc.scrollTop = rowTop + ROW_HEIGHT - sc.clientHeight;}
+    }
+    paint(false, i);
+  }
+
+  function onScroll(): void {
+    paint(false);
   }
 
   function rowEl(node: TreeNode | null): HTMLElement | null {
@@ -238,12 +316,14 @@ export function createFileTree(deps: FileTreeDeps): FileTree {
       }
       focused = node;
     }
+    const idx = rowIndex.get(node);
+    if (opts.scroll !== false && idx !== undefined) {ensureVisible(idx);}
+    else if (!rowEls.has(node.path) && idx !== undefined) {ensureVisible(idx);}
     const r = rowEl(node);
     if (r) {
       r.tabIndex = 0;
       r.setAttribute('aria-selected', 'true');
       r.focus({ preventScroll: true });
-      if (opts.scroll !== false) {r.scrollIntoView?.({ block: 'nearest' });}
     }
   }
 
@@ -415,7 +495,8 @@ export function createFileTree(deps: FileTreeDeps): FileTree {
       else {
         focused = node;
         render();
-        rowEl(node)?.scrollIntoView?.({ block: 'nearest' });
+        const idx = rowIndex.get(node);
+        if (idx !== undefined) {ensureVisible(idx);}
       }
     }
   }

@@ -208,6 +208,7 @@ function syncFolderButton(): void {
  * it has unsaved changes).
  */
 async function openFolder(dir: string): Promise<boolean> {
+  const t0 = performance.now();
   const active = model.path;
   const keep = !!active && isInside(dir, active, path);
   if (!keep && (model.path || model.dirty)) {
@@ -224,6 +225,12 @@ async function openFolder(dir: string): Promise<boolean> {
   workspace.syncActive(keep ? active : null);
   syncFolderButton();
   if (!keep) {workspace.tree.focus();}
+  if (timingEnabled) {
+    // Rows are in the DOM (layout forced by offsetHeight). Not rAF: frames
+    // do not run while the window is hidden or the screen is locked.
+    const height = workspace.tree.el.offsetHeight;
+    reportTiming('folder-open', { dir, ms: Math.round(performance.now() - t0), rows: workspace.tree.el.childElementCount, height });
+  }
   return true;
 }
 
@@ -254,6 +261,28 @@ chrome.onTabContextMenu((x, y) => {
 });
 controller.refresh();
 syncFolderButton();
+
+// ── Timing probes (VITE_MIKEDOWN_TIMING=1 dev builds only) ─────────────────
+// Folder open time and watcher latency for the M3 acceptance numbers. The
+// reports go through the smoke harness's `smoke_report` command, which
+// prints them on the `tauri dev` console.
+const timingEnabled = import.meta.env.VITE_MIKEDOWN_TIMING === '1';
+function reportTiming(name: string, data: Record<string, unknown>): void {
+  void import('@tauri-apps/api/core').then(({ invoke }) =>
+    invoke('smoke_report', { name: `timing-${name}`, report: JSON.stringify({ ...data, epochMs: Date.now() }) }));
+}
+if (timingEnabled) {
+  void watchApi.onChange((c) => reportTiming('fs-changed', { kind: c.kind, path: c.path }));
+  const seen = new Set<string>();
+  new MutationObserver(() => {
+    for (const row of workspace.tree.el.querySelectorAll<HTMLElement>('.mdapp-tree__row')) {
+      const p = row.dataset.path ?? '';
+      if (seen.has(p)) {continue;}
+      seen.add(p);
+      if (/probe-/.test(p)) {reportTiming('row-shown', { path: p });}
+    }
+  }).observe(workspace.tree.el, { childList: true });
+}
 
 // ── Drag and drop from the OS (edge case 20) ────────────────────────────────
 // Tauri delivers OS file drops as window events with paths; the webview never

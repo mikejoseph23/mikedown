@@ -278,6 +278,19 @@ describe('folder workspace', () => {
     expect(calls).toContain('refreshLinks');
   });
 
+  it('a directory with thousands of entries paints only the rows in view', async () => {
+    for (let i = 0; i < 5000; i++) {disk.set(`/n/big-${i}.md`, false);}
+    await ws.open('/n');
+    const painted = ws.tree.el.querySelectorAll('.mdapp-tree__row');
+    expect(painted.length).toBeLessThan(200);
+    expect(painted[0].getAttribute('aria-setsize')).toBe('5002');
+    (painted[0] as HTMLElement).focus();
+    press(painted[0] as HTMLElement, 'End');
+    const last = document.activeElement as HTMLElement;
+    expect(last.dataset.path).toBe('/n/big-4999.md');
+    expect(last.getAttribute('aria-posinset')).toBe('5002');
+  });
+
   it('keyboard: arrows, Right expands, Left goes to the parent, type-ahead', async () => {
     await ws.open('/n');
     const first = ws.tree.el.querySelector<HTMLElement>('.mdapp-tree__row')!;
