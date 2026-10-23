@@ -8,13 +8,14 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   // shared/* entries are separate so hosts (the desktop app) can import them
   // as @mikedown/core/shared/<name> without the editor: imagePaste (M1),
-  // sha1 (hash-dedupe in the desktop image pipeline) and wordCount (status
-  // footer).
+  // sha1 (hash-dedupe in the desktop image pipeline), wordCount (status
+  // footer) and anchoring (heading slugs for the desktop folder index).
   entry: {
     index: 'src/index.ts',
     'shared/imagePaste': 'src/shared/imagePaste.ts',
     'shared/sha1': 'src/shared/sha1.ts',
     'shared/wordCount': 'src/shared/wordCount.ts',
+    'shared/anchoring': 'src/shared/anchoring.ts',
   },
   format: ['esm'],
   dts: true,
