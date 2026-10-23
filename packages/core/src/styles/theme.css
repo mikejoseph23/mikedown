@@ -154,11 +154,12 @@
 
 :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-condensed {
   flex-wrap: nowrap;
-  /* overflow-x clips any off-screen buttons when the toolbar is narrower
-     than its contents; overflow-y must stay visible so button hover
-     tooltips (positioned below via ::after) can escape downward. */
-  overflow-x: clip;
-  overflow-y: visible;
+  /* No overflow clipping here: the toolbar spans the root edge to edge, so
+     .mikedown-root (overflow: hidden) already clips any off-screen buttons
+     when the toolbar is narrower than its contents. A clip on the toolbar
+     itself (even overflow-x only) can also cut off the button hover
+     tooltips, which hang below the toolbar via ::after. */
+  overflow: visible;
 }
 
 :is(.mikedown-root, .mikedown-portal) .condensed-dropdown-trigger {

@@ -10,6 +10,7 @@ All notable changes to MikeDown Editor are documented here.
 
 ### Fixed
 
+- Toolbar hover tooltips are no longer cut off below the toolbar. The toolbar clipped its own overflow, which could also clip the tooltips that hang beneath it; the editor container already hides off-screen buttons, so the toolbar no longer clips at all.
 - Callout body text no longer duplicates when a note, tip or other callout is parsed. This bug shipped in 2.14.2, so the fix is for the next release.
 
 ### Internal
