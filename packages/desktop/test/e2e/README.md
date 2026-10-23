@@ -38,6 +38,8 @@ a WebDriver spec can sit next to this one; the spec itself only needs
 - `save-reload.spec.ts`: launch on a CRLF + BOM fixture, type, Cmd/Ctrl+S,
   check the bytes on disk (BOM kept, every line CRLF), reload, the edit is
   back and the document is clean.
+- `appearance.spec.ts`: with a dark OS appearance the chrome (tab strip,
+  status footer) recolors along with the editor.
 
 Browsers: Playwright's Chromium (`npx playwright install chromium` once per
 machine if it is missing).

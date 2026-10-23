@@ -8,7 +8,10 @@
   <!-- spellcheck="false": core brings its own Hunspell checker (edge case 22);
        the webview's native checker would double-underline. -->
   <body spellcheck="false">
-    <div id="app">
+    <!-- data-mikedown-theme="auto": core's tokens are scoped to that
+         attribute, so the app chrome (tab strip, notice bar, status footer)
+         follows the OS appearance along with the editor. -->
+    <div id="app" data-mikedown-theme="auto">
       <div id="editor"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
