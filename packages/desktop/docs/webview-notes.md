@@ -104,29 +104,63 @@ Run `npm run dev:desktop`, click into the editor, then:
 - [ ] Right-click: core's context menu, not the WebKit default (M2 confirms once
       the native menu exists).
 
-## WebView2, Windows (PENDING)
+## WebView2, Windows (2026-10-23, harness over SSH; GUI checklist pending)
 
-Target: BEAST (192.168.50.39, Windows 11 Pro, WebView2 runtime 155.0.4283.62,
-Visual Studio 18 Community with the C++ tools, Node 22.20.0). SSH works
-(`michaeljoseph@192.168.50.39`), but a GUI pass needs a console or RDP
-session; a program launched over SSH runs in a non-interactive session with
-no visible window, and the only logged-on session was disconnected
-(`query user` → `Disc`).
+- Machine: BEAST (192.168.50.39), Windows 11 Pro, WebView2 runtime
+  155.0.4283.62 (Edge/Chromium 155), rustup-installed Rust 1.99.1
+  (`stable-x86_64-pc-windows-msvc`, installed for this test with
+  `winget install Rustlang.Rustup`), Visual Studio 18 Community C++ tools,
+  Node 22.20.0. Repo copy at `C:\git\mikedown` (tarball of this branch, not a
+  git clone).
+- Build: `npm run build -w packages/desktop` with `VITE_MIKEDOWN_SMOKE=1`,
+  release profile, 2 min 11 s for Rust plus 7.3 s for Vite. Bundles:
+  `MikeDown_0.1.0_x64_en-US.msi` 5.75 MiB, `MikeDown_0.1.0_x64-setup.exe`
+  (NSIS) 4.93 MiB, `mikedown-desktop.exe` 9.25 MB. Tauri downloaded WiX and
+  NSIS on first use.
+- Run: the release exe launched over SSH (session 0, no visible desktop) with
+  `MIKEDOWN_SMOKE_DIR=C:\temp\mikedown-smoke`; WebView2 initialised fine
+  there and the harness reported within 5 s. UA
+  `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like
+  Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0`, `devicePixelRatio` 1,
+  inner size 1028×744 (session 0's virtual desktop, not the configured
+  1200×800), `coreFrom: dist` (release resolution of the pinned package).
 
-Status 2026-10-23: see the summary for what was done over SSH. Remaining steps
-for the GUI pass:
+### Results
+
+Every harness check that passed in WKWebView passed in WebView2 with the same
+detail values, and the round-trip markdown is byte-identical to the jsdom
+reference (so WKWebView, WebView2, jsdom and the VS Code bundle all agree).
+Differences from WKWebView:
+
+| Item | WKWebView | WebView2 |
+| --- | --- | --- |
+| `document.hasFocus()` | false (window behind the terminal) | true (only window in its session) |
+| Scrollbar width | 0 (overlay) | 15 px classic gutter; the content column is narrower by that much. Cosmetic; M11 can style it with `::-webkit-scrollbar` or `scrollbar-width: thin` if it looks heavy |
+| `devicePixelRatio` | 2 | 1 on this VM; HiDPI Windows needs a look at icon crispness in M11 |
+| Harness run time | ~20 s | ~5 s (Mermaid/KaTeX settled faster) |
+
+No functional WebView2-specific break found. `/date` via `insertContent` is
+MANUAL for the same reason as on macOS (the suggestion matcher wants real
+input).
+
+### Manual checklist (Windows, PENDING: needs a console or RDP session)
+
+The only logged-on session on BEAST is disconnected (`query user` → `Disc`),
+so a visible window and screenshots need a human. Steps:
 
 1. RDP to BEAST as `michaeljoseph` (disconnect afterwards, do not sign out).
-2. In the repo clone, `npm install`, `npm run build:core`, then
-   `set VITE_MIKEDOWN_SMOKE=1 && set MIKEDOWN_SMOKE_DIR=C:\temp\smoke && npm run dev -w packages/desktop`
-   (PowerShell: `$env:VITE_MIKEDOWN_SMOKE='1'; $env:MIKEDOWN_SMOKE_DIR='C:\temp\smoke'`).
-3. Wait for the window, flip Settings → Personalization → Colors → Dark within
-   30 s of the window appearing, then
-   `node packages/desktop/scripts/smoke-compare.mjs C:\temp\smoke\webkit-or-webview2.json`.
-4. Walk the manual checklist above with Ctrl instead of Cmd; add the Windows
-   IME (Microsoft Pinyin or Japanese) and classic scrollbars (WebView2 shows a
-   17 px gutter unless `overflow` styling hides it) to the notes.
-5. Paste the table of results into this file under a "WebView2" heading.
+2. `C:\git\mikedown` already has `node_modules`, `packages\core\dist` and the
+   release build. Either run
+   `packages\desktop\src-tauri\target\release\mikedown-desktop.exe` (smoke
+   build: it re-runs the harness and writes to `%MIKEDOWN_SMOKE_DIR%` if set,
+   otherwise just shows the fixture), or `npm run dev -w packages/desktop`
+   for hot reload (needs `$env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"`).
+3. Walk the macOS manual checklist with Ctrl instead of Cmd. Add: Microsoft
+   Pinyin / Japanese IME composition; classic scrollbar look; Alt+F4;
+   Settings → Personalization → Colors → Dark flips the window without reload
+   (the `theme: 'auto'` path is identical to macOS, where the scripted flip
+   passed); Ctrl+wheel and touchpad pinch.
+4. Screenshot and append a short "GUI pass" note here.
 
 ## Release bundle (macOS)
 

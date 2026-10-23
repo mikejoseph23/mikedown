@@ -25,9 +25,14 @@ Everything below is checked by `npx tauri info` (run it from this folder).
 
 ### Windows (BEAST, 192.168.50.39)
 
-Not installed yet as of 2026-10-23. BEAST has Visual Studio 18 Community with
-the C++ build tools, Node 22.20.0, winget 1.29 and the WebView2 runtime
-155.0.4283.62 (evergreen, it ships with Windows 11). Still needed:
+Set up on 2026-10-23 for the M0 WebView2 smoke test. BEAST has Visual Studio
+18 Community with the C++ build tools, Node 22.20.0, winget 1.29, the WebView2
+runtime 155.0.4283.62 (evergreen, it ships with Windows 11) and now Rust
+1.99.1 via rustup (user-scoped, `C:\Users\michaeljoseph\.cargo\bin`; an SSH
+shell needs `$env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"`). A copy of
+this branch lives at `C:\git\mikedown` (extracted tarball, not a clone) with
+`node_modules`, `packages\core\dist` and a release build in place. On a fresh
+Windows box:
 
 1. **Rust** via rustup: `winget install --id Rustlang.Rustup -e`, then open a
    new shell so `cargo` is on `PATH`. rustup picks the `x86_64-pc-windows-msvc`
