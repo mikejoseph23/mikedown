@@ -29,12 +29,12 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [T1 — Host and single-file tests](#t1--host-and-single-file-tests) | Sonnet | ✅ Complete (signed off) | 27 | unit + e2e + hands-on both OSes |
 | [M3 — Folder sidebar and file tree](#m3--folder-sidebar-and-file-tree) | Opus | ✅ Complete (hands-on pending) | 44 | lazy tree, CRUD, watcher, drag-drop, Trash |
 | [M4 — Tabs, panes, document model, hot exit](#m4--tabs-panes-document-model-hot-exit) | Opus | ✅ Complete (2 GUI checks pending) | 57 | one model per path per window; backups; session restore |
-| [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | ⬜ Not Started | — | tree + tabs + hot exit |
-| [M5 — Settings: global, folder override, App tab](#m5--settings-global-folder-override-app-tab) | Sonnet | ⬜ Not Started | — | reuses core settings modal via `extraSettingsSections` |
+| [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | 🔄 In Progress | — | tree + tabs + hot exit |
+| [M5 — Settings: global, folder override, App tab](#m5--settings-global-folder-override-app-tab) | Sonnet | 🔄 In Progress | — | reuses core settings modal via `extraSettingsSections` |
 | [M6 — Versioning, diff view, external changes](#m6--versioning-diff-view-external-changes) | Opus | ⬜ Not Started | — | `.mikedown/versions/`; Compare / Overwrite / Revert |
-| [M7 — Folder search](#m7--folder-search) | Sonnet | ⬜ Not Started | — | Rust-side search, grouped results |
+| [M7 — Folder search](#m7--folder-search) | Sonnet | 🔄 In Progress | — | Rust-side search, grouped results |
 | [M8 — Welcome, recents, menus, window title](#m8--welcome-recents-menus-window-title) | Opus | ⬜ Not Started | — | native menus, `CmdOrCtrl` shortcuts, `welcome.md` |
-| [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | ⬜ Not Started | — | reuses `handle.getHtml()` |
+| [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | 🔄 In Progress | — | reuses `handle.getHtml()` |
 | [T3 — Feature tests](#t3--feature-tests) | Sonnet | ⬜ Not Started | — | settings, versioning, search, export |
 | [M10 — Updater, signing, build pipeline, download page](#m10--updater-signing-build-pipeline-download-page) | Opus | ⬜ Not Started | — | follows the LymeScribe deploy scripts |
 | [M11 — Polish: a11y, encoding, filesystem oddities](#m11--polish-a11y-encoding-filesystem-oddities) | Sonnet | ⬜ Not Started | — | edge cases 10, 11, 12, 25, 26 |
