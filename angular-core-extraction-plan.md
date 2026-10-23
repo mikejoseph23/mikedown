@@ -39,6 +39,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 | [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional) | Sonnet | ✅ Code done, hands-on pending | — | API endpoint + `uploadImage` host hook |
 | [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional) | Sonnet | ✅ Complete | 3 | Angular 19; lead-panel notes editor |
 | [M10 — Bot protection for AI endpoints](#m10--bot-protection-for-ai-endpoints) | Opus | ⬜ Not Started | — | Rate limiting + CAPTCHA in the Quantico Creek API; independent of the core work |
+| [M11 — Opt-in wrapper (lymetools `optionalFolders`)](#m11--opt-in-wrapper-lymetools-optionalfolders) | Opus | ✅ Complete | — | `lymestack-optional/mikedown`; `lymetools adopt <path>`; scaffold strips it |
 
 **Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
 
@@ -67,6 +68,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 - [M8 — Image upload for Quantico Creek (optional)](#m8--image-upload-for-quantico-creek-optional)
 - [M9 — Assistant app integration (optional)](#m9--assistant-app-integration-optional)
 - [M10 — Bot protection for AI endpoints](#m10--bot-protection-for-ai-endpoints)
+- [M11 — Opt-in wrapper (lymetools `optionalFolders`)](#m11--opt-in-wrapper-lymetools-optionalfolders)
 - [Parallel Development Recommendations](#parallel-development-recommendations)
 - [Gap-Filling Prompts](#gap-filling-prompts)
 - [Progress Log / Notes](#progress-log--notes)
@@ -485,6 +487,21 @@ Start: API via `~/git/quanticocreek/Run.bat` equivalent on macOS per `CLAUDE.md`
 
 ---
 
+## M11 — Opt-in wrapper (lymetools `optionalFolders`)
+
+**Recommended model:** Opus. Two repos (`~/git/lymetools`, `~/git/lymestarter`), a new ownership class in the sync engine.
+
+**Decision (2026-10-22):** the Angular wrapper must not ship in every scaffold. M5 placed it in `lymestack-shared/mikedown/` (core folder) and M7 made `ng-app/package.json` a merge file to carry `@mikedown/core`; both are reversed here.
+
+**Tasks**
+
+- [x] lymetools: add `optionalFolders` to `OwnershipManifest` (same entry shape as `coreFolders`); `sync` treats an optional folder as core only when the app has adopted it (folder present or ledger record), otherwise skips and reports `optional, not adopted` under `--check`; `lymetools adopt <path>` copies the folder from upstream and records it; help text and `SyncTests` updated; old manifests without the key still parse.
+- [x] LymeStarter: `git mv` the wrapper to `ng-app/src/app/lymestack-optional/mikedown/`; move the demo out of `lymestack-dev` into the optional folder and register its route from a merge file inside `lymestack:optional mikedown` markers; same markers around the `styles.scss` `@use`; manifest entry; `@mikedown/core` dependency and vendored tarball stripped at scaffold time the way `templateOnly` content is; README adoption steps; `docs/architecture.md` and `CLAUDE.md` ownership text updated; `ng build`, `ng test`, `ng lint` green.
+
+[Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
+
+---
+
 ## Parallel Development Recommendations
 
 **Sequential blockers**
@@ -503,6 +520,7 @@ Start: API via `~/git/quanticocreek/Run.bat` equivalent on macOS per `CLAUDE.md`
 | B | M5 (LymeStarter) and M7's documentation items | After T2. Different repos, no shared files. |
 | C | M6 (legacy app) and M9 (assistant app) | After T3. Different app folders in the same repo; commit on separate commits. |
 | D | M8 (API) and M7 | After T4. |
+| F | M11 (opt-in wrapper) | Done 2026-10-22. lymetools `f1fae56`, `0559e8a`; LymeStarter `5624990`, `d1e3e5a`, `bacc877`. |
 | E | M10 (API bot protection) | No dependency on the core chain; any time, but not in the same wave as M8 (both touch the Quantico Creek API). |
 
 **Orchestrator context management.** Dispatching several worker prompts fills the orchestrator context. When waiting on workers, prompt the user to run `/compact`; monitor context usage and suggest compacting proactively near the limit. After compacting, resume from `.orchestrator/state.json`.
@@ -548,6 +566,10 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 **2026-10-22 18:20** - M7 part 1 complete. `vsix` syncs core version and builds core; `release:core` publishes or packs; release order in CLAUDE.md; CHANGELOG, RESUME, BACKLOG updated. Tests: unit 933/2 todo, edge 22, integration 47, core-package 7, lint 0 errors. LymeStarter and Quantico Creek version bumps pending.
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-22 17:10** - M11 complete. lymetools `develop` `f1fae56`, `0559e8a`: `optionalFolders` ownership class (entry adds `dependencies` and `files` to the coreFolders shape), top-level `lymetools adopt <path>`, adoption recorded under ledger `coreFolders`, `--check` lists `not-adopted`, `scaffold app` strips optional folders, their deps and `lymestack:optional-begin/end` blocks. LymeStarter `develop` `5624990`, `d1e3e5a`, `bacc877`: wrapper and demo in `lymestack-optional/mikedown/`, demo route and theme `@use` in optional blocks of `app.routes.ts` / `styles.scss`, `ng-app/package.json` stays a merge file. lymetools 933 passed; ng build OK, ng test 558; no ESLint config in LymeStarter so `ng lint` not run. End to end: fresh scaffold has no mikedown traces and builds; adopt then `--check` clean. **Follow-ups:** (1) `setup-project-lymestarter` skill in claude-shared-settings needs the matching strip step; (2) `lymetools scaffold app` against real LymeStarter was already broken (no `about` route, invalid `portal-features.ts`, doctor placeholder), backlog in lymetools; (3) sync does not refresh an adopted folder's `files` (tarball bump is a hand copy until the registry publish); (4) lymetools tests need arm64 `/usr/local/share/dotnet/dotnet`, the Homebrew x64 dotnet fails 17 SyncTests under Rosetta.
+
+**2026-10-22 16:05** - Added M11: wrapper becomes opt-in. New lymetools `optionalFolders` ownership class plus `lymetools adopt`; wrapper moves to `lymestack-optional/mikedown/`. Reverses the M5 placement and the M7 `package.json` merge-file rationale. Dispatched (Opus) as a clipboard worker outside the orchestrator session.
 
 **2026-10-22 18:27** - M5 complete (LymeStarter `develop` `3574592`, `1ad8b86`, `ec75b35`, not pushed). The standalone `lyme-markdown-editor` CVA and `AngularMikeDownHost` are in `lymestack-shared/mikedown/`. The core is vendored as a `file:` tarball in `ng-app/vendor/`. Its CSS loads from `styles.scss`, with `--mikedown-*` mapped to `--ls-*`, so it follows theme, skin and dark mode. Demo at `/dev/markdown-editor`. `ng build` green; there is no `ng lint` target, and an ad hoc angular-eslint run was clean. Headless Chromium checks passed (debounce, pristine load, invalid/disabled states, `.form-control` parity in light, dark and airy, KaTeX, Mermaid, placeholder, destroy). Deviations: no Angular Material in the template, so the editor matches Bootstrap `.form-control`. Open: downstream sync does not carry the npm dependency (orchestrator decision), and lowlight is 1 MB of the 2.6 MB lazy chunk. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-m5.md`.
 
