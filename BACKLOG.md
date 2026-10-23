@@ -15,6 +15,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 - **Image captions** — render alt text or title as a `<figcaption>` under images.
 - **Spell check toggle** for the editing surface.
 - **PlantUML / D2 diagram** support (less common than Mermaid).
+- **Customizable toolbar.** Let users show, hide and reorder toolbar buttons and groups (e.g. drop Select All, move Zoom next to Font Theme). Store the layout as a `mikedown.toolbarLayout` setting (three places, per the Settings rule) and add a Toolbar section to the in-editor Settings modal with a **Reset to Default** button. Prerequisite: turn `buildCondensedToolbar`'s hand-written `appendChild` sequence into a registry of button definitions keyed by id. Hosts' `features` flags (source mode, share) still hide buttons regardless of layout.
 
 ## Polish
 

@@ -199,3 +199,11 @@
 :is(.mikedown-root, .mikedown-portal) .mikedown-source-container .cm-editor.cm-focused {
   outline: none;
 }
+
+/* Toolbar zoom control: the size readout between Zoom Out and Zoom In. */
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button.toolbar-zoom-size {
+  min-width: 28px;
+  padding: 5px 2px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}

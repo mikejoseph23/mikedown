@@ -4,6 +4,10 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Zoom control in the toolbar: Zoom Out, the current font size, and Zoom In. Click the size to reset it to the default (15px). It shares the same font size as Ctrl/Cmd + scroll and the Settings slider.
+
 ### Fixed
 
 - Callout body text no longer duplicates when a note, tip or other callout is parsed. This bug shipped in 2.14.2, so the fix is for the next release.

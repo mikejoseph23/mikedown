@@ -122,7 +122,7 @@ import { defaultKeymap, historyKeymap, history, undo as cmUndo, redo as cmRedo }
 import { markdown as cmMarkdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
-import { installWheelZoom, WHEEL_ZOOM_MIN, WHEEL_ZOOM_MAX } from './wheelZoom';
+import { createFontZoom, installWheelZoom, DEFAULT_FONT_SIZE, WHEEL_ZOOM_MIN, WHEEL_ZOOM_MAX } from './wheelZoom';
 
 /** The structural elements every editor instance owns. */
 export interface EditorShell {
@@ -271,6 +271,8 @@ const toolbarIcons = {
   selectAll: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="1" stroke-dasharray="2 1.5"/><rect x="5" y="5" width="6" height="6" fill="currentColor" stroke="none"/>'),
   share: toolbarSvg('<path d="M8 2v9"/><polyline points="5 5 8 2 11 5"/><path d="M3.5 8.5v4a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-4"/>'),
   headingNumbers: toolbarSvg('<text x="8" y="11.5" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor" stroke="none" font-family="sans-serif">1.2</text>', 0),
+  zoomIn: toolbarSvg('<circle cx="7" cy="7" r="4.5"/><line x1="10.2" y1="10.2" x2="14" y2="14"/><line x1="5" y1="7" x2="9" y2="7"/><line x1="7" y1="5" x2="7" y2="9"/>'),
+  zoomOut: toolbarSvg('<circle cx="7" cy="7" r="4.5"/><line x1="10.2" y1="10.2" x2="14" y2="14"/><line x1="5" y1="7" x2="9" y2="7"/>'),
   emoji: toolbarSvg('<circle cx="8" cy="8" r="6"/><circle cx="6" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="10" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><path d="M5.5 9.5c.7 1.2 1.7 1.8 2.5 1.8s1.8-.6 2.5-1.8"/>'),
 };
 
@@ -1093,6 +1095,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     fontSizeInput.addEventListener('input', () => {
       fontSizeLabel.textContent = `${fontSizeInput.value}px`;
       setRootVar('--mikedown-font-size', `${fontSizeInput.value}px`);
+      refreshZoomControl();
     });
 
     // ── Font Theme
@@ -2327,6 +2330,18 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       selectAllDocument(editor);
     });
 
+    // ── Zoom control (− size +) — same controller as Ctrl/Cmd + wheel ───────
+    const zoomOutBtn = makeBtn('zoomOut', 'Zoom Out', icons.zoomOut);
+    zoomOutBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    zoomOutBtn.addEventListener('click', () => fontZoom.stepBy(-1));
+    const zoomResetBtn = makeBtn('zoomReset', 'Reset Zoom', '');
+    zoomResetBtn.classList.add('toolbar-zoom-size');
+    zoomResetBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    zoomResetBtn.addEventListener('click', () => fontZoom.reset());
+    const zoomInBtn = makeBtn('zoomIn', 'Zoom In', icons.zoomIn);
+    zoomInBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    zoomInBtn.addEventListener('click', () => fontZoom.stepBy(1));
+
     const themeBtn = makeBtn('themeToggle', 'Toggle Light/Dark Mode', icons.sun);
     themeBtn.addEventListener('click', () => toggleTheme());
 
@@ -2523,6 +2538,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (host.viewInBrowser || host.printDocument) {toolbar.appendChild(shareBtn);}
     toolbar.appendChild(selectAllBtn);
     toolbar.appendChild(makeSeparator());
+    toolbar.appendChild(zoomOutBtn);
+    toolbar.appendChild(zoomResetBtn);
+    toolbar.appendChild(zoomInBtn);
+    refreshZoomControl();
+    toolbar.appendChild(makeSeparator());
     toolbar.appendChild(themeBtn);
     toolbar.appendChild(settingsBtn);
 
@@ -2543,6 +2563,28 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     };
   }
 
+
+  function currentFontSize(): number {
+    return parseInt(getComputedStyle(root).getPropertyValue('--mikedown-font-size') || '17', 10);
+  }
+
+  /** Sync the toolbar zoom control with the live font size. */
+  function refreshZoomControl(): void {
+    const toolbar = shell.toolbar;
+    if (!toolbar) {return;}
+    const size = currentFontSize();
+    const resetBtn = toolbar.querySelector<HTMLButtonElement>('button[data-action="zoomReset"]');
+    if (resetBtn) {
+      resetBtn.textContent = String(size);
+      const tip = `Font size ${size}px (click to reset to ${DEFAULT_FONT_SIZE}px)`;
+      resetBtn.dataset.tip = tip;
+      resetBtn.setAttribute('aria-label', tip);
+    }
+    const outBtn = toolbar.querySelector<HTMLButtonElement>('button[data-action="zoomOut"]');
+    if (outBtn) {outBtn.disabled = size <= WHEEL_ZOOM_MIN;}
+    const inBtn = toolbar.querySelector<HTMLButtonElement>('button[data-action="zoomIn"]');
+    if (inBtn) {inBtn.disabled = size >= WHEEL_ZOOM_MAX;}
+  }
 
   function updateToolbarState(editor: Editor): void {
     const toolbar = shell.toolbar;
@@ -2578,6 +2620,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         ? SOURCE_MODE_DISABLED_ACTIONS.has(action)
         : inCodeBlock && ['bold', 'italic', 'strike', 'code', 'link'].includes(action);
     });
+    // The loop above cleared the zoom buttons' min/max disabled state.
+    refreshZoomControl();
     // Condensed mode: update dynamic labels and dropdown trigger highlights
     if ((toolbar as any).__condensedUpdate) {
       (toolbar as any).__condensedUpdate();
@@ -4986,13 +5030,20 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     });
   }
 
-  // Ctrl/Cmd + wheel resizes editor text (issue #8). Persisted silently so
-  // every gesture doesn't pop a "settings saved" toast.
+  // Ctrl/Cmd + wheel (issue #8) and the toolbar zoom control resize editor
+  // text. Persisted silently so every step doesn't pop a "settings saved" toast.
+  const fontZoom = createFontZoom({
+    getSize: currentFontSize,
+    setSize: (px) => {
+      setRootVar('--mikedown-font-size', `${px}px`);
+      refreshZoomControl();
+    },
+    persist: (px) => host.saveSettings?.({ fontSize: px }, { silent: true }),
+  });
+  disposers.push(() => fontZoom.dispose());
   disposers.push(installWheelZoom(window, {
     isEnabled: () => currentCtrlWheelZoom,
-    getSize: () => parseInt(getComputedStyle(root).getPropertyValue('--mikedown-font-size') || '17', 10),
-    setSize: (px) => setRootVar('--mikedown-font-size', `${px}px`),
-    persist: (px) => host.saveSettings?.({ fontSize: px }, { silent: true }),
+    zoom: fontZoom,
   }));
 
   // ── Editor handle: push methods the host calls ─────────────────────────────
@@ -5187,7 +5238,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function updateSettings(patch: Partial<MikeDownSettings>): void {
     if (patch.fontFamily !== undefined) {setRootVar('--mikedown-font-family', patch.fontFamily || '');}
     if (patch.headingFontFamily !== undefined) {setRootVar('--mikedown-heading-font-family', patch.headingFontFamily || '');}
-    if (patch.fontSize !== undefined) {setRootVar('--mikedown-font-size', `${patch.fontSize || 17}px`);}
+    if (patch.fontSize !== undefined) {
+      setRootVar('--mikedown-font-size', `${patch.fontSize || 17}px`);
+      refreshZoomControl();
+    }
     if (patch.contentWidth !== undefined) {setRootVar('--mikedown-content-width', patch.contentWidth);}
     if (patch.linkClickBehavior) {
       currentLinkClickBehavior = patch.linkClickBehavior;

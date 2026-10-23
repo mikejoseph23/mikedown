@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installWheelZoom, WHEEL_ZOOM_MAX } from '../src/wheelZoom';
+import { createFontZoom, DEFAULT_FONT_SIZE, installWheelZoom, WHEEL_ZOOM_MAX, WHEEL_ZOOM_MIN, type FontZoom } from '../src/wheelZoom';
 
 describe('installWheelZoom', () => {
   let size: number;
   let enabled: boolean;
   let persist: ReturnType<typeof vi.fn>;
   let target: HTMLDivElement;
+  let zoom: FontZoom;
   let dispose: () => void;
 
   const wheel = (deltaY: number, mods: WheelEventInit = { ctrlKey: true }): WheelEvent => {
@@ -20,16 +21,17 @@ describe('installWheelZoom', () => {
     enabled = true;
     persist = vi.fn();
     target = document.createElement('div');
-    dispose = installWheelZoom(target, {
-      isEnabled: () => enabled,
+    zoom = createFontZoom({
       getSize: () => size,
       setSize: (px) => { size = px; },
       persist,
     });
+    dispose = installWheelZoom(target, { isEnabled: () => enabled, zoom });
   });
 
   afterEach(() => {
     dispose();
+    zoom.dispose();
     vi.useRealTimers();
   });
 
@@ -81,5 +83,52 @@ describe('installWheelZoom', () => {
     vi.advanceTimersByTime(500);
     expect(persist).toHaveBeenCalledTimes(1);
     expect(persist).toHaveBeenCalledWith(19);
+  });
+});
+
+describe('createFontZoom (toolbar control)', () => {
+  let size: number;
+  let persist: ReturnType<typeof vi.fn>;
+  let zoom: FontZoom;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    size = 20;
+    persist = vi.fn();
+    zoom = createFontZoom({ getSize: () => size, setSize: (px) => { size = px; }, persist });
+  });
+
+  afterEach(() => {
+    zoom.dispose();
+    vi.useRealTimers();
+  });
+
+  it('steps by one pixel and clamps at both ends', () => {
+    zoom.stepBy(1);
+    expect(size).toBe(21);
+    zoom.stepBy(-100);
+    expect(size).toBe(WHEEL_ZOOM_MIN);
+    zoom.stepBy(100);
+    expect(size).toBe(WHEEL_ZOOM_MAX);
+  });
+
+  it('resets to the default size', () => {
+    zoom.reset();
+    expect(size).toBe(DEFAULT_FONT_SIZE);
+  });
+
+  it('debounces persistence across repeated clicks', () => {
+    zoom.stepBy(1);
+    zoom.stepBy(1);
+    vi.advanceTimersByTime(500);
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(persist).toHaveBeenCalledWith(22);
+  });
+
+  it('does not persist a no-op step at the limit', () => {
+    size = WHEEL_ZOOM_MAX;
+    zoom.stepBy(1);
+    vi.advanceTimersByTime(500);
+    expect(persist).not.toHaveBeenCalled();
   });
 });
