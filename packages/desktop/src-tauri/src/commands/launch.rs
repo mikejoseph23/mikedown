@@ -4,21 +4,26 @@
 //! runs or a Dock drop) and a second launch handed over by the single-instance
 //! plugin.
 //!
-//! All three feed one queue. Until the webview has called `frontend_ready` the
-//! paths wait in it (a double-click that starts the app arrives before the
-//! page is up); afterwards each batch is pushed as a `mikedown:open-files`
-//! event. Window routing across several windows (edge case 6) lands in M4.
+//! All three feed one queue, per window. Until a window's webview has called
+//! `frontend_ready` the paths wait in it (a double-click that starts the app
+//! arrives before the page is up); afterwards each batch is pushed as a
+//! `mikedown:open-files` event to that window. Which window a path belongs
+//! to is decided by `multiwindow::route_paths` (edge case 6): the window
+//! whose folder contains it, the window already showing it, or a new one.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
+use super::multiwindow::{self, Target, WindowRegistry};
+
 pub const OPEN_FILES_EVENT: &str = "mikedown:open-files";
 
 #[derive(Default)]
 pub struct LaunchQueue {
-    inner: Mutex<QueueState>,
+    inner: Mutex<HashMap<String, QueueState>>,
 }
 
 #[derive(Default)]
@@ -51,10 +56,10 @@ where
     out
 }
 
-/// Hand paths to the webview, now or when it is ready. Each path is allowed
-/// in the fs and asset scopes first: the user chose it, so it is as good as a
-/// dialog pick.
-pub fn queue_open<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
+/// Hand paths to one window, now or when its page is ready. Each path is
+/// allowed in the fs and asset scopes first: the user chose it, so it is as
+/// good as a dialog pick.
+pub fn queue_for<R: Runtime>(app: &AppHandle<R>, label: &str, paths: Vec<PathBuf>) {
     if paths.is_empty() {
         return;
     }
@@ -62,32 +67,72 @@ pub fn queue_open<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
         super::fs::allow_document(app, p);
     }
     let queue = app.state::<LaunchQueue>();
-    let mut state = queue.inner.lock().unwrap();
+    let mut map = queue.inner.lock().unwrap();
+    let state = map.entry(label.to_string()).or_default();
     if state.ready {
         let payload: Vec<String> = paths.iter().map(|p| p.to_string_lossy().into_owned()).collect();
-        let _ = app.emit_to("main", OPEN_FILES_EVENT, payload);
+        let _ = app.emit_to(label, OPEN_FILES_EVENT, payload);
     } else {
         state.pending.extend(paths);
     }
-    drop(state);
-    if let Some(window) = app.get_webview_window("main") {
+    drop(map);
+    if let Some(window) = app.get_webview_window(label) {
         let _ = window.unminimize();
         let _ = window.set_focus();
     }
 }
 
-/// Called once by the webview after it mounted the editor. Returns the files
-/// that arrived before that; later ones come as `mikedown:open-files` events.
+/// Route paths from the OS to the right windows (edge case 6). Before any
+/// window has reported (first launch) everything goes to `main`.
+pub fn queue_open<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
+    if paths.is_empty() {
+        return;
+    }
+    let windows = app.state::<WindowRegistry>().snapshot();
+    let main_ready = {
+        let queue = app.state::<LaunchQueue>();
+        let map = queue.inner.lock().unwrap();
+        map.get("main").map(|s| s.ready).unwrap_or(false)
+    };
+    if windows.is_empty() || !main_ready {
+        queue_for(app, "main", paths);
+        return;
+    }
+    for routed in multiwindow::route_paths(&windows, &paths) {
+        match routed.target {
+            Target::Window(label) => queue_for(app, &label, routed.paths),
+            Target::NewWindow => {
+                if let Err(e) = multiwindow::create_window(app, None, routed.paths.clone()) {
+                    eprintln!("MikeDown: could not open a window: {e}");
+                    queue_for(app, "main", routed.paths);
+                }
+            }
+        }
+    }
+}
+
+/// Called once by a window's webview after it mounted the editor. Returns
+/// the files that arrived for it before that; later ones come as
+/// `mikedown:open-files` events.
 #[tauri::command]
-pub fn frontend_ready<R: Runtime>(app: AppHandle<R>) -> Vec<String> {
+pub fn frontend_ready<R: Runtime>(app: AppHandle<R>, window: tauri::WebviewWindow<R>) -> Vec<String> {
     let queue = app.state::<LaunchQueue>();
-    let mut state = queue.inner.lock().unwrap();
+    let mut map = queue.inner.lock().unwrap();
+    let state = map.entry(window.label().to_string()).or_default();
     state.ready = true;
     state
         .pending
         .drain(..)
         .map(|p| p.to_string_lossy().into_owned())
         .collect()
+}
+
+/// A window closed: forget its queue so a later window with the same label
+/// starts clean.
+pub fn forget<R: Runtime>(app: &AppHandle<R>, label: &str) {
+    if let Some(queue) = app.try_state::<LaunchQueue>() {
+        queue.inner.lock().unwrap().remove(label);
+    }
 }
 
 #[cfg(test)]

@@ -1,9 +1,10 @@
 //! MikeDown Desktop: Tauri 2 shell around `@mikedown/core`.
 //!
-//! Plugin registration, one window, the launch-file queue and the commands
-//! under `src/commands/` (file I/O and the folder tree's operations, the
-//! per-directory watcher, native window state). Menus and search arrive with
-//! later milestones.
+//! Plugin registration, windows, the launch-file queue, the menu bar and the
+//! commands under `src/commands/` (file I/O and the folder tree's operations,
+//! the per-directory watcher, native window state, hot-exit backups and
+//! sessions, multi-window routing and the quit handshake). Search arrives
+//! with a later milestone.
 
 use std::path::PathBuf;
 
@@ -11,6 +12,7 @@ use serde::Serialize;
 use tauri::Manager;
 
 mod commands;
+mod menu;
 
 /// What the webview is running on, for `docs/webview-notes.md`.
 #[derive(Serialize)]
@@ -64,10 +66,14 @@ pub fn run() {
                 argv.into_iter().skip(1),
                 Some(std::path::Path::new(&cwd)),
             );
-            commands::launch::queue_open(app, paths);
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.set_focus();
+            if paths.is_empty() {
+                let label = commands::multiwindow::focused_label(app).unwrap_or_else(|| "main".to_string());
+                if let Some(window) = app.get_webview_window(&label) {
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            } else {
+                commands::launch::queue_open(app, paths);
             }
         }));
     }
@@ -81,6 +87,11 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(commands::launch::LaunchQueue::default())
         .manage(commands::watcher::Watchers::default())
+        .manage(commands::appdata::AppData::default())
+        .manage(commands::multiwindow::WindowRegistry::default())
+        .manage(commands::multiwindow::QuitState::default())
+        .menu(|handle| menu::build(handle))
+        .on_menu_event(|app, event| menu::handle(app, event.id().as_ref()))
         .setup(|app| {
             // Files named on the command line (Windows file associations,
             // `open -a MikeDown file.md`, `tauri dev -- file.md`).
@@ -118,19 +129,50 @@ pub fn run() {
             commands::window::set_document_edited,
             commands::window::set_represented_file,
             commands::launch::frontend_ready,
+            commands::appdata::backup_write,
+            commands::appdata::backup_remove,
+            commands::appdata::backup_list,
+            commands::appdata::session_write,
+            commands::appdata::session_read,
+            commands::appdata::session_remove,
+            commands::appdata::session_list,
+            commands::multiwindow::report_window_state,
+            commands::multiwindow::new_window,
+            commands::multiwindow::window_count,
+            commands::multiwindow::quit_reply,
+            commands::multiwindow::request_quit_cmd,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MikeDown");
 
     app.run(|app_handle, event| {
-        // macOS: a double-clicked file or a Dock drop while the app runs (or
-        // at launch, before the webview exists; the queue holds it).
-        #[cfg(target_os = "macos")]
-        if let tauri::RunEvent::Opened { urls } = &event {
-            let paths: Vec<PathBuf> = urls.iter().filter_map(|u| u.to_file_path().ok()).collect();
-            commands::launch::queue_open(app_handle, paths);
+        match &event {
+            // macOS: a double-clicked file or a Dock drop while the app runs
+            // (or at launch, before the webview exists; the queue holds it).
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Opened { urls } => {
+                let paths: Vec<PathBuf> = urls.iter().filter_map(|u| u.to_file_path().ok()).collect();
+                commands::launch::queue_open(app_handle, paths);
+            }
+            // The last window closed, or a quit was requested by the OS.
+            // Nothing is lost either way: a window only closes after its own
+            // dirty-file dialog, and the quit handshake (`request_quit`) sets
+            // `approved` before it calls `exit`. A programmatic exit that did
+            // not come through the handshake is held while the handshake
+            // asks every window.
+            tauri::RunEvent::ExitRequested { api, code, .. } => {
+                let quit = app_handle.state::<commands::multiwindow::QuitState>();
+                let approved = quit.approved.load(std::sync::atomic::Ordering::SeqCst);
+                if !approved && code.is_some() && !app_handle.webview_windows().is_empty() {
+                    api.prevent_exit();
+                    commands::multiwindow::request_quit(app_handle);
+                }
+            }
+            tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } => {
+                app_handle.state::<commands::multiwindow::WindowRegistry>().remove(label);
+                commands::launch::forget(app_handle, label);
+            }
+            _ => {}
         }
-        #[cfg(not(target_os = "macos"))]
-        let _ = (app_handle, event);
     });
 }
