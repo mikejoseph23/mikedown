@@ -26,7 +26,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M0 — Tauri scaffold and WebKit smoke test](#m0--tauri-scaffold-and-webkit-smoke-test) | Opus | ✅ Complete (Windows GUI checklist pending) | 24 | Gate: core renders and round-trips in WKWebView and WebView2 |
 | [M1 — imagePaste helpers into core shared](#m1--imagepaste-helpers-into-core-shared) | Sonnet | ✅ Complete | 4 | `test/unit/imagePaste.test.ts` must keep passing |
 | [M2 — Tauri host adapter and lone-file window](#m2--tauri-host-adapter-and-lone-file-window) | Opus | ✅ Complete (2 GUI checks pending) | 34 | `TauriHost implements MikeDownHost`; file associations |
-| [T1 — Host and single-file tests](#t1--host-and-single-file-tests) | Sonnet | ⬜ Not Started | — | unit + e2e + hands-on both OSes |
+| [T1 — Host and single-file tests](#t1--host-and-single-file-tests) | Sonnet | 🔄 In Progress | — | unit + e2e + hands-on both OSes |
 | [M3 — Folder sidebar and file tree](#m3--folder-sidebar-and-file-tree) | Opus | ⬜ Not Started | — | lazy tree, CRUD, watcher, drag-drop, Trash |
 | [M4 — Tabs, panes, document model, hot exit](#m4--tabs-panes-document-model-hot-exit) | Opus | ⬜ Not Started | — | one model per path per window; backups; session restore |
 | [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | ⬜ Not Started | — | tree + tabs + hot exit |
