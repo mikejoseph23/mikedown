@@ -29,7 +29,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [T1 — Host and single-file tests](#t1--host-and-single-file-tests) | Sonnet | ✅ Complete (signed off) | 27 | unit + e2e + hands-on both OSes |
 | [M3 — Folder sidebar and file tree](#m3--folder-sidebar-and-file-tree) | Opus | ✅ Complete (hands-on pending) | 44 | lazy tree, CRUD, watcher, drag-drop, Trash |
 | [M4 — Tabs, panes, document model, hot exit](#m4--tabs-panes-document-model-hot-exit) | Opus | ✅ Complete (2 GUI checks pending) | 57 | one model per path per window; backups; session restore |
-| [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | 🔄 In Progress | — | tree + tabs + hot exit |
+| [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | ✅ Automated done (hands-on pending) | 9 | tree + tabs + hot exit |
 | [M5 — Settings: global, folder override, App tab](#m5--settings-global-folder-override-app-tab) | Sonnet | 🔄 In Progress | — | reuses core settings modal via `extraSettingsSections` |
 | [M6 — Versioning, diff view, external changes](#m6--versioning-diff-view-external-changes) | Opus | ⬜ Not Started | — | `.mikedown/versions/`; Compare / Overwrite / Revert |
 | [M7 — Folder search](#m7--folder-search) | Sonnet | 🔄 In Progress | — | Rust-side search, grouped results |
@@ -398,11 +398,11 @@ Start: `npm run dev:desktop` on the Mac; the Windows build from BEAST per `packa
 
 **Automated**
 
-- [ ] `packages/desktop/test/documentModel.test.ts`: two attached handles stay in sync without echo loops; dirty flips on edit and clears on save; `pristine: true` after undo clears dirty.
-- [ ] `packages/desktop/test/backups.test.ts`: debounce coalesces writes; save clears the backup; `index.json` lists exactly the dirty set; restore maps hashes back to paths.
-- [ ] `packages/desktop/test/tree.test.ts`: natural sort, hidden exclusions, lazy expansion requests one `list_dir` per expand, rename validation errors for `CON.md` and a 270-char path.
-- [ ] Rust tests in `fs.rs` / `watcher.rs`: case-only rename on a temp dir, polling fallback path.
-- [ ] E2E: open folder fixture, create file, rename, delete (Trash mocked), split pane, close, session restores.
+- [x] `packages/desktop/test/documentModel.test.ts`: two attached handles stay in sync without echo loops; dirty flips on edit and clears on save; `pristine: true` after undo clears dirty.
+- [x] `packages/desktop/test/backups.test.ts`: debounce coalesces writes; save clears the backup; `index.json` lists exactly the dirty set; restore maps hashes back to paths.
+- [x] `packages/desktop/test/tree.test.ts`: natural sort, hidden exclusions, lazy expansion requests one `list_dir` per expand, rename validation errors for `CON.md` and a 270-char path.
+- [x] Rust tests in `fs.rs` / `watcher.rs`: case-only rename on a temp dir, polling fallback path.
+- [x] E2E: open folder fixture, create file, rename, delete (Trash mocked), split pane, close, session restores.
 
 **Hands-on (user, about 10 minutes per OS)**
 
@@ -694,6 +694,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 20:00** - T2 automated part complete (cherry-picked as `2022ca2`..`4cbbeee`). Most checkboxes were already covered by M3/M4 tests; added: backups keep exactly the dirty set, exactly one `list_dir` per expand, Windows-mode rename refusals for `CON.md` and a 270-char name, a watcher polling-fallback test for removal and case-only rename, and `workspace.spec.ts` e2e (create, rename, delete with mocked Trash, split, close, session restore). No production code changed, no bugs found. Verified in the main tree: desktop tsc, unit 193, e2e 9, cargo 48 green. Hands-on awaits Mike: fixture at `~/tmp-mikedown-t2/notes`. The worker's sandbox refused the main-repo summary path; the orchestrator copied it over.
 
 **2026-10-23 19:50** - M4 complete (cherry-picked onto main as `44fac7b`..`3b77a46`). Resumed worker on Opus finished the paused run: tabs and split panes over a per-window document registry (edits propagate across panes with no echo), drag-reorder, ARIA tablist, dirty dot, lock badge, downloading with Retry, 2 MB / 20 MB large-file gates, hot-exit backups with one quit dialog (window close, Cmd+Q, ExitRequested), single-instance routing, New Window, mtime compare on focus, session restore including per-tab view state (core gained `getViewState`/`setViewState`). Fixes found on the way: core tsup was missing `shared/anchoring` (broke `tauri build` since M3); `tauri-plugin-persisted-scope` added so restored tabs outside `$HOME` don't come back Untitled. Measured: `kill -9` with three dirty files in the real app restored all three dirty, text identical (edits injected by a probe build, not typed). The `booted` TDZ did not reproduce. Verified in the main tree: compile, unit 1152, edge 22, core-package 9, desktop tsc, desktop unit 190, e2e 8, cargo 47 green. Deviation: next/prev tab is `Ctrl+Tab` (Cmd+Tab is the macOS app switcher). Pending for Mike: quit dialog with dirty files (one dialog, Cancel keeps app open), same file in two panes eyeballed, tab strip look in light and dark. Note: persisted-scope grants grow forever; pruning candidate for M5/M10.
 
