@@ -46,6 +46,7 @@ export type {
   MikeDownEditorHandle,
   MikeDownCommand,
   MikeDownEvent,
+  MikeDownViewState,
   SidebarStateUpdate,
   SidebarFooterLink,
   MikeDownSettingsSection,

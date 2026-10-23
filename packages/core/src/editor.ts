@@ -109,6 +109,7 @@ import type {
   MikeDownOptions,
   MikeDownSettings,
   MikeDownSettingsSectionContext,
+  MikeDownViewState,
   NormalizationStyle,
   SidebarFooterLink,
   SidebarStateUpdate,
@@ -5215,6 +5216,46 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     lastSavedUndoDepth = pmUndoDepth(editor.state);
   }
 
+  /** Which view is showing, where its caret is and how far it is scrolled. */
+  function getViewState(): MikeDownViewState {
+    if (sourceMode && cmView) {
+      return { sourceMode: true, cursor: cmView.state.selection.main.head, scrollTop: cmView.scrollDOM.scrollTop };
+    }
+    return { sourceMode: false, cursor: editor.state.selection.head, scrollTop: editorContainer.scrollTop };
+  }
+
+  /**
+   * Restore a view state saved by `getViewState`: switch views first when
+   * asked, then place the caret (clamped) and the scroll offset. The scroll
+   * is applied now and once more on the next frame, since a view that was
+   * just filled or shown may not have its final height yet.
+   */
+  function setViewState(state: Partial<MikeDownViewState>): void {
+    if (state.sourceMode !== undefined && state.sourceMode !== sourceMode && features.sourceMode) {
+      toggleSourceMode();
+    }
+    const scroller = sourceMode && cmView ? cmView.scrollDOM : editorContainer;
+    if (state.cursor !== undefined) {
+      if (sourceMode && cmView) {
+        const pos = Math.max(0, Math.min(state.cursor, cmView.state.doc.length));
+        cmView.dispatch({ selection: { anchor: pos }, scrollIntoView: false });
+      } else {
+        const max = editor.state.doc.content.size;
+        const pos = Math.max(0, Math.min(state.cursor, max));
+        try {
+          editor.view.dispatch(editor.state.tr.setSelection(Selection.near(editor.state.doc.resolve(pos))));
+        } catch { /* the position does not resolve in this document; keep the current caret */ }
+      }
+    }
+    if (state.scrollTop !== undefined) {
+      const top = Math.max(0, state.scrollTop);
+      scroller.scrollTop = top;
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => { if (!destroyed) {scroller.scrollTop = top;} });
+      }
+    }
+  }
+
   let readOnly = false;
   function setReadOnly(next: boolean): void {
     if (next === readOnly) {return;}
@@ -5570,6 +5611,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     setSidebarFooterLink,
     setDiffAvailable: (available: boolean) => { fileHasGitChanges = available; },
     isModalOpen: () => !!settingsOverlay?.isConnected,
+    getViewState,
+    setViewState,
     focus: () => { if (sourceMode && cmView) {cmView.focus();} else {editor.commands.focus();} },
     on: (event, fn) => {
       let set = eventListeners.get(event);

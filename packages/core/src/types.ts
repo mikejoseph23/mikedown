@@ -213,6 +213,20 @@ export type MikeDownCommand =
 
 export type MikeDownEvent = 'change' | 'focus' | 'blur' | 'ready';
 
+/**
+ * Where the user is in the document: which view is showing, the caret and
+ * the scroll offset of that view. A host that keeps several documents in one
+ * editor (tabs) saves it when a tab deactivates and restores it when the tab
+ * comes back, or across sessions.
+ */
+export interface MikeDownViewState {
+  sourceMode: boolean;
+  /** Caret position in the showing view: a ProseMirror position in rich text, a character offset in source mode. */
+  cursor: number;
+  /** Scroll offset of the showing view's scroller, in CSS pixels. */
+  scrollTop: number;
+}
+
 /** Sidebar layout and per-document section state pushed by the host. */
 export interface SidebarStateUpdate {
   pref?: 'always' | 'never';
@@ -271,6 +285,14 @@ export interface MikeDownEditorHandle {
   setDiffAvailable(available: boolean): void;
   /** True while the Settings modal or another core modal is open. */
   isModalOpen(): boolean;
+  /** Which view is showing, where the caret is and how far it is scrolled. */
+  getViewState(): MikeDownViewState;
+  /**
+   * Restore a saved view state: switches views when `sourceMode` differs,
+   * then places the caret (clamped to the document) and the scroll offset.
+   * Call it after `setMarkdown`. Missing fields keep their current value.
+   */
+  setViewState(state: Partial<MikeDownViewState>): void;
   /** Subscribe to an event. Returns an unsubscribe function. */
   on(event: MikeDownEvent, fn: (...args: any[]) => void): () => void;
   /** Tear down the editor and every listener it attached to window or document. */
