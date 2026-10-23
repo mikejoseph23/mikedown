@@ -30,11 +30,11 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M3 — Folder sidebar and file tree](#m3--folder-sidebar-and-file-tree) | Opus | ✅ Complete (hands-on pending) | 44 | lazy tree, CRUD, watcher, drag-drop, Trash |
 | [M4 — Tabs, panes, document model, hot exit](#m4--tabs-panes-document-model-hot-exit) | Opus | ✅ Complete (2 GUI checks pending) | 57 | one model per path per window; backups; session restore |
 | [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | ✅ Automated done (hands-on pending) | 9 | tree + tabs + hot exit |
-| [M5 — Settings: global, folder override, App tab](#m5--settings-global-folder-override-app-tab) | Sonnet | 🔄 In Progress | — | reuses core settings modal via `extraSettingsSections` |
+| [M5 — Settings: global, folder override, App tab](#m5--settings-global-folder-override-app-tab) | Sonnet | ✅ Complete (GUI checks pending) | 12 | reuses core settings modal via `extraSettingsSections` |
 | [M6 — Versioning, diff view, external changes](#m6--versioning-diff-view-external-changes) | Opus | ⬜ Not Started | — | `.mikedown/versions/`; Compare / Overwrite / Revert |
 | [M7 — Folder search](#m7--folder-search) | Sonnet | 🔄 In Progress | — | Rust-side search, grouped results |
 | [M8 — Welcome, recents, menus, window title](#m8--welcome-recents-menus-window-title) | Opus | ⬜ Not Started | — | native menus, `CmdOrCtrl` shortcuts, `welcome.md` |
-| [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | 🔄 In Progress | — | reuses `handle.getHtml()` |
+| [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | ✅ Complete (print GUI checks pending) | 12 | reuses `handle.getHtml()` |
 | [T3 — Feature tests](#t3--feature-tests) | Sonnet | ⬜ Not Started | — | settings, versioning, search, export |
 | [M10 — Updater, signing, build pipeline, download page](#m10--updater-signing-build-pipeline-download-page) | Opus | ⬜ Not Started | — | follows the LymeScribe deploy scripts |
 | [M11 — Polish: a11y, encoding, filesystem oddities](#m11--polish-a11y-encoding-filesystem-oddities) | Sonnet | ⬜ Not Started | — | edge cases 10, 11, 12, 25, 26 |
@@ -420,14 +420,14 @@ Start: `npm run dev:desktop` on the Mac; the Windows build from BEAST per `packa
 
 **Tasks**
 
-- [ ] `src/settings/store.ts`: read global `<app-data>/settings.json` (macOS `~/Library/Application Support/MikeDown/settings.json`, Windows `%APPDATA%\MikeDown\settings.json`, via `@tauri-apps/api/path.appDataDir`) and optional `<folder>/.mikedown/settings.json`; merge is shallow per top-level key, folder wins. Schema: core keys (`MikeDownSettings`) plus desktop keys `versioning.enabled`, `versioning.keep` (25), `versioning.maxSizeMB` (2), `updates.checkOnLaunch` (true), `imagePaste.folder/.folderRelativeTo/.filenamePattern/.pathStyle/.altText/.maxSizeMB`, `tree.showHidden`, `confirmDelete`, `fileAssociationsOffered`.
-- [ ] Corrupt JSON (edge 16): fall back to defaults for that file; show a non-modal banner with "Open file" (`shell.open`) and "Reset to defaults" (writes a fresh file only on click); never overwrite automatically.
-- [ ] Folder override validation (edge 29): reject `imagePaste.folder` values that resolve to an absolute path outside the folder; show the reason in the banner.
-- [ ] `host.saveSettings(patch, { silent })`: write to the global file, or to `.mikedown/settings.json` when the modal's **"Save for this folder"** toggle is on (creating `.mikedown/` only then); push the merged result to every editor via `handle.updateSettings` and to the app chrome.
-- [ ] App tab via `extraSettingsSections` (`MikeDownSettingsSection` with `tab: 'app'`, `tabLabel: 'App'`): versions to keep, versioning max size, check for updates on launch, image paste folder/pattern/alt text/path style (reusing the VS Code wording), show hidden files, confirm before delete, "Set MikeDown as default for .md" button, the "Save for this folder" toggle (disabled in lone-file windows), About (version, "Check for Updates…"). Use `ctx.makeRow`/`makeCheckboxRow` so it matches core's styling.
-- [ ] Theme (decision): `theme: 'auto'`; remove any manual theme toggle from the toolbar by leaving `host.toggleTheme` absent; verify the app chrome recolors with `prefers-color-scheme`.
-- [ ] Settings changes in one window apply to all windows (emit a Tauri event; each window re-reads and calls `updateSettings`).
-- [ ] Commit.
+- [x] `src/settings/store.ts`: read global `<app-data>/settings.json` (macOS `~/Library/Application Support/MikeDown/settings.json`, Windows `%APPDATA%\MikeDown\settings.json`, via `@tauri-apps/api/path.appDataDir`) and optional `<folder>/.mikedown/settings.json`; merge is shallow per top-level key, folder wins. Schema: core keys (`MikeDownSettings`) plus desktop keys `versioning.enabled`, `versioning.keep` (25), `versioning.maxSizeMB` (2), `updates.checkOnLaunch` (true), `imagePaste.folder/.folderRelativeTo/.filenamePattern/.pathStyle/.altText/.maxSizeMB`, `tree.showHidden`, `confirmDelete`, `fileAssociationsOffered`.
+- [x] Corrupt JSON (edge 16): fall back to defaults for that file; show a non-modal banner with "Open file" (`shell.open`) and "Reset to defaults" (writes a fresh file only on click); never overwrite automatically.
+- [x] Folder override validation (edge 29): reject `imagePaste.folder` values that resolve to an absolute path outside the folder; show the reason in the banner.
+- [x] `host.saveSettings(patch, { silent })`: write to the global file, or to `.mikedown/settings.json` when the modal's **"Save for this folder"** toggle is on (creating `.mikedown/` only then); push the merged result to every editor via `handle.updateSettings` and to the app chrome.
+- [x] App tab via `extraSettingsSections` (`MikeDownSettingsSection` with `tab: 'app'`, `tabLabel: 'App'`): versions to keep, versioning max size, check for updates on launch, image paste folder/pattern/alt text/path style (reusing the VS Code wording), show hidden files, confirm before delete, "Set MikeDown as default for .md" button, the "Save for this folder" toggle (disabled in lone-file windows), About (version, "Check for Updates…"). Use `ctx.makeRow`/`makeCheckboxRow` so it matches core's styling.
+- [x] Theme (decision): `theme: 'auto'`; remove any manual theme toggle from the toolbar by leaving `host.toggleTheme` absent; verify the app chrome recolors with `prefers-color-scheme`.
+- [x] Settings changes in one window apply to all windows (emit a Tauri event; each window re-reads and calls `updateSettings`).
+- [x] Commit.
 
 **Acceptance criteria**
 
@@ -521,11 +521,11 @@ Start: `npm run dev:desktop` on the Mac; the Windows build from BEAST per `packa
 
 **Tasks**
 
-- [ ] Implement `host.exportHtml(html)` and `host.printDocument(html)` on `TauriHost` (adding them makes core show its toolbar entries; verify this is wanted or hide via the toolbar config if core offers it).
-- [ ] HTML export (edge 24): wrap `handle.getHtml()` in a standalone document with core's `styles.css`/`tokens.css` inlined (reuse the approach in `src/export.ts` of the VS Code extension where it is pure; copy, do not import Node code), images inlined as `data:` URIs **only for export** or copied alongside (user choice in the save dialog's sidecar option; default inline), title from the first H1 or filename; `dialog.save` with `.html`.
-- [ ] PDF / Print: open the HTML in a hidden `WebviewWindow`, call `window.print()` (WKWebView and WebView2 both show the OS print dialog with Save as PDF); fall back to a visible print preview window if hidden printing is blocked. Document the per-webview behavior in `webview-notes.md`.
-- [ ] Menu entries (M8 table) and `CmdOrCtrl+P` for Print.
-- [ ] Commit.
+- [x] Implement `host.exportHtml(html)` and `host.printDocument(html)` on `TauriHost` (adding them makes core show its toolbar entries; verify this is wanted or hide via the toolbar config if core offers it).
+- [x] HTML export (edge 24): wrap `handle.getHtml()` in a standalone document with core's `styles.css`/`tokens.css` inlined (reuse the approach in `src/export.ts` of the VS Code extension where it is pure; copy, do not import Node code), images inlined as `data:` URIs **only for export** or copied alongside (user choice in the save dialog's sidecar option; default inline), title from the first H1 or filename; `dialog.save` with `.html`.
+- [x] PDF / Print: open the HTML in a hidden `WebviewWindow`, call `window.print()` (WKWebView and WebView2 both show the OS print dialog with Save as PDF); fall back to a visible print preview window if hidden printing is blocked. Document the per-webview behavior in `webview-notes.md`.
+- [x] Menu entries (M8 table) and `CmdOrCtrl+P` for Print.
+- [x] Commit.
 
 **Acceptance criteria**
 
@@ -694,6 +694,10 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 20:20** - M5 complete (cherry-picked as `b9cb1dd`, `7f71162`; trivial keep-both conflicts in `commands/mod.rs` and `lib.rs` with M9). Global `<app-data>/settings.json` plus `<folder>/.mikedown/settings.json`, flat keys, folder wins per key; corrupt-file banner (Open file / Reset, never auto-overwrites); `imagePaste.folder` override validation; `saveSettings` routes global vs folder and writes only changed keys; App tab via `extraSettingsSections`; cross-window `mikedown:settings-changed` event; tree toggles persist. Verified in the main tree with M9 merged: desktop tsc, unit 256, e2e 17, cargo 54, vite build green. Notes: leaving `host.toggleTheme` absent still lets core flip the theme locally, so the button is hidden by CSS (core flag candidate); Check for Updates says not set up until M10, `updates.checkOnLaunch` stored but unread; macOS default-app button shows Finder steps; a folder-overridden core key reverts on folder switch only if the global file has it. Real-app checks pending (body font persists across relaunch and windows; Save for this folder; hand-corrupted file). Worker sandbox refused the main summary path again; copied by the orchestrator.
+
+**2026-10-23 20:20** - M9 complete in code (cherry-picked as `1ddd455`). Standalone HTML export (core CSS and KaTeX fonts inlined, images as data URIs or copied to `<name>_files/`, title from H1, heading ids and link fixes from `src/export.ts`), print/PDF via a hidden `print-*` window with an 8 s fallback to a visible preview, File > Export > HTML…/PDF… and Print… (`CmdOrCtrl+P`), `break-inside: avoid` rules, quit handshake skips print windows; per-webview notes in `webview-notes.md`. e2e reopens the export offline and checks image and KaTeX; mermaid offline holds by construction, untested. M8 should reuse menu ids `exportHtml`, `exportPdf`, `print`. Pending for Mike: real print dialog on macOS and Windows, export opened in a browser offline.
 
 **2026-10-23 20:00** - T2 automated part complete (cherry-picked as `2022ca2`..`4cbbeee`). Most checkboxes were already covered by M3/M4 tests; added: backups keep exactly the dirty set, exactly one `list_dir` per expand, Windows-mode rename refusals for `CON.md` and a 270-char name, a watcher polling-fallback test for removal and case-only rename, and `workspace.spec.ts` e2e (create, rename, delete with mocked Trash, split, close, session restore). No production code changed, no bugs found. Verified in the main tree: desktop tsc, unit 193, e2e 9, cargo 48 green. Hands-on awaits Mike: fixture at `~/tmp-mikedown-t2/notes`. The worker's sandbox refused the main-repo summary path; the orchestrator copied it over.
 
