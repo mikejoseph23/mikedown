@@ -4,4 +4,5 @@
 
 pub mod fs;
 pub mod launch;
+pub mod watcher;
 pub mod window;

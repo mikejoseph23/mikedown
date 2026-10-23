@@ -182,6 +182,9 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
             // unix; on Windows the read-only bit, which a read-only file
             // never reaches here with anyway).
             let _ = stdfs::set_permissions(&tmp, perms);
+            // And its extended attributes (macOS Finder tags, per-file "Open
+            // With", quarantine, ...), which a fresh temp file does not have.
+            copy_xattrs(path, &tmp);
         }
         stdfs::rename(&tmp, path)
     })();
@@ -191,6 +194,23 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
     }
     result
 }
+
+/// Copy every extended attribute of `from` onto `to`, best effort: an
+/// attribute the target filesystem refuses is skipped. No-op where the OS has
+/// no xattrs (Windows: the read-only bit travels with the mode; alternate
+/// data streams are not carried over).
+#[cfg(unix)]
+pub fn copy_xattrs(from: &Path, to: &Path) {
+    let Ok(names) = xattr::list(from) else { return };
+    for name in names {
+        if let Ok(Some(value)) = xattr::get(from, &name) {
+            let _ = xattr::set(to, &name, &value);
+        }
+    }
+}
+
+#[cfg(not(unix))]
+pub fn copy_xattrs(_from: &Path, _to: &Path) {}
 
 fn mtime_ms(meta: &stdfs::Metadata) -> f64 {
     meta.modified()
@@ -217,12 +237,298 @@ fn describe(path: &Path, e: &io::Error) -> String {
     format!("{}: {}", path.display(), e)
 }
 
+// ── Tree helpers (pure, unit-tested below) ─────────────────────────────────
+
+/// OS clutter that is never interesting in a notes tree.
+const CLUTTER_FILES: &[&str] = &[".DS_Store", "Thumbs.db", "desktop.ini"];
+
+/// Hidden by default (plan: Large folders): dotfolders, `node_modules`, and
+/// OS clutter files. Dotfiles such as `.gitignore` stay visible.
+pub fn is_hidden_entry(name: &str, is_dir: bool) -> bool {
+    if is_dir {
+        name.starts_with('.') || name == "node_modules"
+    } else {
+        CLUTTER_FILES.contains(&name)
+    }
+}
+
+/// `atomic_write`'s and `rename`'s own temp files (`.name.mikedown-….tmp`).
+pub fn is_mikedown_temp(name: &str) -> bool {
+    name.starts_with('.') && name.ends_with(".tmp") && name.contains(".mikedown-")
+}
+
+/// Natural, case-insensitive order: `file2` before `file10`, `a` next to `A`.
+/// Ties fall back to the plain order so the result is total.
+pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let (ac, bc): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    let (mut i, mut j) = (0usize, 0usize);
+    while i < ac.len() && j < bc.len() {
+        if ac[i].is_ascii_digit() && bc[j].is_ascii_digit() {
+            let si = i;
+            while i < ac.len() && ac[i].is_ascii_digit() {
+                i += 1;
+            }
+            let sj = j;
+            while j < bc.len() && bc[j].is_ascii_digit() {
+                j += 1;
+            }
+            let na: String = ac[si..i].iter().collect();
+            let nb: String = bc[sj..j].iter().collect();
+            let ta = na.trim_start_matches('0');
+            let tb = nb.trim_start_matches('0');
+            let ord = ta.len().cmp(&tb.len()).then_with(|| ta.cmp(tb));
+            if ord != Ordering::Equal {
+                return ord;
+            }
+            continue;
+        }
+        let la: String = ac[i].to_lowercase().collect();
+        let lb: String = bc[j].to_lowercase().collect();
+        let ord = la.cmp(&lb);
+        if ord != Ordering::Equal {
+            return ord;
+        }
+        i += 1;
+        j += 1;
+    }
+    (ac.len() - i).cmp(&(bc.len() - j)).then_with(|| a.cmp(b))
+}
+
+/// Folders first, then natural order within each group.
+pub fn sort_entries(entries: &mut [DirEntry]) {
+    entries.sort_by(|a, b| b.is_dir.cmp(&a.is_dir).then_with(|| natural_cmp(&a.name, &b.name)));
+}
+
+const WINDOWS_RESERVED: &[&str] = &[
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
+/// Longest full path Windows accepts without long-path support (MAX_PATH is
+/// 260 including the terminating NUL). Edge case 25: no long paths in v1.
+pub const WINDOWS_MAX_PATH: usize = 259;
+
+/// Check one file or folder name before anything touches the disk. `windows`
+/// adds Windows' rules (reserved device names, forbidden characters, trailing
+/// dot or space). Errors are plain-language sentences for the UI.
+pub fn validate_name(name: &str, windows: bool) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("The name cannot be empty.".into());
+    }
+    if name == "." || name == ".." {
+        return Err(format!("“{name}” is not a valid name."));
+    }
+    if name.contains('/') || name.contains('\0') || (windows && name.contains('\\')) {
+        return Err(format!("“{name}” cannot contain a slash."));
+    }
+    if windows {
+        if let Some(c) = name.chars().find(|c| "<>:\"|?*".contains(*c) || (*c as u32) < 0x20) {
+            let shown = if (c as u32) < 0x20 { "a control character".to_string() } else { format!("“{c}”") };
+            return Err(format!("“{name}” cannot contain {shown} on Windows."));
+        }
+        if name.ends_with('.') || name.ends_with(' ') {
+            return Err(format!("“{name}” cannot end with a dot or a space on Windows."));
+        }
+        let stem = name.split('.').next().unwrap_or("").trim_end().to_ascii_uppercase();
+        if WINDOWS_RESERVED.contains(&stem.as_str()) {
+            return Err(format!(
+                "“{name}” uses a name Windows reserves for devices (CON, PRN, AUX, NUL, COM1–COM9, LPT1–LPT9). Choose another name."
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// `validate_name` on the last component plus Windows' path-length limit for
+/// the whole path (`extra` = the longest relative path that will be created
+/// beneath it, for folder copies and moves).
+pub fn validate_target(path: &Path, extra: usize, windows: bool) -> Result<(), String> {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .ok_or_else(|| format!("{} has no file name.", path.display()))?;
+    validate_name(&name, windows)?;
+    if windows {
+        let len = path.as_os_str().to_string_lossy().encode_utf16().count() + extra;
+        if len > WINDOWS_MAX_PATH {
+            return Err(format!(
+                "The full path would be {len} characters long; Windows allows at most {WINDOWS_MAX_PATH}. Use a shorter name or a folder nearer the top of the drive."
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn check_target(path: &Path, extra: usize) -> Result<(), String> {
+    validate_target(path, extra, cfg!(windows))
+}
+
+/// Longest relative path (in UTF-16 units, with its leading separator) under
+/// `dir`, for the Windows length check of a folder copy or move. 0 for a file.
+fn deepest_relative_len(dir: &Path) -> usize {
+    fn walk(dir: &Path, prefix: usize, best: &mut usize) {
+        let Ok(entries) = stdfs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let len = prefix + 1 + entry.file_name().to_string_lossy().encode_utf16().count();
+            *best = (*best).max(len);
+            if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                walk(&entry.path(), len, best);
+            }
+        }
+    }
+    let mut best = 0;
+    if dir.is_dir() {
+        walk(dir, 0, &mut best);
+    }
+    best
+}
+
+/// Same file or folder on disk (case-only renames on case-insensitive
+/// volumes: `a.md` and `A.md` both resolve to it).
+fn same_entry(a: &Path, b: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match (stdfs::symlink_metadata(a), stdfs::symlink_metadata(b)) {
+            (Ok(x), Ok(y)) => x.dev() == y.dev() && x.ino() == y.ino(),
+            _ => false,
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        match (stdfs::canonicalize(a), stdfs::canonicalize(b)) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
+fn temp_sibling(path: &Path, tag: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(0);
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    path.with_file_name(format!(".{name}.mikedown-{tag}-{}-{nanos}.tmp", std::process::id()))
+}
+
+/// Rename `from` to `to`. A case-only change (`notes.md` → `Notes.md`) goes
+/// through a temp name in two steps so case-insensitive volumes (APFS, NTFS)
+/// pick it up (edge case 25). Refuses to overwrite anything else.
+pub fn rename_entry(from: &Path, to: &Path) -> io::Result<()> {
+    if from == to {
+        return Ok(());
+    }
+    if stdfs::symlink_metadata(from).is_err() {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "no such file or folder"));
+    }
+    if stdfs::symlink_metadata(to).is_ok() {
+        if !same_entry(from, to) {
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, "a file or folder with that name already exists"));
+        }
+        let tmp = temp_sibling(from, "rename");
+        stdfs::rename(from, &tmp)?;
+        if let Err(e) = stdfs::rename(&tmp, to) {
+            let _ = stdfs::rename(&tmp, from);
+            return Err(e);
+        }
+        return Ok(());
+    }
+    stdfs::rename(from, to)
+}
+
+/// Copy a file or folder tree, keeping modes and extended attributes.
+pub fn copy_entry(from: &Path, to: &Path) -> io::Result<()> {
+    let meta = stdfs::symlink_metadata(from)?;
+    let ft = meta.file_type();
+    if ft.is_symlink() {
+        #[cfg(unix)]
+        {
+            let target = stdfs::read_link(from)?;
+            return std::os::unix::fs::symlink(target, to);
+        }
+        #[cfg(not(unix))]
+        {
+            stdfs::copy(from, to)?;
+            return Ok(());
+        }
+    }
+    if ft.is_dir() {
+        stdfs::create_dir(to)?;
+        for entry in stdfs::read_dir(from)? {
+            let entry = entry?;
+            copy_entry(&entry.path(), &to.join(entry.file_name()))?;
+        }
+        let _ = stdfs::set_permissions(to, meta.permissions());
+        copy_xattrs(from, to);
+        return Ok(());
+    }
+    stdfs::copy(from, to)?;
+    copy_xattrs(from, to);
+    Ok(())
+}
+
+/// Move a file or folder. A plain rename when both sides share a volume
+/// (xattrs travel with the inode); otherwise copy, then remove the original.
+pub fn move_entry(from: &Path, to: &Path) -> io::Result<()> {
+    if stdfs::symlink_metadata(to).is_ok() && !same_entry(from, to) {
+        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "a file or folder with that name already exists"));
+    }
+    if to.starts_with(from) && to != from {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "cannot move a folder into itself"));
+    }
+    match rename_entry(from, to) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
+            copy_entry(from, to)?;
+            if stdfs::symlink_metadata(from)?.is_dir() {
+                stdfs::remove_dir_all(from)
+            } else {
+                stdfs::remove_file(from)
+            }
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// Markdown files under `root`, recursively, for the folder index. Skips
+/// `.mikedown/` always (version snapshots are not notes), hidden folders and
+/// `node_modules` unless `show_hidden`, and symlinked folders (no cycles).
+/// Stops at `limit` files.
+pub fn walk_markdown(root: &Path, show_hidden: bool, limit: usize) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = stdfs::read_dir(&dir) else { continue };
+        for entry in entries.flatten() {
+            let Ok(ft) = entry.file_type() else { continue };
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if ft.is_dir() {
+                if name == ".mikedown" || (!show_hidden && is_hidden_entry(&name, true)) {
+                    continue;
+                }
+                stack.push(entry.path());
+            } else if ft.is_file() {
+                let lower = name.to_ascii_lowercase();
+                if lower.ends_with(".md") || lower.ends_with(".markdown") {
+                    out.push(entry.path());
+                    if out.len() >= limit {
+                        return out;
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
 // ── Scope ──────────────────────────────────────────────────────────────────
 
 /// Refuse paths outside the capability's fs scope. Paths the user picked in a
 /// dialog, double-clicked or passed on the command line are allowed by the
 /// dialog plugin and `launch.rs` respectively.
-fn ensure_allowed<R: Runtime>(app: &AppHandle<R>, path: &Path) -> Result<(), String> {
+pub(crate) fn ensure_allowed<R: Runtime>(app: &AppHandle<R>, path: &Path) -> Result<(), String> {
     if path.is_relative() {
         return Err(format!("{}: relative paths are not allowed", path.display()));
     }
@@ -319,24 +625,56 @@ pub fn exists<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<bool, Stri
     Ok(path.exists())
 }
 
-/// Names in a directory (no recursion). An absent directory is an empty list
-/// so the image pipeline can resolve a filename before creating the folder.
+#[derive(Deserialize, Debug, Clone, Copy, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ListOptions {
+    /// Include dotfolders, `node_modules` and OS clutter files.
+    #[serde(default)]
+    pub show_hidden: bool,
+}
+
+/// Names in a directory (no recursion), folders first, natural order. An
+/// absent directory is an empty list so the image pipeline can resolve a
+/// filename before creating the folder. With `options` (the file tree) the
+/// hidden entries are filtered out unless `showHidden`; without it (the image
+/// pipeline, which needs every name to avoid a collision) nothing is.
+/// MikeDown's own temp files are never listed.
 #[tauri::command]
-pub fn list_dir<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<Vec<DirEntry>, String> {
+pub fn list_dir<R: Runtime>(
+    app: AppHandle<R>,
+    path: PathBuf,
+    options: Option<ListOptions>,
+) -> Result<Vec<DirEntry>, String> {
     ensure_allowed(&app, &path)?;
-    let entries = match stdfs::read_dir(&path) {
+    list_dir_entries(&path, options)
+}
+
+pub fn list_dir_entries(path: &Path, options: Option<ListOptions>) -> Result<Vec<DirEntry>, String> {
+    let entries = match stdfs::read_dir(path) {
         Ok(it) => it,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(e) => return Err(describe(&path, &e)),
+        Err(e) => return Err(describe(path, &e)),
     };
     let mut out = Vec::new();
     for entry in entries.flatten() {
-        let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
-        out.push(DirEntry {
-            name: entry.file_name().to_string_lossy().into_owned(),
-            is_dir,
-        });
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if is_mikedown_temp(&name) {
+            continue;
+        }
+        // Follow symlinks so a linked folder expands like a folder.
+        let is_dir = match entry.file_type() {
+            Ok(t) if t.is_symlink() => entry.path().is_dir(),
+            Ok(t) => t.is_dir(),
+            Err(_) => false,
+        };
+        if let Some(opts) = options {
+            if !opts.show_hidden && is_hidden_entry(&name, is_dir) {
+                continue;
+            }
+        }
+        out.push(DirEntry { name, is_dir });
     }
+    sort_entries(&mut out);
     Ok(out)
 }
 
@@ -424,6 +762,175 @@ pub fn allow_asset<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<(), S
     app.asset_protocol_scope()
         .allow_file(&path)
         .map_err(|e| format!("{}: {e}", path.display()))
+}
+
+// ── Tree commands (M3) ─────────────────────────────────────────────────────
+
+fn op_error(path: &Path, e: &io::Error) -> String {
+    match e.kind() {
+        io::ErrorKind::AlreadyExists => format!("“{}” already exists.", display_name(path)),
+        io::ErrorKind::NotFound => format!("“{}” no longer exists.", display_name(path)),
+        io::ErrorKind::PermissionDenied => format!("MikeDown is not allowed to change “{}”.", display_name(path)),
+        _ => describe(path, e),
+    }
+}
+
+fn display_name(path: &Path) -> String {
+    path.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.display().to_string())
+}
+
+/// The folder a window opened (Open Folder, Open Containing Folder): the fs
+/// and asset scopes cover everything beneath it, as a picked document's
+/// folder does.
+#[tauri::command]
+pub fn allow_folder<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<(), String> {
+    ensure_allowed(&app, &path)?;
+    if !path.is_dir() {
+        return Err(format!("{} is not a folder", path.display()));
+    }
+    let _ = app.fs_scope().allow_directory(&path, true);
+    let _ = app.asset_protocol_scope().allow_directory(&path, true);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn rename<R: Runtime>(app: AppHandle<R>, from: PathBuf, to: PathBuf) -> Result<(), String> {
+    ensure_allowed(&app, &from)?;
+    ensure_allowed(&app, &to)?;
+    check_target(&to, deepest_relative_len(&from))?;
+    rename_entry(&from, &to).map_err(|e| op_error(&to, &e))
+}
+
+/// A new empty file; fails when the name is taken.
+#[tauri::command]
+pub fn create_file<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<(), String> {
+    ensure_allowed(&app, &path)?;
+    check_target(&path, 0)?;
+    stdfs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map(|_| ())
+        .map_err(|e| op_error(&path, &e))
+}
+
+/// A new folder; fails when the name is taken (unlike `mkdir`, which is
+/// `create_dir_all` for the image pipeline).
+#[tauri::command]
+pub fn create_dir<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<(), String> {
+    ensure_allowed(&app, &path)?;
+    check_target(&path, 0)?;
+    stdfs::create_dir(&path).map_err(|e| op_error(&path, &e))
+}
+
+/// Move a file or folder; creates the destination's parent folders (the
+/// `.mikedown/versions/` mirror of a moved file may not exist yet).
+#[tauri::command]
+pub fn move_path<R: Runtime>(app: AppHandle<R>, from: PathBuf, to: PathBuf) -> Result<(), String> {
+    ensure_allowed(&app, &from)?;
+    ensure_allowed(&app, &to)?;
+    check_target(&to, deepest_relative_len(&from))?;
+    if to.starts_with(&from) && to != from {
+        return Err("A folder cannot be moved into itself.".into());
+    }
+    if let Some(parent) = to.parent() {
+        stdfs::create_dir_all(parent).map_err(|e| describe(parent, &e))?;
+    }
+    move_entry(&from, &to).map_err(|e| op_error(&to, &e))
+}
+
+#[tauri::command]
+pub fn copy_path<R: Runtime>(app: AppHandle<R>, from: PathBuf, to: PathBuf) -> Result<(), String> {
+    ensure_allowed(&app, &from)?;
+    ensure_allowed(&app, &to)?;
+    check_target(&to, deepest_relative_len(&from))?;
+    if stdfs::symlink_metadata(&to).is_ok() {
+        return Err(format!("“{}” already exists.", display_name(&to)));
+    }
+    if to.starts_with(&from) {
+        return Err("A folder cannot be copied into itself.".into());
+    }
+    copy_entry(&from, &to).map_err(|e| op_error(&to, &e))
+}
+
+/// Move a file or folder to the OS Trash / Recycle Bin (edge case 21).
+#[tauri::command]
+pub fn trash<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<(), String> {
+    ensure_allowed(&app, &path)?;
+    if stdfs::symlink_metadata(&path).is_err() {
+        return Err(format!("“{}” no longer exists.", display_name(&path)));
+    }
+    trash::delete(&path).map_err(|e| format!("Could not move “{}” to the Trash: {e}", display_name(&path)))
+}
+
+/// Markdown files under a folder, for the folder `.md` index.
+#[tauri::command]
+pub fn list_markdown<R: Runtime>(
+    app: AppHandle<R>,
+    root: PathBuf,
+    show_hidden: Option<bool>,
+) -> Result<Vec<String>, String> {
+    ensure_allowed(&app, &root)?;
+    Ok(walk_markdown(&root, show_hidden.unwrap_or(false), 50_000)
+        .into_iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect())
+}
+
+/// Reveal in Finder / Explorer: the file manager opens on the parent folder
+/// with the item selected.
+#[tauri::command]
+pub fn reveal_path<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<(), String> {
+    ensure_allowed(&app, &path)?;
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg("-R").arg(&path).spawn();
+    #[cfg(windows)]
+    let result = {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("explorer")
+            .raw_arg(format!("/select,\"{}\"", path.display()))
+            .spawn()
+    };
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let result = std::process::Command::new("xdg-open")
+        .arg(path.parent().unwrap_or(&path))
+        .spawn();
+    result.map(|_| ()).map_err(|e| describe(&path, &e))
+}
+
+#[derive(Serialize, Debug, Default)]
+pub struct Modifiers {
+    pub alt: bool,
+}
+
+/// Modifier keys held right now, read from the OS: a drop from Finder or
+/// Explorer carries no key state into the webview, and Option/Alt inverts
+/// move/copy (edge case 20).
+#[tauri::command]
+pub fn modifier_state() -> Modifiers {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::{NSEvent, NSEventModifierFlags};
+        let flags = NSEvent::modifierFlags_class();
+        Modifiers { alt: flags.contains(NSEventModifierFlags::Option) }
+    }
+    #[cfg(windows)]
+    {
+        #[link(name = "user32")]
+        extern "system" {
+            fn GetAsyncKeyState(v_key: i32) -> i16;
+        }
+        const VK_MENU: i32 = 0x12;
+        // SAFETY: plain Win32 call with a constant virtual-key code.
+        let state = unsafe { GetAsyncKeyState(VK_MENU) };
+        Modifiers { alt: (state as u16 & 0x8000) != 0 }
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        Modifiers::default()
+    }
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -636,5 +1143,195 @@ mod tests {
         assert_eq!(percent_decode("plain"), "plain");
         assert_eq!(percent_decode("bad%zz"), "bad%zz");
         assert_eq!(percent_decode("end%2"), "end%2");
+    }
+
+    // ── M3: tree helpers and operations ────────────────────────────────────
+
+    fn names(entries: &[DirEntry]) -> Vec<String> {
+        entries.iter().map(|e| format!("{}{}", e.name, if e.is_dir { "/" } else { "" })).collect()
+    }
+
+    #[test]
+    fn natural_order_compares_numbers_by_value_and_ignores_case() {
+        let mut v = vec!["file10.md", "File2.md", "file1.md", "b.md", "A.md", "file02.md"];
+        v.sort_by(|a, b| natural_cmp(a, b));
+        // 2 and 02 tie on value; the plain order breaks the tie (upper case first).
+        assert_eq!(v, vec!["A.md", "b.md", "file1.md", "File2.md", "file02.md", "file10.md"]);
+        assert_eq!(natural_cmp("a", "a"), std::cmp::Ordering::Equal);
+        assert_eq!(natural_cmp("x9", "x10"), std::cmp::Ordering::Less);
+        assert_eq!(natural_cmp("Chapter 2", "chapter 10"), std::cmp::Ordering::Less);
+    }
+
+    #[test]
+    fn list_dir_sorts_folders_first_and_filters_hidden_entries() {
+        let dir = temp_dir("list");
+        for f in ["note10.md", "note2.md", "Alpha.md", ".gitignore", ".DS_Store", ".x.md.mikedown-1-2.tmp"] {
+            stdfs::write(dir.join(f), b"").unwrap();
+        }
+        for d in ["zeta", "Beta", ".git", "node_modules", ".mikedown"] {
+            stdfs::create_dir(dir.join(d)).unwrap();
+        }
+        let tree = list_dir_entries(&dir, Some(ListOptions { show_hidden: false })).unwrap();
+        assert_eq!(names(&tree), vec!["Beta/", "zeta/", ".gitignore", "Alpha.md", "note2.md", "note10.md"]);
+        let all = list_dir_entries(&dir, Some(ListOptions { show_hidden: true })).unwrap();
+        assert_eq!(
+            names(&all),
+            vec![".git/", ".mikedown/", "Beta/", "node_modules/", "zeta/", ".DS_Store", ".gitignore", "Alpha.md", "note2.md", "note10.md"]
+        );
+        // No options (the image pipeline): every name, still never our temp files.
+        let raw = list_dir_entries(&dir, None).unwrap();
+        assert_eq!(raw.len(), 10);
+        assert!(list_dir_entries(&dir.join("missing"), None).unwrap().is_empty());
+        stdfs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn names_are_validated_with_windows_rules_on_request() {
+        assert!(validate_name("notes.md", true).is_ok());
+        assert!(validate_name("", false).is_err());
+        assert!(validate_name("  ", false).is_err());
+        assert!(validate_name("..", false).is_err());
+        assert!(validate_name("a/b", false).is_err());
+        // Windows only.
+        for bad in ["CON", "con.md", "Nul.txt", "COM1", "lpt9.md", "aux .md", "a:b.md", "q?.md", "x*.md", "pipe|.md", "trail.", "trail "] {
+            assert!(validate_name(bad, true).is_err(), "{bad} should be refused on Windows");
+            assert!(validate_name(bad, false).is_ok() || bad.contains('/'), "{bad} is fine elsewhere");
+        }
+        assert!(validate_name("a\\b", true).is_err());
+        assert!(validate_name("console.md", true).is_ok());
+        assert!(validate_name("COM10.md", true).is_ok());
+        let err = validate_name("CON.md", true).unwrap_err();
+        assert!(err.contains("reserves"), "{err}");
+    }
+
+    #[test]
+    fn windows_paths_over_259_characters_are_refused_before_touching_disk() {
+        // Built with join so the last component parses on every host OS.
+        let base = PathBuf::from(format!("C:/{}", "d".repeat(240)));
+        let ok = base.join("n".repeat(10));
+        assert!(validate_target(&ok, 0, true).is_ok(), "{} chars", ok.as_os_str().len());
+        let long = base.join("n".repeat(30));
+        let err = validate_target(&long, 0, true).unwrap_err();
+        assert!(err.contains("at most 259"), "{err}");
+        // A folder copy counts its deepest descendant.
+        assert!(validate_target(&ok, 20, true).is_err());
+        // Not enforced off Windows.
+        assert!(validate_target(&long, 0, false).is_ok());
+    }
+
+    #[test]
+    fn case_only_rename_changes_the_name_on_disk() {
+        let dir = temp_dir("case");
+        stdfs::write(dir.join("notes.md"), b"body").unwrap();
+        rename_entry(&dir.join("notes.md"), &dir.join("Notes.md")).unwrap();
+        let listed: Vec<String> = stdfs::read_dir(&dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        assert_eq!(listed, vec!["Notes.md".to_string()]);
+        assert_eq!(stdfs::read(dir.join("Notes.md")).unwrap(), b"body");
+        // Folders too.
+        stdfs::create_dir(dir.join("drafts")).unwrap();
+        rename_entry(&dir.join("drafts"), &dir.join("Drafts")).unwrap();
+        assert!(names(&list_dir_entries(&dir, None).unwrap()).contains(&"Drafts/".to_string()));
+        stdfs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn rename_refuses_to_overwrite_another_file() {
+        let dir = temp_dir("clobber");
+        stdfs::write(dir.join("a.md"), b"a").unwrap();
+        stdfs::write(dir.join("b.md"), b"b").unwrap();
+        let err = rename_entry(&dir.join("a.md"), &dir.join("b.md")).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(stdfs::read(dir.join("b.md")).unwrap(), b"b");
+        assert!(rename_entry(&dir.join("gone.md"), &dir.join("c.md")).is_err());
+        stdfs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn move_and_copy_folders_and_refuse_moving_into_themselves() {
+        let dir = temp_dir("move");
+        stdfs::create_dir_all(dir.join("src/inner")).unwrap();
+        stdfs::write(dir.join("src/inner/x.md"), b"x").unwrap();
+        copy_entry(&dir.join("src"), &dir.join("copy")).unwrap();
+        assert_eq!(stdfs::read(dir.join("copy/inner/x.md")).unwrap(), b"x");
+        assert_eq!(stdfs::read(dir.join("src/inner/x.md")).unwrap(), b"x");
+        let err = move_entry(&dir.join("src"), &dir.join("src/inner/src")).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        stdfs::create_dir(dir.join("dest")).unwrap();
+        move_entry(&dir.join("src"), &dir.join("dest/src")).unwrap();
+        assert!(!dir.join("src").exists());
+        assert_eq!(stdfs::read(dir.join("dest/src/inner/x.md")).unwrap(), b"x");
+        let err = move_entry(&dir.join("copy"), &dir.join("dest/src")).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
+        stdfs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn walk_markdown_skips_versions_hidden_and_node_modules() {
+        let dir = temp_dir("walk");
+        for f in ["a.md", "sub/b.markdown", "sub/deeper/c.MD", "sub/readme.txt", ".mikedown/versions/a.md/20261023T120000Z.md", ".obsidian/d.md", "node_modules/pkg/e.md"] {
+            let p = dir.join(f);
+            stdfs::create_dir_all(p.parent().unwrap()).unwrap();
+            stdfs::write(p, b"").unwrap();
+        }
+        let mut found: Vec<String> = walk_markdown(&dir, false, 100)
+            .into_iter()
+            .map(|p| p.strip_prefix(&dir).unwrap().to_string_lossy().replace('\\', "/"))
+            .collect();
+        found.sort();
+        assert_eq!(found, vec!["a.md", "sub/b.markdown", "sub/deeper/c.MD"]);
+        let with_hidden = walk_markdown(&dir, true, 100);
+        assert_eq!(with_hidden.len(), 5, "hidden folders and node_modules, never .mikedown");
+        assert_eq!(walk_markdown(&dir, true, 2).len(), 2);
+        stdfs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn temp_names_are_recognised() {
+        assert!(is_mikedown_temp(".doc.md.mikedown-123-456.tmp"));
+        assert!(is_mikedown_temp(".doc.md.mikedown-rename-1-2.tmp"));
+        assert!(!is_mikedown_temp("doc.md"));
+        assert!(!is_mikedown_temp(".hidden.tmp"));
+    }
+
+    #[cfg(unix)]
+    fn set_tag(path: &Path) {
+        xattr::set(path, "user.mikedown.test", b"tagged").unwrap();
+    }
+
+    #[cfg(unix)]
+    fn tag_of(path: &Path) -> Option<Vec<u8>> {
+        xattr::get(path, "user.mikedown.test").unwrap()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_keeps_extended_attributes() {
+        let dir = temp_dir("xattr-save");
+        let path = dir.join("doc.md");
+        stdfs::write(&path, b"old").unwrap();
+        set_tag(&path);
+        atomic_write(&path, b"new").unwrap();
+        assert_eq!(stdfs::read(&path).unwrap(), b"new");
+        assert_eq!(tag_of(&path).as_deref(), Some(&b"tagged"[..]));
+        stdfs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rename_move_and_copy_keep_extended_attributes() {
+        let dir = temp_dir("xattr-ops");
+        let a = dir.join("a.md");
+        stdfs::write(&a, b"a").unwrap();
+        set_tag(&a);
+        rename_entry(&a, &dir.join("A.md")).unwrap();
+        assert_eq!(tag_of(&dir.join("A.md")).as_deref(), Some(&b"tagged"[..]));
+        stdfs::create_dir(dir.join("sub")).unwrap();
+        move_entry(&dir.join("A.md"), &dir.join("sub/A.md")).unwrap();
+        assert_eq!(tag_of(&dir.join("sub/A.md")).as_deref(), Some(&b"tagged"[..]));
+        set_tag(&dir.join("sub"));
+        copy_entry(&dir.join("sub"), &dir.join("sub2")).unwrap();
+        assert_eq!(tag_of(&dir.join("sub2")).as_deref(), Some(&b"tagged"[..]), "folder xattrs");
+        assert_eq!(tag_of(&dir.join("sub2/A.md")).as_deref(), Some(&b"tagged"[..]), "file xattrs");
+        stdfs::remove_dir_all(&dir).unwrap();
     }
 }

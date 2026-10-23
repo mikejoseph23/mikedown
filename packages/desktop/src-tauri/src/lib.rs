@@ -1,8 +1,9 @@
 //! MikeDown Desktop: Tauri 2 shell around `@mikedown/core`.
 //!
 //! Plugin registration, one window, the launch-file queue and the commands
-//! under `src/commands/` (file I/O, native window state). Menus, search and
-//! the watcher arrive with later milestones.
+//! under `src/commands/` (file I/O and the folder tree's operations, the
+//! per-directory watcher, native window state). Menus and search arrive with
+//! later milestones.
 
 use std::path::PathBuf;
 
@@ -79,6 +80,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(commands::launch::LaunchQueue::default())
+        .manage(commands::watcher::Watchers::default())
         .setup(|app| {
             // Files named on the command line (Windows file associations,
             // `open -a MikeDown file.md`, `tauri dev -- file.md`).
@@ -100,6 +102,19 @@ pub fn run() {
             commands::fs::write_bytes,
             commands::fs::open_in_default_app,
             commands::fs::allow_asset,
+            commands::fs::allow_folder,
+            commands::fs::rename,
+            commands::fs::create_file,
+            commands::fs::create_dir,
+            commands::fs::move_path,
+            commands::fs::copy_path,
+            commands::fs::trash,
+            commands::fs::list_markdown,
+            commands::fs::reveal_path,
+            commands::fs::modifier_state,
+            commands::watcher::watch,
+            commands::watcher::unwatch,
+            commands::watcher::unwatch_all,
             commands::window::set_document_edited,
             commands::window::set_represented_file,
             commands::launch::frontend_ready,

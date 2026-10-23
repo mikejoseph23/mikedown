@@ -27,9 +27,11 @@ tauri-plugin-process = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
-# There is no `tauri-plugin-trash` on crates.io; the `trash` crate is what a
-# delete command (M3) calls to move files to the OS Trash / Recycle Bin.
+# There is no `tauri-plugin-trash` on crates.io; the `trash` crate is what the
+# tree's delete command calls to move files to the OS Trash / Recycle Bin.
 trash = "5"
+# Per-directory watcher for the folder tree, native with a polling fallback.
+notify = "8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
@@ -39,8 +41,13 @@ tauri-plugin-single-instance = "2"
 # macOS title-bar state Tauri does not wrap: NSWindow.documentEdited (dirty
 # dot) and representedFilename (proxy icon). Same crates Tauri itself uses.
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder"] }
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder", "NSEvent"] }
 objc2-foundation = { version = "0.3", features = ["NSString"] }
+
+# Extended attributes (Finder tags, "Open With", quarantine) survive saves,
+# copies and cross-volume moves.
+[target.'cfg(unix)'.dependencies]
+xattr = "1"
 
 [profile.release]
 codegen-units = 1
