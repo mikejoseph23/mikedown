@@ -24,7 +24,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { createDocumentController } from './app/documentController';
 import { createBackupScheduler, planRestore } from './documents/backups';
-import { createDocumentRegistry, planOpen, type DocumentModel } from './documents/documentModel';
+import { checkExternalChanges, createDocumentRegistry, planOpen, type DocumentModel } from './documents/documentModel';
 import { appDataApi, fsApi, launchApi, treeApi, watchApi, windowApi, windowsApi } from './documents/fsApi';
 import { createSessionWriter, layoutFromSession, parseSession, serializeSession, type SessionData, type SessionTab } from './documents/session';
 import { createImagePipeline } from './host/imagePipeline';
@@ -650,6 +650,14 @@ if (!smokeEnabled()) {
       await session.flush();
     }
     await windowsApi.quitReply(ok).catch(() => { /* not under Tauri */ });
+  }).catch(() => { /* not under Tauri */ });
+}
+
+// Cross-window edits of the same file (edge case 6): compare mtimes when the
+// window gains focus; M6 turns the mark into UI.
+if (!smokeEnabled()) {
+  void tauriWindow.onFocusChanged(({ payload: focused }) => {
+    if (focused) {void checkExternalChanges(registry.all(), (p) => fsApi.stat(p)).then((docs) => { for (const d of docs) {panes.refreshDoc(d);} });}
   }).catch(() => { /* not under Tauri */ });
 }
 

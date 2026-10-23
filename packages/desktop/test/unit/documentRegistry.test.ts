@@ -5,7 +5,7 @@
  * change keep every editor in step.
  */
 import { describe, expect, it } from 'vitest';
-import { createDocumentRegistry, planOpen, type ReadInfo } from '../../src/documents/documentModel';
+import { checkExternalChanges, createDocumentRegistry, planOpen, type ReadInfo } from '../../src/documents/documentModel';
 import { fakeHandle } from './helpers/app';
 
 function info(text: string, extra: Partial<ReadInfo> = {}): ReadInfo {
@@ -218,5 +218,28 @@ describe('pane binding', () => {
     expect(await doc.save('/n/copy.md')).toBe(true);
     expect(doc.readOnly).toBe(false);
     expect(readOnly).toEqual([true, false]);
+  });
+
+  it('on focus, marks only files whose mtime moved since this window read or saved them (edge 6)', async () => {
+    const { registry, disk } = makeRegistry();
+    disk.set('/n/a.md', 'a');
+    const a = registry.open('/n/a.md', info('a'), planOpen('/n/a.md', info('a')));
+    const b = registry.open('/n/b.md', info('b'), planOpen('/n/b.md', info('b')));
+    const c = registry.open('/n/c.md', info('c'), planOpen('/n/c.md', info('c')));
+    await a.save();
+    expect(a.mtimeMs).toBe(2);
+    const mtimes: Record<string, { exists: boolean; mtimeMs: number }> = {
+      '/n/a.md': { exists: true, mtimeMs: 2 },
+      '/n/b.md': { exists: true, mtimeMs: 50 },
+      '/n/c.md': { exists: false, mtimeMs: 0 },
+    };
+    const changed = await checkExternalChanges(registry.all(), async (p) => mtimes[p]);
+    expect(changed).toEqual([b]);
+    expect(b.externallyChanged).toBe(true);
+    expect(b.mtimeMs).toBe(50);
+    expect(a.externallyChanged).toBe(false);
+    expect(c.externallyChanged).toBe(false);
+    // Already marked: not reported twice.
+    expect(await checkExternalChanges(registry.all(), async (p) => mtimes[p])).toEqual([]);
   });
 });

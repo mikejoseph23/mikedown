@@ -192,6 +192,27 @@ export function planOpen(path: string, info: Pick<ReadInfo, 'encoding' | 'readOn
   return { kind, sourceMode, readOnly, readOnlyReason, notice, offerRichText };
 }
 
+/**
+ * Cross-window edits (edge case 6): on window focus, any open file whose
+ * mtime moved since this window last read or wrote it is marked as changed
+ * externally (M6 builds the UI). Files already marked, or gone, are skipped.
+ */
+export async function checkExternalChanges(
+  docs: DocumentModel[],
+  stat: (path: string) => Promise<{ exists: boolean; mtimeMs: number }>,
+): Promise<DocumentModel[]> {
+  const changed: DocumentModel[] = [];
+  for (const doc of docs) {
+    if (!doc.path || doc.kind === 'image' || doc.state !== 'ready' || doc.externallyChanged || doc.mtimeMs === null) {continue;}
+    let st;
+    try { st = await stat(doc.path); } catch { continue; }
+    if (!st.exists || st.mtimeMs === doc.mtimeMs) {continue;}
+    doc.markExternalChange(st.mtimeMs);
+    changed.push(doc);
+  }
+  return changed;
+}
+
 export function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024) {return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;}
   if (bytes >= 1024) {return `${Math.round(bytes / 1024)} KB`;}
