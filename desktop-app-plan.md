@@ -23,8 +23,8 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [M0 — Tauri scaffold and WebKit smoke test](#m0--tauri-scaffold-and-webkit-smoke-test) | Opus | ⬜ Not Started | — | Gate: core renders and round-trips in WKWebView and WebView2 |
-| [M1 — imagePaste helpers into core shared](#m1--imagepaste-helpers-into-core-shared) | Sonnet | ⬜ Not Started | — | `test/unit/imagePaste.test.ts` must keep passing |
+| [M0 — Tauri scaffold and WebKit smoke test](#m0--tauri-scaffold-and-webkit-smoke-test) | Opus | 🔄 In Progress | — | Gate: core renders and round-trips in WKWebView and WebView2 |
+| [M1 — imagePaste helpers into core shared](#m1--imagepaste-helpers-into-core-shared) | Sonnet | ✅ Complete | 4 | `test/unit/imagePaste.test.ts` must keep passing |
 | [M2 — Tauri host adapter and lone-file window](#m2--tauri-host-adapter-and-lone-file-window) | Opus | ⬜ Not Started | — | `TauriHost implements MikeDownHost`; file associations |
 | [T1 — Host and single-file tests](#t1--host-and-single-file-tests) | Sonnet | ⬜ Not Started | — | unit + e2e + hands-on both OSes |
 | [M3 — Folder sidebar and file tree](#m3--folder-sidebar-and-file-tree) | Opus | ⬜ Not Started | — | lazy tree, CRUD, watcher, drag-drop, Trash |
@@ -267,12 +267,12 @@ Apply to every milestone below.
 
 **Tasks**
 
-- [ ] `git mv src/imagePaste.ts packages/core/src/shared/imagePaste.ts`. Remove the Node `crypto` and `path` imports: accept a small `PathOps` parameter (`join`, `dirname`, `basename`, `relative`, `isAbsolute`, `sep`, `normalize`) and a `hash(bytes) => string` function where needed, or add `packages/core/src/shared/pathPosix.ts` with a pure POSIX/Windows-aware implementation. The extension passes Node `path` and `crypto`; the desktop app passes a Tauri-side or `@tauri-apps/api/path` equivalent plus `crypto.subtle` SHA-256.
-- [ ] Move the `ImagePasteSettings` type out of `src/settings.ts` into the shared module (or a `shared/imagePasteSettings.ts`), keep `src/settings.ts` re-exporting it so no other extension file changes.
-- [ ] Update imports in `src/markdownEditorProvider.ts` and anything else that imported `./imagePaste` (grep `from './imagePaste'`); use `@mikedown/core/shared/imagePaste` (alias already exists in `tsconfig.json`, `webpack.config.js`, `vitest.config.ts`).
-- [ ] Keep `test/unit/imagePaste.test.ts` at its path (host-side test) with only the import path and the injected `path`/hash arguments changed; add `packages/core/test/imagePasteShared.test.ts` covering the pure helpers with a POSIX and a Windows `PathOps` fixture.
-- [ ] Ensure `packages/core/src/index.ts` does **not** export the helpers from the main entry (keep them under `shared/`); add the `./shared/*` subpath to `packages/core/package.json` `exports` if a published consumer should reach them (the desktop app does at release time), building them with tsup as additional entries.
-- [ ] `npm run compile`, `npm run lint`, `npm run test:unit`, `npm run test:edge`, `npm run test:core-package` green. Commit.
+- [x] `git mv src/imagePaste.ts packages/core/src/shared/imagePaste.ts`. Remove the Node `crypto` and `path` imports: accept a small `PathOps` parameter (`join`, `dirname`, `basename`, `relative`, `isAbsolute`, `sep`, `normalize`) and a `hash(bytes) => string` function where needed, or add `packages/core/src/shared/pathPosix.ts` with a pure POSIX/Windows-aware implementation. The extension passes Node `path` and `crypto`; the desktop app passes a Tauri-side or `@tauri-apps/api/path` equivalent plus `crypto.subtle` SHA-256.
+- [x] Move the `ImagePasteSettings` type out of `src/settings.ts` into the shared module (or a `shared/imagePasteSettings.ts`), keep `src/settings.ts` re-exporting it so no other extension file changes.
+- [x] Update imports in `src/markdownEditorProvider.ts` and anything else that imported `./imagePaste` (grep `from './imagePaste'`); use `@mikedown/core/shared/imagePaste` (alias already exists in `tsconfig.json`, `webpack.config.js`, `vitest.config.ts`).
+- [x] Keep `test/unit/imagePaste.test.ts` at its path (host-side test) with only the import path and the injected `path`/hash arguments changed; add `packages/core/test/imagePasteShared.test.ts` covering the pure helpers with a POSIX and a Windows `PathOps` fixture.
+- [x] Ensure `packages/core/src/index.ts` does **not** export the helpers from the main entry (keep them under `shared/`); add the `./shared/*` subpath to `packages/core/package.json` `exports` if a published consumer should reach them (the desktop app does at release time), building them with tsup as additional entries.
+- [x] `npm run compile`, `npm run lint`, `npm run test:unit`, `npm run test:edge`, `npm run test:core-package` green. Commit.
 
 **Acceptance criteria**
 
@@ -693,6 +693,10 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 14:27** - M1 complete (`7e87d45`). Helpers now come from `createImagePasteHelpers({ path, sha1Hex? })` in `packages/core/src/shared/imagePaste.ts`, with a pure synchronous SHA-1 default (`shared/sha1.ts`); injection chosen over `pathPosix.ts`. `./shared/*` subpath exported and built by tsup. Verified in the main tree: compile, lint (0 errors), test:unit 67 files, test:edge, test:core-package green. Concerns for M2: helpers are synchronous, so the desktop needs a synchronous `PathOps` (`@tauri-apps/api/path` is async). `test:unit` includes `package-shape.test.ts`, which fails on a stale `packages/core/dist`; run `build:core` first.
+
+**2026-10-23 14:21** - Orchestrator session started. M0 (Fable, high effort) and M1 (default model) dispatched in parallel worktrees. Open questions 1 to 6 proceed on the plan's stated defaults (keymap fixed, 25 versions / 2 MB, updater host `iadev.net/mikedown/`, `com.interappdev.mikedown`, `.txt` associated, macOS 12+ / Windows 10 1809+); these are defaults, not rulings.
 
 **2026-10-23** - Planning document created from the planning interview and the edge-case pass. Verified against the repo: core public API names in `packages/core/src/{index,host,types}.ts`, the `@mikedown/core` source alias in `webpack.config.js` and `vitest.config.ts`, `src/imagePaste.ts` still Node-bound (`crypto`, `path`) and tested by `test/unit/imagePaste.test.ts`, VS Code spellcheck default `false`. Signing pipeline described from `~/git/lymescribe/deploy/` and `docs/{deployment,ci-cd}.md`. Open gate: M0 WebKit/WebView2 smoke test.
 
