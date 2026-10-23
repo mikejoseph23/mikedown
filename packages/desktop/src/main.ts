@@ -19,6 +19,7 @@ import './styles/app.css';
 import './styles/sidebar.css';
 import './styles/panes.css';
 import './styles/settings.css';
+import './styles/search.css';
 
 import { createMikeDownEditor, type MikeDownEditorHandle, type MikeDownViewState } from '@mikedown/core';
 import { getVersion } from '@tauri-apps/api/app';
@@ -27,7 +28,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { createDocumentController } from './app/documentController';
 import { createBackupScheduler, planRestore } from './documents/backups';
 import { checkExternalChanges, createDocumentRegistry, planOpen, type DocumentModel } from './documents/documentModel';
-import { appDataApi, fsApi, launchApi, treeApi, watchApi, windowApi, windowsApi } from './documents/fsApi';
+import { appDataApi, fsApi, launchApi, searchApi, treeApi, watchApi, windowApi, windowsApi } from './documents/fsApi';
 import { createSessionWriter, layoutFromSession, parseSession, serializeSession, type SessionData, type SessionTab } from './documents/session';
 import { createImagePipeline } from './host/imagePipeline';
 import { createPathOps, detectPathPlatform } from './host/pathOps';
@@ -37,9 +38,11 @@ import { createPaneManager } from './panes/paneManager';
 import { createAppActions } from './settings/appActions';
 import { createAppTabSection } from './settings/appTab';
 import { createSettingsBanner } from './settings/banner';
-import { createDesktopSettingsStore } from './settings/desktopSettings';
 import { settingsApi } from './settings/settingsApi';
 import { createSettingsManager } from './settings/store';
+import { createSearchController } from './search/searchLogic';
+import { createSearchPanel } from './search/searchPanel';
+import { createDesktopSettingsStore, DESKTOP_CORE_SETTING_DEFAULTS } from './settings/desktopSettings';
 import { SMOKE_FIXTURE } from './smoke/fixture';
 import { runSmoke, smokeEnabled } from './smoke/harness';
 import { imageMimeFor, linkLabel, relativeLinkHref, routeEditorDrop } from './tree/dropRouting';
@@ -86,11 +89,14 @@ const label = (command: AppCommand): string => {
 let workspaceRef: ReturnType<typeof createFolderWorkspace> | null = null;
 let controllerRef: ReturnType<typeof createDocumentController> | null = null;
 let exporterRef: ReturnType<typeof createExporter> | null = null;
+let toggleSearchRef: (() => void) | null = null;
+let searchPanelRef: ReturnType<typeof createSearchPanel> | null = null;
 
 const sidebar = createSidebar({
   newFile: () => { void workspaceRef?.newFile(); },
   newFolder: () => { void workspaceRef?.newFolder(); },
-  toggleHidden: () => { void workspaceRef?.toggleHidden(); },
+  toggleHidden: () => { void Promise.resolve(workspaceRef?.toggleHidden()).then(() => searchPanelRef?.refresh()); },
+  showSearch: () => toggleSearchRef?.(),
   openFolder: () => { void openFolderViaDialog(); },
   openContainingFolder: () => controllerRef?.openContainingFolder(),
   visibilityChanged: (visible) => {
@@ -98,7 +104,7 @@ const sidebar = createSidebar({
     if (!visible && sidebar.el.contains(document.activeElement)) {panes.focusActiveEditor();}
     scheduleSession();
   },
-}, { newFileLabel: 'New File', newFolderLabel: 'New Folder', toggleLabel: label('toggleSidebar') });
+}, { newFileLabel: 'New File', newFolderLabel: 'New Folder', toggleLabel: label('toggleSidebar'), searchLabel: label('searchFolder') });
 body.append(sidebar.el, mainCol);
 
 const chrome = createChrome(app, { isMac });
@@ -350,6 +356,39 @@ sidebar.setTreeEl(workspace.tree.el);
 workspace.tree.el.addEventListener('click', () => scheduleSession());
 workspace.tree.el.addEventListener('keydown', () => scheduleSession());
 
+// ── Folder search (M7): the panel replaces the tree in the sidebar ──────────
+const searchController = createSearchController({
+  api: searchApi,
+  root: () => workspace.root(),
+  showHidden: () => settings.get().tree.showHidden,
+});
+const searchPanel = createSearchPanel({
+  controller: searchController,
+  root: () => workspace.root(),
+  openMatch: (m) => {
+    void controller.openPath(m.path, { reveal: { line: m.line, column: m.column, length: m.matchEnd - m.matchStart } });
+  },
+  close: () => closeSearch(),
+});
+searchPanelRef = searchPanel;
+sidebar.setSearchEl(searchPanel.el);
+
+function showSearch(): void {
+  if (!workspace.root()) {
+    dialogs.toast('Open a folder to search it.');
+    return;
+  }
+  sidebar.setVisible(true);
+  sidebar.setView('search');
+  searchPanel.focus();
+}
+
+function closeSearch(): void {
+  sidebar.setView('tree');
+  if (panes.activeDoc()) {panes.focusActiveEditor();} else {workspace.tree.focus();}
+}
+toggleSearchRef = () => { if (sidebar.view() === 'search') {closeSearch();} else {showSearch();} };
+
 /** Open Containing Folder stays useful only while the file is outside the open folder. */
 function syncFolderButton(): void {
   const root = workspace.root();
@@ -382,6 +421,7 @@ async function openFolder(dir: string): Promise<boolean> {
   }
   try {
     await workspace.open(dir);
+    searchPanel.reset();
   } catch (err) {
     await dialogs.error(`Could not open the folder ${dir}.\n\n${String(err)}`);
     return false;
@@ -670,6 +710,7 @@ const actions: Record<AppCommand, () => void> = {
   splitRight: () => panes.split('row'),
   splitDown: () => panes.split('column'),
   print: () => { void exporterRef?.print(); },
+  searchFolder: showSearch,
   newWindow: () => { void windowsApi.newWindow().catch((err: unknown) => dialogs.toast(`Could not open a window: ${String(err)}`, { error: true })); },
 };
 const menuOnly: Record<string, () => void> = {

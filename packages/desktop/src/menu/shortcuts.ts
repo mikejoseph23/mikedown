@@ -19,6 +19,9 @@
  * the macOS app switcher and never reaches the page), `CmdOrCtrl+\` splits
  * the pane to the right and `CmdOrCtrl+Shift+\` below it, `CmdOrCtrl+Shift+N`
  * opens a new window. Core binds none of these, so there is no collision;
+ * `CmdOrCtrl+Shift+F` (M7, folder search) is the one near-miss: core's find bar
+ * is `CmdOrCtrl+F`, and its source-mode listener skips Shift when the host
+ * owns shortcuts;
  * `Ctrl` (literal, not `CmdOrCtrl`) means the Control key on every platform.
  */
 
@@ -40,7 +43,8 @@ export type AppCommand =
   | 'splitRight'
   | 'splitDown'
   | 'newWindow'
-  | 'print';
+  | 'print'
+  | 'searchFolder';
 
 export interface ShortcutRow {
   command: AppCommand;
@@ -72,6 +76,7 @@ export const SHORTCUTS: readonly ShortcutRow[] = [
   { command: 'splitDown', accelerator: 'CmdOrCtrl+Shift+\\', label: 'Split Down' },
   { command: 'newWindow', accelerator: 'CmdOrCtrl+Shift+N', label: 'New Window' },
   { command: 'print', accelerator: 'CmdOrCtrl+P', label: 'Print…' },
+  { command: 'searchFolder', accelerator: 'CmdOrCtrl+Shift+F', label: 'Search in Folder…' },
 ];
 
 export interface ParsedAccelerator {

@@ -58,6 +58,17 @@ export interface OpenOptions {
   paneId?: string;
   /** Do not move keyboard focus into the editor (restores). */
   focus?: boolean;
+  /** Select and scroll to this source match once the document shows (folder search, M7). */
+  reveal?: { line: number; column: number; length: number };
+}
+
+/** Reveal now and once more after layout: a document just attached may not have its final height. */
+function revealMatch(handle: MikeDownEditorHandle | null, reveal: OpenOptions['reveal']): void {
+  if (!handle || !reveal) {return;}
+  handle.revealText(reveal.line, reveal.column, reveal.length);
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => handle.revealText(reveal.line, reveal.column, reveal.length));
+  }
 }
 
 export interface DocumentController {
@@ -275,6 +286,7 @@ export function createDocumentController(deps: DocumentControllerDeps): Document
     if (known && known.state === 'ready') {
       panes.open(known, { paneId: opts.paneId, focus: opts.focus });
       if (opts.anchor) {panes.activeHandle()?.scrollToAnchor(opts.anchor);}
+      revealMatch(panes.activeHandle(), opts.reveal);
       refresh();
       return true;
     }
@@ -313,6 +325,7 @@ export function createDocumentController(deps: DocumentControllerDeps): Document
     deps.onDocumentsChanged?.();
     refresh();
     if (opts.anchor && doc.state === 'ready') {panes.activeHandle()?.scrollToAnchor(opts.anchor);}
+    if (doc.state === 'ready') {revealMatch(panes.activeHandle(), opts.reveal);}
     return doc.state === 'ready';
   }
 

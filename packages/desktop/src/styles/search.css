@@ -1,0 +1,216 @@
+/*
+ * Folder search panel (M7). App chrome only, same --mikedown-* tokens and
+ * fallbacks as sidebar.css so light, dark and forced-colors follow the OS.
+ */
+.mdapp-sidebar__search {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdapp-sidebar__search[hidden] {
+  display: none;
+}
+
+.mdapp-search {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdapp-search__bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 4px;
+}
+
+.mdapp-search__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.4));
+  border-radius: 5px;
+  background: var(--mikedown-surface, #fff);
+  color: var(--mikedown-text, inherit);
+  font: inherit;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.mdapp-search__input:focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline-offset: -1px;
+}
+
+.mdapp-search__toggle {
+  flex: none;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--mikedown-icon, var(--mikedown-text, currentColor));
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mdapp-search__toggle:hover {
+  background: var(--mikedown-hover, rgba(127, 127, 127, 0.12));
+}
+
+.mdapp-search__toggle:focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline-offset: -1px;
+}
+
+.mdapp-search__toggle--on {
+  background: var(--mikedown-active, rgba(127, 127, 127, 0.18));
+  border-color: var(--mikedown-accent, #3b82f6);
+  color: var(--mikedown-accent, #3b82f6);
+}
+
+.mdapp-search__word {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mdapp-search__status {
+  min-height: 18px;
+  padding: 0 12px 4px;
+  font-size: 11px;
+  color: var(--mikedown-text-muted, inherit);
+  opacity: 0.9;
+}
+
+.mdapp-search__status--error {
+  color: var(--mikedown-danger, #c0392b);
+}
+
+.mdapp-search__results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+  padding-bottom: 8px;
+}
+
+.mdapp-search__file,
+.mdapp-search__match {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.mdapp-search__file {
+  padding: 3px 8px 3px 6px;
+  font-weight: 600;
+}
+
+.mdapp-search__twisty::before {
+  content: '▾';
+  display: inline-block;
+  width: 12px;
+  font-size: 10px;
+  text-align: center;
+}
+
+.mdapp-search__file[aria-expanded='false'] .mdapp-search__twisty::before {
+  content: '▸';
+}
+
+.mdapp-search__name {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mdapp-search__dir {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--mikedown-text-muted, inherit);
+  opacity: 0.8;
+}
+
+.mdapp-search__count {
+  flex: none;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--mikedown-active, rgba(127, 127, 127, 0.18));
+  font-size: 11px;
+  font-weight: 400;
+  text-align: center;
+}
+
+.mdapp-search__match {
+  padding: 2px 8px 2px 24px;
+}
+
+.mdapp-search__match[hidden] {
+  display: none;
+}
+
+.mdapp-search__line {
+  flex: none;
+  min-width: 2.2em;
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--mikedown-text-muted, inherit);
+  opacity: 0.8;
+}
+
+.mdapp-search__snippet {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mdapp-search__snippet mark {
+  padding: 0 1px;
+  border-radius: 2px;
+  background: var(--mikedown-highlight-bg, rgba(255, 213, 0, 0.45));
+  color: inherit;
+}
+
+.mdapp-search__file:hover,
+.mdapp-search__match:hover {
+  background: var(--mikedown-hover, rgba(127, 127, 127, 0.12));
+}
+
+.mdapp-search__file[aria-selected='true'],
+.mdapp-search__match[aria-selected='true'] {
+  background: var(--mikedown-active, rgba(127, 127, 127, 0.22));
+}
+
+.mdapp-search__results:focus-visible [aria-selected='true'] {
+  outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline-offset: -2px;
+}
+
+@media (forced-colors: active) {
+  .mdapp-search__snippet mark {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .mdapp-search__file[aria-selected='true'],
+  .mdapp-search__match[aria-selected='true'] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}

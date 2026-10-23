@@ -7,6 +7,7 @@
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { Eol, ReadInfo } from './documentModel';
+import type { SearchApi, SearchMatch, SearchSummary } from '../search/searchLogic';
 
 export interface StatInfo {
   exists: boolean;
@@ -216,4 +217,14 @@ export const windowsApi: WindowsApi = {
   onQuitRequested: (handler) => listen('mikedown:quit-requested', () => handler()),
   quitReply: (proceed) => invoke<void>('quit_reply', { proceed }),
   onMenu: (handler) => listen<string>('mikedown:menu', (e) => handler(e.payload)),
+};
+
+// ── M7: folder search (src-tauri/src/commands/search.rs) ───────────────────
+
+/** Streams results as `search-batch` / `search-done` events for the calling window. */
+export const searchApi: SearchApi = {
+  start: (id, root, query, options) => invoke<void>('search_folder', { id, root, query, options }),
+  cancel: (id) => invoke<void>('search_cancel', { id }),
+  onBatch: (handler) => listen<{ id: number; matches: SearchMatch[] }>('search-batch', (e) => handler(e.payload)),
+  onDone: (handler) => listen<{ id: number; summary: SearchSummary }>('search-done', (e) => handler(e.payload)),
 };

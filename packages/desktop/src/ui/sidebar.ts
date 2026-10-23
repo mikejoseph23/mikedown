@@ -16,6 +16,8 @@ export interface SidebarActions {
   openContainingFolder(): void;
   /** Collapse state changed (the tab strip's toggle mirrors it). */
   visibilityChanged(visible: boolean): void;
+  /** The header's Search button (M7): switch to the search view. */
+  showSearch?(): void;
 }
 
 export interface Sidebar {
@@ -29,6 +31,10 @@ export interface Sidebar {
   setVisible(visible: boolean): void;
   toggle(): void;
   width(): number;
+  /** M7: the search panel, shown in place of the tree while the view is `search`. */
+  setSearchEl(panel: HTMLElement): void;
+  setView(view: 'tree' | 'search'): void;
+  view(): 'tree' | 'search';
 }
 
 export const SIDEBAR_MIN = 160;
@@ -59,10 +65,11 @@ const ICONS = {
   newFile: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M4 1.75h5l3 3v9.5H4z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 7.5v4M6 9.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
   newFolder: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M1.75 3.5h4.1l1.4 1.5h7v7.5H1.75z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 7.25v3.5M6.25 9h3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
   hidden: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M1.5 8s2.4-4.25 6.5-4.25S14.5 8 14.5 8s-2.4 4.25-6.5 4.25S1.5 8 1.5 8z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="1.9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
+  search: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="6.75" cy="6.75" r="4" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.75 9.75l4 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
   collapse: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><rect x="1.75" y="2.5" width="12.5" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>',
 };
 
-export function createSidebar(actions: SidebarActions, opts: { newFileLabel: string; newFolderLabel: string; toggleLabel: string }): Sidebar {
+export function createSidebar(actions: SidebarActions, opts: { newFileLabel: string; newFolderLabel: string; toggleLabel: string; searchLabel?: string }): Sidebar {
   const el = document.createElement('aside');
   el.className = 'mdapp-sidebar';
   el.setAttribute('aria-label', 'Folder');
@@ -73,10 +80,12 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
         <button type="button" class="mdapp-iconbtn" data-action="new-file">${ICONS.newFile}</button>
         <button type="button" class="mdapp-iconbtn" data-action="new-folder">${ICONS.newFolder}</button>
         <button type="button" class="mdapp-iconbtn" data-action="hidden" aria-pressed="false">${ICONS.hidden}</button>
+        <button type="button" class="mdapp-iconbtn" data-action="search">${ICONS.search}</button>
         <button type="button" class="mdapp-iconbtn" data-action="collapse">${ICONS.collapse}</button>
       </span>
     </div>
     <div class="mdapp-sidebar__body"></div>
+    <div class="mdapp-sidebar__search" hidden></div>
     <div class="mdapp-sidebar__empty" hidden>
       <p>No folder is open. Open one to browse, create and organise its notes here.</p>
       <button type="button" class="mdapp-btn mdapp-btn--primary" data-action="open-folder">Open Folder…</button>
@@ -94,6 +103,7 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
     'new-file': opts.newFileLabel,
     'new-folder': opts.newFolderLabel,
     hidden: 'Show Hidden Files',
+    search: opts.searchLabel ?? 'Search Folder',
     collapse: opts.toggleLabel,
   };
   for (const [name, label] of Object.entries(labels)) {
@@ -104,6 +114,19 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
   let visible = true;
   let width = clampSidebarWidth(loadWidth(), window.innerWidth);
   let hasFolder = false;
+  let view: 'tree' | 'search' = 'tree';
+  const searchHost = el.querySelector('.mdapp-sidebar__search') as HTMLElement;
+
+  /** The tree body or the search panel, never both; no folder shows neither. */
+  function applyView(): void {
+    const searching = view === 'search' && hasFolder;
+    body.hidden = !hasFolder || searching;
+    searchHost.hidden = !searching;
+    btn('search').classList.toggle('mdapp-iconbtn--on', searching);
+    btn('search').setAttribute('aria-pressed', searching ? 'true' : 'false');
+    title.textContent = searching ? 'Search' : (currentTitle || 'No Folder');
+  }
+  let currentTitle = '';
 
   function applyWidth(): void {
     el.style.width = `${width}px`;
@@ -116,6 +139,7 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
   btn('new-file').addEventListener('click', () => actions.newFile());
   btn('new-folder').addEventListener('click', () => actions.newFolder());
   btn('hidden').addEventListener('click', () => actions.toggleHidden());
+  btn('search').addEventListener('click', () => actions.showSearch?.());
   btn('collapse').addEventListener('click', () => setVisible(false));
   btn('open-folder').addEventListener('click', () => actions.openFolder());
   btn('open-containing').addEventListener('click', () => actions.openContainingFolder());
@@ -174,9 +198,8 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
     el,
     setFolder(folder) {
       hasFolder = !!folder;
-      title.textContent = folder ? folder.name : 'No Folder';
+      currentTitle = folder ? folder.name : '';
       title.title = folder?.path ?? '';
-      body.hidden = !folder;
       empty.hidden = !!folder;
       headerActions.hidden = !folder;
       // The collapse button stays reachable either way.
@@ -186,7 +209,18 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
       } else {
         for (const name of ['new-file', 'new-folder', 'hidden']) {btn(name).hidden = false;}
       }
+      btn('search').hidden = !folder;
+      if (!folder) {view = 'tree';}
+      applyView();
     },
+    setSearchEl(panel) {
+      searchHost.replaceChildren(panel);
+    },
+    setView(next) {
+      view = next;
+      applyView();
+    },
+    view: () => view,
     setTreeEl(tree) {
       body.replaceChildren(tree);
     },
