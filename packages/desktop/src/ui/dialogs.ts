@@ -21,6 +21,13 @@ export interface Dialogs {
   toast(message: string, opts?: { error?: boolean; ms?: number }): void;
   saveFile(opts: { defaultPath?: string; filters?: FileFilter[]; title?: string }): Promise<string | null>;
   openFile(opts: { defaultPath?: string; filters?: FileFilter[]; title?: string }): Promise<string | null>;
+  /** Native folder picker; the pick (recursively) joins the fs scope. */
+  openFolder(opts: { defaultPath?: string; title?: string }): Promise<string | null>;
+  /**
+   * In-page confirmation with an optional checkbox ("Don't ask again"), which
+   * the native message box cannot show. `danger` styles the OK button.
+   */
+  confirm(message: string, opts: { okLabel: string; cancelLabel?: string; checkboxLabel?: string; danger?: boolean; detail?: string }): Promise<{ ok: boolean; checked: boolean }>;
 }
 
 const APP_TITLE = 'MikeDown';
@@ -66,7 +73,74 @@ export function createDialogs(root: HTMLElement = document.body): Dialogs {
       });
       return typeof picked === 'string' ? picked : null;
     },
+    openFolder: async (opts) => {
+      const picked = await tauriOpen({
+        multiple: false,
+        directory: true,
+        recursive: true,
+        defaultPath: opts.defaultPath,
+        title: opts.title,
+      });
+      return typeof picked === 'string' ? picked : null;
+    },
+    confirm: (message, opts) => inPageConfirm(root, message, opts),
   };
+}
+
+function inPageConfirm(
+  root: HTMLElement,
+  message: string,
+  opts: { okLabel: string; cancelLabel?: string; checkboxLabel?: string; danger?: boolean; detail?: string },
+): Promise<{ ok: boolean; checked: boolean }> {
+  return new Promise((resolve) => {
+    const previous = document.activeElement as HTMLElement | null;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'mdapp-modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="mdapp-modal" role="alertdialog" aria-modal="true" aria-labelledby="mdapp-confirm-msg">
+        <p class="mdapp-modal__message" id="mdapp-confirm-msg"></p>
+        <p class="mdapp-modal__detail" hidden></p>
+        <label class="mdapp-modal__check" hidden><input type="checkbox" /> <span></span></label>
+        <div class="mdapp-modal__actions">
+          <button type="button" class="mdapp-btn" data-action="cancel"></button>
+          <button type="button" class="mdapp-btn mdapp-btn--primary" data-action="ok"></button>
+        </div>
+      </div>`;
+    (backdrop.querySelector('.mdapp-modal__message') as HTMLElement).textContent = message;
+    const detail = backdrop.querySelector('.mdapp-modal__detail') as HTMLElement;
+    if (opts.detail) { detail.hidden = false; detail.textContent = opts.detail; }
+    const check = backdrop.querySelector('.mdapp-modal__check') as HTMLLabelElement;
+    const box = check.querySelector('input') as HTMLInputElement;
+    if (opts.checkboxLabel) {
+      check.hidden = false;
+      (check.querySelector('span') as HTMLSpanElement).textContent = opts.checkboxLabel;
+    }
+    const ok = backdrop.querySelector('[data-action="ok"]') as HTMLButtonElement;
+    const cancel = backdrop.querySelector('[data-action="cancel"]') as HTMLButtonElement;
+    ok.textContent = opts.okLabel;
+    if (opts.danger) {ok.classList.add('mdapp-btn--danger');}
+    cancel.textContent = opts.cancelLabel ?? 'Cancel';
+    const finish = (value: boolean): void => {
+      backdrop.remove();
+      previous?.focus?.();
+      resolve({ ok: value, checked: box.checked });
+    };
+    ok.addEventListener('click', () => finish(true));
+    cancel.addEventListener('click', () => finish(false));
+    backdrop.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+      else if (e.key === 'Enter' && e.target !== cancel && e.target !== box) { e.preventDefault(); e.stopPropagation(); finish(true); }
+      else if (e.key === 'Tab') {
+        // Keep focus inside the dialog.
+        const items = [box, cancel, ok].filter((el) => !(el === box && check.hidden));
+        const i = items.indexOf(document.activeElement as HTMLInputElement & HTMLButtonElement);
+        e.preventDefault();
+        items[(i + (e.shiftKey ? items.length - 1 : 1)) % items.length].focus();
+      }
+    });
+    root.appendChild(backdrop);
+    ok.focus();
+  });
 }
 
 function inPagePrompt(

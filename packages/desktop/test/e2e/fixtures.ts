@@ -78,8 +78,53 @@ function handle(ipc: Ipc, cmd: string, args: any, headers: Record<string, string
     }
     case 'exists':
       return fs.existsSync(args.path);
-    case 'list_dir':
-      return fs.readdirSync(args.path, { withFileTypes: true }).map((e) => ({ name: e.name, isDir: e.isDirectory() }));
+    case 'list_dir': {
+      // Mirrors fs.rs: folders first, natural order; with options, hidden
+      // entries (dotfolders, node_modules, OS clutter) unless showHidden.
+      if (!fs.existsSync(args.path)) {return [];}
+      let entries = fs.readdirSync(args.path, { withFileTypes: true }).map((e) => ({ name: e.name, isDir: e.isDirectory() }));
+      if (args.options && !args.options.showHidden) {
+        entries = entries.filter((e) => (e.isDir ? !e.name.startsWith('.') && e.name !== 'node_modules' : !['.DS_Store', 'Thumbs.db', 'desktop.ini'].includes(e.name)));
+      }
+      const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+      return entries.sort((a, b) => (a.isDir === b.isDir ? collator.compare(a.name, b.name) : a.isDir ? -1 : 1));
+    }
+    case 'list_markdown': {
+      const out: string[] = [];
+      const walk = (dir: string): void => {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+          const p = path.join(dir, e.name);
+          if (e.isDirectory()) {
+            if (e.name === '.mikedown' || (!args.showHidden && (e.name.startsWith('.') || e.name === 'node_modules'))) {continue;}
+            walk(p);
+          } else if (/\.(md|markdown)$/i.test(e.name)) {out.push(p);}
+        }
+      };
+      walk(args.root);
+      return out;
+    }
+    case 'create_file':
+      fs.writeFileSync(args.path, '', { flag: 'wx' });
+      return null;
+    case 'create_dir':
+      fs.mkdirSync(args.path);
+      return null;
+    case 'rename':
+    case 'move_path':
+      if (fs.existsSync(args.to) && args.from.toLowerCase() !== args.to.toLowerCase()) {throw new Error(`“${path.basename(args.to)}” already exists.`);}
+      fs.mkdirSync(path.dirname(args.to), { recursive: true });
+      fs.renameSync(args.from, args.to);
+      return null;
+    case 'copy_path':
+      fs.cpSync(args.from, args.to, { recursive: true, errorOnExist: true, force: false });
+      return null;
+    case 'trash':
+      fs.rmSync(args.path, { recursive: true, force: true });
+      return null;
+    case 'watch':
+      return 'native';
+    case 'modifier_state':
+      return { alt: false };
     case 'mkdir':
       fs.mkdirSync(args.path, { recursive: true });
       return null;

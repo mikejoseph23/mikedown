@@ -53,6 +53,9 @@ export function fakeHandle(): MikeDownEditorHandle & { saved: string[] } {
     setSidebarFooterLink: noop,
     setDiffAvailable: noop,
     isModalOpen: () => false,
+    insertLink: noop,
+    insertImage: noop,
+    refreshLinks: noop,
     on: () => noop,
     destroy: noop,
   } as unknown as MikeDownEditorHandle & { saved: string[] };
@@ -76,6 +79,10 @@ export function createTestApp(handleOrFactory: MikeDownEditorHandle | ((host: Ta
     setStats: () => {},
     setNotice: (t) => { notices.push(t); },
     onOpenContainingFolder: () => {},
+    onToggleSidebar: () => {},
+    setSidebarVisible: () => {},
+    setFolderButtonVisible: () => {},
+    onTabContextMenu: () => {},
   };
   const imageViewer = { show: () => {}, hide: () => {}, isVisible: () => false };
   let controllerRef: DocumentController | null = null;

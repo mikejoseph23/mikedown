@@ -8,9 +8,17 @@
 import type { MikeDownSettings } from '@mikedown/core';
 import type { ImagePasteSettings } from '@mikedown/core/shared/imagePaste';
 
+export interface TreeSettings {
+  /** Show dotfolders, `node_modules` and OS clutter files in the tree. */
+  showHidden: boolean;
+  /** Ask before moving to the Trash; "Don't ask again" turns it off (edge case 21). */
+  confirmDelete: boolean;
+}
+
 export interface DesktopSettings {
   imagePaste: ImagePasteSettings;
   imageResize: { overwrite: boolean };
+  tree: TreeSettings;
 }
 
 /** Same defaults as `package.json#contributes.configuration` in the extension. */
@@ -27,6 +35,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
     cleanupUnreferenced: false,
   },
   imageResize: { overwrite: true },
+  tree: { showHidden: false, confirmDelete: true },
 };
 
 /**
@@ -38,6 +47,10 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
 export const DESKTOP_CORE_SETTING_DEFAULTS: Partial<MikeDownSettings> = {
   spellCheckEnabled: true,
   contentWidth: '900px',
+  // Cmd/Ctrl+click on an unresolved [[wikilink]] creates the note next to the
+  // current one (M3). Only folder windows have `createWikilink`, so a lone
+  // file is unaffected.
+  wikilinkCreateOnClick: true,
 };
 
 export interface DesktopSettingsStore {
@@ -50,12 +63,15 @@ export interface DesktopSettingsStore {
   apply(patch: Record<string, unknown>): void;
   /** Everything received so far, for M5 to persist. */
   pendingPatch(): Record<string, unknown>;
+  /** Tree preferences (show hidden, delete confirmation); in memory until M5. */
+  setTree(patch: Partial<TreeSettings>): void;
 }
 
 export function createDesktopSettingsStore(initial: DesktopSettings = DEFAULT_DESKTOP_SETTINGS): DesktopSettingsStore {
   const current: DesktopSettings = {
     imagePaste: { ...initial.imagePaste },
     imageResize: { ...initial.imageResize },
+    tree: { ...initial.tree },
   };
   const received: Record<string, unknown> = {};
 
@@ -84,5 +100,9 @@ export function createDesktopSettingsStore(initial: DesktopSettings = DEFAULT_DE
       }
     },
     pendingPatch: () => ({ ...received }),
+    setTree(patch) {
+      Object.assign(current.tree, patch);
+      for (const [k, v] of Object.entries(patch)) {received[`tree.${k}`] = v;}
+    },
   };
 }

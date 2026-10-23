@@ -2,7 +2,9 @@
  * App chrome around the editor for the lone-file window (edge case 4): a
  * one-tab strip (name, dirty dot, lock badge), the Open Containing Folder
  * action, a notice bar, and the status footer with word count. M3 adds the
- * folder sidebar beside it; M4 turns the strip into real tabs.
+ * sidebar toggle at the start of the strip, hides Open Containing Folder
+ * while the file already sits in the open folder, and a tab context menu.
+ * M4 turns the strip into real tabs.
  */
 import type { MikeDownStats } from '@mikedown/core';
 import { countWords, readingMinutes } from '@mikedown/core/shared/wordCount';
@@ -22,12 +24,22 @@ export interface Chrome {
   setStats(stats: MikeDownStats): void;
   setNotice(text: string | null): void;
   onOpenContainingFolder(fn: () => void): void;
+  /** Sidebar toggle at the start of the strip. */
+  onToggleSidebar(fn: () => void): void;
+  setSidebarVisible(visible: boolean): void;
+  /** Hide Open Containing Folder when the document already lives in the open folder. */
+  setFolderButtonVisible(visible: boolean): void;
+  /** Right-click (or the context-menu key) on the tab. */
+  onTabContextMenu(fn: (x: number, y: number) => void): void;
 }
 
 export function createChrome(root: HTMLElement, editorEl: HTMLElement, opts: { isMac: boolean }): Chrome {
   const top = document.createElement('header');
   top.className = 'mdapp-top';
   top.innerHTML = `
+    <button type="button" class="mdapp-iconbtn mdapp-top__sidebar" data-action="toggle-sidebar" aria-pressed="false">
+      <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false"><rect x="1.75" y="2.5" width="12.5" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>
+    </button>
     <div class="mdapp-tabs" role="tablist">
       <div class="mdapp-tab" role="tab" aria-selected="true" tabindex="0">
         <span class="mdapp-tab__lock" hidden title="Read-only">🔒</span>
@@ -49,8 +61,10 @@ export function createChrome(root: HTMLElement, editorEl: HTMLElement, opts: { i
   status.className = 'mdapp-status';
   status.innerHTML = `<span class="mdapp-status__words"></span><span class="mdapp-status__sel"></span>`;
 
-  root.insertBefore(top, editorEl);
-  root.insertBefore(notice, editorEl);
+  // The strip and the footer span the window; the notice sits right above
+  // the editor (which may be nested in the main column beside the sidebar).
+  root.insertBefore(top, root.firstChild);
+  (editorEl.parentElement ?? root).insertBefore(notice, editorEl);
   root.appendChild(status);
 
   const tab = top.querySelector('.mdapp-tab') as HTMLDivElement;
@@ -68,6 +82,27 @@ export function createChrome(root: HTMLElement, editorEl: HTMLElement, opts: { i
 
   let folderHandler: (() => void) | null = null;
   folderBtn.addEventListener('click', () => folderHandler?.());
+
+  const sidebarBtn = top.querySelector('[data-action="toggle-sidebar"]') as HTMLButtonElement;
+  const sidebarRow = SHORTCUTS.find((s) => s.command === 'toggleSidebar');
+  const sidebarLabel = sidebarRow?.label ?? 'Toggle Folder Sidebar';
+  sidebarBtn.setAttribute('aria-label', sidebarLabel);
+  sidebarBtn.title = sidebarRow ? `${sidebarLabel} (${formatAccelerator(sidebarRow.accelerator, opts.isMac)})` : sidebarLabel;
+  let sidebarHandler: (() => void) | null = null;
+  sidebarBtn.addEventListener('click', () => sidebarHandler?.());
+
+  let tabMenuHandler: ((x: number, y: number) => void) | null = null;
+  tab.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    tabMenuHandler?.(e.clientX, e.clientY);
+  });
+  tab.addEventListener('keydown', (e) => {
+    if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+      e.preventDefault();
+      const r = tab.getBoundingClientRect();
+      tabMenuHandler?.(r.left + 12, r.bottom);
+    }
+  });
 
   return {
     setTab(state) {
@@ -98,6 +133,19 @@ export function createChrome(root: HTMLElement, editorEl: HTMLElement, opts: { i
     },
     onOpenContainingFolder(fn) {
       folderHandler = fn;
+    },
+    onToggleSidebar(fn) {
+      sidebarHandler = fn;
+    },
+    setSidebarVisible(visible) {
+      sidebarBtn.setAttribute('aria-pressed', visible ? 'true' : 'false');
+      sidebarBtn.classList.toggle('mdapp-iconbtn--on', visible);
+    },
+    setFolderButtonVisible(visible) {
+      folderBtn.hidden = !visible;
+    },
+    onTabContextMenu(fn) {
+      tabMenuHandler = fn;
     },
   };
 }

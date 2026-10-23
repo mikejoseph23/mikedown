@@ -1,0 +1,414 @@
+/*
+ * Folder sidebar, file tree, context menu (M3). App chrome only, on the same
+ * --mikedown-* tokens as app.css so light/dark follows the OS.
+ */
+
+/* ── Layout ────────────────────────────────────────────────────────────── */
+.mdapp-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+.mdapp-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdapp-sidebar {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.3));
+  background: var(--mikedown-surface-toolbar, var(--mikedown-surface, #fff));
+  color: var(--mikedown-text-ui, var(--mikedown-text, #1f1f1f));
+  font-size: 13px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mdapp-sidebar[hidden] {
+  display: none;
+}
+
+.mdapp-sidebar__header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 4px 0 12px;
+  border-bottom: 1px solid var(--mikedown-divider, var(--mikedown-border, rgba(127, 127, 127, 0.2)));
+}
+
+.mdapp-sidebar__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mikedown-text-muted, inherit);
+}
+
+.mdapp-sidebar__actions {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.mdapp-sidebar__actions[hidden],
+.mdapp-iconbtn[hidden] {
+  display: none;
+}
+
+.mdapp-sidebar__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.mdapp-sidebar__body[hidden] {
+  display: none;
+}
+
+.mdapp-sidebar__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 16px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--mikedown-text-muted, inherit);
+}
+
+.mdapp-sidebar__empty[hidden],
+.mdapp-sidebar__empty .mdapp-btn[hidden] {
+  display: none;
+}
+
+.mdapp-sidebar__empty p {
+  margin: 0 0 4px;
+}
+
+.mdapp-sidebar__resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 5;
+}
+
+.mdapp-sidebar__resizer:hover,
+.mdapp-sidebar__resizer:focus-visible,
+.mdapp-resizing .mdapp-sidebar__resizer {
+  background: var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline: none;
+}
+
+.mdapp-resizing,
+.mdapp-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* Small square icon buttons (sidebar header, tab-strip toggle). */
+.mdapp-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--mikedown-icon, var(--mikedown-text, currentColor));
+  cursor: pointer;
+}
+
+.mdapp-iconbtn:hover {
+  background: var(--mikedown-hover, rgba(127, 127, 127, 0.12));
+}
+
+.mdapp-iconbtn:focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline-offset: -1px;
+}
+
+.mdapp-iconbtn--on {
+  background: var(--mikedown-active, rgba(127, 127, 127, 0.18));
+  color: var(--mikedown-accent, #3b82f6);
+}
+
+.mdapp-top__sidebar {
+  align-self: center;
+  margin: 0 4px 0 6px;
+}
+
+.mdapp-btn[hidden] {
+  display: none;
+}
+
+.mdapp-btn--danger {
+  background: var(--mikedown-danger, #b91c1c);
+  border-color: var(--mikedown-danger, #b91c1c);
+  color: #fff;
+}
+
+/* ── File tree ─────────────────────────────────────────────────────────── */
+.mdapp-tree {
+  padding: 4px 0 24px;
+  min-height: 100%;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.mdapp-tree--drop-root {
+  box-shadow: inset 0 0 0 2px var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+}
+
+.mdapp-tree__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding-left: calc(8px + var(--mdapp-depth, 0) * 14px);
+  padding-right: 8px;
+  white-space: nowrap;
+  cursor: default;
+  outline: none;
+  color: inherit;
+}
+
+.mdapp-tree__row:hover {
+  background: var(--mikedown-hover, rgba(127, 127, 127, 0.1));
+}
+
+.mdapp-tree__row[aria-selected='true'] {
+  background: var(--mikedown-active, rgba(127, 127, 127, 0.16));
+}
+
+.mdapp-tree:focus-within .mdapp-tree__row[aria-selected='true'] {
+  background: var(--mikedown-selected-bg, rgba(59, 130, 246, 0.2));
+  color: var(--mikedown-selected-text, inherit);
+}
+
+.mdapp-tree__row:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+}
+
+.mdapp-tree__row--active .mdapp-tree__name {
+  font-weight: 600;
+  color: var(--mikedown-link, var(--mikedown-accent, inherit));
+}
+
+.mdapp-tree__row--drop {
+  background: var(--mikedown-selected-bg, rgba(59, 130, 246, 0.2));
+  box-shadow: inset 0 0 0 1px var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+}
+
+.mdapp-tree__twisty {
+  flex: none;
+  width: 12px;
+  font-size: 10px;
+  text-align: center;
+  color: var(--mikedown-text-muted, inherit);
+}
+
+.mdapp-tree__row[aria-expanded='false'] .mdapp-tree__twisty::before {
+  content: '▸';
+}
+
+.mdapp-tree__row[aria-expanded='true'] .mdapp-tree__twisty::before {
+  content: '▾';
+}
+
+.mdapp-tree__row--loading .mdapp-tree__twisty::before {
+  content: '…';
+}
+
+.mdapp-tree__icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  opacity: 0.7;
+  -webkit-mask: var(--mdapp-tree-icon) center / contain no-repeat;
+  mask: var(--mdapp-tree-icon) center / contain no-repeat;
+}
+
+.mdapp-tree__icon--dir {
+  --mdapp-tree-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1.5 3.25h4.4l1.4 1.5h7.2v8.5h-13z' fill='none' stroke='black' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E");
+  color: var(--mikedown-link, var(--mikedown-accent, currentColor));
+}
+
+.mdapp-tree__icon--md {
+  --mdapp-tree-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 1.5h6l3 3v10h-9z' fill='none' stroke='black' stroke-width='1.2' stroke-linejoin='round'/%3E%3Cpath d='M5.5 11V8l1.25 1.5L8 8v3M10.5 8v3M9.5 10l1 1 1-1' fill='none' stroke='black' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.mdapp-tree__icon--file {
+  --mdapp-tree-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 1.5h6l3 3v10h-9z' fill='none' stroke='black' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.mdapp-tree__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mdapp-tree__rename {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mdapp-tree__input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 20px;
+  padding: 0 4px;
+  font: inherit;
+  border: 1px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  border-radius: 3px;
+  background: var(--mikedown-input-bg, var(--mikedown-surface, #fff));
+  color: var(--mikedown-text, inherit);
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.mdapp-tree__input[aria-invalid='true'] {
+  border-color: var(--mikedown-danger, #b91c1c);
+}
+
+.mdapp-tree__error {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 22px;
+  z-index: 10;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--mikedown-danger, #b91c1c);
+  color: #fff;
+  font-size: 11.5px;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.mdapp-tree__error[hidden] {
+  display: none;
+}
+
+.mdapp-tree--dragging .mdapp-tree__row {
+  cursor: copy;
+}
+
+.mdapp-tree__ghost {
+  position: fixed;
+  z-index: 1002;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--mikedown-surface-raised, var(--mikedown-surface, #fff));
+  border: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.3));
+  box-shadow: 0 4px 14px var(--mikedown-shadow, rgba(0, 0, 0, 0.2));
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.mdapp-tree__ghost--copy::after {
+  content: ' +';
+  font-weight: 700;
+}
+
+/* ── Context menu ──────────────────────────────────────────────────────── */
+.mdapp-menu {
+  position: fixed;
+  z-index: 1003;
+  min-width: 200px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.3));
+  background: var(--mikedown-surface-raised, var(--mikedown-surface, #fff));
+  color: var(--mikedown-text-ui, var(--mikedown-text, #1f1f1f));
+  box-shadow: 0 10px 30px var(--mikedown-shadow, rgba(0, 0, 0, 0.25));
+  font-size: 13px;
+  outline: none;
+}
+
+.mdapp-menu__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.mdapp-menu__item:hover:not(:disabled),
+.mdapp-menu__item:focus {
+  background: var(--mikedown-accent, #3b82f6);
+  color: var(--mikedown-accent-text, #fff);
+  outline: none;
+}
+
+.mdapp-menu__item:disabled {
+  opacity: 0.45;
+}
+
+.mdapp-menu__hint {
+  opacity: 0.65;
+}
+
+.mdapp-menu__sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--mikedown-divider, var(--mikedown-border, rgba(127, 127, 127, 0.25)));
+}
+
+/* ── Confirmation dialog extras ────────────────────────────────────────── */
+.mdapp-modal__detail {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--mikedown-text-muted, inherit);
+}
+
+.mdapp-modal__detail[hidden],
+.mdapp-modal__check[hidden] {
+  display: none;
+}
+
+.mdapp-modal__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+@media (forced-colors: active) {
+  .mdapp-tree__row[aria-selected='true'],
+  .mdapp-tree__row--drop {
+    outline: 1px solid Highlight;
+  }
+
+  .mdapp-tree__icon {
+    background: CanvasText;
+  }
+}

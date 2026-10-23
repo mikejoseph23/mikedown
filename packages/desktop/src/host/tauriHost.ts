@@ -5,16 +5,22 @@
  * links (edge case 13), keeps Settings-modal changes for the session (M5
  * persists them) and runs the image pipeline.
  *
- * Methods that M3, M6 and M9 implement (`getTags`, `getLinkSuggestions`,
- * `resolveWikilinks`, `getDiffBaseline`, `exportHtml`, `printDocument`) are
- * deliberately absent so core keeps their UI hidden.
+ * The knowledge-base methods (`getLinkSuggestions`, `getFileHeadings`,
+ * `resolveWikilinks`, `createWikilink`, `checkLinks`) exist only while the
+ * window has a folder open (M3, `setKnowledgeBase`); core looks them up when
+ * it needs them, so a lone-file window simply has none. Methods later
+ * milestones implement (`getTags`, `getDiffBaseline`, `exportHtml`,
+ * `printDocument`) are deliberately absent so core keeps their UI hidden.
  */
 import type {
+  LinkCheckRequest,
   LinkOpenBehavior,
+  LinkSuggestion,
   MikeDownEditorHandle,
   MikeDownHost,
   MikeDownSettingsPatch,
   MikeDownStats,
+  WikilinkResolution,
 } from '@mikedown/core';
 import type { PathOps } from '@mikedown/core/shared/imagePaste';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
@@ -24,6 +30,14 @@ import type { DesktopSettingsStore } from '../settings/desktopSettings';
 import type { ImagePipeline } from './imagePipeline';
 import { routeLink } from './linkRouting';
 import { stripQuery } from './imagePipeline';
+import type { MdIndex } from '../tree/mdIndex';
+
+/** What a folder window lends the host for the knowledge-base methods. */
+export interface KnowledgeBase {
+  index: MdIndex;
+  /** `[[target]]` Cmd/Ctrl+click made (or found) this file: open it. */
+  openCreated(path: string, created: boolean): void;
+}
 
 /** Sources the webview loads as they are (core's imageSrcPolicy uses the same set). */
 const PASS_THROUGH = /^(?:https?|data|blob):/i;
@@ -51,10 +65,50 @@ export class TauriHost implements MikeDownHost {
   readonly pickImage: MikeDownHost['pickImage'];
   readonly resizeImage: MikeDownHost['resizeImage'];
 
+  // Present only while a folder is open (see setKnowledgeBase). `declare`
+  // keeps them off the instance until then, so `!!host.getLinkSuggestions`
+  // is false in a lone-file window.
+  declare getLinkSuggestions?: () => Promise<LinkSuggestion[]>;
+  declare getFileHeadings?: (path: string) => Promise<LinkSuggestion[]>;
+  declare resolveWikilinks?: (targets: string[]) => Promise<WikilinkResolution[]>;
+  declare createWikilink?: (target: string) => Promise<WikilinkResolution[] | void>;
+  declare checkLinks?: (links: LinkCheckRequest[]) => Promise<string[]>;
+
   constructor(private readonly deps: TauriHostDeps) {
     this.uploadImage = (file) => deps.images.uploadImage(file);
     this.pickImage = () => deps.images.pickImage();
     this.resizeImage = (req) => deps.images.resizeImage(req);
+  }
+
+  /**
+   * Turn the knowledge-base methods on (a folder opened) or off (null: a
+   * lone-file window). Call `handle.refreshLinks()` afterwards so core asks.
+   */
+  setKnowledgeBase(kb: KnowledgeBase | null): void {
+    if (!kb) {
+      delete this.getLinkSuggestions;
+      delete this.getFileHeadings;
+      delete this.resolveWikilinks;
+      delete this.createWikilink;
+      delete this.checkLinks;
+      return;
+    }
+    const { model } = this.deps;
+    const { index } = kb;
+    this.getLinkSuggestions = () => index.linkSuggestions(model.path, model.text);
+    this.getFileHeadings = (p) => index.fileHeadings(model.path, p);
+    this.resolveWikilinks = (targets) => index.resolveWikilinks(model.path, targets);
+    this.checkLinks = (links) => index.checkLinks(model.path, model.text, links);
+    this.createWikilink = async (target) => {
+      try {
+        const res = await index.createWikilink(model.path, target);
+        kb.openCreated(res.path, res.created);
+        return [res.resolution];
+      } catch (err) {
+        this.deps.app.notify(err instanceof Error ? err.message : String(err), { error: true });
+        return undefined;
+      }
+    };
   }
 
   /** The editor handle exists only after `createMikeDownEditor` returns. */

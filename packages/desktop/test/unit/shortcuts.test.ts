@@ -33,6 +33,18 @@ describe('shortcut table', () => {
     expect(commandForKey(key('s', { meta: true, alt: true }), true)).toBeNull();
   });
 
+  it('CmdOrCtrl+B toggles the sidebar only outside the editor (Bold wins inside)', () => {
+    expect(commandForKey(key('b', { meta: true }), true)).toBe('toggleSidebar');
+    expect(commandForKey(key('b', { meta: true }), true, SHORTCUTS, { inEditor: true })).toBeNull();
+    expect(commandForKey(key('b', { ctrl: true }), false, SHORTCUTS, { inEditor: false })).toBe('toggleSidebar');
+    expect(commandForKey(key('E', { meta: true, shift: true }), true, SHORTCUTS, { inEditor: true })).toBe('focusSidebar');
+  });
+
+  it('matches Option chords on macOS by physical key (Option+O types ø)', () => {
+    expect(commandForKey({ ...key('ø', { meta: true, alt: true }), code: 'KeyO' }, true)).toBe('openFolder');
+    expect(commandForKey(key('o', { ctrl: true, alt: true }), false)).toBe('openFolder');
+  });
+
   it('formats labels per platform', () => {
     expect(formatAccelerator('CmdOrCtrl+Shift+S', true)).toBe('⌘⇧S');
     expect(formatAccelerator('CmdOrCtrl+Shift+S', false)).toBe('Ctrl+Shift+S');
