@@ -82,6 +82,7 @@ import {
 } from './spellcheck';
 import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
 import { initTableDrag, clearCellSelection } from './tabledrag';
+import { locateInSource, findInDoc } from './revealText';
 import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks, type LinkSuggestion } from './linkautocomplete';
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates } from './toolbar-dropdown';
 import { showLanguagePicker } from './languagepicker';
@@ -5471,6 +5472,38 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     }
   }
 
+  /**
+   * Show a match found in the markdown source (folder search): select it and
+   * scroll it to the middle. `line` and `column` are 1-based, `column` in
+   * UTF-16 units. Source mode maps exactly; rich text finds the same text
+   * again, and falls back to a proportional scroll when it is not rendered
+   * (frontmatter, link targets).
+   */
+  function revealText(line: number, column: number, length = 0): void {
+    if (sourceMode && cmView) {
+      const doc = cmView.state.doc;
+      const ln = doc.line(Math.max(1, Math.min(doc.lines, Math.floor(line) || 1)));
+      const from = Math.min(ln.to, ln.from + Math.max(0, column - 1));
+      const to = Math.min(ln.to, from + Math.max(0, length));
+      cmView.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: 'center' }) });
+      return;
+    }
+    const target = locateInSource(getMarkdown(), line, column, length);
+    const hit = findInDoc(editor.state.doc, target.text, target.occurrence);
+    if (hit) {
+      try {
+        editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, hit.from, hit.to)));
+      } catch { /* not a textblock position; scroll only */ }
+      try {
+        const coords = editor.view.coordsAtPos(hit.from);
+        const box = editorContainer.getBoundingClientRect();
+        editorContainer.scrollTop += coords.top - box.top - editorContainer.clientHeight / 2;
+      } catch { /* no layout (jsdom) */ }
+      return;
+    }
+    editorContainer.scrollTop = Math.max(0, (editorContainer.scrollHeight - editorContainer.clientHeight) * target.fraction);
+  }
+
   /** M6a — Scroll to an anchor (heading slug or a raw HTML `<a id|name>`). */
   function scrollToAnchor(anchor: string): void {
     // Compute anchor IDs dynamically from heading text instead of relying
@@ -5631,6 +5664,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     updateSettings,
     scrollToAnchor,
     revealLink,
+    revealText,
     setImageStatus,
     insertLink,
     insertImage,

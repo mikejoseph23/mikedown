@@ -262,6 +262,12 @@ export interface MikeDownEditorHandle {
   scrollToAnchor(slug: string): void;
   /** Scroll to and flash the Nth link with this href. */
   revealLink(href: string, occurrence?: number): void;
+  /**
+   * Select and scroll to a match in the markdown source: 1-based `line`,
+   * 1-based `column` in UTF-16 units, `length` of the match. Exact in source
+   * mode; in rich text the matched string is found again in the rendered text.
+   */
+  revealText(line: number, column: number, length?: number): void;
   /** Mark images rendered from `src` as missing or present again. */
   setImageStatus(src: string, status: 'found' | 'missing', detail?: string): void;
   /** Insert a link at the cursor (rich text or source mode). `text` defaults to the href. */
