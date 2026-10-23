@@ -26,7 +26,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M0 — Tauri scaffold and WebKit smoke test](#m0--tauri-scaffold-and-webkit-smoke-test) | Opus | ✅ Complete (Windows GUI checklist pending) | 24 | Gate: core renders and round-trips in WKWebView and WebView2 |
 | [M1 — imagePaste helpers into core shared](#m1--imagepaste-helpers-into-core-shared) | Sonnet | ✅ Complete | 4 | `test/unit/imagePaste.test.ts` must keep passing |
 | [M2 — Tauri host adapter and lone-file window](#m2--tauri-host-adapter-and-lone-file-window) | Opus | ✅ Complete (2 GUI checks pending) | 34 | `TauriHost implements MikeDownHost`; file associations |
-| [T1 — Host and single-file tests](#t1--host-and-single-file-tests) | Sonnet | 🟡 Awaiting sign-off (Mac done, Windows staged on DevBox1) | 27 | unit + e2e + hands-on both OSes |
+| [T1 — Host and single-file tests](#t1--host-and-single-file-tests) | Sonnet | ✅ Complete (signed off) | 27 | unit + e2e + hands-on both OSes |
 | [M3 — Folder sidebar and file tree](#m3--folder-sidebar-and-file-tree) | Opus | ⬜ Not Started | — | lazy tree, CRUD, watcher, drag-drop, Trash |
 | [M4 — Tabs, panes, document model, hot exit](#m4--tabs-panes-document-model-hot-exit) | Opus | ⬜ Not Started | — | one model per path per window; backups; session restore |
 | [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | ⬜ Not Started | — | tree + tabs + hot exit |
@@ -332,7 +332,7 @@ Apply to every milestone below.
 
 Start: `npm run dev:desktop` on the Mac; the Windows build from BEAST per `packages/desktop/README.md`.
 
-- [ ] Double-click a `.md` in Finder/Explorer: the app opens on it. Type, bold, table, image paste, Cmd+/ source toggle, save, close, reopen: content intact, not dirty. Check dark mode by flipping the OS appearance. Orchestrator pauses for sign-off.
+- [x] Double-click a `.md` in Finder/Explorer: the app opens on it. Type, bold, table, image paste, Cmd+/ source toggle, save, close, reopen: content intact, not dirty. Check dark mode by flipping the OS appearance. Orchestrator pauses for sign-off.
 
 [Return to Top](#mikedown-desktop--planning-document)
 
@@ -694,6 +694,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 17:53** - T1 signed off by Mike: Mac screenshots reviewed, MSI installed on DevBox1 and "looks good in Windows". Whether the M0 WebView2 GUI items (IME, pinch, cross-app paste) were covered is unconfirmed; M0's checkbox stays open. Installer format still open: Tauri builds both MSI and NSIS by default; NSIS suits per-user installs and Tauri's updater, MSI matches the LymeScribe signing flow. Decide in M10 and ship one. Next: a small polish pass (content width cap, Open Containing Folder as a real button) before M3; sparse chrome is left to M4's tabs.
 
 **2026-10-23 17:43** - T1 automated part complete (fast-forward to `95739e1`). New: `tauriHost.test.ts` (19, invoke traffic snapshotted), `encoding.test.ts` with byte fixtures, 6 more Rust tests, Playwright e2e against `vite dev` with a mocked `__TAURI_INTERNALS__` (`tauri-driver` has no macOS support), root `test:desktop`. Verified in the main tree: compile, unit 76 files, edge, core-package, desktop unit 82 + e2e 2, typecheck, cargo 21 green. Two M2 bugs fixed: `resolveImageSrc` passthrough for http(s)/data:, and app chrome staying light in dark mode (`data-mikedown-theme` on `<html>`). Scripted Mac hands-on done with 18 screenshots in `.orchestrator/desktop-app-plan/artifacts/t1-mac/`. Windows MSI/NSIS + fixtures staged in DevBox1 `C:\temp\`; hands-on checkbox awaits Mike's sign-off. Findings routed, not fixed: (1) `atomic_write` drops macOS xattrs (Finder tags, per-file Open With) on every save: M2 follow-up, fold into M3; (2) Cmd+Q quits with unsaved Untitled, no prompt (data loss): M4 hot exit / M8 menu; (3) saves after an edit drop the trailing newline: core serializer, backlog candidate; (4) caret lands in table row 2 after a Cmd+/ round-trip: minor, core.
 
