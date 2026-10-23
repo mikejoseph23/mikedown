@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
-import {
+import * as crypto from 'crypto';
+import { createImagePasteHelpers } from '@mikedown/core/shared/imagePaste';
+import type { ImagePasteSettings } from '../../src/settings';
+
+const {
   expandFilenamePattern,
   resolveFilename,
   resolveTargetFolder,
@@ -15,8 +19,10 @@ import {
   looksLikeAutoPastedImage,
   isPathInside,
   isOutsideResourceRoots,
-} from '../../src/imagePaste';
-import type { ImagePasteSettings } from '../../src/settings';
+} = createImagePasteHelpers({
+  path,
+  sha1Hex: (data) => crypto.createHash('sha1').update(data).digest('hex'),
+});
 
 const FIXED_DATE = new Date('2026-05-06T14:30:22Z');
 

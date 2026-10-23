@@ -89,3 +89,17 @@ suite('@mikedown/core dist shape', () => {
     }
   });
 });
+
+suite('@mikedown/core shared subpath', () => {
+  it('shared/imagePaste is built, ESM, and free of Node imports', () => {
+    const js = read('shared/imagePaste.js');
+    expect(js).toContain('createImagePasteHelpers');
+    expect(js).not.toMatch(/\brequire\(/);
+    expect(js).not.toMatch(/from ["'](node:)?(path|crypto)["']/);
+    expect(existsSync(join(dist, 'shared', 'imagePaste.d.ts'))).toBe(true);
+  });
+
+  it('the main entry does not export the image-paste helpers', () => {
+    expect(read('index.d.ts')).not.toMatch(/\bcreateImagePasteHelpers\b/);
+  });
+});

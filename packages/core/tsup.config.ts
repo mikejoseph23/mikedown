@@ -6,7 +6,9 @@ import { defineConfig } from 'tsup';
 // tiptap-markdown is a plain dependency: consumers' bundlers resolve its ES
 // build through its exports map (see README, "Bundler notes").
 export default defineConfig({
-  entry: ['src/index.ts'],
+  // shared/imagePaste is a separate entry so hosts (the desktop app) can
+  // import it as @mikedown/core/shared/imagePaste without the editor.
+  entry: { index: 'src/index.ts', 'shared/imagePaste': 'src/shared/imagePaste.ts' },
   format: ['esm'],
   dts: true,
   sourcemap: true,

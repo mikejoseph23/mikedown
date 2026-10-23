@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import { parseHeadingNumbering, type HeadingNumbering } from '@mikedown/core/shared/headingNumbering';
+import type { ImagePasteSettings } from '@mikedown/core/shared/imagePaste';
+
+export type { ImagePasteSettings };
 
 export interface MikeDownSettings {
   defaultEditor: boolean;
@@ -78,16 +81,6 @@ export interface SidebarSettings {
   position: 'left' | 'right';
 }
 
-export interface ImagePasteSettings {
-  enabled: boolean;
-  folder: string;
-  folderRelativeTo: 'document' | 'workspace';
-  filenamePattern: string;
-  pathStyle: 'relative' | 'workspace-absolute';
-  altText: 'empty' | 'filename' | 'prompt';
-  maxSizeMB: number;
-  cleanupUnreferenced: boolean;
-}
 
 export interface ImageResizeSettings {
   overwrite: boolean;

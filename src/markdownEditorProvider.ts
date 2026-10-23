@@ -6,23 +6,30 @@ import * as cp from 'child_process';
 import { getSettings, ImagePasteSettings } from './settings';
 import { writeRenderedHtml, openRenderedInBrowser } from './export';
 import {
+  createImagePasteHelpers,
   extensionFromMime,
   extractLocalImageRefs,
-  formatInsertPath,
-  isInsideManagedFolder,
-  isOutsideResourceRoots,
   looksLikeAutoPastedImage,
   resolveAltText,
-  resolveFilename,
-  resolveLocalImagePaths,
-  resolveTargetFolder,
-  resizeSiblingPath,
-} from './imagePaste';
+} from '@mikedown/core/shared/imagePaste';
 import { githubAnchorId } from '@mikedown/core/shared/anchoring';
 import { BacklinkEntry } from './backlinkProvider';
 import { pickBestWikilinkTarget } from './wikilinkResolve';
 import { SupportPrompt, SessionTracker } from './supportPrompt';
 import { ENTRY_COPY } from './supportCopy';
+
+const {
+  formatInsertPath,
+  isInsideManagedFolder,
+  isOutsideResourceRoots,
+  resolveFilename,
+  resolveLocalImagePaths,
+  resolveTargetFolder,
+  resizeSiblingPath,
+} = createImagePasteHelpers({
+  path,
+  sha1Hex: (data) => crypto.createHash('sha1').update(data).digest('hex'),
+});
 import { SupportAction } from './supportPromptEligibility';
 
 /**
