@@ -4,6 +4,7 @@
  * text and in source mode.
  */
 import { afterEach, describe, expect, it } from 'vitest';
+import { EditorView } from '@codemirror/view';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../src/index';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
@@ -83,5 +84,64 @@ describe('view state', () => {
     handle.setViewState({});
     expect(handle.getViewState().cursor).toBe(5);
     expect(handle.getViewState().sourceMode).toBe(false);
+  });
+});
+
+describe('lazy load in source mode', () => {
+  it('setMarkdown in source mode fills CodeMirror only and rebuilds the rich view on the way back', () => {
+    const { handle, el } = mount('# Old\n');
+    handle.setViewState({ sourceMode: true });
+    const pmBefore = handle.tiptap.state.doc;
+    handle.setMarkdown('# New\n\nFresh text.\n', { pristine: true });
+    // CodeMirror has the new text, the rich view was left alone (no parse).
+    expect(handle.getMarkdown()).toBe('# New\n\nFresh text.\n');
+    expect(handle.tiptap.state.doc).toBe(pmBefore);
+    expect(el.querySelector('.cm-content')?.textContent).toContain('Fresh text.');
+    // Back to rich text: the document is rebuilt from the source.
+    handle.setViewState({ sourceMode: false });
+    expect(handle.tiptap.state.doc.textContent).toContain('Fresh text.');
+    expect(el.querySelector('.ProseMirror h1')?.textContent).toBe('New');
+  });
+
+  it('a lazily loaded, unedited document reports pristine after the switch back', () => {
+    const changes: Array<{ md: string; pristine: boolean }> = [];
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const handle = createMikeDownEditor(el, {
+      host: { onChange: (md, meta) => changes.push({ md, pristine: meta.pristine }) },
+      initialMarkdown: '',
+    });
+    mounted.push({ handle, el });
+    handle.setViewState({ sourceMode: true });
+    handle.setMarkdown('# Doc\n\nBody.\n', { pristine: true });
+    expect(changes).toEqual([]);
+    handle.setViewState({ sourceMode: false });
+    expect(changes).toEqual([]);
+    // Type and undo: back to the saved text, reported with the exact original.
+    handle.tiptap.commands.insertContentAt(handle.tiptap.state.doc.content.size - 1, ' More');
+    expect(changes.at(-1)?.pristine).toBe(false);
+    handle.command('undo');
+    expect(changes.at(-1)).toEqual({ md: '# Doc\n\nBody.\n', pristine: true });
+  });
+
+  it('source edits made before the switch back are kept and reported dirty', () => {
+    const changes: Array<{ md: string; pristine: boolean }> = [];
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const handle = createMikeDownEditor(el, {
+      host: { onChange: (md, meta) => changes.push({ md, pristine: meta.pristine }) },
+      initialMarkdown: '',
+    });
+    mounted.push({ handle, el });
+    handle.setViewState({ sourceMode: true });
+    handle.setMarkdown('# Doc\n', { pristine: true });
+    // Edit through CodeMirror's view, found from its DOM.
+    const view = EditorView.findFromDOM(el.querySelector<HTMLElement>('.cm-editor')!);
+    expect(view).toBeTruthy();
+    view!.dispatch({ changes: { from: view!.state.doc.length, insert: 'Edited in source.\n' } });
+    expect(changes.at(-1)).toEqual({ md: '# Doc\nEdited in source.\n', pristine: false });
+    handle.setViewState({ sourceMode: false });
+    expect(handle.tiptap.state.doc.textContent).toContain('Edited in source.');
+    expect(handle.getMarkdown()).toContain('Edited in source.');
   });
 });

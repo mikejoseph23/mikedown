@@ -13,7 +13,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createMikeDownEditor, type MikeDownEditorHandle } from '@mikedown/core';
+import { createMikeDownEditor } from '@mikedown/core';
 import { stubLayoutMeasurement } from '../../../../test/harness/webviewHarness';
 import type { Encoding, Eol, ReadInfo } from '../../src/documents/documentModel';
 import { createTestApp, flush, type TestApp } from './helpers/app';
@@ -79,20 +79,23 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   app = createTestApp(
-    (host) =>
-      createMikeDownEditor(container, {
+    (host, paneContainer) =>
+      createMikeDownEditor(paneContainer, {
         host,
         initialMarkdown: '',
         theme: 'light',
         features: { sidebar: false, supportCard: false, sourceMode: true },
         hostOwnsShortcuts: true,
       }),
-    { editorRoot: container },
+    { root: container },
   );
 });
 
-afterEach(() => {
-  try { (app.handle as MikeDownEditorHandle).destroy(); } catch { /* already gone */ }
+afterEach(async () => {
+  // Core restores the CodeMirror scroll position 10 ms after a source
+  // toggle; let that timer run before the editor is destroyed.
+  await new Promise((r) => setTimeout(r, 20));
+  app.dispose();
   container.remove();
   uninstallIpc();
   vi.restoreAllMocks();

@@ -7,8 +7,11 @@ import {
   extensionOf,
   fileName,
   folderName,
+  formatSize,
+  HUGE_FILE_BYTES,
   LARGE_FILE_BYTES,
   planOpen,
+  sizeClass,
   windowTitle,
   writeOptionsFor,
 } from '../../src/documents/documentModel';
@@ -34,7 +37,7 @@ describe('planOpen', () => {
 
   it('opens markdown as rich text, writable', () => {
     expect(planOpen('/a/b.md', utf8)).toEqual({
-      kind: 'markdown', sourceMode: false, readOnly: false, readOnlyReason: null, notice: null,
+      kind: 'markdown', sourceMode: false, readOnly: false, readOnlyReason: null, notice: null, offerRichText: false,
     });
   });
 
@@ -65,6 +68,22 @@ describe('planOpen', () => {
     expect(plan.sourceMode).toBe(true);
     expect(plan.readOnly).toBe(false);
     expect(plan.notice).toMatch(/Large file/);
+    expect(plan.offerRichText).toBe(true);
+  });
+
+  it('large plain text stays plain source mode without the rich-text offer', () => {
+    const plan = planOpen('/a/b.txt', { ...utf8, size: LARGE_FILE_BYTES + 1 });
+    expect(plan.sourceMode).toBe(true);
+    expect(plan.offerRichText).toBe(false);
+  });
+
+  it('size classes: 2 MB and 20 MB thresholds (edge 12)', () => {
+    expect(sizeClass(LARGE_FILE_BYTES)).toBe('normal');
+    expect(sizeClass(LARGE_FILE_BYTES + 1)).toBe('large');
+    expect(sizeClass(HUGE_FILE_BYTES)).toBe('large');
+    expect(sizeClass(HUGE_FILE_BYTES + 1)).toBe('huge');
+    expect(formatSize(3 * 1024 * 1024)).toBe('3.0 MB');
+    expect(formatSize(25 * 1024 * 1024)).toBe('25 MB');
   });
 });
 

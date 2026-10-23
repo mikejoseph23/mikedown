@@ -47,6 +47,12 @@ function handler(cmd: string, args: any): unknown {
       return PNG.buffer.slice(0);
     case 'list_dir':
       return [];
+    case 'stat': {
+      const text = answers.files[args.path];
+      return text === undefined
+        ? { exists: false, isFile: false, isDir: false, mtimeMs: 0, size: 0, readOnly: false }
+        : { exists: true, isFile: true, isDir: false, mtimeMs: 1000, size: text.length, readOnly: false };
+    }
     case 'plugin:dialog|message':
       return buttonLabel(args, answers.message);
     case 'plugin:dialog|save':
@@ -69,13 +75,17 @@ async function openDoc(path = DOC, text = '# Todo\n'): Promise<void> {
 
 beforeEach(() => {
   answers = { message: 'ok', save: null, open: null, files: {} };
+  document.body.innerHTML = '';
   calls = installIpc(handler);
   handle = fakeHandle();
   app = createTestApp(handle);
-  document.body.innerHTML = '';
+  // The window starts on an empty Untitled document, as the app does.
+  app.controller.newDocument();
+  calls.length = 0;
 });
 
 afterEach(() => {
+  app.dispose();
   uninstallIpc();
   vi.restoreAllMocks();
 });
@@ -89,22 +99,22 @@ describe('TauriHost invoke traffic', () => {
     expect(handle.getMarkdown()).toBe('# Todo\n');
   });
 
-  it('onChange marks dirty, and pristine: true clears it', async () => {
+  it('an editor change marks dirty, and the pristine text clears it', async () => {
     await openDoc();
-    app.host.onChange('# Todo\n\nmore\n', { pristine: false });
+    handle.emitChange('# Todo\n\nmore\n', { pristine: false });
     await flush();
     expect(app.model.dirty).toBe(true);
     expect(app.model.text).toBe('# Todo\n\nmore\n');
-    app.host.onChange('# Todo\n', { pristine: true });
+    handle.emitChange('# Todo\n', { pristine: true });
     await flush();
     expect(app.model.dirty).toBe(false);
-    expect(calls).toMatchSnapshot();
+    expect(calls.filter((c) => c.cmd !== 'backup_write' && c.cmd !== 'backup_remove')).toMatchSnapshot();
   });
 
-  it('repeated dirty onChange calls set the macOS edited dot once', async () => {
+  it('repeated dirty changes set the macOS edited dot once', async () => {
     await openDoc();
-    app.host.onChange('x', { pristine: false });
-    app.host.onChange('x', { pristine: false });
+    handle.emitChange('x', { pristine: false });
+    handle.emitChange('x', { pristine: false });
     await flush();
     expect(calls.filter((c) => c.cmd === 'set_document_edited')).toEqual([{ cmd: 'set_document_edited', args: { edited: true } }]);
   });
@@ -131,11 +141,10 @@ describe('TauriHost invoke traffic', () => {
 
   it('save writes the document with its own line ending and BOM options', async () => {
     await openDoc();
-    handle.setMarkdown('# Todo\n\nedited\n');
-    app.host.onChange('# Todo\n\nedited\n', { pristine: false });
+    handle.emitChange('# Todo\n\nedited\n', { pristine: false });
     expect(await app.controller.save()).toBe(true);
     await flush();
-    expect(calls).toMatchSnapshot();
+    expect(calls.filter((c) => c.cmd !== 'backup_write' && c.cmd !== 'backup_remove')).toMatchSnapshot();
     expect(app.model.dirty).toBe(false);
     expect(handle.saved).toEqual(['# Todo\n\nedited\n']);
   });
@@ -239,6 +248,7 @@ describe('TauriHost.resolveImageSrc', () => {
 
   it('uses the Windows asset host on Windows', async () => {
     uninstallIpc();
+    document.body.innerHTML = '';
     calls = installIpc(handler, 'windows');
     handle = fakeHandle();
     app = createTestApp(handle, { platform: 'win32' });

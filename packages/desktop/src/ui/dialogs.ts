@@ -28,6 +28,12 @@ export interface Dialogs {
    * the native message box cannot show. `danger` styles the OK button.
    */
   confirm(message: string, opts: { okLabel: string; cancelLabel?: string; checkboxLabel?: string; danger?: boolean; detail?: string }): Promise<{ ok: boolean; checked: boolean }>;
+  /**
+   * In-page question with any number of buttons (the native box stops at
+   * two): Save All / Don't Save / Cancel. Resolves the index of the button
+   * pressed; Escape resolves `cancelIndex`.
+   */
+  choose(message: string, opts: { buttons: string[]; defaultIndex?: number; cancelIndex?: number; detail?: string }): Promise<number>;
 }
 
 const APP_TITLE = 'MikeDown';
@@ -84,7 +90,62 @@ export function createDialogs(root: HTMLElement = document.body): Dialogs {
       return typeof picked === 'string' ? picked : null;
     },
     confirm: (message, opts) => inPageConfirm(root, message, opts),
+    choose: (message, opts) => inPageChoose(root, message, opts),
   };
+}
+
+function inPageChoose(
+  root: HTMLElement,
+  message: string,
+  opts: { buttons: string[]; defaultIndex?: number; cancelIndex?: number; detail?: string },
+): Promise<number> {
+  return new Promise((resolve) => {
+    const previous = document.activeElement as HTMLElement | null;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'mdapp-modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="mdapp-modal mdapp-modal--choose" role="alertdialog" aria-modal="true" aria-labelledby="mdapp-choose-msg">
+        <p class="mdapp-modal__message" id="mdapp-choose-msg"></p>
+        <pre class="mdapp-modal__detail mdapp-modal__detail--list" hidden></pre>
+        <div class="mdapp-modal__actions"></div>
+      </div>`;
+    (backdrop.querySelector('.mdapp-modal__message') as HTMLElement).textContent = message;
+    const detail = backdrop.querySelector('.mdapp-modal__detail') as HTMLElement;
+    if (opts.detail) { detail.hidden = false; detail.textContent = opts.detail; }
+    const actions = backdrop.querySelector('.mdapp-modal__actions') as HTMLElement;
+    const cancelIndex = opts.cancelIndex ?? 0;
+    const defaultIndex = opts.defaultIndex ?? opts.buttons.length - 1;
+    const buttons: HTMLButtonElement[] = opts.buttons.map((text, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = i === defaultIndex ? 'mdapp-btn mdapp-btn--primary' : 'mdapp-btn';
+      b.dataset.index = String(i);
+      b.textContent = text;
+      actions.appendChild(b);
+      return b;
+    });
+    const finish = (value: number): void => {
+      backdrop.remove();
+      previous?.focus?.();
+      resolve(value);
+    };
+    buttons.forEach((b, i) => b.addEventListener('click', () => finish(i)));
+    backdrop.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(cancelIndex); }
+      else if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        finish(i >= 0 ? i : defaultIndex);
+      } else if (e.key === 'Tab') {
+        const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        e.preventDefault();
+        buttons[(i + (e.shiftKey ? buttons.length - 1 : 1)) % buttons.length].focus();
+      }
+    });
+    root.appendChild(backdrop);
+    buttons[defaultIndex]?.focus();
+  });
 }
 
 function inPageConfirm(

@@ -148,3 +148,72 @@ export const launchApi: LaunchApi = {
   frontendReady: () => invoke<string[]>('frontend_ready'),
   onOpenFiles: (handler) => listen<string[]>('mikedown:open-files', (e) => handler(e.payload)),
 };
+
+// ── M4: hot-exit backups and sessions (<app-data>/backups, /sessions) ──────
+
+export interface BackupMeta {
+  path: string | null;
+  untitledId: string | null;
+  folder: string | null;
+}
+
+export interface BackupEntry extends BackupMeta {
+  /** sha256 of the backup key; the file name without `.md`. */
+  key: string;
+  savedAt: number;
+  text: string;
+}
+
+export interface SessionEntry {
+  label: string;
+  data: unknown;
+}
+
+export interface AppDataApi {
+  /** Write (or overwrite) a dirty buffer. `key` is the path or `untitled:<id>`. */
+  backupWrite(key: string, text: string, meta: BackupMeta): Promise<string>;
+  backupRemove(key: string): Promise<void>;
+  /** Every leftover backup with its text, oldest first. */
+  backupList(): Promise<BackupEntry[]>;
+  sessionWrite(label: string, data: unknown): Promise<void>;
+  sessionRead(label: string): Promise<unknown | null>;
+  sessionRemove(label: string): Promise<void>;
+  sessionList(): Promise<SessionEntry[]>;
+}
+
+export const appDataApi: AppDataApi = {
+  backupWrite: (key, text, meta) => invoke<string>('backup_write', { key, text, meta }),
+  backupRemove: (key) => invoke<void>('backup_remove', { key }),
+  backupList: () => invoke<BackupEntry[]>('backup_list'),
+  sessionWrite: (label, data) => invoke<void>('session_write', { label, data }),
+  sessionRead: (label) => invoke<unknown | null>('session_read', { label }),
+  sessionRemove: (label) => invoke<void>('session_remove', { label }),
+  sessionList: () => invoke<SessionEntry[]>('session_list'),
+};
+
+// ── M4: several windows and the quit handshake ─────────────────────────────
+
+export interface WindowsApi {
+  /** Tell Rust this window's folder and open files, for file routing (edge case 6). */
+  reportState(folder: string | null, files: string[]): Promise<void>;
+  /** Open another window; `paths` reach it through its launch queue. Resolves with its label. */
+  newWindow(opts?: { label?: string; paths?: string[] }): Promise<string>;
+  windowCount(): Promise<number>;
+  /** Cmd+Q / Exit: start the quit handshake (every window gets `onQuitRequested`). */
+  requestQuit(): Promise<void>;
+  /** Rust is quitting and asks this window; answer with `quitReply`. */
+  onQuitRequested(handler: () => void): Promise<UnlistenFn>;
+  quitReply(proceed: boolean): Promise<void>;
+  /** A native menu item: the payload is an app command name from `menu/shortcuts.ts`. */
+  onMenu(handler: (command: string) => void): Promise<UnlistenFn>;
+}
+
+export const windowsApi: WindowsApi = {
+  reportState: (folder, files) => invoke<void>('report_window_state', { folder, files }),
+  newWindow: (opts) => invoke<string>('new_window', { label: opts?.label ?? null, paths: opts?.paths ?? [] }),
+  windowCount: () => invoke<number>('window_count'),
+  requestQuit: () => invoke<void>('request_quit_cmd'),
+  onQuitRequested: (handler) => listen('mikedown:quit-requested', () => handler()),
+  quitReply: (proceed) => invoke<void>('quit_reply', { proceed }),
+  onMenu: (handler) => listen<string>('mikedown:menu', (e) => handler(e.payload)),
+};

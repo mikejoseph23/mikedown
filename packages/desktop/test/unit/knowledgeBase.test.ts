@@ -33,7 +33,7 @@ function setup(markdown: string) {
   model.path = '/n/daily/today.md';
   const opened: Array<{ path: string; anchor: string | null | undefined }> = [];
   const host = new TauriHost({
-    model,
+    doc: () => model,
     path,
     fs: { assetUrl: (p) => `asset://${p}` },
     settings: createDesktopSettingsStore(),

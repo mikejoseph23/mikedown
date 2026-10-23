@@ -4811,9 +4811,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       });
     } catch (_) { /* ignore cursor mapping errors */ }
 
-    // Restore approximate scroll position
+    // Restore approximate scroll position (unless the editor was destroyed
+    // in the meantime, as a host that swaps documents quickly may do).
     setTimeout(() => {
-      const scroller = cmView!.scrollDOM;
+      if (!cmView) {return;}
+      const scroller = cmView.scrollDOM;
       scroller.scrollTop = scrollPct * scroller.scrollHeight;
     }, 10);
 
@@ -4859,9 +4861,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // and invalidate the saved-state baseline.
     const currentPmBody = editor.storage.markdown.getMarkdown() as string;
     const sourceUnchanged = !sourceSync.hasSourceEdits(md);
-    if (!sourceUnchanged && (body !== currentPmBody || frontmatter !== frontmatterContent)) {
+    // A lazy load (`setMarkdown` while in source mode) left the rich view
+    // stale: it must be rebuilt whatever the divergence check says.
+    const pmStale = sourceSync.isStale();
+    if (pmStale || (!sourceUnchanged && (body !== currentPmBody || frontmatter !== frontmatterContent))) {
       frontmatterContent = frontmatter;
       isLoading = true;
+      const wasPristine = pmStale && md === originalContent;
       originalContent = md; // reset baseline to avoid false dirty
       editor.commands.setContent(body);
       // The setContent above is on the undo stack by default; clear it so
@@ -4869,8 +4875,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       resetPmHistory(editor);
       // History is back to depth 0 but the doc doesn't match the last saved
       // state — it matches unsaved source-mode edits. Invalidate the baseline
-      // so isPristine can't falsely fire and overwrite disk via save().
-      lastSavedUndoDepth = null;
+      // so isPristine can't falsely fire and overwrite disk via save(). A
+      // lazily loaded document that was not edited in source IS the saved
+      // text, so there depth 0 stays the pristine mark.
+      lastSavedUndoDepth = wasPristine ? 0 : null;
       isLoading = false;
     } else {
       // Content matches — still refresh originalContent so the dirty-state
@@ -5120,6 +5128,30 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       refreshPropertiesSidebar();
       return;
     }
+    // In source mode only CodeMirror is loaded; the rich view is rebuilt from
+    // the source text on the way back (`switchToWysiwyg`). A host that opens a
+    // large file straight into source mode (edge case: files over 2 MB) then
+    // never pays for the ProseMirror parse unless the user asks for rich text.
+    if (sourceMode && cmView) {
+      closeSlashMenu({ reload: true });
+      originalContent = markdown ?? '';
+      frontmatterContent = extractFrontmatter(originalContent).frontmatter;
+      cmLoading = true;
+      cmView.dispatch({
+        changes: { from: 0, to: cmView.state.doc.length, insert: originalContent },
+        annotations: CmTransaction.addToHistory.of(false),
+        selection: { anchor: 0 },
+      });
+      cmLoading = false;
+      sourceSync.markStale(originalContent);
+      isDirty = false;
+      lastSavedUndoDepth = null;
+      wikilinkResolutionCache.clear();
+      applyPlainText(originalContent);
+      postStats({ document: originalContent, selection: null });
+      return;
+    }
+
     // M2d — Load content from disk and establish the originalContent baseline.
     // isLoading prevents the onUpdate handler from echoing this back as an
     // 'edit' message, which would incorrectly mark the document as dirty.

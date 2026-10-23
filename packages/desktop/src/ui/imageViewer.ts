@@ -1,7 +1,7 @@
 /**
  * Minimal image viewer for image files opened from a link or the OS: the
- * picture centered over the editor with its name, size and a Back button.
- * The editor keeps its document underneath; `hide()` returns to it.
+ * picture centered over the editor with its name, size and a Close button.
+ * One per pane (M4): an image is a tab, and closing it is `onBack`.
  */
 
 export interface ImageViewer {
@@ -16,7 +16,7 @@ export function createImageViewer(root: HTMLElement, editorEl: HTMLElement): Ima
   el.hidden = true;
   el.innerHTML = `
     <div class="mdapp-image-viewer__bar">
-      <button type="button" class="mdapp-btn" data-action="back">← Back to document</button>
+      <button type="button" class="mdapp-btn" data-action="back">Close image</button>
       <span class="mdapp-image-viewer__name"></span>
       <span class="mdapp-image-viewer__dims"></span>
     </div>

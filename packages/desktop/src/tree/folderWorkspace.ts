@@ -59,6 +59,8 @@ export interface FolderWorkspace {
   open(root: string): Promise<void>;
   close(): Promise<void>;
   index(): MdIndex | null;
+  /** What `setKnowledgeBase` was last given, for editors created after the folder opened (M4 panes). */
+  knowledgeBase(): KnowledgeBase | null;
   newFile(dir?: string): Promise<void>;
   newFolder(dir?: string): Promise<void>;
   toggleHidden(): Promise<void>;
@@ -79,6 +81,11 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
   const { path, dialogs, settings } = deps;
   let rootPath: string | null = null;
   let index: MdIndex | null = null;
+  let knowledgeBase: KnowledgeBase | null = null;
+  const lendKnowledgeBase = (kb: KnowledgeBase | null): void => {
+    knowledgeBase = kb;
+    deps.setKnowledgeBase(kb);
+  };
   /** Created by New File / New Folder and still in their first rename. */
   const fresh = new Set<string>();
   const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -349,7 +356,7 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
       deps.sidebar.setFolder({ name: path.basename(root) || root, path: root });
       deps.sidebar.setShowHidden(settings.get().tree.showHidden);
       await tree.setRoot(root);
-      deps.setKnowledgeBase({
+      lendKnowledgeBase({
         index,
         openCreated: (p) => {
           void tree.refreshDir(path.dirname(p));
@@ -364,10 +371,11 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
       await deps.watch.unwatchAll().catch(() => { /* none */ });
       await tree.setRoot(null);
       deps.sidebar.setFolder(null);
-      deps.setKnowledgeBase(null);
+      lendKnowledgeBase(null);
       deps.refreshLinks();
     },
     index: () => index,
+    knowledgeBase: () => knowledgeBase,
     newFile: (dir) => create('file', dir),
     newFolder: (dir) => create('folder', dir),
     toggleHidden,

@@ -1,9 +1,13 @@
 /**
  * `TauriHost implements MikeDownHost`: the desktop app's side of the core
- * host contract, one instance per editor instance. It keeps the document
- * model in sync (`onChange`), feeds the status footer (`onStats`), routes
- * links (edge case 13), keeps Settings-modal changes for the session (M5
- * persists them) and runs the image pipeline.
+ * host contract, one instance per editor instance (one per pane, M4). The
+ * document a pane shows changes with its active tab, so the host reads it
+ * through `deps.doc()` every time. Text and dirty state are the document
+ * model's business: it binds to the editor's `change` event itself
+ * (`DocumentModel.attach`), so `onChange` here only tells the app something
+ * happened. The host feeds the status footer (`onStats`), routes links
+ * (edge case 13), keeps Settings-modal changes for the session (M5 persists
+ * them) and runs the image pipeline.
  *
  * The knowledge-base methods (`getLinkSuggestions`, `getFileHeadings`,
  * `resolveWikilinks`, `createWikilink`, `checkLinks`) exist only while the
@@ -43,16 +47,17 @@ export interface KnowledgeBase {
 const PASS_THROUGH = /^(?:https?|data|blob):/i;
 
 export interface TauriHostDeps {
-  model: DocumentModel;
+  /** The document this host's editor shows right now (null for an empty pane). */
+  doc(): Pick<DocumentModel, 'path' | 'text'> | null;
   path: PathOps;
   fs: Pick<FsApi, 'assetUrl'>;
   settings: DesktopSettingsStore;
   images: ImagePipeline;
   app: {
-    /** The model's text or dirty flag changed (title, tab dot, close guard). */
+    /** The editor's content changed (the document model already took it). */
     onModelChanged(): void;
     onStats(stats: MikeDownStats): void;
-    /** Open a local file in this window (M4 turns this into a tab). */
+    /** Open a local file in this window: a tab in the pane this host belongs to. */
     openPath(path: string, opts?: { anchor?: string | null }): Promise<boolean>;
     notify(message: string, opts?: { error?: boolean }): void;
   };
@@ -93,15 +98,16 @@ export class TauriHost implements MikeDownHost {
       delete this.checkLinks;
       return;
     }
-    const { model } = this.deps;
+    const docPath = (): string | null => this.deps.doc()?.path ?? null;
+    const docText = (): string => this.deps.doc()?.text ?? '';
     const { index } = kb;
-    this.getLinkSuggestions = () => index.linkSuggestions(model.path, model.text);
-    this.getFileHeadings = (p) => index.fileHeadings(model.path, p);
-    this.resolveWikilinks = (targets) => index.resolveWikilinks(model.path, targets);
-    this.checkLinks = (links) => index.checkLinks(model.path, model.text, links);
+    this.getLinkSuggestions = () => index.linkSuggestions(docPath(), docText());
+    this.getFileHeadings = (p) => index.fileHeadings(docPath(), p);
+    this.resolveWikilinks = (targets) => index.resolveWikilinks(docPath(), targets);
+    this.checkLinks = (links) => index.checkLinks(docPath(), docText(), links);
     this.createWikilink = async (target) => {
       try {
-        const res = await index.createWikilink(model.path, target);
+        const res = await index.createWikilink(docPath(), target);
         kb.openCreated(res.path, res.created);
         return [res.resolution];
       } catch (err) {
@@ -116,13 +122,7 @@ export class TauriHost implements MikeDownHost {
     this.handle = handle;
   }
 
-  onChange(markdown: string, meta: { pristine: boolean }): void {
-    const { model } = this.deps;
-    model.text = markdown;
-    const dirty = !meta.pristine;
-    if (dirty !== model.dirty) {
-      model.dirty = dirty;
-    }
+  onChange(_markdown: string, _meta: { pristine: boolean }): void {
     this.deps.app.onModelChanged();
   }
 
@@ -131,7 +131,7 @@ export class TauriHost implements MikeDownHost {
   }
 
   openLink(href: string, _behavior?: LinkOpenBehavior): void {
-    const route = routeLink(href, this.deps.model.path, this.deps.path);
+    const route = routeLink(href, this.deps.doc()?.path ?? null, this.deps.path);
     switch (route.kind) {
       case 'external':
         void shellOpen(route.url).catch((err: unknown) => {
@@ -163,7 +163,7 @@ export class TauriHost implements MikeDownHost {
    */
   resolveImageSrc(src: string): string | null {
     if (PASS_THROUGH.test(src)) {return src;}
-    const docPath = this.deps.model.path;
+    const docPath = this.deps.doc()?.path ?? null;
     const clean = stripQuery(src);
     if (!clean) {return null;}
     const { path } = this.deps;

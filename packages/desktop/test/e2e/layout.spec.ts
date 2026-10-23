@@ -47,7 +47,7 @@ test('Open Containing Folder is a labelled, focusable button in light and dark',
     if (SHOTS) {
       await btn.hover();
       await page.screenshot({ path: `${SHOTS}/p1-${scheme}.png` });
-      await page.locator('.mdapp-top').screenshot({ path: `${SHOTS}/p1-${scheme}-tabstrip.png` });
+      await page.locator('.mdapp-pane__strip').screenshot({ path: `${SHOTS}/p1-${scheme}-tabstrip.png` });
     }
   }
 });

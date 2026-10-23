@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`TauriHost invoke traffic > onChange marks dirty, and pristine: true clears it 1`] = `
+exports[`TauriHost invoke traffic > an editor change marks dirty, and the pristine text clears it 1`] = `
 [
   {
     "args": {
@@ -24,6 +24,12 @@ exports[`TauriHost invoke traffic > openLink: external goes to the shell plugin,
       "path": "https://example.com/a?b=1",
     },
     "cmd": "plugin:shell|open",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/notes/other.md",
+    },
+    "cmd": "stat",
   },
   {
     "args": {
@@ -53,6 +59,12 @@ exports[`TauriHost invoke traffic > opening a file reads it and updates the nati
     "args": {
       "path": "/Users/mike/notes/todo.md",
     },
+    "cmd": "stat",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/notes/todo.md",
+    },
     "cmd": "read_text",
   },
   {
@@ -61,12 +73,6 @@ exports[`TauriHost invoke traffic > opening a file reads it and updates the nati
       "value": "todo.md — notes",
     },
     "cmd": "plugin:window|set_title",
-  },
-  {
-    "args": {
-      "edited": false,
-    },
-    "cmd": "set_document_edited",
   },
   {
     "args": {
@@ -354,16 +360,16 @@ exports[`TauriHost invoke traffic > uploadImage on an unsaved document saves it 
   },
   {
     "args": {
+      "key": "/Users/mike/new/Untitled.md",
+    },
+    "cmd": "backup_remove",
+  },
+  {
+    "args": {
       "label": "main",
       "value": "Untitled.md — new",
     },
     "cmd": "plugin:window|set_title",
-  },
-  {
-    "args": {
-      "edited": false,
-    },
-    "cmd": "set_document_edited",
   },
   {
     "args": {

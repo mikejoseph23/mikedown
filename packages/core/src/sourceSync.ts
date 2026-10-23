@@ -17,10 +17,12 @@
  */
 export class SourceModeSync {
   private entry: string | null = null;
+  private stale = false;
 
   /** CodeMirror has just been seeded with `md` on the way into source mode. */
   enter(md: string): void {
     this.entry = md;
+    this.stale = false;
   }
 
   /**
@@ -29,6 +31,23 @@ export class SourceModeSync {
    */
   rebaseline(md: string): void {
     if (this.entry !== null) {this.entry = md;}
+    this.stale = false;
+  }
+
+  /**
+   * The host pushed new content while in source mode and ONLY CodeMirror was
+   * loaded with it (a lazy load: a large file need not be parsed into the
+   * rich view until it is shown). The rich view must reload on the way back,
+   * whatever the divergence check says.
+   */
+  markStale(md: string): void {
+    this.entry = md;
+    this.stale = true;
+  }
+
+  /** True while the rich view has not been loaded from the current source text. */
+  isStale(): boolean {
+    return this.stale;
   }
 
   /**
@@ -43,6 +62,7 @@ export class SourceModeSync {
   /** Back in WYSIWYG mode; the seed no longer applies. */
   exit(): void {
     this.entry = null;
+    this.stale = false;
   }
 
   /** The recorded seed text, or `null` outside source mode. Exposed for tests. */

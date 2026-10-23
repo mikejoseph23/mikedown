@@ -9,6 +9,7 @@ import { test as base, expect } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -22,11 +23,19 @@ export interface IpcRecord {
 
 export interface Ipc {
   dir: string;
+  /** Stand-in for <app-data>: backups/ and sessions/ live here (M4). */
+  appData: string;
   calls: IpcRecord[];
   /** Files `frontend_ready` hands the page (the double-click / argv path). */
   launchFiles: string[];
+  /** Answer for the next `quit_reply` / `request_quit_cmd` round (recorded). */
+  quitReplies: boolean[];
+  windowStates: Array<{ folder: string | null; files: string[] }>;
   write(name: string, content: string | Buffer): string;
   read(name: string): Buffer;
+  /** The backup index as Rust would keep it. */
+  backupIndex(): Record<string, { path: string | null; untitledId: string | null; folder: string | null; savedAt: number }>;
+  session(label?: string): unknown | null;
 }
 
 function decode(bytes: Buffer): { text: string; encoding: string; eol: 'lf' | 'crlf' } {
@@ -56,6 +65,29 @@ function encode(text: string, eol: 'lf' | 'crlf', bom: boolean): Buffer {
 function statOf(p: string) {
   const st = fs.statSync(p);
   return { mtimeMs: st.mtimeMs, size: st.size };
+}
+
+// ── M4: backups and sessions, mirroring src-tauri/src/commands/appdata.rs ──
+
+function sha256(key: string): string {
+  return crypto.createHash('sha256').update(key).digest('hex');
+}
+
+function indexPath(ipc: Ipc): string {
+  return path.join(ipc.appData, 'backups', 'index.json');
+}
+
+function readIndex(ipc: Ipc): Record<string, any> {
+  try { return JSON.parse(fs.readFileSync(indexPath(ipc), 'utf8')); } catch { return {}; }
+}
+
+function writeIndex(ipc: Ipc, index: Record<string, any>): void {
+  fs.mkdirSync(path.dirname(indexPath(ipc)), { recursive: true });
+  fs.writeFileSync(indexPath(ipc), JSON.stringify(index, null, 2));
+}
+
+function sessionPath(ipc: Ipc, label: string): string {
+  return path.join(ipc.appData, 'sessions', `${label.replace(/[^A-Za-z0-9_-]/g, '_')}.json`);
 }
 
 function handle(ipc: Ipc, cmd: string, args: any, headers: Record<string, string>): unknown {
@@ -135,6 +167,58 @@ function handle(ipc: Ipc, cmd: string, args: any, headers: Record<string, string
       fs.writeFileSync(target, Buffer.from(args.__bytes));
       return statOf(target);
     }
+    case 'backup_write': {
+      const hash = sha256(args.key);
+      const dir = path.join(ipc.appData, 'backups');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, `${hash}.md`), args.text);
+      const index = readIndex(ipc);
+      index[hash] = { ...args.meta, savedAt: Date.now() };
+      writeIndex(ipc, index);
+      return hash;
+    }
+    case 'backup_remove': {
+      const hash = sha256(args.key);
+      fs.rmSync(path.join(ipc.appData, 'backups', `${hash}.md`), { force: true });
+      const index = readIndex(ipc);
+      delete index[hash];
+      writeIndex(ipc, index);
+      return null;
+    }
+    case 'backup_list': {
+      const index = readIndex(ipc);
+      const out: unknown[] = [];
+      for (const [hash, entry] of Object.entries(index)) {
+        const file = path.join(ipc.appData, 'backups', `${hash}.md`);
+        if (!fs.existsSync(file)) {continue;}
+        out.push({ key: hash, ...entry, text: fs.readFileSync(file, 'utf8') });
+      }
+      return out;
+    }
+    case 'session_write':
+      fs.mkdirSync(path.dirname(sessionPath(ipc, args.label)), { recursive: true });
+      fs.writeFileSync(sessionPath(ipc, args.label), JSON.stringify(args.data, null, 2));
+      return null;
+    case 'session_read':
+      return ipc.session(args.label);
+    case 'session_remove':
+      fs.rmSync(sessionPath(ipc, args.label), { force: true });
+      return null;
+    case 'session_list': {
+      const dir = path.join(ipc.appData, 'sessions');
+      if (!fs.existsSync(dir)) {return [];}
+      return fs.readdirSync(dir).filter((n) => n.endsWith('.json')).map((n) => ({ label: n.slice(0, -5), data: ipc.session(n.slice(0, -5)) }));
+    }
+    case 'report_window_state':
+      ipc.windowStates.push({ folder: args.folder ?? null, files: args.files ?? [] });
+      return null;
+    case 'window_count':
+      return 1;
+    case 'new_window':
+      return args.label ?? 'w-1';
+    case 'quit_reply':
+      ipc.quitReplies.push(!!args.proceed);
+      return null;
     default:
       // Window/title/represented-file, allow_asset, shell, dialogs: no-ops.
       return null;
@@ -144,16 +228,24 @@ function handle(ipc: Ipc, cmd: string, args: any, headers: Record<string, string
 export const test = base.extend<{ ipc: Ipc }>({
   ipc: async ({ page }, use) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mikedown-e2e-'));
+    const appData = fs.mkdtempSync(path.join(os.tmpdir(), 'mikedown-e2e-appdata-'));
     const ipc: Ipc = {
       dir,
+      appData,
       calls: [],
       launchFiles: [],
+      quitReplies: [],
+      windowStates: [],
       write(name, content) {
         const p = path.join(dir, name);
         fs.writeFileSync(p, content);
         return p;
       },
       read: (name) => fs.readFileSync(path.join(dir, name)),
+      backupIndex: () => readIndex(ipc),
+      session(label = 'main') {
+        try { return JSON.parse(fs.readFileSync(sessionPath(ipc, label), 'utf8')); } catch { return null; }
+      },
     };
     await page.exposeFunction('__mikedownE2eInvoke', (cmd: string, args: unknown, headers: Record<string, string>) => {
       ipc.calls.push({ cmd, args, headers });
@@ -166,6 +258,7 @@ export const test = base.extend<{ ipc: Ipc }>({
     await page.addInitScript({ path: path.join(here, 'tauri-mock.js') });
     await use(ipc);
     fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(appData, { recursive: true, force: true });
   },
 });
 

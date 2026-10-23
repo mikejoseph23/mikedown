@@ -20,11 +20,11 @@ test('dark OS appearance recolors the chrome as well as the editor', async ({ pa
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
   await expect(page.locator('#editor .ProseMirror')).toContainText('Text.');
-  const lightTop = await page.locator('.mdapp-top').evaluate(bg('top'));
+  const lightTop = await page.locator('.mdapp-pane__strip').evaluate(bg('top'));
   const lightTab = await page.locator('.mdapp-tab').evaluate(bg('tab'));
 
   await page.emulateMedia({ colorScheme: 'dark' });
-  const darkTop = await page.locator('.mdapp-top').evaluate(bg('top'));
+  const darkTop = await page.locator('.mdapp-pane__strip').evaluate(bg('top'));
   const darkTab = await page.locator('.mdapp-tab').evaluate(bg('tab'));
   const darkStatus = await page.locator('.mdapp-status').evaluate(bg('status'));
   const darkBody = await page.locator('body').evaluate(bg('body'));
