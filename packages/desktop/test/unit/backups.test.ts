@@ -120,6 +120,39 @@ describe('scheduler', () => {
     expect(writes).toEqual([{ key: doc.id, text: 'draft', meta: { path: null, untitledId: doc.id, folder: '/n' } }]);
   });
 
+  it('keeps exactly the dirty set: edits add, saves and reverts remove, bursts coalesce per document', async () => {
+    const live = new Map<string, string>();
+    const sched = createBackupScheduler({
+      api: {
+        backupWrite: async (key, text) => { live.set(key, text); return 'h'; },
+        backupRemove: async (key) => { live.delete(key); },
+      },
+      folder: () => '/n',
+      debounceMs: 1000,
+    });
+    const docs = ['/n/a.md', '/n/b.md', '/n/c.md'].map((p) => {
+      const d = registry.open(p, info('saved'), planOpen(p, info('saved')));
+      const h = fakeHandle();
+      d.attach(h);
+      return { d, h };
+    });
+    for (const { d, h } of docs) {
+      h.emitChange('e1'); h.emitChange('e2'); h.emitChange('e3');
+      sched.touch(d);
+    }
+    await vi.advanceTimersByTimeAsync(1100);
+    expect([...live.keys()].sort()).toEqual(['/n/a.md', '/n/b.md', '/n/c.md']);
+    expect(live.get('/n/a.md')).toBe('e3');
+    // a is saved, b reverts to the saved text: only c stays dirty.
+    await docs[0].d.save();
+    docs[1].h.emitChange('saved', { pristine: true });
+    sched.touch(docs[0].d);
+    sched.touch(docs[1].d);
+    await vi.advanceTimersByTimeAsync(1100);
+    expect([...live.keys()]).toEqual(['/n/c.md']);
+    sched.dispose();
+  });
+
   it('a failed write is reported, not thrown', async () => {
     const errors: unknown[] = [];
     const failing = createBackupScheduler({

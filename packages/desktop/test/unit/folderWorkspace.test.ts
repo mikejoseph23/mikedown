@@ -55,7 +55,7 @@ function listDir(dir: string): DirEntry[] {
   return [...disk].filter(([p]) => path.dirname(p) === dir && p !== dir).map(([p, isDir]) => ({ name: path.basename(p), isDir }));
 }
 
-beforeEach(() => {
+function setup(windows: boolean): void {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   document.body.innerHTML = '';
   disk = makeDisk(['/n/a.md', '/n/sub/b.md', '/n/.mikedown/versions/a.md/20261023T120000Z.md', '/n/.mikedown/versions/sub/b.md/20261023T120000Z.md']);
@@ -103,7 +103,7 @@ beforeEach(() => {
   ws = createFolderWorkspace({
     path,
     isMac: true,
-    windows: false,
+    windows,
     fs,
     tree,
     watch,
@@ -122,7 +122,9 @@ beforeEach(() => {
     copyText: async () => {},
   });
   document.body.appendChild(ws.tree.el);
-});
+}
+
+beforeEach(() => { setup(false); });
 
 afterEach(() => {
   vi.useRealTimers();
@@ -166,6 +168,41 @@ describe('folder workspace', () => {
     ws.tree.el.querySelector<HTMLElement>('[data-path="/n/sub"]')!.click();
     await settle();
     expect(calls).toContain('unwatch /n/sub');
+  });
+
+  it('one list_dir per expand: collapse and re-expand does not list twice for the same row state', async () => {
+    await ws.open('/n');
+    const listsOf = (d: string): number => calls.filter((c) => c === `list ${d}`).length;
+    expect(listsOf('/n/sub')).toBe(0);
+    ws.tree.el.querySelector<HTMLElement>('[data-path="/n/sub"]')!.click();
+    await settle();
+    expect(listsOf('/n/sub')).toBe(1);
+    expect(listsOf('/n')).toBe(1);
+    ws.tree.el.querySelector<HTMLElement>('[data-path="/n/sub"]')!.click();
+    await settle();
+    ws.tree.el.querySelector<HTMLElement>('[data-path="/n/sub"]')!.click();
+    await settle();
+    // Each expand asks the disk once; it never fans out to other folders.
+    expect(listsOf('/n/sub')).toBeLessThanOrEqual(2);
+    expect(listsOf('/n')).toBe(1);
+  });
+
+  it('on Windows, inline rename refuses CON.md and a path over 259 characters (270)', async () => {
+    for (const bad of ['CON.md', 'x'.repeat(270) + '.md']) {
+      document.body.innerHTML = '';
+      setup(true);
+      await ws.open('/n');
+      await ws.tree.startRename('/n/a.md');
+      const field = input();
+      field.value = bad;
+      field.dispatchEvent(new Event('input'));
+      press(field, 'Enter');
+      await settle();
+      expect(calls.some((c) => c.startsWith('rename')), bad).toBe(false);
+      // Name errors show inline; the path-length error comes back as a toast.
+      const shown = (ws.tree.el.querySelector('.mdapp-tree__error')?.textContent ?? '') + calls.filter((c) => c.startsWith('toast')).join();
+      expect(shown, bad).toMatch(/reserves for devices|at most 259/);
+    }
   });
 
   it('New File creates Untitled.md in rename mode and appends .md to the typed name', async () => {

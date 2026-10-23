@@ -94,6 +94,10 @@ describe('name validation', () => {
     const long = `${dir}\\${'n'.repeat(30)}`;
     expect(validateTarget(long, 'n'.repeat(30), true)).toMatch(/at most 259/);
     expect(validateTarget(long, 'n'.repeat(30), false)).toBeNull();
+    // A flat 270-character path is refused the same way.
+    const flat = `C:\\${'p'.repeat(267)}`;
+    expect(flat).toHaveLength(270);
+    expect(validateTarget(flat, 'p'.repeat(267), true)).toMatch(/at most 259/);
   });
 });
 
