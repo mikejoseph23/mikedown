@@ -1,0 +1,404 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TauriHost invoke traffic > onChange marks dirty, and pristine: true clears it 1`] = `
+[
+  {
+    "args": {
+      "edited": true,
+    },
+    "cmd": "set_document_edited",
+  },
+  {
+    "args": {
+      "edited": false,
+    },
+    "cmd": "set_document_edited",
+  },
+]
+`;
+
+exports[`TauriHost invoke traffic > openLink: external goes to the shell plugin, a local link reads the file, an anchor stays in the editor 1`] = `
+[
+  {
+    "args": {
+      "path": "https://example.com/a?b=1",
+    },
+    "cmd": "plugin:shell|open",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/notes/other.md",
+    },
+    "cmd": "read_text",
+  },
+  {
+    "args": {
+      "label": "main",
+      "value": "other.md — notes",
+    },
+    "cmd": "plugin:window|set_title",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/notes/other.md",
+    },
+    "cmd": "set_represented_file",
+  },
+]
+`;
+
+exports[`TauriHost invoke traffic > opening a file reads it and updates the native window 1`] = `
+[
+  {
+    "args": {
+      "path": "/Users/mike/notes/todo.md",
+    },
+    "cmd": "read_text",
+  },
+  {
+    "args": {
+      "label": "main",
+      "value": "todo.md — notes",
+    },
+    "cmd": "plugin:window|set_title",
+  },
+  {
+    "args": {
+      "edited": false,
+    },
+    "cmd": "set_document_edited",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/notes/todo.md",
+    },
+    "cmd": "set_represented_file",
+  },
+]
+`;
+
+exports[`TauriHost invoke traffic > pickImage inside the document folder only widens the asset scope 1`] = `
+[
+  {
+    "args": {
+      "options": {
+        "defaultPath": "/Users/mike/notes",
+        "directory": false,
+        "filters": [
+          {
+            "extensions": [
+              "png",
+              "jpg",
+              "jpeg",
+              "gif",
+              "webp",
+              "svg",
+              "bmp",
+              "avif",
+            ],
+            "name": "Images",
+          },
+        ],
+        "multiple": false,
+        "title": "Insert Image",
+      },
+    },
+    "cmd": "plugin:dialog|open",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/notes/pics/a.png",
+    },
+    "cmd": "allow_asset",
+  },
+]
+`;
+
+exports[`TauriHost invoke traffic > pickImage outside the document folder copies the file in 1`] = `
+[
+  {
+    "args": {
+      "options": {
+        "defaultPath": "/Users/mike/notes",
+        "directory": false,
+        "filters": [
+          {
+            "extensions": [
+              "png",
+              "jpg",
+              "jpeg",
+              "gif",
+              "webp",
+              "svg",
+              "bmp",
+              "avif",
+            ],
+            "name": "Images",
+          },
+        ],
+        "multiple": false,
+        "title": "Insert Image",
+      },
+    },
+    "cmd": "plugin:dialog|open",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/Downloads/shot.png",
+    },
+    "cmd": "read_bytes",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/notes/images",
+    },
+    "cmd": "list_dir",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/notes/images",
+    },
+    "cmd": "mkdir",
+  },
+  {
+    "args": {
+      "bytes": [
+        137,
+        80,
+        78,
+        71,
+        1,
+        2,
+        3,
+      ],
+    },
+    "cmd": "write_bytes",
+    "headers": {
+      "x-path": "%2FUsers%2Fmike%2Fnotes%2Fimages%2Ftodo-20261023-140509.png",
+    },
+  },
+]
+`;
+
+exports[`TauriHost invoke traffic > resizeImage overwrites in place by default 1`] = `
+[
+  {
+    "args": {
+      "bytes": [
+        137,
+        80,
+        78,
+        71,
+        1,
+        2,
+        3,
+      ],
+    },
+    "cmd": "write_bytes",
+    "headers": {
+      "x-path": "%2FUsers%2Fmike%2Fnotes%2Fimages%2Fa.png",
+    },
+  },
+]
+`;
+
+exports[`TauriHost invoke traffic > resizeImage writes a sibling when overwrite is off 1`] = `
+[
+  {
+    "args": {
+      "path": "/Users/mike/notes/images",
+    },
+    "cmd": "list_dir",
+  },
+  {
+    "args": {
+      "bytes": [
+        137,
+        80,
+        78,
+        71,
+        1,
+        2,
+        3,
+      ],
+    },
+    "cmd": "write_bytes",
+    "headers": {
+      "x-path": "%2FUsers%2Fmike%2Fnotes%2Fimages%2Fa-50pct.png",
+    },
+  },
+]
+`;
+
+exports[`TauriHost invoke traffic > save writes the document with its own line ending and BOM options 1`] = `
+[
+  {
+    "args": {
+      "edited": true,
+    },
+    "cmd": "set_document_edited",
+  },
+  {
+    "args": {
+      "options": {
+        "bom": false,
+        "eol": "lf",
+      },
+      "path": "/Users/mike/notes/todo.md",
+      "text": "# Todo
+
+edited
+",
+    },
+    "cmd": "write_text",
+  },
+  {
+    "args": {
+      "edited": false,
+    },
+    "cmd": "set_document_edited",
+  },
+]
+`;
+
+exports[`TauriHost invoke traffic > uploadImage on a saved document writes into images/ beside it 1`] = `
+[
+  {
+    "args": {
+      "path": "/Users/mike/notes/images",
+    },
+    "cmd": "list_dir",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/notes/images",
+    },
+    "cmd": "mkdir",
+  },
+  {
+    "args": {
+      "bytes": [
+        137,
+        80,
+        78,
+        71,
+        1,
+        2,
+        3,
+      ],
+    },
+    "cmd": "write_bytes",
+    "headers": {
+      "x-path": "%2FUsers%2Fmike%2Fnotes%2Fimages%2Ftodo-20261023-140509.png",
+    },
+  },
+]
+`;
+
+exports[`TauriHost invoke traffic > uploadImage on an unsaved document saves it first, then writes the image 1`] = `
+[
+  {
+    "args": {
+      "buttons": {
+        "OkCancelCustom": [
+          "Save As…",
+          "Cancel",
+        ],
+      },
+      "kind": "info",
+      "message": "Save the document first so the image has a home.",
+      "title": "MikeDown",
+    },
+    "cmd": "plugin:dialog|message",
+  },
+  {
+    "args": {
+      "options": {
+        "defaultPath": "Untitled.md",
+        "filters": [
+          {
+            "extensions": [
+              "md",
+              "markdown",
+            ],
+            "name": "Markdown",
+          },
+          {
+            "extensions": [
+              "txt",
+            ],
+            "name": "Text",
+          },
+          {
+            "extensions": [
+              "*",
+            ],
+            "name": "All Files",
+          },
+        ],
+        "title": "Save As",
+      },
+    },
+    "cmd": "plugin:dialog|save",
+  },
+  {
+    "args": {
+      "options": {
+        "bom": false,
+        "eol": "lf",
+      },
+      "path": "/Users/mike/new/Untitled.md",
+      "text": "",
+    },
+    "cmd": "write_text",
+  },
+  {
+    "args": {
+      "label": "main",
+      "value": "Untitled.md — new",
+    },
+    "cmd": "plugin:window|set_title",
+  },
+  {
+    "args": {
+      "edited": false,
+    },
+    "cmd": "set_document_edited",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/new/Untitled.md",
+    },
+    "cmd": "set_represented_file",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/new/images",
+    },
+    "cmd": "list_dir",
+  },
+  {
+    "args": {
+      "path": "/Users/mike/new/images",
+    },
+    "cmd": "mkdir",
+  },
+  {
+    "args": {
+      "bytes": [
+        137,
+        80,
+        78,
+        71,
+        1,
+        2,
+        3,
+      ],
+    },
+    "cmd": "write_bytes",
+    "headers": {
+      "x-path": "%2FUsers%2Fmike%2Fnew%2Fimages%2FUntitled-20261023-140509.png",
+    },
+  },
+]
+`;

@@ -25,6 +25,9 @@ import type { ImagePipeline } from './imagePipeline';
 import { routeLink } from './linkRouting';
 import { stripQuery } from './imagePipeline';
 
+/** Sources the webview loads as they are (core's imageSrcPolicy uses the same set). */
+const PASS_THROUGH = /^(?:https?|data|blob):/i;
+
 export interface TauriHostDeps {
   model: DocumentModel;
   path: PathOps;
@@ -100,8 +103,12 @@ export class TauriHost implements MikeDownHost {
     }
   }
 
-  /** Relative or absolute image paths render through the asset protocol. */
+  /**
+   * Relative or absolute image paths render through the asset protocol;
+   * fully qualified URLs (http(s), data:, blob:) pass through untouched.
+   */
   resolveImageSrc(src: string): string | null {
+    if (PASS_THROUGH.test(src)) {return src;}
     const docPath = this.deps.model.path;
     const clean = stripQuery(src);
     if (!clean) {return null;}
