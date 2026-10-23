@@ -36,7 +36,10 @@ export function createChrome(root: HTMLElement, editorEl: HTMLElement, opts: { i
       </div>
     </div>
     <div class="mdapp-top__actions">
-      <button type="button" class="mdapp-btn mdapp-btn--quiet" data-action="open-folder"></button>
+      <button type="button" class="mdapp-btn mdapp-btn--toolbar" data-action="open-folder">
+        <svg class="mdapp-btn__icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M1.75 3.5h4.1l1.4 1.5h7a.75.75 0 0 1 .75.75v6.75a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75v-8.25a.75.75 0 0 1 .75-.75Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+        <span class="mdapp-btn__label"></span>
+      </button>
     </div>`;
   const notice = document.createElement('div');
   notice.className = 'mdapp-notice';
@@ -56,7 +59,9 @@ export function createChrome(root: HTMLElement, editorEl: HTMLElement, opts: { i
   const lock = top.querySelector('.mdapp-tab__lock') as HTMLSpanElement;
   const folderBtn = top.querySelector('[data-action="open-folder"]') as HTMLButtonElement;
   const folderRow = SHORTCUTS.find((s) => s.command === 'openContainingFolder');
-  folderBtn.textContent = folderRow?.label ?? 'Open Containing Folder';
+  const folderLabel = folderRow?.label ?? 'Open Containing Folder';
+  (folderBtn.querySelector('.mdapp-btn__label') as HTMLSpanElement).textContent = folderLabel;
+  folderBtn.setAttribute('aria-label', folderLabel);
   folderBtn.title = folderRow ? `${folderRow.label} (${formatAccelerator(folderRow.accelerator, opts.isMac)})` : '';
   const words = status.querySelector('.mdapp-status__words') as HTMLSpanElement;
   const sel = status.querySelector('.mdapp-status__sel') as HTMLSpanElement;

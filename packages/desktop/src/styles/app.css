@@ -112,6 +112,33 @@ body {
   background: transparent;
 }
 
+/* Tab-strip action (Open Containing Folder): a quiet toolbar button that is
+   still visibly a button at rest, in light and dark. */
+.mdapp-btn--toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-color: var(--mikedown-button-border, var(--mikedown-border, rgba(127, 127, 127, 0.35)));
+  background: var(--mikedown-button-bg, transparent);
+  color: var(--mikedown-button-text, var(--mikedown-text, #1f1f1f));
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.mdapp-btn--toolbar:hover:not(:disabled) {
+  background: var(--mikedown-button-hover, var(--mikedown-hover, rgba(127, 127, 127, 0.12)));
+}
+
+.mdapp-btn--toolbar:focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline-offset: 1px;
+}
+
+.mdapp-btn__icon {
+  flex: none;
+  color: var(--mikedown-text-muted, currentColor);
+}
+
 .mdapp-btn--primary {
   background: var(--mikedown-accent, #3b82f6);
   border-color: var(--mikedown-accent, #3b82f6);

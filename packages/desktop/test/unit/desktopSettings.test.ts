@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDesktopSettingsStore, DEFAULT_DESKTOP_SETTINGS } from '../../src/settings/desktopSettings';
+import { createDesktopSettingsStore, DEFAULT_DESKTOP_SETTINGS, DESKTOP_CORE_SETTING_DEFAULTS } from '../../src/settings/desktopSettings';
 
 describe('desktop settings store (M2: in memory)', () => {
   it('starts from the extension defaults', () => {
@@ -27,5 +27,12 @@ describe('desktop settings store (M2: in memory)', () => {
     const a = createDesktopSettingsStore();
     a.apply({ 'imagePaste.folder': 'x' });
     expect(createDesktopSettingsStore().get().imagePaste.folder).toBe('images');
+  });
+
+  it('seeds core with a capped content width and spell check on', () => {
+    // Must match an option in the core Settings modal width select, or the
+    // modal opens with nothing selected.
+    expect(DESKTOP_CORE_SETTING_DEFAULTS.contentWidth).toBe('900px');
+    expect(DESKTOP_CORE_SETTING_DEFAULTS.spellCheckEnabled).toBe(true);
   });
 });

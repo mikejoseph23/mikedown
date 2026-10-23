@@ -20,7 +20,7 @@ import { createImagePipeline } from './host/imagePipeline';
 import { createPathOps, detectPathPlatform } from './host/pathOps';
 import { TauriHost } from './host/tauriHost';
 import { commandForKey, type AppCommand } from './menu/shortcuts';
-import { createDesktopSettingsStore } from './settings/desktopSettings';
+import { createDesktopSettingsStore, DESKTOP_CORE_SETTING_DEFAULTS } from './settings/desktopSettings';
 import { SMOKE_FIXTURE } from './smoke/fixture';
 import { runSmoke, smokeEnabled } from './smoke/harness';
 import { createChrome } from './ui/chrome';
@@ -81,7 +81,7 @@ const handle: MikeDownEditorHandle = createMikeDownEditor(container, {
   // copied next to index.html in release builds. `spellcheck="false"` on
   // <body> keeps the OS webview's own checker out of the way.
   spellcheckDictionaryUrl: new URL('dictionaries', document.baseURI).toString(),
-  settings: { spellCheckEnabled: true },
+  settings: { ...DESKTOP_CORE_SETTING_DEFAULTS },
 });
 host.attach(handle);
 

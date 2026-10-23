@@ -5,6 +5,7 @@
  * them in memory; M5 persists the global and folder files and adds the App
  * tab to the Settings modal.
  */
+import type { MikeDownSettings } from '@mikedown/core';
 import type { ImagePasteSettings } from '@mikedown/core/shared/imagePaste';
 
 export interface DesktopSettings {
@@ -26,6 +27,17 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
     cleanupUnreferenced: false,
   },
   imageResize: { overwrite: true },
+};
+
+/**
+ * Core settings the desktop seeds at mount, where its defaults differ from
+ * core's. Spell check is on (edge case 22). The content column is capped at
+ * the Settings modal's "Wide (900px)" option, centered, so text and tables do
+ * not span a wide window; "Full Width" in Settings still overrides it.
+ */
+export const DESKTOP_CORE_SETTING_DEFAULTS: Partial<MikeDownSettings> = {
+  spellCheckEnabled: true,
+  contentWidth: '900px',
 };
 
 export interface DesktopSettingsStore {
