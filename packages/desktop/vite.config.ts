@@ -43,7 +43,11 @@ function coreFromSource(): Plugin {
       if (id === '@mikedown/core/styles.css') {return VIRTUAL_STYLES;}
       if (id === '@mikedown/core/tokens.css') {return path.join(coreSrc, 'styles', 'tokens.css');}
       if (id === '@mikedown/core') {return path.join(coreSrc, 'index.ts');}
-      if (id.startsWith('@mikedown/core/')) {return path.join(coreSrc, id.slice('@mikedown/core/'.length));}
+      if (id.startsWith('@mikedown/core/')) {
+        // `@mikedown/core/shared/imagePaste` → `../core/src/shared/imagePaste.ts`
+        const file = path.join(coreSrc, id.slice('@mikedown/core/'.length));
+        return path.extname(file) ? file : `${file}.ts`;
+      }
       return null;
     },
     load(id) {

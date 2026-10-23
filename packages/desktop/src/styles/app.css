@@ -24,3 +24,247 @@ body {
   flex: 1 1 auto;
   min-height: 0;
 }
+
+#editor[hidden] {
+  display: none;
+}
+
+/* ── Top strip: one tab (M4: many) + actions ───────────────────────────── */
+.mdapp-top {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  min-height: 34px;
+  border-bottom: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.3));
+  background: var(--mikedown-surface-secondary, var(--mikedown-surface, #fff));
+  font-size: 12.5px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mdapp-tabs {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.mdapp-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  max-width: 320px;
+  border-right: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.3));
+  background: var(--mikedown-surface, #fff);
+  color: var(--mikedown-text, #1f1f1f);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.mdapp-tab__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mdapp-tab__dot {
+  font-size: 10px;
+  color: var(--mikedown-accent, #3b82f6);
+}
+
+.mdapp-tab__lock {
+  font-size: 11px;
+}
+
+.mdapp-tab--readonly .mdapp-tab__name {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.mdapp-top__actions {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 4px;
+}
+
+.mdapp-btn {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.35));
+  background: var(--mikedown-surface, #fff);
+  color: var(--mikedown-text, #1f1f1f);
+  cursor: pointer;
+}
+
+.mdapp-btn:hover:not(:disabled) {
+  background: var(--mikedown-surface-hover, rgba(127, 127, 127, 0.12));
+}
+
+.mdapp-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mdapp-btn--quiet {
+  border-color: transparent;
+  background: transparent;
+}
+
+.mdapp-btn--primary {
+  background: var(--mikedown-accent, #3b82f6);
+  border-color: var(--mikedown-accent, #3b82f6);
+  color: #fff;
+}
+
+/* ── Notice bar (non-UTF-8, large file) ────────────────────────────────── */
+.mdapp-notice {
+  padding: 6px 14px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.3));
+  background: var(--mikedown-callout-warning-bg, rgba(245, 158, 11, 0.12));
+}
+
+.mdapp-notice[hidden] {
+  display: none;
+}
+
+/* ── Status footer ─────────────────────────────────────────────────────── */
+.mdapp-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 22px;
+  padding: 0 12px;
+  border-top: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.3));
+  font-size: 11.5px;
+  line-height: 22px;
+  opacity: 0.8;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Toast ─────────────────────────────────────────────────────────────── */
+.mdapp-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 40px;
+  transform: translate(-50%, 12px);
+  max-width: min(80vw, 560px);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--mikedown-text, #1f1f1f);
+  color: var(--mikedown-surface, #fff);
+  font-size: 12.5px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+  z-index: 1000;
+}
+
+.mdapp-toast--visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.mdapp-toast--error {
+  background: #b91c1c;
+  color: #fff;
+}
+
+/* ── In-page prompt ────────────────────────────────────────────────────── */
+.mdapp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1001;
+}
+
+.mdapp-modal {
+  width: min(90vw, 420px);
+  padding: 18px;
+  border-radius: 10px;
+  background: var(--mikedown-surface, #fff);
+  color: var(--mikedown-text, #1f1f1f);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.mdapp-modal__message {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+}
+
+.mdapp-modal__input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.4));
+  background: var(--mikedown-surface, #fff);
+  color: inherit;
+}
+
+.mdapp-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* ── Image viewer ──────────────────────────────────────────────────────── */
+.mdapp-image-viewer {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdapp-image-viewer[hidden] {
+  display: none;
+}
+
+.mdapp-image-viewer__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.3));
+}
+
+.mdapp-image-viewer__dims {
+  opacity: 0.7;
+}
+
+.mdapp-image-viewer__stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 16px;
+  background:
+    linear-gradient(45deg, rgba(127, 127, 127, 0.12) 25%, transparent 25%, transparent 75%, rgba(127, 127, 127, 0.12) 75%),
+    linear-gradient(45deg, rgba(127, 127, 127, 0.12) 25%, transparent 25%, transparent 75%, rgba(127, 127, 127, 0.12) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
+}
+
+.mdapp-image-viewer__stage img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mdapp-toast {
+    transition: none;
+  }
+}

@@ -1,0 +1,91 @@
+/**
+ * The single shortcut table (edge case 23): every app-level command with its
+ * `CmdOrCtrl` accelerator. The in-page key handler reads it now; M8's native
+ * menu reads the same rows for its accelerator labels.
+ *
+ * Editor-internal chords (bold, find, undo) stay in core. The app owns the
+ * ones that reach outside the editor: save, open, source toggle, settings.
+ */
+
+export type AppCommand =
+  | 'save'
+  | 'saveAs'
+  | 'open'
+  | 'toggleSource'
+  | 'openSettings'
+  | 'openContainingFolder';
+
+export interface ShortcutRow {
+  command: AppCommand;
+  /** Tauri/Electron style accelerator: `CmdOrCtrl+Shift+S`. */
+  accelerator: string;
+  label: string;
+}
+
+export const SHORTCUTS: readonly ShortcutRow[] = [
+  { command: 'save', accelerator: 'CmdOrCtrl+S', label: 'Save' },
+  { command: 'saveAs', accelerator: 'CmdOrCtrl+Shift+S', label: 'Save As…' },
+  { command: 'open', accelerator: 'CmdOrCtrl+O', label: 'Open…' },
+  { command: 'toggleSource', accelerator: 'CmdOrCtrl+/', label: 'Toggle Source Mode' },
+  { command: 'openSettings', accelerator: 'CmdOrCtrl+,', label: 'Settings…' },
+  { command: 'openContainingFolder', accelerator: 'CmdOrCtrl+Shift+O', label: 'Open Containing Folder' },
+];
+
+export interface ParsedAccelerator {
+  cmdOrCtrl: boolean;
+  shift: boolean;
+  alt: boolean;
+  /** Lower-case `KeyboardEvent.key` value. */
+  key: string;
+}
+
+export function parseAccelerator(accelerator: string): ParsedAccelerator {
+  const parts = accelerator.split('+');
+  const key = parts.pop() ?? '';
+  const mods = new Set(parts.map((p) => p.toLowerCase()));
+  return {
+    cmdOrCtrl: mods.has('cmdorctrl') || mods.has('commandorcontrol'),
+    shift: mods.has('shift'),
+    alt: mods.has('alt') || mods.has('option'),
+    key: key.toLowerCase(),
+  };
+}
+
+/** The subset of `KeyboardEvent` the matcher reads, so tests can pass plain objects. */
+export interface KeyLike {
+  key: string;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}
+
+/** Which app command a key press runs, or null. `isMac` decides what CmdOrCtrl means. */
+export function commandForKey(e: KeyLike, isMac: boolean, table: readonly ShortcutRow[] = SHORTCUTS): AppCommand | null {
+  const primary = isMac ? e.metaKey : e.ctrlKey;
+  const other = isMac ? e.ctrlKey : e.metaKey;
+  if (other) {return null;}
+  const key = e.key.toLowerCase();
+  for (const row of table) {
+    const acc = parseAccelerator(row.accelerator);
+    if (acc.cmdOrCtrl !== primary) {continue;}
+    if (acc.shift !== e.shiftKey || acc.alt !== e.altKey) {continue;}
+    if (acc.key === key) {return row.command;}
+  }
+  return null;
+}
+
+/** Human label for the platform: `⌘S` on macOS, `Ctrl+S` elsewhere. */
+export function formatAccelerator(accelerator: string, isMac: boolean): string {
+  const acc = parseAccelerator(accelerator);
+  const key = acc.key.length === 1 ? acc.key.toUpperCase() : acc.key;
+  if (isMac) {
+    return `${acc.cmdOrCtrl ? '⌘' : ''}${acc.alt ? '⌥' : ''}${acc.shift ? '⇧' : ''}${key}`;
+  }
+  const parts = [];
+  if (acc.cmdOrCtrl) {parts.push('Ctrl');}
+  if (acc.alt) {parts.push('Alt');}
+  if (acc.shift) {parts.push('Shift');}
+  parts.push(key);
+  return parts.join('+');
+}
