@@ -69,7 +69,14 @@ Rust edits rebuild and relaunch the window.
 - App shortcuts live in one table, `src/menu/shortcuts.ts`
   (`hostOwnsShortcuts: true`): `Cmd+S` save, `Cmd+Shift+S` Save As, `Cmd+O`
   open, `Cmd+/` source mode, `Cmd+,` Settings, `Cmd+Shift+O` Open Containing
-  Folder (stub until M3). Ctrl on Windows. M8's native menu reads the same rows.
+  Folder, `Cmd+Alt+O` Open Folder, `Cmd+B` toggle the folder sidebar (only
+  when focus is outside the editor, where `Cmd+B` stays Bold), `Cmd+Shift+E`
+  show the sidebar and focus the tree. Ctrl on Windows. M8's native menu reads
+  the same rows.
+- `npm run dev -w packages/desktop -- -- /abs/path/folder` opens a folder
+  (the sidebar's tree). `MIKEDOWN_WATCH_POLL=1` forces the watcher's 2 s
+  polling fallback; `VITE_MIKEDOWN_TIMING=1` prints folder-open time and
+  watcher latency (`[mikedown-smoke:timing-…]`) on the `tauri dev` console.
 - `window.mikedownModel` (dev builds) is the document model: path, dirty,
   eol, bom, encoding, readOnly.
 - Web Inspector: right-click → Inspect Element in a debug build (macOS needs
@@ -161,8 +168,9 @@ packages/desktop/
 ├── src/documents/fsApi.ts          the only `invoke` wrapper (read/write/stat/bytes, window, launch queue)
 ├── src/app/documentController.ts   open / save / Save As / read-only / dirty guard / window title
 ├── src/menu/shortcuts.ts           the single CmdOrCtrl shortcut table
-├── src/settings/desktopSettings.ts desktop-only settings (image paste policy), in memory until M5
-├── src/ui/                         chrome (tab strip, status footer), dialogs + toast, image viewer
+├── src/tree/                       folder tree (fileTree), workspace ops (folderWorkspace), folder .md index (mdIndex), pure rules (treeLogic, dropRouting)
+├── src/settings/desktopSettings.ts desktop-only settings (image paste policy, tree prefs), in memory until M5
+├── src/ui/                         chrome (tab strip, status footer), sidebar frame, context menu, dialogs + toast, image viewer
 ├── src/smoke/                      fixture + in-app harness
 ├── src/styles/app.css              app chrome only; editor styling stays in core
 ├── vite.config.ts                  core alias rule, dictionaries, Tauri port/targets
@@ -176,14 +184,25 @@ packages/desktop/
 Tauri plugins registered in `src-tauri/src/lib.rs`: single-instance (first),
 window-state, fs, dialog, shell, process, updater. Window and menu APIs are
 part of the Tauri 2 core crate. There is no `tauri-plugin-trash` on crates.io;
-the `trash` crate is in `Cargo.toml` for the M3 delete command.
+the `trash` crate backs the tree's delete command. `notify` backs the
+watcher; `tauri.conf.json` sets the fs plugin's `requireLiteralLeadingDot:
+false` so `$HOME/**` also covers dotfolders (`.mikedown/versions`, show
+hidden).
 
 ### Disk, scope and native window state
 
 All disk I/O goes through the app's own commands in `src-tauri/src/commands/`
 (`fs.rs`: `read_text`, `write_text`, `stat`, `exists`, `list_dir`, `mkdir`,
-`read_bytes`, `write_bytes`, `open_in_default_app`, `allow_asset`), called
-only from `src/documents/fsApi.ts`. `read_text` detects a BOM, CRLF and
+`read_bytes`, `write_bytes`, `open_in_default_app`, `allow_asset`, and for the
+tree `allow_folder`, `rename` (two-step for case-only changes), `create_file`,
+`create_dir`, `move_path`, `copy_path`, `trash`, `list_markdown`,
+`reveal_path`, `modifier_state`; `watcher.rs`: `watch`, `unwatch`,
+`unwatch_all`, emitting `fs-changed`), called only from
+`src/documents/fsApi.ts`. On Windows, names are checked against reserved
+device names and the 259-character limit before anything touches the disk.
+Saves, copies and cross-volume moves keep extended attributes (Finder tags,
+"Open With", quarantine). macOS deletes use `NSFileManager` (no "control
+Finder" permission prompt). `read_text` detects a BOM, CRLF and
 non-UTF-8 (lossy decode, opened read-only), returns `\n` text, and
 `write_text` puts the same BOM and line ending back through a temp-file +
 rename write that keeps the file mode. `cargo test` in `src-tauri/` covers it.

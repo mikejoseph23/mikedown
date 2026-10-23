@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "M2: the main window may read its own state, set its title and focus, show native dialogs, open http(s) links in the browser, and reach files under the home and app-data folders. Dialog picks, double-clicked files and command-line arguments extend the fs scope at runtime. All disk I/O goes through the app's own commands (src/commands/fs.rs), which check this same fs scope.",
+  "description": "M2/M3: the main window may read its own state, set its title and focus, show native dialogs, open http(s) links in the browser, listen for events (fs-changed from the watcher, OS file drops), and reach files under the home and app-data folders. Dialog picks, double-clicked files, command-line arguments, OS drops and opened folders extend the fs scope at runtime. All disk I/O goes through the app's own commands (src/commands/fs.rs), which check this same fs scope.",
   "windows": ["main"],
   "permissions": [
     "core:default",

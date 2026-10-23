@@ -38,6 +38,12 @@ a WebDriver spec can sit next to this one; the spec itself only needs
 - `save-reload.spec.ts`: launch on a CRLF + BOM fixture, type, Cmd/Ctrl+S,
   check the bytes on disk (BOM kept, every line CRLF), reload, the edit is
   back and the document is clean.
+- `tree.spec.ts` (M3): a folder arrives through the launch queue, the tree
+  lists only the root (hidden `.git` filtered), expanding loads a folder
+  (folders first, natural order), clicking opens a file, a `[[wikilink]]`
+  resolves through the folder index, New File creates `Untitled.md` in
+  rename mode and appends `.md`, `Cmd/Ctrl+B` outside the editor collapses
+  the sidebar. `M3_SHOTS=<dir>` saves light/dark screenshots.
 - `appearance.spec.ts`: with a dark OS appearance the chrome (tab strip,
   status footer) recolors along with the editor.
 
