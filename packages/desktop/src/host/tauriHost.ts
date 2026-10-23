@@ -6,8 +6,7 @@
  * model's business: it binds to the editor's `change` event itself
  * (`DocumentModel.attach`), so `onChange` here only tells the app something
  * happened. The host feeds the status footer (`onStats`), routes links
- * (edge case 13), keeps Settings-modal changes for the session (M5 persists
- * them) and runs the image pipeline.
+ * (edge case 13), hands Settings-modal changes to the settings manager (M5) and runs the image pipeline.
  *
  * The knowledge-base methods (`getLinkSuggestions`, `getFileHeadings`,
  * `resolveWikilinks`, `createWikilink`, `checkLinks`) exist only while the
@@ -53,6 +52,8 @@ export interface TauriHostDeps {
   path: PathOps;
   fs: Pick<FsApi, 'assetUrl'>;
   settings: DesktopSettingsStore;
+  /** Persist a Settings-modal patch (M5); absent keeps changes for the session. */
+  persistSettings?(patch: MikeDownSettingsPatch, opts?: { silent?: boolean }): Promise<void> | void;
   images: ImagePipeline;
   app: {
     /** The editor's content changed (the document model already took it). */
@@ -163,6 +164,15 @@ export class TauriHost implements MikeDownHost {
   }
 
   saveSettings(patch: MikeDownSettingsPatch, opts?: { source?: 'slashMenu'; silent?: boolean }): void {
+    if (this.deps.persistSettings) {
+      // The settings manager diffs against the store, writes the file, then
+      // reloads the store and every editor; applying here first would hide
+      // the change from its diff.
+      void Promise.resolve(this.deps.persistSettings(patch, { silent: opts?.silent })).catch((err: unknown) => {
+        this.deps.app.notify(`Could not save settings: ${String(err)}`, { error: true });
+      });
+      return;
+    }
     this.deps.settings.apply(patch);
     if (!opts?.silent) {
       this.deps.app.notify('Settings applied for this session (saving to disk arrives in a later update).');

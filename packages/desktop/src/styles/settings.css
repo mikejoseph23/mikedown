@@ -1,0 +1,44 @@
+/* Settings banner (M5) and the theme decision: the app follows the OS, so
+   core's light/dark toolbar button is hidden (host.toggleTheme stays absent). */
+.mdapp-banner {
+  flex: none;
+  border-bottom: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.35));
+  background: var(--mikedown-surface-raised, rgba(255, 193, 7, 0.14));
+  color: var(--mikedown-text, #1f1f1f);
+  font-size: 12.5px;
+}
+
+.mdapp-banner[hidden] {
+  display: none;
+}
+
+.mdapp-banner__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+}
+
+.mdapp-banner__row + .mdapp-banner__row {
+  border-top: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.25));
+}
+
+.mdapp-banner__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mdapp-banner__btn {
+  flex: none;
+}
+
+.mdapp-banner__close {
+  flex: none;
+  padding: 0 8px;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.mikedown-root [data-action='themeToggle'] {
+  display: none !important;
+}

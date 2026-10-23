@@ -147,6 +147,9 @@ pub fn run() {
             commands::print::print_take,
             commands::print::print_report,
             commands::print::print_close,
+            commands::settings::settings_read,
+            commands::settings::settings_write,
+            commands::settings::open_default_apps_settings,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MikeDown");

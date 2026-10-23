@@ -18,8 +18,10 @@ import '@mikedown/core/styles.css';
 import './styles/app.css';
 import './styles/sidebar.css';
 import './styles/panes.css';
+import './styles/settings.css';
 
 import { createMikeDownEditor, type MikeDownEditorHandle, type MikeDownViewState } from '@mikedown/core';
+import { getVersion } from '@tauri-apps/api/app';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { createDocumentController } from './app/documentController';
@@ -32,7 +34,12 @@ import { createPathOps, detectPathPlatform } from './host/pathOps';
 import { TauriHost } from './host/tauriHost';
 import { commandForKey, SHORTCUTS, formatAccelerator, type AppCommand } from './menu/shortcuts';
 import { createPaneManager } from './panes/paneManager';
-import { createDesktopSettingsStore, DESKTOP_CORE_SETTING_DEFAULTS } from './settings/desktopSettings';
+import { createAppActions } from './settings/appActions';
+import { createAppTabSection } from './settings/appTab';
+import { createSettingsBanner } from './settings/banner';
+import { createDesktopSettingsStore } from './settings/desktopSettings';
+import { settingsApi } from './settings/settingsApi';
+import { createSettingsManager } from './settings/store';
 import { SMOKE_FIXTURE } from './smoke/fixture';
 import { runSmoke, smokeEnabled } from './smoke/harness';
 import { imageMimeFor, linkLabel, relativeLinkHref, routeEditorDrop } from './tree/dropRouting';
@@ -123,6 +130,39 @@ const images = createImagePipeline({
   notify: (message) => dialogs.toast(message),
 });
 
+// ── Settings (M5): global file + optional folder override, App tab ──────────
+
+const settingsBanner = createSettingsBanner(app);
+const settingsMgr = createSettingsManager({
+  api: settingsApi,
+  path,
+  store: settings,
+  folder: () => workspaceRef?.root() ?? null,
+  windowLabel,
+  applyCore: (patch) => { for (const ed of panes.editors()) {ed.handle.updateSettings(patch);} },
+  desktopChanged: (prev, next) => {
+    if (prev['tree.showHidden'] !== next['tree.showHidden']) {
+      sidebar.setShowHidden(next['tree.showHidden'] === true);
+      void workspaceRef?.tree.refreshAll();
+    }
+  },
+  banner: settingsBanner,
+  notify: (message, opts) => dialogs.toast(message, opts),
+  openFile: (p) => fsApi.openInDefaultApp(p),
+});
+settings.onTreeChange((patch) => { void settingsMgr.save(patch, { silent: true, force: true }); });
+const appActions = createAppActions({
+  dialogs,
+  isMac,
+  appVersion: getVersion,
+  checkUpdate: async () => {
+    const { check } = await import('@tauri-apps/plugin-updater');
+    return check();
+  },
+  openDefaultAppsSettings: () => settingsApi.openDefaultAppsSettings(),
+  markAssociationsOffered: () => { void settingsMgr.save({ fileAssociationsOffered: true }, { silent: true, force: true }); },
+});
+
 const hosts = new Map<string, TauriHost>();
 
 function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHandle {
@@ -131,6 +171,7 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
     path,
     fs: fsApi,
     settings,
+    persistSettings: (patch, opts) => settingsMgr.save(patch, opts),
     images,
     app: {
       onModelChanged: () => { controllerRef?.refresh(); },
@@ -154,7 +195,15 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
     // copied next to index.html in release builds. `spellcheck="false"` on
     // <body> keeps the OS webview's own checker out of the way.
     spellcheckDictionaryUrl: new URL('dictionaries', document.baseURI).toString(),
-    settings: { ...DESKTOP_CORE_SETTING_DEFAULTS },
+    settings: { ...settingsMgr.coreSettings() },
+    extraSettingsSections: [createAppTabSection({
+      settings: () => settings.get(),
+      folder: () => workspaceRef?.root() ?? null,
+      editorRoot: () => editorEl.querySelector<HTMLElement>('.mikedown-root'),
+      version: () => appActions.version(),
+      checkForUpdates: () => { void appActions.checkForUpdates(); },
+      setDefaultApp: () => { void appActions.setDefaultApp(); },
+    })],
   });
   host.attach(handle);
   hosts.set(paneId, host);
@@ -337,6 +386,8 @@ async function openFolder(dir: string): Promise<boolean> {
     await dialogs.error(`Could not open the folder ${dir}.\n\n${String(err)}`);
     return false;
   }
+  // The folder's own settings file (if any) now applies.
+  await settingsMgr.load().catch((err: unknown) => console.warn('MikeDown: folder settings unavailable', err));
   sidebar.setVisible(true);
   workspace.syncActive(panes.activeDoc()?.path ?? null);
   syncFolderButton();
@@ -702,6 +753,14 @@ async function boot(): Promise<void> {
     const handle = panes.activeHandle();
     if (handle) {void runSmoke(handle, SMOKE_FIXTURE);}
     return;
+  }
+
+  // Settings first, so documents open with the saved fonts and preferences.
+  try {
+    await settingsMgr.load();
+    void settingsMgr.listen().catch(() => { /* not under Tauri */ });
+  } catch (err) {
+    console.warn('MikeDown: settings unavailable, using defaults', err);
   }
 
   let entries: Awaited<ReturnType<typeof appDataApi.backupList>> = [];

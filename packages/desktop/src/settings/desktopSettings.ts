@@ -2,11 +2,12 @@
  * Desktop-only settings (core-extraction-decisions.md section 6): the
  * image-paste policy the VS Code extension keeps under `mikedown.imagePaste.*`
  * and `imageResize.overwrite`, mirrored here with the same defaults. M2 keeps
- * them in memory; M5 persists the global and folder files and adds the App
- * tab to the Settings modal.
+ * them in memory; M5 (`store.ts`) persists the global and folder files and
+ * adds the App tab to the Settings modal.
  */
 import type { MikeDownSettings } from '@mikedown/core';
 import type { ImagePasteSettings } from '@mikedown/core/shared/imagePaste';
+import { DESKTOP_KEY_DEFAULTS, isDesktopKey, sanitizeDesktopValue, type DesktopKey, type SettingsRecord } from './schema';
 
 export interface TreeSettings {
   /** Show dotfolders, `node_modules` and OS clutter files in the tree. */
@@ -15,10 +16,22 @@ export interface TreeSettings {
   confirmDelete: boolean;
 }
 
+export interface VersioningSettings {
+  enabled: boolean;
+  /** Snapshots kept per file (M6 prunes to this). */
+  keep: number;
+  /** Files over this size skip versioning. */
+  maxSizeMB: number;
+}
+
 export interface DesktopSettings {
   imagePaste: ImagePasteSettings;
   imageResize: { overwrite: boolean };
   tree: TreeSettings;
+  versioning: VersioningSettings;
+  updates: { checkOnLaunch: boolean };
+  /** The "make MikeDown the default for .md" offer was shown (M8 reads it). */
+  fileAssociationsOffered: boolean;
 }
 
 /** Same defaults as `package.json#contributes.configuration` in the extension. */
@@ -36,6 +49,9 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   },
   imageResize: { overwrite: true },
   tree: { showHidden: false, confirmDelete: true },
+  versioning: { enabled: true, keep: 25, maxSizeMB: 2 },
+  updates: { checkOnLaunch: true },
+  fileAssociationsOffered: false,
 };
 
 /**
@@ -61,23 +77,58 @@ export interface DesktopSettingsStore {
    * (`imagePaste: { folder }`), as the VS Code shell sends them.
    */
   apply(patch: Record<string, unknown>): void;
-  /** Everything received so far, for M5 to persist. */
+  /** Everything received so far. */
   pendingPatch(): Record<string, unknown>;
-  /** Tree preferences (show hidden, delete confirmation); in memory until M5. */
+  /** Tree preferences (show hidden, delete confirmation); persisted by the settings manager. */
   setTree(patch: Partial<TreeSettings>): void;
+  /** The merged files replace everything: defaults, then these dotted desktop keys. */
+  load(flat: SettingsRecord): void;
+  /** Current values as dotted keys (`versioning.keep`), for diffing patches. */
+  flat(): SettingsRecord;
+  /** `setTree` was called (the user toggled it in the tree); the manager saves it. */
+  onTreeChange(fn: (patch: SettingsRecord) => void): void;
+}
+
+function cloneSettings(from: DesktopSettings): DesktopSettings {
+  return {
+    imagePaste: { ...from.imagePaste },
+    imageResize: { ...from.imageResize },
+    tree: { ...from.tree },
+    versioning: { ...from.versioning },
+    updates: { ...from.updates },
+    fileAssociationsOffered: from.fileAssociationsOffered,
+  };
 }
 
 export function createDesktopSettingsStore(initial: DesktopSettings = DEFAULT_DESKTOP_SETTINGS): DesktopSettingsStore {
-  const current: DesktopSettings = {
-    imagePaste: { ...initial.imagePaste },
-    imageResize: { ...initial.imageResize },
-    tree: { ...initial.tree },
-  };
+  const current: DesktopSettings = cloneSettings(initial);
   const received: Record<string, unknown> = {};
+  const treeListeners: Array<(patch: SettingsRecord) => void> = [];
 
-  function setImagePaste(key: string, value: unknown): void {
-    const ip = current.imagePaste as unknown as Record<string, unknown>;
-    if (key in ip && value !== undefined) {ip[key] = value;}
+  /** Set one dotted desktop key; unknown keys and wrong types are ignored. */
+  function setKey(key: string, value: unknown): void {
+    if (value === undefined || !isDesktopKey(key)) {return;}
+    const checked = sanitizeDesktopValue(key, value);
+    if (!checked.ok) {return;}
+    if (key === 'fileAssociationsOffered') {
+      current.fileAssociationsOffered = checked.value as boolean;
+      return;
+    }
+    const dot = key.indexOf('.');
+    const group = current[key.slice(0, dot) as 'imagePaste'] as unknown as Record<string, unknown>;
+    group[key.slice(dot + 1)] = checked.value;
+  }
+
+  function flat(): SettingsRecord {
+    const out: SettingsRecord = {};
+    for (const key of Object.keys(DESKTOP_KEY_DEFAULTS) as DesktopKey[]) {
+      if (key === 'fileAssociationsOffered') {out[key] = current.fileAssociationsOffered;}
+      else {
+        const dot = key.indexOf('.');
+        out[key] = (current[key.slice(0, dot) as 'imagePaste'] as unknown as Record<string, unknown>)[key.slice(dot + 1)];
+      }
+    }
+    return out;
   }
 
   return {
@@ -85,24 +136,32 @@ export function createDesktopSettingsStore(initial: DesktopSettings = DEFAULT_DE
     apply(patch) {
       for (const [key, value] of Object.entries(patch)) {
         received[key] = value;
-        if (key === 'imagePaste' && value && typeof value === 'object') {
-          for (const [k, v] of Object.entries(value as Record<string, unknown>)) {setImagePaste(k, v);}
-        } else if (key.startsWith('imagePaste.')) {
-          setImagePaste(key.slice('imagePaste.'.length), value);
-        } else if (key === 'imagePasteEnabled' && typeof value === 'boolean') {
-          current.imagePaste.enabled = value;
-        } else if (key === 'imageResize.overwrite' && typeof value === 'boolean') {
-          current.imageResize.overwrite = value;
-        } else if (key === 'imageResize' && value && typeof value === 'object') {
-          const o = (value as { overwrite?: unknown }).overwrite;
-          if (typeof o === 'boolean') {current.imageResize.overwrite = o;}
+        if (value && typeof value === 'object' && ['imagePaste', 'imageResize', 'versioning', 'updates', 'tree'].includes(key)) {
+          for (const [k, v] of Object.entries(value as Record<string, unknown>)) {setKey(`${key}.${k}`, v);}
+        } else if (key === 'imagePasteEnabled') {
+          setKey('imagePaste.enabled', value);
+        } else {
+          setKey(key, value);
         }
       }
     },
     pendingPatch: () => ({ ...received }),
     setTree(patch) {
       Object.assign(current.tree, patch);
-      for (const [k, v] of Object.entries(patch)) {received[`tree.${k}`] = v;}
+      const flatPatch: SettingsRecord = {};
+      for (const [k, v] of Object.entries(patch)) {
+        received[`tree.${k}`] = v;
+        flatPatch[`tree.${k}`] = v;
+      }
+      for (const fn of treeListeners) {fn(flatPatch);}
     },
+    load(values) {
+      Object.assign(current, cloneSettings(DEFAULT_DESKTOP_SETTINGS));
+      // Keep the cleanup policy the schema does not expose.
+      current.imagePaste.cleanupUnreferenced = initial.imagePaste.cleanupUnreferenced;
+      for (const [key, value] of Object.entries(values)) {setKey(key, value);}
+    },
+    flat,
+    onTreeChange: (fn) => { treeListeners.push(fn); },
   };
 }
