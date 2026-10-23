@@ -4,7 +4,7 @@
  */
 
 import type { Editor } from '@tiptap/core';
-import type { BacklinkItem, LinkSuggestion, MikeDownHost, TagCount } from './host';
+import type { BacklinkItem, ImageInsertResult, LinkSuggestion, MikeDownHost, TagCount } from './host';
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
@@ -250,6 +250,16 @@ export interface MikeDownEditorHandle {
   revealLink(href: string, occurrence?: number): void;
   /** Mark images rendered from `src` as missing or present again. */
   setImageStatus(src: string, status: 'found' | 'missing', detail?: string): void;
+  /** Insert a link at the cursor (rich text or source mode). `text` defaults to the href. */
+  insertLink(href: string, text?: string): void;
+  /** Insert an image at the cursor, e.g. the result of `host.uploadImage` for a dropped file. */
+  insertImage(image: ImageInsertResult): void;
+  /**
+   * Files around the document changed: re-resolve `[[wikilinks]]`, re-check
+   * relative links and refresh file suggestions. Also call it after adding
+   * the knowledge-base host methods to a host that started without them.
+   */
+  refreshLinks(): void;
   setTags(tags: TagCount[]): void;
   /** Push link suggestions without being asked (same data as `host.getLinkSuggestions`). */
   setLinkSuggestions(suggestions: LinkSuggestion[]): void;

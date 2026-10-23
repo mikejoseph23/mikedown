@@ -59,7 +59,7 @@ async function uploadAndInsert(view: EditorView, pos: number, file: File, upload
 }
 
 /** Insert an uploaded image at `pos` (clamped to the document). */
-function insertImageAt(view: EditorView, pos: number, result: ImageInsertResult): void {
+export function insertImageAt(view: EditorView, pos: number, result: ImageInsertResult): void {
   const alt = result.alt ?? '';
   // Insert with the display src so the image renders inline. A host that
   // serves images from a different URL than it writes into the markdown

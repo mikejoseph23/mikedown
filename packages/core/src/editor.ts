@@ -28,7 +28,7 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, all } from 'lowlight';
 import { SmartPasteExtension } from './smartpaste';
 import { PlainPasteExtension, requestPlainPaste } from './plainpaste';
-import { ImagePasteExtension } from './imagepaste';
+import { ImagePasteExtension, insertImageAt } from './imagepaste';
 import { TableCheckboxExtension } from './tablecheckbox';
 import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
@@ -415,7 +415,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // ── Feature availability (feature flag AND the host method it needs) ───────
   const spellcheckAvailable = features.spellcheck && !!options.spellcheckDictionaryUrl;
   const tagsAvailable = !!host.getTags;
-  const wikilinkAutocompleteAvailable = !!host.getLinkSuggestions;
   setSpellCheckDictionaryBase(spellcheckAvailable ? options.spellcheckDictionaryUrl ?? '' : '');
   const hiddenSlashCommands: string[] = [];
   if (!host.pickImage) {hiddenSlashCommands.push('image');}
@@ -3000,7 +2999,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       Emoji,
       EmojiAutocomplete,
       // `[[` and `#` autocompletes need the host's file list / tag index.
-      ...(wikilinkAutocompleteAvailable ? [WikilinkAutocomplete] : []),
+      // The wikilink one is always registered: its candidates come from
+      // `host.getLinkSuggestions`, looked up when the popup first opens, so a
+      // host that gains the method after construction (the desktop app when
+      // a window opens a folder) gets the popup; without it there are never
+      // candidates and the popup never renders.
+      WikilinkAutocomplete,
       ...(tagsAvailable ? [TagAutocomplete] : []),
       // "/" command menu. Priority 1000 so its keys win over the autocompletes.
       SlashCommands,
@@ -5012,6 +5016,57 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     applyWikilinkResolution();
   }
 
+  /**
+   * The files around the document changed (created, renamed, deleted): drop
+   * cached wikilink resolutions, re-resolve them, re-check relative links and
+   * refresh the `[[` / link-dialog file suggestions.
+   */
+  function refreshLinks(): void {
+    wikilinkResolutionCache.clear();
+    scheduleWikilinkResolution();
+    scheduleLinkCheck();
+    if (host.getLinkSuggestions) {requestLinkSuggestions();}
+  }
+
+  /** Markdown link destination: `<…>` when it holds spaces or parentheses. */
+  function markdownDestination(href: string): string {
+    return /[\s()<>]/.test(href) ? `<${href.replace(/[<>]/g, encodeURIComponent)}>` : href;
+  }
+
+  /** Insert text at the cursor of whichever view is showing (CodeMirror in source mode). */
+  function insertSourceText(text: string): void {
+    if (!cmView) {return;}
+    const sel = cmView.state.selection.main;
+    cmView.dispatch({
+      changes: { from: sel.from, to: sel.to, insert: text },
+      selection: { anchor: sel.from + text.length },
+      scrollIntoView: true,
+    });
+  }
+
+  /** Host-driven link insertion at the cursor (a file dropped onto the editor). */
+  function insertLink(href: string, text?: string): void {
+    const label = text && text.length > 0 ? text : href;
+    if (sourceMode && cmView) {
+      insertSourceText(`[${label.replace(/([[\]])/g, '\\$1')}](${markdownDestination(href)})`);
+      return;
+    }
+    const { state } = editor;
+    const linkType = state.schema.marks.link;
+    const node = state.schema.text(label, linkType ? [linkType.create({ href })] : []);
+    // Transaction only (never touch editor.view.dom directly, commit f5415e0).
+    editor.view.dispatch(state.tr.replaceSelectionWith(node, false).scrollIntoView());
+  }
+
+  /** Host-driven image insertion at the cursor (an image file dropped onto the editor). */
+  function insertImage(image: { src: string; alt?: string }): void {
+    if (sourceMode && cmView) {
+      insertSourceText(`![${image.alt ?? ''}](${markdownDestination(image.src)})`);
+      return;
+    }
+    insertImageAt(editor.view, editor.state.selection.from, image);
+  }
+
   /** M6c — Broken link indicator: apply/remove CSS class to broken links. */
   function applyBrokenLinks(hrefs: string[]): void {
     // Remove old broken link classes
@@ -5123,7 +5178,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // M6c — Trigger broken link check after content loads (debounced 500ms).
     scheduleLinkCheck();
 
-    // Resolve `[[wikilinks]]` present in the freshly-loaded document.
+    // Resolve `[[wikilinks]]` present in the freshly-loaded document. The
+    // cached hrefs are relative to the previous document, which may live in
+    // another folder (a host that reuses one editor for many files), so start
+    // over.
+    wikilinkResolutionCache.clear();
     scheduleWikilinkResolution();
 
     // Seed the sidebar footer + status bar with the initial document text.
@@ -5500,6 +5559,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     scrollToAnchor,
     revealLink,
     setImageStatus,
+    insertLink,
+    insertImage,
+    refreshLinks,
     setTags: applyWorkspaceTags,
     setLinkSuggestions: applyLinkSuggestions,
     setBacklinks: (items: BacklinkItem[]) => applyBacklinks(items || []),
