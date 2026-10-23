@@ -1,5 +1,8 @@
 <!doctype html>
-<html lang="en">
+<!-- data-mikedown-theme="auto": core's tokens are scoped to that attribute,
+     so the page background and the app chrome (tab strip, notice bar, status
+     footer) follow the OS appearance along with the editor. -->
+<html lang="en" data-mikedown-theme="auto">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,10 +11,7 @@
   <!-- spellcheck="false": core brings its own Hunspell checker (edge case 22);
        the webview's native checker would double-underline. -->
   <body spellcheck="false">
-    <!-- data-mikedown-theme="auto": core's tokens are scoped to that
-         attribute, so the app chrome (tab strip, notice bar, status footer)
-         follows the OS appearance along with the editor. -->
-    <div id="app" data-mikedown-theme="auto">
+    <div id="app">
       <div id="editor"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
