@@ -90,6 +90,11 @@ function sessionPath(ipc: Ipc, label: string): string {
   return path.join(ipc.appData, 'sessions', `${label.replace(/[^A-Za-z0-9_-]/g, '_')}.json`);
 }
 
+/** M5: <app-data>/settings.json, or <folder>/.mikedown/settings.json (settings.rs). */
+function settingsPath(ipc: Ipc, scope: string, folder: string | null): string {
+  return scope === 'folder' ? path.join(folder as string, '.mikedown', 'settings.json') : path.join(ipc.appData, 'settings.json');
+}
+
 function handle(ipc: Ipc, cmd: string, args: any, headers: Record<string, string>): unknown {
   switch (cmd) {
     case 'frontend_ready':
@@ -208,6 +213,18 @@ function handle(ipc: Ipc, cmd: string, args: any, headers: Record<string, string
       const dir = path.join(ipc.appData, 'sessions');
       if (!fs.existsSync(dir)) {return [];}
       return fs.readdirSync(dir).filter((n) => n.endsWith('.json')).map((n) => ({ label: n.slice(0, -5), data: ipc.session(n.slice(0, -5)) }));
+    }
+    case 'settings_read': {
+      const p = settingsPath(ipc, args.scope, args.folder);
+      return { path: p, text: fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null };
+    }
+    case 'settings_write': {
+      const p = settingsPath(ipc, args.scope, args.folder);
+      const parsed = JSON.parse(args.text);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {throw new Error('settings must be a JSON object');}
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, args.text);
+      return { path: p, text: args.text };
     }
     case 'report_window_state':
       ipc.windowStates.push({ folder: args.folder ?? null, files: args.files ?? [] });

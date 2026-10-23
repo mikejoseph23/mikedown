@@ -47,5 +47,12 @@ a WebDriver spec can sit next to this one; the spec itself only needs
 - `appearance.spec.ts`: with a dark OS appearance the chrome (tab strip,
   status footer) recolors along with the editor.
 
+- `settings.spec.ts` (M5): the App tab in core's modal, "Save for this folder"
+  (only the changed key lands in `.mikedown/settings.json`, disabled in a
+  lone-file window), global persistence across a reload (font, versions to
+  keep), the corrupt-file banner (file untouched until Reset), no theme
+  toggle. `fixtures.ts` mirrors `settings_read` / `settings_write` against
+  `ipc.appData` and the folder's `.mikedown/`.
+
 Browsers: Playwright's Chromium (`npx playwright install chromium` once per
 machine if it is missing).
