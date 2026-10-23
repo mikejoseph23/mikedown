@@ -288,7 +288,7 @@ window.addEventListener('message', (event: MessageEvent) => {
       handle.updateSettings({
         fontFamily: message.fontFamily || '',
         headingFontFamily: message.headingFontFamily || '',
-        fontSize: message.fontSize || 17,
+        fontSize: message.fontSize || 15,
       });
       break;
     case 'settings':

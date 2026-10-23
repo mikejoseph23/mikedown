@@ -1032,7 +1032,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     // Read current values from CSS custom properties
     const computed = getComputedStyle(root);
-    const currentFontSize = parseInt(computed.getPropertyValue('--mikedown-font-size') || '17', 10);
+    const currentFontSize = parseInt(computed.getPropertyValue('--mikedown-font-size') || String(DEFAULT_FONT_SIZE), 10);
     const currentFontFamily = computed.getPropertyValue('--mikedown-font-family').trim();
     const currentMaxWidth = computed.getPropertyValue('--mikedown-content-width').trim() || '100%';
 
@@ -2565,7 +2565,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
 
   function currentFontSize(): number {
-    return parseInt(getComputedStyle(root).getPropertyValue('--mikedown-font-size') || '17', 10);
+    return parseInt(getComputedStyle(root).getPropertyValue('--mikedown-font-size') || String(DEFAULT_FONT_SIZE), 10);
   }
 
   /** Sync the toolbar zoom control with the live font size. */
@@ -5239,7 +5239,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (patch.fontFamily !== undefined) {setRootVar('--mikedown-font-family', patch.fontFamily || '');}
     if (patch.headingFontFamily !== undefined) {setRootVar('--mikedown-heading-font-family', patch.headingFontFamily || '');}
     if (patch.fontSize !== undefined) {
-      setRootVar('--mikedown-font-size', `${patch.fontSize || 17}px`);
+      setRootVar('--mikedown-font-size', `${patch.fontSize || DEFAULT_FONT_SIZE}px`);
       refreshZoomControl();
     }
     if (patch.contentWidth !== undefined) {setRootVar('--mikedown-content-width', patch.contentWidth);}

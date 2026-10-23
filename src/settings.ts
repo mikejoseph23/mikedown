@@ -98,7 +98,7 @@ export function getSettings(): MikeDownSettings {
   return {
     defaultEditor: config.get<boolean>('defaultEditor', false),
     fontFamily: config.get<string>('fontFamily', ''),
-    fontSize: config.get<number>('fontSize', 16),
+    fontSize: config.get<number>('fontSize', 15),
     ctrlWheelZoom: config.get<boolean>('ctrlWheelZoom', true),
     linkClickBehavior: config.get<'navigateCurrentTab' | 'openNewTab' | 'showContextMenu'>('linkClickBehavior', 'openNewTab'),
     themeToggleScope: config.get<'vscode' | 'editorOnly'>('themeToggleScope', 'editorOnly'),
