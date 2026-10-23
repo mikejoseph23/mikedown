@@ -266,6 +266,40 @@ mod tests {
     }
 
     #[test]
+    fn polling_fallback_reports_removal_and_a_case_only_rename() {
+        let dir = temp_dir("poll-rename");
+        std::fs::write(dir.join("gone.md"), b"x").unwrap();
+        std::fs::write(dir.join("notes.md"), b"y").unwrap();
+        let (tx, rx) = mpsc::channel::<FsChanged>();
+        let tx = std::sync::Arc::new(Mutex::new(tx));
+        let cb = {
+            let tx = tx.clone();
+            move |s: Signal| {
+                if let Signal::Change(c) = s {
+                    let _ = tx.lock().unwrap().send(c);
+                }
+            }
+        };
+        let (handle, mode) = start(&dir, Mode::Poll, cb).unwrap();
+        assert_eq!(mode, Mode::Poll);
+        std::thread::sleep(Duration::from_millis(300));
+        std::fs::remove_file(dir.join("gone.md")).unwrap();
+        crate::commands::fs::rename_entry(&dir.join("notes.md"), &dir.join("Notes.md")).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(6);
+        let (mut removed, mut renamed) = (false, false);
+        while Instant::now() < deadline && !(removed && renamed) {
+            if let Ok(c) = rx.recv_timeout(Duration::from_millis(50)) {
+                removed |= c.path.ends_with("gone.md");
+                renamed |= c.path.ends_with("notes.md") || c.path.ends_with("Notes.md");
+            }
+        }
+        drop(handle);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(removed, "no event for the removed file");
+        assert!(renamed, "no event for the case-only rename");
+    }
+
+    #[test]
     fn kinds_map_to_the_event_names() {
         use notify::event::{AccessKind, CreateKind, MetadataKind, ModifyKind, RemoveKind, RenameMode};
         assert_eq!(kind_of(&EventKind::Create(CreateKind::File)), Some("create"));
