@@ -91,6 +91,7 @@ pub fn run() {
         .manage(commands::appdata::AppData::default())
         .manage(commands::multiwindow::WindowRegistry::default())
         .manage(commands::multiwindow::QuitState::default())
+        .manage(commands::print::PrintJobs::default())
         .menu(|handle| menu::build(handle))
         .on_menu_event(|app, event| menu::handle(app, event.id().as_ref()))
         .setup(|app| {
@@ -142,6 +143,10 @@ pub fn run() {
             commands::multiwindow::window_count,
             commands::multiwindow::quit_reply,
             commands::multiwindow::request_quit_cmd,
+            commands::print::print_open,
+            commands::print::print_take,
+            commands::print::print_report,
+            commands::print::print_close,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MikeDown");
@@ -172,6 +177,7 @@ pub fn run() {
             tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } => {
                 app_handle.state::<commands::multiwindow::WindowRegistry>().remove(label);
                 commands::launch::forget(app_handle, label);
+                commands::print::close_stragglers(app_handle);
             }
             _ => {}
         }

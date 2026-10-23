@@ -40,7 +40,8 @@ function coreFromSource(): Plugin {
     name: 'mikedown:core-from-source',
     enforce: 'pre',
     resolveId(id) {
-      if (id === '@mikedown/core/styles.css') {return VIRTUAL_STYLES;}
+      // `?inline` (the export module reads the sheet as text) keeps its query.
+      if (id.split('?')[0] === '@mikedown/core/styles.css') {return VIRTUAL_STYLES + id.slice(id.indexOf('?') < 0 ? id.length : id.indexOf('?'));}
       if (id === '@mikedown/core/tokens.css') {return path.join(coreSrc, 'styles', 'tokens.css');}
       if (id === '@mikedown/core') {return path.join(coreSrc, 'index.ts');}
       if (id.startsWith('@mikedown/core/')) {
@@ -51,7 +52,7 @@ function coreFromSource(): Plugin {
       return null;
     },
     load(id) {
-      if (id !== VIRTUAL_STYLES) {return null;}
+      if (id.split('?')[0] !== VIRTUAL_STYLES) {return null;}
       const files = ['tokens.css', ...CORE_CSS_ORDER].map((f) => path.join(coreSrc, 'styles', f));
       return [
         '/* @mikedown/core styles from source (vite.config.ts, dev only) */',
@@ -122,6 +123,8 @@ export default defineConfig(({ command }) => {
       sourcemap: debug,
       outDir: 'dist',
       emptyOutDir: true,
+      // print.html is the print window's page (M9).
+      rollupOptions: { input: { main: path.join(here, 'index.html'), print: path.join(here, 'print.html') } },
     },
   };
 });

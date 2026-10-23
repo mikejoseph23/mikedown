@@ -39,7 +39,8 @@ export type AppCommand =
   | 'prevTab'
   | 'splitRight'
   | 'splitDown'
-  | 'newWindow';
+  | 'newWindow'
+  | 'print';
 
 export interface ShortcutRow {
   command: AppCommand;
@@ -70,6 +71,7 @@ export const SHORTCUTS: readonly ShortcutRow[] = [
   { command: 'splitRight', accelerator: 'CmdOrCtrl+\\', label: 'Split Right' },
   { command: 'splitDown', accelerator: 'CmdOrCtrl+Shift+\\', label: 'Split Down' },
   { command: 'newWindow', accelerator: 'CmdOrCtrl+Shift+N', label: 'New Window' },
+  { command: 'print', accelerator: 'CmdOrCtrl+P', label: 'Print…' },
 ];
 
 export interface ParsedAccelerator {

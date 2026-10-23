@@ -30,6 +30,12 @@ describe('shortcut table', () => {
     expect(commandForKey(key('O', { ctrl: true, shift: true }), false)).toBe('openContainingFolder');
   });
 
+  it('CmdOrCtrl+P prints and collides with no other row', () => {
+    expect(commandForKey(key('p', { meta: true }), true)).toBe('print');
+    expect(commandForKey(key('p', { ctrl: true }), false)).toBe('print');
+    expect(SHORTCUTS.filter((s) => s.accelerator === 'CmdOrCtrl+P')).toHaveLength(1);
+  });
+
   it('ignores plain keys and extra modifiers', () => {
     expect(commandForKey(key('s'), true)).toBeNull();
     expect(commandForKey(key('o', { meta: true, alt: true, shift: true }), true)).toBeNull();

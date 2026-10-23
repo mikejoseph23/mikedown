@@ -162,6 +162,43 @@ so a visible window and screenshots need a human. Steps:
    passed); Ctrl+wheel and touchpad pinch.
 4. Screenshot and append a short "GUI pass" note here.
 
+## Export and print (M9)
+
+How File > Export > HTML…, Export > PDF… and Print… (Cmd/Ctrl+P) work, and what
+each webview is expected to do. Code: `src/export/`, `src-tauri/src/commands/print.rs`,
+`print.html`.
+
+- **HTML**: `handle.getHtml()` is wrapped in `.mikedown-root.mikedown-export >
+  .mikedown-editor-container > .ProseMirror` with core's `styles.css` inlined
+  (read as text through Vite's `?inline`; every font/image `url()` is fetched
+  and turned into a `data:` URI at export time, KaTeX keeps only its woff2
+  files). Always the light theme. Local images are embedded as `data:` URIs or,
+  with the "copy images" checkbox, written to `<name>_files/` beside the file.
+  Remote images stay remote (a toast says so). Mermaid is exported as the SVG
+  already in the DOM, so a diagram that has not rendered yet is exported as
+  its source block. A native save dialog has no custom options, so the
+  embed/copy choice is a small in-page confirm shown before it, and only when
+  the document has local images.
+- **PDF and Print** share one path: the standalone document goes to Rust
+  (`print_open`), which opens a hidden `print-N` window on `print.html`; the
+  page writes the document into itself, waits for images and fonts, calls
+  `window.print()` and reports `printing`. The OS print dialog is the PDF
+  route on both platforms (macOS: PDF menu > Save as PDF; Windows: Microsoft
+  Print to PDF). If the hidden window does not report within 8 s or reports a
+  failure, it is closed and the same document opens in a visible "Print
+  Preview" window with a Print… button. Core's toolbar Print / Export as PDF
+  entry is wanted and calls the same code.
+- Print windows are skipped by the quit handshake and closed when the last
+  real window closes.
+- `@media print` rules: core's own (hide chrome, `break-inside: avoid` on pre,
+  blockquote, table, img) plus the export sheet's (`pre-wrap` so long code
+  lines wrap instead of clipping, `tr`, svg, mermaid, callouts, display math).
+
+| Webview | Hidden `window.print()` | Status |
+| --- | --- | --- |
+| WKWebView (macOS) | PENDING: a sheet attached to a hidden window may not appear; the 8 s fallback opens the preview | Not run (GUI check) |
+| WebView2 (Windows) | PENDING: Chromium shows its print dialog from a hidden window | Not run (no Windows machine) |
+
 ## Release bundle (macOS)
 
 `npm run tauri build` on the Mac, 2026-10-23, x86_64 (see Toolchain), release

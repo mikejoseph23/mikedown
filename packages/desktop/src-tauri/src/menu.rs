@@ -31,6 +31,17 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             &MenuItem::with_id(app, "saveAs", "Save As…", true, Some("CmdOrCtrl+Shift+S"))?,
             &MenuItem::with_id(app, "saveAll", "Save All", true, Some("CmdOrCtrl+Alt+S"))?,
             &PredefinedMenuItem::separator(app)?,
+            &Submenu::with_items(
+                app,
+                "Export",
+                true,
+                &[
+                    &MenuItem::with_id(app, "exportHtml", "HTML…", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "exportPdf", "PDF…", true, None::<&str>)?,
+                ],
+            )?,
+            &MenuItem::with_id(app, "print", "Print…", true, Some("CmdOrCtrl+P"))?,
+            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "closeTab", "Close Tab", true, Some("CmdOrCtrl+W"))?,
             &MenuItem::with_id(app, "closeWindow", "Close Window", true, Some("CmdOrCtrl+Shift+W"))?,
             #[cfg(not(target_os = "macos"))]

@@ -231,7 +231,8 @@ pub fn request_quit<R: Runtime>(app: &AppHandle<R>) {
 /// True when every window agreed (or went away).
 fn handshake<R: Runtime>(app: &AppHandle<R>) -> bool {
     let state = app.state::<QuitState>();
-    let mut labels: Vec<String> = app.webview_windows().keys().cloned().collect();
+    // Print windows (M9) never hold documents and never answer.
+    let mut labels: Vec<String> = app.webview_windows().keys().filter(|l| !super::print::is_print_label(l)).cloned().collect();
     // The focused window first: that is where the user pressed Cmd+Q.
     if let Some(f) = focused_label(app) {
         labels.sort_by_key(|x| if *x == f { 0 } else { 1 });

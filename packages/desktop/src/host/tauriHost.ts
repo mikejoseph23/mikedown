@@ -13,8 +13,9 @@
  * `resolveWikilinks`, `createWikilink`, `checkLinks`) exist only while the
  * window has a folder open (M3, `setKnowledgeBase`); core looks them up when
  * it needs them, so a lone-file window simply has none. Methods later
- * milestones implement (`getTags`, `getDiffBaseline`, `exportHtml`,
- * `printDocument`) are deliberately absent so core keeps their UI hidden.
+ * milestones implement (`getTags`, `getDiffBaseline`) are deliberately absent
+ * so core keeps their UI hidden. `exportHtml` and `printDocument` (M9) are
+ * present: core shows its Print / Export as PDF toolbar entry, which is wanted.
  */
 import type {
   LinkCheckRequest,
@@ -60,6 +61,9 @@ export interface TauriHostDeps {
     /** Open a local file in this window: a tab in the pane this host belongs to. */
     openPath(path: string, opts?: { anchor?: string | null }): Promise<boolean>;
     notify(message: string, opts?: { error?: boolean }): void;
+    /** M9: export the rendered HTML as a standalone file / hand it to the print window. */
+    exportHtml?(html: string): void;
+    printDocument?(html: string): void;
   };
 }
 
@@ -148,6 +152,14 @@ export class TauriHost implements MikeDownHost {
         this.deps.app.notify(`Cannot open link: ${route.reason}`, { error: true });
         return;
     }
+  }
+
+  exportHtml(html: string): void {
+    this.deps.app.exportHtml?.(html);
+  }
+
+  printDocument(html: string): void {
+    this.deps.app.printDocument?.(html);
   }
 
   saveSettings(patch: MikeDownSettingsPatch, opts?: { source?: 'slashMenu'; silent?: boolean }): void {

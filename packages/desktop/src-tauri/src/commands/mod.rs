@@ -6,5 +6,6 @@ pub mod appdata;
 pub mod fs;
 pub mod launch;
 pub mod multiwindow;
+pub mod print;
 pub mod watcher;
 pub mod window;

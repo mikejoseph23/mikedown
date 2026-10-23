@@ -42,6 +42,8 @@ import { createChrome } from './ui/chrome';
 import { showContextMenu } from './ui/contextMenu';
 import { createDialogs, IMAGE_FILTERS } from './ui/dialogs';
 import { createSidebar } from './ui/sidebar';
+import { createExporter } from './export/exporter';
+import { exportStylesheet } from './export/exportCss';
 
 const app = document.getElementById('app');
 const container = document.getElementById('editor');
@@ -76,6 +78,7 @@ const label = (command: AppCommand): string => {
 // Late-bound: the sidebar's callbacks reach the workspace and controller.
 let workspaceRef: ReturnType<typeof createFolderWorkspace> | null = null;
 let controllerRef: ReturnType<typeof createDocumentController> | null = null;
+let exporterRef: ReturnType<typeof createExporter> | null = null;
 
 const sidebar = createSidebar({
   newFile: () => { void workspaceRef?.newFile(); },
@@ -134,6 +137,8 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
       onStats: (stats) => controllerRef?.onStats(paneId, stats),
       openPath: (p, opts) => controllerRef?.openPath(p, { ...opts, paneId }) ?? Promise.resolve(false),
       notify: (message, opts) => dialogs.toast(message, opts),
+      exportHtml: (html) => { void exporterRef?.exportHtml(html); },
+      printDocument: (html) => { void exporterRef?.print(html); },
     },
   });
   const kb = workspaceRef?.knowledgeBase() ?? null;
@@ -207,6 +212,15 @@ async function createFileWithText(p: string, content: string): Promise<void> {
   await treeApi.createFile(p);
   await fsApi.writeText(p, content, { eol: 'lf', bom: false });
 }
+
+exporterRef = createExporter({
+  path,
+  fs: fsApi,
+  dialogs,
+  doc: () => panes.activeDoc(),
+  html: () => panes.activeHandle()?.getHtml() ?? null,
+  stylesheet: exportStylesheet,
+});
 
 const controller = createDocumentController({
   registry,
@@ -604,10 +618,13 @@ const actions: Record<AppCommand, () => void> = {
   prevTab: () => panes.cycle(-1),
   splitRight: () => panes.split('row'),
   splitDown: () => panes.split('column'),
+  print: () => { void exporterRef?.print(); },
   newWindow: () => { void windowsApi.newWindow().catch((err: unknown) => dialogs.toast(`Could not open a window: ${String(err)}`, { error: true })); },
 };
 const menuOnly: Record<string, () => void> = {
   closeWindow: () => { void tauriWindow.close(); },
+  exportHtml: () => { void exporterRef?.exportHtml(); },
+  exportPdf: () => { void exporterRef?.print(); },
 };
 window.addEventListener('keydown', (e) => {
   const inEditor = !!(e.target as HTMLElement | null)?.closest?.('.mikedown-root');
