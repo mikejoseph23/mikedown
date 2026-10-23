@@ -1,0 +1,27 @@
+{
+  "lf.md": {
+    "text": "# Encoding fixture\n\nPlain paragraph with café and 日本語.\n\n- one\n- two\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n",
+    "encoding": "utf8",
+    "eol": "lf"
+  },
+  "crlf.md": {
+    "text": "# Encoding fixture\n\nPlain paragraph with café and 日本語.\n\n- one\n- two\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n",
+    "encoding": "utf8",
+    "eol": "crlf"
+  },
+  "bom-lf.md": {
+    "text": "# Encoding fixture\n\nPlain paragraph with café and 日本語.\n\n- one\n- two\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n",
+    "encoding": "utf8-bom",
+    "eol": "lf"
+  },
+  "bom-crlf.md": {
+    "text": "# Encoding fixture\n\nPlain paragraph with café and 日本語.\n\n- one\n- two\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n",
+    "encoding": "utf8-bom",
+    "eol": "crlf"
+  },
+  "latin1-crlf.md": {
+    "text": "# Latin-1\n\nCaf� cr�me br�l�e.\n",
+    "encoding": "unknown",
+    "eol": "crlf"
+  }
+}

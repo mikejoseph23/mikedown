@@ -566,6 +566,71 @@ mod tests {
     }
 
     #[test]
+    fn lone_cr_line_endings_normalise_to_lf_and_detect_as_lf() {
+        // Classic Mac endings: no `\r\n` pairs, so LF is what a save writes.
+        let d = decode(b"a\rb\rc");
+        assert_eq!(d.text, "a\nb\nc");
+        assert_eq!(d.eol, Eol::Lf);
+        assert_eq!(d.encoding, Encoding::Utf8);
+    }
+
+    #[test]
+    fn bom_only_and_empty_files() {
+        let d = decode(BOM);
+        assert_eq!((d.text.as_str(), d.encoding, d.eol), ("", Encoding::Utf8Bom, Eol::Lf));
+        assert_eq!(encode("", Eol::Lf, true), BOM);
+        let e = decode(b"");
+        assert_eq!((e.text.as_str(), e.encoding, e.eol), ("", Encoding::Utf8, Eol::Lf));
+        assert!(encode("", Eol::Crlf, false).is_empty());
+    }
+
+    #[test]
+    fn bom_followed_by_invalid_utf8_is_unknown() {
+        let mut bytes = BOM.to_vec();
+        bytes.extend_from_slice(&[0x61, 0xFF, 0x0D, 0x0A]);
+        let d = decode(&bytes);
+        assert_eq!(d.encoding, Encoding::Unknown);
+        assert_eq!(d.eol, Eol::Crlf);
+        assert_eq!(d.text, "a\u{FFFD}\n");
+    }
+
+    #[test]
+    fn utf16_boms_are_not_utf8() {
+        // UTF-16 LE / BE: shown read-only (lossy) rather than mangled on save.
+        assert_eq!(decode(&[0xFF, 0xFE, 0x61, 0x00]).encoding, Encoding::Unknown);
+        assert_eq!(decode(&[0xFE, 0xFF, 0x00, 0x61]).encoding, Encoding::Unknown);
+    }
+
+    #[test]
+    fn a_crlf_inside_a_code_block_is_counted_like_any_other_line() {
+        assert_eq!(detect_eol("```\r\ncode\r\n```\r\ntext\n"), Eol::Crlf);
+    }
+
+    /// The fixture files the TypeScript encoding test (test/encoding.test.ts)
+    /// also uses: `decode` must produce `expected.json` (the `read_text`
+    /// response the TS side mocks), and `encode` of that must give the file's
+    /// bytes back, except for the non-UTF-8 file which is never rewritten.
+    #[test]
+    fn shared_fixtures_decode_to_expected_json_and_round_trip() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../test/fixtures/encoding");
+        let expected: serde_json::Value =
+            serde_json::from_slice(&stdfs::read(dir.join("expected.json")).unwrap()).unwrap();
+        let map = expected.as_object().unwrap();
+        assert!(map.len() >= 5, "fixtures missing");
+        for (name, want) in map {
+            let bytes = stdfs::read(dir.join(name)).unwrap();
+            let d = decode(&bytes);
+            assert_eq!(d.text, want["text"].as_str().unwrap(), "{name} text");
+            assert_eq!(serde_json::to_value(d.encoding).unwrap(), want["encoding"], "{name} encoding");
+            assert_eq!(serde_json::to_value(d.eol).unwrap(), want["eol"], "{name} eol");
+            if d.encoding != Encoding::Unknown {
+                let bom = d.encoding == Encoding::Utf8Bom;
+                assert_eq!(encode(&d.text, d.eol, bom), bytes, "{name} round-trip");
+            }
+        }
+    }
+
+    #[test]
     fn percent_decode_handles_spaces_and_unicode() {
         assert_eq!(percent_decode("/a%20b/caf%C3%A9.md"), "/a b/café.md");
         assert_eq!(percent_decode("plain"), "plain");
