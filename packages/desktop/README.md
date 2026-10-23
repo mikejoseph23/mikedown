@@ -77,7 +77,9 @@ Rust edits rebuild and relaunch the window.
   once if the item is missing). `window.mikedown` is the editor handle.
 - `npm run typecheck -w packages/desktop` type-checks `src/` against core's
   built `dist/index.d.ts` (run `npm run build:core` once first).
-- `npm run test:unit -w packages/desktop` runs the vitest suite in `test/unit/`.
+- `npm run test:unit -w packages/desktop` runs the vitest suite in `test/unit/`;
+  `npm run test:e2e -w packages/desktop` the Playwright spec in `test/e2e/`;
+  `npm run test:desktop` at the root runs both. Rust: `cargo test` in `src-tauri/`.
 
 Release build:
 
@@ -164,8 +166,10 @@ packages/desktop/
 ├── src/smoke/                      fixture + in-app harness
 ├── src/styles/app.css              app chrome only; editor styling stays in core
 ├── vite.config.ts                  core alias rule, dictionaries, Tauri port/targets
-├── vitest.config.ts, test/unit/    jsdom unit tests
-├── scripts/                        smoke-compare.mjs, e2e.mjs (placeholder until T1)
+├── vitest.config.ts, test/unit/    jsdom unit tests (mocked Tauri IPC in test/unit/helpers/)
+├── test/e2e/                       Playwright over `vite dev` + mocked Tauri internals (see its README)
+├── test/fixtures/encoding/         byte fixtures shared by the TS and Rust encoding tests
+├── scripts/                        smoke-compare.mjs
 └── src-tauri/                      Cargo.toml, tauri.conf.json, capabilities/, icons/, src/lib.rs, src/commands/
 ```
 

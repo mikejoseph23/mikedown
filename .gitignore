@@ -14,3 +14,7 @@ test/workspace/.vscode/settings.json
 *.mp4
 *.mov
 *.webm
+
+# Playwright output (packages/desktop e2e)
+test-results/
+playwright-report/

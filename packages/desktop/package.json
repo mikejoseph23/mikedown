@@ -12,7 +12,7 @@
     "build:vite": "vite build",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --config vitest.config.ts",
-    "test:e2e": "node scripts/e2e.mjs",
+    "test:e2e": "playwright test --config test/e2e/playwright.config.ts",
     "smoke:compare": "node scripts/smoke-compare.mjs"
   },
   "dependencies": {
@@ -26,6 +26,7 @@
     "@tauri-apps/plugin-window-state": "^2.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tauri-apps/cli": "^2.12.4",
     "vite": "^7.3.7"
   }
