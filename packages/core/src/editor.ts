@@ -3466,6 +3466,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (event.key !== 'f' && event.key !== 'h' && event.key !== 'F' && event.key !== 'H') {return;}
     if (!features.findReplace) {return;}
     if (!sourceMode) {return;} // WYSIWYG path is handled by PM.
+    // Cmd+Shift+F is the host's (desktop folder search), not the find bar.
+    if (hostOwnsShortcuts && event.shiftKey) {return;}
     const target = event.target as HTMLElement | null;
     // Don't hijack the shortcut when focus is already in a form field (e.g.
     // the find bar itself) — native behavior there is fine.

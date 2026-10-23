@@ -75,3 +75,26 @@ describe('revealText', () => {
     expect(() => handle.revealText(1, 1)).not.toThrow();
   });
 });
+
+describe('Cmd+Shift+F in source mode', () => {
+  function press(el: Element, init: KeyboardEventInit): KeyboardEvent {
+    const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+    el.dispatchEvent(e);
+    return e;
+  }
+
+  it('is left to a host that owns shortcuts, and still opens find otherwise', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const owned = createMikeDownEditor(host, { host: new NoopHost(), initialMarkdown: 'x', hostOwnsShortcuts: true });
+    mounted.push({ handle: owned, el: host });
+    owned.setViewState({ sourceMode: true });
+    const cm = host.querySelector('.cm-content')!;
+    expect(press(cm, { key: 'F', metaKey: true, shiftKey: true }).defaultPrevented).toBe(false);
+
+    const plain = mount('x');
+    plain.setViewState({ sourceMode: true });
+    const cm2 = document.querySelectorAll('.cm-content')[1] ?? document.querySelector('.cm-content')!;
+    expect(press(cm2, { key: 'F', metaKey: true, shiftKey: true }).defaultPrevented).toBe(true);
+  });
+});
