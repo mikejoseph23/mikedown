@@ -141,14 +141,14 @@ test('the native menu gets the spec and the recents, and its clicks run commands
     const last = ipc.calls.filter((c) => c.cmd === 'menu_set_recents').at(-1)?.args as { items: Array<{ id?: string }> } | undefined;
     return last?.items.map((i) => i.id).filter(Boolean);
   }).toEqual([`recent-file:${file}`, 'clearRecents']);
-  // The focused window reports enablement: Save is off until the document is dirty.
+  // The focused window reports enablement: Save All is off until a document is dirty.
   await page.locator('#editor .ProseMirror').first().click();
-  await expect.poll(() => (ipc.calls.filter((c) => c.cmd === 'menu_update').at(-1)?.args as { enabled: Record<string, boolean> } | undefined)?.enabled.save).toBe(false);
+  await expect.poll(() => (ipc.calls.filter((c) => c.cmd === 'menu_update').at(-1)?.args as { enabled: Record<string, boolean> } | undefined)?.enabled.saveAll).toBe(false);
 
   // Format > Heading > Heading 2 from the menu.
   await page.evaluate(() => (window as unknown as { __mikedownE2eEmit: (e: string, p: unknown) => void }).__mikedownE2eEmit('mikedown:menu', 'heading2'));
   await expect(page.locator('#editor .ProseMirror h2')).toHaveText('Hello');
-  await expect.poll(() => (ipc.calls.filter((c) => c.cmd === 'menu_update').at(-1)?.args as { enabled: Record<string, boolean> } | undefined)?.enabled.save).toBe(true);
+  await expect.poll(() => (ipc.calls.filter((c) => c.cmd === 'menu_update').at(-1)?.args as { enabled: Record<string, boolean> } | undefined)?.enabled.saveAll).toBe(true);
 
   // Help > Keyboard Shortcuts lists the table.
   await page.evaluate(() => (window as unknown as { __mikedownE2eEmit: (e: string, p: unknown) => void }).__mikedownE2eEmit('mikedown:menu', 'keyboardShortcuts'));

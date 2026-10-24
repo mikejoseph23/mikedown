@@ -81,9 +81,9 @@ test('three saves with changes and one without leave three snapshots; the browse
   const newest = fs.readFileSync(path.join(ipc.dir, '.mikedown', 'versions', 'a.md', names[2]), 'utf8');
   expect(newest).toContain('First line. One. Two. Three.');
 
-  // The version browser (Cmd/Ctrl+Shift+H) lists them, newest first.
+  // The version browser (Cmd/Ctrl+Alt+V) lists them, newest first.
   await page.locator('#editor .ProseMirror').click();
-  await page.keyboard.press('ControlOrMeta+Shift+H');
+  await page.keyboard.press('ControlOrMeta+Alt+V');
   const list = page.getByRole('listbox', { name: 'Versions' });
   await expect(list.getByRole('option')).toHaveCount(3);
   await expect(list.getByRole('option').first()).toContainText('Latest');

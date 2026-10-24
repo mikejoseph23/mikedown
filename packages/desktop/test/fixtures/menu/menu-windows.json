@@ -379,6 +379,12 @@
         "accelerator": "CmdOrCtrl+/"
       },
       {
+        "kind": "item",
+        "id": "showVersions",
+        "label": "Show Versions…",
+        "accelerator": "CmdOrCtrl+Alt+V"
+      },
+      {
         "kind": "separator"
       },
       {

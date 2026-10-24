@@ -126,7 +126,7 @@ describe('command table', () => {
   it('keeps the menu ids M4, M7 and M9 use', () => {
     for (const isMac of [true, false]) {
       const ids = menuIds(buildMenuSpec(isMac));
-      for (const id of ['quit', 'newWindow', 'closeTab', 'closeWindow', 'searchFolder', 'exportHtml', 'exportPdf', 'print', 'openSettings', 'splitRight', 'splitDown', 'nextTab', 'prevTab', 'saveAll']) {
+      for (const id of ['quit', 'newWindow', 'closeTab', 'closeWindow', 'searchFolder', 'exportHtml', 'exportPdf', 'print', 'openSettings', 'splitRight', 'splitDown', 'nextTab', 'prevTab', 'saveAll', 'showVersions']) {
         expect(ids).toContain(id);
       }
     }
@@ -179,18 +179,19 @@ describe('when clauses', () => {
     }
   });
 
-  it('formatting is off in source mode, Save follows dirty state', () => {
+  it('formatting is off in source mode, Save All follows dirty state, Save stays on', () => {
     const src = enablement(ctx({ sourceMode: true }), false);
     expect(src.toggleBold).toBe(false);
     expect(src.toggleSource).toBe(true);
-    expect(enablement(ctx({ dirty: false }), true).save).toBe(false);
-    expect(enablement(ctx({ dirty: true }), true).save).toBe(true);
+    expect(enablement(ctx({ dirty: false }), true).save).toBe(true);
+    expect(enablement(ctx({ anyDirty: false }), true).saveAll).toBe(false);
+    expect(enablement(ctx({ anyDirty: true }), true).saveAll).toBe(true);
   });
 
   it('a disabled row is inert from the keyboard too', () => {
-    const save = { key: 's', metaKey: true, ctrlKey: false, shiftKey: false, altKey: false };
-    expect(rowForKey(save, true, SHORTCUTS, { inEditor: true, enabled: (r) => isEnabled(r.when, ctx({ dirty: true })) })?.command).toBe('save');
-    expect(rowForKey(save, true, SHORTCUTS, { inEditor: true, enabled: (r) => isEnabled(r.when, ctx({ dirty: false })) })).toBeNull();
+    const saveAll = { key: 'ß', code: 'KeyS', metaKey: true, ctrlKey: false, shiftKey: false, altKey: true };
+    expect(rowForKey(saveAll, true, SHORTCUTS, { inEditor: true, enabled: (r) => isEnabled(r.when, ctx({ anyDirty: true })) })?.command).toBe('saveAll');
+    expect(rowForKey(saveAll, true, SHORTCUTS, { inEditor: true, enabled: (r) => isEnabled(r.when, ctx({ anyDirty: false })) })).toBeNull();
   });
 
   it('new M8 chords reach their commands', () => {

@@ -115,7 +115,9 @@ export const COMMANDS: readonly ShortcutRow[] = [
   { command: 'open', accelerator: 'CmdOrCtrl+O', label: 'Open File…' },
   { command: 'openFolder', accelerator: 'CmdOrCtrl+Alt+O', label: 'Open Folder…' },
   { command: 'clearRecents', label: 'Clear Recently Opened' },
-  { command: 'save', accelerator: 'CmdOrCtrl+S', label: 'Save', when: 'saveable' },
+  // Save stays on for a clean document: Cmd+S out of habit still writes, and
+  // M6 relies on it (an unchanged save is skipped by versioning, not by the menu).
+  { command: 'save', accelerator: 'CmdOrCtrl+S', label: 'Save', when: 'editor' },
   { command: 'saveAs', accelerator: 'CmdOrCtrl+Shift+S', label: 'Save As…', when: 'editor' },
   { command: 'saveAll', accelerator: 'CmdOrCtrl+Alt+S', label: 'Save All', when: 'anyDirty' },
   { command: 'openContainingFolder', accelerator: 'CmdOrCtrl+Shift+O', label: 'Open Containing Folder', when: 'outsideFolder' },

@@ -17,7 +17,8 @@
 //! item id is an app command name sent to the focused window as a
 //! `mikedown:menu` event. Ids kept from M4/M7/M9: `quit`, `newWindow`,
 //! `closeTab`, `closeWindow`, `searchFolder`, `exportHtml`, `exportPdf`,
-//! `print`, `openSettings`, `splitRight`, `splitDown`, `nextTab`, `prevTab`.
+//! `print`, `openSettings`, `splitRight`, `splitDown`, `nextTab`, `prevTab`,
+//! and M6 `showVersions` (`CmdOrCtrl+Alt+V`; `Cmd+Shift+H` is core Highlight).
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
@@ -378,7 +379,7 @@ mod tests {
     const KEPT_IDS: &[&str] = &[
         "quit", "newWindow", "newDocument", "open", "openFolder", "save", "saveAs", "saveAll", "closeTab",
         "closeWindow", "searchFolder", "exportHtml", "exportPdf", "print", "openSettings", "toggleSource",
-        "toggleSidebar", "splitRight", "splitDown", "nextTab", "prevTab", OPEN_RECENT_ID,
+        "toggleSidebar", "splitRight", "splitDown", "nextTab", "prevTab", "showVersions", OPEN_RECENT_ID,
     ];
 
     #[test]
