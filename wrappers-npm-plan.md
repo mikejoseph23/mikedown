@@ -36,7 +36,7 @@
 | [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | 🔄 In Progress | — | `<mikedown-editor>`, form-associated, CDN bundle |
 | [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | ✅ Complete | 4 | Controlled/uncontrolled, ref, SSR-safe |
 | [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | ✅ Complete | 3 | Vue 3, `v-model` |
-| [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | 🔄 In Progress | — | ng-packagr, partial Ivy, Angular 17+ |
+| [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | ✅ Complete | 15 | ng-packagr, partial Ivy, Angular 17+ |
 | [M10 — `@mikedown/svelte` (deferred)](#m10--mikedownsvelte-deferred) | Sonnet | ⏸ Deferred | — | Out of this plan; web component covers Svelte |
 | [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | ⬜ Not Started | — | vitest per package + throwaway apps |
 | [M11 — Site build and deploy path](#m11--site-build-and-deploy-path) | Sonnet | ✅ Complete | 11 | `website/` Vite MPA, site-only publish via `mikedown-downloads` |
@@ -354,13 +354,13 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] `packages/angular/` as an ng-packagr library compiled with Angular 17 (the floor, partial Ivy), toolchain isolated as M0 decided. Source starts from the LymeStarter copy (`~/git/lymestarter/ng-app/src/app/lymestack-optional/mikedown/`), not the forks. The Angular 14 legacy fork is not a target.
-- [ ] Fold in the fork differences as generic inputs per M0 (the legacy fork's `preserveBrackets` stays supported): `preserveBrackets` (with the exported `unescapeBrackets`), `darkSelector`, `settings` (fonts and other defaults), existing `imageUpload`/`imageBaseUrl`/`imageSrcResolver`, `minHeight`, `placeholder`, `features`, `readOnly`, `theme`, output `ready`.
-- [ ] Selector `mikedown-editor` plus `lyme-markdown-editor` (permanent alias, decided). Standalone component; a `MikeDownModule` for NgModule apps on 17+ is optional (cut it if time is short).
-- [ ] Use only APIs available in the floor major (decorator `@Input`s; `inject()` in field initializers is fine). Router stays optional.
-- [ ] Peer range per M0; `rxjs` `^7.5`.
-- [ ] Port the existing spec to the runner M0 chose; cover CVA write/read, pristine writes, disabled, debounce, `preserveBrackets`, `darkSelector`.
-- [ ] README: install, standalone (and NgModule, if built) examples, reactive forms and `ngModel`, `angular.json` styles and dictionaries assets (from the core README), supported Angular versions. Commit.
+- [x] `packages/angular/` as an ng-packagr library compiled with Angular 17 (the floor, partial Ivy), toolchain isolated as M0 decided. Source starts from the LymeStarter copy (`~/git/lymestarter/ng-app/src/app/lymestack-optional/mikedown/`), not the forks. The Angular 14 legacy fork is not a target.
+- [x] Fold in the fork differences as generic inputs per M0 (the legacy fork's `preserveBrackets` stays supported): `preserveBrackets` (with the exported `unescapeBrackets`), `darkSelector`, `settings` (fonts and other defaults), existing `imageUpload`/`imageBaseUrl`/`imageSrcResolver`, `minHeight`, `placeholder`, `features`, `readOnly`, `theme`, output `ready`.
+- [x] Selector `mikedown-editor` plus `lyme-markdown-editor` (permanent alias, decided). Standalone component; a `MikeDownModule` for NgModule apps on 17+ is optional (cut it if time is short).
+- [x] Use only APIs available in the floor major (decorator `@Input`s; `inject()` in field initializers is fine). Router stays optional.
+- [x] Peer range per M0; `rxjs` `^7.5`.
+- [x] Port the existing spec to the runner M0 chose; cover CVA write/read, pristine writes, disabled, debounce, `preserveBrackets`, `darkSelector`.
+- [x] README: install, standalone (and NgModule, if built) examples, reactive forms and `ngModel`, `angular.json` styles and dictionaries assets (from the core README), supported Angular versions. Commit.
 
 **Also (M0):** apply the "What changes in this plan" lines for M9 in `wrappers-decisions.md`.
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 17:35** - M9 done (`32302c3`, `a342c8b`, 15 min): `@mikedown/angular` 0.2.0-rc.0, ng-packagr library compiled with Angular 17 (partial Ivy, own lockfile, outside the root workspaces, published from `dist/`), started from the LymeStarter copy and built on `bindMikeDownValue`; generic inputs incl. `preserveBrackets`/`unescapeBrackets`, `darkSelector`, `settings`, image inputs, `minHeight`; selectors `mikedown-editor` and `lyme-markdown-editor`. Specs ported to an Angular 19 Karma test app (`packages/angular/test-app/`, `test:angular` 25/25). Packed tarballs install and `ng build` in fresh Angular 17.3 and 19.2 apps. `version-npm.mjs` now leaves the `file:../core` dev link alone; CI gains two lines. Finding: Angular's esbuild fails with `Could not resolve "mermaid"` when mermaid isn't installed (core's lazy `import('mermaid')`, optional peer); the README tells Angular users to install it. Main tree: compile, lint (0 errors), `test:unit` (1564), `test:edge` (22), `test:packages` (51), `test:angular` (25), `test:react` (22), `test:vue` (11) green.
 
 **2026-10-24 17:25** - M4 gap fill merged (`84314ef`, 4 min): `checkCorePin` accepts a published pin that differs from the workspace core (warns with both versions); an unpublished pin must still equal the workspace and needs `--allow-unpublished-core`. Header comment, deploy README Core pinning section and `release.sh`/`build-mac.sh` comments updated; tests cover all four cases. `check-core-pin.js` with no flag passes (`0.1.0 (published)`). Desktop unit (531), root `test:unit` (1564), `build:desktop` green. Still open: `packages/desktop/vite.config.ts#assertCorePin` has the old equal-version rule, so a `RELEASE=1` Desktop build would fail; the file belongs to the desktop-app session, held for Mike.
 
