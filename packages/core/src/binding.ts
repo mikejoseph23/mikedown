@@ -157,8 +157,16 @@ export function bindMikeDownValue(container: HTMLElement, options: MikeDownBindi
 
   let observer: MutationObserver | null = null;
   let mql: MediaQueryList | null = null;
+  let applied = resolve(theme);
+  // Only on a real change: setTheme re-renders (toolbar icon, a PM
+  // transaction), and those class writes inside the document would wake the
+  // subtree observer again, looping forever.
   const applyTheme = (): void => {
-    if (!destroyed) {handle.setTheme(resolve(theme));}
+    if (destroyed) {return;}
+    const next = resolve(theme);
+    if (next === applied) {return;}
+    applied = next;
+    handle.setTheme(next);
   };
   const stopFollowing = (): void => {
     observer?.disconnect();
@@ -215,7 +223,11 @@ export function bindMikeDownValue(container: HTMLElement, options: MikeDownBindi
     flush,
     setTheme(next: BindingTheme): void {
       theme = next;
-      applyTheme();
+      // An explicit call always applies (the user may have flipped the theme in the editor).
+      if (!destroyed) {
+        applied = resolve(theme);
+        handle.setTheme(applied);
+      }
       startFollowing();
     },
     setReadOnly(next: boolean): void {

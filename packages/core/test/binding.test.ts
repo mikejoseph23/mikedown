@@ -235,6 +235,25 @@ describe('theme', () => {
     expect(themeOf()).toBe('dark');
   });
 
+  it('a class change that does not flip the theme does not re-apply it (no observer loop)', async () => {
+    const b = mount({ theme: 'auto', darkSelector: '.dark-theme' });
+    const spy = vi.spyOn(b.handle, 'setTheme');
+    // The editor's own re-render writes classes inside the observed subtree.
+    document.body.classList.add('unrelated');
+    el.querySelector('.mikedown-root')!.classList.add('also-unrelated');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(spy).not.toHaveBeenCalled();
+    document.body.classList.add('dark-theme');
+    await Promise.resolve();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(themeOf()).toBe('dark');
+    // An explicit setTheme always applies.
+    b.setTheme('dark');
+    expect(spy).toHaveBeenCalledTimes(2);
+    document.body.classList.remove('dark-theme', 'unrelated');
+  });
+
   it('follows prefers-color-scheme without a selector', () => {
     let dark = false;
     const listeners = new Set<() => void>();
