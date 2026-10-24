@@ -26,7 +26,7 @@
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
 | [M0 — Decisions and spikes](#m0--decisions-and-spikes) | Opus | ⬜ Not Started | — | Gate: Mike approves `wrappers-decisions.md` |
-| [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | ⬜ Not Started | — | `npm login`, `mikedown` org, 2FA. Blocks M2 |
+| [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | 🔄 In Progress | — | logged in as `interapp`, `mikedown` org created (owner); 2FA pending. Blocks M2 |
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ⬜ Not Started | — | Decouple core from the vsix bump |
 | [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ⬜ Not Started | — | Mike runs the publish |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ⬜ Not Started | — | Mike uploads the `.vsix` |
@@ -168,8 +168,8 @@ Apply to every milestone.
 
 **Owner:** Mike. No worker. Blocks M2 (and M15).
 
-- [ ] `npm login` on the Mac Studio (`npm whoami` returns your user).
-- [ ] Create the free org `mikedown` on npmjs.com (Add Organization), which reserves the `@mikedown` scope.
+- [x] `npm login` on the Mac Studio (`npm whoami` returns your user). *(user `interapp`)*
+- [x] Create the free org `mikedown` on npmjs.com (Add Organization), which reserves the `@mikedown` scope.
 - [ ] Turn on 2FA (authenticator app or passkey). npm now requires it on every publish and no longer issues long-lived publish tokens, so the publish commands in M2 and M15 prompt for an OTP and you run them in your terminal.
 - [ ] Tell the orchestrator it's done.
 
