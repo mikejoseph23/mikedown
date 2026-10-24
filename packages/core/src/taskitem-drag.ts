@@ -89,7 +89,7 @@ export const DraggableTaskItem = TaskItem.extend({
           return false;
         },
         ignoreMutation(mutation) {
-          if (mutation.target === li && mutation.attributeName === 'data-checked') {return true;}
+          if (mutation.target === li && (mutation as MutationRecord).attributeName === 'data-checked') {return true;}
           if (handle.contains(mutation.target)) {return true;}
           if (label.contains(mutation.target)) {return true;}
           return false;

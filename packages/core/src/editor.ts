@@ -118,7 +118,7 @@ import type {
 import { DEFAULT_FEATURES } from './types';
 
 // ── CodeMirror 6 — Source Mode (M4) ───────────────────────────────────────────
-import { Compartment, EditorState, Transaction as CmTransaction, type Extension } from '@codemirror/state';
+import { Compartment, EditorState, Transaction as CmTransaction, type Extension as CmExtension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, historyKeymap, history, undo as cmUndo, redo as cmRedo } from '@codemirror/commands';
 import { markdown as cmMarkdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -2097,7 +2097,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     btn.innerHTML = dark
       ? mkSvg('<circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/>')
       : mkSvg('<path d="M13.5 8a5.5 5.5 0 0 1-8.38 4.68A5.5 5.5 0 0 1 8 2.5c0 .5.05 1 .16 1.47A4.5 4.5 0 0 0 13.5 8z"/>');
-    btn.title = dark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    (btn as HTMLElement).title = dark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
   }
 
   // Host theme changes ('auto'): hosts such as VS Code swap a theme class on
@@ -2838,7 +2838,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         // ProseMirror plugins/keymaps.
         link: false,
         // M2d: Configure History with grouping delay and stack depth.
-        history: { depth: 100, newGroupDelay: 500 },
+        // Spread through `object`: StarterKit v3 names this option `undoRedo`, so
+        // its types reject `history`. Kept as-is so runtime behavior doesn't change.
+        ...({ history: { depth: 100, newGroupDelay: 500 } } as object),
       }),
 
       // ── Markdown-correct text + hard break (issue #5) ─────────────────────
@@ -2962,7 +2964,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // one keystroke never toggles twice.
       Extension.create({
         name: 'mikedownSourceShortcut',
-        addKeyboardShortcuts() {
+        addKeyboardShortcuts(): Record<string, () => boolean> {
           if (hostOwnsShortcuts) {return {};}
           return { 'Mod-/': () => { toggleSourceMode(); return true; } };
         },
@@ -4710,7 +4712,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   /** Source view light/dark (highlight style + CodeMirror's dark flag). */
   const cmScheme = new Compartment();
 
-  function buildCmScheme(): Extension[] {
+  function buildCmScheme(): CmExtension[] {
     const dark = isDarkTheme();
     return [
       syntaxHighlighting(dark ? oneDarkHighlightStyle : defaultHighlightStyle),
@@ -4725,7 +4727,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     cmView?.dispatch({ effects: cmScheme.reconfigure(buildCmScheme()) });
   }
 
-  function buildCmTheme(): Extension {
+  function buildCmTheme(): CmExtension {
     // Colors come from the theme tokens, so they follow theme changes live.
     return EditorView.theme({
       '&': { backgroundColor: 'var(--mikedown-surface, #1e1e1e)', color: 'var(--mikedown-text, #d4d4d4)', height: '100%' },
@@ -4914,7 +4916,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // a real edit, and reloading would needlessly discard PM's undo history
     // and invalidate the saved-state baseline.
     // The rich view's body as the source would spell it, final newline included.
-    const pmBody = editor.storage.markdown.getMarkdown() as string;
+    const pmBody = editor.storage.markdown.getMarkdown();
     const currentPmBody = trailingNewline && pmBody !== '' ? `${pmBody}\n` : pmBody;
     const sourceUnchanged = !sourceSync.hasSourceEdits(md);
     // A lazy load (`setMarkdown` while in source mode) left the rich view
@@ -5052,7 +5054,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   let workspaceTags: Array<{ tag: string; count: number }> = [];
   let liveTagsTimer: ReturnType<typeof setTimeout> | null = null;
   const refreshLiveTags = (): void => {
-    const body = editor.storage.markdown.getMarkdown() as string;
+    const body = editor.storage.markdown.getMarkdown();
     const counts = new Map(workspaceTags.map((t) => [t.tag, t.count]));
     for (const t of extractTags(restoreFrontmatter(frontmatterContent, body))) {
       counts.set(t, (counts.get(t) ?? 0) + 1);
@@ -5296,7 +5298,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** The rich view's document as markdown: frontmatter, body and final newline. */
   function serializeDocument(): string {
-    const md = restoreFrontmatter(frontmatterContent, editor.storage.markdown.getMarkdown() as string);
+    const md = restoreFrontmatter(frontmatterContent, editor.storage.markdown.getMarkdown());
     return trailingNewline && md !== '' && !md.endsWith('\n') ? `${md}\n` : md;
   }
 

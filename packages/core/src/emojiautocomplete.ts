@@ -17,7 +17,7 @@ import { isSlashMenuOpen } from './slashcommands';
 import emojiData from 'markdown-it-emoji/lib/data/full.mjs';
 import { getPortal } from './portal';
 
-const EMOJI_MAP = emojiData as Record<string, string>;
+const EMOJI_MAP = emojiData;
 const EMOJI_KEYS = Object.keys(EMOJI_MAP);
 
 const MAX_RESULTS = 8;

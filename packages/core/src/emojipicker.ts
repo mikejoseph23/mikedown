@@ -13,7 +13,7 @@ import { Editor } from '@tiptap/core';
 import emojiData from 'markdown-it-emoji/lib/data/full.mjs';
 import { getPortal } from './portal';
 
-const EMOJI_MAP = emojiData as Record<string, string>;
+const EMOJI_MAP = emojiData;
 const ALL_KEYS = Object.keys(EMOJI_MAP);
 
 const RECENTS_KEY = 'mikedown.emojiPicker.recents';

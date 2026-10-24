@@ -13,7 +13,7 @@ import emojiData from 'markdown-it-emoji/lib/data/full.mjs';
 //   serialize — writes `:shortcode:` back to markdown, preserving the source
 //               form so GitHub/GitLab can re-render it server-side.
 
-const EMOJI_MAP = emojiData as Record<string, string>;
+const EMOJI_MAP = emojiData;
 
 function escapeAttr(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
