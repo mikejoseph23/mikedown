@@ -29,12 +29,12 @@ from BEAST (`release.sh`), so the key never leaves the Mac.
 Nothing below is confirmed. Fill in each line when it is done, and tick the
 release blocker in `desktop-auto-update-plan.md` (U5) only after Mike confirms.
 
-- Key file backup 1: ____ (confirmed by Mike on ____)
+- Key file backup 1: network drive, `interapp/mikedown.key` (mounted on the Mac Studio as `/Volumes/Storage-1`), byte-identical to the live key (confirmed by Mike on 2026-10-24)
 - Key file backup 2: ____ (confirmed by Mike on ____)
-- Keychain password backup 1 (password manager entry name): ____ (confirmed by Mike on ____)
+- Keychain password backup 1 (password manager entry name): LastPass, "MikeDown Note" (confirmed by Mike on 2026-10-24)
 - Keychain password backup 2: ____ (confirmed by Mike on ____)
 - Restore test (a throwaway file signed with the restored key verifies against
-  the pubkey above): ____ (done by ____ on ____)
+  the pubkey above): passed. Signed with the network-drive copy and the Keychain password, then verified against key id `C5386105C2C03AF7` with `lib/verify-cli.js` (done by the orchestrator on 2026-10-24)
 
 Rules for the backups:
 
