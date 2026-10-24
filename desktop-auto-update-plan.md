@@ -30,7 +30,7 @@
 | [U2 — Update window and settings UI](#u2--update-window-and-settings-ui) | Opus | 🔄 In Progress | — | Sparkle-style window, both OSes |
 | [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | ⬜ Not Started | — | vitest, cargo, e2e |
 | [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | ✅ Done | 18 | publish path `C:\WebApps\Downloads\mikedown` (vdir), not `Interapp\mikedown`; Mike's manual steps in `deploy/lymedeploy/deploy.yaml` |
-| [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | ⬜ Not Started | — | macOS + Windows staging |
+| [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | 🔄 In Progress | — | macOS + Windows staging |
 | [T2 — Release verification on both OSes](#t2--release-verification-on-both-oses) | Sonnet | ⬜ Not Started | — | hands-on, Mike signs off |
 | [U5 — Docs and runbooks](#u5--docs-and-runbooks) | Haiku | ⬜ Not Started | — | README, key backup and rotation |
 
