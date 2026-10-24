@@ -33,7 +33,7 @@
 | [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | 🔄 In Progress (vite pin check) | 10 | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
 | [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
-| [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | 🔄 In Progress | — | `<mikedown-editor>`, form-associated, CDN bundle |
+| [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | ✅ Complete | 21 | `<mikedown-editor>`, form-associated, CDN bundle |
 | [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | ✅ Complete | 4 | Controlled/uncontrolled, ref, SSR-safe |
 | [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | ✅ Complete | 3 | Vue 3, `v-model` |
 | [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | ✅ Complete | 15 | ng-packagr, partial Ivy, Angular 17+ |
@@ -295,19 +295,19 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] `MikeDownElement extends HTMLElement`, light DOM, built on `bindMikeDownValue`. `@mikedown/web-component` exports the class and `defineMikeDownElement(tag = 'mikedown-editor')`; `@mikedown/web-component/define` registers it (guarded against double definition) and is the only entry listed in `sideEffects`.
-- [ ] Labelable and focusable: `<label for>` focuses the editor; `aria-label` / `aria-labelledby` forwarded per M0.
-- [ ] Attributes (reflected): `value`, `theme` (`light|dark|auto`), `readonly`, `disabled`, `placeholder`, `name`, `required`, `min-height`, `dark-selector`, `spellcheck-dictionary-url`, `features` (JSON).
-- [ ] Properties: `value`, `features`, `settings`, `host` (partial `MikeDownHost`, e.g. `uploadImage`, `openLink`), `handle` (read-only). Function-valued options are properties only.
-- [ ] Events: `change` (`detail: { value }`, debounced), `ready` (`detail: { handle }`). Bubbling, composed.
-- [ ] Initial value: `value` attribute, else the text of a child `<textarea>` or `<script type="text/markdown">` (progressive enhancement for server-rendered pages), which is then hidden.
-- [ ] Form-associated: `static formAssociated = true`, `setFormValue`, `required` → `valueMissing` validity, `formResetCallback` (back to the initial value), `formDisabledCallback`, `formStateRestoreCallback`. Works inside a plain `<form>` submit.
-- [ ] Lifecycle: create on `connectedCallback`, destroy on `disconnectedCallback`; moving the element in the DOM must not lose the value.
-- [ ] CDN bundle `dist/mikedown-editor.standalone.js`: core, peers and `styles.css` inlined, defines the element on load; mermaid/KaTeX handled per M0 (jsDelivr `+esm` rewrite or off). Gzipped size recorded and asserted against the M0 budget in the shape test. Document jsDelivr and unpkg URLs (pinned version, never `@latest`).
-- [ ] `THIRD_PARTY_NOTICES.md` generated for the standalone bundle (it redistributes TipTap, ProseMirror, CodeMirror, lowlight and friends; all MIT, but the notices must ship). Listed in `files`.
-- [ ] `packages/web-component/demo/index.html` (plain HTML, form submit, two elements).
-- [ ] Tests (vitest, jsdom): attribute/property sync, events, form value and reset, validity, child-textarea init, disconnect/reconnect.
-- [ ] README: install, npm usage, CDN usage, attribute/property/event table, styling, htmx and server-rendered examples. Commit.
+- [x] `MikeDownElement extends HTMLElement`, light DOM, built on `bindMikeDownValue`. `@mikedown/web-component` exports the class and `defineMikeDownElement(tag = 'mikedown-editor')`; `@mikedown/web-component/define` registers it (guarded against double definition) and is the only entry listed in `sideEffects`.
+- [x] Labelable and focusable: `<label for>` focuses the editor; `aria-label` / `aria-labelledby` forwarded per M0.
+- [x] Attributes (reflected): `value`, `theme` (`light|dark|auto`), `readonly`, `disabled`, `placeholder`, `name`, `required`, `min-height`, `dark-selector`, `spellcheck-dictionary-url`, `features` (JSON).
+- [x] Properties: `value`, `features`, `settings`, `host` (partial `MikeDownHost`, e.g. `uploadImage`, `openLink`), `handle` (read-only). Function-valued options are properties only.
+- [x] Events: `change` (`detail: { value }`, debounced), `ready` (`detail: { handle }`). Bubbling, composed.
+- [x] Initial value: `value` attribute, else the text of a child `<textarea>` or `<script type="text/markdown">` (progressive enhancement for server-rendered pages), which is then hidden.
+- [x] Form-associated: `static formAssociated = true`, `setFormValue`, `required` → `valueMissing` validity, `formResetCallback` (back to the initial value), `formDisabledCallback`, `formStateRestoreCallback`. Works inside a plain `<form>` submit.
+- [x] Lifecycle: create on `connectedCallback`, destroy on `disconnectedCallback`; moving the element in the DOM must not lose the value.
+- [x] CDN bundle `dist/mikedown-editor.standalone.js`: core, peers and `styles.css` inlined, defines the element on load; mermaid/KaTeX handled per M0 (jsDelivr `+esm` rewrite or off). Gzipped size recorded and asserted against the M0 budget in the shape test. Document jsDelivr and unpkg URLs (pinned version, never `@latest`).
+- [x] `THIRD_PARTY_NOTICES.md` generated for the standalone bundle (it redistributes TipTap, ProseMirror, CodeMirror, lowlight and friends; all MIT, but the notices must ship). Listed in `files`.
+- [x] `packages/web-component/demo/index.html` (plain HTML, form submit, two elements).
+- [x] Tests (vitest, jsdom): attribute/property sync, events, form value and reset, validity, child-textarea init, disconnect/reconnect.
+- [x] README: install, npm usage, CDN usage, attribute/property/event table, styling, htmx and server-rendered examples. Commit.
 
 **Also (M0):** apply the "What changes in this plan" lines for M6 in `wrappers-decisions.md`.
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 17:45** - M6 done (`60b30e4` list markers, `65feeb5` theme fix, `d7fba47` package, 21 min): `@mikedown/web-component` 0.2.0-rc.0, light-DOM `<mikedown-editor>` over `bindMikeDownValue`, `/define` entry (only `sideEffects` entry), reflected attributes, properties, `change`/`ready` events, child `<textarea>`/`<script type="text/markdown">` init, form-associated (value, `required` validity, reset, disabled, state restore), CDN bundle 779 kB gzipped (budget 850 kB, asserted), `THIRD_PARTY_NOTICES.md`, demo with preflight fixture, `test:web-component` (48), README. Demo checked in Chrome (form submit, reset, disabled fieldset, label click, dark mode, KaTeX and Mermaid from jsDelivr). Core fix: a class-based `darkSelector` looped forever in a real browser (each theme apply woke the observer); the binding now re-applies only on change, with a test; M7 to M9 get it through core. Noted: `math` off is page-wide (added to the BACKLOG singleton line); label order is ARIA standard (`aria-labelledby` > `aria-label` > `<label>`), unlike the decisions doc, held for Mike; CI doesn't run the wrapper suites yet (T2). Main tree: compile, lint (0 errors), `test:unit` (1565), `test:edge` (22), `test:packages` (72), `test:web-component` (48), `test:react` (22), `test:vue` (11), `test:angular` (25), `release:npm` dry run green.
 
 **2026-10-24 17:35** - M9 done (`32302c3`, `a342c8b`, 15 min): `@mikedown/angular` 0.2.0-rc.0, ng-packagr library compiled with Angular 17 (partial Ivy, own lockfile, outside the root workspaces, published from `dist/`), started from the LymeStarter copy and built on `bindMikeDownValue`; generic inputs incl. `preserveBrackets`/`unescapeBrackets`, `darkSelector`, `settings`, image inputs, `minHeight`; selectors `mikedown-editor` and `lyme-markdown-editor`. Specs ported to an Angular 19 Karma test app (`packages/angular/test-app/`, `test:angular` 25/25). Packed tarballs install and `ng build` in fresh Angular 17.3 and 19.2 apps. `version-npm.mjs` now leaves the `file:../core` dev link alone; CI gains two lines. Finding: Angular's esbuild fails with `Could not resolve "mermaid"` when mermaid isn't installed (core's lazy `import('mermaid')`, optional peer); the README tells Angular users to install it. Main tree: compile, lint (0 errors), `test:unit` (1564), `test:edge` (22), `test:packages` (51), `test:angular` (25), `test:react` (22), `test:vue` (11) green.
 

@@ -37,7 +37,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 - **React wrapper** around `@mikedown/core`, only if ever wanted.
 - **Publish dictionaries separately** (e.g. `@mikedown/dictionaries`) instead of copying them into core `dist`.
 - **Content width setting is not persisted by VS Code** (setting round-trip gap in the host).
-- **Shared module singletons across two editors**: the portal mirrors the last-focused editor and the Mermaid theme init is global.
+- **Shared module singletons across two editors**: the portal mirrors the last-focused editor and the Mermaid theme init is global, and turning `math` off in one editor's `features` turns KaTeX off for every editor on the page.
 - **Fixed-position overlays under transformed ancestors** misplace when a host wraps the editor in a CSS transform.
 
 ## npm packages and wrappers follow-ups
