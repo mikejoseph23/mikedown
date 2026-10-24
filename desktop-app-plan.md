@@ -695,6 +695,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
+**2026-10-24 14:30** - 0.3.0 released (`0103b15`, tag `desktop-v0.3.0`) through LymeDeploy; `verify-published.sh` passed on www and apex, including the new Linux (preview) AppImage (no updater manifest; `.AppImage` MIME mapped machine-wide in IIS on iadev-prod by Mike). Contents: the per-pane document sidebar (Outline, Backlinks, Properties; Cmd/Ctrl+Alt+B), the core serializer round-trip fixes, Shift+Enter hard breaks, the save-race fix, dark code-block bands, sidebar auto-hide in narrow panes, word count on pane switch, plus website screenshots. Release builds now include Linux by default (`--no-linux` to skip). Linux GUI untested; first tester is a friend on Arch.
+
 **2026-10-24 13:30** - Desktop releases now publish through LymeDeploy (project `mikedown-downloads`, id 26, Software Updates group, IADEV-2025 Production). 0.2.0 republished via `pack-for-lymedeploy.sh --version 0.2.0`: deployment succeeded and `verify-published.sh` passed on www and apex. No RDP copy and no Cloudflare purge needed: `/mikedown/` is not cached (`cf-cache-status: DYNAMIC`), so the purge step and `CloudflareToken` stay off. Release flow is now `release.sh` then `pack-for-lymedeploy.sh`, then tag.
 
 **2026-10-24 11:40** - Windows self-update proven in production: DevBox1 with a fresh 0.1.0 per-user install (the earlier copy there was a pre-M8 build with no menu bar) found 0.2.0 on its launch check, Restart Now installed it with no UAC prompt and reopened on 0.2.0. Both OSes have now taken a real update from production.
