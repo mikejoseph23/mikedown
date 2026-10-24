@@ -28,7 +28,7 @@
 |---|---|---|---|---|
 | [U1 — Updater engine: state, cadence, progress, channel](#u1--updater-engine-state-cadence-progress-channel) | Sonnet | ✅ Done | 9 | Rust + TS logic, no UI; Windows pre-check untested at runtime |
 | [U2 — Update window and settings UI](#u2--update-window-and-settings-ui) | Opus | ✅ Done | 17 | Sparkle-style window, both OSes; notification click inferred from focus |
-| [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | 🔄 In Progress | — | vitest, cargo, e2e |
+| [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | ✅ Done | 9 | vitest, cargo, e2e |
 | [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | ✅ Done | 18 | publish path `C:\WebApps\Downloads\mikedown` (vdir), not `Interapp\mikedown`; Mike's manual steps in `deploy/lymedeploy/deploy.yaml` |
 | [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | 🔄 In Progress | — | macOS + Windows staging |
 | [T2 — Release verification on both OSes](#t2--release-verification-on-both-oses) | Sonnet | ⬜ Not Started | — | hands-on, Mike signs off |
@@ -318,13 +318,13 @@ Design bar: this should feel like a native macOS Software Update sheet or VS Cod
 
 > **Worker requirement:** complete ALL items. If one should be deferred, say so in your summary but still attempt it unless truly blocked.
 
-- [ ] cargo: state file round trip, corrupt file, skip filters only the skipped version, snooze expiry, manual check clears both, claim at 4 h.
-- [ ] cargo (mock runtime, extends `tests/updater_staging.rs`): progress events emitted and monotonic; per-target endpoint 404 falls through to `latest.json`; manifest missing this target surfaces an error only on manual checks.
-- [ ] vitest: controller transitions including cancel-at-quit-dialog → ready, failure → failed, manual check during download.
-- [ ] vitest: notes sanitizer strips `<script>`, event handlers and remote images; empty notes text.
-- [ ] e2e: window opens from the notice, Skip persists across relaunch (stub host), Remind Me Later hides until snooze end, keyboard path through the three buttons.
-- [ ] Write the tests, then run desktop tsc, unit, e2e and cargo green; report counts.
-- [ ] Commit.
+- [x] cargo: state file round trip, corrupt file, skip filters only the skipped version, snooze expiry, manual check clears both, claim at 4 h.
+- [x] cargo (mock runtime, extends `tests/updater_staging.rs`): progress events emitted and monotonic; per-target endpoint 404 falls through to `latest.json`; manifest missing this target surfaces an error only on manual checks.
+- [x] vitest: controller transitions including cancel-at-quit-dialog → ready, failure → failed, manual check during download.
+- [x] vitest: notes sanitizer strips `<script>`, event handlers and remote images; empty notes text.
+- [x] e2e: window opens from the notice, Skip persists across relaunch (stub host), Remind Me Later hides until snooze end, keyboard path through the three buttons.
+- [x] Write the tests, then run desktop tsc, unit, e2e and cargo green; report counts.
+- [x] Commit.
 
 [Return to Top](#mikedown-desktop-auto-update-lymescribe-parity--planning-document)
 
@@ -434,6 +434,8 @@ If dispatching fills the orchestrator's context, prompt Mike to run `/compact` w
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-24 00:45** - T1 done (cherry-picked from eba8a61). State/skip/snooze/claim coverage already existed from U1 and the sanitizer tests from U2; added 12 mock-runtime cargo tests (endpoint fall-through, missing target, monotonic progress, verified-bytes cache, tampered payload), 6 controller lifecycle tests, and `update-flow.spec.ts` (6 e2e cases). Fixed a null-status crash in `main.ts` (mock host only) and two stale Settings e2e expectations. Main tree: typecheck green, vitest 498/498, cargo 120 + 7 staging, e2e 45/45. `versions.spec.ts` (not updater code) is flaky: 1 failure in 20 repeats.
 
 **2026-10-24 00:30** - U2 done (cherry-picked from b05be16). Found-notice, top-sliding update sheet with sanitized notes, all states, Settings > App > Updates, `tauri-plugin-notification`. The plugin can't report desktop notification clicks, so focusing the app within 10 min of a notification opens the window (T2 checks both OSes). Added a Hide button during downloads (not in spec). About's old Check for Updates button removed; Check Now lives in the Updates group. Main tree: typecheck green, vitest 492/492, cargo 115, e2e update-window 3/3. T1 dispatched.
 
