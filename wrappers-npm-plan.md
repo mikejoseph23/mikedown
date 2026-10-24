@@ -30,7 +30,7 @@
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
 | [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ✅ Complete | 2 | 0.1.0 on `latest` 2026-10-24; `core-v0.1.0` tag and push await Mike |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ✅ Complete | 5 | Mike uploads the `.vsix` |
-| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | 🔄 In Progress (gap fill) | 6 | LymeStarter, Quantico Creek, Desktop pin |
+| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | 🔄 In Progress (vite pin check) | 10 | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
 | [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
 | [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | 🔄 In Progress | — | `<mikedown-editor>`, form-associated, CDN bundle |
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 17:25** - M4 gap fill merged (`84314ef`, 4 min): `checkCorePin` accepts a published pin that differs from the workspace core (warns with both versions); an unpublished pin must still equal the workspace and needs `--allow-unpublished-core`. Header comment, deploy README Core pinning section and `release.sh`/`build-mac.sh` comments updated; tests cover all four cases. `check-core-pin.js` with no flag passes (`0.1.0 (published)`). Desktop unit (531), root `test:unit` (1564), `build:desktop` green. Still open: `packages/desktop/vite.config.ts#assertCorePin` has the old equal-version rule, so a `RELEASE=1` Desktop build would fail; the file belongs to the desktop-app session, held for Mike.
 
 **2026-10-24 17:15** - M4 partial (6 min): LymeStarter `f0be935` on `develop` (`^0.1.0` from the registry, vendored tarball and doc mention removed; `ng build` green, `ng test` 558/558) and Quantico Creek `59ed7d8` on `master` (both apps; `ng build` green, `ng test` 148/148 and 45/45). Desktop docs drop `--allow-unpublished-core` (`f396810`), `build:desktop` green. Gap: `check-core-pin.js` fails because `checkCorePin` requires the pin to equal the workspace core version (`0.1.0` vs `0.2.0-rc.0`), which the decoupled family versioning breaks; gap fill dispatched to accept a published pin that differs from the workspace.
 
