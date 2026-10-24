@@ -29,14 +29,14 @@
 | [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | ✅ Complete | — | `interapp` owns `mikedown`; 2FA on for auth and publishing (security key) |
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
 | [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ✅ Complete | 2 | 0.1.0 on `latest` 2026-10-24; `core-v0.1.0` tag and push await Mike |
-| [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ⬜ Not Started | — | Mike uploads the `.vsix` |
-| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ⬜ Not Started | — | LymeStarter, Quantico Creek, Desktop pin |
+| [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | 🔄 In Progress | — | Mike uploads the `.vsix` |
+| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | 🔄 In Progress | — | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
 | [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
-| [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | ⬜ Not Started | — | `<mikedown-editor>`, form-associated, CDN bundle |
-| [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | ⬜ Not Started | — | Controlled/uncontrolled, ref, SSR-safe |
-| [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | ⬜ Not Started | — | Vue 3, `v-model` |
-| [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | ⬜ Not Started | — | ng-packagr, partial Ivy, Angular 17+ |
+| [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | 🔄 In Progress | — | `<mikedown-editor>`, form-associated, CDN bundle |
+| [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | 🔄 In Progress | — | Controlled/uncontrolled, ref, SSR-safe |
+| [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | 🔄 In Progress | — | Vue 3, `v-model` |
+| [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | 🔄 In Progress | — | ng-packagr, partial Ivy, Angular 17+ |
 | [M10 — `@mikedown/svelte` (deferred)](#m10--mikedownsvelte-deferred) | Sonnet | ⏸ Deferred | — | Out of this plan; web component covers Svelte |
 | [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | ⬜ Not Started | — | vitest per package + throwaway apps |
 | [M11 — Site build and deploy path](#m11--site-build-and-deploy-path) | Sonnet | ✅ Complete | 11 | `website/` Vite MPA, site-only publish via `mikedown-downloads` |
