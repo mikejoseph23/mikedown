@@ -10,10 +10,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!--
     Download page for MikeDown Desktop, served from https://www.iadev.net/mikedown/
-    next to latest.json (packages/desktop/deploy/release.sh stages it as index.html).
+    next to the updater manifests (packages/desktop/deploy/release.sh stages it as index.html).
     The buttons carry a fallback href to this page's #download anchor; on load the
-    script rewrites them, the version and the notes from latest.json's
-    `downloads` block, so the page never lags a release. No cookies, no
+    script rewrites them, the version and the notes from the per-target
+    manifests' `downloads` blocks (latest-darwin-aarch64.json,
+    latest-windows-x86_64.json, falling back to latest.json), so the page never
+    lags a release, including a Mac-only or Windows-only one. No cookies, no
     analytics, no third-party scripts.
   -->
   <style>
@@ -160,7 +162,7 @@
       <div class="container prose">
         <h2 class="section-title">Privacy</h2>
         <p>MikeDown Desktop has no telemetry, no analytics and no account. Your documents never leave your computer.</p>
-        <p>The only network request the app makes on its own is the update check: once at launch and once a day it downloads <code>latest.json</code> from this site to see whether a newer version exists. You can turn that off in Settings &gt; App (Check for updates on launch). Links you click open in your browser, and images in your documents that point at web addresses load from those addresses.</p>
+        <p>The only network request the app makes on its own is the update check: shortly after launch and then every few hours it downloads a small update file (for example <code>latest-darwin-aarch64.json</code>, or <code>latest.json</code>) from this site to see whether a newer version exists. You can turn it off in Settings &gt; App (Automatically check for updates). Links you click open in your browser, and images in your documents that point at web addresses load from those addresses.</p>
         <p>This page sets no cookies and loads no tracking scripts.</p>
       </div>
     </section>
@@ -173,35 +175,68 @@
   </footer>
 
   <script>
-  // Rewrite the download buttons, version line and notes from latest.json
-  // (same folder). The cache-buster skips Cloudflare's edge cache so a
-  // just-published release shows up at once. On any failure the fallbacks stand.
+  // Rewrite the download buttons, version line and notes from the updater
+  // manifests in this folder: latest-darwin-aarch64.json for the Mac button
+  // (the DMG is universal), latest-windows-x86_64.json for Windows, each
+  // falling back to the combined latest.json when its file is missing (a
+  // platform's per-target file can lag or be absent; latest.json is always
+  // there). The cache-buster skips Cloudflare's edge cache so a just-published
+  // release shows up at once. On any failure the fallbacks stand.
   (function () {
-    fetch('latest.json?cb=' + Date.now(), { cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (m) {
-        if (!m || !m.downloads) return;
+    function load(name) {
+      return fetch(name + '?cb=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; });
+    }
+    function usable(m, platform) {
+      var d = m && m.downloads && m.downloads[platform];
+      return d && typeof d.url === 'string' && d.url.indexOf('https://') === 0 ? { m: m, d: d } : null;
+    }
+    function newer(a, b) {
+      var x = String(a).split(/[.-]/), y = String(b).split(/[.-]/);
+      for (var i = 0; i < 3; i++) {
+        var p = parseInt(x[i], 10) || 0, q = parseInt(y[i], 10) || 0;
+        if (p !== q) return p > q;
+      }
+      return false;
+    }
+    function released(m) {
+      var date = m.pub_date ? new Date(m.pub_date) : null;
+      return date && !isNaN(date) ? ', released ' + date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+    }
+    Promise.all([load('latest-darwin-aarch64.json'), load('latest-windows-x86_64.json'), load('latest.json')])
+      .then(function (r) {
+        var found = {
+          mac: usable(r[0], 'mac') || usable(r[2], 'mac'),
+          windows: usable(r[1], 'windows') || usable(r[2], 'windows')
+        };
         document.querySelectorAll('[data-dl]').forEach(function (a) {
-          var d = m.downloads[a.dataset.dl];
-          if (d && typeof d.url === 'string' && d.url.indexOf('https://') === 0) {
-            a.href = d.url;
-            a.setAttribute('download', '');
-            var min = a.querySelector('[data-min]');
-            if (min && d.minimumOs) {
-              var mb = d.size ? ' · ' + Math.max(1, Math.round(d.size / 1048576)) + ' MB' : '';
-              min.textContent = d.minimumOs + ' or later' + mb;
-            }
+          var f = found[a.dataset.dl];
+          if (!f) return;
+          a.href = f.d.url;
+          a.setAttribute('download', '');
+          var min = a.querySelector('[data-min]');
+          if (min && f.d.minimumOs) {
+            var mb = f.d.size ? ' · ' + Math.max(1, Math.round(f.d.size / 1048576)) + ' MB' : '';
+            min.textContent = f.d.minimumOs + ' or later' + mb;
           }
         });
+        var mac = found.mac && found.mac.m, win = found.windows && found.windows.m;
         var v = document.querySelector('[data-version]');
-        if (v && m.version) {
-          var date = m.pub_date ? new Date(m.pub_date) : null;
-          v.textContent = 'Version ' + m.version + (date && !isNaN(date) ? ', released ' + date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '') + '.';
+        if (v && (mac || win)) {
+          if (mac && win && mac.version !== win.version) {
+            v.textContent = 'Mac version ' + mac.version + released(mac) + '. Windows version ' + win.version + released(win) + '.';
+          } else {
+            var one = mac || win;
+            v.textContent = 'Version ' + one.version + released(one) + '.';
+          }
         }
+        var newest = mac && win ? (newer(win.version, mac.version) ? win : mac) : (mac || win);
         var n = document.querySelector('[data-notes]');
-        if (n && m.notes) n.textContent = m.notes;
-      })
-      .catch(function () { /* fallbacks stand */ });
+        if (n && newest && newest.notes) {
+          n.textContent = (mac && win && mac.version !== win.version ? 'MikeDown ' + newest.version + '\n\n' : '') + newest.notes;
+        }
+      });
   })();
   </script>
 </body>

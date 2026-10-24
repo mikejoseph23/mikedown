@@ -1,14 +1,16 @@
 # MikeDown Desktop release pipeline
 
 Signed, notarized macOS `.dmg` and a signed Windows NSIS installer, both
-self-updating from `https://www.iadev.net/mikedown/latest.json`. Modeled on
-`~/git/lymescribe/deploy/`. Nothing here uploads, purges, pushes or publishes;
-`release.sh` stages everything in `deploy/dist/<version>/upload/` and prints
-the checklist.
+self-updating from `https://www.iadev.net/mikedown/` (per-target
+`latest-<target>-<arch>.json`, plus the legacy combined `latest.json` that
+0.1.x reads). Modeled on `~/git/lymescribe/deploy/`. `release.sh` stages
+everything in `deploy/dist/<version>/upload/`; publishing is the separate
+`pack-for-lymedeploy.sh` (LymeDeploy project `mikedown-downloads`, defined in
+`lymedeploy/deploy.yaml`), and `verify-published.sh` checks the result.
 
 | Script | Runs on | Does |
 | --- | --- | --- |
-| `release.sh <patch\|minor\|major\|x.y.z>` | Mac | bump + commit, Mac build, Windows build, `latest.json`, stage upload |
+| `release.sh <patch\|minor\|major\|x.y.z>` | Mac | notes confirm, key check, bump + commit, Mac build, Windows build, manifests, stage + gate (`--mac-only`, `--windows-only`, `--dry-run`, `--publish`) |
 | `build-mac.sh` | Mac | universal build, Developer ID, notarize + staple app and DMG, updater `.app.tar.gz` + `.sig` |
 | `make-dmg.sh` | Mac (GUI session) | styled drag-to-install DMG from a signed app (called by `build-mac.sh`) |
 | `remote-build-windows.sh` | Mac | drives the BEAST Scheduled Task, verifies, copies back, makes the updater `.sig` |
@@ -16,7 +18,11 @@ the checklist.
 | `beast/run-mikedown-build.ps1` | BEAST task | exact-commit checkout, `npm ci`, `build-windows.ps1`, restore, sentinel |
 | `sync-version.js` | either | keeps `package.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock` in sync (`--check`) |
 | `check-core-pin.js` | either | `@mikedown/core` release gate (below) |
-| `make-latest-json.js` | Mac | updater manifest (Tauri static format) + website `downloads` block |
+| `make-latest-json.js` | Mac | per-target manifests + `latest.json` (full releases only), signatures verified first |
+| `check-upload.js` | Mac | gate on the staged folder: every manifest URL present, size, sha256, signature |
+| `pack-for-lymedeploy.sh` | Mac | nupkg, push, create-release, deploy to Production, wait, verify (`--dry-run`, `--from-<stage>`) |
+| `verify-published.sh <v>` | Mac | post-publish check of www and apex, edge and origin, every artifact and signature |
+| `lymedeploy/deploy.yaml` | n/a | the `mikedown-downloads` LymeDeploy project (`lymedeploy apply -f`) |
 | `updater-staging-test.sh` | Mac | local end-to-end updater test (N to N+1 from `127.0.0.1`) |
 
 ## Styled DMG
@@ -102,7 +108,8 @@ Artifacts are versioned only: `MikeDown-<v>-macos-universal.dmg`,
 
 **iadev-prod (first release):** create the `/mikedown` virtual directory under
 site Interapp (pattern: `C:\WebApps\Downloads\mikedown`, like `/lymedeploy`),
-then upload. Check with `Get-WebVirtualDirectory -Site Interapp`.
+then create the LymeDeploy project from `lymedeploy/deploy.yaml` (its header
+has the exact commands). Check with `Get-WebVirtualDirectory -Site Interapp`.
 
 ## Core pinning
 
@@ -148,6 +155,7 @@ signature verification and install into the temp copy (no window).
 
 ## Rollback
 
-Leave earlier versions' files in place; put the previous `latest.json` back
-and purge Cloudflare for it. Clients only move forward (no downgrades), so a
+Earlier versions' files stay in place (`publish-files` never prunes); put the
+previous manifests back (the per-target files, and `latest.json` if it moved)
+and purge Cloudflare for them. Clients only move forward (no downgrades), so a
 bad release is fixed by shipping a higher version.

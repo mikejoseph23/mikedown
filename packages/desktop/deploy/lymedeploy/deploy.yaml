@@ -1,0 +1,165 @@
+# deploy.yaml: LymeDeploy project `mikedown-downloads`. NO SECRET VALUES. Committed.
+# Schema: ~/git/lymedeploy/docs/reference/deploy-yaml-schema.md (schema: 1)
+#
+# Create or update the project (read the diff first, then run without --dry-run):
+#   lymedeploy apply -f packages/desktop/deploy/lymedeploy/deploy.yaml --dry-run
+#   lymedeploy apply -f packages/desktop/deploy/lymedeploy/deploy.yaml
+#   lymedeploy doctor --project mikedown-downloads
+# Never pass --prune: Production is shared, and pruning would un-map the other
+# machines that serve it for other projects.
+#
+# Shape: copied from lymescribe-downloads (project 13; `lymedeploy export`,
+# 2026-10-24) per ~/git/lymedeploy/docs/playbooks/downloads-file-drop-playbook.md.
+# Publishing is Mac-triggered by deploy/pack-for-lymedeploy.sh, not CI.
+#
+# ONE-TIME, BEFORE THE FIRST APPLY (on iadev-prod, as an admin):
+#   1. mkdir C:\WebApps\Downloads\mikedown
+#   2. Create the /mikedown virtual directory under site Interapp pointing at
+#      it (the pattern every other downloads folder uses; the site root is
+#      the Interapp website's own deploy target, so don't put content there):
+#        Import-Module WebAdministration
+#        New-WebVirtualDirectory -Site Interapp -Name mikedown -PhysicalPath C:\WebApps\Downloads\mikedown
+#        Get-WebVirtualDirectory -Site Interapp | %{ $_.Path + " => " + $_.PhysicalPath }
+#   3. Grant the LymeDeploy agent's account write access to that folder, the
+#      same way as C:\WebApps\Downloads\lymescribe.
+#   If you put the folder anywhere else, change PublishRoot below (one value).
+#
+# web.config (deploy/site/web.config): comment-free on purpose (iadev-2025 has
+# 500ed a whole folder over a web.config with comments plus mimeMap entries),
+# and no mimeMap at all: .json/.exe are mapped machine-wide on iadev-2025 and
+# .dmg/.gz (.tar.gz) serve 200 from /lymescribe/, whose web.config does not
+# map them, so they are mapped at the site level too. Adding a map for an
+# extension that is already mapped is a duplicate-entry 500 for the folder,
+# which would take latest.json (and every 0.1.0 install's updates) with it.
+# .sig files are not published: signatures live inside the manifests.
+
+schema: 1
+
+project:
+  slug: mikedown-downloads
+  name: MikeDown Downloads
+  description: 'Publishes MikeDown Desktop release artifacts (DMG, updater .app.tar.gz, NSIS setup .exe) and the updater manifests (latest-<target>-<arch>.json, latest.json) to iadev.net/mikedown/ on IADEV-2025. Packed on the Mac by packages/desktop/deploy/pack-for-lymedeploy.sh; a notarized DMG cannot be built on a Windows agent.'
+  group: Software Updates
+  enabled: true
+  active: true
+  allowDirectDeploy: false   # Production-only progression: Production is rung 0, no bypass needed
+  retain: 3
+
+environments:
+  - name: Production
+    sortOrder: 1
+
+# Additive (no --prune): this only ADDS IADEV-2025's Production mapping for
+# this project. Steps target role `webserver`, which only IADEV-2025 carries
+# in Production (PMO-PROD-VM uses pmo-downloads, DEVCENTER2019 lymewatch).
+machines:
+  - name: IADEV-2025
+    environments:
+      - Production
+
+steps:
+  - name: Publish MikeDown downloads
+    type: publish-files
+    sortOrder: 1
+    enabled: true
+    targetRole: webserver
+    config:
+      packageId: MikeDown.Downloads
+      targetPath: '#{PublishRoot}'
+      # Adds and replaces; publish-files never prunes, so every older version's
+      # artifacts stay published (rollback = put the previous manifests back).
+      skipIfHashMatches: true
+      resetAcls: true            # a %TEMP%-inherited ACL makes IIS serve 401
+      # Anything that points at another file goes last, legacy combined last
+      # of all, so no client ever reads a manifest whose artifact is missing.
+      publishLast:
+        - latest-darwin-aarch64.json
+        - latest-darwin-x86_64.json
+        - latest-windows-x86_64.json
+        - latest.json
+      protectedFiles:
+        - web.config             # a differing live copy fails the deploy before any write
+
+  - name: Verify latest.json is served
+    type: smoke-test
+    sortOrder: 2
+    enabled: true
+    targetRole: webserver
+    config:
+      url: https://www.iadev.net/mikedown/latest.json
+      expectedStatus: 200
+      cacheBust: true
+      followRedirects: true
+      retries: 3
+      retryDelaySeconds: 5
+      requestTimeoutSeconds: 30
+
+  - name: Verify latest-darwin-aarch64.json is served
+    type: smoke-test
+    sortOrder: 3
+    enabled: true
+    targetRole: webserver
+    config:
+      url: https://www.iadev.net/mikedown/latest-darwin-aarch64.json
+      expectedStatus: 200
+      cacheBust: true
+      followRedirects: true
+      retries: 3
+      retryDelaySeconds: 5
+      requestTimeoutSeconds: 30
+
+  - name: Verify latest-windows-x86_64.json is served
+    type: smoke-test
+    sortOrder: 4
+    enabled: true
+    targetRole: webserver
+    config:
+      url: https://www.iadev.net/mikedown/latest-windows-x86_64.json
+      expectedStatus: 200
+      cacheBust: true
+      followRedirects: true
+      retries: 3
+      retryDelaySeconds: 5
+      requestTimeoutSeconds: 30
+
+  # Disabled until CloudflareToken exists on this project. To turn it on:
+  # add the Sensitive variable in the LymeDeploy UI (tick Sensitive BEFORE
+  # pasting; the name must be exactly CloudflareToken), set `enabled: true`
+  # here, apply, then cut a NEW release (variables are snapshotted at release
+  # creation: pack-for-lymedeploy.sh --release-version <v>-r2 --from-release).
+  # Purges every manifest URL in both apex and www forms (they cache
+  # separately; 0.1.0 calls www) plus the download page. Artifacts are new
+  # URLs every release and need no purge.
+  - name: Purge Cloudflare cache for the manifests
+    type: http-request
+    sortOrder: 5
+    enabled: false
+    targetRole: webserver
+    config:
+      method: POST
+      url: https://api.cloudflare.com/client/v4/zones/#{CloudflareZoneId}/purge_cache
+      headers:
+        - 'Authorization: Bearer #{CloudflareToken}'
+      contentType: application/json
+      body: '{"files": ["https://www.iadev.net/mikedown/latest.json", "https://www.iadev.net/mikedown/latest-darwin-aarch64.json", "https://www.iadev.net/mikedown/latest-darwin-x86_64.json", "https://www.iadev.net/mikedown/latest-windows-x86_64.json", "https://www.iadev.net/mikedown/", "https://www.iadev.net/mikedown/index.html", "https://iadev.net/mikedown/latest.json", "https://iadev.net/mikedown/latest-darwin-aarch64.json", "https://iadev.net/mikedown/latest-darwin-x86_64.json", "https://iadev.net/mikedown/latest-windows-x86_64.json", "https://iadev.net/mikedown/", "https://iadev.net/mikedown/index.html"]}'
+      expectedStatus: 200
+      successBodyContains: '"success":true'
+      retries: 1
+      retryDelaySeconds: 5
+      timeoutSeconds: 60
+
+variables:
+  - name: PublishRoot
+    environment: Production
+    value: C:\WebApps\Downloads\mikedown
+  # Same iadev.net zone as lymescribe-downloads (not a secret; that project
+  # stores it as a plain variable too).
+  - name: CloudflareZoneId
+    value: 6c660caacd3e4715244d022b07fe5aac
+  # Zone-scoped (iadev.net) token with Cache > Purge only; the same token
+  # lymescribe-downloads uses works for any path in the zone. LymeDeploy
+  # cannot give a stored secret back, so the value comes from the password
+  # manager (or mint a new one: Specified Domains > iadev.net, Cache > Purge).
+  - name: CloudflareToken
+    secret: true
+    value_home: 'password-manager:LastPass — Cloudflare iadev.net cache purge token'
