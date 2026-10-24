@@ -175,6 +175,7 @@ content_types = '''<?xml version="1.0" encoding="utf-8"?>
   <Default Extension="html" ContentType="text/html" />
   <Default Extension="config" ContentType="application/xml" />
   <Default Extension="txt" ContentType="text/plain" />
+  <Default Extension="png" ContentType="image/png" />
 </Types>
 '''
 names = sorted(n for n in os.listdir(src) if n != '.DS_Store')

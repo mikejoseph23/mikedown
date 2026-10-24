@@ -87,6 +87,13 @@
     .prose { max-width: 680px; color: var(--muted); }
     .prose p + p { margin-top: 12px; }
 
+    .shot { margin: 0; }
+    .shot a { display: block; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-raised); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18); }
+    .shot a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    .shot img { display: block; width: 100%; height: auto; }
+    .shot figcaption { margin-top: 10px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-top: 32px; }
+
     footer { padding: 40px 0 56px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); }
 
     @media (prefers-reduced-motion: reduce) { .dl { transition: none; } }
@@ -125,6 +132,30 @@
         <div class="card">
           <h2>Plain markdown</h2>
           <p>Your files stay ordinary .md text. Export to HTML or PDF when you need to share.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="screenshots">
+      <div class="container">
+        <h2 class="section-title">Screenshots</h2>
+        <figure class="shot">
+          <a href="screenshot-outline-light.png"><img src="screenshot-outline-light.png" width="2000" height="1250" loading="lazy" decoding="async" alt="MikeDown Desktop with a folder of project notes open: the file tree on the left, a roadmap document with a callout, a table and a task list in the middle, and the document sidebar on the right showing its outline, backlinks and properties."></a>
+          <figcaption>A folder of notes, with the outline, backlinks and properties of the open document beside it.</figcaption>
+        </figure>
+        <div class="shots">
+          <figure class="shot">
+            <a href="screenshot-outline-dark.png"><img src="screenshot-outline-dark.png" width="2000" height="1250" loading="lazy" decoding="async" alt="The same roadmap document in dark mode, with the file tree and the document sidebar."></a>
+            <figcaption>Follows your system's light or dark appearance.</figcaption>
+          </figure>
+          <figure class="shot">
+            <a href="screenshot-split-panes.png"><img src="screenshot-split-panes.png" width="2000" height="1250" loading="lazy" decoding="async" alt="Two documents side by side in split panes: the roadmap with a code block and a flowchart diagram on the left, meeting notes with their own outline sidebar on the right."></a>
+            <figcaption>Split panes, each with its own tabs and sidebar.</figcaption>
+          </figure>
+          <figure class="shot">
+            <a href="screenshot-version-history.png"><img src="screenshot-version-history.png" width="2000" height="1250" loading="lazy" decoding="async" alt="Version history comparing an earlier version of the roadmap with the current one in a side-by-side diff, with changed lines highlighted."></a>
+            <figcaption>Version history with a side-by-side diff and one-click restore.</figcaption>
+          </figure>
         </div>
       </div>
     </section>

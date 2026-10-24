@@ -98,7 +98,13 @@ export function checkStagedUpload({ version, platforms, files, dirs = [], pubkey
       problems.push(...checkArtifactBytes({ where: `${name} downloads.${k}`, entry: { size: d.size, sha256: d.sha256 }, data: files[file], pubkey, version }));
     }
   }
-  const known = new Set([...ALL_MANIFESTS, 'index.html', 'web.config', 'SHA256SUMS.txt']);
+  // The download page's own images (screenshots): published only when
+  // index.html names them, and every one it names must be staged.
+  const pageImages = files['index.html'] ? pageImageNames(files['index.html'].toString('utf8')) : [];
+  for (const img of pageImages) {
+    if (!files[img]) {problems.push(`index.html shows ${img}, which is not in the folder`);}
+  }
+  const known = new Set([...ALL_MANIFESTS, 'index.html', 'web.config', 'SHA256SUMS.txt', ...pageImages]);
   for (const name of Object.keys(files)) {
     if (known.has(name) || referenced.has(name)) {continue;}
     if (!name.includes(version)) {problems.push(`${name} is unversioned and nothing references it`);}
@@ -106,4 +112,16 @@ export function checkStagedUpload({ version, platforms, files, dirs = [], pubkey
     else {problems.push(`${name} is not referenced by any manifest`);}
   }
   return problems;
+}
+
+/**
+ * Local images the download page shows: every `src="name.png"` that is a
+ * bare file name next to the page. IIS maps .png out of the box, so the
+ * page's web.config needs no mimeMap (adding one would 500 the folder), and
+ * pack-for-lymedeploy.sh declares its content type in the package.
+ */
+export function pageImageNames(html) {
+  const out = new Set();
+  for (const m of html.matchAll(/\bsrc="([A-Za-z0-9._-]+\.png)"/g)) {out.add(m[1]);}
+  return [...out];
 }

@@ -10,8 +10,8 @@
  * manifests announce this version; latest.json is there for a full release
  * and NOT there for a split one; every URL in every manifest names a file in
  * the folder whose size, sha256 and minisign signature (against the
- * tauri.conf.json pubkey, with the signed version) match; and nothing else is
- * in the folder. release.sh runs it after staging, pack-for-lymedeploy.sh
+ * tauri.conf.json pubkey, with the signed version) match; every image
+ * index.html shows is there; and nothing else is in the folder. release.sh runs it after staging, pack-for-lymedeploy.sh
  * before packing.
  */
 import fs from 'node:fs';

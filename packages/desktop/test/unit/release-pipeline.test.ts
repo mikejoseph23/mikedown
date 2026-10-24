@@ -81,7 +81,9 @@ function stageUpload(dir, upload, version, platforms) {
   const want = parsePlatforms(platforms);
   const files = [...(want.mac ? [n.macTar, n.dmg] : []), ...(want.windows ? [n.win] : []), ...ALL_MANIFESTS];
   for (const f of files) {if (fs.existsSync(path.join(dir, f))) {fs.copyFileSync(path.join(dir, f), path.join(upload, f));}}
-  fs.copyFileSync(path.join(repoRoot, 'website', 'mikedown-desktop', 'index.html'), path.join(upload, 'index.html'));
+  const site = path.join(repoRoot, 'website', 'mikedown-desktop');
+  fs.copyFileSync(path.join(site, 'index.html'), path.join(upload, 'index.html'));
+  for (const f of fs.readdirSync(site)) {if (f.endsWith('.png')) {fs.copyFileSync(path.join(site, f), path.join(upload, f));}}
   fs.copyFileSync(path.join(deployDir, 'site', 'web.config'), path.join(upload, 'web.config'));
 }
 
@@ -284,6 +286,12 @@ describe('make-latest-json.js + check-upload', () => {
     // strays
     expect(check({ ...files, 'MikeDown-0.2.0-windows-x64-setup.exe.sig': Buffer.from('x') }).join('\n')).toMatch(/\.sig files are not published/);
     expect(check({ ...files, 'notes.txt': Buffer.from('x') }).join('\n')).toMatch(/unversioned/);
+    // the download page's screenshots: exactly the ones index.html shows
+    const shot = Object.keys(files).find((f) => f.endsWith('.png'));
+    expect(shot).toBeTruthy();
+    const noShot = { ...files }; delete noShot[shot];
+    expect(check(noShot).join('\n')).toMatch(new RegExp(`index\\.html shows ${shot.replace(/\./g, '\\.')}`));
+    expect(check({ ...files, 'old-screenshot.png': Buffer.from('x') }).join('\n')).toMatch(/old-screenshot\.png is unversioned/);
     expect(check(files, undefined, ['engines']).join('\n')).toMatch(/subfolders/);
   });
 

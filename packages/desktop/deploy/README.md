@@ -65,7 +65,8 @@ Without `--app` it uses `<output>/MikeDown.app`. It skips the updater payload.
 Artifacts are versioned only: `MikeDown-<v>-macos-universal.dmg`,
 `MikeDown-<v>-macos-universal.app.tar.gz(.sig)`,
 `MikeDown-<v>-windows-x64-setup.exe(.sig)`, plus `latest.json`, `index.html`
-(the download page from `website/mikedown-desktop/`) and `web.config`.
+(the download page from `website/mikedown-desktop/`), the screenshots it shows
+(`screenshot-*.png` next to it) and `web.config`.
 
 ## Keys and secrets (none in git)
 

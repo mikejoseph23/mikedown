@@ -21,7 +21,7 @@
 #      Every signature is verified against tauri.conf.json's pubkey and must
 #      carry the signed version, or nothing is written.
 #   5. Stage deploy/dist/<version>/upload/ (versioned artifacts, manifests,
-#      download page, web.config) and gate it with check-upload.js.
+#      download page and its screenshots, web.config) and gate it with check-upload.js.
 #
 # Usage:
 #   release.sh <patch|minor|major|x.y.z> [options]
@@ -222,6 +222,9 @@ for m in latest-darwin-aarch64.json latest-darwin-x86_64.json latest-windows-x86
 done
 cp "${STAGE[@]}" "$UPLOAD/"
 cp "$SITE_SRC/index.html" "$UPLOAD/index.html"
+# The page's screenshots sit next to it; check-upload.js insists on exactly the
+# images index.html shows.
+find "$SITE_SRC" -maxdepth 1 -type f -name '*.png' -exec cp {} "$UPLOAD/" \;
 cp "$SCRIPT_DIR/site/web.config" "$UPLOAD/web.config"
 ( cd "$UPLOAD" && shasum -a 256 -- * > SHA256SUMS.txt )
 node "$SCRIPT_DIR/check-upload.js" --dir "$UPLOAD" --version "$VERSION" --platforms "$PLATFORMS" --base-url "$BASE_URL"
