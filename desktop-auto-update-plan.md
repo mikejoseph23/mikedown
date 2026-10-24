@@ -27,8 +27,8 @@
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
 | [U1 — Updater engine: state, cadence, progress, channel](#u1--updater-engine-state-cadence-progress-channel) | Sonnet | ✅ Done | 9 | Rust + TS logic, no UI; Windows pre-check untested at runtime |
-| [U2 — Update window and settings UI](#u2--update-window-and-settings-ui) | Opus | 🔄 In Progress | — | Sparkle-style window, both OSes |
-| [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | ⬜ Not Started | — | vitest, cargo, e2e |
+| [U2 — Update window and settings UI](#u2--update-window-and-settings-ui) | Opus | ✅ Done | 17 | Sparkle-style window, both OSes; notification click inferred from focus |
+| [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | 🔄 In Progress | — | vitest, cargo, e2e |
 | [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | ✅ Done | 18 | publish path `C:\WebApps\Downloads\mikedown` (vdir), not `Interapp\mikedown`; Mike's manual steps in `deploy/lymedeploy/deploy.yaml` |
 | [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | 🔄 In Progress | — | macOS + Windows staging |
 | [T2 — Release verification on both OSes](#t2--release-verification-on-both-oses) | Sonnet | ⬜ Not Started | — | hands-on, Mike signs off |
@@ -298,15 +298,15 @@ web.config                                   MIME maps only if verification show
 
 Design bar: this should feel like a native macOS Software Update sheet or VS Code's own update notification, not a generic web modal. Use the chrome's existing tokens, a clear hierarchy (title, version line, notes, actions), comfortable spacing, a quiet progress bar, subtle transitions that respect `prefers-reduced-motion`, and correct `forced-colors` behavior.
 
-- [ ] Found-notice (non-modal, bottom-right, replaces today's toast): "MikeDown X is available" with View and close.
-- [ ] Update window per [Update UX](#update-ux-both-oses): title, subtitle, major-update line, "What's new" rendered from markdown and sanitized (no scripts, no remote images, links open in the browser), empty-notes text.
-- [ ] Buttons Skip This Version / Remind Me Later / Install and Relaunch, keyboard order and default button correct, Escape equals Remind Me Later.
-- [ ] Progress and states: downloading with percent, verifying, ready (after a cancelled quit dialog), installing (Windows reopen line), failed with the website link.
-- [ ] OS notification when no window is focused (`tauri-plugin-notification`, permission requested lazily); clicking it opens the window.
-- [ ] Settings > App > Updates: "Automatically check for updates" (existing `updates.checkOnLaunch` key), "Last checked", Check Now; hidden in the store channel.
-- [ ] Manual-check feedback strings per [Update UX](#update-ux-both-oses).
-- [ ] ARIA: `alertdialog` for the window, live region for progress, focus returns to the previous element on close.
-- [ ] Commit.
+- [x] Found-notice (non-modal, bottom-right, replaces today's toast): "MikeDown X is available" with View and close.
+- [x] Update window per [Update UX](#update-ux-both-oses): title, subtitle, major-update line, "What's new" rendered from markdown and sanitized (no scripts, no remote images, links open in the browser), empty-notes text.
+- [x] Buttons Skip This Version / Remind Me Later / Install and Relaunch, keyboard order and default button correct, Escape equals Remind Me Later.
+- [x] Progress and states: downloading with percent, verifying, ready (after a cancelled quit dialog), installing (Windows reopen line), failed with the website link.
+- [x] OS notification when no window is focused (`tauri-plugin-notification`, permission requested lazily); clicking it opens the window.
+- [x] Settings > App > Updates: "Automatically check for updates" (existing `updates.checkOnLaunch` key), "Last checked", Check Now; hidden in the store channel.
+- [x] Manual-check feedback strings per [Update UX](#update-ux-both-oses).
+- [x] ARIA: `alertdialog` for the window, live region for progress, focus returns to the previous element on close.
+- [x] Commit.
 
 [Return to Top](#mikedown-desktop-auto-update-lymescribe-parity--planning-document)
 
@@ -434,6 +434,8 @@ If dispatching fills the orchestrator's context, prompt Mike to run `/compact` w
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-24 00:30** - U2 done (cherry-picked from b05be16). Found-notice, top-sliding update sheet with sanitized notes, all states, Settings > App > Updates, `tauri-plugin-notification`. The plugin can't report desktop notification clicks, so focusing the app within 10 min of a notification opens the window (T2 checks both OSes). Added a Hide button during downloads (not in spec). About's old Check for Updates button removed; Check Now lives in the Updates group. Main tree: typecheck green, vitest 492/492, cargo 115, e2e update-window 3/3. T1 dispatched.
 
 **2026-10-24 00:20** - U3 done (cherry-picked from 989169c). Per-target manifests with sha256/size and the split-release rule, `release.sh` `--mac-only`/`--windows-only` + notes confirmation + key and signed-version guards, `pack-for-lymedeploy.sh`, `deploy/lymedeploy/deploy.yaml`, `verify-published.sh` (minisign verify, www/apex agree, HEAD lengths), download page reads per-target manifests. Publish target changed to the `C:\WebApps\Downloads\mikedown` virtual directory to match other downloads projects. `web.config` has no MIME maps; `.sig` files no longer uploaded. MIME: `.tar.gz`/`.dmg`/`.json` 200 on the same site, `.exe` unconfirmed until first publish. Main tree: typecheck green, vitest 433/433. Nothing published, purged or pushed. U4 dispatched.
 
