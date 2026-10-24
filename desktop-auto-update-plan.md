@@ -32,7 +32,7 @@
 | [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | ✅ Done | 18 | publish path `C:\WebApps\Downloads\mikedown` (vdir), not `Interapp\mikedown`; Mike's manual steps in `deploy/lymedeploy/deploy.yaml` |
 | [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | ✅ Done | 56 | Mac 20 PASS/1 SKIP, Win 23 PASS/2 SKIP; real 0.1.0 process not exercised (labeled equivalent) |
 | [T2 — Release verification on both OSes](#t2--release-verification-on-both-oses) | Sonnet | 🔄 In Progress | — | hands-on, Mike signs off |
-| [U5 — Docs and runbooks](#u5--docs-and-runbooks) | Haiku | 🔄 In Progress | — | README, key backup and rotation |
+| [U5 — Docs and runbooks](#u5--docs-and-runbooks) | Haiku | 🟡 Awaiting Mike | 2 | docs done; key backup lines blank until Mike confirms |
 
 ---
 
@@ -394,10 +394,10 @@ Design bar: this should feel like a native macOS Software Update sheet or VS Cod
 
 > **Worker requirement:** complete ALL items. If one should be deferred, say so in your summary but still attempt it unless truly blocked.
 
-- [ ] `packages/desktop/deploy/README.md`: updater behavior rewritten for the new UX and cadence, manifest layout, split-release rule, LymeDeploy publish, purge, verify, rollback.
+- [x] `packages/desktop/deploy/README.md`: updater behavior rewritten for the new UX and cadence, manifest layout, split-release rule, LymeDeploy publish, purge, verify, rollback.
 - [ ] Key runbook: backup locations for `~/.tauri/mikedown.key` and its Keychain password, confirmed with Mike (checkbox stays open until he confirms); rotation procedure with the bridge pattern.
-- [ ] `updater-state.json` and log locations per OS for support.
-- [ ] Commit.
+- [x] `updater-state.json` and log locations per OS for support.
+- [x] Commit.
 
 [Return to Top](#mikedown-desktop-auto-update-lymescribe-parity--planning-document)
 
@@ -434,6 +434,8 @@ If dispatching fills the orchestrator's context, prompt Mike to run `/compact` w
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-24 01:25** - U5 docs merged (from 6ffcbb4): `deploy/README.md` rewritten (UX, cadence, state and log paths per OS, split releases, LymeDeploy, purge, verify, rollback) and new `deploy/key-runbook.md`. Key backup lines are placeholders until Mike confirms. Finding: the rotation bridge as written doesn't work, because the plugin falls through endpoints only on fetch/parse failure, not on a bad signature; the bridge release N would also have to move clients to a new endpoint path and freeze the old URLs at N (LymeScribe's Personal bridge shape). Open in the runbook; not needed unless the key is rotated.
 
 **2026-10-24 01:20** - U4 done (merged as 872da72). `updater-staging-test.sh --headless` (macOS, 20 PASS / 1 SKIP) and `updater-staging-test-windows.sh` driving `updater-staging-test.ps1` on DEVBOX1 (23 PASS / 2 SKIP), 0 FAIL: per-target N to N+1, 404 fallback, tampered, other key, downgrade, replay, offline, skip/snooze, codesign and Authenticode pre-checks, quiet relaunch. The engine is compiled into `tests/updater_cases.rs`; T1's mock-runtime endpoint tests moved to `tests/updater_endpoints.rs` in the merge. Continuity is a labeled equivalent (see U4). Windows relaunch needs an interactive session, so the script hands over via a per-user scheduled task. One early silent check on DEVBOX1 fetched the production manifest (read only) before the staging build was fixed. No U1 bugs found. Main tree: cargo 120 + 26 + 7, vitest 498/498. T2 (automated half) and U5 dispatched.
 
