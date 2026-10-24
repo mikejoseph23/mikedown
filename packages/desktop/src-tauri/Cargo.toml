@@ -1,6 +1,6 @@
 [package]
 name = "mikedown-desktop"
-version = "0.2.0"
+version = "0.3.0"
 description = "MikeDown Desktop: a WYSIWYG markdown editor"
 authors = ["Mike Joseph"]
 license = "MIT"
