@@ -687,6 +687,9 @@
     "test:react": "npm test -w packages/react",
     "test:vue": "npm test -w packages/vue",
     "test:web-component": "vitest run packages/web-component/test --reporter=verbose",
+    "test:site": "npm run build:site && npm run test:site:built",
+    "test:site:built": "vitest run --config website/vitest.config.mjs",
+    "check:readme-links": "node scripts/check-readme-links.mjs",
     "test:wrappers": "npm run test:web-component && npm run test:react && npm run test:vue && npm run test:angular",
     "test:consumers": "node scripts/consumer-smoke.mjs",
     "pretest": "npm run compile"
