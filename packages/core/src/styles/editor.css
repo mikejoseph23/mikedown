@@ -283,6 +283,12 @@
   padding-left: 1.5em;
   margin: 0.5em 0;
 }
+/* Markers are set explicitly so a page reset (Tailwind preflight's
+   `ul, ol { list-style: none }`) cannot strip them. Task lists override this. */
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul { list-style-type: disc; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul ul { list-style-type: circle; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul ul ul { list-style-type: square; }
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ol { list-style-type: decimal; }
 :is(.mikedown-root, .mikedown-portal) .ProseMirror li {
   margin: 0.15em 0;
 }
