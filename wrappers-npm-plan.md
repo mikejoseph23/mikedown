@@ -44,7 +44,7 @@
 | [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ✅ Complete | 14 | UI design |
 | [M14 — READMEs](#m14--readmes) | Sonnet | ✅ Complete | 3 | Root (Marketplace listing) + per package |
 | [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ✅ Complete | 7 | link check + hands-on |
-| [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ⬜ Not Started | — | Mike runs publish and deploy |
+| [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | 🔄 Awaiting Mike publish | 6 | Mike runs publish and deploy |
 | [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | ⬜ Not Started | — | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
 | [T4 — Final verification](#t4--final-verification) | Sonnet | ⬜ Not Started | — | registry smoke + production URLs |
 
@@ -512,9 +512,9 @@ On each demo page:
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] `npm run version:npm -- 0.2.0`; per-package `CHANGELOG.md` entries; `test:packages`, `test:wrappers`, `test:consumers` green; `npm run release:npm` dry run lists every package. Commit `npm packages 0.2.0`.
+- [x] `npm run version:npm -- 0.2.0`; per-package `CHANGELOG.md` entries; `test:packages`, `test:wrappers`, `test:consumers` green; `npm run release:npm` dry run lists every package. Commit `npm packages 0.2.0`.
 - [ ] **Stop.** Hand Mike: `npm run release:npm -- --publish`. After he confirms, `npm view @mikedown/<name> version` for each; record versions in the Progress Log. Ask before tagging `npm-v0.2.0` and pushing.
-- [ ] Update the site's install commands if they pin versions; rebuild.
+- [x] Update the site's install commands if they pin versions; rebuild.
 - [ ] **Stop.** Hand Mike, in order: the M11 site-only pack (`pack-for-lymedeploy.sh` site mode) and `lymedeploy` apply of that site release for `mikedown-downloads`, dry-run first (it includes the re-rendered desktop page); the Cloudflare purge (or wait out the edge cache). Check the package holds no `latest*.json` or artifacts before he applies.
 - [ ] After Mike confirms, `curl -s -o /dev/null -w "%{http_code}"` each production URL in T4 returns 200, and `https://www.iadev.net/mikedown/latest.json` is unchanged, as are the desktop artifacts.
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 20:05** - M15 prep done (`npm packages 0.2.0`, 6 min): all five packages at 0.2.0, wrapper peers `^0.2.0`, per-package CHANGELOGs (react's added to `files`), site already pins `@0.2.0`. Main tree: lint, `test:unit`, `test:edge`, `test:packages`, `test:wrappers` green; `test:consumers` green in the worktree except `angular-latest` (skipped, local Node 22.20 < 22.22.3); `release:npm` dry run lists all five at 0.2.0. Angular lockfile kept to the version bumps (the worker's regen dropped optional rollup entries). Site pack dry run: `0.3.0-site.1`, 195 files, no `latest*.json`, no Desktop artifacts. Waiting on Mike: `release:npm -- --publish`, then the site pack and apply.
 
 **2026-10-24 19:45** - T3 hands-on: Mike signed off the developers hub, four demo pages and the VS Code page ("fucking awesome"). T3 complete; M15 unblocked.
 
