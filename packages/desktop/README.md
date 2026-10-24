@@ -244,3 +244,57 @@ macOS close-button dot) and `set_represented_file` (the title-bar proxy icon)
 through `objc2-app-kit`; both are no-ops elsewhere. `launch.rs` queues files
 from argv, the single-instance callback and macOS `RunEvent::Opened` until the
 page calls `frontend_ready`, then emits `mikedown:open-files`.
+
+## Edge cases and accessibility (M11)
+
+**Line endings and encoding (edge 11).** Files are read as UTF-8 text with `\n`
+inside the editor. The BOM and the line-ending style are remembered per file
+and written back on save, so an unedited round trip is byte-identical
+(`saving_a_fixture_leaves_the_file_byte_identical` in `fs.rs`, fixtures in
+`test/fixtures/encoding/`). A file with **mixed** endings is written back in
+the **majority** style (CRLF when the counts tie), so one save normalises it;
+that is the only case where a save changes bytes you did not edit. A file that
+is not valid UTF-8 opens read-only in source mode with a notice and is never
+rewritten in place; Save As writes a UTF-8 copy.
+
+**Large files (edge 12).** Over 2 MB opens in source mode with an info bar and
+"Open as rich text anyway"; a source-mode tab saves like any other (no version
+snapshot above 2 MB). Over 20 MB is refused before a byte is read and offers
+the OS default app.
+
+**Names and paths (edge 25).** New, rename, move, copy, Save As and pasted
+images check the name and, on Windows, the 259-character path limit in Rust
+before any disk call: reserved device names (`CON`, `PRN`, `AUX`, `NUL`,
+`COM1` to `COM9`, `LPT1` to `LPT9`, with or without an extension), trailing
+dots and spaces, and `<>:"|?*`. The message is a plain sentence. A path that
+already exists is never re-validated, so a legacy long path keeps saving.
+
+**Read-only and permissions (edge 10).** A read-only file opens normally with a
+lock badge; `CmdOrCtrl+S` offers Save As with the reason. OS failures come back
+as sentences ("You do not have permission to change this file...") with the
+system text in brackets. A folder you cannot write to (`access(2)` on macOS and
+Linux; the read-only attribute on Windows, so an ACL-denied folder only fails
+with the plain message when used) disables New File, New Folder, Rename and
+Delete, with the reason as the tooltip.
+
+**Network volumes and cloud placeholders (edge 10).** A folder on a network
+volume (SMB, NFS, AFP, a Windows UNC path or mapped drive) is watched by
+polling every 2 s from the start: on an SMB share FSEvents starts without error
+and then never reports another machine's change. Cloud placeholders: macOS
+downloads an evicted iCloud file on first read (about 1 s for a small file);
+reads that take over about 10 s show "still downloading" with Retry in the
+pane's info bar. On Windows a failed OneDrive download (`ERROR_CLOUD_FILE_*`)
+gets the same state at once instead of an error dialog.
+
+**Accessibility (edge 26).** `test/e2e/a11y.spec.ts` runs axe (WCAG 2 A and AA)
+over the welcome screen, tree, tabs and split, search results, Settings, the
+changed-on-disk dialog and the diff viewer; chrome violations fail the suite,
+core violations are printed as notes. Tabs are not nested controls (close is a
+mouse affordance; keyboards use `CmdOrCtrl+W`), the downloading Retry button
+lives in the info bar, search rows get their names from their text. In `app.css`:
+`prefers-reduced-motion` stops every transition and animation;
+`prefers-contrast: more` overrides the `--mikedown-*` tokens (borders, text,
+focus ring) for light and dark, which core and the chrome both read;
+`forced-colors` keeps borders and focus outlines on system colors. Keyboard-only
+use (tree, open, tabs, split, search, Settings) is exercised in
+`test/e2e/polish.spec.ts`.
