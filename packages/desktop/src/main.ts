@@ -361,7 +361,7 @@ const panes = createPaneManager({
   onFocusChanged: (paneId) => {
     controllerRef?.refresh();
     const ed = panes.editor(paneId);
-    if (ed?.stats) {chrome.setStats(ed.stats);}
+    if (ed?.stats) {chrome.setStats({ selection: null, ...ed.stats });}
     syncFolderButton();
   },
   leading: chrome.sidebarToggle,
@@ -374,9 +374,6 @@ panesReady = true;
 // The panes container keeps the `#editor` id index.html had, so `#editor
 // .ProseMirror` still finds the editors (specs, Web Inspector habits).
 panes.el.id = 'editor';
-
-// Stats arrive per pane; keep the last ones so a focus change can show them.
-const paneStats = new Map<string, Parameters<typeof chrome.setStats>[0]>();
 
 async function createFileWithText(p: string, content: string): Promise<void> {
   await treeApi.createFile(p);
@@ -435,7 +432,8 @@ const controller = createDocumentController({
 controllerRef = controller;
 const baseOnStats = controller.onStats;
 controller.onStats = (paneId, stats) => {
-  paneStats.set(paneId, stats);
+  // Kept per pane so a focus change can show that pane's count right away.
+  panes.noteStats(paneId, stats);
   baseOnStats(paneId, stats);
 };
 

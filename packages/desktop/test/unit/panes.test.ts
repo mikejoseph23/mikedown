@@ -177,6 +177,13 @@ describe('split panes', () => {
     expect(await asking).toBe(false);
     expect(app.registry.all().filter((d) => d.dirty)).toHaveLength(3);
   });
+  it('keeps each pane\'s last stats, merging partial document / selection reports', async () => {
+    expect(await app.controller.openPath(`${DIR}/a.md`)).toBe(true);
+    const id = app.panes.focusedPaneId();
+    app.panes.noteStats(id, { document: 'one two', selection: null });
+    app.panes.noteStats(id, { selection: { words: 1, chars: 3 } });
+    expect(app.panes.editor(id)!.stats).toEqual({ document: 'one two', selection: { words: 1, chars: 3 } });
+  });
 });
 
 describe('document states', () => {

@@ -109,3 +109,43 @@ test('large files open in source mode with an "Open as rich text anyway" bar (ed
   await expect(notice).toBeHidden();
   await expect.poll(() => page.evaluate(() => (window as any).mikedown.getViewState().sourceMode)).toBe(false);
 });
+
+test('the status bar word count follows the focused pane and the active tab', async ({ page, ipc }) => {
+  fs.writeFileSync(path.join(ipc.dir, 'one.md'), 'One.\n');
+  fs.writeFileSync(path.join(ipc.dir, 'three.md'), 'One two three.\n');
+  ipc.launchFiles = [ipc.dir];
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await page.goto('/');
+  const tree = page.getByRole('tree', { name: 'Files' });
+  const words = page.locator('.mdapp-status__words');
+
+  await tree.getByRole('treeitem', { name: 'one.md', exact: true }).click();
+  await expect(words).toHaveText(/^1 word\b/);
+  await tree.getByRole('treeitem', { name: 'three.md', exact: true }).click();
+  await expect(words).toHaveText(/^3 words\b/);
+
+  // Tab switch within a pane.
+  const strip = page.getByRole('tablist', { name: 'Open documents' });
+  await strip.getByRole('tab', { name: /one\.md/ }).click();
+  await expect(words).toHaveText(/^1 word\b/);
+
+  // Split: the new pane shows one.md; open three.md there, then move focus back and forth.
+  await page.locator('.mdapp-pane--focused .ProseMirror').click();
+  await page.keyboard.press('ControlOrMeta+\\');
+  const panes = page.locator('.mdapp-pane');
+  await expect(panes).toHaveCount(2);
+  await tree.getByRole('treeitem', { name: 'three.md', exact: true }).click();
+  await expect(panes.nth(1).locator('.ProseMirror')).toContainText('One two three.');
+  await expect(words).toHaveText(/^3 words\b/);
+
+  await panes.nth(0).locator('.ProseMirror').click();
+  await expect(words).toHaveText(/^1 word\b/);
+  await panes.nth(1).locator('.ProseMirror').click();
+  await expect(words).toHaveText(/^3 words\b/);
+  // A selection in one pane does not wipe its count for the next focus change.
+  await page.keyboard.press('ControlOrMeta+a');
+  await panes.nth(0).locator('.ProseMirror').click();
+  await expect(words).toHaveText(/^1 word\b/);
+  await panes.nth(1).getByRole('tab', { name: /three\.md/ }).click();
+  await expect(words).toHaveText(/^3 words\b/);
+});

@@ -87,6 +87,8 @@ export interface PaneManager {
   setFocused(paneId: string, opts?: { focusEditor?: boolean }): void;
   editor(paneId: string): PaneEditor | null;
   editors(): PaneEditor[];
+  /** Remember what a pane's editor last reported (stats arrive partial: document and/or selection). */
+  noteStats(paneId: string, stats: MikeDownStats): void;
   /** The document the focused pane shows. */
   activeDoc(paneId?: string): DocumentModel | null;
   activeHandle(): MikeDownEditorHandle | null;
@@ -701,6 +703,10 @@ export function createPaneManager(deps: PaneManagerDeps): PaneManager {
       return v ? { handle: v.handle, stats: v.stats } : null;
     },
     editors: () => [...views.values()].map((v) => ({ handle: v.handle, stats: v.stats })),
+    noteStats(paneId, stats) {
+      const view = views.get(paneId);
+      if (view) {view.stats = { ...view.stats, ...stats };}
+    },
     activeDoc: (paneId = focused) => views.get(paneId)?.attached ?? null,
     activeHandle: () => views.get(focused)?.handle ?? null,
     open(doc, opts) {
