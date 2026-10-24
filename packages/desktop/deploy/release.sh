@@ -23,6 +23,12 @@
 #   5. Stage deploy/dist/<version>/upload/ (versioned artifacts, manifests,
 #      download page and its screenshots, web.config) and gate it with check-upload.js.
 #
+# Linux (preview): a full release also builds an unsigned x86_64 AppImage
+# (linux/build-linux.sh, Docker) as MikeDown-<v>-linux-x86_64.AppImage. It is a
+# manual download only: no signature, no updater, and NO manifest entry. The
+# page links it (render-page.js fills the page's Linux blocks); without it the
+# blocks are removed. --mac-only/--windows-only releases skip it.
+#
 # Usage:
 #   release.sh <patch|minor|major|x.y.z> [options]
 #   release.sh --no-bump [options]            (re-run for the current version)
@@ -32,6 +38,7 @@
 #   --mac-only                 Ship macOS only: darwin manifests, latest.json untouched.
 #   --windows-only             Ship Windows only: windows manifest, latest.json untouched.
 #   --windows-exe <file>       Use this signed installer instead of the remote build.
+#   --no-linux                 Skip the Linux (preview) AppImage (full releases build it by default).
 #   --skip-notarize            Signed, not notarized. Not shippable.
 #   --allow-unpublished-core   See check-core-pin.js (needed until core is on npm).
 #   --yes                      Don't ask about the release notes (you just read them).
@@ -53,7 +60,7 @@ SITE_SRC="$REPO_ROOT/website/mikedown-desktop"
 BASE_URL="https://www.iadev.net/mikedown/"
 
 BUMP=""; NO_BUMP=false; NOTES=""; MAC_ARGS=(); CORE_FLAG=(); MAC_ONLY=false; WIN_ONLY=false; WIN_EXE=""
-ASSUME_YES=false; DRY_RUN=false; PUBLISH=false; DIST=""
+ASSUME_YES=false; DRY_RUN=false; PUBLISH=false; DIST=""; NO_LINUX=false
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-bump) NO_BUMP=true; shift ;;
@@ -63,6 +70,7 @@ while [[ $# -gt 0 ]]; do
         --mac-only) MAC_ONLY=true; shift ;;
         --windows-only) WIN_ONLY=true; shift ;;
         --windows-exe) WIN_EXE="$2"; shift 2 ;;
+        --no-linux) NO_LINUX=true; shift ;;
         --yes|-y) ASSUME_YES=true; shift ;;
         --dry-run) DRY_RUN=true; shift ;;
         --publish) PUBLISH=true; shift ;;
@@ -77,9 +85,10 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 [[ "$MAC_ONLY" == true && "$WIN_ONLY" == true ]] && die "--mac-only and --windows-only are exclusive."
 [[ -n "$WIN_EXE" && "$MAC_ONLY" == true ]] && die "--windows-exe makes no sense with --mac-only."
 [[ -n "$NOTES" && ! -f "$NOTES" ]] && die "notes file $NOTES not found."
-SHIP_MAC=true; SHIP_WIN=true
+SHIP_MAC=true; SHIP_WIN=true; SHIP_LINUX=true
 [[ "$WIN_ONLY" == true ]] && SHIP_MAC=false
 [[ "$MAC_ONLY" == true ]] && SHIP_WIN=false
+[[ "$MAC_ONLY" == true || "$WIN_ONLY" == true || "$NO_LINUX" == true ]] && SHIP_LINUX=false
 if [[ "$SHIP_MAC" == true && "$SHIP_WIN" == true ]]; then PLATFORMS="mac,windows"; KIND="full release"; VERIFY_FLAG=""
 elif [[ "$SHIP_MAC" == true ]]; then PLATFORMS="mac"; KIND="macOS-only release"; VERIFY_FLAG="--mac-only"
 else PLATFORMS="windows"; KIND="Windows-only release"; VERIFY_FLAG="--windows-only"; fi
@@ -140,6 +149,7 @@ echo "Release $VERSION from $(git -C "$REPO_ROOT" rev-parse --short HEAD) -> $DI
 MAC_TAR="MikeDown-$VERSION-macos-universal.app.tar.gz"
 MAC_DMG="MikeDown-$VERSION-macos-universal.dmg"
 WIN_NAME="MikeDown-$VERSION-windows-x64-setup.exe"
+LINUX_NAME="MikeDown-$VERSION-linux-x86_64.AppImage"
 
 # ── 2. macOS ────────────────────────────────────────────────────────────────
 if [[ "$SHIP_MAC" == true ]]; then
@@ -149,6 +159,19 @@ if [[ "$SHIP_MAC" == true ]]; then
         echo "(dry run) would run: build-mac.sh --output $DIST ${MAC_ARGS[*]-} ${CORE_FLAG[*]-}"
     else
         "$SCRIPT_DIR/build-mac.sh" --output "$DIST" ${MAC_ARGS[@]+"${MAC_ARGS[@]}"} ${CORE_FLAG[@]+"${CORE_FLAG[@]}"}
+    fi
+fi
+
+# ── 2b. Linux (preview) ─────────────────────────────────────────────────────
+if [[ "$SHIP_LINUX" == true ]]; then
+    if [[ -f "$DIST/$LINUX_NAME" ]]; then
+        echo "Linux AppImage already in $DIST; delete it to rebuild."
+    elif [[ "$DRY_RUN" == true ]]; then
+        echo "(dry run) would run: linux/build-linux.sh --output $DIST, then rename MikeDown_${VERSION}_amd64.AppImage to $LINUX_NAME"
+    else
+        "$SCRIPT_DIR/linux/build-linux.sh" --output "$DIST"
+        [[ -f "$DIST/MikeDown_${VERSION}_amd64.AppImage" ]] || die "build-linux.sh did not leave MikeDown_${VERSION}_amd64.AppImage in $DIST."
+        mv "$DIST/MikeDown_${VERSION}_amd64.AppImage" "$DIST/$LINUX_NAME"
     fi
 fi
 
@@ -186,6 +209,7 @@ fi
 NEED=()
 [[ "$SHIP_MAC" == true ]] && NEED+=("$MAC_TAR" "$MAC_TAR.sig" "$MAC_DMG")
 [[ "$SHIP_WIN" == true ]] && NEED+=("$WIN_NAME" "$WIN_NAME.sig")
+[[ "$SHIP_LINUX" == true ]] && NEED+=("$LINUX_NAME")
 MISSING=()
 for f in "${NEED[@]}"; do [[ -f "$DIST/$f" ]] || MISSING+=("$f"); done
 if [[ ${#MISSING[@]} -gt 0 ]]; then
@@ -217,11 +241,16 @@ mkdir -p "$UPLOAD"
 STAGE=()
 [[ "$SHIP_MAC" == true ]] && STAGE+=("$DIST/$MAC_DMG" "$DIST/$MAC_TAR")
 [[ "$SHIP_WIN" == true ]] && STAGE+=("$DIST/$WIN_NAME")
+[[ "$SHIP_LINUX" == true ]] && STAGE+=("$DIST/$LINUX_NAME")
 for m in latest-darwin-aarch64.json latest-darwin-x86_64.json latest-windows-x86_64.json latest.json; do
     [[ -f "$MANIFEST_DIR/$m" ]] && STAGE+=("$MANIFEST_DIR/$m")
 done
 cp "${STAGE[@]}" "$UPLOAD/"
-cp "$SITE_SRC/index.html" "$UPLOAD/index.html"
+# The page's Linux blocks are filled from the staged AppImage (or removed).
+LINUX_ARGS=()
+[[ "$SHIP_LINUX" == true ]] && LINUX_ARGS=(--linux "$DIST/$LINUX_NAME")
+node "$SCRIPT_DIR/render-page.js" --in "$SITE_SRC/index.html" --out "$UPLOAD/index.html" --version "$VERSION" --base-url "$BASE_URL" \
+    ${LINUX_ARGS[@]+"${LINUX_ARGS[@]}"}
 # The page's screenshots sit next to it; check-upload.js insists on exactly the
 # images index.html shows.
 find "$SITE_SRC" -maxdepth 1 -type f -name '*.png' -exec cp {} "$UPLOAD/" \;

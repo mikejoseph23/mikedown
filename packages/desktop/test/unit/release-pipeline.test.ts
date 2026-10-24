@@ -18,7 +18,7 @@ import {
   planManifests, targetManifestName,
 } from '../../deploy/lib/release-lib.js';
 import { parseSignature, signedVersion, verifySignature } from '../../deploy/lib/minisign.js';
-import { checkStagedUpload, manifestExpectations } from '../../deploy/lib/publish-checks.js';
+import { checkStagedUpload, linuxArtifactName, manifestExpectations, parseSha256Sums, renderLinuxPage } from '../../deploy/lib/publish-checks.js';
 
 const pkgDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const deployDir = path.join(pkgDir, 'deploy');
@@ -74,7 +74,7 @@ function makeManifests(dir, version, key, platforms, extra = []) {
 }
 
 /** The upload folder release.sh stages (no .sig files). */
-function stageUpload(dir, upload, version, platforms) {
+function stageUpload(dir, upload, version, platforms, { linux = false } = {}) {
   fs.rmSync(upload, { recursive: true, force: true });
   fs.mkdirSync(upload, { recursive: true });
   const n = NAMES(version);
@@ -82,9 +82,17 @@ function stageUpload(dir, upload, version, platforms) {
   const files = [...(want.mac ? [n.macTar, n.dmg] : []), ...(want.windows ? [n.win] : []), ...ALL_MANIFESTS];
   for (const f of files) {if (fs.existsSync(path.join(dir, f))) {fs.copyFileSync(path.join(dir, f), path.join(upload, f));}}
   const site = path.join(repoRoot, 'website', 'mikedown-desktop');
-  fs.copyFileSync(path.join(site, 'index.html'), path.join(upload, 'index.html'));
+  let linuxInfo = null;
+  if (linux) {
+    const name = linuxArtifactName(version);
+    fs.writeFileSync(path.join(upload, name), crypto.randomBytes(5000));
+    linuxInfo = { url: `${BASE}${name}`, size: 5000 };
+  }
+  fs.writeFileSync(path.join(upload, 'index.html'), renderLinuxPage(fs.readFileSync(path.join(site, 'index.html'), 'utf8'), linuxInfo));
   for (const f of fs.readdirSync(site)) {if (f.endsWith('.png')) {fs.copyFileSync(path.join(site, f), path.join(upload, f));}}
   fs.copyFileSync(path.join(deployDir, 'site', 'web.config'), path.join(upload, 'web.config'));
+  const sums = Object.entries(readFolder(upload)).map(([n, b]) => `${sha(b)}  ${n}`).join('\n');
+  fs.writeFileSync(path.join(upload, 'SHA256SUMS.txt'), `${sums}\n`);
 }
 
 const readFolder = (dir) => Object.fromEntries(fs.readdirSync(dir).map((f) => [f, fs.readFileSync(path.join(dir, f))]));
@@ -295,6 +303,43 @@ describe('make-latest-json.js + check-upload', () => {
     expect(check(files, undefined, ['engines']).join('\n')).toMatch(/subfolders/);
   });
 
+  it('Linux (preview): the page and the AppImage must agree, and no manifest mentions it', () => {
+    const dir = tmp();
+    writeArtifacts(dir, '0.2.0', key);
+    makeManifests(dir, '0.2.0', key, 'mac,windows');
+    const upload = path.join(dir, 'upload');
+    stageUpload(dir, upload, '0.2.0', 'mac,windows', { linux: true });
+    const files = readFolder(upload);
+    const name = linuxArtifactName('0.2.0');
+    const check = (f) => checkStagedUpload({ version: '0.2.0', platforms: { mac: true, windows: true }, files: f, pubkey: key.pubkey, baseUrl: BASE });
+    expect(check(files)).toEqual([]);
+    const page = files['index.html'].toString('utf8');
+    expect(page).toContain(`href="${BASE}${name}"`);
+    expect(page).toMatch(/x86_64 AppImage, 1 MB/);
+    expect(parseSha256Sums(files['SHA256SUMS.txt'].toString('utf8'))[name]).toBe(sha(files[name]));
+    for (const m of ALL_MANIFESTS) {expect(files[m].toString('utf8')).not.toMatch(/linux|AppImage/i);}
+    // linked but not staged, staged but not linked, unrendered placeholders, another version's file
+    const gone = { ...files }; delete gone[name];
+    expect(check(gone).join('\n')).toMatch(/index\.html links .*AppImage, which is not in the folder/);
+    const raw = fs.readFileSync(path.join(repoRoot, 'website', 'mikedown-desktop', 'index.html'));
+    const stripped = { ...files, 'index.html': Buffer.from(renderLinuxPage(raw.toString('utf8'), null)) };
+    expect(check(stripped).join('\n')).toMatch(/staged but index\.html does not link it/);
+    expect(check({ ...files, 'index.html': raw }).join('\n')).toMatch(/@@LINUX_\*@@ placeholders/);
+    expect(check({ ...files, 'MikeDown-0.1.0-linux-x86_64.AppImage': Buffer.from('x') }).join('\n')).toMatch(/AppImage is unversioned|not referenced/);
+  });
+
+  it('a release without Linux removes the page\'s Linux blocks (no dead link)', () => {
+    const raw = fs.readFileSync(path.join(repoRoot, 'website', 'mikedown-desktop', 'index.html'), 'utf8');
+    expect(raw).toContain('Download for Linux (preview)');
+    const out = renderLinuxPage(raw, null);
+    expect(out.split('</head>')[1]).not.toMatch(/Linux|AppImage|linux:/);
+    expect(out).toMatch(/for macOS and Windows\. Double-click/);
+  });
+
+  it('pack-for-lymedeploy.sh declares the AppImage content type', () => {
+    expect(fs.readFileSync(path.join(deployDir, 'pack-for-lymedeploy.sh'), 'utf8')).toContain('<Default Extension="AppImage" ContentType="application/octet-stream" />');
+  });
+
   it('the committed web.config is comment-free and maps no MIME types', () => {
     const wc = fs.readFileSync(path.join(deployDir, 'site', 'web.config'), 'utf8');
     expect(wc).not.toMatch(/<!--/);
@@ -365,6 +410,33 @@ describe('verify-published.js', () => {
     expect(r.out).toMatch(/PASSED/);
     expect(r.code).toBe(0);
     expect(r.out).toMatch(/latest\.json windows-x86_64: .* signature and signed version OK, sha256 OK/);
+  });
+
+  it('Linux (preview): checks the AppImage against SHA256SUMS.txt, and says what a missing MIME map looks like', async () => {
+    const plain = await verify('0.2.0');
+    expect(plain.out).toMatch(/no Linux build in this release/);
+    const up = path.join(root, 'linuxsite');
+    stageUpload(path.join(root, 'b'), up, '0.2.0', 'mac,windows', { linux: true });
+    const saved = path.join(root, 'site-saved');
+    fs.renameSync(path.join(root, 'site'), saved);
+    fs.renameSync(up, path.join(root, 'site'));
+    try {
+      const ok = await verify('0.2.0');
+      expect(ok.out).toMatch(/MikeDown-0\.2\.0-linux-x86_64\.AppImage 200, 5000 bytes, sha256 matches/);
+      expect(ok.code).toBe(0);
+      const f = path.join(root, 'site', linuxArtifactName('0.2.0'));
+      const keep = fs.readFileSync(f);
+      fs.writeFileSync(f, crypto.randomBytes(5000));
+      expect((await verify('0.2.0')).out).toMatch(/sha256 differs from SHA256SUMS\.txt/);
+      fs.rmSync(f); // IIS with no .AppImage mimeMap answers 404 for the file
+      const r = await verify('0.2.0');
+      expect(r.code).toBe(1);
+      expect(r.out).toMatch(/HEAD .* answered 404 .*mimeMap/);
+      fs.writeFileSync(f, keep);
+    } finally {
+      fs.rmSync(path.join(root, 'site'), { recursive: true });
+      fs.renameSync(saved, path.join(root, 'site'));
+    }
   });
 
   it('fails when the wrong version is live', async () => {

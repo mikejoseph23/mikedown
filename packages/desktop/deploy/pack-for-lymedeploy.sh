@@ -151,7 +151,7 @@ if should_run pack; then
     rm -f "$NUPKG"
     # A .nupkg is a zip with a .nuspec; LymeDeploy reads the identity from the
     # .nuspec and publishes the archive root into the target folder. Stored,
-    # not deflated: the payload is already-compressed DMG/tar.gz/NSIS.
+    # not deflated: the payload is already-compressed DMG/tar.gz/NSIS/AppImage.
     PACKAGE_ID="$PACKAGE_ID" VERSION="$VERSION" SRC="$UPLOAD" NUPKG="$NUPKG" python3 -I - <<'PYEOF'
 import os, zipfile
 pid, ver, src, out = (os.environ[k] for k in ('PACKAGE_ID', 'VERSION', 'SRC', 'NUPKG'))
@@ -176,6 +176,7 @@ content_types = '''<?xml version="1.0" encoding="utf-8"?>
   <Default Extension="config" ContentType="application/xml" />
   <Default Extension="txt" ContentType="text/plain" />
   <Default Extension="png" ContentType="image/png" />
+  <Default Extension="AppImage" ContentType="application/octet-stream" />
 </Types>
 '''
 names = sorted(n for n in os.listdir(src) if n != '.DS_Store')

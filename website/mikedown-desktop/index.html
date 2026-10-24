@@ -17,6 +17,9 @@
     latest-windows-x86_64.json, falling back to latest.json), so the page never
     lags a release, including a Mac-only or Windows-only one. No cookies, no
     analytics, no third-party scripts.
+    Linux (preview) has no updater manifest: the blocks between the linux:begin
+    and linux:end markers are filled with the AppImage's URL and size (or removed
+    when a release has no Linux build) by deploy/render-page.js at staging.
   -->
   <style>
     :root {
@@ -75,6 +78,10 @@
     .dl:focus-visible { outline: 3px solid var(--text-strong); outline-offset: 3px; }
     .dl small { font-weight: 400; font-size: 13px; opacity: 0.9; }
     .version { margin-top: 20px; color: var(--muted); font-size: 14px; }
+    .linux-dl { margin: 28px auto 0; font-size: 14px; color: var(--muted); }
+    .linux-dl a { font-weight: 600; }
+    .linux-dl small { display: block; max-width: 520px; margin: 4px auto 0; font-size: 13px; line-height: 1.5; }
+    code { font-size: 0.92em; overflow-wrap: anywhere; }
 
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
     .card { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
@@ -104,7 +111,7 @@
     <section class="hero" id="download">
       <div class="container">
         <h1>MikeDown Desktop</h1>
-        <p>A free WYSIWYG markdown editor for macOS and Windows. Double-click a .md file, or open a folder of notes, and write.</p>
+        <p>A free WYSIWYG markdown editor for macOS and Windows<!--linux:begin-->, with a Linux preview<!--linux:end-->. Double-click a .md file, or open a folder of notes, and write.</p>
         <div class="downloads">
           <a class="dl" data-dl="mac" href="#download">
             Download for Mac
@@ -116,6 +123,12 @@
           </a>
         </div>
         <p class="version" data-version>Signed and notarized on macOS, signed on Windows. Updates install from inside the app.</p>
+        <!--linux:begin-->
+        <p class="linux-dl">
+          <a data-linux href="@@LINUX_URL@@" download>Download for Linux (preview)</a> · x86_64 AppImage, @@LINUX_MB@@ MB
+          <small>Unsigned, no auto-update. Run <code>chmod +x</code> on it first. On Arch it needs <code>fuse2</code>, or launch it with <code>--appimage-extract-and-run</code>.</small>
+        </p>
+        <!--linux:end-->
       </div>
     </section>
 
@@ -178,6 +191,16 @@
               <li>Requires Windows 10 version 1809 or later. The Microsoft Edge WebView2 runtime is installed if missing.</li>
             </ul>
           </div>
+          <!--linux:begin-->
+          <div class="card">
+            <h2>Linux (preview)</h2>
+            <ul>
+              <li>Download the AppImage, make it executable (<code>chmod +x MikeDown-*.AppImage</code>) and run it.</li>
+              <li>x86_64 only. Unsigned, and it does not update itself: download new versions from this page.</li>
+              <li>Needs FUSE 2 (<code>fuse2</code> on Arch, <code>libfuse2</code> on Debian and Ubuntu). Without it, run <code>./MikeDown-*.AppImage --appimage-extract-and-run</code>.</li>
+            </ul>
+          </div>
+          <!--linux:end-->
         </div>
       </div>
     </section>

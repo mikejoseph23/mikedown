@@ -10,7 +10,7 @@ everything in `deploy/dist/<version>/upload/`; publishing is the separate
 
 | Script | Runs on | Does |
 | --- | --- | --- |
-| `release.sh <patch\|minor\|major\|x.y.z>` | Mac | notes confirm, key check, bump + commit, Mac build, Windows build, manifests, stage + gate (`--mac-only`, `--windows-only`, `--dry-run`, `--publish`) |
+| `release.sh <patch\|minor\|major\|x.y.z>` | Mac | notes confirm, key check, bump + commit, Mac build, Windows build, manifests, stage + gate (`--mac-only`, `--windows-only`, `--no-linux`, `--dry-run`, `--publish`) |
 | `build-mac.sh` | Mac | universal build, Developer ID, notarize + staple app and DMG, updater `.app.tar.gz` + `.sig` |
 | `make-dmg.sh` | Mac (GUI session) | styled drag-to-install DMG from a signed app (called by `build-mac.sh`) |
 | `remote-build-windows.sh` | Mac | drives the BEAST Scheduled Task, verifies, copies back, makes the updater `.sig` |
@@ -64,7 +64,7 @@ Without `--app` it uses `<output>/MikeDown.app`. It skips the updater payload.
 
 Artifacts are versioned only: `MikeDown-<v>-macos-universal.dmg`,
 `MikeDown-<v>-macos-universal.app.tar.gz(.sig)`,
-`MikeDown-<v>-windows-x64-setup.exe(.sig)`, plus `latest.json`, `index.html`
+`MikeDown-<v>-windows-x64-setup.exe(.sig)`, and, unless `--no-linux`, the Linux (preview) `MikeDown-<v>-linux-x86_64.AppImage` (unsigned, no updater, no manifest entry; the page links it via `render-page.js`; IIS needs a `.AppImage` mimeMap), plus `latest.json`, `index.html`
 (the download page from `website/mikedown-desktop/`), the screenshots it shows
 (`screenshot-*.png` next to it) and `web.config`.
 

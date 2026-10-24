@@ -104,7 +104,16 @@ export function checkStagedUpload({ version, platforms, files, dirs = [], pubkey
   for (const img of pageImages) {
     if (!files[img]) {problems.push(`index.html shows ${img}, which is not in the folder`);}
   }
-  const known = new Set([...ALL_MANIFESTS, 'index.html', 'web.config', 'SHA256SUMS.txt', ...pageImages]);
+  // Linux (preview) is not a platform in the manifests: it ships as a plain
+  // download the page links to, so the page and the folder must agree.
+  const linux = linuxArtifactName(version);
+  const html = files['index.html'] ? files['index.html'].toString('utf8') : '';
+  if (/@@LINUX_[A-Z]+@@/.test(html)) {problems.push('index.html still has @@LINUX_*@@ placeholders (render-page.js did not run)');}
+  const pageLinksLinux = html.includes(`${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}${linux}`);
+  if (pageLinksLinux && !files[linux]) {problems.push(`index.html links ${linux}, which is not in the folder`);}
+  if (files[linux] && !pageLinksLinux) {problems.push(`${linux} is staged but index.html does not link it`);}
+  if (/\.AppImage"/.test(html) && !pageLinksLinux) {problems.push('index.html links an AppImage other than this version\'s');}
+  const known = new Set([...ALL_MANIFESTS, 'index.html', 'web.config', 'SHA256SUMS.txt', ...pageImages, ...(files[linux] ? [linux] : [])]);
   for (const name of Object.keys(files)) {
     if (known.has(name) || referenced.has(name)) {continue;}
     if (!name.includes(version)) {problems.push(`${name} is unversioned and nothing references it`);}
@@ -124,4 +133,33 @@ export function pageImageNames(html) {
   const out = new Set();
   for (const m of html.matchAll(/\bsrc="([A-Za-z0-9._-]+\.png)"/g)) {out.add(m[1]);}
   return [...out];
+}
+
+/** The Linux (preview) download: x86_64 AppImage, unsigned, no updater and no manifest entry. */
+export const linuxArtifactName = (version) => `MikeDown-${version}-linux-x86_64.AppImage`;
+
+/** Parse `shasum -a 256` output ("<hex>  <name>" per line) into { name: hex }. */
+export function parseSha256Sums(text) {
+  const out = {};
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^([0-9a-f]{64}) [ *](.+)$/.exec(line.trim());
+    if (m) {out[m[2]] = m[1];}
+  }
+  return out;
+}
+
+/**
+ * Fill the download page's Linux blocks (delimited by <!--linux:begin--> and
+ * <!--linux:end-->). With `linux` ({ url, size }) the placeholders become the
+ * real link and size; with null the blocks are removed, so a release without
+ * a Linux build never shows a dead link.
+ */
+export function renderLinuxPage(html, linux) {
+  const block = /[ \t]*<!--linux:begin-->[\s\S]*?<!--linux:end-->[ \t]*\n?/g;
+  if (!linux) {return html.replace(block, '');}
+  const mb = String(Math.max(1, Math.round(linux.size / 1048576)));
+  return html
+    .replace(/<!--linux:(begin|end)-->/g, '')
+    .replaceAll('@@LINUX_URL@@', linux.url)
+    .replaceAll('@@LINUX_MB@@', mb);
 }

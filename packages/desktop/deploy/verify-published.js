@@ -24,13 +24,20 @@
  *   - each artifact: HEAD answers 200 with a Content-Length equal to the
  *     manifest's size, then GET it and check size, sha256 and the minisign
  *     signature against the pubkey, including the signed version.
+ *
+ * Linux (preview) has no manifest. If SHA256SUMS.txt lists this version's
+ * MikeDown-<v>-linux-x86_64.AppImage, or index.html links it, both must hold
+ * and the file must be served: HEAD 200, Content-Length equal to the GET's
+ * size, sha256 equal to SHA256SUMS.txt's. (IIS 404s an extension it has no
+ * MIME type for, so this is the check that catches a missing .AppImage map.)
  * Exit 0 only when everything passes; every failure is listed.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ALL_MANIFESTS, checkManifestShape, parsePlatforms } from './lib/release-lib.js';
-import { checkArtifactBytes, fileForUrl, manifestExpectations } from './lib/publish-checks.js';
+import { checkArtifactBytes, fileForUrl, linuxArtifactName, manifestExpectations, parseSha256Sums } from './lib/publish-checks.js';
+import crypto from 'node:crypto';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = Object.fromEntries(
@@ -133,6 +140,34 @@ for (const name of ALL_MANIFESTS) {
   }
   for (const [k, d] of Object.entries(m.downloads ?? {})) {
     if (d?.url) {await checkArtifact(`${name} downloads.${k}`, { url: d.url, size: d.size, sha256: d.sha256 }, m.version);}
+  }
+}
+
+console.log(`Linux (preview) download`);
+{
+  const linux = linuxArtifactName(version);
+  const [sumsRes, pageRes] = await Promise.all([get(`${www}SHA256SUMS.txt`, { bust: true }).catch(() => null), get(`${www}index.html`, { bust: true }).catch(() => null)]);
+  const sums = sumsRes?.status === 200 ? parseSha256Sums(sumsRes.body.toString('utf8')) : {};
+  const wantSha = sums[linux];
+  const linked = pageRes?.status === 200 && pageRes.body.toString('utf8').includes(baseUrl + linux);
+  if (!wantSha && !linked) {
+    ok(`${linux}: not in SHA256SUMS.txt or linked by the page (no Linux build in this release)`);
+  } else {
+    if (!wantSha) {bad(`${linux}: the page links it but SHA256SUMS.txt does not list it`);}
+    if (!linked) {bad(`${linux}: SHA256SUMS.txt lists it but index.html does not link it`);}
+    const url = www + encodeURIComponent(linux);
+    try {
+      const head = await get(url, { method: 'HEAD' });
+      if (head.status !== 200) {bad(`${linux}: HEAD ${url} answered ${head.status}${head.status === 404 ? ' (IIS answers 404 for an unmapped extension: web.config needs a .AppImage mimeMap)' : ''}`);}
+      else {
+        const r = await get(url);
+        const len = Number(head.headers.get('content-length'));
+        if (r.status !== 200) {bad(`${linux}: GET answered ${r.status}`);}
+        else if (len !== r.body.length) {bad(`${linux}: HEAD Content-Length ${len}, GET returned ${r.body.length} bytes`);}
+        else if (wantSha && crypto.createHash('sha256').update(r.body).digest('hex') !== wantSha) {bad(`${linux}: sha256 differs from SHA256SUMS.txt`);}
+        else {ok(`${linux} 200, ${r.body.length} bytes, sha256 matches SHA256SUMS.txt`);}
+      }
+    } catch (e) { bad(`${linux}: ${e.message}`); }
   }
 }
 
