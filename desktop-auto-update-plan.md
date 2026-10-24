@@ -209,7 +209,7 @@ https://www.iadev.net/mikedown/latest.json                       legacy combined
 
 The exact template needs checking against the plugin's `{{target}}` / `{{arch}}` values (`darwin`/`windows`, `aarch64`/`x86_64`) in U3; the per-target file keeps the Tauri static format with one `platforms` entry, so its `version` is that platform's version (LymeScribe's per-platform `version`).
 
-**Folder `iadev.net/mikedown/`** (IIS `C:\WebApps\Interapp\mikedown`, Cloudflare-fronted):
+**Folder `iadev.net/mikedown/`** (IIS `C:\WebApps\Downloads\mikedown` virtual directory, Cloudflare-fronted):
 
 ```
 latest.json                                  legacy combined; bumped only on full releases
@@ -341,7 +341,7 @@ Design bar: this should feel like a native macOS Software Update sheet or VS Cod
 - [x] `make-latest-json.js`: write per-target files (`latest-<target>-<arch>.json`) with `sha256` and `size` extras; write combined `latest.json` only for full releases; unit tests for both and for the split-release rule.
 - [x] `release.sh`: `--mac-only` / `--windows-only`; show the release notes and require confirmation (`--yes` to skip), as LymeScribe does; refuse to sign without the minisign key and refuse a signature that lacks the signed version.
 - [x] `pack-for-lymedeploy.sh` modeled on LymeScribe's: pack `upload/` into a nupkg, push, `create-release`, `deploy` to a `mikedown-downloads` project, block until terminal, `--dry-run`, `--from-<stage>` resume.
-- [x] LymeDeploy project definition (documented for Mike to create if the CLI can't): `publish-files` to `C:\WebApps\Interapp\mikedown`, never deleting older versions; purge step covering apex and `www` for every manifest URL, disabled until the token variables exist.
+- [x] LymeDeploy project definition (documented for Mike to create if the CLI can't): `publish-files` to `C:\WebApps\Downloads\mikedown`, never deleting older versions; purge step covering apex and `www` for every manifest URL, disabled until the token variables exist.
 - [x] `verify-published.sh <version>`: cache-busted fetch of each manifest, minisign-verify each signature against the `tauri.conf.json` pubkey, version-in-signature check, HEAD each artifact URL for 200 and matching length, and confirm `www` and apex agree.
 - [x] IIS MIME check: confirm `.tar.gz`, `.exe`, `.dmg`, `.json` serve (200, not 404) from `iadev.net/mikedown/`; add `web.config` maps only for what fails, without `<remove>` guards for unmapped types (LymeScribe gotcha).
 - [x] Download page reads the Windows and Mac per-target manifests (falls back to `latest.json`).
@@ -434,6 +434,8 @@ If dispatching fills the orchestrator's context, prompt Mike to run `/compact` w
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-24 00:50** - Mike confirmed the publish path `C:\WebApps\Downloads\mikedown` (virtual directory), matching the other downloads projects.
 
 **2026-10-24 00:45** - T1 done (cherry-picked from eba8a61). State/skip/snooze/claim coverage already existed from U1 and the sanitizer tests from U2; added 12 mock-runtime cargo tests (endpoint fall-through, missing target, monotonic progress, verified-bytes cache, tampered payload), 6 controller lifecycle tests, and `update-flow.spec.ts` (6 e2e cases). Fixed a null-status crash in `main.ts` (mock host only) and two stale Settings e2e expectations. Main tree: typecheck green, vitest 498/498, cargo 120 + 7 staging, e2e 45/45. `versions.spec.ts` (not updater code) is flaky: 1 failure in 20 repeats.
 
