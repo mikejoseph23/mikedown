@@ -37,7 +37,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | ✅ Complete (print GUI checks pending) | 12 | reuses `handle.getHtml()` |
 | [T3 — Feature tests](#t3--feature-tests) | Sonnet | ✅ Automated done (hands-on pending) | 3 | settings, versioning, search, export |
 | [M10 — Updater, signing, build pipeline, download page](#m10--updater-signing-build-pipeline-download-page) | Opus | ⬜ Not Started | — | follows the LymeScribe deploy scripts |
-| [M11 — Polish: a11y, encoding, filesystem oddities](#m11--polish-a11y-encoding-filesystem-oddities) | Sonnet | 🔄 In Progress | — | edge cases 10, 11, 12, 25, 26 |
+| [M11 — Polish: a11y, encoding, filesystem oddities](#m11--polish-a11y-encoding-filesystem-oddities) | Sonnet | ✅ Complete (screen-reader and GUI checks pending) | 26 | edge cases 10, 11, 12, 25, 26 |
 | [T4 — Release candidate hands-on](#t4--release-candidate-hands-on) | Sonnet | ⬜ Not Started | — | full checklist per OS on signed builds |
 
 **Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
@@ -593,14 +593,14 @@ Start: `npm run dev:desktop` on the Mac; the Windows build from BEAST per `packa
 
 **Tasks**
 
-- [ ] Accessibility (edge 26): audit tree, tabs, search results, welcome screen, dialogs and the diff viewer for ARIA roles, labels, focus order and visible focus rings; `prefers-reduced-motion` disables pane/tab animations; `forced-colors` and `prefers-contrast: more` media queries adjust the chrome's token overrides (and verify core's tokens respond). Run an axe pass through the e2e harness.
-- [ ] Encoding (edge 11): non-UTF-8 files open read-only in source mode with a notice; BOM and CRLF preserved byte-for-byte (verify with `cmp` on fixtures); mixed line endings are written back as detected majority (document it).
-- [ ] Large files (edge 12): verify the 2 MB / 20 MB thresholds end to end, including the "Open as rich text anyway" path and a source-mode-only tab's save.
-- [ ] Filesystem (edge 25): Windows reserved names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`), trailing dots/spaces, >260-char total paths, invalid characters per OS: plain-language errors before any disk call; case-only rename verified on both OSes.
-- [ ] Read-only and permissions (edge 10): lock badge, Save As flow with the OS error message in plain words; a folder without write permission disables New/Rename/Delete with a tooltip.
-- [ ] Network drives and cloud placeholders (edge 10): polling fallback verified on an SMB share (the Storage share from `estate-facts.yaml`); iCloud Drive evicted file shows the downloading state and Retry; OneDrive Files On-Demand on Windows likewise.
-- [ ] Drag-drop toasts (edge 20) and delete confirmation "Don't ask again" (edge 21) wired to persisted settings.
-- [ ] Commit.
+- [x] Accessibility (edge 26): audit tree, tabs, search results, welcome screen, dialogs and the diff viewer for ARIA roles, labels, focus order and visible focus rings; `prefers-reduced-motion` disables pane/tab animations; `forced-colors` and `prefers-contrast: more` media queries adjust the chrome's token overrides (and verify core's tokens respond). Run an axe pass through the e2e harness.
+- [x] Encoding (edge 11): non-UTF-8 files open read-only in source mode with a notice; BOM and CRLF preserved byte-for-byte (verify with `cmp` on fixtures); mixed line endings are written back as detected majority (document it).
+- [x] Large files (edge 12): verify the 2 MB / 20 MB thresholds end to end, including the "Open as rich text anyway" path and a source-mode-only tab's save.
+- [x] Filesystem (edge 25): Windows reserved names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`), trailing dots/spaces, >260-char total paths, invalid characters per OS: plain-language errors before any disk call; case-only rename verified on both OSes.
+- [x] Read-only and permissions (edge 10): lock badge, Save As flow with the OS error message in plain words; a folder without write permission disables New/Rename/Delete with a tooltip.
+- [x] Network drives and cloud placeholders (edge 10): polling fallback verified on an SMB share (the Storage share from `estate-facts.yaml`); iCloud Drive evicted file shows the downloading state and Retry; OneDrive Files On-Demand on Windows likewise.
+- [x] Drag-drop toasts (edge 20) and delete confirmation "Don't ask again" (edge 21) wired to persisted settings.
+- [x] Commit.
 
 **Acceptance criteria**
 
@@ -694,6 +694,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 21:35** - M11 complete in code (cherry-picked as `4f513d2`..`4eadaa4`). axe pass via `@axe-core/playwright` (`a11y.spec.ts`) fixed nested-interactive tabs, moved the downloading tab's Retry into the pane info bar, labelled search rows, and named core's editor textbox; reduced-motion and forced-colors/prefers-contrast rules on chrome tokens; read-only folders disable New/Rename/Delete with a tooltip; OS errors in plain words; new-file path validation extended to Save As and pasted images; mixed line endings written back as the majority (tie keeps CRLF), documented in the README; byte-for-byte fixture tests; keyboard-only e2e session. **Real bug fixed:** FSEvents starts on an SMB share but never reports another machine's change (measured on `/Volumes/Storage-1` with a file written from BEAST); network volumes now go straight to polling, which saw the change in 6 s. OneDrive on BEAST: an evicted file read fails with OS error 395, now mapped to the downloading tab with Retry. Windows Rust tests 37 green on BEAST (changed files copied into its `C:\git\mikedown` snapshot). Core a11y backlog: toolbar zoom button label mismatch and toolbar contrast. Verified in the main tree: build:core, compile, lint 0 errors, unit 1340, edge 22, VS Code integration 47, desktop tsc, unit 364, e2e 36, cargo 94, vite build green. Pending for a human: VoiceOver and Narrator passes, real-window keyboard-only session, focus rings under Increase Contrast and Reduce Motion, a successful OneDrive hydration in an interactive session.
 
 **2026-10-23 21:15** - FIX1 (outside the milestone list) merged as `96e93cd`, `2688b06`, `425465e`. Core save race fixed at the root: `markSaved` left the ProseMirror history group open, so typing within 500 ms joined the saved group and core reported pristine; it now seals the group with `closeHistory` in a transaction before capturing depth (regression test `packages/core/test/save-race.test.ts`, fails without the fix). Fixes the VS Code extension too. M6's 600 ms e2e wait removed. Lone-file window titles are now just the filename (welcome guide: `Welcome to MikeDown.md`). Orchestrator fixed T3's `standaloneHtml` test, which resolved the core CSS from the working directory and failed under root `test:unit` (`745b932`). Verified in the main tree: build:core, unit 1333, edge 22, VS Code integration 47 passing, desktop tsc, unit 358, e2e 27 green.
 
