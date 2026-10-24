@@ -1,8 +1,9 @@
 /**
- * Actions behind the App tab's buttons: the app version, "Check for
- * Updates…" and "Set MikeDown as default for .md". "Check for Updates…" is
- * the updater controller's manual check (`src/app/updater.ts`), which gives
- * explicit feedback for every outcome.
+ * Actions behind the App tab's buttons: the app version, Check Now (Settings
+ * > App > Updates, same as Help > Check for Updates…) and "Set MikeDown as
+ * default for .md". Check Now is the updater controller's manual check
+ * (`src/app/updater.ts`): it clears skip and snooze, then says "Checking for
+ * updates…" and opens the update window or reports the outcome.
  */
 import type { Dialogs } from '../ui/dialogs';
 

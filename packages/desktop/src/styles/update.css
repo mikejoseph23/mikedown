@@ -1,0 +1,451 @@
+/*
+ * Self-update UI (U2): the found-notice (bottom-right, VS Code's update
+ * notification) and the update window (a sheet that drops from the top edge,
+ * macOS Software Update / Sparkle). Colors come from the --mikedown-* tokens,
+ * so light, dark and prefers-contrast follow the rest of the chrome.
+ */
+
+/* ── Found-notice ──────────────────────────────────────────────────────── */
+.mdapp-update {
+  position: fixed;
+  right: 16px;
+  bottom: 36px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(380px, calc(100vw - 32px));
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.3));
+  border-radius: var(--mikedown-radius, 8px);
+  background: var(--mikedown-surface-raised, var(--mikedown-surface, #fff));
+  color: var(--mikedown-text-ui, var(--mikedown-text, #1f1f1f));
+  font-size: 12.5px;
+  box-shadow: 0 1px 2px var(--mikedown-shadow, rgba(0, 0, 0, 0.12)), 0 10px 30px -8px var(--mikedown-shadow, rgba(0, 0, 0, 0.2));
+  animation: mdapp-update-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes mdapp-update-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.mdapp-update__icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--mikedown-accent, #3f51b5);
+}
+
+.mdapp-update__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mdapp-update__view {
+  flex: none;
+}
+
+.mdapp-update__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mikedown-radius-sm, 6px);
+  background: transparent;
+  color: var(--mikedown-icon, currentColor);
+  cursor: pointer;
+}
+
+.mdapp-update__close:hover {
+  background: var(--mikedown-hover, rgba(127, 127, 127, 0.12));
+}
+
+.mdapp-update :focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline-offset: 1px;
+}
+
+/* ── Update window ─────────────────────────────────────────────────────── */
+.mdapp-updwin-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1002;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: rgba(0, 0, 0, 0);
+  transition: background-color 200ms ease;
+}
+
+.mdapp-updwin-backdrop--open {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+@media (prefers-color-scheme: dark) {
+  .mdapp-updwin-backdrop--open {
+    background: rgba(0, 0, 0, 0.36);
+  }
+}
+
+.mdapp-updwin {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  column-gap: 18px;
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 24px);
+  padding: 22px 24px 18px;
+  /* A sheet hangs from the top edge: square top, rounded bottom. */
+  border: 1px solid var(--mikedown-border, rgba(127, 127, 127, 0.3));
+  border-top: 0;
+  border-radius: 0 0 var(--mikedown-radius-lg, 12px) var(--mikedown-radius-lg, 12px);
+  background: var(--mikedown-surface-raised, var(--mikedown-surface, #fff));
+  color: var(--mikedown-text, #1f1f1f);
+  font-family: var(--mikedown-font-ui, system-ui, sans-serif);
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow: 0 18px 48px -12px var(--mikedown-shadow, rgba(0, 0, 0, 0.3)), 0 2px 6px var(--mikedown-shadow, rgba(0, 0, 0, 0.12));
+  opacity: 0;
+  transform: translateY(-14px);
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  outline: none;
+}
+
+.mdapp-updwin-backdrop--open .mdapp-updwin {
+  opacity: 1;
+  transform: none;
+}
+
+.mdapp-updwin__icon {
+  grid-row: 1;
+  grid-column: 1;
+  width: 64px;
+  height: 64px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mdapp-updwin__main {
+  grid-row: 1;
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mdapp-updwin__title {
+  margin: 2px 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--mikedown-text, inherit);
+}
+
+.mdapp-updwin__subtitle {
+  margin: 0;
+  color: var(--mikedown-text-muted, inherit);
+}
+
+.mdapp-updwin__major {
+  margin: 10px 0 0;
+  padding: 6px 10px;
+  border-radius: var(--mikedown-radius-sm, 6px);
+  background: var(--mikedown-callout-warning-bg, rgba(245, 158, 11, 0.12));
+  color: var(--mikedown-text, inherit);
+  font-size: 12.5px;
+}
+
+.mdapp-updwin__major[hidden] {
+  display: none;
+}
+
+.mdapp-updwin__notes-heading {
+  margin: 16px 0 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mikedown-text-ui, inherit);
+}
+
+.mdapp-updwin__notes {
+  min-height: 72px;
+  max-height: min(260px, 38vh);
+  overflow: auto;
+  padding: 10px 14px;
+  border: 1px solid var(--mikedown-input-border, rgba(127, 127, 127, 0.3));
+  border-radius: var(--mikedown-radius, 8px);
+  background: var(--mikedown-surface, #fff);
+  font-size: 13px;
+  line-height: 1.5;
+  overscroll-behavior: contain;
+}
+
+.mdapp-updwin__notes:focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline-offset: 1px;
+}
+
+.mdapp-updwin__notes--empty {
+  display: flex;
+  align-items: center;
+  color: var(--mikedown-text-muted, inherit);
+}
+
+.mdapp-updwin__notes > :first-child { margin-top: 0; }
+.mdapp-updwin__notes > :last-child { margin-bottom: 0; }
+
+.mdapp-updwin__notes :is(h1, h2, h3, h4, h5, h6) {
+  margin: 12px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.mdapp-updwin__notes :is(p, ul, ol, pre, blockquote, table) {
+  margin: 0 0 8px;
+}
+
+.mdapp-updwin__notes :is(ul, ol) {
+  padding-left: 20px;
+}
+
+.mdapp-updwin__notes li + li {
+  margin-top: 2px;
+}
+
+.mdapp-updwin__notes code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--mikedown-code-bg, rgba(127, 127, 127, 0.12));
+  font-family: var(--mikedown-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+.mdapp-updwin__notes pre {
+  padding: 8px 10px;
+  border-radius: var(--mikedown-radius-sm, 6px);
+  background: var(--mikedown-code-bg, rgba(127, 127, 127, 0.12));
+  overflow-x: auto;
+}
+
+.mdapp-updwin__notes pre code {
+  padding: 0;
+  background: none;
+}
+
+.mdapp-updwin__notes blockquote {
+  padding-left: 10px;
+  border-left: 2px solid var(--mikedown-quote-border, rgba(127, 127, 127, 0.4));
+  color: var(--mikedown-text-muted, inherit);
+}
+
+.mdapp-updwin__notes hr {
+  border: 0;
+  border-top: 1px solid var(--mikedown-divider, rgba(127, 127, 127, 0.25));
+  margin: 10px 0;
+}
+
+.mdapp-updwin__notes img {
+  max-width: 100%;
+}
+
+.mdapp-updwin__notes a,
+.mdapp-updwin__website {
+  color: var(--mikedown-link, var(--mikedown-accent, #3f51b5));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.mdapp-updwin__notes a:hover,
+.mdapp-updwin__website:hover {
+  color: var(--mikedown-link-hover, var(--mikedown-link, #283593));
+}
+
+/* Footer: status line, progress, buttons. Spans both columns so Skip sits at
+   the far left, under the icon, as in Sparkle. */
+.mdapp-updwin__footer {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  margin-top: 18px;
+}
+
+.mdapp-updwin__status {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--mikedown-text-ui, inherit);
+}
+
+.mdapp-updwin__status[hidden],
+.mdapp-updwin__website[hidden] {
+  display: none;
+}
+
+.mdapp-updwin__status--error {
+  color: var(--mikedown-danger, #c62828);
+}
+
+.mdapp-updwin__status--error .mdapp-updwin__website {
+  color: inherit;
+  font-weight: 500;
+}
+
+.mdapp-updwin__progress {
+  display: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.mdapp-updwin[data-mode='progress'] .mdapp-updwin__progress,
+.mdapp-updwin[data-mode='installing'] .mdapp-updwin__progress {
+  display: flex;
+}
+
+.mdapp-updwin__progress [hidden] {
+  display: none;
+}
+
+.mdapp-updwin__bar {
+  position: relative;
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--mikedown-active, rgba(127, 127, 127, 0.18));
+  overflow: hidden;
+}
+
+.mdapp-updwin__fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--mikedown-accent, #3f51b5);
+  transition: width 160ms linear;
+}
+
+.mdapp-updwin__bar--indeterminate .mdapp-updwin__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 32%;
+  animation: mdapp-updwin-sweep 1.3s ease-in-out infinite;
+}
+
+@keyframes mdapp-updwin-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(320%); }
+}
+
+/* Installing has no Hide button; keep the bar the same height as the row. */
+.mdapp-updwin[data-mode='installing'] .mdapp-updwin__progress {
+  min-height: 28px;
+}
+
+.mdapp-updwin__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mdapp-updwin__actions[hidden] {
+  display: none;
+}
+
+.mdapp-updwin__spacer {
+  flex: 1 1 auto;
+}
+
+.mdapp-updwin__btn {
+  min-width: 84px;
+  padding: 5px 14px;
+  font-size: 13px;
+}
+
+.mdapp-updwin__btn.mdapp-btn--primary:hover:not(:disabled) {
+  background: var(--mikedown-accent-hover, var(--mikedown-accent, #3546a0));
+  border-color: var(--mikedown-accent-hover, var(--mikedown-accent, #3546a0));
+}
+
+.mdapp-updwin__btn:focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline-offset: 2px;
+}
+
+/* Narrow windows: the icon shrinks and the buttons stack, primary first. */
+@media (max-width: 480px) {
+  .mdapp-updwin {
+    grid-template-columns: 40px minmax(0, 1fr);
+    column-gap: 12px;
+    padding: 18px 16px 16px;
+  }
+
+  .mdapp-updwin__icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .mdapp-updwin__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .mdapp-updwin__spacer {
+    display: none;
+  }
+}
+
+/* Reduced motion: no slide, no sweep (app.css also zeroes durations). */
+@media (prefers-reduced-motion: reduce) {
+  .mdapp-update,
+  .mdapp-updwin {
+    animation: none;
+    transform: none;
+  }
+
+  .mdapp-updwin__bar--indeterminate .mdapp-updwin__fill {
+    animation: none;
+    width: 100%;
+    opacity: 0.45;
+  }
+}
+
+/* Forced colors: system colors only, every edge drawn, the bar visible. */
+@media (forced-colors: active) {
+  .mdapp-update,
+  .mdapp-updwin {
+    border: 1px solid CanvasText;
+  }
+
+  .mdapp-update__close {
+    border: 1px solid ButtonText;
+  }
+
+  .mdapp-updwin__notes {
+    border-color: CanvasText;
+  }
+
+  .mdapp-updwin__bar {
+    forced-color-adjust: none;
+    background: Canvas;
+    border: 1px solid CanvasText;
+    height: 6px;
+  }
+
+  .mdapp-updwin__fill {
+    background: Highlight;
+  }
+
+  .mdapp-updwin__major {
+    border: 1px solid CanvasText;
+  }
+
+  .mdapp-updwin__notes a,
+  .mdapp-updwin__website {
+    color: LinkText;
+  }
+}

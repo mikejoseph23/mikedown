@@ -27,6 +27,8 @@ tauri-plugin-fs = "2"
 # with, often outside $HOME) across restarts so session restore and hot-exit
 # backups can reopen them.
 tauri-plugin-persisted-scope = "2"
+# Update-found notification when no MikeDown window is focused (U2).
+tauri-plugin-notification = "2"
 tauri-plugin-process = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"

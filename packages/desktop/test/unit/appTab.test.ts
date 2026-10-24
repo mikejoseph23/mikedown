@@ -19,7 +19,7 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-function openModal(opts: { folder: string | null }): { saved: Array<Record<string, unknown>>; modal: HTMLElement; checkUpdates: ReturnType<typeof vi.fn> } {
+function openModal(opts: { folder: string | null; updatesEnabled?: boolean; lastCheckedAt?: number | null }): { saved: Array<Record<string, unknown>>; modal: HTMLElement; checkUpdates: ReturnType<typeof vi.fn> } {
   const saved: Array<Record<string, unknown>> = [];
   const checkUpdates = vi.fn();
   const store = createDesktopSettingsStore();
@@ -38,6 +38,12 @@ function openModal(opts: { folder: string | null }): { saved: Array<Record<strin
       editorRoot: () => container.querySelector<HTMLElement>('.mikedown-root'),
       version: async () => '1.2.3',
       checkForUpdates: checkUpdates,
+      updatesEnabled: () => opts.updatesEnabled ?? true,
+      updaterStatus: async () => ({
+        phase: 'idle', version: null, channel: 'direct', lastCheckedAt: opts.lastCheckedAt ?? null,
+        lastResult: null, skippedVersion: null, snoozeUntil: null,
+      }),
+      now: () => 10 * 60 * 1000,
       setDefaultApp: () => undefined,
     })],
   });
@@ -54,11 +60,11 @@ describe('App tab', () => {
     expect(tabs.at(-1)?.textContent).toBe('App');
     expect(tabs.at(-1)?.getAttribute('aria-selected')).toBe('true');
     expect(modal.textContent).toContain('Versions to keep');
-    expect(modal.textContent).toContain('Check for updates on launch');
+    expect(modal.textContent).toContain('Automatically check for updates');
     expect(modal.textContent).toContain('Set MikeDown as default for .md');
     expect(modal.textContent).toContain('Confirm before delete');
     expect(modal.textContent).toContain('Show hidden files');
-    expect(modal.textContent).toContain('Check for Updates');
+    expect(modal.textContent).toContain('Check Now');
     // Reuses core's row styling.
     expect(modal.querySelectorAll('.settings-row').length).toBeGreaterThan(5);
   });
@@ -97,11 +103,24 @@ describe('App tab', () => {
     expect(saved[0]).toHaveProperty('fontSize');
   });
 
-  it('Check for Updates calls back', () => {
+  it('Check Now calls back', () => {
     const { modal, checkUpdates } = openModal({ folder: null });
-    const btn = [...modal.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.startsWith('Check for Updates'));
-    btn!.click();
+    modal.querySelector<HTMLButtonElement>('[data-action="check-updates"]')!.click();
     expect(checkUpdates).toHaveBeenCalledOnce();
+  });
+
+  it('shows Last checked as a relative time', async () => {
+    const { modal } = openModal({ folder: null, lastCheckedAt: 5 * 60 * 1000 });
+    await vi.waitFor(() => expect(modal.querySelector('[data-role="last-checked"]')?.textContent).toBe('Last checked: 5 minutes ago'));
+  });
+
+  it('a store build has no Updates group and leaves the key alone', () => {
+    const { modal, saved } = openModal({ folder: null, updatesEnabled: false });
+    expect(modal.textContent).not.toContain('Automatically check for updates');
+    expect(modal.querySelector('[data-action="check-updates"]')).toBeNull();
+    (modal.querySelector('.settings-btn--primary') as HTMLButtonElement).click();
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).not.toHaveProperty(['updates.checkOnLaunch']);
   });
 });
 

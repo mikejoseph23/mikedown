@@ -22,6 +22,7 @@ import './styles/settings.css';
 import './styles/search.css';
 import './styles/versions.css';
 import './styles/welcome.css';
+import './styles/update.css';
 
 import { createMikeDownEditor, type MikeDownEditorHandle, type MikeDownViewState } from '@mikedown/core';
 import { getVersion } from '@tauri-apps/api/app';
@@ -48,7 +49,9 @@ import { createPaneManager } from './panes/paneManager';
 import { createAppActions } from './settings/appActions';
 import { createUpdater } from './app/updater';
 import { updaterApi } from './app/updaterApi';
-import { createUpdatePrompt } from './ui/updateToast';
+import { createFoundNotice, createUpdatePrompt } from './ui/updateToast';
+import { createUpdateWindow } from './ui/updateWindow';
+import { createUpdateNotifier } from './ui/updateNotification';
 import { createAppTabSection } from './settings/appTab';
 import { createSettingsBanner } from './settings/banner';
 import { settingsApi } from './settings/settingsApi';
@@ -193,13 +196,40 @@ const settingsMgr = createSettingsManager({
   openFile: (p) => fsApi.openInDefaultApp(p),
 });
 settings.onTreeChange((patch) => { void settingsMgr.save(patch, { silent: true, force: true }); });
-// Self-update (M10, edge case 17): silent launch + daily checks, explicit
-// feedback for Help > Check for Updates…, and the Restart Now / Later toast.
+// Self-update (M10, U1, U2): silent checks every 4 h, explicit feedback for
+// Help > Check for Updates…, the found-notice and the update window, and an
+// OS notification when no MikeDown window is focused.
+const updateWindow = createUpdateWindow({
+  root: document.body,
+  controller: () => updater,
+  openExternal: (url) => { void openUrl(url); },
+  windows: !isMac && /win/i.test(navigator.platform || navigator.userAgent),
+});
+const updateNotifier = createUpdateNotifier({
+  async anyWindowFocused() {
+    if (document.hasFocus()) {return true;}
+    const { getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow');
+    const all = await getAllWebviewWindows();
+    const focused = await Promise.all(all.map((w) => w.isFocused().catch(() => false)));
+    return focused.some(Boolean);
+  },
+  async ensurePermission() {
+    const { isPermissionGranted, requestPermission } = await import('@tauri-apps/plugin-notification');
+    if (await isPermissionGranted()) {return true;}
+    return (await requestPermission()) === 'granted';
+  },
+  post(title, body) {
+    void import('@tauri-apps/plugin-notification').then(({ sendNotification }) => sendNotification({ title, body }));
+  },
+  storage: (() => { try { return window.localStorage; } catch { return null; } })(),
+  now: () => Date.now(),
+});
 const updater = createUpdater({
   api: updaterApi,
-  prompt: createUpdatePrompt(document.body),
+  prompt: createUpdatePrompt({ notice: createFoundNotice(document.body), window: updateWindow }),
   toast: (message, opts) => dialogs.toast(message, opts),
   checkOnLaunch: () => settings.get().updates.checkOnLaunch,
+  onSilentFound: (info) => { void updateNotifier.found(info); },
   appVersion: getVersion,
   setInterval: (fn, ms) => window.setInterval(fn, ms),
   setTimeout: (fn, ms) => window.setTimeout(fn, ms),
@@ -255,8 +285,9 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
       folder: () => workspaceRef?.root() ?? null,
       editorRoot: () => editorEl.querySelector<HTMLElement>('.mikedown-root'),
       version: () => appActions.version(),
-      checkForUpdates: () => { void appActions.checkForUpdates(); },
+      checkForUpdates: () => appActions.checkForUpdates(),
       updatesEnabled: () => updatesEnabled,
+      updaterStatus: () => updaterApi.status(),
       setDefaultApp: () => { void appActions.setDefaultApp(); },
     })],
   });
@@ -1295,6 +1326,12 @@ async function boot(): Promise<void> {
   void updaterApi.onProgress((p) => updater.applyProgress(p)).catch(() => { /* not under Tauri */ });
   void updaterApi.pending().then((info) => { if (info) {updater.announce(info);} }).catch(() => { /* not under Tauri */ });
   void updater.start();
+  // Clicking the OS notification activates the app; the first window to get
+  // focus soon after opens the update window (the plugin reports no click on desktop).
+  window.addEventListener('focus', () => {
+    const snap = updater.getSnapshot();
+    if (updateNotifier.onFocus(snap.info?.version ?? null) && snap.state !== 'idle') {updateWindow.open();}
+  });
 }
 
 void boot();
@@ -1315,5 +1352,8 @@ if (import.meta.env.DEV || smokeEnabled()) {
     session: () => sessionSnapshot(),
     docs: () => registry.all().map((d: DocumentModel) => ({ id: d.id, path: d.path, dirty: d.dirty, text: d.text, state: d.state })),
     viewState: (paneId: string): MikeDownViewState | undefined => panes.viewState(paneId),
+    // U2: drive the update UI from Web Inspector or e2e (announce, applyHostState, applyProgress).
+    updater,
+    updateWindow,
   };
 }

@@ -91,6 +91,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
+        // Update-found notification when no MikeDown window is focused (U2).
+        .plugin(tauri_plugin_notification::init())
         .manage(commands::launch::LaunchQueue::default())
         .manage(commands::watcher::Watchers::default())
         .manage(commands::appdata::AppData::default())

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CHECK_INTERVAL_MS, createUpdater, FIRST_CHECK_DELAY_MS, MESSAGES, TICK_MS, type UpdaterDeps } from '../../src/app/updater';
+import { CHECK_INTERVAL_MS, classifyCheckError, createUpdater, FIRST_CHECK_DELAY_MS, MESSAGES, TICK_MS, type UpdaterDeps } from '../../src/app/updater';
 import type { UpdateInfo, UpdaterApi, UpdaterStatus } from '../../src/app/updaterApi';
-import { createUpdatePrompt } from '../../src/ui/updateToast';
+import { createFoundNotice, createUpdatePrompt } from '../../src/ui/updateToast';
+import type { UpdateWindow } from '../../src/ui/updateWindow';
 
 const INFO: UpdateInfo = { version: '0.2.0', currentVersion: '0.1.0', notes: 'Fixes', date: null };
 
@@ -224,10 +225,12 @@ describe('updater: controller states', () => {
     const t = setup();
     t.updater.announce(INFO);
     t.updater.applyHostState({ state: 'downloading', version: '0.2.0', error: null });
+    t.prompt.show.mockClear();
     await t.updater.manualCheck();
     expect(t.api.check).not.toHaveBeenCalled();
     expect(t.api.install).not.toHaveBeenCalled();
-    expect(t.toast).toHaveBeenCalledWith(MESSAGES.downloading('0.2.0'), expect.anything());
+    // The window opens on the running download instead.
+    expect(t.prompt.show).toHaveBeenCalledWith(INFO, expect.anything(), { manual: true });
   });
 
   it('Skip This Version tells the host and clears the state', async () => {
@@ -270,17 +273,36 @@ describe('updater: manual check feedback', () => {
     expect(t.toast).toHaveBeenLastCalledWith(MESSAGES.upToDate('0.1.0'), expect.anything());
   });
 
-  it('update available shows the Restart Now / Later prompt', async () => {
+  it('update available opens the window (manual)', async () => {
     const t = setup({ check: async () => INFO });
     await t.updater.manualCheck();
-    expect(t.prompt.show).toHaveBeenCalledWith(INFO, expect.objectContaining({ restartNow: expect.any(Function), later: expect.any(Function) }));
+    expect(t.prompt.show).toHaveBeenCalledWith(INFO, expect.objectContaining({ restartNow: expect.any(Function), later: expect.any(Function) }), { manual: true });
   });
 
-  it('could not check is explicit and logged', async () => {
-    const t = setup({ check: async () => { throw new Error('signature mismatch'); } });
+  it('a silent find offers the notice, not the window', () => {
+    const t = setup();
+    t.updater.announce(INFO);
+    expect(t.prompt.show).toHaveBeenCalledWith(INFO, expect.anything(), { manual: false });
+  });
+
+  it('could not reach the server is explicit and logged', async () => {
+    const t = setup({ check: async () => { throw new Error('error sending request for url (https://www.iadev.net/mikedown/latest.json)'); } });
     await t.updater.manualCheck();
     expect(t.toast).toHaveBeenLastCalledWith(MESSAGES.couldNotCheck, expect.objectContaining({ error: true }));
-    expect(t.api.log).toHaveBeenCalledWith(expect.stringContaining('signature mismatch'));
+    expect(t.api.log).toHaveBeenCalledWith(expect.stringContaining('error sending request'));
+  });
+
+  it('a bad feed says so', async () => {
+    const t = setup({ check: async () => { throw new Error('Could not fetch a valid release JSON from the remote'); } });
+    await t.updater.manualCheck();
+    expect(t.toast).toHaveBeenLastCalledWith(MESSAGES.badFeed, expect.objectContaining({ error: true }));
+  });
+
+  it('uses the spec wording', () => {
+    expect(MESSAGES.checking).toBe('Checking for updates…');
+    expect(MESSAGES.upToDate('0.1.0')).toBe('MikeDown is up to date (version 0.1.0).');
+    expect(MESSAGES.couldNotCheck).toBe("Couldn't reach the update server. Check your connection and try again.");
+    expect(MESSAGES.badFeed).toBe('The update feed returned an unexpected response. Try again later.');
   });
 
   it('a manual check shows the prompt again after Later', async () => {
@@ -324,25 +346,115 @@ describe('updater: Restart Now', () => {
   });
 });
 
-describe('update prompt (DOM)', () => {
-  it('renders Restart Now and Later, Escape means Later', () => {
+describe('classifyCheckError', () => {
+  it.each([
+    ['error sending request for url (https://www.iadev.net/mikedown/latest.json)', 'network'],
+    ['operation timed out', 'network'],
+    ['dns error: failed to lookup address information', 'network'],
+    ['Could not fetch a valid release JSON from the remote', 'feed'],
+    ['the platform `darwin-aarch64` was not found in the response `platforms` object', 'feed'],
+    ['expected value at line 1 column 1', 'feed'],
+    ['missing field `version` at line 3 column 1', 'feed'],
+  ])('%s → %s', (text, kind) => {
+    expect(classifyCheckError(new Error(text))).toBe(kind);
+  });
+});
+
+describe('silent check hook', () => {
+  it('tells the window that ran the check, and only when it found one', async () => {
+    const onSilentFound = vi.fn();
+    const t = setup({ check: async () => INFO });
+    // setup() builds deps; rebuild with the hook.
+    const updater = createUpdater({
+      api: t.api, prompt: t.prompt, toast: t.toast, checkOnLaunch: () => true, appVersion: async () => '0.1.0',
+      setInterval: () => 0, setTimeout: () => 0, onSilentFound,
+    });
+    await updater.tick();
+    expect(onSilentFound).toHaveBeenCalledWith(INFO);
+  });
+});
+
+function fakeWindow(): UpdateWindow & { opened: number; open: ReturnType<typeof vi.fn> } {
+  let open = false;
+  let asked = false;
+  const w = {
+    opened: 0,
+    open: vi.fn(() => { open = true; w.opened++; }),
+    close: () => { open = false; },
+    isOpen: () => open,
+    installRequested: () => asked,
+    ask: () => { asked = true; },
+  };
+  return w as unknown as UpdateWindow & { opened: number; open: ReturnType<typeof vi.fn> };
+}
+
+describe('found-notice (DOM)', () => {
+  it('shows "MikeDown X is available" with View and close; never takes focus', () => {
     const root = document.createElement('div');
-    const prompt = createUpdatePrompt(root);
-    const restartNow = vi.fn();
-    const later = vi.fn();
-    prompt.show(INFO, { restartNow, later });
+    document.body.appendChild(root);
+    const notice = createFoundNotice(root);
+    const view = vi.fn();
+    const close = vi.fn();
+    const before = document.activeElement;
+    notice.show(INFO, { view, close });
     const el = root.querySelector<HTMLElement>('.mdapp-update')!;
-    expect(el.getAttribute('role')).toBe('alertdialog');
-    expect(el.textContent).toContain('MikeDown 0.2.0');
-    const buttons = [...el.querySelectorAll('button')];
-    expect(buttons.map((b) => b.textContent)).toEqual(['Later', 'Restart Now']);
-    buttons[1].click();
-    expect(restartNow).toHaveBeenCalledOnce();
+    expect(el.getAttribute('role')).toBe('status');
+    expect(el.dataset.version).toBe('0.2.0');
+    expect(el.querySelector('.mdapp-update__title')?.textContent).toBe('MikeDown 0.2.0 is available');
+    expect(document.activeElement).toBe(before);
+    el.querySelector<HTMLButtonElement>('[data-action="view"]')!.click();
+    expect(view).toHaveBeenCalledOnce();
+    el.querySelector<HTMLButtonElement>('[data-action="close"]')!.click();
+    expect(close).toHaveBeenCalledOnce();
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    expect(later).toHaveBeenCalledOnce();
-    prompt.show(INFO, { restartNow, later });
+    expect(close).toHaveBeenCalledTimes(2);
+    notice.show(INFO, { view, close });
     expect(root.querySelectorAll('.mdapp-update')).toHaveLength(1);
-    prompt.hide();
+    notice.hide();
     expect(root.querySelector('.mdapp-update')).toBeNull();
+    root.remove();
+  });
+});
+
+describe('update prompt routing', () => {
+  const actions = () => ({ restartNow: vi.fn(), later: vi.fn() });
+
+  it('silent: the notice; View opens the window; close is the session-only later', () => {
+    const root = document.createElement('div');
+    const win = fakeWindow();
+    const prompt = createUpdatePrompt({ notice: createFoundNotice(root), window: win });
+    const a = actions();
+    prompt.show(INFO, a, { manual: false });
+    expect(win.open).not.toHaveBeenCalled();
+    root.querySelector<HTMLButtonElement>('[data-action="view"]')!.click();
+    expect(win.open).toHaveBeenCalledOnce();
+    expect(root.querySelector('.mdapp-update')).toBeNull();
+    prompt.show(INFO, a);
+    // Window open now: no second notice, the window re-renders.
+    expect(root.querySelector('.mdapp-update')).toBeNull();
+    expect(win.open).toHaveBeenCalledTimes(2);
+    win.close();
+    prompt.show(INFO, a);
+    root.querySelector<HTMLButtonElement>('[data-action="close"]')!.click();
+    expect(a.later).toHaveBeenCalledOnce();
+  });
+
+  it('manual: straight to the window', () => {
+    const root = document.createElement('div');
+    const win = fakeWindow();
+    const prompt = createUpdatePrompt({ notice: createFoundNotice(root), window: win });
+    prompt.show(INFO, actions(), { manual: true });
+    expect(win.open).toHaveBeenCalledOnce();
+    expect(root.querySelector('.mdapp-update')).toBeNull();
+    expect(prompt.showsProgress?.()).toBe(true);
+  });
+
+  it('after Install and Relaunch in the window, "ready" comes back in the window', () => {
+    const root = document.createElement('div');
+    const win = fakeWindow();
+    (win as unknown as { ask(): void }).ask();
+    const prompt = createUpdatePrompt({ notice: createFoundNotice(root), window: win });
+    prompt.show(INFO, actions());
+    expect(win.open).toHaveBeenCalledOnce();
   });
 });

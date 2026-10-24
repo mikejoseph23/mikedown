@@ -15,9 +15,11 @@
  *   `idle → available → downloading → verifying → ready → installing | failed`.
  *   The host emits the same states to every window (`applyHostState`), plus
  *   download progress (`applyProgress`).
- * - "Update available" is a toast with Restart Now / Later (U2 replaces it).
- *   Restart Now downloads and verifies, then runs the usual quit handshake
- *   (dirty-file dialog, sessions), installs and relaunches.
+ * - "Update available" is the found-notice (`ui/updateToast.ts`), whose View
+ *   opens the update window (`ui/updateWindow.ts`); a manual check opens the
+ *   window directly. Install and Relaunch downloads and verifies, then runs
+ *   the usual quit handshake (dirty-file dialog, sessions), installs and
+ *   relaunches.
  *
  * Direct channel only: a store build (`MIKEDOWN_CHANNEL=store`) never starts
  * the timers, and the Check for Updates entries are hidden.
@@ -34,16 +36,38 @@ export const TICK_MS = 15 * 60 * 1000;
 export const MESSAGES = {
   checking: 'Checking for updates…',
   upToDate: (v: string) => `MikeDown is up to date (version ${v}).`,
-  couldNotCheck: 'Could not check for updates. Check your internet connection and try again.',
-  installFailed: 'The update could not be installed. Try again later, or download it from the MikeDown website.',
+  couldNotCheck: "Couldn't reach the update server. Check your connection and try again.",
+  badFeed: 'The update feed returned an unexpected response. Try again later.',
+  installFailed: "The update couldn't be installed. Please try again, or download it from the MikeDown website.",
   downloading: (v: string) => `Downloading MikeDown ${v}…`,
   installing: (v: string) => `Installing MikeDown ${v}…`,
 };
 
 export interface UpdatePrompt {
-  /** Show "MikeDown X is available" with Restart Now / Later. */
-  show(info: UpdateInfo, actions: { restartNow(): void; later(): void }): void;
+  /**
+   * Offer the update: the found-notice, or the update window when `manual`
+   * (the user asked) or when the window is already open. `later` hides the
+   * notice for the session.
+   */
+  show(info: UpdateInfo, actions: { restartNow(): void; later(): void }, opts?: { manual?: boolean }): void;
+  /** Hide the found-notice. The window closes itself (it follows the snapshot). */
   hide(): void;
+  /** True while the update window is open and showing progress and failures itself. */
+  showsProgress?(): boolean;
+}
+
+/**
+ * Which manual-check failure line to show, from the host's error text.
+ * Transport failures (offline, DNS, TLS, timeout) are "couldn't reach";
+ * a manifest the plugin could not use (bad JSON, missing platform, a
+ * non-success status, a bad signature field) is "unexpected response".
+ */
+export function classifyCheckError(error: unknown): 'network' | 'feed' {
+  const text = String(error);
+  if (/release JSON|platforms|expected value|invalid type|missing field|unknown variant|semver|signature|base64|could not be decoded|trailing characters|EOF while parsing|unexpected character/i.test(text)) {
+    return 'feed';
+  }
+  return 'network';
 }
 
 export interface UpdaterDeps {
@@ -51,6 +75,8 @@ export interface UpdaterDeps {
   prompt: UpdatePrompt;
   toast(message: string, opts?: { error?: boolean; ms?: number }): void;
   checkOnLaunch(): boolean;
+  /** A silent check found an update (only in the window that ran the check). */
+  onSilentFound?(info: UpdateInfo): void;
   appVersion(): Promise<string>;
   setInterval(fn: () => void, ms: number): unknown;
   setTimeout(fn: () => void, ms: number): unknown;
@@ -105,14 +131,14 @@ export function createUpdater(deps: UpdaterDeps): UpdaterController {
 
   const isBusy = () => BUSY.has(snap.state);
 
-  const showPrompt = (info: UpdateInfo) => {
+  const showPrompt = (info: UpdateInfo, manual = false) => {
     deps.prompt.show(info, {
       restartNow: () => { void controller.restartNow(); },
       later: () => {
         dismissed = info.version;
         deps.prompt.hide();
       },
-    });
+    }, { manual });
   };
 
   /** Re-read the host's phase after an action, in case an event was missed. */
@@ -121,6 +147,20 @@ export function createUpdater(deps: UpdaterDeps): UpdaterController {
       const s = await deps.api.status();
       controller.applyHostState({ state: s.phase, version: s.version, error: null });
     } catch { /* keep what we have */ }
+  };
+
+  const announce = (info: UpdateInfo, manual: boolean) => {
+    const sameReady = snap.state === 'ready' && snap.info?.version === info.version;
+    set({
+      info,
+      ...(isBusy() || sameReady ? {} : { state: 'available' as const, progress: null, error: null }),
+    });
+    if (manual) {
+      showPrompt(info, true);
+      return;
+    }
+    if (isBusy() || dismissed === info.version) {return;}
+    showPrompt(info);
   };
 
   const controller: UpdaterController = {
@@ -142,7 +182,8 @@ export function createUpdater(deps: UpdaterDeps): UpdaterController {
       try {
         if (!(await deps.api.claim(CHECK_INTERVAL_MS))) {return;}
         // A found update arrives through `announce` (the host emits to all windows).
-        await deps.api.check(false);
+        const info = await deps.api.check(false);
+        if (info) {deps.onSilentFound?.(info);}
       } catch (e) {
         // The host already logged a failed check; this covers an invoke that never got there.
         void log(`silent check error: ${String(e)}`);
@@ -151,8 +192,13 @@ export function createUpdater(deps: UpdaterDeps): UpdaterController {
 
     async manualCheck() {
       if (isBusy()) {
-        // Never restart a download or install that is already running.
-        const v = snap.info?.version ?? '';
+        // Never restart a download or install that is already running; show
+        // its progress instead.
+        if (snap.info) {
+          showPrompt(snap.info, true);
+          return;
+        }
+        const v = '';
         deps.toast(snap.state === 'installing' ? MESSAGES.installing(v) : MESSAGES.downloading(v), { ms: 5000 });
         return;
       }
@@ -162,7 +208,7 @@ export function createUpdater(deps: UpdaterDeps): UpdaterController {
         info = await deps.api.check(true);
       } catch (e) {
         void log(`manual check error: ${String(e)}`);
-        deps.toast(MESSAGES.couldNotCheck, { error: true, ms: 6000 });
+        deps.toast(classifyCheckError(e) === 'feed' ? MESSAGES.badFeed : MESSAGES.couldNotCheck, { error: true, ms: 6000 });
         return;
       }
       if (!info) {
@@ -174,17 +220,11 @@ export function createUpdater(deps: UpdaterDeps): UpdaterController {
       // The event normally shows the prompt; a manual check shows it even
       // after Later, since the user asked.
       dismissed = null;
-      controller.announce(info);
+      announce(info, true);
     },
 
     announce(info) {
-      const sameReady = snap.state === 'ready' && snap.info?.version === info.version;
-      set({
-        info,
-        ...(isBusy() || sameReady ? {} : { state: 'available' as const, progress: null, error: null }),
-      });
-      if (isBusy() || dismissed === info.version) {return;}
-      showPrompt(info);
+      announce(info, false);
     },
 
     applyHostState(e) {
@@ -217,7 +257,8 @@ export function createUpdater(deps: UpdaterDeps): UpdaterController {
       if (!version) {
         try { version = (await deps.api.pending())?.version ?? ''; } catch { /* label only */ }
       }
-      if (version) {deps.toast(MESSAGES.downloading(version), { ms: 60_000 });}
+      // The update window shows the progress itself when it is open.
+      if (version && !deps.prompt.showsProgress?.()) {deps.toast(MESSAGES.downloading(version), { ms: 60_000 });}
       try {
         // Resolves once the download is verified and the quit handshake has
         // started; the app then restarts, or stays up if a window cancelled.
@@ -225,7 +266,7 @@ export function createUpdater(deps: UpdaterDeps): UpdaterController {
       } catch (e) {
         void log(`install error: ${String(e)}`);
         set({ state: 'failed', error: String(e) });
-        deps.toast(MESSAGES.installFailed, { error: true, ms: 8000 });
+        if (!deps.prompt.showsProgress?.()) {deps.toast(MESSAGES.installFailed, { error: true, ms: 8000 });}
         return;
       }
       await refresh();

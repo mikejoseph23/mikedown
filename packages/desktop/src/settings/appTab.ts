@@ -7,6 +7,8 @@
  * values read when the modal opened (the diff baseline, see store.ts).
  */
 import type { MikeDownSettingsSection, MikeDownSettingsSectionContext } from '@mikedown/core';
+import type { UpdaterStatus } from '../app/updaterApi';
+import { lastCheckedText } from '../ui/updateView';
 import type { DesktopSettings } from './desktopSettings';
 import { SAVE_FOR_FOLDER_KEY } from './schema';
 import { CORE_BASELINE_KEY } from './store';
@@ -18,9 +20,14 @@ export interface AppTabDeps {
   /** The editor root of the pane that owns this modal, to read the visual baseline. */
   editorRoot(): HTMLElement | null;
   version(): Promise<string>;
-  checkForUpdates(): void;
-  /** False on a store build (`MIKEDOWN_CHANNEL=store`): the store updates the app, so no button. */
+  /** The updater's manual check; the "Last checked" line refreshes when it settles. */
+  checkForUpdates(): Promise<void> | void;
+  /** False on a store build (`MIKEDOWN_CHANNEL=store`): the store updates the app, so no Updates group. */
   updatesEnabled?(): boolean;
+  /** For "Last checked" (`updater_status`). */
+  updaterStatus?(): Promise<UpdaterStatus>;
+  /** Unix ms; tests pin it. */
+  now?(): number;
   setDefaultApp(): void;
 }
 
@@ -102,8 +109,32 @@ export function createAppTabSection(deps: AppTabDeps): MikeDownSettingsSection {
       const versionMax = numberInput(s.versioning.maxSizeMB, 0.1, 100, 0.5);
       maxSizeRow.appendChild(versionMax);
 
-      // Updates
-      const updates = ctx.makeCheckboxRow('Check for updates on launch', 'Look for a new version of MikeDown when the app starts.', s.updates.checkOnLaunch);
+      // Updates (hidden on a store build). The key keeps its M10 name; the
+      // check now runs every few hours, not only at launch.
+      const updatesOn = deps.updatesEnabled?.() ?? true;
+      const updates = ctx.makeCheckboxRow('Automatically check for updates', 'Look for a new version of MikeDown in the background. Nothing is installed until you choose Install and Relaunch.', s.updates.checkOnLaunch);
+      const checkNow = buttonRow(ctx, 'Check for updates', '', 'Check Now', () => {
+        checkNow.button.disabled = true;
+        void Promise.resolve(deps.checkForUpdates())
+          .catch(() => { /* the check reports its own outcome */ })
+          .finally(() => {
+            checkNow.button.disabled = false;
+            refreshLastChecked();
+          });
+      });
+      checkNow.button.dataset.action = 'check-updates';
+      const lastChecked = checkNow.row.querySelector<HTMLElement>('.settings-desc') ?? checkNow.row;
+      lastChecked.dataset.role = 'last-checked';
+      const now = () => deps.now?.() ?? Date.now();
+      const refreshLastChecked = () => {
+        if (!deps.updaterStatus) {return;}
+        void deps.updaterStatus().then(
+          (st) => { lastChecked.textContent = lastCheckedText(st.lastCheckedAt, now()); },
+          () => { lastChecked.textContent = ''; },
+        );
+      };
+      refreshLastChecked();
+      const updatesGroup = ctx.makeGroup(updates.row, checkNow.row);
 
       // Images (wording follows the VS Code extension)
       const imageFolderRow = ctx.makeRow('Image folder', 'Folder name (or relative path) where pasted images are saved. Created if it does not exist. Supports ${docName} for a folder per document, e.g. assets/${docName}.', 'stacked');
@@ -141,13 +172,7 @@ export function createAppTabSection(deps: AppTabDeps): MikeDownSettingsSection {
       versionLabel.dataset.role = 'app-version';
       versionLabel.textContent = 'Version …';
       void deps.version().then((v) => { versionLabel.textContent = `Version ${v}`; }, () => { versionLabel.textContent = 'Version unknown'; });
-      const updateBtn = document.createElement('button');
-      updateBtn.type = 'button';
-      updateBtn.className = 'settings-btn';
-      updateBtn.textContent = 'Check for Updates…';
-      updateBtn.addEventListener('click', () => deps.checkForUpdates());
       about.append(versionLabel);
-      if (deps.updatesEnabled?.() ?? true) {about.append(updateBtn);}
 
       return {
         rows: [
@@ -155,7 +180,7 @@ export function createAppTabSection(deps: AppTabDeps): MikeDownSettingsSection {
           versioningEnabled.row,
           keepRow,
           maxSizeRow,
-          updates.row,
+          ...(updatesOn ? [updatesGroup] : []),
           ctx.makeGroup(imageFolderRow, relativeTo.row, patternRow, altText.row, pathStyle.row, imageMaxRow),
           showHidden.row,
           confirmDelete.row,
@@ -167,7 +192,7 @@ export function createAppTabSection(deps: AppTabDeps): MikeDownSettingsSection {
             [SAVE_FOR_FOLDER_KEY]: folderToggle.input.checked && !folderToggle.input.disabled,
             [CORE_BASELINE_KEY]: baseline,
             'versioning.enabled': versioningEnabled.input.checked,
-            'updates.checkOnLaunch': updates.input.checked,
+            ...(updatesOn ? { 'updates.checkOnLaunch': updates.input.checked } : {}),
             'imagePaste.folder': imageFolder.value.trim() || 'images',
             'imagePaste.folderRelativeTo': relativeTo.select.value,
             'imagePaste.filenamePattern': pattern.value.trim() || '${docName}-${timestamp}',
