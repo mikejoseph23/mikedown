@@ -1,6 +1,6 @@
 {
   "name": "@mikedown/core",
-  "version": "0.1.0",
+  "version": "0.2.0-rc.0",
   "description": "MikeDown WYSIWYG markdown editor core (TipTap + CodeMirror), framework-agnostic.",
   "license": "MIT",
   "type": "module",
@@ -111,7 +111,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mikejoseph23/mikedown.git",
+    "url": "git+https://github.com/mikejoseph23/mikedown.git",
     "directory": "packages/core"
   }
 }
