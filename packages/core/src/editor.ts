@@ -3037,6 +3037,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     // ── Keyboard shortcuts ──────────────────────────────────────────────────────
     editorProps: {
+      // axe aria-input-field-name: the contenteditable textbox needs an accessible name.
+      attributes: { 'aria-label': 'Document text', 'aria-multiline': 'true' },
       handleKeyDown(view, event) {
         // M13 — Cmd+F / Ctrl+F: Open find bar.
         if (features.findReplace && (event.metaKey || event.ctrlKey) && event.key === 'f') {
