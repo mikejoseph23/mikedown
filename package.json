@@ -665,8 +665,11 @@
     "watch": "webpack --watch",
     "dev": "webpack && code --new-window --extensionDevelopmentPath=\"$PWD\" test/workspace",
     "package": "webpack --mode production --devtool hidden-source-map",
-    "vsix": "npm version patch --no-git-tag-version && node scripts/sync-core-version.js && npm run build:core && npm run package && vsce package",
-    "release:core": "bash scripts/release-core.sh",
+    "vsix": "npm version patch --no-git-tag-version && npm run package && vsce package",
+    "vsix:minor": "npm version minor --no-git-tag-version && npm run package && vsce package",
+    "release:npm": "node scripts/release-npm.mjs",
+    "release:core": "npm run release:npm -- --only core",
+    "version:npm": "node scripts/version-npm.mjs",
     "lint": "eslint src packages/core/src --ext ts",
     "format": "prettier --write \"src/**/*.{ts,html,css,js}\"",
     "test:unit": "vitest run test/unit packages/core/test --reporter=verbose",
@@ -674,7 +677,8 @@
     "test:integration": "vscode-test",
     "typecheck:webview": "tsc -p tsconfig.webview.json --noEmit",
     "test:edge": "vitest run test/edge-cases test/performance --reporter=verbose",
-    "test:core-package": "npm run build -w packages/core && vitest run packages/core/test/package-shape.test.ts --reporter=verbose",
+    "test:packages": "node scripts/build-npm.mjs && vitest run test/packages --reporter=verbose",
+    "test:core-package": "npm run test:packages",
     "pretest": "npm run compile"
   },
   "devDependencies": {

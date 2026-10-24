@@ -16,13 +16,15 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./styles.css": "./dist/styles.css",
     "./tokens.css": "./dist/tokens.css",
     "./shared/*": {
       "types": "./dist/shared/*.d.ts",
-      "import": "./dist/shared/*.js"
+      "import": "./dist/shared/*.js",
+      "default": "./dist/shared/*.js"
     },
     "./package.json": "./package.json"
   },
@@ -63,9 +65,6 @@
   },
   "peerDependenciesMeta": {
     "mermaid": {
-      "optional": true
-    },
-    "katex": {
       "optional": true
     }
   },

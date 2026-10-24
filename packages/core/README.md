@@ -2,12 +2,12 @@
 
 The MikeDown WYSIWYG markdown editor as a framework-agnostic package: TipTap (ProseMirror) for the rich view, CodeMirror 6 for source mode, `tiptap-markdown` for parse and serialize. It is the same editor that ships in the MikeDown VS Code extension. No Angular, React or VS Code dependency.
 
-Status: `0.1.0-rc.1`, published under the `rc` tag.
+Status: not yet published to npm. Once it is, install with `npm install @mikedown/core`.
 
 ## Install
 
 ```bash
-npm install @mikedown/core@rc
+npm install @mikedown/core
 ```
 
 Install the peer dependencies too (see [Peer dependencies](#peer-dependencies)). The package is ESM only.
@@ -119,11 +119,11 @@ The app must have exactly one copy of ProseMirror and CodeMirror, so these are p
 | `@codemirror/theme-one-dark` | `^6.1.2` |
 | `lowlight` | `^3.3.0` |
 | `mermaid` (optional) | `^11.15.0` |
-| `katex` (optional) | `^0.16.47` |
+| `katex` | `^0.16.47` |
 
 `tiptap-markdown`, `markdown-it-emoji`, `markdown-it-footnote`, `markdown-it-mark` and `nspell` are regular dependencies and install with the package.
 
-`mermaid` and `katex` are loaded with dynamic `import()` the first time a diagram or formula appears, so they stay out of your initial bundle. Install them to use those features. Without them the block shows an error or the raw source.
+`katex` is a required peer because `styles.css` imports its stylesheet. `mermaid` is optional. Both are loaded with dynamic `import()` the first time a diagram or formula appears, so they stay out of your initial bundle. Without `mermaid` the diagram block shows an error or the raw source.
 
 ## Bundler notes
 
