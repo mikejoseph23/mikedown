@@ -28,18 +28,18 @@
 | [M0 — Decisions and spikes](#m0--decisions-and-spikes) | Opus | ✅ Complete | 13 | `wrappers-decisions.md` approved 2026-10-24 |
 | [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | ✅ Complete | — | `interapp` owns `mikedown`; 2FA on for auth and publishing (security key) |
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
-| [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ⬜ Not Started | — | Mike runs the publish |
+| [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | 🔄 In Progress | — | Mike runs the publish |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ⬜ Not Started | — | Mike uploads the `.vsix` |
 | [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ⬜ Not Started | — | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
-| [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ⬜ Not Started | — | Shared by every wrapper |
+| [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | 🔄 In Progress | — | Shared by every wrapper |
 | [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | ⬜ Not Started | — | `<mikedown-editor>`, form-associated, CDN bundle |
 | [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | ⬜ Not Started | — | Controlled/uncontrolled, ref, SSR-safe |
 | [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | ⬜ Not Started | — | Vue 3, `v-model` |
 | [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | ⬜ Not Started | — | ng-packagr, partial Ivy, Angular 17+ |
 | [M10 — `@mikedown/svelte` (deferred)](#m10--mikedownsvelte-deferred) | Sonnet | ⏸ Deferred | — | Out of this plan; web component covers Svelte |
 | [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | ⬜ Not Started | — | vitest per package + throwaway apps |
-| [M11 — Site build and deploy path](#m11--site-build-and-deploy-path) | Sonnet | ⬜ Not Started | — | `website/` Vite MPA, site-only publish via `mikedown-downloads` |
+| [M11 — Site build and deploy path](#m11--site-build-and-deploy-path) | Sonnet | 🔄 In Progress | — | `website/` Vite MPA, site-only publish via `mikedown-downloads` |
 | [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | ⬜ Not Started | — | UI design |
 | [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ⬜ Not Started | — | UI design |
 | [M14 — READMEs](#m14--readmes) | Sonnet | ⬜ Not Started | — | Root (Marketplace listing) + per package |
