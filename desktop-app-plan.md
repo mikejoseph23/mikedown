@@ -36,7 +36,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M8 — Welcome, recents, menus, window title](#m8--welcome-recents-menus-window-title) | Opus | ✅ Complete (GUI checks pending) | 31 | native menus, `CmdOrCtrl` shortcuts, `welcome.md` |
 | [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | ✅ Complete (print GUI checks pending) | 12 | reuses `handle.getHtml()` |
 | [T3 — Feature tests](#t3--feature-tests) | Sonnet | ✅ Automated done (hands-on pending) | 3 | settings, versioning, search, export |
-| [M10 — Updater, signing, build pipeline, download page](#m10--updater-signing-build-pipeline-download-page) | Opus | ⬜ Not Started | — | follows the LymeScribe deploy scripts |
+| [M10 — Updater, signing, build pipeline, download page](#m10--updater-signing-build-pipeline-download-page) | Opus | 🔄 In Progress | — | follows the LymeScribe deploy scripts |
 | [M11 — Polish: a11y, encoding, filesystem oddities](#m11--polish-a11y-encoding-filesystem-oddities) | Sonnet | ✅ Complete (screen-reader and GUI checks pending) | 26 | edge cases 10, 11, 12, 25, 26 |
 | [T4 — Release candidate hands-on](#t4--release-candidate-hands-on) | Sonnet | ⬜ Not Started | — | full checklist per OS on signed builds |
 
@@ -694,6 +694,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 21:45** - Mike's rulings for M10: Windows ships **NSIS only**, per-user (`installMode: currentUser`, no admin prompt, fits the non-admin day accounts and Tauri's updater); host confirmed `https://iadev.net/mikedown/` (open question 3 closed). M10 dispatched (Opus) with hard limits: no uploads, no Cloudflare purge, no push, no core publish; the updater private key stays outside the repo with its password in the Keychain.
 
 **2026-10-23 21:35** - M11 complete in code (cherry-picked as `4f513d2`..`4eadaa4`). axe pass via `@axe-core/playwright` (`a11y.spec.ts`) fixed nested-interactive tabs, moved the downloading tab's Retry into the pane info bar, labelled search rows, and named core's editor textbox; reduced-motion and forced-colors/prefers-contrast rules on chrome tokens; read-only folders disable New/Rename/Delete with a tooltip; OS errors in plain words; new-file path validation extended to Save As and pasted images; mixed line endings written back as the majority (tie keeps CRLF), documented in the README; byte-for-byte fixture tests; keyboard-only e2e session. **Real bug fixed:** FSEvents starts on an SMB share but never reports another machine's change (measured on `/Volumes/Storage-1` with a file written from BEAST); network volumes now go straight to polling, which saw the change in 6 s. OneDrive on BEAST: an evicted file read fails with OS error 395, now mapped to the downloading tab with Retry. Windows Rust tests 37 green on BEAST (changed files copied into its `C:\git\mikedown` snapshot). Core a11y backlog: toolbar zoom button label mismatch and toolbar contrast. Verified in the main tree: build:core, compile, lint 0 errors, unit 1340, edge 22, VS Code integration 47, desktop tsc, unit 364, e2e 36, cargo 94, vite build green. Pending for a human: VoiceOver and Narrator passes, real-window keyboard-only session, focus rings under Increase Contrast and Reduce Motion, a successful OneDrive hydration in an interactive session.
 
