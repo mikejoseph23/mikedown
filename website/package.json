@@ -5,15 +5,25 @@
   "description": "MikeDown website: the VS Code page and the developers pages. The desktop download page (mikedown-desktop/) is rendered by the desktop release script, not built here.",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "npm run check:shell && vite build && npm run build:angular",
+    "dev": "node scripts/ensure-packages.mjs && vite",
+    "build": "npm run check:shell && npm run build:packages && vite build && npm run build:angular",
     "build:vite": "npm run check:shell && vite build",
+    "build:packages": "node ../scripts/build-npm.mjs",
     "check:shell": "node scripts/sync-desktop-shell.js --check",
     "sync:shell": "node scripts/sync-desktop-shell.js",
     "build:angular": "node scripts/build-angular.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "^7.3.7"
+    "@mikedown/core": "file:../packages/core",
+    "@mikedown/react": "file:../packages/react",
+    "@mikedown/vue": "file:../packages/vue",
+    "@mikedown/web-component": "file:../packages/web-component",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "highlight.js": "^11.11.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vite": "^7.3.7",
+    "vue": "^3.5.0"
   }
 }

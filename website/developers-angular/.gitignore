@@ -42,3 +42,6 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Core stylesheet without its KaTeX @import, written by website/scripts/build-angular.mjs
+/src/generated

@@ -25,12 +25,30 @@
               }
             ],
             "styles": [
+              "../shared/shell.css",
+              "../shared/page.css",
+              "../developers/common/developers.css",
+              "src/generated/mikedown-core.css",
               "src/styles.css"
             ],
             "outputPath": {
               "base": "../dist/developers/angular",
               "browser": ""
-            }
+            },
+            "scripts": [
+              "../developers/common/stage.js",
+              "../shared/copy.js"
+            ],
+            "preserveSymlinks": true,
+            "allowedCommonJsDependencies": [
+              "nspell",
+              "markdown-it-task-lists",
+              "@braintree/sanitize-url",
+              "cytoscape-cose-bilkent",
+              "cytoscape-fcose",
+              "dayjs",
+              "fastdom"
+            ]
           },
           "configurations": {
             "production": {
