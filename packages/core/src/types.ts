@@ -189,6 +189,19 @@ export interface MikeDownOptions {
    * the rich editor and source mode.
    */
   hostOwnsShortcuts?: boolean;
+  /** Empty-document placeholder. Default: "Type / for commands…" or "Start writing…". */
+  placeholder?: string;
+  /** `id` of the editable surface (the contenteditable, and the source view's content). */
+  id?: string;
+  /** Accessible name of the editable surface. Default "Document text". */
+  ariaLabel?: string;
+  /** Id of the element that names the editable surface. Wins over `ariaLabel`'s default. */
+  ariaLabelledBy?: string;
+  /**
+   * Put `role="main"` on the editor container. Default true (VS Code, Desktop).
+   * Embedded form fields pass false, since a field is not a page landmark.
+   */
+  landmark?: boolean;
 }
 
 // ── Handle ────────────────────────────────────────────────────────────────────

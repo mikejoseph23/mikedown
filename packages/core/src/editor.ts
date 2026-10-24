@@ -133,7 +133,7 @@ export function resolveFeatures(partial?: Partial<MikeDownFeatures>): MikeDownFe
  * (`.mikedown-toolbar`, `.mikedown-editor-container`, ...) scoped to the root,
  * never by id.
  */
-export function buildEditorShell(container: HTMLElement, features: MikeDownFeatures): EditorShell {
+export function buildEditorShell(container: HTMLElement, features: MikeDownFeatures, landmark = true): EditorShell {
   const root = document.createElement('div');
   root.className = 'mikedown-root';
   root.setAttribute('data-mikedown-root', '');
@@ -167,8 +167,10 @@ export function buildEditorShell(container: HTMLElement, features: MikeDownFeatu
 
   const editorContainer = document.createElement('div');
   editorContainer.className = 'mikedown-editor-container';
-  editorContainer.setAttribute('role', 'main');
-  editorContainer.setAttribute('aria-label', 'Markdown editor');
+  if (landmark) {
+    editorContainer.setAttribute('role', 'main');
+    editorContainer.setAttribute('aria-label', 'Markdown editor');
+  }
 
   const sourceContainer = document.createElement('div');
   sourceContainer.className = 'mikedown-source-container';
@@ -370,7 +372,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   /** True when the host binds Mod-/ itself (VS Code keybinding). */
   const hostOwnsShortcuts = options.hostOwnsShortcuts === true;
   const features = resolveFeatures(options.features);
-  const shell = buildEditorShell(container, features);
+  const shell = buildEditorShell(container, features, options.landmark !== false);
+  /** Accessible name and id for the editable surface (rich and source view). */
+  const surfaceAttrs: Record<string, string> = {};
+  if (options.id) {surfaceAttrs.id = options.id;}
+  if (options.ariaLabelledBy) {surfaceAttrs['aria-labelledby'] = options.ariaLabelledBy;}
+  surfaceAttrs['aria-label'] = options.ariaLabel || (options.ariaLabelledBy ? '' : 'Document text');
+  if (!surfaceAttrs['aria-label']) {delete surfaceAttrs['aria-label'];}
   const { root, editorContainer, sourceContainer } = shell;
 
   // ── Teardown bookkeeping ───────────────────────────────────────────────────
@@ -2968,7 +2976,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // dispatching a no-op transaction (tr.setMeta('slashPlaceholder', true))
       // rather than touching editor.view.dom directly.
       Placeholder.configure({
-        placeholder: () => (features.slashCommands && currentSlashCommandsEnabled ? 'Type / for commands…' : 'Start writing…'),
+        placeholder: () => options.placeholder ?? (features.slashCommands && currentSlashCommandsEnabled ? 'Type / for commands…' : 'Start writing…'),
       }),
 
       // ── Markdown serialiser / input rules (M2b / M2c) ─────────────────────────
@@ -3081,7 +3089,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // ── Keyboard shortcuts ──────────────────────────────────────────────────────
     editorProps: {
       // axe aria-input-field-name: the contenteditable textbox needs an accessible name.
-      attributes: { 'aria-label': 'Document text', 'aria-multiline': 'true' },
+      attributes: { ...surfaceAttrs, role: 'textbox', 'aria-multiline': 'true' },
       handleKeyDown(view, event) {
         // M13 — Cmd+F / Ctrl+F: Open find bar.
         if (features.findReplace && (event.metaKey || event.ctrlKey) && event.key === 'f') {
@@ -4749,6 +4757,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         buildCmTheme(),
         cmReadOnly.of(EditorState.readOnly.of(readOnly)),
         EditorView.lineWrapping,
+        EditorView.contentAttributes.of(options.id || options.ariaLabel || options.ariaLabelledBy ? { ...surfaceAttrs, 'aria-multiline': 'true' } : {}),
         EditorView.updateListener.of((update) => {
           if (update.docChanged && !cmLoading) {
             const md = update.state.doc.toString();

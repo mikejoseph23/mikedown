@@ -216,6 +216,7 @@ suite('@mikedown/core dist shape', () => {
     expect(exportLines).toMatch(/\bcreateMikeDownEditor\b/);
     expect(exportLines).toMatch(/\bMikeDownHost\b/);
     expect(exportLines).toMatch(/\bMikeDownEditorHandle\b/);
+    expect(exportLines).toMatch(/\bbindMikeDownValue\b/);
   });
 
   it('declarations reference no mermaid, katex or nspell types', () => {

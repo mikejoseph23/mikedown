@@ -33,6 +33,36 @@ handle.destroy();
 
 The editor fills its container (`height: 100%`), so give the container a height. Without one the editor falls back to a `240px` minimum height; set `--mikedown-min-height` to change that floor.
 
+## Binding a value
+
+`bindMikeDownValue` is the glue a form field or framework wrapper needs, in one call. Import it from the package root or from `@mikedown/core/binding`.
+
+```ts
+import { bindMikeDownValue } from '@mikedown/core/binding';
+
+const field = bindMikeDownValue(container, {
+  initialValue: '# Hello',
+  debounceMs: 150,
+  onValue: (markdown) => save(markdown),
+  theme: 'auto',
+  darkSelector: 'html[data-mode=dark]',
+  id: 'notes',
+  ariaLabel: 'Meeting notes',
+  placeholder: 'Start writing…',
+});
+
+field.setValue(fromServer);   // loads pristine; skipped when equal to the current value
+field.flush();                // report a pending change now
+field.setTheme('dark');
+field.focus();
+field.handle;                 // the MikeDownEditorHandle
+field.destroy();              // flushes, then removes observers and listeners
+```
+
+- **Change reporting.** `onValue` fires after `debounceMs` of quiet and at once on blur. `outputTransform(markdown)` maps the text on its way out; `setValue` compares against its output.
+- **Theme.** `auto` is dark when the container or an ancestor matches `darkSelector` (it uses `closest()`, so both `html[data-mode=dark]` and a `.dark-theme` wrapper work), re-checked when attributes change. Without a selector it follows `prefers-color-scheme`.
+- **Accessibility.** `id`, `ariaLabel` and `ariaLabelledBy` go on the editable surface in both views (rich text and source). With only an `id`, the binding looks up `label[for=id]`, uses it as the name and focuses the editor when it is clicked. `ariaLabelledBy` is the sturdier choice. A bound editor drops `role="main"` (`landmark: false`), since a field is not a page landmark; the same `landmark`, `placeholder`, `id`, `ariaLabel` and `ariaLabelledBy` options exist on `createMikeDownEditor`.
+
 ## Host interface
 
 `options.host` is a `MikeDownHost`. Only `onChange` is required. Every other method is optional, and leaving one out turns its feature off and hides its UI. `NoopHost` is a ready-made host with just `onChange`.

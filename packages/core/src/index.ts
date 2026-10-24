@@ -53,3 +53,6 @@ export type {
   MikeDownSettingsSectionBuild,
   MikeDownSettingsSectionContext,
 } from './types';
+
+export { bindMikeDownValue } from './binding';
+export type { MikeDownBinding, MikeDownBindingOptions, BindingTheme } from './binding';
