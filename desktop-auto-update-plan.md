@@ -31,7 +31,7 @@
 | [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | ✅ Done | 9 | vitest, cargo, e2e |
 | [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | ✅ Done | 18 | publish path `C:\WebApps\Downloads\mikedown` (vdir), not `Interapp\mikedown`; Mike's manual steps in `deploy/lymedeploy/deploy.yaml` |
 | [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | ✅ Done | 56 | Mac 20 PASS/1 SKIP, Win 23 PASS/2 SKIP; real 0.1.0 process not exercised (labeled equivalent) |
-| [T2 — Release verification on both OSes](#t2--release-verification-on-both-oses) | Sonnet | 🔄 In Progress | — | hands-on, Mike signs off |
+| [T2 — Release verification on both OSes](#t2--release-verification-on-both-oses) | Sonnet | 🟡 Awaiting Mike | — | harness re-run green, builds staged; hands-on checklist `desktop-auto-update-handson.md` |
 | [U5 — Docs and runbooks](#u5--docs-and-runbooks) | Haiku | 🟡 Awaiting Mike | 2 | docs done; key backup lines blank until Mike confirms |
 
 ---
@@ -377,8 +377,8 @@ Design bar: this should feel like a native macOS Software Update sheet or VS Cod
 
 > **Worker requirement:** complete ALL items. If one should be deferred, say so in your summary but still attempt it unless truly blocked.
 
-- [ ] Re-run `packages/desktop/deploy/updater-staging-test.sh` (macOS) and the Windows staging script; all PASS.
-- [ ] Build a staging N and N+1 (`updater-staging-test.sh --keep`, which prints the install path and server URL); hand Mike the exact paths.
+- [x] Re-run `packages/desktop/deploy/updater-staging-test.sh` (macOS) and the Windows staging script; all PASS.
+- [x] Build a staging N and N+1 (`updater-staging-test.sh --keep`, which prints the install path and server URL); hand Mike the exact paths.
 - [ ] **macOS hands-on** (Mac Studio, Mike's non-admin account; N installed into `/Applications` by `macadmin`): launch N from `/Applications/MikeDown.app`; within ~10 s the "MikeDown N+1 is available" notice appears bottom-right → View → window shows notes and the three buttons in light and dark (toggle with the theme button) → Remind Me Later, relaunch, no notice → Help > Check for Updates… shows the window again → open a file, type, leave it dirty → Install and Relaunch → progress bar → dirty-file dialog → Cancel keeps the app open with "Update ready" → Install again → Save → admin password prompt appears (non-writable `/Applications`) → app relaunches; Help > About shows N+1.
 - [ ] **Windows hands-on** (DevBox1 over RDP, per-user install): same walk, plus Skip This Version then relaunch (no notice) then Check for Updates (window back); Install and Relaunch shows "MikeDown will reopen in a moment", app closes and reopens on N+1 within ~15 s with no UAC prompt.
 - [ ] Mike signs off (orchestrator pauses here).
@@ -434,6 +434,8 @@ If dispatching fills the orchestrator's context, prompt Mike to run `/compact` w
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-24 01:40** - T2 automated half done: macOS 20 PASS / 1 SKIP, Windows 23 PASS / 2 SKIP, 0 FAIL. Mac N/N+1 staged with the server on `127.0.0.1:18765`; Windows N (staging 0.0.9) and N+1 (the real Trusted-Signed 0.1.0, so the Authenticode pre-check passes; it lacks the new window after install) staged on DEVBOX1 under `C:\temp\mikedown-u4\bundle\`. BEAST's `C:\git\mikedown\node_modules` got `@tauri-apps/plugin-notification` copied in by hand (`npm install` crashed with `edgesOut`); run `npm ci` there before the next real Windows build. Paused for Mike's hands-on pass and sign-off.
 
 **2026-10-24 01:25** - U5 docs merged (from 6ffcbb4): `deploy/README.md` rewritten (UX, cadence, state and log paths per OS, split releases, LymeDeploy, purge, verify, rollback) and new `deploy/key-runbook.md`. Key backup lines are placeholders until Mike confirms. Finding: the rotation bridge as written doesn't work, because the plugin falls through endpoints only on fetch/parse failure, not on a bad signature; the bridge release N would also have to move clients to a new endpoint path and freeze the old URLs at N (LymeScribe's Personal bridge shape). Open in the runbook; not needed unless the key is rotated.
 
