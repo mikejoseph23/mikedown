@@ -45,20 +45,7 @@ import { initSlashCommandActions } from './slashcommands-actions';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import { MathInline, MathBlock, setMathRenderingEnabled } from './math';
 import { FootnoteRef, FootnoteDef } from './footnote';
-import {
-  initOutlineSidebar,
-  applyOutlineState,
-  applyBacklinks,
-  applyTags,
-  setTagsSectionEnabled,
-  applyProperties,
-  applyDocMeta,
-  applyPlainText,
-  toggleSidebarVisible,
-  applySupportLink,
-  focusPropertiesSection,
-  destroyOutlineSidebar,
-} from './outlineSidebar';
+import { createOutlineSidebar, type OutlineSidebar } from './outlineSidebar';
 import {
   parseFrontmatter,
   serializeFrontmatter,
@@ -1994,6 +1981,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   // Sidebar footer link (the VS Code support appeal). Null hides it.
   let sidebarFooterLink: SidebarFooterLink | null = null;
+  // This editor's own sidebar (null when features.sidebar is off).
+  let outlineSidebar: OutlineSidebar | null = null;
 
   // Slash-commands settings (M5). Matches the `mikedown.slashCommands.*`
   // defaults in package.json until the host's first 'settings' broadcast.
@@ -3262,7 +3251,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // Mirror plain text into the sidebar footer + status bar so word count
       // and reading time update live without an extra round-trip.
       const plainText = updatedEditor.getText();
-      applyPlainText(plainText);
+      outlineSidebar?.applyPlainText(plainText);
       postStats({ document: plainText });
 
       // Resolve any newly-typed `[[wikilinks]]` (debounced; cached names skip
@@ -3277,7 +3266,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   initSlashCommandActions(editor, {
     showLinkDialog,
     insertEmptyFrontmatter,
-    focusPropertiesSection,
+    focusPropertiesSection: () => outlineSidebar?.focusPropertiesSection(),
     pickImage: host.pickImage ? () => host.pickImage!() : undefined,
   });
   // Hidden slash commands (`/image`, `/properties`) are set once, near the top
@@ -3805,7 +3794,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // Wire link scan on editor updates (debounced) so heading renames are caught.
   editor.on('update', scheduleLinkCheck);
 
-  if (shell.sidebar && shell.sidebarToggle) {initOutlineSidebar({
+  if (shell.sidebar && shell.sidebarToggle) {outlineSidebar = createOutlineSidebar({
     editor,
     sidebarEl: shell.sidebar,
     toggleEl: shell.sidebarToggle,
@@ -3824,7 +3813,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     onSupportOpen: () => sidebarFooterLink?.onOpen(),
     onSupportDismiss: () => sidebarFooterLink?.onDismiss(),
   });
-  disposers.push(destroyOutlineSidebar);
+  disposers.push(() => outlineSidebar?.destroy());
   }
 
   // ── Heading Rename → Fix Links (2.7.0) ─────────────────────────────────────
@@ -4112,7 +4101,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   function refreshPropertiesSidebar(): void {
-    applyProperties(parseFrontmatter(frontmatterContent ?? ''), {
+    outlineSidebar?.applyProperties(parseFrontmatter(frontmatterContent ?? ''), {
       editable: !sourceMode && isSimpleFrontmatter(frontmatterContent ?? ''),
     });
   }
@@ -5061,7 +5050,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const merged = [...counts]
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-    applyTags(merged);
+    outlineSidebar?.applyTags(merged);
     receiveTagCandidates(merged);
   };
   const scheduleLiveTags = (): void => {
@@ -5210,7 +5199,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       isDirty = false;
       lastSavedUndoDepth = null;
       wikilinkResolutionCache.clear();
-      applyPlainText(originalContent);
+      outlineSidebar?.applyPlainText(originalContent);
       postStats({ document: originalContent, selection: null });
       return;
     }
@@ -5285,7 +5274,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // Seed the sidebar footer + status bar with the initial document text.
     // No selection on first load.
     const initialText = editor.getText();
-    applyPlainText(initialText);
+    outlineSidebar?.applyPlainText(initialText);
     postStats({ document: initialText, selection: null });
   }
 
@@ -5409,7 +5398,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // mode too. Routes through the same setVisible the header
       // discovery/close buttons use — no duplicated open/close state.
       case 'toggleSidebar':
-        toggleSidebarVisible();
+        outlineSidebar?.toggleSidebarVisible();
         break;
       // M5 — the slash-menu footer row's "Turn off slash commands" toast
       // posts this from the host after a saveSettings round-trip so the
@@ -5522,7 +5511,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (typeof patch.tagsEnabled === 'boolean') {
       currentTagsEnabled = patch.tagsEnabled;
       setTagsEnabled(editor, patch.tagsEnabled);
-      setTagsSectionEnabled(tagsAvailable && patch.tagsEnabled);
+      outlineSidebar?.setTagsSectionEnabled(tagsAvailable && patch.tagsEnabled);
     }
     if (typeof patch.ctrlWheelZoom === 'boolean') {
       currentCtrlWheelZoom = patch.ctrlWheelZoom;
@@ -5691,7 +5680,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** Sidebar — host push of width/pref/position/per-doc state. */
   function setSidebarState(state: SidebarStateUpdate): void {
-    applyOutlineState({
+    outlineSidebar?.applyOutlineState({
       pref: state.pref,
       width: state.width,
       position: state.position,
@@ -5703,7 +5692,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function setSidebarFooterLink(link: SidebarFooterLink | null): void {
     if (!features.supportCard || !shell.sidebar) {return;}
     sidebarFooterLink = link;
-    applySupportLink({
+    outlineSidebar?.applySupportLink({
       visible: !!link,
       copy: link
         ? { sidebarLink: link.label, dismissLabel: link.dismissLabel, dismissConfirmation: link.dismissConfirmation }
@@ -5765,8 +5754,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     refreshLinks,
     setTags: applyWorkspaceTags,
     setLinkSuggestions: applyLinkSuggestions,
-    setBacklinks: (items: BacklinkItem[]) => applyBacklinks(items || []),
-    setDocMeta: (meta: { mtimeMs?: number | null }) => applyDocMeta({ mtimeMs: meta.mtimeMs }),
+    setBacklinks: (items: BacklinkItem[]) => outlineSidebar?.applyBacklinks(items || []),
+    setDocMeta: (meta: { mtimeMs?: number | null }) => outlineSidebar?.applyDocMeta({ mtimeMs: meta.mtimeMs }),
     setSidebarState,
     setSidebarFooterLink,
     setDiffAvailable: (available: boolean) => { fileHasGitChanges = available; },
@@ -5795,7 +5784,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   if (!features.mermaid) {setMermaidEnabled(editor, false);}
   if (!features.math) {setMathRenderingEnabled(false);}
   if (!features.slashCommands) {setSlashCommandsConfig({ enabled: false });}
-  setTagsSectionEnabled(tagsAvailable && currentTagsEnabled);
+  outlineSidebar?.setTagsSectionEnabled(tagsAvailable && currentTagsEnabled);
   if (options.settings) {updateSettings(options.settings);}
   if (options.theme) {setTheme(options.theme);}
   if (options.readOnly) {setReadOnly(true);}

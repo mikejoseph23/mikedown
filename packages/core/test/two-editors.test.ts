@@ -21,10 +21,15 @@ const host: MikeDownHost = {
   },
 };
 
-function mount(markdown: string, theme: 'light' | 'dark') {
+function mount(markdown: string, theme: 'light' | 'dark', opts: { sidebar?: boolean; host?: MikeDownHost } = {}) {
   const el = document.createElement('div');
   document.body.appendChild(el);
-  const handle = createMikeDownEditor(el, { host, initialMarkdown: markdown, theme });
+  const handle = createMikeDownEditor(el, {
+    host: opts.host ?? host,
+    initialMarkdown: markdown,
+    theme,
+    features: opts.sidebar ? { sidebar: true } : undefined,
+  });
   mounted.push({ handle, el });
   return { el, handle };
 }
@@ -66,6 +71,51 @@ describe('two editors on one page', () => {
     b.handle.setMarkdown('# Still here\n');
     expect(b.el.querySelector('.mikedown-toolbar')).not.toBeNull();
     expect(b.el.querySelector('.ProseMirror h1')?.textContent).toBe('Still here');
+  });
+
+  it('gives each editor its own sidebar (outline, backlinks, toggle, teardown)', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const a = mount(A, 'light', { sidebar: true });
+    const b = mount(B, 'light', { sidebar: true });
+    const sidebarOf = (el: HTMLElement) => el.querySelector<HTMLElement>('.mikedown-outline-sidebar')!;
+    expect(sidebarOf(a.el).hidden).toBe(true);
+    expect(sidebarOf(b.el).hidden).toBe(true);
+
+    a.handle.command('toggleSidebar');
+    expect(sidebarOf(a.el).hidden).toBe(false);
+    expect(sidebarOf(b.el).hidden).toBe(true);
+    expect(a.el.querySelector('.mikedown-root')?.classList.contains('mikedown-outline-open')).toBe(true);
+    expect([...a.el.querySelectorAll('.outline-item')].map((n) => n.textContent)).toEqual(['Release checklist']);
+
+    b.handle.command('toggleSidebar');
+    expect([...b.el.querySelectorAll('.outline-item')].map((n) => n.textContent)).toEqual(['Meeting notes']);
+
+    b.handle.setBacklinks([{ uri: './a.md', displayPath: 'a.md', line: 1 }]);
+    expect(b.el.querySelector('.backlinks-section')?.hasAttribute('hidden')).toBe(false);
+    expect(a.el.querySelector('.backlinks-section')?.hasAttribute('hidden')).toBe(true);
+
+    a.handle.destroy();
+    b.handle.setMarkdown('# Renamed\n');
+    expect([...b.el.querySelectorAll('.outline-item')].map((n) => n.textContent)).toEqual(['Renamed']);
+  });
+
+  it('asks each editor\'s host for its own sidebar state', () => {
+    const requests: string[] = [];
+    const withPrefs = (name: string): MikeDownHost => ({
+      onChange() {},
+      sidebarPrefs: {
+        requestState: () => requests.push(name),
+        setPref() {},
+        applyDefaults() {},
+        sectionCollapsed() {},
+      },
+    });
+    const a = mount(A, 'light', { sidebar: true, host: withPrefs('a') });
+    mount(B, 'light', { sidebar: true, host: withPrefs('b') });
+    expect(requests).toEqual(['a', 'b']);
+    a.handle.setSidebarState({ pref: 'always' });
+    expect(a.el.querySelector<HTMLElement>('.mikedown-outline-sidebar')!.hidden).toBe(false);
+    expect(mounted[1].el.querySelector<HTMLElement>('.mikedown-outline-sidebar')!.hidden).toBe(true);
   });
 
   it('gives .mikedown-root a min-height floor for unsized containers', () => {
