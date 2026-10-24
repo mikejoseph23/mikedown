@@ -650,7 +650,10 @@ pub async fn updater_install<R: Runtime>(app: AppHandle<R>, state: State<'_, Upd
 }
 
 // Mock-runtime download tests (progress events, state events, the cache).
+// Explicit path so tests/updater_cases.rs, which includes this file by
+// #[path], resolves the same file.
 #[cfg(test)]
+#[path = "updater/flow_tests.rs"]
 mod flow_tests;
 
 #[cfg(test)]
