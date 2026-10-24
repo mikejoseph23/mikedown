@@ -35,7 +35,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M7 — Folder search](#m7--folder-search) | Sonnet | ✅ Complete (GUI checks pending) | 35 | Rust-side search, grouped results |
 | [M8 — Welcome, recents, menus, window title](#m8--welcome-recents-menus-window-title) | Opus | ✅ Complete (GUI checks pending) | 31 | native menus, `CmdOrCtrl` shortcuts, `welcome.md` |
 | [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | ✅ Complete (print GUI checks pending) | 12 | reuses `handle.getHtml()` |
-| [T3 — Feature tests](#t3--feature-tests) | Sonnet | ⬜ Not Started | — | settings, versioning, search, export |
+| [T3 — Feature tests](#t3--feature-tests) | Sonnet | 🔄 In Progress | — | settings, versioning, search, export |
 | [M10 — Updater, signing, build pipeline, download page](#m10--updater-signing-build-pipeline-download-page) | Opus | ⬜ Not Started | — | follows the LymeScribe deploy scripts |
 | [M11 — Polish: a11y, encoding, filesystem oddities](#m11--polish-a11y-encoding-filesystem-oddities) | Sonnet | ⬜ Not Started | — | edge cases 10, 11, 12, 25, 26 |
 | [T4 — Release candidate hands-on](#t4--release-candidate-hands-on) | Sonnet | ⬜ Not Started | — | full checklist per OS on signed builds |
