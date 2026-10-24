@@ -27,7 +27,7 @@
 |---|---|---|---|---|
 | [M0 — Decisions and spikes](#m0--decisions-and-spikes) | Opus | ✅ Complete | 13 | `wrappers-decisions.md` approved 2026-10-24 |
 | [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | ✅ Complete | — | `interapp` owns `mikedown`; 2FA on for auth and publishing (security key) |
-| [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | 🔄 In Progress | — | Decouple core from the vsix bump |
+| [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
 | [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ⬜ Not Started | — | Mike runs the publish |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ⬜ Not Started | — | Mike uploads the `.vsix` |
 | [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ⬜ Not Started | — | LymeStarter, Quantico Creek, Desktop pin |
@@ -185,18 +185,18 @@ Apply to every milestone.
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] Remove the core sync from `npm run vsix` (drop `scripts/sync-core-version.js` from the chain; delete the file or repurpose it). Add `vsix:minor` (`npm version minor --no-git-tag-version && npm run package && vsce package`); `vsix` stays the patch variant.
-- [ ] `scripts/version-npm.mjs <version>`: sets the version on every public `packages/*` package (core, web-component, react, vue, angular as they exist), updates each wrapper's `@mikedown/core` peer to `^<version>` and the workspace devDependency, and refuses a version lower than the current one.
-- [ ] `scripts/release-npm.mjs`: discovers public packages (no `"private": true`), builds each, runs `npm pack --dry-run` and prints the file list. Flags: `--only <name,...>`, `--dry-run` (default; publishes nothing), `--publish`, `--otp <code>` passthrough. Prerelease versions publish with `--tag rc`; `--access public` always. Skips a package whose version is already on npm. Without `npm whoami`, packs to `/Volumes/Storage/LymeStack/packages/npm/` (fallback `.orchestrator/wrappers-npm-plan/artifacts/`) like `release-core.sh`. Publishes core first, then the rest.
-- [ ] Root scripts: `release:npm` (the new script), `version:npm`; keep `release:core` as `release:npm -- --only core`; delete `scripts/release-core.sh` once the alias works.
-- [ ] Generalize the shape test into `test/packages/package-shape.test.ts` (keep core's specific checks): for every public package, `exports` targets exist, `types` resolve, `files` includes `dist`, `README.md`, `LICENSE.md`, `license` is MIT, `repository.directory` matches, no `private`, wrapper core peer equals `^<family version>`. Root script `test:packages` (builds then tests); keep `test:core-package` as an alias.
-- [ ] Fix `packages/core/README.md` status line (not yet published; install will be `npm install @mikedown/core`). Add `.npmrc` to `.gitignore` (no tokens in the repo).
-- [ ] `.github/workflows/ci.yml` (required, decided): lint, `test:unit`, `test:edge`, `test:packages` on push and PR; no publish step. Trusted publishing later builds on it.
-- [ ] Update `CLAUDE.md` "Releasing" and the command table: npm family releases are independent of the extension; `npm run vsix` no longer touches core; the order (npm first) is only required when the extension or desktop needs a new core version.
-- [ ] *(M0)* Core: `katex` becomes a required peer (drop it from `peerDependenciesMeta`; `mermaid` stays optional). Shape test checks it.
-- [ ] *(M0)* Every `exports` entry in every public package gets `"default"` after `"import"` (Jest resolution). Shape test checks it.
-- [ ] *(M0)* `version-npm.mjs`, `release-npm.mjs` and the shape test find packages by globbing `packages/*/package.json`, and treat `packages/angular` (when it exists) as a non-workspace package with its own lockfile, published from `packages/angular/dist`. CI runs `npm ci --prefix packages/angular` when that folder exists.
-- [ ] `npm run lint`, `test:unit`, `test:edge`, `test:packages`, and `npm run release:npm` (dry run) green. Commit.
+- [x] Remove the core sync from `npm run vsix` (drop `scripts/sync-core-version.js` from the chain; delete the file or repurpose it). Add `vsix:minor` (`npm version minor --no-git-tag-version && npm run package && vsce package`); `vsix` stays the patch variant.
+- [x] `scripts/version-npm.mjs <version>`: sets the version on every public `packages/*` package (core, web-component, react, vue, angular as they exist), updates each wrapper's `@mikedown/core` peer to `^<version>` and the workspace devDependency, and refuses a version lower than the current one.
+- [x] `scripts/release-npm.mjs`: discovers public packages (no `"private": true`), builds each, runs `npm pack --dry-run` and prints the file list. Flags: `--only <name,...>`, `--dry-run` (default; publishes nothing), `--publish`, `--otp <code>` passthrough. Prerelease versions publish with `--tag rc`; `--access public` always. Skips a package whose version is already on npm. Without `npm whoami`, packs to `/Volumes/Storage/LymeStack/packages/npm/` (fallback `.orchestrator/wrappers-npm-plan/artifacts/`) like `release-core.sh`. Publishes core first, then the rest.
+- [x] Root scripts: `release:npm` (the new script), `version:npm`; keep `release:core` as `release:npm -- --only core`; delete `scripts/release-core.sh` once the alias works.
+- [x] Generalize the shape test into `test/packages/package-shape.test.ts` (keep core's specific checks): for every public package, `exports` targets exist, `types` resolve, `files` includes `dist`, `README.md`, `LICENSE.md`, `license` is MIT, `repository.directory` matches, no `private`, wrapper core peer equals `^<family version>`. Root script `test:packages` (builds then tests); keep `test:core-package` as an alias.
+- [x] Fix `packages/core/README.md` status line (not yet published; install will be `npm install @mikedown/core`). Add `.npmrc` to `.gitignore` (no tokens in the repo).
+- [x] `.github/workflows/ci.yml` (required, decided): lint, `test:unit`, `test:edge`, `test:packages` on push and PR; no publish step. Trusted publishing later builds on it.
+- [x] Update `CLAUDE.md` "Releasing" and the command table: npm family releases are independent of the extension; `npm run vsix` no longer touches core; the order (npm first) is only required when the extension or desktop needs a new core version.
+- [x] *(M0)* Core: `katex` becomes a required peer (drop it from `peerDependenciesMeta`; `mermaid` stays optional). Shape test checks it.
+- [x] *(M0)* Every `exports` entry in every public package gets `"default"` after `"import"` (Jest resolution). Shape test checks it.
+- [x] *(M0)* `version-npm.mjs`, `release-npm.mjs` and the shape test find packages by globbing `packages/*/package.json`, and treat `packages/angular` (when it exists) as a non-workspace package with its own lockfile, published from `packages/angular/dist`. CI runs `npm ci --prefix packages/angular` when that folder exists.
+- [x] `npm run lint`, `test:unit`, `test:edge`, `test:packages`, and `npm run release:npm` (dry run) green. Commit.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 16:20** - M1 done (`a66b865`, `7d4b4ab`, 20 min): `version-npm.mjs`, `release-npm.mjs` (dry run default, `--pack` for tarballs), shared `scripts/lib/npm-packages.mjs`, `test/packages/package-shape.test.ts`, `vsix:minor`, CI workflow (YAML-validated only, no actionlint), katex required peer, `default` export conditions; `release-core.sh` and `sync-core-version.js` removed. Re-verified in the main tree: compile, `test:packages` (17) and the `release:npm` dry run green. Note for M2: Desktop pins core `0.1.0-rc.1` exactly and `version:npm` doesn't touch it, so M2 bumps that pin in the same commit. The worktree was again created off a stale commit (`0103b15`) and reset to base.
 
 **2026-10-24 16:05** - Mike approved `wrappers-decisions.md` (all seven departures). M0 items for M1 added to its checklist; M5, M6, M9, M11, M14 and T1 point at their "What changes" lines. M1 dispatched (Sonnet, worktree).
 
