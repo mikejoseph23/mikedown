@@ -252,7 +252,7 @@ function formatHotkeyChord(chord: string): string {
 
 // ── Toolbar icons (shared across all toolbar modes) ─────────────────────────
 
-const toolbarSvg = (d: string, sw = 1.8) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const toolbarSvg = (d: string, sw = 1.8) => `<svg aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const toolbarIcons = {
   bold: toolbarSvg('<path d="M4 2.5h5a3 3 0 0 1 0 6H4zM4 8.5h6a3 3 0 0 1 0 6H4z" fill="none"/>', 2),
   italic: toolbarSvg('<line x1="10" y1="2" x2="6" y2="14"/><line x1="7" y1="2" x2="12" y2="2"/><line x1="4" y1="14" x2="9" y2="14"/>'),
@@ -2253,6 +2253,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     // ── Text Format dropdown (Aa ▾) ─────────────────────────────────────────
     const textFormatBtn = makeDropdownTrigger('textFormat', 'Text Format', getBlockLabel());
+    // The accessible name includes the visible label ("Aa", "H1"; WCAG 2.5.3).
+    textFormatBtn.setAttribute('aria-label', `${getBlockLabel()} Text Format`);
     textFormatBtn.addEventListener('click', () => {
       if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
       showToolbarDropdown(textFormatBtn, [
@@ -2576,7 +2578,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     (toolbar as any).__condensedUpdate = () => {
       // Update the text format button label to reflect current block type
       const labelEl = textFormatBtn.querySelector('.condensed-btn-label');
-      if (labelEl) {labelEl.innerHTML = getBlockLabel();}
+      const blockLabel = getBlockLabel();
+      if (labelEl && labelEl.innerHTML !== blockLabel) {labelEl.innerHTML = blockLabel;}
+      textFormatBtn.setAttribute('aria-label', `${blockLabel} Text Format`);
 
       // Highlight dropdown triggers when their children are active
       textFormatBtn.classList.toggle('active', isTextFormatActive());
@@ -2604,7 +2608,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       resetBtn.textContent = String(size);
       const tip = `Font size ${size}px (click to reset to ${DEFAULT_FONT_SIZE}px)`;
       resetBtn.dataset.tip = tip;
-      resetBtn.setAttribute('aria-label', tip);
+      // The accessible name starts with the visible number (WCAG 2.5.3).
+      resetBtn.setAttribute('aria-label', `${size} px font size (click to reset to ${DEFAULT_FONT_SIZE}px)`);
     }
     const outBtn = toolbar.querySelector<HTMLButtonElement>('button[data-action="zoomOut"]');
     if (outBtn) {outBtn.disabled = size <= WHEEL_ZOOM_MIN;}

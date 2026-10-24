@@ -42,4 +42,16 @@ describe('editor accessibility', () => {
     handle.setMarkdown('- [ ] Buy oat milk\n', { pristine: false });
     expect(boxes().map((b) => b.getAttribute('aria-label'))).toEqual(['Buy oat milk']);
   });
+
+  it('starts toolbar button names with their visible text', () => {
+    el = document.createElement('div');
+    document.body.appendChild(el);
+    handle = createMikeDownEditor(el, { host: { onChange() {} }, initialMarkdown: '# Title\n\nBody\n' });
+    const btn = (action: string) => el!.querySelector<HTMLButtonElement>(`.mikedown-toolbar button[data-action="${action}"]`)!;
+    for (const action of ['textFormat', 'zoomReset']) {
+      const visible = (btn(action).textContent ?? '').trim();
+      expect(visible).not.toBe('');
+      expect(btn(action).getAttribute('aria-label')!.startsWith(visible)).toBe(true);
+    }
+  });
 });
