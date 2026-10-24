@@ -75,6 +75,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         &[
             &MenuItem::with_id(app, "toggleSource", "Toggle Source Mode", true, Some("CmdOrCtrl+/"))?,
             &MenuItem::with_id(app, "toggleSidebar", "Toggle Folder Sidebar", true, None::<&str>)?,
+            &MenuItem::with_id(app, "showVersions", "Show Versions", true, Some("CmdOrCtrl+Shift+H"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "splitRight", "Split Right", true, Some("CmdOrCtrl+\\"))?,
             &MenuItem::with_id(app, "splitDown", "Split Down", true, Some("CmdOrCtrl+Shift+\\"))?,

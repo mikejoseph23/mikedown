@@ -1,0 +1,416 @@
+/*
+ * Version browser (sidebar view) and diff viewer (M6). App chrome only, on
+ * core's --mikedown-* tokens with the same fallbacks as sidebar.css, so
+ * light, dark and forced-colors follow the OS.
+ */
+
+/* ── Version browser ─────────────────────────────────────────────────────── */
+
+.mdapp-sidebar__versions {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdapp-sidebar__versions[hidden] {
+  display: none;
+}
+
+.mdapp-versions {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 12.5px;
+}
+
+.mdapp-versions__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 4px 12px;
+}
+
+.mdapp-versions__file {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.mdapp-versions__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.mdapp-versions__bar[hidden],
+.mdapp-versions__hint[hidden],
+.mdapp-versions__list[hidden],
+.mdapp-versions__empty[hidden] {
+  display: none;
+}
+
+.mdapp-versions__bar .mdapp-btn--toolbar {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.mdapp-versions__hint,
+.mdapp-versions__empty,
+.mdapp-versions__status {
+  margin: 4px 12px;
+  color: var(--mikedown-text-muted, rgba(127, 127, 127, 0.9));
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.mdapp-versions__empty {
+  margin-top: 12px;
+}
+
+.mdapp-versions__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 4px 0 0;
+  padding: 0 4px 8px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.mdapp-versions__row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 8px 5px 22px;
+  border-radius: 5px;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* The selection mark: an empty ring, filled when selected. */
+.mdapp-versions__row::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.2px solid var(--mikedown-text-muted, rgba(127, 127, 127, 0.9));
+  box-sizing: border-box;
+}
+
+.mdapp-versions__row:hover {
+  background: var(--mikedown-hover, rgba(127, 127, 127, 0.12));
+}
+
+.mdapp-versions__row[aria-selected='true'] {
+  background: var(--mikedown-active, rgba(127, 127, 127, 0.22));
+}
+
+.mdapp-versions__row[aria-selected='true']::before {
+  background: var(--mikedown-accent, #3b82f6);
+  border-color: var(--mikedown-accent, #3b82f6);
+}
+
+.mdapp-versions__row:focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline-offset: -2px;
+}
+
+.mdapp-versions__when {
+  color: var(--mikedown-text, inherit);
+}
+
+.mdapp-versions__meta {
+  color: var(--mikedown-text-muted, rgba(127, 127, 127, 0.9));
+  font-size: 11.5px;
+}
+
+.mdapp-versions__badge {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--mikedown-code-bg, rgba(127, 127, 127, 0.15));
+  color: var(--mikedown-text-muted, rgba(127, 127, 127, 0.9));
+  font-size: 10.5px;
+  vertical-align: 1px;
+}
+
+/* ── Diff viewer ─────────────────────────────────────────────────────────── */
+
+.mdapp-diff-backdrop {
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 24px;
+}
+
+.mdapp-diff {
+  --mdapp-diff-add: color-mix(in srgb, var(--mikedown-success, #16a34a) 14%, transparent);
+  --mdapp-diff-add-strong: color-mix(in srgb, var(--mikedown-success, #16a34a) 34%, transparent);
+  --mdapp-diff-del: color-mix(in srgb, var(--mikedown-danger, #dc2626) 13%, transparent);
+  --mdapp-diff-del-strong: color-mix(in srgb, var(--mikedown-danger, #dc2626) 32%, transparent);
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 10px;
+  background: var(--mikedown-surface, #fff);
+  color: var(--mikedown-text, #1f1f1f);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  outline: none;
+}
+
+.mdapp-diff__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--mikedown-divider, var(--mikedown-border, rgba(127, 127, 127, 0.25)));
+  background: var(--mikedown-surface-toolbar, var(--mikedown-surface, #fff));
+}
+
+.mdapp-diff__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mdapp-diff__summary {
+  display: inline-flex;
+  gap: 6px;
+  font-family: var(--mikedown-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+.mdapp-diff__count--add {
+  color: var(--mikedown-success, #16a34a);
+}
+
+.mdapp-diff__count--del {
+  color: var(--mikedown-danger, #dc2626);
+}
+
+.mdapp-diff__tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.mdapp-diff__modes {
+  display: inline-flex;
+  margin-right: 6px;
+}
+
+.mdapp-diff__modes .mdapp-btn--toolbar:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.mdapp-diff__modes .mdapp-btn--toolbar:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: -1px;
+}
+
+.mdapp-diff__mode[aria-pressed='true'] {
+  background: var(--mikedown-active, rgba(127, 127, 127, 0.22));
+}
+
+.mdapp-diff__actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.mdapp-diff__labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--mikedown-divider, var(--mikedown-border, rgba(127, 127, 127, 0.25)));
+  font-size: 12px;
+  color: var(--mikedown-text-muted, rgba(127, 127, 127, 0.9));
+}
+
+.mdapp-diff[data-mode='inline'] .mdapp-diff__labels {
+  grid-template-columns: auto auto 1fr;
+  gap: 16px;
+}
+
+.mdapp-diff__label {
+  padding: 5px 14px;
+}
+
+.mdapp-diff__label--old::before {
+  content: '−';
+  margin-right: 6px;
+  color: var(--mikedown-danger, #dc2626);
+}
+
+.mdapp-diff__label--new::before {
+  content: '+';
+  margin-right: 6px;
+  color: var(--mikedown-success, #16a34a);
+}
+
+.mdapp-diff__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+}
+
+.mdapp-diff__body:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+}
+
+.mdapp-diff__same {
+  margin: 24px;
+  color: var(--mikedown-text-muted, rgba(127, 127, 127, 0.9));
+}
+
+.mdapp-diff__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--mikedown-font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.mdapp-diff__table--split col,
+.mdapp-diff__no {
+  width: 3.5em;
+}
+
+.mdapp-diff__table--inline .mdapp-diff__sign {
+  width: 1.5em;
+  text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mdapp-diff__no {
+  padding: 0 8px;
+  text-align: right;
+  vertical-align: top;
+  color: var(--mikedown-text-muted, rgba(127, 127, 127, 0.9));
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0.8;
+}
+
+.mdapp-diff__text {
+  padding: 0 12px 0 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.mdapp-diff__table--split .mdapp-diff__text--old {
+  border-right: 1px solid var(--mikedown-divider, var(--mikedown-border, rgba(127, 127, 127, 0.25)));
+}
+
+.mdapp-diff__table--split .mdapp-diff__text--empty {
+  background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(127, 127, 127, 0.06) 6px 12px);
+}
+
+/* Split: the old side of a change or deletion is red, the new side green. */
+.mdapp-diff__table--split .mdapp-diff__row--del .mdapp-diff__text--old,
+.mdapp-diff__table--split .mdapp-diff__row--change .mdapp-diff__text--old,
+.mdapp-diff__table--inline .mdapp-diff__row--del {
+  background: var(--mdapp-diff-del);
+}
+
+.mdapp-diff__table--split .mdapp-diff__row--add .mdapp-diff__text--new,
+.mdapp-diff__table--split .mdapp-diff__row--change .mdapp-diff__text--new,
+.mdapp-diff__table--inline .mdapp-diff__row--add {
+  background: var(--mdapp-diff-add);
+}
+
+.mdapp-diff__word {
+  color: inherit;
+  border-radius: 2px;
+}
+
+.mdapp-diff__text--old .mdapp-diff__word,
+.mdapp-diff__row--del .mdapp-diff__word {
+  background: var(--mdapp-diff-del-strong);
+}
+
+.mdapp-diff__text--new .mdapp-diff__word,
+.mdapp-diff__row--add .mdapp-diff__word {
+  background: var(--mdapp-diff-add-strong);
+}
+
+.mdapp-diff__table--inline .mdapp-diff__row--del .mdapp-diff__sign {
+  color: var(--mikedown-danger, #dc2626);
+}
+
+.mdapp-diff__table--inline .mdapp-diff__row--add .mdapp-diff__sign {
+  color: var(--mikedown-success, #16a34a);
+}
+
+.mdapp-diff__fold td {
+  padding: 2px 0;
+  background: var(--mikedown-code-bg, rgba(127, 127, 127, 0.08));
+}
+
+.mdapp-diff__expand {
+  display: block;
+  width: 100%;
+  padding: 2px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--mikedown-link, var(--mikedown-accent, #3b82f6));
+  font: inherit;
+  font-family: var(--mikedown-font-ui, system-ui, sans-serif);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mdapp-diff__expand:hover {
+  text-decoration: underline;
+}
+
+.mdapp-diff__expand:focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
+  outline-offset: -2px;
+}
+
+@media (max-width: 720px) {
+  .mdapp-diff-backdrop {
+    padding: 8px;
+  }
+}
+
+@media (forced-colors: active) {
+  .mdapp-versions__row[aria-selected='true'] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  .mdapp-diff__word {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .mdapp-diff__row--del .mdapp-diff__text,
+  .mdapp-diff__row--change .mdapp-diff__text--old {
+    text-decoration: line-through;
+  }
+}

@@ -18,6 +18,8 @@ export interface SidebarActions {
   visibilityChanged(visible: boolean): void;
   /** The header's Search button (M7): switch to the search view. */
   showSearch?(): void;
+  /** The header's Versions button (M6): switch to the version browser. */
+  showVersions?(): void;
 }
 
 export interface Sidebar {
@@ -33,9 +35,13 @@ export interface Sidebar {
   width(): number;
   /** M7: the search panel, shown in place of the tree while the view is `search`. */
   setSearchEl(panel: HTMLElement): void;
-  setView(view: 'tree' | 'search'): void;
-  view(): 'tree' | 'search';
+  setView(view: SidebarView): void;
+  view(): SidebarView;
+  /** M6: the version browser, shown in place of the tree while the view is `versions`. */
+  setVersionsEl(panel: HTMLElement): void;
 }
+
+export type SidebarView = 'tree' | 'search' | 'versions';
 
 export const SIDEBAR_MIN = 160;
 export const SIDEBAR_MAX = 600;
@@ -66,10 +72,11 @@ const ICONS = {
   newFolder: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M1.75 3.5h4.1l1.4 1.5h7v7.5H1.75z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 7.25v3.5M6.25 9h3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
   hidden: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M1.5 8s2.4-4.25 6.5-4.25S14.5 8 14.5 8s-2.4 4.25-6.5 4.25S1.5 8 1.5 8z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="1.9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
   search: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="6.75" cy="6.75" r="4" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.75 9.75l4 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+  versions: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2.6 8a5.4 5.4 0 1 0 1.6-3.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M2.25 2.5v2.75H5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 5v3.25l2.25 1.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   collapse: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><rect x="1.75" y="2.5" width="12.5" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 2.5v11" stroke="currentColor" stroke-width="1.2"/></svg>',
 };
 
-export function createSidebar(actions: SidebarActions, opts: { newFileLabel: string; newFolderLabel: string; toggleLabel: string; searchLabel?: string }): Sidebar {
+export function createSidebar(actions: SidebarActions, opts: { newFileLabel: string; newFolderLabel: string; toggleLabel: string; searchLabel?: string; versionsLabel?: string }): Sidebar {
   const el = document.createElement('aside');
   el.className = 'mdapp-sidebar';
   el.setAttribute('aria-label', 'Folder');
@@ -81,11 +88,13 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
         <button type="button" class="mdapp-iconbtn" data-action="new-folder">${ICONS.newFolder}</button>
         <button type="button" class="mdapp-iconbtn" data-action="hidden" aria-pressed="false">${ICONS.hidden}</button>
         <button type="button" class="mdapp-iconbtn" data-action="search">${ICONS.search}</button>
+        <button type="button" class="mdapp-iconbtn" data-action="versions" aria-pressed="false">${ICONS.versions}</button>
         <button type="button" class="mdapp-iconbtn" data-action="collapse">${ICONS.collapse}</button>
       </span>
     </div>
     <div class="mdapp-sidebar__body"></div>
     <div class="mdapp-sidebar__search" hidden></div>
+    <div class="mdapp-sidebar__versions" hidden></div>
     <div class="mdapp-sidebar__empty" hidden>
       <p>No folder is open. Open one to browse, create and organise its notes here.</p>
       <button type="button" class="mdapp-btn mdapp-btn--primary" data-action="open-folder">Open Folder…</button>
@@ -104,6 +113,7 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
     'new-folder': opts.newFolderLabel,
     hidden: 'Show Hidden Files',
     search: opts.searchLabel ?? 'Search Folder',
+    versions: opts.versionsLabel ?? 'Show Versions',
     collapse: opts.toggleLabel,
   };
   for (const [name, label] of Object.entries(labels)) {
@@ -114,17 +124,24 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
   let visible = true;
   let width = clampSidebarWidth(loadWidth(), window.innerWidth);
   let hasFolder = false;
-  let view: 'tree' | 'search' = 'tree';
+  let view: SidebarView = 'tree';
   const searchHost = el.querySelector('.mdapp-sidebar__search') as HTMLElement;
+  const versionsHost = el.querySelector('.mdapp-sidebar__versions') as HTMLElement;
 
   /** The tree body or the search panel, never both; no folder shows neither. */
   function applyView(): void {
     const searching = view === 'search' && hasFolder;
-    body.hidden = !hasFolder || searching;
+    // The version browser also explains itself in a lone-file window.
+    const versions = view === 'versions';
+    body.hidden = !hasFolder || searching || versions;
     searchHost.hidden = !searching;
+    versionsHost.hidden = !versions;
+    empty.hidden = hasFolder || versions;
     btn('search').classList.toggle('mdapp-iconbtn--on', searching);
     btn('search').setAttribute('aria-pressed', searching ? 'true' : 'false');
-    title.textContent = searching ? 'Search' : (currentTitle || 'No Folder');
+    btn('versions').classList.toggle('mdapp-iconbtn--on', versions);
+    btn('versions').setAttribute('aria-pressed', versions ? 'true' : 'false');
+    title.textContent = searching ? 'Search' : versions ? 'Versions' : (currentTitle || 'No Folder');
   }
   let currentTitle = '';
 
@@ -140,6 +157,7 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
   btn('new-folder').addEventListener('click', () => actions.newFolder());
   btn('hidden').addEventListener('click', () => actions.toggleHidden());
   btn('search').addEventListener('click', () => actions.showSearch?.());
+  btn('versions').addEventListener('click', () => actions.showVersions?.());
   btn('collapse').addEventListener('click', () => setVisible(false));
   btn('open-folder').addEventListener('click', () => actions.openFolder());
   btn('open-containing').addEventListener('click', () => actions.openContainingFolder());
@@ -210,11 +228,15 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
         for (const name of ['new-file', 'new-folder', 'hidden']) {btn(name).hidden = false;}
       }
       btn('search').hidden = !folder;
-      if (!folder) {view = 'tree';}
+      btn('versions').hidden = !folder;
+      if (!folder && view === 'search') {view = 'tree';}
       applyView();
     },
     setSearchEl(panel) {
       searchHost.replaceChildren(panel);
+    },
+    setVersionsEl(panel) {
+      versionsHost.replaceChildren(panel);
     },
     setView(next) {
       view = next;

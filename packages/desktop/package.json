@@ -23,7 +23,8 @@
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-shell": "^2.5.0",
     "@tauri-apps/plugin-updater": "^2.14.0",
-    "@tauri-apps/plugin-window-state": "^2.5.0"
+    "@tauri-apps/plugin-window-state": "^2.5.0",
+    "diff": "^8.0.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",

@@ -44,7 +44,8 @@ export type AppCommand =
   | 'splitDown'
   | 'newWindow'
   | 'print'
-  | 'searchFolder';
+  | 'searchFolder'
+  | 'showVersions';
 
 export interface ShortcutRow {
   command: AppCommand;
@@ -77,6 +78,7 @@ export const SHORTCUTS: readonly ShortcutRow[] = [
   { command: 'newWindow', accelerator: 'CmdOrCtrl+Shift+N', label: 'New Window' },
   { command: 'print', accelerator: 'CmdOrCtrl+P', label: 'Print…' },
   { command: 'searchFolder', accelerator: 'CmdOrCtrl+Shift+F', label: 'Search in Folder…' },
+  { command: 'showVersions', accelerator: 'CmdOrCtrl+Shift+H', label: 'Show Versions' },
 ];
 
 export interface ParsedAccelerator {

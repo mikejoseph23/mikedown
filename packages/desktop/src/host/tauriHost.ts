@@ -11,12 +11,14 @@
  * The knowledge-base methods (`getLinkSuggestions`, `getFileHeadings`,
  * `resolveWikilinks`, `createWikilink`, `checkLinks`) exist only while the
  * window has a folder open (M3, `setKnowledgeBase`); core looks them up when
- * it needs them, so a lone-file window simply has none. Methods later
- * milestones implement (`getTags`, `getDiffBaseline`) are deliberately absent
- * so core keeps their UI hidden. `exportHtml` and `printDocument` (M9) are
+ * it needs them, so a lone-file window simply has none. `getTags` is
+ * deliberately absent so core keeps its UI hidden. `getDiffBaseline` (M6)
+ * exists when the app passes `diffBaseline`: the newest version snapshot is
+ * the "committed" text core highlights changes against. `exportHtml` and `printDocument` (M9) are
  * present: core shows its Print / Export as PDF toolbar entry, which is wanted.
  */
 import type {
+  DiffBaseline,
   LinkCheckRequest,
   LinkOpenBehavior,
   LinkSuggestion,
@@ -66,6 +68,8 @@ export interface TauriHostDeps {
     exportHtml?(html: string): void;
     printDocument?(html: string): void;
   };
+  /** M6: text of the newest version snapshot of a file, or null (none, or no folder). */
+  diffBaseline?(path: string): Promise<string | null>;
 }
 
 export class TauriHost implements MikeDownHost {
@@ -83,11 +87,21 @@ export class TauriHost implements MikeDownHost {
   declare resolveWikilinks?: (targets: string[]) => Promise<WikilinkResolution[]>;
   declare createWikilink?: (target: string) => Promise<WikilinkResolution[] | void>;
   declare checkLinks?: (links: LinkCheckRequest[]) => Promise<string[]>;
+  declare getDiffBaseline?: () => Promise<DiffBaseline>;
 
   constructor(private readonly deps: TauriHostDeps) {
     this.uploadImage = (file) => deps.images.uploadImage(file);
     this.pickImage = () => deps.images.pickImage();
     this.resizeImage = (req) => deps.images.resizeImage(req);
+    const baseline = deps.diffBaseline;
+    if (baseline) {
+      this.getDiffBaseline = async () => {
+        const doc = deps.doc();
+        if (!doc?.path) {return { headContent: null, hasChanges: false };}
+        const head = await baseline(doc.path).catch(() => null);
+        return { headContent: head, hasChanges: head !== null && head !== doc.text };
+      };
+    }
   }
 
   /**

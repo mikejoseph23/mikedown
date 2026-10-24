@@ -20,6 +20,7 @@ import './styles/sidebar.css';
 import './styles/panes.css';
 import './styles/settings.css';
 import './styles/search.css';
+import './styles/versions.css';
 
 import { createMikeDownEditor, type MikeDownEditorHandle, type MikeDownViewState } from '@mikedown/core';
 import { getVersion } from '@tauri-apps/api/app';
@@ -27,7 +28,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { createDocumentController } from './app/documentController';
 import { createBackupScheduler, planRestore } from './documents/backups';
-import { checkExternalChanges, createDocumentRegistry, planOpen, type DocumentModel } from './documents/documentModel';
+import { createDocumentRegistry, planOpen, type DocumentModel } from './documents/documentModel';
 import { appDataApi, fsApi, launchApi, searchApi, treeApi, watchApi, windowApi, windowsApi } from './documents/fsApi';
 import { createSessionWriter, layoutFromSession, parseSession, serializeSession, type SessionData, type SessionTab } from './documents/session';
 import { createImagePipeline } from './host/imagePipeline';
@@ -54,6 +55,10 @@ import { createDialogs, IMAGE_FILTERS } from './ui/dialogs';
 import { createSidebar } from './ui/sidebar';
 import { createExporter } from './export/exporter';
 import { exportStylesheet } from './export/exportCss';
+import { createVersioning, type VersionSnapshot } from './documents/versioning';
+import { versionsApi } from './documents/fsApi';
+import { showDiff } from './ui/diffView';
+import { createVersionsPanel, restoreIntoDocument } from './ui/versions';
 
 const app = document.getElementById('app');
 const container = document.getElementById('editor');
@@ -91,12 +96,16 @@ let controllerRef: ReturnType<typeof createDocumentController> | null = null;
 let exporterRef: ReturnType<typeof createExporter> | null = null;
 let toggleSearchRef: (() => void) | null = null;
 let searchPanelRef: ReturnType<typeof createSearchPanel> | null = null;
+let toggleVersionsRef: (() => void) | null = null;
+let refreshVersionsRef: (() => void) | null = null;
+let showVersionsRef: (() => void) | null = null;
 
 const sidebar = createSidebar({
   newFile: () => { void workspaceRef?.newFile(); },
   newFolder: () => { void workspaceRef?.newFolder(); },
   toggleHidden: () => { void Promise.resolve(workspaceRef?.toggleHidden()).then(() => searchPanelRef?.refresh()); },
   showSearch: () => toggleSearchRef?.(),
+  showVersions: () => toggleVersionsRef?.(),
   openFolder: () => { void openFolderViaDialog(); },
   openContainingFolder: () => controllerRef?.openContainingFolder(),
   visibilityChanged: (visible) => {
@@ -104,7 +113,7 @@ const sidebar = createSidebar({
     if (!visible && sidebar.el.contains(document.activeElement)) {panes.focusActiveEditor();}
     scheduleSession();
   },
-}, { newFileLabel: 'New File', newFolderLabel: 'New Folder', toggleLabel: label('toggleSidebar'), searchLabel: label('searchFolder') });
+}, { newFileLabel: 'New File', newFolderLabel: 'New Folder', toggleLabel: label('toggleSidebar'), searchLabel: label('searchFolder'), versionsLabel: label('showVersions') });
 body.append(sidebar.el, mainCol);
 
 const chrome = createChrome(app, { isMac });
@@ -117,7 +126,19 @@ chrome.setSidebarVisible(false);
 
 // ── Documents, backups, panes ───────────────────────────────────────────────
 
-const registry = createDocumentRegistry({ fs: fsApi });
+// M6: every explicit save of a file inside the open folder snapshots it.
+const versioning = createVersioning({
+  api: versionsApi,
+  path,
+  settings: () => settings.get().versioning,
+  root: () => workspaceRef?.root() ?? null,
+  readText: (p) => fsApi.readText(p),
+});
+
+const registry = createDocumentRegistry({
+  fs: fsApi,
+  onSaved: (doc, write) => { if (doc.path) {void versioning.onSaved(doc.path, write.size);} },
+});
 
 const backups = createBackupScheduler({
   api: appDataApi,
@@ -151,6 +172,7 @@ const settingsMgr = createSettingsManager({
       sidebar.setShowHidden(next['tree.showHidden'] === true);
       void workspaceRef?.tree.refreshAll();
     }
+    if (prev['versioning.enabled'] !== next['versioning.enabled']) {refreshVersionsRef?.();}
   },
   banner: settingsBanner,
   notify: (message, opts) => dialogs.toast(message, opts),
@@ -187,6 +209,7 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
       exportHtml: (html) => { void exporterRef?.exportHtml(html); },
       printDocument: (html) => { void exporterRef?.print(html); },
     },
+    diffBaseline: (p) => versioning.newestText(p),
   });
   const kb = workspaceRef?.knowledgeBase() ?? null;
   if (kb) {host.setKnowledgeBase(kb);}
@@ -240,6 +263,8 @@ const panes = createPaneManager({
         run: () => { if (p && openFolderRef) {void openFolderRef(path.dirname(p));} },
       },
       { label: 'Open Folder…', run: () => { void openFolderViaDialog(); } },
+      null,
+      { label: 'Show Versions', disabled: !p || !root, run: () => { panes.open(doc); showVersionsRef?.(); } },
     ];
   },
   showContextMenu: (x, y, entries, menuLabel) => showContextMenu(x, y, entries, { label: menuLabel }),
@@ -291,11 +316,27 @@ const controller = createDocumentController({
   openFolder: (dir) => { void openFolder(dir); },
   onActiveDocument: (doc) => {
     workspaceRef?.syncActive(doc?.path ?? null);
+    refreshVersionsRef?.();
     syncFolderButton();
     scheduleSession();
   },
   onDocumentsChanged: () => { reportWindowState(); scheduleSession(); },
   createFile: createFileWithText,
+  compareWithDisk: async ({ doc, diskText }) => {
+    const name = doc.path ? path.basename(doc.path) : 'Untitled';
+    const choice = await showDiff({
+      title: `${name}: changed on disk`,
+      leftLabel: 'On disk',
+      rightLabel: 'Your unsaved version',
+      left: diskText,
+      right: doc.text,
+      actions: [
+        { id: 'revert', label: 'Revert to Disk' },
+        { id: 'overwrite', label: 'Overwrite with Mine', primary: true },
+      ],
+    });
+    return choice === 'overwrite' || choice === 'revert' ? choice : null;
+  },
 });
 controllerRef = controller;
 const baseOnStats = controller.onStats;
@@ -350,8 +391,11 @@ const workspace = createFolderWorkspace({
   refreshLinks: () => { for (const ed of panes.editors()) {ed.handle.refreshLinks();} },
   focusEditor: () => panes.focusActiveEditor(),
   copyText,
+  moveVersions: (from, to) => versioning.moved(from, to),
 });
 workspaceRef = workspace;
+// M6: an open file changed on disk (another app or window): reload or flag.
+void watchApi.onChange((change) => controller.external.handleFsChange(change)).catch(() => { /* not under Tauri */ });
 sidebar.setTreeEl(workspace.tree.el);
 workspace.tree.el.addEventListener('click', () => scheduleSession());
 workspace.tree.el.addEventListener('keydown', () => scheduleSession());
@@ -388,6 +432,76 @@ function closeSearch(): void {
   if (panes.activeDoc()) {panes.focusActiveEditor();} else {workspace.tree.focus();}
 }
 toggleSearchRef = () => { if (sidebar.view() === 'search') {closeSearch();} else {showSearch();} };
+
+// ── Versions (M6): the version browser replaces the tree in the sidebar ─────
+async function compareVersions(older: VersionSnapshot, newer: VersionSnapshot | 'current'): Promise<void> {
+  const doc = panes.activeDoc();
+  if (!doc?.path) {return;}
+  const name = path.basename(doc.path);
+  const stamp = (s: VersionSnapshot): string => new Date(s.timeMs).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+  try {
+    const left = await versioning.read(older);
+    const right = newer === 'current' ? doc.text : await versioning.read(newer);
+    const choice = await showDiff({
+      title: name,
+      leftLabel: `Version of ${stamp(older)}`,
+      rightLabel: newer === 'current' ? (doc.dirty ? 'Current (unsaved)' : 'Current') : `Version of ${stamp(newer)}`,
+      left,
+      right,
+      actions: [{ id: 'restore', label: `Restore ${stamp(newer === 'current' ? older : newer)}` }],
+    });
+    if (choice === 'restore') {await restoreVersion(newer === 'current' ? older : newer);}
+  } catch (err) {
+    dialogs.toast(`Could not read that version: ${String(err)}`, { error: true, ms: 6000 });
+  }
+}
+
+/** Edge case 2: the buffer takes the snapshot's text and turns dirty; nothing is written. */
+async function restoreVersion(snapshot: VersionSnapshot): Promise<void> {
+  const doc = panes.activeDoc();
+  if (!doc) {return;}
+  const result = await restoreIntoDocument(doc, () => versioning.read(snapshot), async () => (await dialogs.confirm('Replace your unsaved changes with this version?', {
+    okLabel: 'Restore',
+    cancelLabel: 'Cancel',
+    detail: 'The restored text is not saved until you save the file.',
+  })).ok);
+  if (result === 'cancelled') {return;}
+  panes.refreshDoc(doc);
+  controller.refresh();
+  dialogs.toast(result === 'unchanged' ? 'The document already has that text.' : doc.dirty ? 'Version restored. Save to keep it.' : 'Version restored; it matches the saved file.');
+}
+
+const versionsPanel = createVersionsPanel({
+  versioning,
+  activeDoc: () => panes.activeDoc(),
+  root: () => workspace.root(),
+  enabled: () => settings.get().versioning.enabled,
+  compare: (older, newer) => { void compareVersions(older, newer); },
+  restore: (s) => { void restoreVersion(s).catch((err: unknown) => dialogs.toast(`Could not restore: ${String(err)}`, { error: true })); },
+  close: () => closeVersions(),
+});
+sidebar.setVersionsEl(versionsPanel.el);
+
+function showVersions(): void {
+  sidebar.setVisible(true);
+  sidebar.setView('versions');
+  void versionsPanel.refresh().then(() => versionsPanel.focus());
+}
+
+function closeVersions(): void {
+  sidebar.setView('tree');
+  if (panes.activeDoc()) {panes.focusActiveEditor();} else if (workspace.root()) {workspace.tree.focus();}
+}
+toggleVersionsRef = () => { if (sidebar.view() === 'versions') {closeVersions();} else {showVersions();} };
+const refreshVersions = (): void => { if (sidebar.view() === 'versions' && sidebar.isVisible()) {void versionsPanel.refresh();} };
+versioning.onChange((file) => {
+  if (panes.activeDoc()?.path === file) {refreshVersions();}
+  // Core's change highlighting compares against the newest snapshot.
+  for (const ed of panes.editors()) {ed.handle.setDiffAvailable(true);}
+});
+registry.onChange((doc, event) => { if (event === 'path' && doc === panes.activeDoc()) {refreshVersions();} });
+refreshVersionsRef = refreshVersions;
+showVersionsRef = showVersions;
 
 /** Open Containing Folder stays useful only while the file is outside the open folder. */
 function syncFolderButton(): void {
@@ -711,6 +825,7 @@ const actions: Record<AppCommand, () => void> = {
   splitDown: () => panes.split('column'),
   print: () => { void exporterRef?.print(); },
   searchFolder: showSearch,
+  showVersions: () => toggleVersionsRef?.(),
   newWindow: () => { void windowsApi.newWindow().catch((err: unknown) => dialogs.toast(`Could not open a window: ${String(err)}`, { error: true })); },
 };
 const menuOnly: Record<string, () => void> = {
@@ -762,11 +877,11 @@ if (!smokeEnabled()) {
   }).catch(() => { /* not under Tauri */ });
 }
 
-// Cross-window edits of the same file (edge case 6): compare mtimes when the
-// window gains focus; M6 turns the mark into UI.
+// Cross-window edits of the same file (edge case 6) and edits in other apps:
+// compare mtimes when the window gains focus (M6: reload clean, flag dirty).
 if (!smokeEnabled()) {
   void tauriWindow.onFocusChanged(({ payload: focused }) => {
-    if (focused) {void checkExternalChanges(registry.all(), (p) => fsApi.stat(p)).then((docs) => { for (const d of docs) {panes.refreshDoc(d);} });}
+    if (focused) {void controller.external.checkAll();}
   }).catch(() => { /* not under Tauri */ });
 }
 
