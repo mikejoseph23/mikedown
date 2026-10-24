@@ -4937,12 +4937,15 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // text, so there depth 0 stays the pristine mark.
       lastSavedUndoDepth = wasPristine ? 0 : null;
       isLoading = false;
-    } else {
-      // Content matches — still refresh originalContent so the dirty-state
-      // baseline tracks the current markdown verbatim (trailing-newline etc).
+    } else if (!sourceUnchanged) {
+      // Source was edited but parses to what the rich view already holds —
+      // the baseline tracks the current markdown verbatim (trailing-newline etc).
       originalContent = md;
       trailingNewline = md.endsWith('\n');
     }
+    // else: an unedited round trip. `md` is only the seed (the re-serialized
+    // rich view when edits were pending), not the saved text, so the baseline
+    // and the dirty state stay as they were.
     sourceSync.exit();
 
     // Show WYSIWYG, hide source
