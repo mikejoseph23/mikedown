@@ -1,0 +1,607 @@
+# MikeDown npm Packages, Framework Wrappers and Website — Planning Document
+
+## Summary
+
+`@mikedown/core` (`createMikeDownEditor(container, { host })`) already powers the VS Code extension, MikeDown Desktop and a vendored Angular wrapper, but nothing is on npm and the public web presence is one desktop download page. This plan publishes the core, adds a family of framework packages on top of it, ships VS Code 2.15.0, and gives developers a place to find, try and install all of it.
+
+**Objectives**
+
+1. `@mikedown/core` on npm (0.1.0 final), then the downstream apps and desktop releases consume the registry version.
+2. A package family in this workspace, all MIT, typed, with READMEs: `@mikedown/web-component` (`<mikedown-editor>`), `@mikedown/react`, `@mikedown/vue`, `@mikedown/angular` (the existing CVA wrapper as a real ng-packagr library), and optionally `@mikedown/svelte`.
+3. One release script for every public package: dry-run, `--tag rc` for prereleases, lockstep versions, a shape test.
+4. Website: a Developers hub with a live demo per wrapper, a refreshed VS Code page, and cross-links between VS Code, Desktop and npm. Root README links to all of it.
+5. VS Code extension 2.15.0 released from `main`.
+
+**Critical success factors**
+
+- Each wrapper is proven by a consumer smoke test: pack the tarball, install it into a throwaway app for that framework, build it.
+- The VS Code extension and desktop builds stay green at every commit.
+- The Angular package installs in Angular 19 apps and, if the M0 spike passes, Angular 14 (Quantico Creek legacy).
+- Nothing is published, pushed or deployed without Mike's say-so.
+
+**Defaults applied (override any of these):** incremental testing after each phase; Playwright off; no schema; not LymeStack mode; no screenshots (the demo pages are judged in the T3 hands-on pass); core goes out as **0.1.0 final**, not another rc; the `@mikedown/*` npm packages are versioned **in lockstep with each other** and **independently of** the VS Code extension and Desktop; React, Vue, Angular and Svelte wrap **core directly**, and the web component is the route for everything else (plain HTML, CDN, htmx, Lit, Solid, Blazor, server-rendered pages); the web component uses **light DOM** (the core's portal and scoped CSS assume it); Angular floor is **14** if the M0 spike builds, else **16** with Quantico Creek legacy staying vendored; the website pages live under `https://www.iadev.net/mikedown/` (`/mikedown/` stays the desktop page, new `/mikedown/vscode/` and `/mikedown/developers/`); npm provenance is deferred (it needs a CI publish); every package is **ESM only** (matching core), ships `.d.ts`, targets ES2020 evergreen browsers (Safari 16.4+ for the form-associated web component), and is **telemetry-free**; 0.x semver: minors may break, patches never, and every release bumps the whole family.
+
+### Milestone Progress Tracker
+
+| Milestone | Model | Status | Duration (min) | Notes |
+|---|---|---|---|---|
+| [M0 — Decisions and spikes](#m0--decisions-and-spikes) | Opus | ⬜ Not Started | — | Gate: Mike approves `wrappers-decisions.md` |
+| [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | ⬜ Not Started | — | `npm login`, `mikedown` org, 2FA. Blocks M2 |
+| [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ⬜ Not Started | — | Decouple core from the vsix bump |
+| [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ⬜ Not Started | — | Mike runs the publish |
+| [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ⬜ Not Started | — | Mike uploads the `.vsix` |
+| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ⬜ Not Started | — | LymeStarter, Quantico Creek, Desktop pin |
+| [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
+| [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ⬜ Not Started | — | Shared by every wrapper |
+| [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | ⬜ Not Started | — | `<mikedown-editor>`, form-associated, CDN bundle |
+| [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | ⬜ Not Started | — | Controlled/uncontrolled, ref, SSR-safe |
+| [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | ⬜ Not Started | — | Vue 3, `v-model` |
+| [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | ⬜ Not Started | — | ng-packagr, partial Ivy, floor from M0 |
+| [M10 — `@mikedown/svelte` (optional)](#m10--mikedownsvelte-optional) | Sonnet | ⬜ Not Started | — | Svelte 5, `bind:value` |
+| [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | ⬜ Not Started | — | vitest per package + throwaway apps |
+| [M11 — Site build and deploy path](#m11--site-build-and-deploy-path) | Sonnet | ⬜ Not Started | — | `website/` Vite MPA, LymeDeploy `mikedown-site` |
+| [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | ⬜ Not Started | — | UI design |
+| [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ⬜ Not Started | — | UI design |
+| [M14 — READMEs](#m14--readmes) | Sonnet | ⬜ Not Started | — | Root (Marketplace listing) + per package |
+| [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ⬜ Not Started | — | link check + hands-on |
+| [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ⬜ Not Started | — | Mike runs publish and deploy |
+| [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | ⬜ Not Started | — | Retire vendored wrapper copies |
+| [T4 — Final verification](#t4--final-verification) | Sonnet | ⬜ Not Started | — | registry smoke + production URLs |
+
+**Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## Table of Contents
+
+- [Summary](#summary)
+- [Current state (verified 2026-10-24)](#current-state-verified-2026-10-24)
+- [Worker rules](#worker-rules)
+- [Phase 1 — Core publish and extension release](#phase-1--core-publish-and-extension-release)
+  - [M0 — Decisions and spikes](#m0--decisions-and-spikes)
+  - [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike)
+  - [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning)
+  - [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010)
+  - [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150)
+  - [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core)
+  - [T1 — Release verification](#t1--release-verification)
+- [Phase 2 — Wrappers](#phase-2--wrappers)
+  - [M5 — Core value binding helper](#m5--core-value-binding-helper)
+  - [M6 — `@mikedown/web-component`](#m6--mikedownweb-component)
+  - [M7 — `@mikedown/react`](#m7--mikedownreact)
+  - [M8 — `@mikedown/vue`](#m8--mikedownvue)
+  - [M9 — `@mikedown/angular`](#m9--mikedownangular)
+  - [M10 — `@mikedown/svelte` (optional)](#m10--mikedownsvelte-optional)
+  - [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke)
+- [Phase 3 — Website and docs](#phase-3--website-and-docs)
+  - [M11 — Site build and deploy path](#m11--site-build-and-deploy-path)
+  - [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages)
+  - [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links)
+  - [M14 — READMEs](#m14--readmes)
+  - [T3 — Website and docs verification](#t3--website-and-docs-verification)
+- [Phase 4 — Ship the family](#phase-4--ship-the-family)
+  - [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site)
+  - [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular)
+  - [T4 — Final verification](#t4--final-verification)
+- [Open questions for Mike](#open-questions-for-mike)
+- [Parallel Development Recommendations](#parallel-development-recommendations)
+- [Gap-Filling Prompts](#gap-filling-prompts)
+- [Progress Log / Notes](#progress-log--notes)
+
+---
+
+## Current state (verified 2026-10-24)
+
+- **Core:** `packages/core/package.json` is `@mikedown/core@0.1.0-rc.1`, `publishConfig.access: public`, ESM only, 25 peer deps (TipTap 3, CodeMirror 6, lowlight; `mermaid`/`katex` optional). `npm view @mikedown/core` is 404 and `npm whoami` fails. The package README wrongly says it is "published under the `rc` tag".
+- **Version coupling bug:** `npm run vsix` runs `scripts/sync-core-version.js`, which sets core's version to the extension's. The next `npm run vsix` would turn core `0.1.0-rc.1` into `2.14.3`. M1 fixes this before M3.
+- **Release scripts:** `scripts/release-core.sh` publishes with `--tag rc` for prereleases, or packs to `/Volumes/Storage/LymeStack/packages/npm/` when not logged in. `test:core-package` runs `packages/core/test/package-shape.test.ts`.
+- **Angular wrapper** (`MikeDownEditorComponent`, `<lyme-markdown-editor>`, CVA, ~290 LOC + `AngularMikeDownHost`, spec 237 LOC) exists in three vendored copies:
+  - `~/git/lymestarter/ng-app/src/app/lymestack-optional/mikedown/` (Angular 19.2, standalone, LymeStack `html[data-mode]` theme, Roboto). Branch `develop`; Karma tests.
+  - `~/git/quanticocreek/quantico-creek-angular-app/src/app/shared/mikedown/` (Angular 14.2, TS 4.7, NgModule, `.dark-theme` ancestor, Open Sans, extra `preserveBrackets` input). Branch `master`.
+  - `~/git/quanticocreek/quantico-creek-assistant-app/src/app/shared/mikedown/` (Angular 19.2).
+  - All three pin `"@mikedown/core": "file:vendor/mikedown-core-0.1.0-rc.1.tgz"`.
+- **Desktop** pins `@mikedown/core` `0.1.0-rc.1` exactly; `deploy/check-core-pin.js` makes every release pass `--allow-unpublished-core` until the pinned version is on npm.
+- **Websites:**
+  - `website/mikedown-desktop/index.html` is live at `https://www.iadev.net/mikedown/` (IIS virtual dir on iadev-prod, Cloudflare-fronted). `release.sh` renders it with the release version into `deploy/dist/<v>/upload/`; `check-upload.js` requires that folder to be flat and exact; LymeDeploy project `mikedown-downloads` publishes additively (never prunes). VS Code is only a footer link.
+  - `website/index.html` (VS Code landing page, March 2026) is **not hosted anywhere**: no GitHub Pages, no CNAME, no deploy script, images point at `../assets/screenshots/`. Its copy is stale ("beta", 1.0-era features) and the footer links `github.com/michaeljoseph` (the repo owner is `mikejoseph23`).
+- **Root `README.md` is the VS Code Marketplace listing** (vsce packages it). It links the Marketplace and GitHub only.
+- **Extension:** 2.14.2. `CHANGELOG.md` `## [Unreleased]` holds the zoom control, tooltip, callout, save-race, serializer round-trip, dark code block and narrow-sidebar fixes.
+- **Toolchain:** Node 22 default; Volta also has Node 18.20.8 (useful for an Angular 14 build).
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## Worker rules
+
+Apply to every milestone.
+
+- Read `CLAUDE.md` in each repo you touch (`~/git/mikedown`, `~/git/lymestarter`, `~/git/quanticocreek`).
+- **Complete every checkbox in your milestone.** Don't skip items as low priority or slightly out of scope. If an item should be dropped or deferred, say so in your summary for the orchestrator to decide, but attempt it unless truly blocked.
+- **Branches:** never create one. MikeDown work lands on `main`; LymeStarter on `develop`; Quantico Creek on `master`. If the orchestrator isolates parallel workers in worktrees, it brings the commits onto `main` and removes the worktree branch.
+- **Commits:** one per logical step, written as a human developer. Never mention Claude, Anthropic, AI, or add `Co-Authored-By` / `Generated with` lines.
+- **Never** run `git push`, `npm publish`, `lymedeploy` deploys, Cloudflare purges or a Marketplace upload. Prepare them, dry-run them, and hand Mike the exact command.
+- Keep the extension green: `npm run compile`, `npm run lint`, `npm run test:unit`, `npm run test:edge` before each commit that touches `src/` or `packages/core/`.
+- Core constraints still apply: never mutate `editor.view.dom` outside a ProseMirror transaction; keep the `tiptap-markdown` ES alias and `mainFields: ['module', 'browser', 'main']`.
+- Markdown you write: escape `$` as `\$`, blank lines before and after lists.
+- When done: commit, write `.orchestrator/worker-summary-<milestone-slug>.md` (what changed, what was skipped and why, files touched, follow-ups), then prompt the user to clear the context. Only the orchestrator ticks this plan's checkboxes and tracker.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## Phase 1 — Core publish and extension release
+
+## M0 — Decisions and spikes
+
+**Recommended model:** Opus. Several cross-cutting decisions plus a toolchain spike.
+
+**Goal:** settle every decision the wrapper milestones would otherwise re-litigate. Output: `wrappers-decisions.md` at the repo root. **Gate:** Mike approves it before M1 and M5 start.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] **Versioning.** Confirm the default: the `@mikedown/*` npm packages share one version (lockstep), independent of the extension (2.x) and Desktop (0.3.x). Wrappers declare `@mikedown/core` as a peer with `^<family version>` (on 0.x, `^0.2.0` means `<0.3.0`, which is why the whole family republishes on every bump). Record the alternative (independent versions with changesets) and why it lost. Write the 0.x semver policy (minors may break, patches never; one `CHANGELOG.md` per package).
+- [ ] **Peer strategy and install story.** Confirm: wrappers peer on core only and never re-list the TipTap/CodeMirror peers; core keeps them as peers (one ProseMirror/CodeMirror per app, see `core-extraction-decisions.md`). npm 7+ and pnpm 8+ auto-install peers transitively; Yarn does not, so READMEs carry an explicit peer install line. `sideEffects: false` on wrappers except the web component's `./define` entry.
+- [ ] **rc vs final.** Confirm the default: core goes out as `0.1.0` on `latest` (three apps already run it; 0.x already signals pre-1.0; an rc-only package forces `@rc` on every install). Wrappers debut together as `0.2.0` (core bumps too, for the M5 binding export).
+- [ ] **Wrap core or the web component, per wrapper.** Confirm the default: React, Vue, Angular, Svelte wrap core directly (idiomatic value binding, no global custom-element registry, simpler SSR, no double debounce). The web component serves plain HTML, CDN/no-build, htmx, Lit, Solid, Preact, Blazor, Rails/Django templates.
+- [ ] **Other easy wins.** List candidates with a keep/defer call each. Defaults: keep a self-contained CDN bundle of the web component (jsDelivr/unpkg, core and peers inlined, CSS injected); defer Solid/Preact (covered by the web component and `preact/compat`); defer a Blazor wrapper to `BACKLOG.md`.
+- [ ] **Web component shape.** Confirm light DOM: core's `.mikedown-portal` on `<body>` and `.mikedown-root`-scoped CSS break in a shadow root, and ProseMirror's selection handling inside shadow roots is unreliable (Safari has no `shadowRoot.getSelection`). Cost: consumer resets (Tailwind preflight, global `p`/`h1` rules) can leak into the editor; document the token overrides that fix it. Fix the attribute/property/event list (see M6) and how styles load (npm: consumer imports `@mikedown/core/styles.css`; CDN bundle: injects one `<style>`). Confirm form association via `ElementInternals` (Chrome 77+, Firefox 98+, Safari 16.4+).
+- [ ] **Standalone (CDN) bundle contents.** `styles.css` starts with `@import 'katex/dist/katex.min.css'` (fonts via relative URLs) and core loads `mermaid`/`katex` with bare dynamic `import()`, which fails in a no-build page. Default: the standalone bundle rewrites those two imports to pinned jsDelivr `+esm` URLs and loads the KaTeX CSS from jsDelivr; the alternative is math and mermaid off by default. Dictionaries stay out of the bundle (document the jsDelivr `dist/dictionaries/en` URL for `spellcheck-dictionary-url`). Set a gzipped size budget.
+- [ ] **Framework ranges.** Defaults: React `>=18` (test 18 and 19; `forwardRef` still works on 19), Vue `>=3.3` (explicit `modelValue`/`update:modelValue`, not `defineModel`, which needs 3.4), Svelte `>=5`, Angular per the spike below. Record the build tool per package (tsup for web-component and React; Vite library mode + `vue-tsc` for Vue; `@sveltejs/package` for Svelte; ng-packagr for Angular). All ESM only; note the Jest `transformIgnorePatterns` line consumers need.
+- [ ] **Angular floor spike.** Partial-Ivy output is forward-compatible only (newer Angular links older declarations, never the reverse), so the library must be compiled with the oldest major it supports. In the scratchpad, build the current wrapper source as an ng-packagr 14 library (TS 4.7, `volta run --node 18`; Angular 14 does not support Node 22), then consume the tarball from fresh Angular 14, 19 and latest apps (`ng build`). Conclude: floor **14** (Quantico Creek legacy moves to the package) or floor **16** (legacy stays vendored). Record peer range (default `>=14.0.0 <23.0.0`, widened per major after a smoke build), that standalone components are developer preview in 14 (fine for a library consumed by 14+), and how the 14-era toolchain lives in the workspace (nested `node_modules` in `packages/angular`, or excluded from `workspaces` with its own lockfile, so root TypeScript 5 never hoists over it).
+- [ ] **Angular test runner.** Pick how the ported 237-line spec runs (default: TestBed specs in a small Angular 19 harness under `packages/angular/test-app/`, because the library's own toolchain is pinned to the floor).
+- [ ] **Angular generic inputs.** Map each fork difference to a generic input so all three apps can use one package: `preserveBrackets`, dark-mode source (`theme="auto"` plus a `darkSelector` input such as `html[data-mode=dark]` or `.dark-theme`), fonts through a `settings` input, `imageBaseUrl` / `imageSrcResolver` / `imageUpload` as today. Selector: keep `lyme-markdown-editor` as an alias of a new `mikedown-editor` selector, or rename (default: export both).
+- [ ] **Website layout and hosting.** Confirm `/mikedown/` stays the desktop page; new `/mikedown/vscode/` (refreshed `website/index.html`) and `/mikedown/developers/` (hub, plus `/developers/<framework>/` demos). Confirm the `website/` folder becomes a private workspace (`"workspaces": ["packages/*", "website"]`, Vite multi-page, dev port 5180, base `/mikedown/`), with the desktop page still rendered only by `release.sh`. Record how the desktop page's new cross-links go live without a desktop release (see M11).
+- [ ] **Provenance and publish security.** Record the default: provenance deferred. `npm publish --provenance` needs a CI OIDC publish (GitHub Actions trusted publishing); local publishes can't attest. npm's 2025 policy requires 2FA on every publish and has retired long-lived publish tokens, so Mike publishes from his terminal with an OTP and CI publishing later means trusted publishing. Add to `BACKLOG.md`.
+- [ ] **Accessibility contract.** Every wrapper forwards `id`, `aria-label` and `aria-labelledby` to the editable surface; the web component is labelable (`<label for>` focuses it). Record it so M5–M10 implement it the same way.
+- [ ] Write `wrappers-decisions.md` with each decision and a one-line "what changes in this plan". **Stop and ask Mike to review it.**
+
+**Review locator:** `~/git/mikedown/wrappers-decisions.md`.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## G1 — npm account and org (Mike)
+
+**Owner:** Mike. No worker. Blocks M2 (and M15).
+
+- [ ] `npm login` on the Mac Studio (`npm whoami` returns your user).
+- [ ] Create the free org `mikedown` on npmjs.com (Add Organization), which reserves the `@mikedown` scope.
+- [ ] Turn on 2FA (authenticator app or passkey). npm now requires it on every publish and no longer issues long-lived publish tokens, so the publish commands in M2 and M15 prompt for an OTP and you run them in your terminal.
+- [ ] Tell the orchestrator it's done.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M1 — Release tooling and versioning
+
+**Recommended model:** Sonnet.
+
+**Goal:** one script releases any or all public packages; the extension's version no longer drags core along.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] Remove the core sync from `npm run vsix` (drop `scripts/sync-core-version.js` from the chain; delete the file or repurpose it). Add `vsix:minor` (`npm version minor --no-git-tag-version && npm run package && vsce package`); `vsix` stays the patch variant.
+- [ ] `scripts/version-npm.mjs <version>`: sets the version on every public `packages/*` package (core, web-component, react, vue, angular, svelte as they exist), updates each wrapper's `@mikedown/core` peer to `^<version>` and the workspace devDependency, and refuses a version lower than the current one.
+- [ ] `scripts/release-npm.mjs`: discovers public packages (no `"private": true`), builds each, runs `npm pack --dry-run` and prints the file list. Flags: `--only <name,...>`, `--dry-run` (default; publishes nothing), `--publish`, `--otp <code>` passthrough. Prerelease versions publish with `--tag rc`; `--access public` always. Skips a package whose version is already on npm. Without `npm whoami`, packs to `/Volumes/Storage/LymeStack/packages/npm/` (fallback `.orchestrator/wrappers-npm-plan/artifacts/`) like `release-core.sh`. Publishes core first, then the rest.
+- [ ] Root scripts: `release:npm` (the new script), `version:npm`; keep `release:core` as `release:npm -- --only core`; delete `scripts/release-core.sh` once the alias works.
+- [ ] Generalize the shape test into `test/packages/package-shape.test.ts` (keep core's specific checks): for every public package, `exports` targets exist, `types` resolve, `files` includes `dist`, `README.md`, `LICENSE.md`, `license` is MIT, `repository.directory` matches, no `private`, wrapper core peer equals `^<family version>`. Root script `test:packages` (builds then tests); keep `test:core-package` as an alias.
+- [ ] Fix `packages/core/README.md` status line (not yet published; install will be `npm install @mikedown/core`). Add `.npmrc` to `.gitignore` (no tokens in the repo).
+- [ ] *(optional, Mike's call, open question 5)* `.github/workflows/ci.yml`: lint, `test:unit`, `test:edge`, `test:packages` on push and PR; no publish step. Trusted publishing later builds on it.
+- [ ] Update `CLAUDE.md` "Releasing" and the command table: npm family releases are independent of the extension; `npm run vsix` no longer touches core; the order (npm first) is only required when the extension or desktop needs a new core version.
+- [ ] `npm run lint`, `test:unit`, `test:edge`, `test:packages`, and `npm run release:npm` (dry run) green. Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M2 — Publish `@mikedown/core` 0.1.0
+
+**Recommended model:** Sonnet. **Needs:** G1, M1.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] `npm run version:npm -- 0.1.0`. Add `packages/core/CHANGELOG.md` with a 0.1.0 entry (first public release; API summary).
+- [ ] `npm run test:packages` and `npm run release:npm -- --only core` (dry run) green; paste the packed file list and gzipped size into the summary. Commit `@mikedown/core 0.1.0`.
+- [ ] **Stop.** Hand Mike: `cd ~/git/mikedown && npm run release:npm -- --only core --publish` (he enters the OTP).
+- [ ] After Mike confirms: `npm view @mikedown/core version dist-tags` shows `0.1.0` on `latest`. Record it in the Progress Log. Ask Mike to set the package to "Require two-factor authentication and disallow tokens" on npmjs.com.
+- [ ] Ask Mike before tagging `core-v0.1.0` and pushing.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M3 — VS Code extension 2.15.0
+
+**Recommended model:** Sonnet. **Needs:** M1 (version decoupling). The extension bundles core from source, so it does not need the publish; prefer running after M2 so the README can link npm, but if G1 drags, release 2.15.0 first and let M14 add the npm link.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] Root `README.md`: add a short "More MikeDown" block near the top linking MikeDown Desktop (`https://www.iadev.net/mikedown/`) and, if M2 has shipped, `@mikedown/core` on npm (`https://www.npmjs.com/package/@mikedown/core`). Absolute URLs only (this file is the Marketplace listing). The Developers and VS Code pages are added in M14 once they exist.
+- [ ] `CHANGELOG.md`: `## [Unreleased]` becomes `## [2.15.0] - <date>`; check every merged fix since 2.14.2 is listed (`git log v2.14.2..HEAD --oneline -- src packages/core`); fix the Internal note to say `@mikedown/core` is now on npm.
+- [ ] `npm run lint`, `test:unit`, `test:edge`, `test:integration` green.
+- [ ] `npm run vsix:minor` → `mikedown-editor-2.15.0.vsix`; size within 10% of `mikedown-editor-2.14.2.vsix`; core's version unchanged.
+- [ ] Commit `Release 2.15.0`. Hand Mike the `.vsix` path for the manual Marketplace upload; ask before tagging `v2.15.0` and pushing.
+- [ ] After upload: GitHub issues fixed in this release get a reply per `CLAUDE.md` (first person as Mike, release name, one review ask per person; skip users in the memory list). Draft only, Mike posts.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M4 — Downstream onto registry core
+
+**Recommended model:** Sonnet. **Needs:** M2.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] LymeStarter (`develop`): `ng-app/package.json` `"@mikedown/core": "^0.1.0"`; delete `ng-app/vendor/mikedown-core-0.1.0-rc.1.tgz`; `npm install`; `ng build` and `ng test --watch=false` green; update the doc that mentions the vendored tarball. Commit.
+- [ ] Quantico Creek (`master`): same in `quantico-creek-angular-app` and `quantico-creek-assistant-app`; both `ng build` green. Commit.
+- [ ] Desktop: pin `"@mikedown/core": "0.1.0"`; `node packages/desktop/deploy/check-core-pin.js` passes **without** `--allow-unpublished-core`. Remove the flag from `RESUME.md`, `packages/desktop/deploy/README.md` and the release examples; keep the flag in the script for future unpublished bumps. `npm run build:desktop` green. Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## T1 — Release verification
+
+**Recommended model:** Sonnet. **Modes:** unit/integration, a registry consumer smoke, one short hands-on check.
+
+**Worker completion requirement:** complete ALL automated items; report failures, don't fix them (open a gap-fill for the owning milestone).
+
+- [ ] MikeDown: `test:unit`, `test:edge`, `test:integration`, `test:packages`, `test:desktop` green.
+- [ ] Registry smoke: in the scratchpad, `npm create vite@latest smoke -- --template vanilla-ts`, `npm install @mikedown/core` (peers auto-install), mount the README example, `npm run build` green; `node -e "import('@mikedown/core')"` succeeds (import stays SSR-safe).
+- [ ] LymeStarter and both Quantico Creek apps build from the registry package (re-run if M4 did it before the smoke).
+- [ ] **Hands-on (Mike, 3 minutes):** in VS Code, Extensions panel, confirm MikeDown Editor shows 2.15.0 after the Marketplace update; open `~/git/mikedown/test/workspace/` any `.md` file; type, save, use the toolbar zoom `[−] 15 [+]`; open a callout document and confirm no duplicated body text. Orchestrator pauses for sign-off.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## Phase 2 — Wrappers
+
+Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `type: module`, `exports` with `types`, `sideEffects`, `files`, `repository.directory`, `publishConfig.access: public`), `src/`, `test/`, `README.md`, `LICENSE.md` (copy of the root), `tsconfig.json`, a `build` and `test` script. Wrappers start at the family version and peer on `@mikedown/core` `^<family>`.
+
+## M5 — Core value binding helper
+
+**Recommended model:** Sonnet. **Needs:** M0.
+
+**Goal:** the logic every wrapper repeats (debounced change, external-write dedupe, pristine loads, theme `auto`) lives once in core.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] `packages/core/src/binding.ts` exporting `bindMikeDownValue(container, { initialValue, debounceMs = 150, onValue, theme, darkSelector?, ...MikeDownOptions })` → `{ handle, setValue(md), flush(), setTheme(t), destroy() }`. Lift the behavior from the Angular wrapper: `setValue` loads pristine and skips when equal; keystrokes report after the debounce and at once on blur; `theme: 'auto'` follows `darkSelector` (MutationObserver) or `prefers-color-scheme`. Accepts `ariaLabel` / `ariaLabelledBy` / `id` and applies them to the editable surface (M0 accessibility contract); exposes `focus()`.
+- [ ] Export from the package root and as `@mikedown/core/binding`; add to `exports` and `index.d.ts`.
+- [ ] Unit tests in `packages/core/test/binding.test.ts` (jsdom): debounce, flush on blur, equal-value skip, pristine load, auto theme on selector change and media change, destroy removes observers.
+- [ ] Core README section. `test:unit`, `test:packages` green. Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M6 — `@mikedown/web-component`
+
+**Recommended model:** Opus. Public API design plus form association and a no-build bundle.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] `MikeDownElement extends HTMLElement`, light DOM, built on `bindMikeDownValue`. `@mikedown/web-component` exports the class and `defineMikeDownElement(tag = 'mikedown-editor')`; `@mikedown/web-component/define` registers it (guarded against double definition) and is the only entry listed in `sideEffects`.
+- [ ] Labelable and focusable: `<label for>` focuses the editor; `aria-label` / `aria-labelledby` forwarded per M0.
+- [ ] Attributes (reflected): `value`, `theme` (`light|dark|auto`), `readonly`, `disabled`, `placeholder`, `name`, `required`, `min-height`, `dark-selector`, `spellcheck-dictionary-url`, `features` (JSON).
+- [ ] Properties: `value`, `features`, `settings`, `host` (partial `MikeDownHost`, e.g. `uploadImage`, `openLink`), `handle` (read-only). Function-valued options are properties only.
+- [ ] Events: `change` (`detail: { value }`, debounced), `ready` (`detail: { handle }`). Bubbling, composed.
+- [ ] Initial value: `value` attribute, else the text of a child `<textarea>` or `<script type="text/markdown">` (progressive enhancement for server-rendered pages), which is then hidden.
+- [ ] Form-associated: `static formAssociated = true`, `setFormValue`, `required` → `valueMissing` validity, `formResetCallback` (back to the initial value), `formDisabledCallback`, `formStateRestoreCallback`. Works inside a plain `<form>` submit.
+- [ ] Lifecycle: create on `connectedCallback`, destroy on `disconnectedCallback`; moving the element in the DOM must not lose the value.
+- [ ] CDN bundle `dist/mikedown-editor.standalone.js`: core, peers and `styles.css` inlined, defines the element on load; mermaid/KaTeX handled per M0 (jsDelivr `+esm` rewrite or off). Gzipped size recorded and asserted against the M0 budget in the shape test. Document jsDelivr and unpkg URLs (pinned version, never `@latest`).
+- [ ] `THIRD_PARTY_NOTICES.md` generated for the standalone bundle (it redistributes TipTap, ProseMirror, CodeMirror, lowlight and friends; all MIT, but the notices must ship). Listed in `files`.
+- [ ] `packages/web-component/demo/index.html` (plain HTML, form submit, two elements).
+- [ ] Tests (vitest, jsdom): attribute/property sync, events, form value and reset, validity, child-textarea init, disconnect/reconnect.
+- [ ] README: install, npm usage, CDN usage, attribute/property/event table, styling, htmx and server-rendered examples. Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M7 — `@mikedown/react`
+
+**Recommended model:** Sonnet.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] `<MikeDownEditor>` with `value` + `onChange` (controlled) or `defaultValue` (uncontrolled), `theme`, `readOnly`, `placeholder`, `features`, `settings`, `host`, `darkSelector`, `className`, `style`, `onReady(handle)`. `forwardRef` exposes `MikeDownEditorHandle`.
+- [ ] Built on `bindMikeDownValue`; created in `useEffect`, destroyed in cleanup; correct under React StrictMode double mount (mount, unmount, mount); `onChange`/`host` read through a ref so a new callback identity never recreates the editor; a parent re-render with the same `value` never resets the cursor.
+- [ ] SSR-safe: no DOM access at import or render; `'use client'` banner kept in the build (tsup `banner`). *(optional)* `lazy` prop loading core with dynamic `import()`; `next/dynamic` covers the same need, so cut it if time is short.
+- [ ] Peer `react`/`react-dom` `>=18`. tsup ESM + d.ts; `react`, `react-dom` and core external. Forward `id`, `aria-label`, `aria-labelledby`.
+- [ ] Tests (vitest + `@testing-library/react`, jsdom): controlled and uncontrolled, ref, StrictMode, readOnly/theme updates, unmount cleanup.
+- [ ] README with Vite and Next.js (app router) examples. Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M8 — `@mikedown/vue`
+
+**Recommended model:** Sonnet.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] `<MikeDownEditor v-model="md">` (`modelValue` / `update:modelValue`), props `theme`, `readOnly`, `placeholder`, `features`, `settings`, `host`, `darkSelector`; emits `ready`; `defineExpose({ handle })`. Also a plugin (`app.use(MikeDown)`) registering the component globally.
+- [ ] Built on `bindMikeDownValue`; created in `onMounted`, destroyed in `onBeforeUnmount`; prop watchers for theme/readOnly.
+- [ ] Peer `vue >=3.3` (explicit prop/emit, no `defineModel`, per M0). Vite library mode with `vue` and core external, `vue-tsc` d.ts. Forward `id`, `aria-label`, `aria-labelledby`.
+- [ ] Tests (vitest + `@vue/test-utils`, jsdom): v-model both directions, expose, prop updates, unmount.
+- [ ] README with Vite and Nuxt (`<ClientOnly>`) examples. Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M9 — `@mikedown/angular`
+
+**Recommended model:** Opus. Version-range engineering plus folding three forks into one API.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] `packages/angular/` as an ng-packagr library compiled with the floor major from M0 (partial Ivy), toolchain isolated as M0 decided. Source starts from the LymeStarter copy (`~/git/lymestarter/ng-app/src/app/lymestack-optional/mikedown/`), not the forks.
+- [ ] Fold in the fork differences as generic inputs per M0: `preserveBrackets` (with the exported `unescapeBrackets`), `darkSelector`, `settings` (fonts and other defaults), existing `imageUpload`/`imageBaseUrl`/`imageSrcResolver`, `minHeight`, `placeholder`, `features`, `readOnly`, `theme`, output `ready`.
+- [ ] Selector `mikedown-editor` plus `lyme-markdown-editor` (per M0). Standalone component and a `MikeDownModule` for NgModule apps (Angular 14).
+- [ ] Use only APIs available in the floor major (decorator `@Input`s, `inject()` in field initializers is fine from 14). Router stays optional.
+- [ ] Peer range per M0; `rxjs` `^7.5`.
+- [ ] Port the existing spec to the runner M0 chose; cover CVA write/read, pristine writes, disabled, debounce, `preserveBrackets`, `darkSelector`.
+- [ ] README: install, standalone and NgModule examples, reactive forms and `ngModel`, `angular.json` styles and dictionaries assets (from the core README), supported Angular versions. Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M10 — `@mikedown/svelte` (optional)
+
+**Recommended model:** Sonnet.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] Svelte 5 component `<MikeDownEditor bind:value />` over `bindMikeDownValue`, props mirroring React; `bind:handle` or an `onready` callback. *(optional)* a `use:mikedown` action.
+- [ ] `@sveltejs/package` build with types; peer `svelte >=5`.
+- [ ] Tests (vitest + `@testing-library/svelte`, jsdom): bind both directions, prop updates, destroy.
+- [ ] README with a SvelteKit example (`onMount`/`browser` guard). Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## T2 — Wrapper tests and consumer smoke
+
+**Recommended model:** Sonnet. **Modes:** unit/integration (vitest + each framework's testing library, jsdom) and automated consumer builds. No hands-on here; T3 covers interaction on the demo pages.
+
+**Worker completion requirement:** complete ALL items; report failures as gap-fills for the owning wrapper milestone rather than patching wrapper code here.
+
+- [ ] Root `test:wrappers` runs every wrapper's `test` script (`npm run test --workspaces --if-present`, excluding desktop's e2e); green.
+- [ ] `scripts/consumer-smoke.mjs`: packs core and the wrapper (`npm pack`), scaffolds a throwaway app in the scratchpad, installs the tarballs, builds. Targets:
+  - [ ] `wc-vite` (vanilla Vite, `@mikedown/web-component/define`);
+  - [ ] `wc-cdn` (static HTML loading the standalone bundle from the tarball; `jsdom` or `node --check` load);
+  - [ ] `react-vite` (pinned to React 18) and `react-next` (React 19, Next.js app router, `next build` proves SSR safety);
+  - [ ] `vue-vite`;
+  - [ ] `angular-14` (`volta run --node 18`, if the floor is 14), `angular-19`, `angular-latest`;
+  - [ ] `svelte-kit` (if M10 shipped).
+- [ ] Root script `test:consumers` (all targets, `--only` for one; cache the scaffolded apps in the scratchpad so re-runs skip `ng new`). Every target green; record build times and bundle sizes in the summary.
+- [ ] `test:packages` covers all new packages; MikeDown `test:unit`, `test:edge` still green.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## Phase 3 — Website and docs
+
+## M11 — Site build and deploy path
+
+**Recommended model:** Sonnet. Can start after M0.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] `website/package.json` (private `@mikedown/site`), added to root `workspaces`. Vite multi-page config: base `/mikedown/`, dev port 5180, pages `vscode/index.html`, `developers/index.html`, `developers/{web-component,react,vue,angular,svelte}/index.html` (placeholder content; M12/M13 design them). Demos import the wrappers from the workspace. `website/mikedown-desktop/` stays outside the Vite build.
+- [ ] Angular demo: a minimal Angular app under `website/developers-angular/` built with `ng build --base-href /mikedown/developers/angular/` into the site output (Vite can't build Angular). Scaffold and wire the build only; M12 adds the editor once `@mikedown/angular` exists.
+- [ ] `website/deploy/publish-site.sh`: build, stage `website/dist/upload/` (`vscode/`, `developers/`), verify (every page and asset referenced exists, no source maps unless intended), pack `MikeDown.Site.<yyyymmdd.hhmm>.nupkg`, and print the LymeDeploy commands. `--dry-run` by default.
+- [ ] `website/deploy/lymedeploy/deploy.yaml`: new project `mikedown-site` publishing into the same `/mikedown` folder on IADEV-2025, additive, never `--prune`, no `web.config` changes. Copy the shape from `packages/desktop/deploy/lymedeploy/deploy.yaml`. Mike runs `lymedeploy apply`.
+- [ ] Confirm from the desktop project's steps that its publish never removes subfolders (so `/vscode/` and `/developers/` survive desktop releases); write the finding in the summary.
+- [ ] *(optional)* Desktop page cross-links: add a `--page-only` path that re-renders `website/mikedown-desktop/index.html` with the currently published version (read from `https://www.iadev.net/mikedown/latest.json` and the last staged `packages/desktop/deploy/dist/<v>/upload/`) and stages just `index.html`; if that's not safe, say so and the links ride the next desktop release.
+- [ ] MIME check: `curl -sI` a `.woff2`, `.mjs`, `.svg` and `.webmanifest` already served by iadev-prod; list any type the new pages need that isn't served. Never add a `mimeMap` for a type already mapped machine-wide (duplicate entry 500s the folder, `latest.json` included).
+- [ ] Cloudflare purge list for every new page URL (apex and www), added to the yaml but disabled like the desktop project's.
+- [ ] Root scripts `dev:site`, `build:site`. Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M12 — Developers hub and demo pages
+
+**Recommended model:** Opus. Front-end design. **Needs:** M11, M13 (the shared site shell), Group C.
+
+**Design bar:** this is a public developer page; it should feel hand-designed. Build on the shell M13 made from the desktop page's type and color system (Inter, its tokens) so every page reads as one product. Reference Stripe docs, Vercel and the TipTap site: generous spacing, clear hierarchy, a live editor as the hero, quiet code blocks, subtle transitions, real light and dark themes, phone-width layout with no horizontal scroll.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] `/mikedown/developers/`: what MikeDown is in two sentences, a live editor, a package grid (name, one line, install command with copy button, npm link, demo link), a "which package?" guide (framework → package; anything else → web component or CDN), links to Desktop, VS Code and GitHub.
+- [ ] One page per wrapper (`web-component`, `react`, `vue`, `angular`, `svelte` if shipped): live editor using that wrapper, a live markdown value panel, theme and read-only toggles, the install command, a minimal copy-paste code sample (the same code that runs on the page), framework notes (Next/Nuxt/SvelteKit/NgModule), and a link to the package README.
+- [ ] Web component page also shows the CDN snippet and a plain `<form>` submit.
+- [ ] Use the shared shell from M13 (`website/shared/`); extend it only if a demo page needs something new, and apply the change to every page.
+- [ ] *(optional)* "Open in StackBlitz" link per demo built from the page's own sample code.
+- [ ] Page titles, meta descriptions, Open Graph tags. Lighthouse accessibility pass (`npx lighthouse` CLI; contrast, labels, focus order) recorded in the summary.
+- [ ] `npm run build:site` green. Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M13 — VS Code page refresh and cross-links
+
+**Recommended model:** Opus. Front-end design and copy. **Needs:** M11 only, so it runs while the wrappers build and hands M12 a finished shell.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] Shared site shell in `website/shared/` (header nav Desktop · VS Code · Developers · GitHub, footer as on the desktop page, tokens and type lifted from `website/mikedown-desktop/index.html`, light and dark). The M12 design bar applies.
+- [ ] `git mv website/index.html website/vscode/index.html`; rebuild it on the shell.
+- [ ] Refresh the copy from the current `README.md` and `CHANGELOG.md` (drop "beta", add sidebar, slash commands, math, tags, zoom); fix the footer GitHub link to `mikejoseph23`; copy the screenshots it needs into the site (no `../assets/` paths).
+- [ ] Prominent Marketplace install button and "Open in VS Code" deep link (`vscode:extension/interapp.mikedown-editor`).
+- [ ] Desktop page (`website/mikedown-desktop/index.html`): add the shared nav and a visible "Also for VS Code" band below the screenshots (Marketplace button + link to `/mikedown/vscode/`), plus a "Build it into your app" link to `/mikedown/developers/`. Keep every `@@PLACEHOLDER@@` and the `data-dl` buttons intact; run `packages/desktop/deploy/render-page.js` against the 0.3.0 inputs and `check-upload.js` rules to prove the page still renders and passes.
+- [ ] Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M14 — READMEs
+
+**Recommended model:** Sonnet.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] Root `README.md` (Marketplace listing, absolute URLs only): extend the M3 "More MikeDown" block with the VS Code page, the Developers hub and each npm package; npm version badge for core; update "Repository layout" for the new packages and `website/`.
+- [ ] Each package README: consistent sections (install for npm/pnpm plus the explicit Yarn peer line, minimal example, API table, accessibility props, theming pointer to core, browser support, "no telemetry, no network calls except the ones you configure", links to the demo page, Developers hub and GitHub). Core README links every wrapper.
+- [ ] `CLAUDE.md`: architecture section lists the new packages, `website/` workspace, `test:wrappers` / `test:consumers` / `test:packages`, `dev:site` / `build:site`, and the site publish flow.
+- [ ] `BACKLOG.md`: provenance via GitHub Actions trusted publishing; Blazor wrapper; typedoc API reference; any M0 deferrals. Commit.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## T3 — Website and docs verification
+
+**Recommended model:** Sonnet. **Modes:** automated link and build checks, then one hands-on pass (Mike). No screenshots: the look is judged in the hands-on pass.
+
+**Worker completion requirement:** complete ALL automated items, then hand Mike the hands-on list; fixes go back to M12/M13 as gap-fills.
+
+**Automated**
+
+- [ ] `website/test/links.test.ts` over the built site: every internal link and asset resolves; every npm link names a package in this workspace; every Marketplace/GitHub link uses `interapp.mikedown-editor` / `mikejoseph23`.
+- [ ] Each demo page's bundle loads in jsdom without throwing and mounts one editor.
+- [ ] README link check: every absolute URL in root and package READMEs returns 200, except npm package URLs not yet published (listed in the summary).
+- [ ] `test:wrappers`, `test:packages` green.
+
+**Hands-on (Mike, about 15 minutes).** Start: `cd ~/git/mikedown && npm run dev:site`. Pages:
+
+- `http://localhost:5180/mikedown/developers/`
+- `http://localhost:5180/mikedown/developers/web-component/`, `/react/`, `/vue/`, `/angular/`, `/svelte/`
+- `http://localhost:5180/mikedown/vscode/`
+- Desktop page: open the M13 render output path the worker reports.
+
+On each demo page:
+
+- [ ] Typing updates the value panel within a moment; theme toggle flips editor and page; read-only blocks typing; copy buttons copy the install command and sample.
+- [ ] The web component page's form submit shows the markdown in the submitted data.
+- [ ] Nav works across all pages; at 400 px wide nothing scrolls sideways.
+- [ ] Judge the look: spacing, type, code blocks, dark mode, consistency with the desktop page. Orchestrator pauses for sign-off.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## Phase 4 — Ship the family
+
+## M15 — Publish the 0.2.0 family and the site
+
+**Recommended model:** Sonnet. **Needs:** T2, T3, G1.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] `npm run version:npm -- 0.2.0`; per-package `CHANGELOG.md` entries; `test:packages`, `test:wrappers`, `test:consumers` green; `npm run release:npm` dry run lists every package. Commit `npm packages 0.2.0`.
+- [ ] **Stop.** Hand Mike: `npm run release:npm -- --publish`. After he confirms, `npm view @mikedown/<name> version` for each; record versions in the Progress Log. Ask before tagging `npm-v0.2.0` and pushing.
+- [ ] Update the site's install commands if they pin versions; rebuild.
+- [ ] **Stop.** Hand Mike, in order: `lymedeploy apply -f website/deploy/lymedeploy/deploy.yaml --dry-run` then without `--dry-run` (first time only); `website/deploy/publish-site.sh --publish`; the desktop `--page-only` publish if M11 built it; the Cloudflare purge (or wait out the edge cache).
+- [ ] After Mike confirms, `curl -s -o /dev/null -w "%{http_code}"` each production URL in T4 returns 200, and `https://www.iadev.net/mikedown/latest.json` is unchanged.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## M16 — Downstream onto `@mikedown/angular`
+
+**Recommended model:** Sonnet. **Needs:** M15.
+
+**Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
+
+- [ ] LymeStarter (`develop`): `lymestack-optional/mikedown/` keeps only LymeStack glue (theme SCSS token mapping, demo page, README) and imports the component from `@mikedown/angular` with `darkSelector="html[data-mode=dark]"` and Roboto settings. Check `lymetools adopt` and the scaffold strip still work (see its `CLAUDE.md`). `ng build`, `ng test --watch=false` green. Commit.
+- [ ] Quantico Creek assistant app: replace `src/app/shared/mikedown/` with the package; `ng build` green. Commit.
+- [ ] Quantico Creek legacy app: if the floor is 14, replace the fork with the package (`preserveBrackets`, `darkSelector=".dark-theme"`, Open Sans via `settings`, `MikeDownModule`) and re-run the KB article editor and AI prompt form specs; if the floor is 16, leave it vendored and add a comment pointing at the package. Commit.
+- [ ] Add `@mikedown/angular` to the LymeStarter docs that list optional components.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## T4 — Final verification
+
+**Recommended model:** Sonnet. **Modes:** automated registry smoke, downstream builds, short production hands-on.
+
+**Worker completion requirement:** complete ALL automated items; report failures, don't patch packages here.
+
+- [ ] `npm run test:consumers -- --from-registry` (installs `@mikedown/*@0.2.0` from npm instead of tarballs): every target green.
+- [ ] LymeStarter and both Quantico Creek apps build and test green on the package.
+- [ ] MikeDown full run: `test:unit`, `test:edge`, `test:integration`, `test:packages`, `test:wrappers`, `test:desktop`.
+- [ ] **Hands-on (Mike, 5 minutes):** open `https://www.iadev.net/mikedown/`, `https://www.iadev.net/mikedown/vscode/`, `https://www.iadev.net/mikedown/developers/` and two demo pages; follow the nav between them; type in a demo editor; click a Marketplace and an npm link. Then `https://www.npmjs.com/package/@mikedown/react` shows its README. Orchestrator pauses for sign-off.
+- [ ] Update `RESUME.md`; archive this plan's processed summaries.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## Open questions for Mike
+
+1. Angular floor: is keeping Quantico Creek legacy (Angular 14) on the package worth an Angular 14 build toolchain in this repo? M0's spike answers whether it's possible; default is yes if it builds.
+2. Selector: keep `lyme-markdown-editor` as an alias forever, or migrate LymeStarter templates to `mikedown-editor`?
+3. Svelte: build M10 now or leave it to demand?
+4. Site hosting: OK to add a second LymeDeploy project (`mikedown-site`) writing into the live `/mikedown` folder?
+5. CI: add a lint-and-test GitHub Actions workflow now (M1, optional item)? It is the prerequisite for npm trusted publishing and provenance later, but it means a public workflow on the repo.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## Parallel Development Recommendations
+
+**Sequential blockers**
+
+- M0 (approval) blocks everything except G1.
+- G1 blocks M2 and M15. M1 blocks M2 and M3. M2 blocks M3, M4. M5 blocks M6–M10.
+- T2 and T3 block M15; M15 blocks M16 and T4.
+
+**Parallel groups**
+
+| Group | Milestones | When |
+|---|---|---|
+| A | M1 first (short), then M5 and M11 in parallel | After M0 approval (G1 can run alongside any time). M1 and M11 both edit root `package.json`, so M1 lands before M11 starts |
+| B | M2 → M3 and M4 | After G1 + M1 (M3 may precede M2 if G1 drags); runs alongside Group C |
+| C | M6, M7, M8, M9, M10 | After M5. M9 is the long pole |
+| D | M13 | After M11; independent of the wrappers. Produces the shared shell M12 needs |
+| E | M12, M14 | After Group C, M11 and M13 |
+
+**Shared-file conflicts.** Every wrapper edits root `package.json` and `package-lock.json`. Parallel workers must not hand-resolve the lockfile: the orchestrator merges one worker at a time and re-runs `npm install` at the root after each merge, then `test:packages`. M11 owns `website/` scaffolding and the `workspaces` entry for it; M13 owns `website/shared/`, `website/vscode/` and `website/mikedown-desktop/`; M12 owns `website/developers*` and may extend `website/shared/` only after M13 has landed.
+
+**Orchestrator context management.** If dispatching several workers fills the orchestrator context, prompt the user to run `/compact` while the workers run. The orchestrator watches its own context use and suggests compacting before it gets tight. After compacting, it resumes from `.orchestrator/state.json`.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## Gap-Filling Prompts
+
+When a milestone comes back with items skipped or half done, the orchestrator writes a follow-up prompt that:
+
+- Uses the same structure as the original (header labeled **"Worker Context: <Milestone> - Gap Fill"**, mission statement, reference to this plan and the milestone section).
+- States what the first attempt finished, which files it changed, and what is left (from its worker summary).
+- Lists the other active workers and the directories they own, to avoid conflicts.
+- Ends with the standard completion steps: (1) commit code changes before writing the summary; (2) write `.orchestrator/worker-summary-<milestone-slug>-gap.md`; (3) prompt the user to close or clear the context.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
+
+---
+
+## Progress Log / Notes
+
+**2026-10-24 14:45** - Plan created. Research findings that shaped it: `npm run vsix` would overwrite core's version with the extension's (fixed in M1 before the 2.15.0 release); `website/index.html` has never been hosted, so the VS Code page moves under `iadev.net/mikedown/vscode/`; the Angular wrapper exists as three diverging vendored copies (LymeStarter, Quantico Creek legacy with `preserveBrackets`, Quantico Creek assistant), which M9 folds into one package; `check-upload.js` requires the desktop upload to be flat, so new pages get their own LymeDeploy project. No npm scope or packages exist yet (all `@mikedown/*` names return 404).
+
+**2026-10-24 14:48** - Plan reviewed; changes: standalone CDN bundle gap recorded (core's bare `import('mermaid'|'katex')` and the KaTeX `@import` fail in a no-build page; M0 decides jsDelivr rewrite vs off) plus a size budget and `THIRD_PARTY_NOTICES.md`; peer strategy spelled out (wrappers peer on core only; Yarn needs an explicit peer line; `sideEffects` only on the web component's `define` entry); 0.x semver, ESM-only, browser-support and telemetry-free statements added to defaults and READMEs; accessibility contract (aria/id forwarding, labelable element) added to M0 and every wrapper; npm 2FA wording updated to the 2025 policy, `.npmrc` ignored, post-publish "disallow tokens" setting; partial-Ivy direction, Node 18 for Angular 14 and standalone-in-14 caveat clarified; Vue floor keeps explicit prop/emit (no `defineModel`); React `onChange` through a ref, React 18 and 19 both smoked; M3 no longer hard-blocked on the npm publish; M13 now owns the shared site shell so M12 depends on it (Group E) and the M12/M13 circular reference is gone; M1 serialized before M11 (shared root `package.json`); M11 Angular demo scaffold only until M9 ships; `lazy` prop, `use:mikedown`, `--page-only` and StackBlitz links marked optional; T1–T4 given completion notes; optional CI workflow added as open question 5.
+
+[Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
