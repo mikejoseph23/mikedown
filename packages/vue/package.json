@@ -1,6 +1,6 @@
 {
   "name": "@mikedown/vue",
-  "version": "0.2.0-rc.0",
+  "version": "0.2.0",
   "description": "Vue 3 component for the MikeDown WYSIWYG markdown editor, with v-model.",
   "license": "MIT",
   "type": "module",
@@ -28,11 +28,11 @@
     "prepack": "npm run build"
   },
   "peerDependencies": {
-    "@mikedown/core": "^0.2.0-rc.0",
+    "@mikedown/core": "^0.2.0",
     "vue": ">=3.3.0"
   },
   "devDependencies": {
-    "@mikedown/core": "^0.2.0-rc.0",
+    "@mikedown/core": "^0.2.0",
     "@vue/test-utils": "^2.4.6",
     "vite": "^7.3.0",
     "vitest": "^3.2.0",

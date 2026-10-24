@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (unreleased)
+## 0.2.0
 
 First release. `<mikedown-editor>`, the MikeDown markdown editor as a custom element built on `@mikedown/core`'s `bindMikeDownValue`.
 

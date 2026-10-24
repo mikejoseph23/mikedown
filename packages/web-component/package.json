@@ -1,6 +1,6 @@
 {
   "name": "@mikedown/web-component",
-  "version": "0.2.0-rc.0",
+  "version": "0.2.0",
   "description": "<mikedown-editor>: the MikeDown WYSIWYG markdown editor as a form-associated custom element, for plain HTML, CDN pages and any framework.",
   "license": "MIT",
   "type": "module",
@@ -55,10 +55,10 @@
     "prosemirror"
   ],
   "peerDependencies": {
-    "@mikedown/core": "^0.2.0-rc.0"
+    "@mikedown/core": "^0.2.0"
   },
   "devDependencies": {
-    "@mikedown/core": "^0.2.0-rc.0",
+    "@mikedown/core": "^0.2.0",
     "esbuild": "^0.27.3",
     "tsup": "^9.0.0"
   },

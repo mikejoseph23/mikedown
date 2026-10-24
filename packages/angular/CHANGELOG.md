@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-rc.0
+## 0.2.0
 
 First release. The MikeDown editor as an Angular form control, folded from the vendored LymeStarter and Quantico Creek copies into one package.
 

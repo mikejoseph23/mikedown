@@ -1,6 +1,6 @@
 {
   "name": "@mikedown/angular",
-  "version": "0.2.0-rc.0",
+  "version": "0.2.0",
   "description": "MikeDown WYSIWYG markdown editor as an Angular form control (reactive forms and ngModel), Angular 17+.",
   "license": "MIT",
   "keywords": [
@@ -20,7 +20,7 @@
     "@angular/core": ">=17.0.0 <23.0.0",
     "@angular/forms": ">=17.0.0 <23.0.0",
     "@angular/router": ">=17.0.0 <23.0.0",
-    "@mikedown/core": "^0.2.0-rc.0",
+    "@mikedown/core": "^0.2.0",
     "rxjs": "^7.5.0"
   },
   "dependencies": {
