@@ -2837,10 +2837,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         // "Duplicate extension names found: ['link']" warning and double-binds
         // ProseMirror plugins/keymaps.
         link: false,
-        // M2d: Configure History with grouping delay and stack depth.
-        // Spread through `object`: StarterKit v3 names this option `undoRedo`, so
-        // its types reject `history`. Kept as-is so runtime behavior doesn't change.
-        ...({ history: { depth: 100, newGroupDelay: 500 } } as object),
+        // M2d: Configure undo history with grouping delay and stack depth.
+        // (StarterKit v3 names this option `undoRedo`, not `history`.)
+        undoRedo: { depth: 100, newGroupDelay: 500 },
       }),
 
       // ── Markdown-correct text + hard break (issue #5) ─────────────────────
