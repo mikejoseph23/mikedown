@@ -652,7 +652,9 @@
     }
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "!packages/angular",
+    "website"
   ],
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -661,6 +663,8 @@
     "demo:core": "npm run demo -w packages/core",
     "dev:desktop": "npm run dev -w packages/desktop",
     "build:desktop": "npm run build:core && npm run build -w packages/desktop",
+    "dev:site": "npm run dev -w website",
+    "build:site": "npm run build -w website",
     "test:desktop": "npm run test:unit -w packages/desktop && npm run test:e2e -w packages/desktop",
     "watch": "webpack --watch",
     "dev": "webpack && code --new-window --extensionDevelopmentPath=\"$PWD\" test/workspace",
