@@ -54,5 +54,14 @@ a WebDriver spec can sit next to this one; the spec itself only needs
   toggle. `fixtures.ts` mirrors `settings_read` / `settings_write` against
   `ipc.appData` and the folder's `.mikedown/`.
 
+- `versions.spec.ts` (M6): three saves with changes and one without leave
+  exactly three snapshots in chronological order; the version browser lists
+  them, Compare opens the diff viewer, Restore dirties the buffer without a
+  write; an external edit while dirty makes the save ask (Compare shows disk
+  vs buffer, Revert reloads, Overwrite writes and snapshots); a clean tab
+  reloads silently; a 3 MB file saves with no snapshot and no message.
+  `fixtures.ts` mirrors the `versions_*` commands. `M6_SHOTS=<dir>` saves
+  screenshots.
+
 Browsers: Playwright's Chromium (`npx playwright install chromium` once per
 machine if it is missing).

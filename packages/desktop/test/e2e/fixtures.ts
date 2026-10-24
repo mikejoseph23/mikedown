@@ -97,6 +97,8 @@ function settingsPath(ipc: Ipc, scope: string, folder: string | null): string {
   return scope === 'folder' ? path.join(folder as string, '.mikedown', 'settings.json') : path.join(ipc.appData, 'settings.json');
 }
 
+const SNAPSHOT_NAME = /^\d{8}T\d{6}Z\.md$/;
+
 function handle(ipc: Ipc, cmd: string, args: any, headers: Record<string, string>): unknown {
   switch (cmd) {
     case 'frontend_ready':
@@ -237,6 +239,40 @@ function handle(ipc: Ipc, cmd: string, args: any, headers: Record<string, string
       return args.label ?? 'w-1';
     case 'quit_reply':
       ipc.quitReplies.push(!!args.proceed);
+      return null;
+    // M6: version snapshots, mirroring src-tauri/src/commands/versions.rs.
+    case 'versions_list': {
+      if (!fs.existsSync(args.dir)) {return [];}
+      return fs.readdirSync(args.dir)
+        .filter((n) => SNAPSHOT_NAME.test(n))
+        .sort()
+        .map((n) => ({ name: n, path: path.join(args.dir, n), size: fs.statSync(path.join(args.dir, n)).size }));
+    }
+    case 'versions_snapshot': {
+      if (!/[\\/]\.mikedown[\\/]versions[\\/]/.test(args.dir) || !SNAPSHOT_NAME.test(args.name)) {throw new Error('not a snapshot');}
+      const bytes = fs.readFileSync(args.file);
+      if (bytes.length > args.maxBytes) {return 'tooLarge';}
+      if (args.newest) {
+        const prev = path.join(args.dir, args.newest);
+        if (fs.existsSync(prev) && fs.readFileSync(prev).equals(bytes)) {return 'identical';}
+      }
+      fs.mkdirSync(args.dir, { recursive: true });
+      fs.writeFileSync(path.join(args.dir, args.name), bytes, { flag: 'wx' });
+      return 'created';
+    }
+    case 'versions_prune': {
+      let n = 0;
+      for (const name of args.names) {
+        const p = path.join(args.dir, name);
+        if (SNAPSHOT_NAME.test(name) && fs.existsSync(p)) { fs.rmSync(p); n++; }
+      }
+      return n;
+    }
+    case 'versions_move':
+      if (!fs.existsSync(args.from)) {return null;}
+      fs.mkdirSync(path.dirname(args.to), { recursive: true });
+      fs.cpSync(args.from, args.to, { recursive: true, force: false });
+      fs.rmSync(args.from, { recursive: true, force: true });
       return null;
     default:
       // Window/title/represented-file, allow_asset, shell, dialogs: no-ops.
