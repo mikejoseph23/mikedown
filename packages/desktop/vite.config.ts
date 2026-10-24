@@ -10,16 +10,19 @@
  *     source CSS files in the same cascade order `scripts/build-css.mjs` uses.
  *     Core edits hot-reload; no core build needed.
  *   - `vite build` (release, `tauri build`): no aliases. `@mikedown/core` is
- *     the pinned workspace dependency and resolves through its package exports
- *     to `../core/dist` (run `npm run build:core` first; the config refuses to
- *     build without it).
+ *     the pinned dependency and resolves through its package exports. When the
+ *     pin differs from the workspace core, that is the registry copy installed
+ *     in packages/desktop/node_modules (the nearest node_modules wins); when it
+ *     equals the workspace version it is the workspace link to `../core/dist`
+ *     (run `npm run build:core` first; the config refuses to build without it).
  *
  *   `MIKEDOWN_CORE=source|dist` overrides the choice for either command.
  *
  *   `RELEASE=1` (set by deploy/build-mac.sh and build-windows.ps1): never the
- *   source alias, and the build fails unless the pinned `@mikedown/core`
- *   version equals packages/core's version. Whether that version is on npm is
- *   checked by deploy/check-core-pin.js before the build starts.
+ *   source alias, and the build fails unless the pin equals packages/core's
+ *   version or the registry copy of exactly the pinned version is installed
+ *   under packages/desktop/node_modules. Whether the pin is on npm is checked
+ *   by deploy/check-core-pin.js before the build starts.
  *
  * `dictionaries/` (Hunspell, for `spellcheckDictionaryUrl`) is served from
  * core's `dist/dictionaries` when built, else the repo root `dictionaries/`,
@@ -30,6 +33,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ORDER as CORE_CSS_ORDER } from '../core/scripts/build-css.mjs';
+import { checkInstalledCore } from './deploy/lib/release-lib.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const coreDir = path.resolve(here, '..', 'core');
@@ -93,14 +97,18 @@ function dictionaries(): Plugin {
   };
 }
 
-/** RELEASE=1: the pinned core version must be the workspace core's version. */
+/**
+ * RELEASE=1: the pin equals the workspace core (bundles the workspace dist), or
+ * differs and the registry copy of exactly that version is installed under
+ * packages/desktop/node_modules (bundles that copy).
+ */
 function assertCorePin(): void {
   const desktopPkg = JSON.parse(fs.readFileSync(path.join(here, 'package.json'), 'utf8'));
   const corePkg = JSON.parse(fs.readFileSync(path.join(coreDir, 'package.json'), 'utf8'));
-  const pinned = desktopPkg.dependencies?.['@mikedown/core'];
-  if (pinned !== corePkg.version) {
-    throw new Error(`RELEASE=1: @mikedown/core is pinned to ${pinned} but packages/core is ${corePkg.version}. Update the pin in packages/desktop/package.json.`);
-  }
+  const installedPkg = path.join(here, 'node_modules', '@mikedown', 'core', 'package.json');
+  const installedVersion = fs.existsSync(installedPkg) ? JSON.parse(fs.readFileSync(installedPkg, 'utf8')).version : null;
+  const r = checkInstalledCore({ pinned: desktopPkg.dependencies?.['@mikedown/core'], coreVersion: corePkg.version, installedVersion });
+  if (!r.ok) {throw new Error(r.errors[0]);}
 }
 
 export default defineConfig(({ command }) => {

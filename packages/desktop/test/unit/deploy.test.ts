@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  bumpVersion, checkCorePin, makeLatestJson, readCargoLockVersion, readCargoVersion, readJsonVersion,
+  bumpVersion, checkCorePin, checkInstalledCore, makeLatestJson, readCargoLockVersion, readCargoVersion, readJsonVersion,
   setCargoLockVersion, setCargoVersion, setJsonVersion, versionReport,
 } from '../../deploy/lib/release-lib.js';
 
@@ -160,5 +160,20 @@ describe('core pin', () => {
     const r = checkCorePin({ pinned: '0.3.0', coreVersion: '0.2.0', published: false, allowUnpublished: true });
     expect(r.ok).toBe(false);
     expect(r.errors[0]).toMatch(/0\.3\.0.*not on npm.*0\.2\.0/);
+  });
+});
+
+describe('installed core (Vite side)', () => {
+  it('passes when the pin equals the workspace version', () => {
+    expect(checkInstalledCore({ pinned: '0.2.0', coreVersion: '0.2.0', installedVersion: null }).ok).toBe(true);
+  });
+
+  it('passes a differing pin when the registry copy matches it', () => {
+    expect(checkInstalledCore({ pinned: '0.1.0', coreVersion: '0.2.0-rc.0', installedVersion: '0.1.0' }).ok).toBe(true);
+  });
+
+  it('fails a differing pin when the copy is missing or another version', () => {
+    expect(checkInstalledCore({ pinned: '0.1.0', coreVersion: '0.2.0-rc.0', installedVersion: null }).errors[0]).toMatch(/no copy/);
+    expect(checkInstalledCore({ pinned: '0.1.0', coreVersion: '0.2.0-rc.0', installedVersion: '0.0.9' }).errors[0]).toMatch(/version 0\.0\.9/);
   });
 });

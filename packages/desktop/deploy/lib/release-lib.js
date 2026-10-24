@@ -318,3 +318,18 @@ export function checkCorePin({ pinned, coreVersion, published, allowUnpublished 
   }
   return { ok: errors.length === 0, errors, warnings };
 }
+
+/**
+ * The Vite-side half of the pin gate (no network). When the pin differs from
+ * the workspace core, the bundle must come from the registry copy installed
+ * in packages/desktop/node_modules/@mikedown/core, whose version must equal the
+ * pin. `installedVersion` is that copy's version, or null when absent.
+ */
+export function checkInstalledCore({ pinned, coreVersion, installedVersion }) {
+  if (pinned === coreVersion || installedVersion === pinned) {return { ok: true, errors: [] };}
+  const found = installedVersion ? `version ${installedVersion}` : 'no copy';
+  return {
+    ok: false,
+    errors: [`RELEASE=1: @mikedown/core is pinned to ${pinned} but packages/core is ${coreVersion}, and packages/desktop/node_modules/@mikedown/core has ${found}. Run \`npm install\` in the repo root so the registry copy of ${pinned} is installed, or update the pin in packages/desktop/package.json.`],
+  };
+}
