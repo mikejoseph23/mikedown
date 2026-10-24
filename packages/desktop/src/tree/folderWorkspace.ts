@@ -50,6 +50,8 @@ export interface WorkspaceDeps {
   /** Escape from the tree. */
   focusEditor(): void;
   copyText(text: string): Promise<void>;
+  /** M6: carry a versions mirror along (merging into an existing one). Default: move it when it exists. */
+  moveVersions?(from: string, to: string): Promise<void>;
 }
 
 export interface FolderWorkspace {
@@ -176,6 +178,14 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
   /** Move or delete the versions mirror alongside (edge case 3). */
   async function moveVersions(from: string, to: string): Promise<void> {
     if (!rootPath) {return;}
+    if (deps.moveVersions) {
+      try {
+        await deps.moveVersions(from, to);
+      } catch (err) {
+        console.warn('MikeDown: could not move versions', from, err);
+      }
+      return;
+    }
     const a = versionsPathFor(rootPath, from, path);
     const b = versionsPathFor(rootPath, to, path);
     if (!a || !b) {return;}

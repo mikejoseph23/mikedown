@@ -8,6 +8,7 @@ import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { Eol, ReadInfo } from './documentModel';
 import type { SearchApi, SearchMatch, SearchSummary } from '../search/searchLogic';
+import type { SnapshotOutcome, VersionsApi } from './versioning';
 
 export interface StatInfo {
   exists: boolean;
@@ -227,4 +228,13 @@ export const searchApi: SearchApi = {
   cancel: (id) => invoke<void>('search_cancel', { id }),
   onBatch: (handler) => listen<{ id: number; matches: SearchMatch[] }>('search-batch', (e) => handler(e.payload)),
   onDone: (handler) => listen<{ id: number; summary: SearchSummary }>('search-done', (e) => handler(e.payload)),
+};
+
+// ── M6: version snapshots (src-tauri/src/commands/versions.rs) ─────────────
+
+export const versionsApi: VersionsApi = {
+  list: (dir) => invoke<Array<{ name: string; path: string; size: number }>>('versions_list', { dir }),
+  snapshot: (file, dir, name, newest, maxBytes) => invoke<SnapshotOutcome>('versions_snapshot', { file, dir, name, newest, maxBytes }),
+  prune: (dir, names) => invoke<number>('versions_prune', { dir, names }),
+  move: (from, to) => invoke<void>('versions_move', { from, to }),
 };

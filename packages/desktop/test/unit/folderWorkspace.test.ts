@@ -55,6 +55,9 @@ function listDir(dir: string): DirEntry[] {
   return [...disk].filter(([p]) => path.dirname(p) === dir && p !== dir).map(([p, isDir]) => ({ name: path.basename(p), isDir }));
 }
 
+/** M6: when set, the workspace routes mirror moves through it (versioning.moved). */
+let moveVersionsHook: ((from: string, to: string) => Promise<void>) | undefined;
+
 function setup(windows: boolean): void {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   document.body.innerHTML = '';
@@ -120,6 +123,7 @@ function setup(windows: boolean): void {
     refreshLinks: () => { calls.push('refreshLinks'); },
     focusEditor: () => {},
     copyText: async () => {},
+    moveVersions: moveVersionsHook,
   });
   document.body.appendChild(ws.tree.el);
 }
@@ -250,6 +254,46 @@ describe('folder workspace', () => {
     expect(calls).toContain('move /n/.mikedown/versions/sub -> /n/.mikedown/versions/Projects');
     expect(disk.has('/n/.mikedown/versions/Projects/b.md/20261023T120000Z.md')).toBe(true);
     expect(doc.moved).toEqual([['/n/sub', '/n/Projects']]);
+  });
+
+  it('M6: with a versioning hook, a file rename and a drag move route the mirror through it', async () => {
+    const moves: Array<[string, string]> = [];
+    moveVersionsHook = async (from, to) => { moves.push([from, to]); };
+    try {
+      setup(false);
+      await ws.open('/n');
+      await ws.tree.startRename('/n/a.md');
+      const field = input();
+      field.value = 'renamed.md';
+      press(field, 'Enter');
+      await settle();
+      expect(calls).toContain('rename /n/a.md -> /n/renamed.md');
+      expect(moves).toEqual([['/n/a.md', '/n/renamed.md']]);
+      // The default (exists + movePath) is not used alongside the hook.
+      expect(calls.some((c) => c.startsWith('move /n/.mikedown'))).toBe(false);
+    } finally {
+      moveVersionsHook = undefined;
+    }
+  });
+
+  it('M6: a failing versions move never blocks the rename', async () => {
+    moveVersionsHook = async () => { throw new Error('locked'); };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      setup(false);
+      await ws.open('/n');
+      await ws.tree.startRename('/n/a.md');
+      const field = input();
+      field.value = 'b2.md';
+      press(field, 'Enter');
+      await settle();
+      expect(calls).toContain('rename /n/a.md -> /n/b2.md');
+      expect(doc.moved).toEqual([['/n/a.md', '/n/b2.md']]);
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      moveVersionsHook = undefined;
+      warn.mockRestore();
+    }
   });
 
   it('delete asks once with Don’t ask again, then trashes the file and its versions', async () => {
