@@ -31,9 +31,9 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M4 — Tabs, panes, document model, hot exit](#m4--tabs-panes-document-model-hot-exit) | Opus | ✅ Complete (2 GUI checks pending) | 57 | one model per path per window; backups; session restore |
 | [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | ✅ Automated done (hands-on pending) | 9 | tree + tabs + hot exit |
 | [M5 — Settings: global, folder override, App tab](#m5--settings-global-folder-override-app-tab) | Sonnet | ✅ Complete (GUI checks pending) | 12 | reuses core settings modal via `extraSettingsSections` |
-| [M6 — Versioning, diff view, external changes](#m6--versioning-diff-view-external-changes) | Opus | ⬜ Not Started | — | `.mikedown/versions/`; Compare / Overwrite / Revert |
+| [M6 — Versioning, diff view, external changes](#m6--versioning-diff-view-external-changes) | Opus | 🔄 In Progress | — | `.mikedown/versions/`; Compare / Overwrite / Revert |
 | [M7 — Folder search](#m7--folder-search) | Sonnet | ✅ Complete (GUI checks pending) | 35 | Rust-side search, grouped results |
-| [M8 — Welcome, recents, menus, window title](#m8--welcome-recents-menus-window-title) | Opus | ⬜ Not Started | — | native menus, `CmdOrCtrl` shortcuts, `welcome.md` |
+| [M8 — Welcome, recents, menus, window title](#m8--welcome-recents-menus-window-title) | Opus | 🔄 In Progress | — | native menus, `CmdOrCtrl` shortcuts, `welcome.md` |
 | [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | ✅ Complete (print GUI checks pending) | 12 | reuses `handle.getHtml()` |
 | [T3 — Feature tests](#t3--feature-tests) | Sonnet | ⬜ Not Started | — | settings, versioning, search, export |
 | [M10 — Updater, signing, build pipeline, download page](#m10--updater-signing-build-pipeline-download-page) | Opus | ⬜ Not Started | — | follows the LymeScribe deploy scripts |
