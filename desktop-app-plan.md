@@ -695,6 +695,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
+**2026-10-24 02:55** - 0.2.0 released (first build with the new update window; notes in `packages/desktop/deploy/release-notes/0.2.0.md`). Built by `release.sh` from `1c9ade2` (Mac notarized, Windows Trusted-Signed on BEAST), copied over RDP by Mike, `verify-published.sh 0.2.0` passed on www and apex. Tagged `desktop-v0.2.0`. Next: a 0.1.0 install on each OS should pick up 0.2.0 from production.
+
 **2026-10-24 02:10** - 0.1.0 published by hand: Mike created the `/mikedown` virtual directory (site Interapp, `C:\WebApps\Downloads\mikedown`) and copied the staged folder (`dist/0.1.0-publish/upload`, styled DMG, pre-auto-update builds from `a2715d9`) over RDP. `verify-published.sh 0.1.0` passed: every manifest agrees on www and apex, and every artifact serves 200 with the right size, hash and signature (`.exe` MIME confirmed).
 
 **2026-10-24 01:45** - Auto-update work (`desktop-auto-update-plan.md`, separate orchestrator session) merged locally through `37d04ae`: update window, 4 h checks, per-platform manifests, LymeDeploy publish path, staging harness green on both OSes. T4 now runs together with that plan's T2 hands-on (`desktop-auto-update-handson.md`); the key backup gates both. Nothing published or pushed.
