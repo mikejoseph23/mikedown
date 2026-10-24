@@ -228,6 +228,26 @@ function extractFrontmatter(markdown: string): { frontmatter: string | null; bod
   return { frontmatter: null, body: markdown };
 }
 
+/**
+ * Reduce GFM table rows in a markdown prefix to the text ProseMirror's
+ * `textBetween(…, '\n')` gives for the same cells: delimiter rows dropped,
+ * outer pipes removed, each cell boundary a newline. Used to map the source
+ * caret back into the rich view. On the last (partial) line a trailing pipe
+ * is a boundary too, so a caret just past it lands in the next cell.
+ */
+function stripTableSyntax(prefix: string): string {
+  const lines = prefix.split('\n');
+  const out: string[] = [];
+  lines.forEach((line, i) => {
+    if (!/^[ \t]*\|/.test(line)) { out.push(line); return; }
+    if (/^[ \t]*\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/.test(line)) {return;}
+    let row = line.replace(/^[ \t]*\|[ \t]*/, '');
+    if (i < lines.length - 1) {row = row.replace(/[ \t]*(?<!\\)\|[ \t]*$/, '');}
+    out.push(row.replace(/[ \t]*(?<!\\)\|[ \t]*/g, '\n'));
+  });
+  return out.join('\n');
+}
+
 function restoreFrontmatter(frontmatter: string | null, body: string): string {
   if (frontmatter === null) {return body;}
   return `---\n${frontmatter}\n---\n${body}`;
@@ -511,6 +531,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
    * on load (→ 0) and every time the extension host reports a successful save.
    */
   let lastSavedUndoDepth: number | null = 0;
+
+  /**
+   * Whether the markdown last loaded into the rich view ended with a newline.
+   * prosemirror-markdown never emits a final newline, so `serializeDocument`
+   * puts it back: a file that had one keeps it after an edit, and a file
+   * without one doesn't gain one.
+   */
+  let trailingNewline = false;
 
   // ── M4: Source mode state ──────────────────────────────────────────────────────
 
@@ -2831,6 +2859,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // HTMLAttributes ({ class: 'mikedown-code-block' }) is dropped, which
       // breaks the copy-button hover selector and the language-label ::before.
       CodeBlockLowlight.extend({
+        // A fence with no info string stays bare: the attribute defaults to
+        // null (not the `defaultLanguage` option, which would serialize as
+        // ```plaintext). Highlighting still falls back to defaultLanguage.
+        addAttributes() {
+          const parent: Record<string, any> = this.parent?.() ?? {};
+          return { ...parent, language: { ...parent.language, default: null } };
+        },
         renderHTML({ node, HTMLAttributes }) {
           const lang = node.attrs.language || '';
           return [
@@ -2867,7 +2902,25 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // TaskItem is configured with nested: true to allow sub-tasks.
       // Auto-continuation (Enter → new item) and list-exit (Enter on empty item
       // → paragraph) are handled natively by ProseMirror's list commands.
-      TaskList,
+      // `tight` mirrors the attribute tiptap-markdown gives bullet/ordered
+      // lists (its MarkdownTightLists skips taskList), without which every
+      // task list serialized loose, a blank line between items.
+      TaskList.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            tight: {
+              default: true,
+              parseHTML: (element: HTMLElement) =>
+                element.getAttribute('data-tight') === 'true' || !element.querySelector('p'),
+              renderHTML: (attributes: { tight?: boolean }) => ({
+                class: attributes.tight ? 'tight' : null,
+                'data-tight': attributes.tight ? 'true' : null,
+              }),
+            },
+          };
+        },
+      }),
       TaskItem.configure({ nested: true }),
 
       // ── Tables ────────────────────────────────────────────────────────────────
@@ -3189,8 +3242,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       }
 
       // M15 — Re-attach frontmatter when serializing so saved content is complete.
-      const body = updatedEditor.storage.markdown.getMarkdown() as string;
-      const markdown = restoreFrontmatter(frontmatterContent, body);
+      const markdown = serializeDocument();
 
       // "Pristine" = PM's current undo depth matches the depth captured at
       // the last save (0 at initial load). When pristine we send the
@@ -4051,8 +4103,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const newYaml = serializeFrontmatter(entries);
     if (newYaml === frontmatterContent) {return;}
     frontmatterContent = newYaml;
-    const body = editor.storage.markdown.getMarkdown() as string;
-    const markdown = restoreFrontmatter(frontmatterContent, body);
+    const markdown = serializeDocument();
     isDirty = markdown !== originalContent;
     notifyChange(markdown, { pristine: false });
     renderFrontmatterBlock();
@@ -4082,9 +4133,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     frontmatterContent = '';
     frontmatterExpanded = true;
-    const body = editor.storage.markdown.getMarkdown() as string;
-    isDirty = restoreFrontmatter(frontmatterContent, body) !== originalContent;
-    notifyChange(restoreFrontmatter(frontmatterContent, body), { pristine: false });
+    const markdown = serializeDocument();
+    isDirty = markdown !== originalContent;
+    notifyChange(markdown, { pristine: false });
     renderFrontmatterBlock();
     refreshPropertiesSidebar();
 
@@ -4096,9 +4147,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         if (hadFrontmatter) {return;}
         frontmatterContent = previousContent;
         frontmatterExpanded = previousExpanded;
-        const revertedBody = editor.storage.markdown.getMarkdown() as string;
-        isDirty = restoreFrontmatter(frontmatterContent, revertedBody) !== originalContent;
-        notifyChange(restoreFrontmatter(frontmatterContent, revertedBody), { pristine: false });
+        const reverted = serializeDocument();
+        isDirty = reverted !== originalContent;
+        notifyChange(reverted, { pristine: false });
         renderFrontmatterBlock();
         refreshPropertiesSidebar();
       },
@@ -4520,8 +4571,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       content.addEventListener('input', () => {
         frontmatterContent = content.textContent || '';
         // Trigger an edit to propagate changes
-        const body = editor.storage.markdown.getMarkdown() as string;
-        const markdown = restoreFrontmatter(frontmatterContent, body);
+        const markdown = serializeDocument();
         notifyChange(markdown, { pristine: false });
       });
       block.appendChild(content);
@@ -4737,8 +4787,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // When the document is pristine (no PM edits since last load/save), prefer
     // the verbatim originalContent so soft breaks and other syntax that doesn't
     // round-trip through PM are preserved in source view.
-    const body = editor.storage.markdown.getMarkdown() as string;
-    const serialized = restoreFrontmatter(frontmatterContent, body);
+    const serialized = serializeDocument();
     const isPristine = lastSavedUndoDepth !== null
       && pmUndoDepth(editor.state) === lastSavedUndoDepth;
     const md = isPristine ? originalContent : serialized;
@@ -4864,7 +4913,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // difference is just round-trip lossiness (e.g. soft-break newlines), not
     // a real edit, and reloading would needlessly discard PM's undo history
     // and invalidate the saved-state baseline.
-    const currentPmBody = editor.storage.markdown.getMarkdown() as string;
+    // The rich view's body as the source would spell it, final newline included.
+    const pmBody = editor.storage.markdown.getMarkdown() as string;
+    const currentPmBody = trailingNewline && pmBody !== '' ? `${pmBody}\n` : pmBody;
     const sourceUnchanged = !sourceSync.hasSourceEdits(md);
     // A lazy load (`setMarkdown` while in source mode) left the rich view
     // stale: it must be rebuilt whatever the divergence check says.
@@ -4874,6 +4925,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       isLoading = true;
       const wasPristine = pmStale && md === originalContent;
       originalContent = md; // reset baseline to avoid false dirty
+      trailingNewline = md.endsWith('\n');
       editor.commands.setContent(body);
       // The setContent above is on the undo stack by default; clear it so
       // Cmd+Z after switching from source can't undo past the full reload.
@@ -4889,6 +4941,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // Content matches — still refresh originalContent so the dirty-state
       // baseline tracks the current markdown verbatim (trailing-newline etc).
       originalContent = md;
+      trailingNewline = md.endsWith('\n');
     }
     sourceSync.exit();
 
@@ -4909,11 +4962,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       const mdPrefix = md.substring(0, cmCursorOffset);
       // Strip the frontmatter block entirely — it isn't in the PM doc.
       const frontmatterStripped = mdPrefix.replace(/^---\n[\s\S]*?\n---\n?/, '');
-      const syntaxStripped = frontmatterStripped
+      const syntaxStripped = stripTableSyntax(frontmatterStripped)
         .replace(/^#{1,6}\s+/gm, '')
         .replace(/^>\s?/gm, '')
-        .replace(/^[*+-]\s+/gm, '')
-        .replace(/^\d+\.\s+/gm, '')
+        .replace(/^[ \t]*[*+-][ \t]+(?:\[[ xX]\][ \t]+)?/gm, '')
+        .replace(/^[ \t]*\d+[.)][ \t]+(?:\[[ xX]\][ \t]+)?/gm, '')
         .replace(/\*\*([^*]+)\*\*/g, '$1')
         .replace(/__([^_]+)__/g, '$1')
         .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '$1')
@@ -5140,6 +5193,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (sourceMode && cmView) {
       closeSlashMenu({ reload: true });
       originalContent = markdown ?? '';
+      trailingNewline = originalContent.endsWith('\n');
       frontmatterContent = extractFrontmatter(originalContent).frontmatter;
       cmLoading = true;
       cmView.dispatch({
@@ -5163,6 +5217,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     closeSlashMenu({ reload: true });
     isLoading = true;
     originalContent = markdown ?? '';
+    trailingNewline = originalContent.endsWith('\n');
 
     // M15 — Extract frontmatter before passing body to TipTap.
     const { frontmatter, body } = extractFrontmatter(originalContent);
@@ -5180,7 +5235,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // back to check for round-trip fidelity. If the serialized form differs from
     // the original, log a warning but continue using originalContent as the
     // dirty-detection baseline so the document is not marked as modified on open.
-    const reserialized = restoreFrontmatter(frontmatterContent, editor.storage.markdown.getMarkdown() as string);
+    const reserialized = serializeDocument();
     if (reserialized !== originalContent) {
       console.warn(
         'MikeDown: serialization round-trip mismatch — using original as baseline'
@@ -5233,7 +5288,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   /** Current markdown, including frontmatter, from whichever view is showing. */
   function getMarkdown(): string {
     if (sourceMode && cmView) {return cmView.state.doc.toString();}
-    return restoreFrontmatter(frontmatterContent, editor.storage.markdown.getMarkdown() as string);
+    return serializeDocument();
+  }
+
+  /** The rich view's document as markdown: frontmatter, body and final newline. */
+  function serializeDocument(): string {
+    const md = restoreFrontmatter(frontmatterContent, editor.storage.markdown.getMarkdown() as string);
+    return trailingNewline && md !== '' && !md.endsWith('\n') ? `${md}\n` : md;
   }
 
   /** Rendered HTML of the WYSIWYG surface (export, print, view in browser). */

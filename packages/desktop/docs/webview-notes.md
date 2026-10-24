@@ -31,7 +31,9 @@ PENDING = not run yet (why, and the exact steps).
 
 So the serializer differences that exist (hard break `\` dropped, task list
 items spaced out as a loose list, bare fence becomes `plaintext`) are core
-behavior, identical in VS Code, not webview artifacts.
+behavior, identical in VS Code, not webview artifacts. (All three, plus the
+lost trailing newline, have since been fixed in core; `smoke.expected.md` was
+regenerated.)
 
 ### Rendering
 

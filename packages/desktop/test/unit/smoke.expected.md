@@ -23,9 +23,7 @@ This document exercises **bold**, *italic*, ~~strike~~, ==highlight==, `inline c
 2. Ordered two
 
 - [x] Task done
-
 - [ ] Task open
-
   - [ ] Nested task
 
 ## Table
@@ -43,7 +41,7 @@ export function greet(name: string): string {
 }
 ```
 
-```plaintext
+```
 plain fence
 ```
 
@@ -69,7 +67,7 @@ graph LR
 
 ## Misc
 
-Line one with a hard break
+Line one with a hard break\
 line two.
 
 Horizontal rule below.

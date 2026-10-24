@@ -1560,10 +1560,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     const config = vscode.workspace.getConfiguration('mikedown');
     const normalization = config.get<string>('markdownNormalization', 'preserve');
 
-    // Always: normalize blank lines between blocks and trim trailing whitespace.
+    // Always: normalize blank lines between blocks and trim trailing whitespace,
+    // except two-space hard breaks (text, 2+ spaces, then a non-blank line),
+    // which the editor writes back when the source used them.
     let result = markdown
       .replace(/\n{3,}/g, '\n\n')   // collapse 3+ blank lines to 2
-      .replace(/[ \t]+$/gm, '');     // trim trailing whitespace (not intentional line breaks)
+      .replace(/(\S)( {2,})(?=\r?\n[ \t]*\S)|[ \t]+$/gm, (_m, text?: string) => (text ? `${text}  ` : ''));
 
     if (normalization === 'normalize') {
       const boldMarker = config.get<string>('normalizationStyle.boldMarker', '**');
