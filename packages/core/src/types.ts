@@ -209,7 +209,25 @@ export type MikeDownCommand =
   | 'toggleSource'
   | 'toggleSidebar'
   | 'openSettings'
-  | 'copyAsRichText';
+  | 'copyAsRichText'
+  // Menu-bar commands for hosts with their own menus (MikeDown Desktop). Each
+  // mirrors an existing toolbar action or keystroke; no-ops in source mode
+  // where the action would edit the hidden rich-text document.
+  | 'heading1'
+  | 'heading2'
+  | 'heading3'
+  | 'heading4'
+  | 'heading5'
+  | 'heading6'
+  | 'paragraph'
+  | 'openFind'
+  | 'openFindReplace'
+  | 'insertTable'
+  | 'insertLink'
+  | 'insertImage'
+  | 'zoomIn'
+  | 'zoomOut'
+  | 'zoomReset';
 
 export type MikeDownEvent = 'change' | 'focus' | 'blur' | 'ready';
 

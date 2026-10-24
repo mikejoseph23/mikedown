@@ -5349,6 +5349,26 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       case 'copyAsRichText':
         copyAsRichText();
         break;
+      // Menu-bar commands (hosts with native menus). Same actions as the
+      // toolbar buttons and the TipTap keymap; rich-text edits are no-ops in
+      // source mode for the desync reason above.
+      case 'heading1': case 'heading2': case 'heading3':
+      case 'heading4': case 'heading5': case 'heading6': {
+        const level = Number(name.slice(7)) as 1 | 2 | 3 | 4 | 5 | 6;
+        if (!sourceMode) {editor.chain().focus().toggleHeading({ level }).run();}
+        break;
+      }
+      case 'paragraph': if (!sourceMode) {editor.chain().focus().setParagraph().run();} break;
+      case 'openFind': if (features.findReplace) {openFindBar(false);} break;
+      case 'openFindReplace': if (features.findReplace) {openFindBar(true);} break;
+      case 'insertTable':
+        if (!sourceMode) {editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();}
+        break;
+      case 'insertLink': if (!sourceMode) {showLinkDialog(editor);} break;
+      case 'insertImage': if (!sourceMode) {showImageInsertDialog(editor);} break;
+      case 'zoomIn': fontZoom.stepBy(1); break;
+      case 'zoomOut': fontZoom.stepBy(-1); break;
+      case 'zoomReset': fontZoom.reset(); break;
     }
   }
 
