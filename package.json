@@ -683,6 +683,7 @@
     "test:edge": "vitest run test/edge-cases test/performance --reporter=verbose",
     "test:packages": "node scripts/build-npm.mjs && vitest run test/packages --reporter=verbose",
     "test:core-package": "npm run test:packages",
+    "test:angular": "npm run build:core && npm test --prefix packages/angular/test-app",
     "test:react": "npm test -w packages/react",
     "test:vue": "npm test -w packages/vue",
     "pretest": "npm run compile"

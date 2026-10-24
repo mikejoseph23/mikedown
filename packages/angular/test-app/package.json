@@ -1,0 +1,32 @@
+{
+  "name": "mikedown-angular-test-app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TestBed specs for @mikedown/angular, compiled from the library source on Angular 19 (Karma, Jasmine, ChromeHeadless).",
+  "scripts": {
+    "test": "ng test --watch=false --browsers=ChromeHeadlessCI",
+    "test:watch": "ng test"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "~19.2.27",
+    "@angular/cli": "~19.2.27",
+    "@angular/common": "~19.2.25",
+    "@angular/compiler": "~19.2.25",
+    "@angular/compiler-cli": "~19.2.25",
+    "@angular/core": "~19.2.25",
+    "@angular/forms": "~19.2.25",
+    "@angular/platform-browser": "~19.2.25",
+    "@angular/platform-browser-dynamic": "~19.2.25",
+    "@angular/router": "~19.2.25",
+    "@mikedown/core": "file:../../core",
+    "@types/jasmine": "~5.1.15",
+    "jasmine-core": "~5.13.0",
+    "karma": "~6.4.4",
+    "karma-chrome-launcher": "~3.2.0",
+    "karma-jasmine": "~5.1.0",
+    "rxjs": "~7.8.1",
+    "tslib": "^2.3.0",
+    "typescript": "~5.8.3",
+    "zone.js": "~0.15.1"
+  }
+}

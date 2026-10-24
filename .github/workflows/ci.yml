@@ -25,6 +25,7 @@ jobs:
         run: |
           if [ -d packages/angular ]; then
             npm ci --prefix packages/angular
+            npm ci --prefix packages/angular/test-app
           fi
 
       - run: npm run lint
@@ -32,3 +33,5 @@ jobs:
       - run: npm run test:edge
       # Builds every public package, then runs the package shape tests.
       - run: npm run test:packages
+      # @mikedown/angular TestBed specs (Angular 19, Karma, ChromeHeadless; ubuntu runners ship Chrome).
+      - run: npm run test:angular
