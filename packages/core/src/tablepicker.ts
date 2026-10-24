@@ -406,7 +406,11 @@ export function updateTableToolbar(editor: Editor): void {
   // Called on editor selectionUpdate — show/hide the toolbar depending on whether
   // the cursor is in a table, and update disabled state of buttons.
   const isInTable = editor.isActive('table');
-  if (!isInTable) {
+  // Only while the user is working in the table: a document that ends with a
+  // table leaves the cursor there on load, before anyone has focused it.
+  const focusedHere = editor.view.hasFocus()
+    || !!document.activeElement?.closest('#mikedown-table-toolbar');
+  if (!isInTable || !focusedHere) {
     hideTableToolbar();
     return;
   }

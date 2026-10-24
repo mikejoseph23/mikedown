@@ -3438,6 +3438,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const { from, to } = editor.state.selection;
     postStats({ selection: from === to ? null : editor.state.doc.textBetween(from, to, '\n') });
   });
+  // Focusing the editor with the cursor already in a table shows the toolbar.
+  editor.on('focus', () => updateTableToolbar(editor));
   editor.on('blur', () => {
     // Delay hiding to allow toolbar button clicks to register
     setTimeout(() => {
