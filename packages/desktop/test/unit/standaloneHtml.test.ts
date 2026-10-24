@@ -1,5 +1,6 @@
+import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { inlineCssUrls, keepWoff2Only } from '../../src/export/cssInline';
 import {
@@ -110,7 +111,7 @@ describe('buildStandaloneHtml', () => {
   });
 
   it('core stylesheet carries no VS Code theme variables into an export', () => {
-    const coreCss = readFileSync(resolve(process.cwd(), '../core/dist/styles.css'), 'utf8');
+    const coreCss = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../core/dist/styles.css'), 'utf8');
     const doc = buildStandaloneHtml({ bodyHtml: BODY, fileName: null, css: coreCss });
     expect(doc).not.toContain('--vscode-');
     expect(doc).toContain('--mikedown-');
