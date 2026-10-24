@@ -31,7 +31,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M4 — Tabs, panes, document model, hot exit](#m4--tabs-panes-document-model-hot-exit) | Opus | ✅ Complete (2 GUI checks pending) | 57 | one model per path per window; backups; session restore |
 | [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | ✅ Automated done (hands-on pending) | 9 | tree + tabs + hot exit |
 | [M5 — Settings: global, folder override, App tab](#m5--settings-global-folder-override-app-tab) | Sonnet | ✅ Complete (GUI checks pending) | 12 | reuses core settings modal via `extraSettingsSections` |
-| [M6 — Versioning, diff view, external changes](#m6--versioning-diff-view-external-changes) | Opus | 🔄 In Progress | — | `.mikedown/versions/`; Compare / Overwrite / Revert |
+| [M6 — Versioning, diff view, external changes](#m6--versioning-diff-view-external-changes) | Opus | ✅ Complete (GUI checks pending) | 26 | `.mikedown/versions/`; Compare / Overwrite / Revert |
 | [M7 — Folder search](#m7--folder-search) | Sonnet | ✅ Complete (GUI checks pending) | 35 | Rust-side search, grouped results |
 | [M8 — Welcome, recents, menus, window title](#m8--welcome-recents-menus-window-title) | Opus | 🔄 In Progress | — | native menus, `CmdOrCtrl` shortcuts, `welcome.md` |
 | [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | ✅ Complete (print GUI checks pending) | 12 | reuses `handle.getHtml()` |
@@ -447,13 +447,13 @@ Start: `npm run dev:desktop` on the Mac; the Windows build from BEAST per `packa
 
 **Tasks**
 
-- [ ] `src/documents/versioning.ts` + Rust `commands/versions.rs` (edge 1): on save, when `versioning.enabled` and the file is inside an opened folder and ≤ `versioning.maxSizeMB`, write `.mikedown/versions/<relative/path/to/file.md>/<YYYYMMDDTHHMMSSZ>.md` unless byte-identical to the newest snapshot; prune to `versioning.keep`. `.mikedown/` is created on the first snapshot only (decision). Lone-file windows never snapshot.
-- [ ] Version browser (`src/ui/versions.ts`): sidebar section or panel listing snapshots for the active file (relative time via core's `relativeTime` helper if exported, else local), select two to diff or one against the current buffer; **Restore** replaces the buffer and marks the tab dirty, never writing to disk (edge 2).
-- [ ] Diff viewer (`src/ui/diffView.ts`): side-by-side and inline modes over plain markdown text (use `diff` or `diff-match-patch` from npm; no editor instance); word-level highlights; read-only; styled with core tokens.
-- [ ] External changes (decision + edge 9): the watcher's `fs-changed` for an open path compares `mtimeMs`; clean model → silent reload (`setMarkdown` with `pristine: true`, preserving cursor where possible); dirty model → keep edits, mark `externallyChanged`, and on save show "changed on disk" with Compare (the diff viewer: disk vs. buffer) / Overwrite / Revert. Same path handles cross-window saves.
-- [ ] `host.getDiffBaseline` (optional): return the newest snapshot as `headContent` so core's change highlighting works when versioning is on.
-- [ ] Tree integration (edge 3): rename/move/delete of a file applies to its versions folder (M3 wired the hook; implement it here).
-- [ ] Commit.
+- [x] `src/documents/versioning.ts` + Rust `commands/versions.rs` (edge 1): on save, when `versioning.enabled` and the file is inside an opened folder and ≤ `versioning.maxSizeMB`, write `.mikedown/versions/<relative/path/to/file.md>/<YYYYMMDDTHHMMSSZ>.md` unless byte-identical to the newest snapshot; prune to `versioning.keep`. `.mikedown/` is created on the first snapshot only (decision). Lone-file windows never snapshot.
+- [x] Version browser (`src/ui/versions.ts`): sidebar section or panel listing snapshots for the active file (relative time via core's `relativeTime` helper if exported, else local), select two to diff or one against the current buffer; **Restore** replaces the buffer and marks the tab dirty, never writing to disk (edge 2).
+- [x] Diff viewer (`src/ui/diffView.ts`): side-by-side and inline modes over plain markdown text (use `diff` or `diff-match-patch` from npm; no editor instance); word-level highlights; read-only; styled with core tokens.
+- [x] External changes (decision + edge 9): the watcher's `fs-changed` for an open path compares `mtimeMs`; clean model → silent reload (`setMarkdown` with `pristine: true`, preserving cursor where possible); dirty model → keep edits, mark `externallyChanged`, and on save show "changed on disk" with Compare (the diff viewer: disk vs. buffer) / Overwrite / Revert. Same path handles cross-window saves.
+- [x] `host.getDiffBaseline` (optional): return the newest snapshot as `headContent` so core's change highlighting works when versioning is on.
+- [x] Tree integration (edge 3): rename/move/delete of a file applies to its versions folder (M3 wired the hook; implement it here).
+- [x] Commit.
 
 **Acceptance criteria**
 
@@ -694,6 +694,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 20:45** - M6 complete (cherry-picked as `4a8fd2c`..`f253032`, no conflicts; worker survived two 529 interruptions). Rust `versions.rs` (snapshot, list, prune, mirror move); versioning policy (UTC timestamp names, identical-skip, prune to `keep`, size cap, lone-file skip, `.mikedown/` on first snapshot); version browser (`CmdOrCtrl+Shift+H`, menu id `showVersions` for M8), diff viewer side-by-side and inline with word highlights, Restore marks dirty without writing; external changes: clean tabs reload silently keeping cursor, dirty tabs flagged with an info bar, saving asks Cancel / Compare… / Revert / Overwrite, cross-window saves take the same path; tree rename/move/delete carries versions; `getDiffBaseline` returns the newest snapshot (no visible effect until core turns change highlighting on). Verified in the main tree: desktop tsc, unit 328, e2e 22, cargo 77, vite build green. **Core bug found, not fixed (affects VS Code too):** keystrokes within ~0.5 s after a save are treated as unchanged, so a second save in that window drops them; e2e waits 600 ms. Backlog candidate. Screenshots in `.orchestrator/desktop-app-plan/artifacts/m6/`. Real-window checks pending.
 
 **2026-10-23 20:35** - M7 complete (cherry-picked as `5f805b2`..`33b0374`; keep-both conflicts in `lib.rs`, `commands/mod.rs`, `main.ts`, `shortcuts.ts` with M5/M9). Rust `search_folder`/`search_cancel` streams batches with cancel, 2 MB skip, binary/non-UTF-8 skip, hidden and `node_modules` exclusions, case and whole-word, UTF-16 offsets, 2,000 cap; sidebar search panel with 250 ms debounce, grouped collapsible results, ARIA tree and full keyboard; `CmdOrCtrl+Shift+F` plus an Edit menu item. Core gained `revealText(line, column, length)` and stops treating Cmd+Shift+F as Find in source mode when `hostOwnsShortcuts` (VS Code unaffected). Measured on 2,000 files: first results ~0.2 ms, full scan ~50 ms release (~180 ms debug), asserted by a Rust test. Rich-text reveal re-finds the text in the rendered doc; matches in link URLs or frontmatter fall back to a proportional scroll. Verified in the main tree with M5/M9 merged: build:core, compile, lint 0 errors, unit 1247, edge 22, core-package 9, desktop tsc, desktop unit 279, e2e 18, cargo 68, vite build green. Real-window checks pending.
 
