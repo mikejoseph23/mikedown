@@ -233,11 +233,22 @@ fn is_read_only(path: &Path, meta: &stdfs::Metadata) -> bool {
     }
 }
 
+/// The sentence for a cloud placeholder that could not be downloaded. The UI
+/// matches "has not finished downloading" to show the tab's Retry state.
+pub const CLOUD_PLACEHOLDER_REASON: &str =
+    "It is stored in the cloud and has not finished downloading. Check that OneDrive (or your sync app) is running and online, then retry.";
+
 /// The OS error in plain words (edge 10): what happened and what to do, with
 /// the system's own message kept at the end for anyone who needs to search it.
 /// `None` for kinds without a better sentence than the OS gives.
 pub fn plain_reason(e: &io::Error) -> Option<&'static str> {
     use io::ErrorKind::*;
+    // Windows cloud-files errors (OneDrive Files On-Demand and other sync
+    // providers): ERROR_CLOUD_FILE_* are 358..=396. They mean the placeholder
+    // could not be filled, e.g. the provider is not running or offline.
+    if cfg!(windows) && e.raw_os_error().is_some_and(|c| (358..=396).contains(&c)) {
+        return Some(CLOUD_PLACEHOLDER_REASON);
+    }
     Some(match e.kind() {
         PermissionDenied => "You do not have permission to change this file. Save a copy somewhere you can write, or ask the owner to allow it.",
         ReadOnlyFilesystem => "The disk it is on is read-only. Save a copy somewhere else.",
@@ -1258,6 +1269,36 @@ mod tests {
         }
     }
 
+    /// Manual (edge 10): MIKEDOWN_DATALESS_FILE names an iCloud file evicted
+    /// with `brctl evict`. The same `stat` + read the `read_text` command does
+    /// must return the text (the OS downloads it on first read); prints how long
+    /// it took. The UI shows "still downloading" if this takes over ~10 s.
+    #[test]
+    #[ignore]
+    fn an_evicted_icloud_file_reads_after_the_os_downloads_it() {
+        let file = PathBuf::from(std::env::var("MIKEDOWN_DATALESS_FILE").expect("MIKEDOWN_DATALESS_FILE"));
+        let meta = stdfs::metadata(&file).unwrap();
+        eprintln!("DATALESS stat ok: size {}", meta.len());
+        // `stat` also runs the read-only probe (an open for write); it must not
+        // pull the file down. With MIKEDOWN_DATALESS_PROBE_ONLY=1 stop here so
+        // the caller can check the file is still dataless.
+        let t0 = std::time::Instant::now();
+        let ro = is_read_only(&file, &meta);
+        eprintln!("DATALESS probe read_only={ro} in {:?}", t0.elapsed());
+        if std::env::var_os("MIKEDOWN_DATALESS_PROBE_ONLY").is_some() {
+            return;
+        }
+        let t0 = std::time::Instant::now();
+        let bytes = stdfs::read(&file).unwrap_or_else(|e| {
+            eprintln!("DATALESS read failed: {}", describe(&file, &e));
+            panic!("read failed");
+        });
+        eprintln!("DATALESS read {} bytes in {:?}", bytes.len(), t0.elapsed());
+        let d = decode(&bytes);
+        let expect = std::env::var("MIKEDOWN_DATALESS_EXPECT").unwrap_or_else(|_| "Evicted file test".into());
+        assert!(d.text.contains(&expect), "{:?}", d.text);
+    }
+
     /// Edge 25: Save As and pasted images get the Windows name and length
     /// checks before anything is created, and an existing file is left alone.
     #[test]
@@ -1285,6 +1326,12 @@ mod tests {
         assert!(!msg.contains("/n/"), "no raw path noise: {msg}");
         let ro = describe(Path::new("/n/a.md"), &io::Error::from(io::ErrorKind::ReadOnlyFilesystem));
         assert!(ro.contains("read-only"), "{ro}");
+        // Windows cloud-files errors (OneDrive Files On-Demand) get the retry wording.
+        #[cfg(windows)]
+        {
+            let cloud = describe(Path::new(r"C:\n\a.md"), &io::Error::from_raw_os_error(395));
+            assert!(cloud.contains("has not finished downloading"), "{cloud}");
+        }
         // A kind without a better sentence keeps the system text and the path.
         let other = describe(Path::new("/n/a.md"), &io::Error::other("weird"));
         assert!(other.starts_with("/n/a.md: "), "{other}");

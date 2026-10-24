@@ -20,6 +20,7 @@ let calls: IpcCall[];
 let app: TestApp;
 let slowReads: Map<string, () => void>;
 const readOnlyFiles = new Set<string>();
+const cloudFailures = new Set<string>();
 
 function info(text: string, readOnly = false): ReadInfo {
   return { text, encoding: 'utf8', eol: 'lf', mtimeMs: 1, readOnly, size: text.length };
@@ -36,6 +37,7 @@ function handler(cmd: string, args: any): unknown {
     case 'read_text': {
       const text = files[args.path];
       if (text === undefined) {throw new Error(`ENOENT ${args.path}`);}
+      if (cloudFailures.has(args.path)) {throw new Error('a.md It is stored in the cloud and has not finished downloading. Check that OneDrive is running and online, then retry.');}
       if (slowReads.has(args.path)) {
         return new Promise<ReadInfo>((resolve) => slowReads.set(args.path, () => resolve(info(text))));
       }
@@ -61,6 +63,7 @@ beforeEach(() => {
   files = { [`${DIR}/a.md`]: '# A\n\nAlpha body.\n', [`${DIR}/b.md`]: '# B\n\nBeta body.\n' };
   slowReads = new Map();
   readOnlyFiles.clear();
+  cloudFailures.clear();
   calls = installIpc(handler);
   app = createTestApp((host, container) => createMikeDownEditor(container, {
     host,
@@ -199,6 +202,26 @@ describe('document states', () => {
     expect(doc.text).toContain('Alpha body.');
     expect((tabEl(0, 0).querySelector('.mdapp-tab__state') as HTMLElement).hidden).toBe(true);
     expect(pm(0).textContent).toContain('Alpha body.');
+  });
+
+  it('a cloud placeholder whose download failed shows the downloading tab with Retry, then loads (edge 10)', async () => {
+    cloudFailures.add(`${DIR}/a.md`);
+    expect(await app.controller.openPath(`${DIR}/a.md`)).toBe(false);
+    const doc = app.registry.get(`${DIR}/a.md`)!;
+    expect(doc.state).toBe('downloading');
+    expect(tabNames(0)).toEqual(['a.md']);
+    expect((tabEl(0, 0).querySelector('.mdapp-tab__state') as HTMLElement).textContent).toContain('still downloading');
+    // No error dialog: the tab explains itself and the pane's info bar has Retry.
+    expect(calls.some((c) => c.cmd === 'plugin:dialog|message')).toBe(false);
+    const bar = app.root.querySelector('.mdapp-pane__notice') as HTMLElement;
+    const retry = bar.querySelector('.mdapp-notice__action') as HTMLButtonElement;
+    expect(retry.textContent).toBe('Retry');
+    // The provider comes back; Retry loads the file.
+    cloudFailures.clear();
+    retry.click();
+    await new Promise((r) => setTimeout(r, 120));
+    expect(doc.state).toBe('ready');
+    expect(doc.text).toContain('Alpha body.');
   });
 
   it('a read-only file opens normally with a lock badge; Cmd+S offers Save As with the reason (edge 10)', async () => {

@@ -7,8 +7,11 @@
 //!
 //! Native events (FSEvents on macOS, ReadDirectoryChangesW on Windows) are the
 //! default. When the native watcher cannot be created, refuses the directory,
-//! or reports an error later (network drives, some cloud folders), that
-//! directory falls back to polling every 2 s (edge case 10).
+//! or reports an error later (some cloud folders), that directory falls back
+//! to polling every 2 s (edge case 10). Network volumes (SMB, NFS, a Windows
+//! UNC path or mapped drive) go straight to polling: measured on an SMB share,
+//! FSEvents starts fine and then never reports a change made from another
+//! machine, so waiting for a failure would leave the tree stale.
 //! `MIKEDOWN_WATCH_POLL=1` forces polling, for testing the fallback.
 
 use std::collections::HashMap;
@@ -80,6 +83,61 @@ fn changes(event: &Event, dir: &Path) -> Vec<FsChanged> {
         .iter()
         .map(|p| FsChanged { kind, path: p.to_string_lossy().into_owned(), dir: dir_s.clone() })
         .collect()
+}
+
+/// Whether `dir` lives on a network volume, where native change events do not
+/// arrive for other machines' edits (edge 10).
+pub fn is_network_path(dir: &Path) -> bool {
+    network_path_impl(dir)
+}
+
+#[cfg(target_os = "macos")]
+fn network_path_impl(dir: &Path) -> bool {
+    use std::os::unix::ffi::OsStrExt;
+    let Ok(c) = std::ffi::CString::new(dir.as_os_str().as_bytes()) else { return false };
+    let mut st: libc::statfs = unsafe { std::mem::zeroed() };
+    // SAFETY: `c` is a valid NUL-terminated path and `st` a writable statfs.
+    if unsafe { libc::statfs(c.as_ptr(), &mut st) } != 0 {
+        return false;
+    }
+    (st.f_flags & libc::MNT_LOCAL as u32) == 0
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn network_path_impl(dir: &Path) -> bool {
+    use std::os::unix::ffi::OsStrExt;
+    let Ok(c) = std::ffi::CString::new(dir.as_os_str().as_bytes()) else { return false };
+    let mut st: libc::statfs = unsafe { std::mem::zeroed() };
+    // SAFETY: as above.
+    if unsafe { libc::statfs(c.as_ptr(), &mut st) } != 0 {
+        return false;
+    }
+    // SMB, CIFS, SMB2 and NFS super-block magic numbers.
+    matches!(st.f_type as u64, 0x517B | 0xFF53_4D42 | 0xFE53_4D42 | 0x6969)
+}
+
+#[cfg(windows)]
+fn network_path_impl(dir: &Path) -> bool {
+    use std::os::windows::ffi::OsStrExt;
+    extern "system" {
+        fn GetDriveTypeW(root: *const u16) -> u32;
+    }
+    const DRIVE_REMOTE: u32 = 4;
+    let text = dir.to_string_lossy().into_owned();
+    // `\\?\UNC\server\share` and `\\server\share` are remote; `\\?\C:\` is local.
+    if let Some(rest) = text.strip_prefix(r"\\?\") {
+        if rest.starts_with("UNC\\") {
+            return true;
+        }
+    } else if text.starts_with(r"\\") || text.starts_with("//") {
+        return true;
+    }
+    let plain = text.strip_prefix(r"\\?\").unwrap_or(&text);
+    let mut chars = plain.chars();
+    let (Some(letter), Some(':')) = (chars.next(), chars.next()) else { return false };
+    let root: Vec<u16> = std::ffi::OsString::from(format!("{letter}:\\")).encode_wide().chain(std::iter::once(0)).collect();
+    // SAFETY: `root` is NUL-terminated.
+    unsafe { GetDriveTypeW(root.as_ptr()) == DRIVE_REMOTE }
 }
 
 fn force_poll() -> bool {
@@ -173,7 +231,7 @@ pub fn watch<R: Runtime>(app: AppHandle<R>, state: State<'_, Watchers>, dir: Pat
             Handle::Poll(_) => Mode::Poll,
         });
     }
-    let prefer = if force_poll() { Mode::Poll } else { Mode::Native };
+    let prefer = if force_poll() || is_network_path(&dir) { Mode::Poll } else { Mode::Native };
     let (handle, mode) = start(&dir, prefer, signal_handler(app.clone(), dir.clone()))?;
     map.insert(dir, handle);
     Ok(mode)
@@ -297,6 +355,60 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         assert!(removed, "no event for the removed file");
         assert!(renamed, "no event for the case-only rename");
+    }
+
+    /// Manual check for network shares (edge 10). Ignored by default: set
+    /// MIKEDOWN_SMB_DIR to a scratch folder on the share, MIKEDOWN_SMB_MODE to
+    /// native or poll, run with --ignored, and create a file named
+    /// external.md in that folder from another machine within 25 seconds.
+    /// Prints which mode started and how long the event took.
+    #[test]
+    #[ignore]
+    fn network_share_reports_a_file_created_elsewhere() {
+        let dir = PathBuf::from(std::env::var("MIKEDOWN_SMB_DIR").expect("MIKEDOWN_SMB_DIR"));
+        let prefer = if std::env::var("MIKEDOWN_SMB_MODE").as_deref() == Ok("poll") { Mode::Poll } else { Mode::Native };
+        let (tx, rx) = mpsc::channel::<FsChanged>();
+        let tx = std::sync::Arc::new(Mutex::new(tx));
+        let cb = {
+            let tx = tx.clone();
+            move |s: Signal| {
+                if let Signal::Change(c) = s {
+                    let _ = tx.lock().unwrap().send(c);
+                }
+            }
+        };
+        let (handle, mode) = start(&dir, prefer, cb).unwrap();
+        eprintln!("WATCHING {} in mode {:?}, is_network_path={}", dir.display(), mode, is_network_path(&dir));
+        let t0 = Instant::now();
+        let mut seen = None;
+        while t0.elapsed() < Duration::from_secs(25) {
+            if let Ok(c) = rx.recv_timeout(Duration::from_millis(100)) {
+                if c.path.ends_with("external.md") {
+                    seen = Some(t0.elapsed());
+                    break;
+                }
+            }
+        }
+        drop(handle);
+        eprintln!("RESULT mode={:?} event_after={:?}", mode, seen);
+        assert!(seen.is_some(), "no event for external.md in {:?} mode", mode);
+    }
+
+    #[test]
+    fn a_local_temp_folder_is_not_a_network_path() {
+        let dir = temp_dir("local-check");
+        assert!(!is_network_path(&dir), "{}", dir.display());
+        let _ = std::fs::remove_dir_all(&dir);
+        // A path that does not exist cannot be classified, so it stays native.
+        assert!(!is_network_path(Path::new("/definitely/not/a/real/path")));
+    }
+
+    /// Manual: MIKEDOWN_SMB_DIR on a mounted share must be classified remote.
+    #[test]
+    #[ignore]
+    fn a_mounted_share_is_a_network_path() {
+        let dir = PathBuf::from(std::env::var("MIKEDOWN_SMB_DIR").expect("MIKEDOWN_SMB_DIR"));
+        assert!(is_network_path(&dir), "{}", dir.display());
     }
 
     #[test]

@@ -36,6 +36,9 @@ import { applyQuitChoice, closeTabDialogSpec, dirtyDocuments, quitDialogSpec, ty
 import { MARKDOWN_FILTERS, type Dialogs } from '../ui/dialogs';
 import { formatWindowTitle } from './windowTitle';
 
+/** The wording `plain_reason` in fs.rs gives a cloud placeholder that could not be downloaded. */
+const CLOUD_DOWNLOAD_ERROR = /has not finished downloading/i;
+
 /** Edge case 10: a cloud placeholder's read that takes longer than this shows "still downloading". */
 export const DOWNLOAD_NOTICE_MS = 10_000;
 
@@ -418,6 +421,13 @@ export function createDocumentController(deps: DocumentControllerDeps): Document
         panes.refreshDoc(doc);
       });
     } catch (err) {
+      // A cloud placeholder whose download failed outright (the provider is
+      // offline or not running; Rust words it "has not finished downloading")
+      // gets the same tab state as a slow one: pending, with Retry.
+      if (!doc && CLOUD_DOWNLOAD_ERROR.test(String(err))) {
+        doc = registry.pending(target);
+        panes.open(doc, { paneId: opts.paneId, focus: false });
+      }
       if (doc) {
         doc.state = 'downloading';
         doc.applyMode();
