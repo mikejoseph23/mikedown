@@ -43,7 +43,7 @@
 | [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | ✅ Complete | 27 | UI design |
 | [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ✅ Complete | 14 | UI design |
 | [M14 — READMEs](#m14--readmes) | Sonnet | ✅ Complete | 3 | Root (Marketplace listing) + per package |
-| [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ⬜ Not Started | — | link check + hands-on |
+| [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | 🔄 Awaiting Mike hands-on | 7 | link check + hands-on |
 | [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ⬜ Not Started | — | Mike runs publish and deploy |
 | [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | ⬜ Not Started | — | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
 | [T4 — Final verification](#t4--final-verification) | Sonnet | ⬜ Not Started | — | registry smoke + production URLs |
@@ -481,10 +481,10 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 **Automated**
 
-- [ ] `website/test/links.test.ts` over the built site: every internal link and asset resolves; every npm link names a package in this workspace; every Marketplace/GitHub link uses `interapp.mikedown-editor` / `mikejoseph23`.
-- [ ] Each demo page's bundle loads in jsdom without throwing and mounts one editor.
-- [ ] README link check: every absolute URL in root and package READMEs returns 200, except npm package URLs not yet published (listed in the summary).
-- [ ] `test:wrappers`, `test:packages` green.
+- [x] `website/test/links.test.ts` over the built site: every internal link and asset resolves; every npm link names a package in this workspace; every Marketplace/GitHub link uses `interapp.mikedown-editor` / `mikejoseph23`.
+- [x] Each demo page's bundle loads in jsdom without throwing and mounts one editor.
+- [x] README link check: every absolute URL in root and package READMEs returns 200, except npm package URLs not yet published (listed in the summary).
+- [x] `test:wrappers`, `test:packages` green.
 
 **Hands-on (Mike, about 15 minutes).** Start: `cd ~/git/mikedown && npm run dev:site`. Pages:
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 19:00** - T3 automated items done (`332263b`, 7 min): `test:site` builds the site and runs `website/test/` (27: every internal link, anchor and asset resolves, npm/Marketplace/GitHub links are correct, each demo bundle mounts exactly one editor in jsdom); `check:readme-links` (network) has 0 failures, with the four wrapper npm pages, the `@0.2.0` CDN URLs and six iadev.net site pages expected to 404 until M15. `test:wrappers`, `test:packages` green. `test:site` stays out of CI (full site build plus the Angular demo install). Hands-on waits for the core editor gap fill, then Mike.
 
 **2026-10-24 18:50** - CI green for the first time (run `40135439913`, `f3e342f`): three editor-boot tests had timed out at 5 s on the 2-core runner; `vitest.config.ts` now uses 30 s test and hook timeouts when `CI` is set (local defaults unchanged). All steps pass: lint, `build:core`, `test:unit`, `test:edge`, `test:packages`, `test:wrappers`.
 
