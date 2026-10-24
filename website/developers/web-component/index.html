@@ -3,16 +3,120 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web component | MikeDown</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 42rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.6; color: #1a1a1a; background: #fff; }
-    @media (prefers-color-scheme: dark) { body { color: #e0e0e0; background: #0a0a0a; } a { color: #8ab4ff; } }
-  </style>
+  <title>MikeDown web component: a markdown editor element for any page</title>
+  <meta name="description" content="&lt;mikedown-editor&gt; is the MikeDown WYSIWYG markdown editor as a form-associated custom element. Use it from a CDN, in server-rendered forms, htmx, Svelte or Lit. Live demo and copy-paste code.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MikeDown">
+  <meta property="og:title" content="The MikeDown web component">
+  <meta property="og:description" content="A markdown editor element that submits with forms like a textarea. Works from a CDN, in server templates, htmx, Svelte and Lit.">
+  <meta property="og:url" content="https://www.iadev.net/mikedown/developers/web-component/">
+  <meta property="og:image" content="https://www.iadev.net/mikedown/screenshot-outline-light.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://www.iadev.net/mikedown/developers/web-component/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 128 128%27%3E%3Cg fill=%27none%27 stroke=%27%231f6fb8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpolyline points=%2720,86 20,30 64,66 108,30 108,86%27 stroke-width=%2713%27/%3E%3Cpolyline points=%2749,99 64,114 79,99%27 stroke-width=%2710%27/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/shared/shell.css">
+  <link rel="stylesheet" href="/shared/page.css">
+  <link rel="stylesheet" href="/developers/common/developers.css">
+  <!--katex:css-->
 </head>
 <body>
-  <h1>Web component</h1>
-  <p>Placeholder for the web component demo.</p>
-  <p><a href="../">All developer guides</a></p>
-  <!-- Placeholder: M12/M13 design this page; the demo imports the wrapper from the workspace. -->
+  <!--shell:header page="developers"-->
+
+  <main id="main">
+    <div class="site-container">
+      <header class="dev-head">
+        <nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="../">Developers</a></li><li><span aria-current="page">Web component</span></li></ol></nav>
+        <h1>The MikeDown web component</h1>
+        <p class="dev-head__lede"><code>&lt;mikedown-editor&gt;</code> is a markdown editor that behaves like a <code>&lt;textarea&gt;</code>: it submits under its <code>name</code>, honors <code>required</code>, and resets with the form. Use it on plain pages, in server templates, or in any framework without its own MikeDown package.</p>
+        <div class="dev-head__install">
+          <div class="command" role="group" aria-label="Install command">
+            <code id="install">npm install @mikedown/web-component @mikedown/core</code>
+            <button class="copy-button" type="button" data-copy-target="#install">Copy</button>
+          </div>
+          <p class="dev-head__links"><a href="#cdn">Use a CDN instead</a><a href="https://github.com/mikejoseph23/mikedown/tree/main/packages/web-component#readme">README</a><a href="https://www.npmjs.com/package/@mikedown/web-component">npm</a></p>
+        </div>
+      </header>
+
+      <div class="stage-wrap">
+        <!--stage:@mikedown/web-component-->
+      </div>
+    </div>
+
+    <section class="section" aria-labelledby="code-title">
+      <div class="site-container split">
+        <div class="split__aside">
+          <h2 id="code-title">The code on this page</h2>
+          <p>A plain <code>&lt;form&gt;</code> wraps the editor and a <code>&lt;textarea&gt;</code>. The textarea is the field until the script loads; then the editor takes over its text, <code>name</code> and <code>required</code>. Clear the editor and press Submit to see the browser's own validation.</p>
+          <p>The page puts this markup on the stage, runs the script, and sets the element's <code>theme</code> and <code>readOnly</code> properties from the controls.</p>
+        </div>
+        <div>
+          <!--sample:form.html-->
+          <!--sample:form.js-->
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="cdn" aria-labelledby="cdn-title">
+      <div class="site-container split">
+        <div class="split__aside">
+          <h2 id="cdn-title">From a CDN, with no build step</h2>
+          <p>One module script loads a self-contained bundle (the editor, its dependencies and its CSS) and defines <code>&lt;mikedown-editor&gt;</code>. Pin the version; never use <code>@latest</code>.</p>
+          <p>KaTeX and Mermaid load from jsDelivr the first time a document uses math or a diagram. Turn either off with <code>features='{"math":false}'</code>.</p>
+        </div>
+        <div>
+          <figure class="code">
+            <figcaption class="code__bar"><span class="code__file">index.html</span><button class="copy-button" type="button" data-copy-target="#code-cdn" aria-label="Copy the CDN snippet">Copy</button></figcaption>
+            <pre class="code__body" tabindex="0" aria-label="CDN snippet"><code id="code-cdn" data-highlight="html">&lt;script type="module" src="https://cdn.jsdelivr.net/npm/@mikedown/web-component@%WEB_COMPONENT_VERSION%/dist/mikedown-editor.standalone.js"&gt;&lt;/script&gt;
+
+&lt;form method="post" action="/posts"&gt;
+  &lt;label for="body"&gt;Body&lt;/label&gt;
+  &lt;mikedown-editor id="body" name="body" required value="# Hello"&gt;&lt;/mikedown-editor&gt;
+  &lt;button&gt;Save&lt;/button&gt;
+&lt;/form&gt;</code></pre>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="notes-title">
+      <div class="site-container">
+        <div class="section-head">
+          <h2 class="section-title" id="notes-title">Framework notes</h2>
+        </div>
+        <div class="notes">
+          <div class="note">
+            <h3>Svelte</h3>
+            <p>Svelte renders custom elements directly. Pass the value as a property and listen for <code>change</code>.</p>
+            <pre class="snippet"><code data-highlight="html">&lt;mikedown-editor value={body} on:change={(e) =&gt; (body = e.detail.value)}&gt;&lt;/mikedown-editor&gt;</code></pre>
+          </div>
+          <div class="note">
+            <h3>Lit</h3>
+            <p>Bind objects such as <code>host</code> and <code>settings</code> as properties.</p>
+            <pre class="snippet"><code data-highlight="html">&lt;mikedown-editor .value=${this.body} @change=${(e) =&gt; (this.body = e.detail.value)}&gt;&lt;/mikedown-editor&gt;</code></pre>
+          </div>
+          <div class="note">
+            <h3>htmx</h3>
+            <p><code>change</code> bubbles, so a form can save as the user types. htmx reads the form with <code>FormData</code>, which includes the editor's value.</p>
+            <pre class="snippet"><code data-highlight="html">&lt;form hx-post="/notes/42" hx-trigger="change delay:500ms" hx-swap="none"&gt;
+  &lt;mikedown-editor name="body" value="# Notes"&gt;&lt;/mikedown-editor&gt;
+&lt;/form&gt;</code></pre>
+          </div>
+          <div class="note">
+            <h3>Rails, Django, Razor, Laravel</h3>
+            <p>Wrap the textarea your template already renders. Without JavaScript it stays a textarea; with it, the editor takes over and submits the same field once.</p>
+            <pre class="snippet"><code data-highlight="html">&lt;mikedown-editor&gt;{{ form.body }}&lt;/mikedown-editor&gt;</code></pre>
+          </div>
+        </div>
+        <p class="prose notes__after">React, Vue and Angular have their own packages: <a href="../react/">React</a>, <a href="../vue/">Vue</a>, <a href="../angular/">Angular</a>.</p>
+        <a class="readme-link" href="https://github.com/mikejoseph23/mikedown/tree/main/packages/web-component#readme">Read the full @mikedown/web-component README on GitHub</a>
+      </div>
+    </section>
+  </main>
+
+  <!--shell:footer-->
+  <script type="module" src="./main.js"></script>
 </body>
 </html>

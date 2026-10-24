@@ -1,0 +1,27 @@
+<form class="demo" id="post-form">
+  <div class="demo__main">
+    <label class="demo__label" for="post-body">Release notes</label>
+    <mikedown-editor id="post-body" class="demo__editor">
+      <textarea name="body" required>
+# Release notes
+
+Edit this text. The markdown value follows **as you type**.
+
+- [x] Tables, task lists and code blocks
+- [ ] Diagrams and math
+
+| Framework | Package |
+| --- | --- |
+| Any | @mikedown/web-component |
+
+Type / for headings, callouts and more.
+</textarea>
+    </mikedown-editor>
+    <div class="demo__actions">
+      <button type="submit">Submit</button>
+      <button type="reset">Reset</button>
+      <output class="demo__result" for="post-body"></output>
+    </div>
+  </div>
+  <pre class="demo__value" id="post-value" tabindex="0" aria-label="Markdown value"></pre>
+</form>

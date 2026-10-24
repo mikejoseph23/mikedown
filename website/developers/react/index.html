@@ -3,16 +3,106 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>React | MikeDown</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 42rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.6; color: #1a1a1a; background: #fff; }
-    @media (prefers-color-scheme: dark) { body { color: #e0e0e0; background: #0a0a0a; } a { color: #8ab4ff; } }
-  </style>
+  <title>MikeDown for React: a WYSIWYG markdown editor component</title>
+  <meta name="description" content="@mikedown/react is the MikeDown WYSIWYG markdown editor as a React 18 and 19 component: value and onChange, theme, read-only, Next.js ready. Live demo and copy-paste code.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MikeDown">
+  <meta property="og:title" content="MikeDown for React">
+  <meta property="og:description" content="A WYSIWYG markdown editor component for React 18 and 19, with a live demo and the code that runs it.">
+  <meta property="og:url" content="https://www.iadev.net/mikedown/developers/react/">
+  <meta property="og:image" content="https://www.iadev.net/mikedown/screenshot-outline-light.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://www.iadev.net/mikedown/developers/react/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 128 128%27%3E%3Cg fill=%27none%27 stroke=%27%231f6fb8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpolyline points=%2720,86 20,30 64,66 108,30 108,86%27 stroke-width=%2713%27/%3E%3Cpolyline points=%2749,99 64,114 79,99%27 stroke-width=%2710%27/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/shared/shell.css">
+  <link rel="stylesheet" href="/shared/page.css">
+  <link rel="stylesheet" href="/developers/common/developers.css">
+  <!--katex:css-->
 </head>
 <body>
-  <h1>React</h1>
-  <p>Placeholder for the React demo.</p>
-  <p><a href="../">All developer guides</a></p>
-  <!-- Placeholder: M12/M13 design this page; the demo imports the wrapper from the workspace. -->
+  <!--shell:header page="developers"-->
+
+  <main id="main">
+    <div class="site-container">
+      <header class="dev-head">
+        <nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="../">Developers</a></li><li><span aria-current="page">React</span></li></ol></nav>
+        <h1>MikeDown for React</h1>
+        <p class="dev-head__lede">A WYSIWYG markdown editor component for React 18 and 19. Use it like an input: pass <code>value</code> and <code>onChange</code>, and the editor reports markdown 150&nbsp;ms after the last keystroke.</p>
+        <div class="dev-head__install">
+          <div class="command" role="group" aria-label="Install command">
+            <code id="install">npm install @mikedown/react @mikedown/core</code>
+            <button class="copy-button" type="button" data-copy-target="#install">Copy</button>
+          </div>
+          <p class="dev-head__links"><a href="https://github.com/mikejoseph23/mikedown/tree/main/packages/react#readme">README</a><a href="https://www.npmjs.com/package/@mikedown/react">npm</a></p>
+        </div>
+      </header>
+
+      <div class="stage-wrap">
+        <!--stage:@mikedown/react-->
+      </div>
+    </div>
+
+    <section class="section" aria-labelledby="code-title">
+      <div class="site-container split">
+        <div class="split__aside">
+          <h2 id="code-title">The code on this page</h2>
+          <p>This file is the editor above. The page renders <code>&lt;Demo&gt;</code> and passes <code>theme</code> and <code>readOnly</code> from the controls.</p>
+          <p>The editor fills its container, so give it a height with <code>className</code> or <code>style</code>. Import the stylesheet once in your app.</p>
+        </div>
+        <div>
+          <!--sample:Demo.tsx-->
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="notes-title">
+      <div class="site-container">
+        <div class="section-head">
+          <h2 class="section-title" id="notes-title">Framework notes</h2>
+        </div>
+        <div class="notes">
+          <div class="note">
+            <h3>Next.js app router</h3>
+            <p>The package entry starts with <code>'use client'</code>, so a Server Component can import it. Keep the state in a small client component and pass the initial markdown down from the server.</p>
+            <pre class="snippet"><code data-highlight="tsx">// app/notes/editor.tsx
+'use client';
+
+import { useState } from 'react';
+import { MikeDownEditor } from '@mikedown/react';
+import '@mikedown/core/styles.css';
+
+export function NotesEditor({ initial }: { initial: string }) {
+  const [md, setMd] = useState(initial);
+  return &lt;MikeDownEditor value={md} onChange={setMd} aria-label="Notes" style={{ height: 480 }} /&gt;;
+}</code></pre>
+          </div>
+          <div class="note">
+            <h3>Load it later</h3>
+            <p>The editor is large. To keep it out of the first bundle, load it with <code>next/dynamic</code> (or <code>React.lazy</code> on Vite).</p>
+            <pre class="snippet"><code data-highlight="tsx">const MikeDownEditor = dynamic(
+  () =&gt; import('@mikedown/react').then((m) =&gt; m.MikeDownEditor),
+  { ssr: false },
+);</code></pre>
+            <p>Server rendering is safe without it: nothing touches the DOM at import or render, and the editor appears after hydration.</p>
+          </div>
+          <div class="note">
+            <h3>Vite and StrictMode</h3>
+            <p>Vite needs no plugin or config. The editor is created in an effect and destroyed on cleanup, so StrictMode's double mount is fine, and unmounting flushes a pending change to <code>onChange</code>.</p>
+          </div>
+          <div class="note">
+            <h3>Svelte, Solid or Preact?</h3>
+            <p>Use <a href="../web-component/">the web component</a>. It works anywhere custom elements do, and submits with forms.</p>
+          </div>
+        </div>
+        <a class="readme-link" href="https://github.com/mikejoseph23/mikedown/tree/main/packages/react#readme">Read the full @mikedown/react README on GitHub</a>
+      </div>
+    </section>
+  </main>
+
+  <!--shell:footer-->
+  <script type="module" src="./main.tsx"></script>
 </body>
 </html>

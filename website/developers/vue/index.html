@@ -3,16 +3,100 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vue | MikeDown</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 42rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.6; color: #1a1a1a; background: #fff; }
-    @media (prefers-color-scheme: dark) { body { color: #e0e0e0; background: #0a0a0a; } a { color: #8ab4ff; } }
-  </style>
+  <title>MikeDown for Vue: a WYSIWYG markdown editor with v-model</title>
+  <meta name="description" content="@mikedown/vue is the MikeDown WYSIWYG markdown editor as a Vue 3 component: v-model, theme, read-only, Nuxt ready. Live demo and copy-paste code.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MikeDown">
+  <meta property="og:title" content="MikeDown for Vue">
+  <meta property="og:description" content="A WYSIWYG markdown editor component for Vue 3 with v-model, with a live demo and the code that runs it.">
+  <meta property="og:url" content="https://www.iadev.net/mikedown/developers/vue/">
+  <meta property="og:image" content="https://www.iadev.net/mikedown/screenshot-outline-light.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://www.iadev.net/mikedown/developers/vue/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 128 128%27%3E%3Cg fill=%27none%27 stroke=%27%231f6fb8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpolyline points=%2720,86 20,30 64,66 108,30 108,86%27 stroke-width=%2713%27/%3E%3Cpolyline points=%2749,99 64,114 79,99%27 stroke-width=%2710%27/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/shared/shell.css">
+  <link rel="stylesheet" href="/shared/page.css">
+  <link rel="stylesheet" href="/developers/common/developers.css">
+  <!--katex:css-->
 </head>
 <body>
-  <h1>Vue</h1>
-  <p>Placeholder for the Vue demo.</p>
-  <p><a href="../">All developer guides</a></p>
-  <!-- Placeholder: M12/M13 design this page; the demo imports the wrapper from the workspace. -->
+  <!--shell:header page="developers"-->
+
+  <main id="main">
+    <div class="site-container">
+      <header class="dev-head">
+        <nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="../">Developers</a></li><li><span aria-current="page">Vue</span></li></ol></nav>
+        <h1>MikeDown for Vue</h1>
+        <p class="dev-head__lede">A WYSIWYG markdown editor component for Vue 3.3 and later. Bind it with <code>v-model</code>; it updates the model 150&nbsp;ms after the last keystroke and at once when focus leaves.</p>
+        <div class="dev-head__install">
+          <div class="command" role="group" aria-label="Install command">
+            <code id="install">npm install @mikedown/vue @mikedown/core</code>
+            <button class="copy-button" type="button" data-copy-target="#install">Copy</button>
+          </div>
+          <p class="dev-head__links"><a href="https://github.com/mikejoseph23/mikedown/tree/main/packages/vue#readme">README</a><a href="https://www.npmjs.com/package/@mikedown/vue">npm</a></p>
+        </div>
+      </header>
+
+      <div class="stage-wrap">
+        <!--stage:@mikedown/vue-->
+      </div>
+    </div>
+
+    <section class="section" aria-labelledby="code-title">
+      <div class="site-container split">
+        <div class="split__aside">
+          <h2 id="code-title">The code on this page</h2>
+          <p>This single-file component is the editor above. The page mounts it and passes <code>theme</code> and <code>readOnly</code> from the controls.</p>
+          <p>Give the editor a height with CSS on the component: <code>class</code> and <code>style</code> land on its container.</p>
+        </div>
+        <div>
+          <!--sample:Demo.vue-->
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="notes-title">
+      <div class="site-container">
+        <div class="section-head">
+          <h2 class="section-title" id="notes-title">Framework notes</h2>
+        </div>
+        <div class="notes">
+          <div class="note">
+            <h3>Nuxt</h3>
+            <p>The editor needs the DOM, so render it on the client only.</p>
+            <pre class="snippet"><code data-highlight="html">&lt;template&gt;
+  &lt;ClientOnly&gt;
+    &lt;MikeDownEditor v-model="md" /&gt;
+  &lt;/ClientOnly&gt;
+&lt;/template&gt;</code></pre>
+            <p>If the server render complains about the stylesheet import, add <code>@mikedown/core</code> and <code>@mikedown/vue</code> to <code>build.transpile</code>.</p>
+          </div>
+          <div class="note">
+            <h3>Register it once</h3>
+            <p>Use the plugin to make <code>&lt;MikeDownEditor&gt;</code> available in every template.</p>
+            <pre class="snippet"><code data-highlight="ts">import { createApp } from 'vue';
+import MikeDown from '@mikedown/vue';
+
+createApp(App).use(MikeDown).mount('#app');</code></pre>
+          </div>
+          <div class="note">
+            <h3>Reaching the editor</h3>
+            <p>A template ref exposes <code>handle</code>, the editor handle, for commands such as <code>handle.command('toggleBold')</code>. It is <code>null</code> until the component mounts.</p>
+          </div>
+          <div class="note">
+            <h3>Vue 3.3 and later</h3>
+            <p>The component declares its props and emits explicitly instead of using <code>defineModel</code>, so it works on Vue 3.3. On Svelte or another framework, use <a href="../web-component/">the web component</a>.</p>
+          </div>
+        </div>
+        <a class="readme-link" href="https://github.com/mikejoseph23/mikedown/tree/main/packages/vue#readme">Read the full @mikedown/vue README on GitHub</a>
+      </div>
+    </section>
+  </main>
+
+  <!--shell:footer-->
+  <script type="module" src="./main.js"></script>
 </body>
 </html>

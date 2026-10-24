@@ -3,21 +3,166 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MikeDown for developers</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 42rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.6; color: #1a1a1a; background: #fff; }
-    @media (prefers-color-scheme: dark) { body { color: #e0e0e0; background: #0a0a0a; } a { color: #8ab4ff; } }
-  </style>
+  <title>MikeDown for developers: a WYSIWYG markdown editor for your app</title>
+  <meta name="description" content="Embed the MikeDown WYSIWYG markdown editor in your app. Packages for React, Vue, Angular and a web component for everything else, with live demos.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MikeDown">
+  <meta property="og:title" content="MikeDown for developers">
+  <meta property="og:description" content="The MikeDown markdown editor as React, Vue and Angular components and a web component. People edit formatted text; your app gets plain markdown.">
+  <meta property="og:url" content="https://www.iadev.net/mikedown/developers/">
+  <meta property="og:image" content="https://www.iadev.net/mikedown/screenshot-outline-light.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://www.iadev.net/mikedown/developers/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 128 128%27%3E%3Cg fill=%27none%27 stroke=%27%231f6fb8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpolyline points=%2720,86 20,30 64,66 108,30 108,86%27 stroke-width=%2713%27/%3E%3Cpolyline points=%2749,99 64,114 79,99%27 stroke-width=%2710%27/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/shared/shell.css">
+  <link rel="stylesheet" href="/shared/page.css">
+  <link rel="stylesheet" href="/developers/common/developers.css">
+  <!--katex:css-->
 </head>
 <body>
-  <h1>MikeDown for developers</h1>
-  <p>Embed the MikeDown editor in your own app. Guides and live demos are coming.</p>
-  <ul>
-    <li><a href="./web-component/">Web component</a></li>
-    <li><a href="./react/">React</a></li>
-    <li><a href="./vue/">Vue</a></li>
-    <li><a href="./angular/">Angular</a></li>
-  </ul>
-  <!-- Placeholder: M12/M13 design this page. -->
+  <!--shell:header page="developers"-->
+
+  <main id="main">
+    <div class="site-container">
+      <header class="dev-head">
+        <h1>Put MikeDown in your app</h1>
+        <p class="dev-head__lede">MikeDown is the WYSIWYG markdown editor from the MikeDown desktop app and VS Code extension, packaged for the web. People edit <strong>formatted text</strong> with tables, task lists, code blocks and diagrams, and your app gets <strong>plain markdown</strong> back.</p>
+        <div class="dev-head__install">
+          <div class="command" role="group" aria-labelledby="hub-install-label">
+            <span class="visually-hidden" id="hub-install-label">Install the web component</span>
+            <code id="hub-install">npm install @mikedown/web-component @mikedown/core</code>
+            <button class="copy-button" type="button" data-copy-target="#hub-install">Copy</button>
+          </div>
+          <p class="dev-head__links"><a href="#packages">All packages</a><a href="#which">Which one do I need?</a></p>
+        </div>
+      </header>
+
+      <div class="stage-wrap">
+        <!--stage:@mikedown/web-component-->
+      </div>
+    </div>
+
+    <section class="section" id="packages" aria-labelledby="packages-title">
+      <div class="site-container">
+        <div class="section-head">
+          <h2 class="section-title" id="packages-title">Packages</h2>
+          <p class="section-lede">Every package wraps the same editor and the same markdown. They share one version number, so install matching versions.</p>
+        </div>
+
+        <div class="packages">
+          <article class="pkg" aria-labelledby="pkg-wc">
+            <div class="pkg__head"><h3 id="pkg-wc">@mikedown/web-component</h3><span class="pkg__for">Any page, any framework</span></div>
+            <p>A <code>&lt;mikedown-editor&gt;</code> element that submits with forms like a textarea. For plain HTML, server templates, htmx, Svelte, Lit, or a CDN script tag.</p>
+            <div class="command" role="group" aria-label="Install @mikedown/web-component">
+              <code id="install-wc">npm install @mikedown/web-component @mikedown/core</code>
+              <button class="copy-button" type="button" data-copy-target="#install-wc">Copy</button>
+            </div>
+            <p class="pkg__links"><a href="./web-component/">Live demo</a><a href="https://www.npmjs.com/package/@mikedown/web-component">npm</a><a href="https://github.com/mikejoseph23/mikedown/tree/main/packages/web-component#readme">README</a></p>
+          </article>
+
+          <article class="pkg" aria-labelledby="pkg-react">
+            <div class="pkg__head"><h3 id="pkg-react">@mikedown/react</h3><span class="pkg__for">React 18 and 19</span></div>
+            <p>A component with <code>value</code> and <code>onChange</code>, controlled or uncontrolled. Ships <code>'use client'</code>, so it drops into Next.js.</p>
+            <div class="command" role="group" aria-label="Install @mikedown/react">
+              <code id="install-react">npm install @mikedown/react @mikedown/core</code>
+              <button class="copy-button" type="button" data-copy-target="#install-react">Copy</button>
+            </div>
+            <p class="pkg__links"><a href="./react/">Live demo</a><a href="https://www.npmjs.com/package/@mikedown/react">npm</a><a href="https://github.com/mikejoseph23/mikedown/tree/main/packages/react#readme">README</a></p>
+          </article>
+
+          <article class="pkg" aria-labelledby="pkg-vue">
+            <div class="pkg__head"><h3 id="pkg-vue">@mikedown/vue</h3><span class="pkg__for">Vue 3.3 and later</span></div>
+            <p>A component that works with <code>v-model</code>, a reactive theme and read-only mode. Wrap it in <code>&lt;ClientOnly&gt;</code> on Nuxt.</p>
+            <div class="command" role="group" aria-label="Install @mikedown/vue">
+              <code id="install-vue">npm install @mikedown/vue @mikedown/core</code>
+              <button class="copy-button" type="button" data-copy-target="#install-vue">Copy</button>
+            </div>
+            <p class="pkg__links"><a href="./vue/">Live demo</a><a href="https://www.npmjs.com/package/@mikedown/vue">npm</a><a href="https://github.com/mikejoseph23/mikedown/tree/main/packages/vue#readme">README</a></p>
+          </article>
+
+          <article class="pkg" aria-labelledby="pkg-angular">
+            <div class="pkg__head"><h3 id="pkg-angular">@mikedown/angular</h3><span class="pkg__for">Angular 17 to 22</span></div>
+            <p>A form control for reactive forms and <code>ngModel</code>. Loading a value never marks the control dirty. Standalone, or through <code>MikeDownModule</code>.</p>
+            <div class="command" role="group" aria-label="Install @mikedown/angular">
+              <code id="install-angular">npm install @mikedown/angular @mikedown/core mermaid</code>
+              <button class="copy-button" type="button" data-copy-target="#install-angular">Copy</button>
+            </div>
+            <p class="pkg__links"><a href="./angular/">Live demo</a><a href="https://www.npmjs.com/package/@mikedown/angular">npm</a><a href="https://github.com/mikejoseph23/mikedown/tree/main/packages/angular#readme">README</a></p>
+          </article>
+
+          <article class="pkg pkg--core" aria-labelledby="pkg-core">
+            <div class="pkg__body">
+              <div class="pkg__head"><h3 id="pkg-core">@mikedown/core</h3><span class="pkg__for">The engine</span></div>
+              <p>The editor itself (TipTap for rich text, CodeMirror for the source view), which every package above wraps. Install it next to a wrapper, or use its <code>bindMikeDownValue</code> to write a binding of your own.</p>
+              <p class="pkg__links"><a href="https://www.npmjs.com/package/@mikedown/core">npm</a><a href="https://github.com/mikejoseph23/mikedown/tree/main/packages/core#readme">README</a></p>
+            </div>
+            <div class="command" role="group" aria-label="Install @mikedown/core">
+              <code id="install-core">npm install @mikedown/core</code>
+              <button class="copy-button" type="button" data-copy-target="#install-core">Copy</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="which" aria-labelledby="which-title">
+      <div class="site-container">
+        <div class="section-head">
+          <h2 class="section-title" id="which-title">Which package do I need?</h2>
+          <p class="section-lede">Pick by the framework that renders the page. Anything without its own package uses the web component.</p>
+        </div>
+        <ul class="chooser">
+          <li>
+            <span class="chooser__when">React<small>Vite, Next.js, Remix, React Router</small></span>
+            <span class="chooser__use"><a href="./react/">@mikedown/react</a></span>
+          </li>
+          <li>
+            <span class="chooser__when">Vue<small>Vite, Nuxt</small></span>
+            <span class="chooser__use"><a href="./vue/">@mikedown/vue</a></span>
+          </li>
+          <li>
+            <span class="chooser__when">Angular 17 or later<small>Standalone components or NgModules</small></span>
+            <span class="chooser__use"><a href="./angular/">@mikedown/angular</a></span>
+          </li>
+          <li>
+            <span class="chooser__when">Svelte, Lit, Solid, Preact, Blazor<small>Or any framework that renders custom elements</small></span>
+            <span class="chooser__use"><a href="./web-component/">@mikedown/web-component</a></span>
+          </li>
+          <li>
+            <span class="chooser__when">Server-rendered forms and htmx<small>Rails, Django, Razor, Laravel, plain HTML</small></span>
+            <span class="chooser__use"><a href="./web-component/">@mikedown/web-component</a> around your existing <code>&lt;textarea&gt;</code></span>
+          </li>
+          <li>
+            <span class="chooser__when">No build step<small>A static page, a CMS template, a prototype</small></span>
+            <span class="chooser__use"><a href="./web-component/#cdn">The web component from a CDN</a>, one script tag</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="more-title">
+      <div class="site-container band__inner">
+        <div>
+          <h2 id="more-title">The same editor, as an app</h2>
+          <p>MikeDown Desktop edits markdown files on your Mac, Windows or Linux machine. MikeDown for VS Code opens them in your editor tabs. Both use the editor on this page.</p>
+          <div class="band__actions">
+            <a class="btn btn--secondary" href="/mikedown/">MikeDown Desktop</a>
+            <a class="band__link" href="/mikedown/vscode/">MikeDown for VS Code</a>
+          </div>
+        </div>
+        <div class="band__aside">
+          <h3>Open source</h3>
+          <p>The packages, the desktop app and the extension live in one MIT-licensed repository. Issues and pull requests are welcome.</p>
+          <a class="band__link" href="https://github.com/mikejoseph23/mikedown">mikejoseph23/mikedown on GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!--shell:footer-->
+  <script type="module" src="./hub.js"></script>
 </body>
 </html>
