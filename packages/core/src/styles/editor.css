@@ -499,11 +499,72 @@
   margin-top: 0.2em;
 }
 
+/* The checkbox is drawn by hand so its click target can be 24 by 24px (WCAG
+   2.5.8) while the box still looks 14px: the input is 24px square, a -5px
+   margin keeps the old 14px footprint in the line, and ::before draws the box
+   inside it (::after the tick). */
 :is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  margin: -5px;
+  border: 0;
+  background: transparent;
   cursor: pointer;
-  width: 14px;
-  height: 14px;
-  accent-color: var(--mikedown-link, #3794ff);
+}
+
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1.5px solid var(--mikedown-text-muted, #6f6f74);
+  border-radius: 3px;
+  background: var(--mikedown-input-bg, transparent);
+}
+
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:checked::before {
+  border-color: var(--mikedown-link, #3794ff);
+  background: var(--mikedown-link, #3794ff);
+}
+
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 7px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--mikedown-surface, #ffffff);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:focus-visible {
+  outline: none;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]:focus-visible::before {
+  outline: 2px solid var(--mikedown-focus-ring, #3794ff);
+  outline-offset: 1px;
+}
+
+/* Forced colors repaint the hand-drawn box, which would hide the checked
+   state; use the native control there. */
+@media (forced-colors: active) {
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+    appearance: auto;
+    -webkit-appearance: checkbox;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+  }
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]::before,
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"]::after {
+    content: none;
+  }
 }
 
 :is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li > div {

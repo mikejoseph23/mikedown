@@ -14,6 +14,16 @@
 
 import { TaskItem } from '@tiptap/extension-task-item';
 import { NodeSelection } from '@tiptap/pm/state';
+import type { Node as PmNode } from '@tiptap/pm/model';
+
+/**
+ * Accessible name for a task item's checkbox: the item's own text (its first
+ * block, so sub-tasks don't run into it), or "Task" for an empty item.
+ */
+export function taskCheckboxLabel(node: PmNode): string {
+  const text = (node.firstChild?.textContent ?? '').replace(/\s+/g, ' ').trim();
+  return text || 'Task';
+}
 
 export const DraggableTaskItem = TaskItem.extend({
   draggable: true,
@@ -37,6 +47,7 @@ export const DraggableTaskItem = TaskItem.extend({
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.checked = !!node.attrs.checked;
+      checkbox.setAttribute('aria-label', taskCheckboxLabel(node));
       const bullet = document.createElement('span');
       label.append(checkbox, bullet);
 
@@ -79,6 +90,9 @@ export const DraggableTaskItem = TaskItem.extend({
           const checked = !!updated.attrs.checked;
           li.setAttribute('data-checked', String(checked));
           if (checkbox.checked !== checked) {checkbox.checked = checked;}
+          // Keep the checkbox named after the item as its text changes.
+          const name = taskCheckboxLabel(updated);
+          if (checkbox.getAttribute('aria-label') !== name) {checkbox.setAttribute('aria-label', name);}
           return true;
         },
         // Let the checkbox change event and the handle dragstart run without

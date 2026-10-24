@@ -28,4 +28,18 @@ describe('editor accessibility', () => {
     expect(box.getAttribute('aria-label')).toBe('Document text');
     expect(box.getAttribute('aria-multiline')).toBe('true');
   });
+
+  it('names each task checkbox after its item and follows edits', () => {
+    el = document.createElement('div');
+    document.body.appendChild(el);
+    handle = createMikeDownEditor(el, {
+      host: { onChange() {} },
+      initialMarkdown: '- [ ] Buy milk\n- [x] Call **Sam**\n  - [ ] Sub task\n',
+    });
+    const boxes = () => Array.from(el!.querySelectorAll<HTMLInputElement>('li.task-list-item input[type="checkbox"]'));
+    expect(boxes().map((b) => b.getAttribute('aria-label'))).toEqual(['Buy milk', 'Call Sam', 'Sub task']);
+
+    handle.setMarkdown('- [ ] Buy oat milk\n', { pristine: false });
+    expect(boxes().map((b) => b.getAttribute('aria-label'))).toEqual(['Buy oat milk']);
+  });
 });

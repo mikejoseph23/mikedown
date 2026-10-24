@@ -42,6 +42,7 @@ function buildDecorations(doc: any, _view?: EditorView): DecorationSet {
         checkbox.type = 'checkbox';
         checkbox.checked = checked;
         checkbox.classList.add('table-checkbox');
+        checkbox.setAttribute('aria-label', 'Task done');
         checkbox.addEventListener('mousedown', (e) => {
           e.preventDefault();
           const newText = checked ? '[ ]' : '[x]';
