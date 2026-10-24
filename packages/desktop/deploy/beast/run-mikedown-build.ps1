@@ -98,7 +98,7 @@ try {
     git checkout --quiet --detach $sha
     if ($LASTEXITCODE -ne 0) { throw "git checkout --detach $sha failed" }
 
-    & npm ci --no-audit --no-fund
+    & npm.cmd ci --no-audit --no-fund
     if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
 
     $outDir = Join-Path $RepoPath "packages\desktop\deploy\dist\$version"

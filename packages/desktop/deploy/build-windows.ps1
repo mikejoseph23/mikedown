@@ -70,7 +70,7 @@ if (-not $SkipSign) {
 
 # 2. Core
 Push-Location $RepoRoot
-try { Invoke-Checked 'build:core' { & npm run build:core } } finally { Pop-Location }
+try { Invoke-Checked 'build:core' { & npm.cmd run build:core } } finally { Pop-Location }
 
 # 3. Config overlay: signCommand (unless -SkipSign), no updater artifacts here.
 $overlay = @{ bundle = @{ createUpdaterArtifacts = $false } }
@@ -89,7 +89,7 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $env:RELEASE = '1'
 Push-Location $PkgDir
 try {
-    Invoke-Checked 'tauri build' { & npx tauri build --bundles nsis --config $overlayPath }
+    Invoke-Checked 'tauri build' { & npx.cmd tauri build --bundles nsis --config $overlayPath }
 } finally {
     Pop-Location
     Remove-Item -Force -ErrorAction SilentlyContinue $overlayPath

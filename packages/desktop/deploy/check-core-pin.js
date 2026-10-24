@@ -29,8 +29,10 @@ const allowUnpublished = process.argv.includes('--allow-unpublished-core');
 let published = false;
 if (!process.argv.includes('--offline') && pinned) {
   try {
-    const out = execFileSync('npm', ['view', `@mikedown/core@${pinned}`, 'version', '--registry', 'https://registry.npmjs.org/'], {
-      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 30_000,
+    // Windows: npm is npm.cmd, which Node only runs through a shell.
+    const win = process.platform === 'win32';
+    const out = execFileSync(win ? 'npm.cmd' : 'npm', ['view', `@mikedown/core@${pinned}`, 'version', '--registry', 'https://registry.npmjs.org/'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 30_000, shell: win,
     }).trim();
     published = out === pinned;
   } catch { published = false; }
