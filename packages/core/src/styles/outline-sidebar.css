@@ -847,3 +847,17 @@
 .mikedown-root.mikedown-outline-open .mikedown-outline-toggle {
   display: none;
 }
+
+/* ─── Narrow editor: the sidebar floats over the text ────────────────────── */
+/* Opened while docking would crush the text column (outlineSidebar.ts,
+   MIN_TEXT_COLUMN_PX): the editor keeps its full width and the sidebar sits
+   on top of it. A click in the text closes it. */
+
+.mikedown-root.mikedown-outline-overlay .mikedown-outline-sidebar {
+  max-width: calc(100% - 32px);
+  box-shadow: 0 8px 24px var(--mikedown-shadow, rgba(0, 0, 0, 0.3));
+}
+
+.mikedown-root.mikedown-outline-overlay .mikedown-outline-toggle {
+  display: none;
+}

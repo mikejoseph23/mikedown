@@ -125,7 +125,7 @@ test('toggle, outline, backlinks, properties and persisted pin', async ({ page, 
   await expect(page.locator('.mikedown-outline-sidebar .properties-section')).toHaveClass(/collapsed/);
 });
 
-test('each split pane has its own sidebar; narrow panes stay usable', async ({ page, ipc }) => {
+test('each split pane has its own sidebar; in a narrow pane it steps aside', async ({ page, ipc }) => {
   writeFolder(ipc.dir);
   ipc.launchFiles = [ipc.dir];
   await page.setViewportSize({ width: 1100, height: 700 });
@@ -134,25 +134,38 @@ test('each split pane has its own sidebar; narrow panes stay usable', async ({ p
   await tree.getByRole('treeitem', { name: 'a.md', exact: true }).click();
   await expect(page.locator('#editor .ProseMirror')).toContainText('See the beta note');
 
-  await page.keyboard.press('ControlOrMeta+\\');
+  // One wide pane: the sidebar docks beside the text.
   const panes = page.locator('.mdapp-pane');
-  await expect(panes).toHaveCount(2);
-  await tree.getByRole('treeitem', { name: 'c.md', exact: true }).click();
-
   await panes.nth(0).locator('.mikedown-outline-toggle').click();
   await expect(panes.nth(0).locator('.mikedown-outline-sidebar')).toBeVisible();
-  await expect(panes.nth(1).locator('.mikedown-outline-sidebar')).toBeHidden();
-  await expect(panes.nth(0).locator('.outline-item')).toHaveText(['Alpha']);
+  await expect(panes.nth(0).locator('.mikedown-root')).toHaveClass(/mikedown-outline-open/);
 
+  // Split: both panes are too narrow to dock it, so pane one's sidebar hides
+  // and its text gets the whole pane.
+  await page.keyboard.press('ControlOrMeta+\\');
+  await expect(panes).toHaveCount(2);
+  await tree.getByRole('treeitem', { name: 'c.md', exact: true }).click();
+  await expect(panes.nth(0).locator('.mikedown-outline-sidebar')).toBeHidden();
+  const width = async (i: number, sel: string) => (await panes.nth(i).locator(sel).boundingBox())!.width;
+  expect(await width(0, '.mikedown-editor-container')).toBeGreaterThan(await width(0, '.mikedown-root') - 2);
+
+  // Opening it in the narrow pane shows an overlay that takes no width.
   await panes.nth(1).locator('.mikedown-outline-toggle').click();
+  await expect(panes.nth(1).locator('.mikedown-outline-sidebar')).toBeVisible();
   await expect(panes.nth(1).locator('.outline-item')).toHaveText(['Gamma']);
-  // A narrow pane gets the slim sidebar; the editor column keeps room next to it.
-  expect((await panes.nth(1).locator('.mikedown-outline-sidebar').boundingBox())!.width).toBe(160);
-  const editorBox = (await panes.nth(1).locator('.mikedown-editor-container').boundingBox())!;
-  expect(editorBox.width).toBeGreaterThan(150);
+  await expect(panes.nth(0).locator('.mikedown-outline-sidebar')).toBeHidden();
+  expect(await width(1, '.mikedown-editor-container')).toBeGreaterThan(await width(1, '.mikedown-root') - 2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-
   if (SHOTS) {await page.screenshot({ path: `${SHOTS}/outline-split.png` });}
+  // A click in the text dismisses it.
+  await panes.nth(1).locator('.ProseMirror').click();
+  await expect(panes.nth(1).locator('.mikedown-outline-sidebar')).toBeHidden();
+
+  // Room again: pane one's sidebar docks where it was; pane two's stays closed.
+  await page.setViewportSize({ width: 1800, height: 700 });
+  await expect(panes.nth(0).locator('.mikedown-outline-sidebar')).toBeVisible();
+  await expect(panes.nth(0).locator('.mikedown-root')).toHaveClass(/mikedown-outline-open/);
+  await expect(panes.nth(1).locator('.mikedown-outline-sidebar')).toBeHidden();
 });
 
 test('a lone-file window shows Outline and Properties but no Backlinks', async ({ page, ipc }) => {

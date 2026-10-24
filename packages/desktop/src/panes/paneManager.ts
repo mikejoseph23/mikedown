@@ -122,8 +122,6 @@ const ICONS = {
 };
 
 const DRAG_THRESHOLD_PX = 5;
-/** Below this editor width the document sidebar narrows to its minimum. */
-const NARROW_PANE_PX = 560;
 
 function label(command: AppCommand, isMac: boolean): string {
   const row = SHORTCUTS.find((s) => s.command === command);
@@ -148,8 +146,6 @@ interface PaneView {
   attached: DocumentModel | null;
   detach: (() => void) | null;
   docOff: Array<() => void>;
-  /** Watches the editor's width for the narrow-pane sidebar rule (panes.css). */
-  resize: ResizeObserver | null;
 }
 
 export function createPaneManager(deps: PaneManagerDeps): PaneManager {
@@ -219,16 +215,7 @@ export function createPaneManager(deps: PaneManagerDeps): PaneManager {
       attached: null,
       detach: null,
       docOff: [],
-      resize: null,
     };
-    // Core's document sidebar in a narrow pane: a slimmer column (panes.css).
-    if (typeof ResizeObserver !== 'undefined') {
-      view.resize = new ResizeObserver((entries) => {
-        const width = entries[entries.length - 1]?.contentRect.width ?? 0;
-        editorEl.classList.toggle('mdapp-pane__editor--narrow', width > 0 && width < NARROW_PANE_PX);
-      });
-      view.resize.observe(editorEl);
-    }
     pane.addEventListener('pointerdown', () => setFocused(id), { capture: true });
     pane.addEventListener('focusin', () => { if (focused !== id) {setFocused(id);} });
     wireTabStrip(view);
@@ -237,7 +224,6 @@ export function createPaneManager(deps: PaneManagerDeps): PaneManager {
   }
 
   function destroyView(view: PaneView): void {
-    view.resize?.disconnect();
     detachDoc(view);
     try { view.handle.destroy(); } catch (err) { console.warn('MikeDown: editor teardown failed', err); }
     view.el.remove();

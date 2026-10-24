@@ -65,6 +65,12 @@ export interface SupportLinkCopy {
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 360;
 const DEFAULT_WIDTH = 200;
+/**
+ * Narrowest text column the docked sidebar may leave. Below it (split panes,
+ * a narrow VS Code editor group) the sidebar steps aside: hidden, or an overlay
+ * when opened there, and docked again once the editor is wide enough.
+ */
+export const MIN_TEXT_COLUMN_PX = 420;
 
 // Two pin states so the on/off difference is obvious:
 //   PIN_SVG_OFF — outlined pin, tilted (looks loose / "about to fall out")
@@ -119,6 +125,13 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
   let pref: OutlineVisibilityPref = 'never';
   let position: OutlinePosition = 'right';
   let width = DEFAULT_WIDTH;
+  // Visibility: `wantVisible` is the session intent (pin pref, show/hide while
+  // wide); `narrow` is measured; `overlayOpen` is a peek while narrow.
+  let wantVisible = false;
+  let narrow = false;
+  let overlayOpen = false;
+  let rootWidth = 0;
+  let resizeObserver: ResizeObserver | null = null;
   let editorRef: any = null;
   let prefsRef: MikeDownSidebarPrefs | null = null;
   let openTagCb: ((tag: string) => void) | null = null;
@@ -209,9 +222,10 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     setPosition(position);
     setVisible(false);
 
-    toggleEl.addEventListener('click', () => setVisible(true));
-    closeEl?.addEventListener('click', () => setVisible(false));
+    toggleEl.addEventListener('click', () => showByUser(true));
+    closeEl?.addEventListener('click', () => showByUser(false));
     handleEl && wireResize(handleEl);
+    watchWidth();
 
     editorRef.on('update', () => rebuildHeadings());
     editorRef.on('selectionUpdate', () => updateActiveFromCursor());
@@ -382,7 +396,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
       header.appendChild(close);
       close.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        setVisible(false);
+        showByUser(false);
       });
     }
 
@@ -557,7 +571,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
    * naming the first key.
    */
   function focusPropertiesSection(): void {
-    setVisible(true);
+    showByUser(true);
     collapsedSections.delete('properties');
     userTouchedSections.add('properties');
     applySectionCollapsedDom();
@@ -583,7 +597,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
   // setVisible so both entry points keep identical state.
   function toggleSidebarVisible(): void {
     if (!sidebarEl) {return;}
-    setVisible(sidebarEl.hidden);
+    showByUser(sidebarEl.hidden);
   }
 
   /**
@@ -595,18 +609,59 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     return sidebarEl.closest<HTMLElement>('.mikedown-root') ?? sidebarEl.parentElement;
   }
 
+  /** The session intent (pin pref, or a show/hide while wide). */
   function setVisible(visible: boolean): void {
     // Visibility is session-only when manually toggled; the pin pref is what
     // persists. Nothing posted back to the host on a manual show/hide.
+    wantVisible = visible;
+    if (!visible) {overlayOpen = false;}
+    applyVisibility();
+  }
+
+  /** A user show/hide: while narrow it only opens or closes the overlay. */
+  function showByUser(visible: boolean): void {
+    if (!narrow) {setVisible(visible); return;}
+    overlayOpen = visible;
+    applyVisibility();
+  }
+
+  function applyVisibility(): void {
     if (!sidebarEl || !toggleEl) {return;}
-    sidebarEl.hidden = !visible;
-    stateRoot()?.classList.toggle('mikedown-outline-open', visible);
-    toggleEl.setAttribute('aria-expanded', visible ? 'true' : 'false');
-    if (visible) {
+    const shown = narrow ? overlayOpen : wantVisible;
+    sidebarEl.hidden = !shown;
+    const root = stateRoot();
+    root?.classList.toggle('mikedown-outline-open', shown && !narrow);
+    root?.classList.toggle('mikedown-outline-overlay', shown && narrow);
+    root?.classList.toggle('mikedown-outline-narrow', narrow);
+    toggleEl.setAttribute('aria-expanded', shown ? 'true' : 'false');
+    if (shown) {
       rebuildHeadings();
       updateActiveFromCursor();
       renderFooter();
     }
+  }
+
+  /** Dock or step aside as the editor's width changes. */
+  function watchWidth(): void {
+    const root = stateRoot();
+    if (!root || typeof ResizeObserver === 'undefined') {return;}
+    resizeObserver = new ResizeObserver((entries) => {
+      rootWidth = entries[entries.length - 1]?.contentRect.width ?? 0;
+      updateNarrow();
+    });
+    resizeObserver.observe(root);
+    // A click in the text dismisses the overlay.
+    scrollContainerEl?.addEventListener('pointerdown', () => {
+      if (narrow && overlayOpen) {showByUser(false);}
+    });
+  }
+
+  function updateNarrow(): void {
+    const next = rootWidth > 0 && rootWidth - width < MIN_TEXT_COLUMN_PX;
+    if (next === narrow) {return;}
+    narrow = next;
+    overlayOpen = false;
+    applyVisibility();
   }
 
   function applyVisibilityFromPref(): void {
@@ -618,6 +673,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
   function setWidth(px: number): void {
     width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(px)));
     stateRoot()?.style.setProperty('--mikedown-outline-width', `${width}px`);
+    updateNarrow();
   }
 
   function setPosition(next: OutlinePosition): void {
@@ -642,7 +698,10 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
         const delta = ev.clientX - startX;
         // On a right-anchored sidebar the handle lives on its left edge, so
         // dragging right (positive delta) shrinks the sidebar instead of growing it.
-        setWidth(position === 'right' ? startWidth - delta : startWidth + delta);
+        const want = position === 'right' ? startWidth - delta : startWidth + delta;
+        // Docked, a drag stops where the text column would get too narrow
+        // (rather than tipping the sidebar into hiding mid-drag).
+        setWidth(!narrow && rootWidth > 0 ? Math.min(want, rootWidth - MIN_TEXT_COLUMN_PX) : want);
       };
       const onUp = (ev: PointerEvent): void => {
         // Width is per-instance session state — the global default lives in
@@ -1499,6 +1558,8 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
    * when the owning editor is destroyed.
    */
   function destroyOutlineSidebar(): void {
+    resizeObserver?.disconnect();
+    resizeObserver = null;
     if (footerTickTimer !== null) {
       window.clearInterval(footerTickTimer);
       footerTickTimer = null;
