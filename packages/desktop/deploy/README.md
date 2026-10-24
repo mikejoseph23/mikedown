@@ -23,7 +23,10 @@ everything in `deploy/dist/<version>/upload/`; publishing is the separate
 | `pack-for-lymedeploy.sh` | Mac | nupkg, push, create-release, deploy to Production, wait, verify (`--dry-run`, `--from-<stage>`) |
 | `verify-published.sh <v>` | Mac | post-publish check of www and apex, edge and origin, every artifact and signature |
 | `lymedeploy/deploy.yaml` | n/a | the `mikedown-downloads` LymeDeploy project (`lymedeploy apply -f`) |
-| `updater-staging-test.sh` | Mac | local end-to-end updater test (N to N+1 from `127.0.0.1`) |
+| `updater-staging-test.sh` | Mac | local end-to-end updater test (N to N+1 from `127.0.0.1`; `--headless` for the CI-style run) |
+| `updater-staging-test-windows.sh` | Mac | builds the staging installers on BEAST and runs `updater-staging-test.ps1` on DEVBOX1 |
+| `verify-published.js` | Mac | the checks behind `verify-published.sh` (also used with `--base-url` for staging) |
+| `key-runbook.md` | n/a | updater signing key: backups (to be confirmed), rotation |
 
 ## Styled DMG
 
@@ -65,6 +68,8 @@ Artifacts are versioned only: `MikeDown-<v>-macos-universal.dmg`,
 (the download page from `website/mikedown-desktop/`) and `web.config`.
 
 ## Keys and secrets (none in git)
+
+Backups, rotation and the key runbook: [key-runbook.md](key-runbook.md).
 
 - **Updater signing key (minisign):** `~/.tauri/mikedown.key` on the Mac
   Studio (`michaeljosephwork`), public key in `src-tauri/tauri.conf.json`
@@ -128,20 +133,59 @@ pin then stops the release.
 macOS 12 (`bundle.macOS.minimumSystemVersion`, `LSMinimumSystemVersion`).
 Windows 10 1809 / build 17763: `src-tauri/windows/installer-hooks.nsh` aborts
 the NSIS install on older builds. Windows installs per user
-(`nsis.installMode: currentUser`), so no UAC prompt; updates run the installer
-in passive mode.
+(`nsis.installMode: currentUser`), so no UAC prompt. Updates run the installer
+with `plugins.updater.windows.installMode: quiet` (no installer window; the app
+says "MikeDown will reopen in a moment" and NSIS relaunches it). If the reopen
+proves flaky on real machines, switch that value back to `passive`.
 
 ## Updater behaviour (edge case 17)
 
-Silent check at launch (Settings > App, "Check for updates on launch") and
-every 24 h, once per app however many windows are open. Every outcome goes to
-`<app-data>/logs/updater.log` (`~/Library/Application Support/com.interappdev.mikedown/logs/`,
-`%APPDATA%\com.interappdev.mikedown\logs\`); silent errors are swallowed.
-Help > Check for Updates… reports up to date / available / could not check.
-"Update available" toast: Restart Now downloads, verifies the minisign
-signature and the signed version (`requireSignedVersion`), runs the normal
-quit dialog for unsaved files, installs and relaunches; Later hides it until
-the next check. Stable channel only.
+**Cadence.** A silent check runs 10 s after launch, then every 4 h while the
+app is open. The checks are claimed once per app, so extra windows don't add
+checks. Settings > App > Updates has "Automatically check for updates" (turns
+the background checks off) and Check Now.
+
+**Manual check.** Help > Check for Updates… and Check Now both clear any skipped
+or snoozed version. They report "Checking for updates…", then the update
+window, "MikeDown is up to date (version Y).", or "Couldn't reach the update
+server" / "The update feed returned an unexpected response."
+
+**Found notice and window.** A found update shows a non-modal notice with View.
+If no MikeDown window is focused, it also posts an OS notification. The plugin
+can't report notification clicks, so focusing the app within 10 min of a
+notification opens the update window instead.
+
+**Update window buttons.**
+
+- **Skip This Version:** hides that version until a newer one ships.
+- **Remind Me Later:** snoozes for 14 days (`DEFAULT_SNOOZE_DAYS`). Escape does the same (Hide, while a download runs).
+- **Install and Relaunch:** downloads (with progress), verifies the minisign
+  signature and the signed version (`requireSignedVersion`), and runs the normal
+  quit dialog for unsaved files. Cancelling that dialog leaves "Update ready.
+  Install when you're ready." and keeps the download for the session.
+
+**Pre-install checks.** macOS: `codesign --verify --deep --strict` and Team ID
+`UU626VCLYW`. Windows: `WinVerifyTrust` and the expected signer. A failed check
+refuses the install and logs why.
+
+Stable channel only. `MIKEDOWN_CHANNEL=store` builds turn the updater off.
+
+**Support: where the files are.** The identifier is `com.interappdev.mikedown`
+(`tauri.conf.json`).
+
+| OS | `updater-state.json` (skip and snooze) | `updater.log` |
+| --- | --- | --- |
+| macOS | `~/Library/Application Support/com.interappdev.mikedown/updater-state.json` | `~/Library/Application Support/com.interappdev.mikedown/logs/updater.log` |
+| Windows | `%APPDATA%\com.interappdev.mikedown\updater-state.json` | `%APPDATA%\com.interappdev.mikedown\logs\updater.log` |
+
+The log rolls over to `updater.log.1` past 256 KB. Every check, download,
+verification and install outcome is logged. Errors the user never sees (the
+silent checks) are logged here and nowhere else.
+
+**Manifest endpoints** (tried in order; the next one is used only after a fetch
+or parse failure, not after a bad signature): `https://www.iadev.net/mikedown/latest-{{target}}-{{arch}}.json`,
+then the legacy `https://www.iadev.net/mikedown/latest.json`. `{{target}}` is
+`darwin` or `windows`, `{{arch}}` is `aarch64` or `x86_64`.
 
 ## Staging test (never shipped)
 
@@ -153,9 +197,48 @@ builds never pass it, and `build-mac.sh` prints "NOT a release build" when an
 overlay is given. `--headless` stops after a Rust-side check, download,
 signature verification and install into the temp copy (no window).
 
+Cases (macOS `--headless`, and the same set on Windows via
+`updater-staging-test-windows.sh`): per-target N to N+1; per-target 404 falls
+back to `latest.json`; tampered artifact; wrong key; downgrade and same
+version; replay; offline; skip and snooze; the codesign / Authenticode
+pre-checks; a real install over a copy of N. Each case prints PASS, FAIL or
+SKIP. Non-admin macOS is a documented hands-on step for T2 (always SKIP here).
+Windows relaunch needs an interactive session; without one that case is SKIP.
+
+## Publishing (split releases)
+
+`release.sh` stages and checks `deploy/dist/<v>/upload/`. `pack-for-lymedeploy.sh`
+then publishes it through LymeDeploy (`mikedown-downloads`, Production):
+
+1. Pack a `.nupkg` from the staged folder, push, create the release.
+2. Deploy: `publish-files` copies into `C:\WebApps\Downloads\mikedown` on
+   IADEV-2025 (the `/mikedown` virtual directory). It adds and replaces and
+   never prunes. `web.config` is protected, and the manifests are copied last.
+3. Smoke-test `latest.json`, `latest-darwin-aarch64.json` and `latest-windows-x86_64.json`
+   (the Intel mac file is not smoke-tested; `verify-published.sh` checks it).
+4. Purge Cloudflare for the manifest URLs (apex and www) and the download page.
+   This step is disabled in `lymedeploy/deploy.yaml` until the `CloudflareToken`
+   variable exists (see the note there).
+5. `verify-published.sh <v>` checks www and apex, edge and origin, every artifact
+   and its signature.
+
+Split-release rule: a Mac-only or Windows-only release changes only its own
+per-target files (`--mac-only` / `--windows-only`). `latest.json` moves only
+when both platforms ship the same version, so 0.1.x installs never see a
+`TargetNotFound`. A platform with no release yet has no file (404, which falls
+through to `latest.json`), never an empty block.
+
+Artifacts are not purged: each release has new URLs. Only the manifests and the
+download page need a purge. `.sig` files are not published; the signatures live
+inside the manifests.
+
+Deploy config changes: `lymedeploy apply -f packages/desktop/deploy/lymedeploy/deploy.yaml --dry-run`
+first, then without `--dry-run`. Never pass `--prune`, since Production is shared.
+
 ## Rollback
 
-Earlier versions' files stay in place (`publish-files` never prunes); put the
-previous manifests back (the per-target files, and `latest.json` if it moved)
-and purge Cloudflare for them. Clients only move forward (no downgrades), so a
-bad release is fixed by shipping a higher version.
+Earlier versions' files stay in place (`publish-files` never prunes). To roll
+back, put the previous per-target manifest back (and `latest.json` if it moved),
+then purge those URLs on apex and www and run `verify-published.sh` on the
+version you rolled back to. Clients only move forward (no downgrades), so a bad
+release is fixed by shipping a higher version.
