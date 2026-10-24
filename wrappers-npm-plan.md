@@ -515,7 +515,7 @@ On each demo page:
 - [x] `npm run version:npm -- 0.2.0`; per-package `CHANGELOG.md` entries; `test:packages`, `test:wrappers`, `test:consumers` green; `npm run release:npm` dry run lists every package. Commit `npm packages 0.2.0`.
 - [ ] **Stop.** Hand Mike: `npm run release:npm -- --publish`. After he confirms, `npm view @mikedown/<name> version` for each; record versions in the Progress Log. Ask before tagging `npm-v0.2.0` and pushing.
 - [x] Update the site's install commands if they pin versions; rebuild.
-- [ ] **Stop.** Hand Mike, in order: the M11 site-only pack (`pack-for-lymedeploy.sh` site mode) and `lymedeploy` apply of that site release for `mikedown-downloads`, dry-run first (it includes the re-rendered desktop page); the Cloudflare purge (or wait out the edge cache). Check the package holds no `latest*.json` or artifacts before he applies.
+- [x] **Stop.** Hand Mike, in order: the M11 site-only pack (`pack-for-lymedeploy.sh` site mode) and `lymedeploy` apply of that site release for `mikedown-downloads`, dry-run first (it includes the re-rendered desktop page); the Cloudflare purge (or wait out the edge cache). Check the package holds no `latest*.json` or artifacts before he applies.
 - [ ] After Mike confirms, `curl -s -o /dev/null -w "%{http_code}"` each production URL in T4 returns 200, and `https://www.iadev.net/mikedown/latest.json` is unchanged, as are the desktop artifacts.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 20:20** - M15: Mike published the 0.2.0 family (all five "published"; core live as `latest`, the four wrappers still 404 on the registry at 20:20, first publish of new names). Site deployed (Mike asked): `0.3.0-site.1` verify failed on one file, because Cloudflare email obfuscation rewrote `web-component@0.2.0` in the CDN snippet; fixed in `be3e303` (tag around the `@` in highlighted samples), `0.3.0-site.2` verified 195 files identical, `latest.json` still 0.3.0. All seven production pages 200.
 
 **2026-10-24 20:05** - M15 prep done (`npm packages 0.2.0`, 6 min): all five packages at 0.2.0, wrapper peers `^0.2.0`, per-package CHANGELOGs (react's added to `files`), site already pins `@0.2.0`. Main tree: lint, `test:unit`, `test:edge`, `test:packages`, `test:wrappers` green; `test:consumers` green in the worktree except `angular-latest` (skipped, local Node 22.20 < 22.22.3); `release:npm` dry run lists all five at 0.2.0. Angular lockfile kept to the version bumps (the worker's regen dropped optional rollup entries). Site pack dry run: `0.3.0-site.1`, 195 files, no `latest*.json`, no Desktop artifacts. Waiting on Mike: `release:npm -- --publish`, then the site pack and apply.
 
