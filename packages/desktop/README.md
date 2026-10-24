@@ -2,8 +2,9 @@
 
 The standalone MikeDown app: a Tauri 2 shell around `@mikedown/core`, for
 macOS and Windows. Plan: `desktop-app-plan.md` at the repo root. This package
-is private and never published; releases are the signed `.app`/`.dmg` and
-`.msi`/`.exe` bundles.
+is private and never published; releases are the signed, notarized `.dmg`
+and the signed per-user NSIS `.exe`, built and staged by `deploy/` (see
+`deploy/README.md`).
 
 ## Prerequisites
 
@@ -49,7 +50,8 @@ Windows box:
    `npm run build -w packages/desktop`. The `.msi`/`.exe` land under
    `packages/desktop/src-tauri/target/release/bundle/`.
 
-Code signing (Azure Trusted Signing on BEAST, Developer ID on the Mac) is M10.
+Code signing (Azure Trusted Signing on BEAST, Developer ID on the Mac), the
+updater and the release scripts: `deploy/README.md`.
 
 ## Dev loop
 
@@ -111,7 +113,17 @@ npm run build:desktop               # build:core, then tauri build (vite build +
 ```
 
 Output: `src-tauri/target/release/bundle/macos/MikeDown.app` and
-`dmg/MikeDown_<version>_aarch64.dmg` (Windows: `msi/`, `nsis/`).
+`dmg/MikeDown_<version>_aarch64.dmg` (Windows: `nsis/` only, per-user). This
+build is unsigned and makes no updater artifacts. Shippable builds come from
+`deploy/release.sh` (or `deploy/build-mac.sh` / `build-windows.ps1`), which
+set `RELEASE=1`, sign, notarize and write the updater payloads.
+
+Updater (M10): `tauri.conf.json` points at
+`https://www.iadev.net/mikedown/latest.json` with the MikeDown public key.
+Rust owns the check and install (`src-tauri/src/commands/updater.rs`), the
+webview the schedule and the toast (`src/app/updater.ts`,
+`src/ui/updateToast.ts`). `deploy/updater-staging-test.sh` tests N to N+1
+against a local server.
 
 ## How the core alias works
 

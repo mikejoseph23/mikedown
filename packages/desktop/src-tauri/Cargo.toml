@@ -57,6 +57,10 @@ xattr = "1"
 # `access(2)` for a folder's write permission (edge 10).
 libc = "0.2"
 
+[dev-dependencies]
+# `tests/updater_staging.rs` drives the updater plugin on Tauri's mock runtime.
+tauri = { version = "2", features = ["protocol-asset", "test"] }
+
 [profile.release]
 codegen-units = 1
 lto = true

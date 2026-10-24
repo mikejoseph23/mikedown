@@ -121,7 +121,7 @@ echo ""
 
 echo "[1/6] tauri build (universal, signed, hardened runtime)"
 cat > "$WORK/release.conf.json" <<JSON
-{ "bundle": { "macOS": { "signingIdentity": "$IDENTITY", "hardenedRuntime": true } } }
+{ "bundle": { "createUpdaterArtifacts": true, "macOS": { "signingIdentity": "$IDENTITY", "hardenedRuntime": true } } }
 JSON
 CONFIG_ARGS=(--config "$WORK/release.conf.json")
 [[ -n "$EXTRA_CONFIG" ]] && CONFIG_ARGS+=(--config "$EXTRA_CONFIG")
