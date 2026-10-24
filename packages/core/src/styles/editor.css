@@ -439,14 +439,16 @@
   font-size: 0.88em;
 }
 
-/* The <code> inside a code block keeps the inline background (the per-line
-   highlight) but must drop its horizontal padding: <code> is inline, so the
-   0.4em padding-left lands only at the start of the very first line and indents
-   it ~one character relative to the rest (GitHub issue #2). Vertical padding and
-   background stay, so the highlight look is unchanged. */
+/* The <code> inside a code block is not an inline chip: the <pre> paints the
+   one background. <code> is inline, so its own background draws a band per line
+   (invisible in light, where the token is opaque and matches the block, but
+   stacked translucent tokens in dark and VS Code themes read as stripes), and
+   its padding-left lands only at the start of the first line, indenting it ~one
+   character (GitHub issue #2). */
 :is(.mikedown-root, .mikedown-portal) .ProseMirror pre code {
-  padding-left: 0;
-  padding-right: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
 }
 
 /* ─── Horizontal rule ─────────────────────────────────────────────────────── */

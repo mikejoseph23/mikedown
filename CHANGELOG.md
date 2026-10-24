@@ -15,6 +15,7 @@ All notable changes to MikeDown Editor are documented here.
 - Typing within half a second of a save is no longer lost. Those keystrokes joined the undo step that was just saved, so the editor thought the document was unchanged and the next save could drop them.
 - Saving after an edit keeps the document's markdown as you wrote it: a final newline stays (and isn't added to a file without one), hard breaks written as a trailing `\` or two trailing spaces keep that form, a new break from Shift+Enter saves as a trailing `\` (so it survives in other Markdown renderers) while plain soft wraps stay bare newlines, tight task lists no longer gain blank lines between items, and a code fence with no language no longer becomes ` ```plaintext `. Switching back from source mode (Cmd/Ctrl+/) also puts the cursor in the right table cell or task item.
 - Toggling to source mode and back without editing no longer changes what the editor treats as the saved text, so undoing your edits afterwards returns the document to its saved state instead of leaving it marked as changed.
+- Code blocks in dark themes are one solid surface again. Each line drew its own lighter band, so the block looked striped.
 
 ### Internal
 

@@ -35,3 +35,18 @@ test('dark OS appearance recolors the chrome as well as the editor', async ({ pa
     expect(r + g + b, `${c} should be dark`).toBeLessThan(200);
   }
 });
+
+test('dark code blocks are one surface, not a band per line', async ({ page, ipc }) => {
+  ipc.launchFiles = [ipc.write('c.md', '# C\n\nUse `inline` here.\n\n```js\nconst a = 1;\nconst b = 2;\n```\n')];
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/');
+  const pre = page.locator('#editor .ProseMirror pre');
+  await expect(pre).toContainText('const b = 2;');
+  const paint = (el: Element) => getComputedStyle(el).backgroundColor;
+  // The block paints its background once; the <code> inside adds nothing on top
+  // (a translucent dark token stacked per line read as stripes).
+  expect(await pre.locator('code').evaluate(paint)).toBe('rgba(0, 0, 0, 0)');
+  expect(await pre.evaluate(paint)).not.toBe('rgba(0, 0, 0, 0)');
+  // Inline code outside a block keeps its chip.
+  expect(await page.locator('#editor .ProseMirror p code').evaluate(paint)).not.toBe('rgba(0, 0, 0, 0)');
+});
