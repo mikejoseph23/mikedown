@@ -17,6 +17,7 @@ export default defineConfig({
   build: {
     outDir: resolve(root, 'dist'),
     emptyOutDir: true,
+    assetsDir: 'site-assets',
     rollupOptions: {
       input: {
         vscode: page('vscode'),

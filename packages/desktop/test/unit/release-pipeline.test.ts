@@ -350,7 +350,7 @@ describe('make-latest-json.js + check-upload', () => {
   it('the LymeDeploy project publishes manifests last (legacy last of all) and purges apex + www', () => {
     const y = fs.readFileSync(path.join(deployDir, 'lymedeploy', 'deploy.yaml'), 'utf8');
     const last = /publishLast:\n((?:\s+- .+\n)+)/.exec(y)[1].trim().split('\n').map((l) => l.replace(/^\s*- /, '').trim());
-    expect(last).toEqual(ALL_MANIFESTS);
+    expect(last).toEqual([...ALL_MANIFESTS, 'index.html']);
     expect(y).toMatch(/protectedFiles:\n\s+- web\.config/);
     expect(y).toMatch(/targetPath: '#\{PublishRoot\}'/);
     const body = /body: '(.+)'/.exec(y)[1];

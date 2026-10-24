@@ -34,7 +34,25 @@
 #   --wait-timeout MIN   Minutes to wait for the deployment (default 15).
 #                        Giving up is not a failure; the deployment carries on.
 #   --dry-run            Build and verify the .nupkg, print every LymeDeploy
-#                        command, run none of them. Needs no CLI or network.
+#                        command, run none of them. Needs no CLI or network
+#                        (except --site, which asks the live latest.json for the
+#                        desktop version unless --desktop-version is given).
+#
+# Site mode (publish the website without a desktop release):
+#   --site               Pack ONLY site files: website/dist (build it first:
+#                        npm run build:site), the re-rendered desktop index.html
+#                        and its screenshots. Never latest*.json, artifacts or
+#                        web.config (the pack fails if any is present).
+#   --desktop-version V  The published desktop version the page is rendered for
+#                        (default: read from https://www.iadev.net/mikedown/latest.json)
+#   --site-n N           Site build number; release/package version is
+#                        <desktop-version>-site.N (default 1). N must be new.
+#   --site-version V     Use this exact version instead (e.g. site-20261024.1).
+#   --linux FILE         The published Linux AppImage the page links, for its size
+#                        (default: deploy/dist/<desktop-version>/ if present, else
+#                        the Linux blocks are dropped only with --no-linux).
+#   --no-linux           Render the page without the Linux download.
+#   --dist DIR           Built site folder (default: <repo>/website/dist).
 #
 # The CLI comes from $LYMEDEPLOY_CLI, else `lymedeploy` on PATH. Server and
 # API key come from the CLI's own config; this script never reads or prints a key.
@@ -49,6 +67,7 @@ DASHBOARD_URL="https://deploy.lymestack.com"
 
 VERSION=""; UPLOAD=""; OUT_DIR=""; PROJECT="mikedown-downloads"; ENVIRONMENT="Production"
 RELEASE_VERSION=""; START_AT="pack"; DRY_RUN=0; WAIT_MIN=15
+SITE=0; DESKTOP_VERSION=""; SITE_N=1; SITE_VERSION=""; LINUX_FILE=""; NO_LINUX=0; SITE_DIST=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --version) VERSION="$2"; shift 2 ;;
@@ -62,15 +81,44 @@ while [[ $# -gt 0 ]]; do
         --from-release) START_AT="release"; shift ;;
         --from-deploy) START_AT="deploy"; shift ;;
         --wait-timeout) WAIT_MIN="$2"; shift 2 ;;
+        --site) SITE=1; shift ;;
+        --desktop-version) DESKTOP_VERSION="$2"; shift 2 ;;
+        --site-n) SITE_N="$2"; shift 2 ;;
+        --site-version) SITE_VERSION="$2"; shift 2 ;;
+        --linux) LINUX_FILE="$2"; shift 2 ;;
+        --no-linux) NO_LINUX=1; shift ;;
+        --dist) SITE_DIST="$2"; shift 2 ;;
         --dry-run) DRY_RUN=1; shift ;;
         -h|--help) print_usage; exit 0 ;;
         *) echo "Unknown arg: $1 (see --help)" >&2; exit 2 ;;
     esac
 done
 
-[[ -z "$VERSION" ]] && VERSION="$(node "$SCRIPT_DIR/sync-version.js" --check)"
-[[ -z "$UPLOAD" ]] && UPLOAD="$SCRIPT_DIR/dist/$VERSION/upload"
-[[ -z "$OUT_DIR" ]] && OUT_DIR="$SCRIPT_DIR/dist/$VERSION"
+BASE_URL="https://www.iadev.net/mikedown/"
+if [[ "$SITE" == 1 ]]; then
+    # Site-only release. The package version is <desktop-version>-site.N: a
+    # prerelease of the desktop version, so it sorts BELOW the desktop release
+    # in semver. LymeDeploy never orders versions (a release version is a free
+    # string, unique per project; the feed only needs a unique id+version), so
+    # nothing here outranks or replaces the desktop release.
+    if [[ -z "$DESKTOP_VERSION" ]]; then
+        DESKTOP_VERSION="$(curl -fsS "${BASE_URL}latest.json?cb=$(date +%s)" | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0,"utf8")).version)')" \
+            || { echo "ERROR: could not read the published desktop version from ${BASE_URL}latest.json; pass --desktop-version." >&2; exit 1; }
+    fi
+    [[ "$DESKTOP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "ERROR: desktop version '$DESKTOP_VERSION' is not x.y.z." >&2; exit 1; }
+    [[ "$SITE_N" =~ ^[0-9]+$ ]] || { echo "ERROR: --site-n must be a number." >&2; exit 1; }
+    if [[ -z "$VERSION" ]]; then
+        VERSION="${SITE_VERSION:-$DESKTOP_VERSION-site.$SITE_N}"
+    fi
+    [[ "$VERSION" == *-site.* || "$VERSION" == site-* ]] || { echo "ERROR: a site version must contain '-site.' or start with 'site-' (got $VERSION), so it can never be mistaken for a desktop release." >&2; exit 1; }
+    [[ -z "$SITE_DIST" ]] && SITE_DIST="$(cd "$SCRIPT_DIR/../../.." && pwd)/website/dist"
+    [[ -z "$UPLOAD" ]] && UPLOAD="$SCRIPT_DIR/dist/site-$VERSION/upload"
+    [[ -z "$OUT_DIR" ]] && OUT_DIR="$SCRIPT_DIR/dist/site-$VERSION"
+else
+    [[ -z "$VERSION" ]] && VERSION="$(node "$SCRIPT_DIR/sync-version.js" --check)"
+    [[ -z "$UPLOAD" ]] && UPLOAD="$SCRIPT_DIR/dist/$VERSION/upload"
+    [[ -z "$OUT_DIR" ]] && OUT_DIR="$SCRIPT_DIR/dist/$VERSION"
+fi
 [[ -z "$RELEASE_VERSION" ]] && RELEASE_VERSION="$VERSION"
 NUPKG="$OUT_DIR/$PACKAGE_ID.$VERSION.nupkg"
 
@@ -82,7 +130,11 @@ should_run() { [[ "$(step_index "$1")" -ge "$(step_index "$START_AT")" ]]; }
 resume_hint() {
     echo "" >&2
     echo "  Resume from this step once it is fixed:" >&2
-    echo "    $0 --version $VERSION${RELEASE_VERSION:+ --release-version $RELEASE_VERSION} --from-$1" >&2
+    if [[ "$SITE" == 1 ]]; then
+        echo "    $0 --site --desktop-version $DESKTOP_VERSION --site-version $VERSION --from-$1$([[ "$NO_LINUX" == 1 ]] && echo " --no-linux")${LINUX_FILE:+ --linux $LINUX_FILE}" >&2
+    else
+        echo "    $0 --version $VERSION${RELEASE_VERSION:+ --release-version $RELEASE_VERSION} --from-$1" >&2
+    fi
     echo "" >&2
 }
 
@@ -118,7 +170,8 @@ run() { # echo, then run unless --dry-run
 
 echo ""
 hr
-echo "  Publishing MikeDown Desktop $VERSION through LymeDeploy"
+if [[ "$SITE" == 1 ]]; then echo "  Publishing the MikeDown SITE $VERSION (desktop $DESKTOP_VERSION stays as is) through LymeDeploy"
+else echo "  Publishing MikeDown Desktop $VERSION through LymeDeploy"; fi
 hr
 say "staged     $UPLOAD"
 say "package    $PACKAGE_ID $VERSION  ->  $NUPKG"
@@ -131,7 +184,7 @@ say "CLI        $CLI"
 # otherwise the per-target manifests say which half. check-upload.js then
 # holds the folder to that (a full release missing a platform fails there).
 PLATFORMS=""
-if [[ -d "$UPLOAD" ]]; then
+if [[ "$SITE" != 1 && -d "$UPLOAD" ]]; then
     if [[ -f "$UPLOAD/latest.json" ]]; then PLATFORMS="mac,windows"
     elif [[ -f "$UPLOAD/latest-darwin-aarch64.json" && ! -f "$UPLOAD/latest-windows-x86_64.json" ]]; then PLATFORMS="mac"
     elif [[ -f "$UPLOAD/latest-windows-x86_64.json" && ! -f "$UPLOAD/latest-darwin-aarch64.json" ]]; then PLATFORMS="windows"
@@ -144,24 +197,38 @@ VERIFY_FLAG=""
 # ── 1. Pack ──────────────────────────────────────────────────────────────────
 if should_run pack; then
     step "1. Pack: check the staged folder, build and verify the .nupkg"
-    [[ -d "$UPLOAD" ]] || { echo "ERROR: $UPLOAD does not exist. Run release.sh first." >&2; exit 1; }
-    say "release type: $PLATFORMS"
-    node "$SCRIPT_DIR/check-upload.js" --dir "$UPLOAD" --version "$VERSION" --platforms "$PLATFORMS" || { resume_hint pack; exit 1; }
+    if [[ "$SITE" == 1 ]]; then
+        [[ -d "$SITE_DIST" ]] || { echo "ERROR: $SITE_DIST does not exist. Run: npm run build:site" >&2; exit 1; }
+        SITE_ARGS=(--dist "$SITE_DIST" --page-src "$SCRIPT_DIR/../../../website/mikedown-desktop" --desktop-version "$DESKTOP_VERSION" --out "$UPLOAD" --base-url "$BASE_URL")
+        if [[ "$NO_LINUX" != 1 ]]; then
+            [[ -z "$LINUX_FILE" ]] && LINUX_FILE="$SCRIPT_DIR/dist/$DESKTOP_VERSION/MikeDown-$DESKTOP_VERSION-linux-x86_64.AppImage"
+            [[ -f "$LINUX_FILE" ]] || { echo "ERROR: $LINUX_FILE not found. The page's Linux size comes from the published AppImage; pass --linux FILE, or --no-linux if desktop $DESKTOP_VERSION has no Linux build." >&2; exit 1; }
+            SITE_ARGS+=(--linux "$LINUX_FILE")
+        fi
+        say "site type: site-only (no manifests, no artifacts, no web.config)"
+        node "$SCRIPT_DIR/stage-site.js" "${SITE_ARGS[@]}" || { resume_hint pack; exit 1; }
+    else
+        [[ -d "$UPLOAD" ]] || { echo "ERROR: $UPLOAD does not exist. Run release.sh first." >&2; exit 1; }
+        say "release type: $PLATFORMS"
+        node "$SCRIPT_DIR/check-upload.js" --dir "$UPLOAD" --version "$VERSION" --platforms "$PLATFORMS" || { resume_hint pack; exit 1; }
+    fi
     mkdir -p "$OUT_DIR"
     rm -f "$NUPKG"
     # A .nupkg is a zip with a .nuspec; LymeDeploy reads the identity from the
     # .nuspec and publishes the archive root into the target folder. Stored,
     # not deflated: the payload is already-compressed DMG/tar.gz/NSIS/AppImage.
-    PACKAGE_ID="$PACKAGE_ID" VERSION="$VERSION" SRC="$UPLOAD" NUPKG="$NUPKG" python3 -I - <<'PYEOF'
+    PACKAGE_ID="$PACKAGE_ID" VERSION="$VERSION" SRC="$UPLOAD" NUPKG="$NUPKG" SITE="$SITE" python3 -I - <<'PYEOF'
 import os, zipfile
 pid, ver, src, out = (os.environ[k] for k in ('PACKAGE_ID', 'VERSION', 'SRC', 'NUPKG'))
+site = os.environ.get('SITE') == '1'
+what = 'site' if site else 'Desktop'
 nuspec = f'''<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
     <id>{pid}</id>
     <version>{ver}</version>
     <authors>Interapp Development, Inc.</authors>
-    <description>MikeDown Desktop {ver} downloads and updater manifests, published to iadev.net/mikedown/ by LymeDeploy.</description>
+    <description>MikeDown {what} {ver}, published to iadev.net/mikedown/ by LymeDeploy.</description>
   </metadata>
 </package>
 '''
@@ -179,26 +246,52 @@ content_types = '''<?xml version="1.0" encoding="utf-8"?>
   <Default Extension="AppImage" ContentType="application/octet-stream" />
 </Types>
 '''
-names = sorted(n for n in os.listdir(src) if n != '.DS_Store')
-dirs = [n for n in names if os.path.isdir(os.path.join(src, n))]
-if dirs:
-    raise SystemExit(f'ERROR: {src} has subfolders {dirs}; the payload must be flat.')
+if site:
+    # Site payload has subfolders (vscode/, developers/, site-assets/). Entry
+    # names are '/'-separated paths from the folder root. Every extension in a
+    # package needs a content type (OPC); unknown ones fall back to octet-stream.
+    names = []
+    for root, ds, fs in os.walk(src):
+        ds.sort()
+        for f in sorted(fs):
+            if f != '.DS_Store':
+                names.append(os.path.relpath(os.path.join(root, f), src).replace(os.sep, '/'))
+    names.sort()
+    known = {'nuspec', 'dmg', 'exe', 'gz', 'json', 'html', 'config', 'txt', 'png', 'AppImage'}
+    extra = {'js': 'text/javascript', 'css': 'text/css', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+             'ico': 'image/x-icon', 'svg': 'image/svg+xml', 'woff2': 'font/woff2', 'woff': 'font/woff',
+             'webp': 'image/webp', 'map': 'application/json', 'mjs': 'text/javascript',
+             'webmanifest': 'application/manifest+json'}
+    exts = {n.rsplit('.', 1)[1] for n in names if '.' in n.rsplit('/', 1)[-1]} - known
+    add = ''.join('  <Default Extension="%s" ContentType="%s" />\n' % (e, extra.get(e, 'application/octet-stream')) for e in sorted(exts))
+    content_types = content_types.replace('</Types>', add + '</Types>')
+else:
+    names = sorted(n for n in os.listdir(src) if n != '.DS_Store')
+    dirs = [n for n in names if os.path.isdir(os.path.join(src, n))]
+    if dirs:
+        raise SystemExit(f'ERROR: {src} has subfolders {dirs}; the payload must be flat.')
 with zipfile.ZipFile(out, 'w', zipfile.ZIP_STORED) as z:
     z.writestr(f'{pid}.nuspec', nuspec)
     z.writestr('[Content_Types].xml', content_types)
     for n in names:
         z.write(os.path.join(src, n), n)
-# Round trip: readable, flat, and exactly the folder's files at their sizes.
+# Round trip: readable, exactly the folder's files at their sizes (flat unless site).
 with zipfile.ZipFile(out) as z:
     if z.testzip():
         raise SystemExit(f'ERROR: {out} is corrupt.')
     payload = {i.filename: i.file_size for i in z.infolist()
                if i.filename not in (f'{pid}.nuspec', '[Content_Types].xml')}
-    if any('/' in n for n in payload):
+    if not site and any('/' in n for n in payload):
         raise SystemExit('ERROR: nested entries in the package.')
     want = {n: os.path.getsize(os.path.join(src, n)) for n in names}
     if payload != want:
         raise SystemExit(f'ERROR: package contents differ from {src}.')
+    if site:
+        bad = [n for n in payload if n.rsplit('/', 1)[-1].lower() in ('web.config', 'sha256sums.txt')
+               or n.rsplit('/', 1)[-1].startswith('latest')
+               or n.endswith(('.dmg', '.exe', '.gz', '.sig', '.AppImage', '.nupkg', '.msi', '.pkg'))]
+        if bad:
+            raise SystemExit(f'ERROR: site package must not contain {bad}.')
 print(f'  packed {len(payload)} files, {sum(payload.values())/1048576:.1f} MB, verified')
 PYEOF
     say "wrote $NUPKG ($(du -h "$NUPKG" | cut -f1))"
@@ -225,7 +318,7 @@ if should_run release; then
     step "3. Create release $RELEASE_VERSION in $PROJECT"
     set +e
     run "$CLI" create-release --project "$PROJECT" --version "$RELEASE_VERSION" \
-        --package "$PACKAGE_ID=$VERSION" --notes "MikeDown Desktop $VERSION"
+        --package "$PACKAGE_ID=$VERSION" --notes "MikeDown $([[ "$SITE" == 1 ]] && echo "site (desktop $DESKTOP_VERSION unchanged)" || echo "Desktop") $VERSION"
     RC=$?
     set -e
     if [[ "$RC" == 4 ]]; then
@@ -262,7 +355,14 @@ if should_run deploy; then
     esac
 
     step "5. Verify what the internet sees"
-    if [[ "$DRY_RUN" == 1 ]]; then
+    if [[ "$SITE" == 1 ]]; then
+        if [[ "$DRY_RUN" == 1 ]]; then
+            say "\$ node $SCRIPT_DIR/verify-site.js --dir $UPLOAD --desktop-version $DESKTOP_VERSION"
+        elif ! node "$SCRIPT_DIR/verify-site.js" --dir "$UPLOAD" --desktop-version "$DESKTOP_VERSION"; then
+            echo "  The deployment succeeded but verification failed. Re-run: node $SCRIPT_DIR/verify-site.js --dir $UPLOAD --desktop-version $DESKTOP_VERSION" >&2
+            exit 1
+        fi
+    elif [[ "$DRY_RUN" == 1 ]]; then
         say "\$ $SCRIPT_DIR/verify-published.sh $VERSION $VERIFY_FLAG"
     elif ! "$SCRIPT_DIR/verify-published.sh" "$VERSION" $VERIFY_FLAG; then
         echo "" >&2
@@ -275,6 +375,12 @@ fi
 
 if [[ "$DRY_RUN" == 1 ]]; then
     step "Dry run complete: package built and verified, nothing pushed or deployed"
+    exit 0
+fi
+if [[ "$SITE" == 1 ]]; then
+    step "Published the MikeDown site $VERSION (desktop $DESKTOP_VERSION untouched)"
+    say "Still yours: commit/tag the site change if you want one. No Cloudflare purge is needed"
+    say "unless a cache rule was added for /mikedown/ (it was DYNAMIC on 2026-10-24)."
     exit 0
 fi
 step "Published MikeDown Desktop $VERSION"

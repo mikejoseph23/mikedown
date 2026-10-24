@@ -5,6 +5,13 @@
 #   lymedeploy apply -f packages/desktop/deploy/lymedeploy/deploy.yaml --dry-run
 #   lymedeploy apply -f packages/desktop/deploy/lymedeploy/deploy.yaml
 #   lymedeploy doctor --project mikedown-downloads
+# Two kinds of release go through this one project (one folder, one vdir):
+#   desktop  <x.y.z>            packed by pack-for-lymedeploy.sh (flat: artifacts + manifests + page)
+#   site     <x.y.z>-site.<N>   packed by pack-for-lymedeploy.sh --site (pages only, nested folders)
+# The site version is a free-form unique string to LymeDeploy (it never orders or
+# compares release versions), so it cannot outrank or replace a desktop release;
+# in semver it sorts below x.y.z anyway. Site packages never carry latest*.json,
+# an artifact, SHA256SUMS.txt or web.config (the pack fails if they do).
 # Never pass --prune: Production is shared, and pruning would un-map the other
 # machines that serve it for other projects.
 #
@@ -43,6 +50,11 @@ project:
   enabled: true
   active: true
   allowDirectDeploy: false   # Production-only progression: Production is rung 0, no bypass needed
+  # retain is the agent's keep-newest-N of extracted package folders in its
+  # work area (PackageManager.PruneOldVersions). It never touches the published
+  # folder, and rollback re-downloads the pinned package (the server never
+  # purges packages of a publish-files project), so site releases pushing the
+  # last desktop release out of these 3 costs nothing. Left at 3.
   retain: 3
 
 environments:
@@ -72,11 +84,16 @@ steps:
       resetAcls: true            # a %TEMP%-inherited ACL makes IIS serve 401
       # Anything that points at another file goes last, legacy combined last
       # of all, so no client ever reads a manifest whose artifact is missing.
+      # Listed patterns with no '/' match by file name anywhere in the package.
+      # index.html therefore also defers every site page (vscode/, developers/...),
+      # so a page never goes live before the assets it loads. Missing matches are
+      # fine: a site package has no manifests, a flat desktop package no sub-pages.
       publishLast:
         - latest-darwin-aarch64.json
         - latest-darwin-x86_64.json
         - latest-windows-x86_64.json
         - latest.json
+        - index.html
       protectedFiles:
         - web.config             # a differing live copy fails the deploy before any write
 
@@ -145,6 +162,28 @@ steps:
         - 'Authorization: Bearer #{CloudflareToken}'
       contentType: application/json
       body: '{"files": ["https://www.iadev.net/mikedown/latest.json", "https://www.iadev.net/mikedown/latest-darwin-aarch64.json", "https://www.iadev.net/mikedown/latest-darwin-x86_64.json", "https://www.iadev.net/mikedown/latest-windows-x86_64.json", "https://www.iadev.net/mikedown/", "https://www.iadev.net/mikedown/index.html", "https://iadev.net/mikedown/latest.json", "https://iadev.net/mikedown/latest-darwin-aarch64.json", "https://iadev.net/mikedown/latest-darwin-x86_64.json", "https://iadev.net/mikedown/latest-windows-x86_64.json", "https://iadev.net/mikedown/", "https://iadev.net/mikedown/index.html"]}'
+      expectedStatus: 200
+      successBodyContains: '"success":true'
+      retries: 1
+      retryDelaySeconds: 5
+      timeoutSeconds: 60
+
+  # Same status as the manifest purge above: not needed while /mikedown/ is
+  # DYNAMIC at Cloudflare. Disabled; enable it together with the one above (same
+  # CloudflareToken) if a cache rule is ever added. Covers every new page URL in
+  # apex and www form, with and without index.html.
+  - name: Purge Cloudflare cache for the site pages
+    type: http-request
+    sortOrder: 6
+    enabled: false
+    targetRole: webserver
+    config:
+      method: POST
+      url: https://api.cloudflare.com/client/v4/zones/#{CloudflareZoneId}/purge_cache
+      headers:
+        - 'Authorization: Bearer #{CloudflareToken}'
+      contentType: application/json
+      body: '{"files": ["https://www.iadev.net/mikedown/vscode/", "https://www.iadev.net/mikedown/vscode/index.html", "https://www.iadev.net/mikedown/developers/", "https://www.iadev.net/mikedown/developers/index.html", "https://www.iadev.net/mikedown/developers/web-component/", "https://www.iadev.net/mikedown/developers/web-component/index.html", "https://www.iadev.net/mikedown/developers/react/", "https://www.iadev.net/mikedown/developers/react/index.html", "https://www.iadev.net/mikedown/developers/vue/", "https://www.iadev.net/mikedown/developers/vue/index.html", "https://www.iadev.net/mikedown/developers/angular/", "https://www.iadev.net/mikedown/developers/angular/index.html", "https://iadev.net/mikedown/vscode/", "https://iadev.net/mikedown/vscode/index.html", "https://iadev.net/mikedown/developers/", "https://iadev.net/mikedown/developers/index.html", "https://iadev.net/mikedown/developers/web-component/", "https://iadev.net/mikedown/developers/web-component/index.html", "https://iadev.net/mikedown/developers/react/", "https://iadev.net/mikedown/developers/react/index.html", "https://iadev.net/mikedown/developers/vue/", "https://iadev.net/mikedown/developers/vue/index.html", "https://iadev.net/mikedown/developers/angular/", "https://iadev.net/mikedown/developers/angular/index.html"]}'
       expectedStatus: 200
       successBodyContains: '"success":true'
       retries: 1
