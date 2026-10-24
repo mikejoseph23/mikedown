@@ -40,6 +40,16 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 - **Shared module singletons across two editors**: the portal mirrors the last-focused editor and the Mermaid theme init is global.
 - **Fixed-position overlays under transformed ancestors** misplace when a host wraps the editor in a CSS transform.
 
+## npm packages and wrappers follow-ups
+
+Deferred in `wrappers-decisions.md` (M0 of `wrappers-npm-plan.md`).
+
+- **Provenance via npm trusted publishing.** Publish from GitHub Actions with OIDC (`id-token: write`, npm CLI 11.5.1+, 11.21+ to move dist-tags) so every package gets a provenance statement. Builds on the M1 `ci.yml`; local publishes cannot attest.
+- **Blazor wrapper.** The web component already works in Razor pages; a typed Blazor component with `@bind-Value` would be the wrapper.
+- **Solid and Preact wrappers.** Covered for now by the web component (Solid) and `preact/compat` with `@mikedown/react`.
+- **Svelte wrapper** (M10, deferred). The web component covers Svelte.
+- **Trim the CDN bundle's code languages.** lowlight `common` instead of `all` cuts the standalone bundle from about 757 to 511 kB gzipped. Needs a core `codeLanguages` option so the language picker lists the same set.
+
 ## Product ideas
 
 - **Standalone desktop app for writers** — a side-car product built on the MikeDown editor core, for writers who don't live in VS Code. The market is crowded, so do market research before committing; could be a good addition to the portfolio if it's refined enough. Key differentiator idea: built-in version control with two modes:
