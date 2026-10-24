@@ -42,7 +42,12 @@ function item(command: CommandId, isMac: boolean): MenuNode {
   return node;
 }
 
-export function buildMenuSpec(isMac: boolean): MenuNode[] {
+export interface MenuSpecOptions {
+  /** False on a store build: Help > Check for Updates… is left out. */
+  updates?: boolean;
+}
+
+export function buildMenuSpec(isMac: boolean, opts: MenuSpecOptions = {}): MenuNode[] {
   const i = (c: CommandId) => item(c, isMac);
   const openRecent: MenuNode = { kind: 'submenu', id: OPEN_RECENT_ID, label: 'Open Recent', items: [i('clearRecents')] };
 
@@ -117,7 +122,7 @@ export function buildMenuSpec(isMac: boolean): MenuNode[] {
     role: 'help',
     items: [
       i('welcome'), i('keyboardShortcuts'), sep,
-      i('checkUpdates'), sep,
+      ...(opts.updates === false ? [] : [i('checkUpdates'), sep]),
       i('website'), i('reportIssue'),
       ...(isMac ? [] : [sep, i('about')]),
     ],

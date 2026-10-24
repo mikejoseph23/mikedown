@@ -78,6 +78,12 @@ pub fn run() {
         }));
     }
 
+    // Channel `store` (Mac App Store / Microsoft Store builds) leaves the
+    // updater plugin uninitialized: the store updates the app, not us.
+    if commands::updater::channel() == commands::updater::CHANNEL_DIRECT {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
     let app = builder
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
@@ -85,7 +91,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(commands::launch::LaunchQueue::default())
         .manage(commands::watcher::Watchers::default())
         .manage(commands::appdata::AppData::default())
@@ -171,6 +176,10 @@ pub fn run() {
             commands::updater::updater_pending,
             commands::updater::updater_install,
             commands::updater::updater_log,
+            commands::updater::updater_download,
+            commands::updater::updater_skip,
+            commands::updater::updater_snooze,
+            commands::updater::updater_status,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MikeDown");

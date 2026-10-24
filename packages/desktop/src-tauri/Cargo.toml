@@ -50,6 +50,11 @@ tauri-plugin-single-instance = "2"
 objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder", "NSEvent"] }
 objc2-foundation = { version = "0.3", features = ["NSString"] }
 
+# Pre-install code-signing check on the downloaded Windows installer
+# (WinVerifyTrust + signer subject). Same major version the updater plugin uses.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_WinTrust", "Win32_Security_Cryptography", "Win32_Security_Cryptography_Catalog", "Win32_Security_Cryptography_Sip"] }
+
 # Extended attributes (Finder tags, "Open With", quarantine) survive saves,
 # copies and cross-volume moves.
 [target.'cfg(unix)'.dependencies]

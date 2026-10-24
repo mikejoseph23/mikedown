@@ -202,7 +202,11 @@ const updater = createUpdater({
   checkOnLaunch: () => settings.get().updates.checkOnLaunch,
   appVersion: getVersion,
   setInterval: (fn, ms) => window.setInterval(fn, ms),
+  setTimeout: (fn, ms) => window.setTimeout(fn, ms),
 });
+// A store build (MIKEDOWN_CHANNEL=store) hides Check for Updates. Resolved before the menu is built.
+let updatesEnabled = true;
+const channelKnown = updaterApi.status().then((st) => { updatesEnabled = st.channel !== 'store'; }, () => { /* not under Tauri */ });
 const appActions = createAppActions({
   dialogs,
   isMac,
@@ -252,6 +256,7 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
       editorRoot: () => editorEl.querySelector<HTMLElement>('.mikedown-root'),
       version: () => appActions.version(),
       checkForUpdates: () => { void appActions.checkForUpdates(); },
+      updatesEnabled: () => updatesEnabled,
       setDefaultApp: () => { void appActions.setDefaultApp(); },
     })],
   });
@@ -1122,7 +1127,7 @@ function onMenuCommand(id: string): void {
 
 if (!smokeEnabled()) {
   void windowsApi.onMenu(onMenuCommand).catch(() => { /* not under Tauri */ });
-  void menuApi.set(buildMenuSpec(isMac))
+  void channelKnown.then(() => menuApi.set(buildMenuSpec(isMac, { updates: updatesEnabled })))
     .then(() => { lastEnablement = ''; lastRecentMenu = ''; scheduleMenuSync(); syncRecentMenu(); })
     .catch(() => { /* not under Tauri */ });
   // The shared menu bar follows the focused window.
@@ -1286,6 +1291,8 @@ async function boot(): Promise<void> {
 
   // Updates last, so a slow network never delays opening documents.
   void updaterApi.onAvailable((info) => updater.announce(info)).catch(() => { /* not under Tauri */ });
+  void updaterApi.onState((e) => updater.applyHostState(e)).catch(() => { /* not under Tauri */ });
+  void updaterApi.onProgress((p) => updater.applyProgress(p)).catch(() => { /* not under Tauri */ });
   void updaterApi.pending().then((info) => { if (info) {updater.announce(info);} }).catch(() => { /* not under Tauri */ });
   void updater.start();
 }

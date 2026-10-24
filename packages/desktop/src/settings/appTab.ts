@@ -19,6 +19,8 @@ export interface AppTabDeps {
   editorRoot(): HTMLElement | null;
   version(): Promise<string>;
   checkForUpdates(): void;
+  /** False on a store build (`MIKEDOWN_CHANNEL=store`): the store updates the app, so no button. */
+  updatesEnabled?(): boolean;
   setDefaultApp(): void;
 }
 
@@ -144,7 +146,8 @@ export function createAppTabSection(deps: AppTabDeps): MikeDownSettingsSection {
       updateBtn.className = 'settings-btn';
       updateBtn.textContent = 'Check for Updates…';
       updateBtn.addEventListener('click', () => deps.checkForUpdates());
-      about.append(versionLabel, updateBtn);
+      about.append(versionLabel);
+      if (deps.updatesEnabled?.() ?? true) {about.append(updateBtn);}
 
       return {
         rows: [
