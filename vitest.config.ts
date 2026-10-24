@@ -15,5 +15,9 @@ export default defineConfig({
     // results in slashcommandsDate.test.ts) are deterministic regardless of
     // the machine running them.
     env: { TZ: 'UTC' },
+    // Editor-boot tests build a full TipTap editor in jsdom (~0.2-1s each on a
+    // dev machine). The 2-core CI runner is several times slower, so give it
+    // more headroom than the 5s default. Local runs keep the defaults.
+    ...(process.env.CI ? { testTimeout: 30000, hookTimeout: 30000 } : {}),
   },
 });
