@@ -28,7 +28,7 @@
 | [M0 — Decisions and spikes](#m0--decisions-and-spikes) | Opus | ✅ Complete | 13 | `wrappers-decisions.md` approved 2026-10-24 |
 | [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | ✅ Complete | — | `interapp` owns `mikedown`; 2FA on for auth and publishing (security key) |
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
-| [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ⏸ Awaiting Mike's publish | 2 | Mike runs the publish |
+| [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ✅ Complete | 2 | 0.1.0 on `latest` 2026-10-24; `core-v0.1.0` tag and push await Mike |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ⬜ Not Started | — | Mike uploads the `.vsix` |
 | [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ⬜ Not Started | — | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
@@ -210,8 +210,8 @@ Apply to every milestone.
 
 - [x] `npm run version:npm -- 0.1.0`. Add `packages/core/CHANGELOG.md` with a 0.1.0 entry (first public release; API summary).
 - [x] `npm run test:packages` and `npm run release:npm -- --only core` (dry run) green; paste the packed file list and gzipped size into the summary. Commit `@mikedown/core 0.1.0`.
-- [ ] **Stop.** Hand Mike: `cd ~/git/mikedown && npm run release:npm -- --only core --publish` (he enters the OTP).
-- [ ] After Mike confirms: `npm view @mikedown/core version dist-tags` shows `0.1.0` on `latest`. Record it in the Progress Log. Ask Mike to set the package to "Require two-factor authentication and disallow tokens" on npmjs.com.
+- [x] **Stop.** Hand Mike: `cd ~/git/mikedown && npm run release:npm -- --only core --publish` (he enters the OTP).
+- [x] After Mike confirms: `npm view @mikedown/core version dist-tags` shows `0.1.0` on `latest`. Record it in the Progress Log. Ask Mike to set the package to "Require two-factor authentication and disallow tokens" on npmjs.com.
 - [ ] Ask Mike before tagging `core-v0.1.0` and pushing.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 16:45** - M2 published: Mike ran the publish at 16:42 (PUT 202, "being processed"); `npm view @mikedown/core` shows `0.1.0` on `latest` from 16:45, shasum `feecb779bd3811520dc7a5cb07743e6531c847d4`, 27 files, 843.1 kB, access public. npm normalized `repository.url` to `git+https://...`; fixed in source with the 0.2.0-rc.0 bump. Open: package 2FA setting "disallow tokens", `core-v0.1.0` tag and push (Mike).
 
 **2026-10-24 17:10** - M13 done (`31b1a85`, `1596c78`, 14 min): shared shell in `website/shared/` (nav, footer, tokens from the desktop page, light/dark), VS Code page rebuilt with current features, Marketplace and `vscode:` deep-link buttons, desktop page gets the nav, an "Also for VS Code" band and a Developers link. Desktop page renders for 0.3.0 and passes `check-upload.js`; site pack dry run green (26 files, no MIME warnings). Checked at 1280/400 px light and dark. For M12: the desktop page carries an inline copy of the shell, so run `npm run sync:shell -w website` after any `website/shared/` edit (`build:site` fails on a stale copy); the Angular demo index needs the shell markers. VS Code page copy mentions the zoom control and narrow-sidebar fix, which ship in 2.15.0 (M3). Main tree: `build:site`, `test:unit` (1539) green.
 
