@@ -4,11 +4,13 @@
  * published package, never the source alias:
  *
  *   - packages/desktop/package.json pins an exact `@mikedown/core` version,
- *   - it equals packages/core/package.json's version,
- *   - that version is on npm (`npm view`), unless `--allow-unpublished-core`
- *     says to build against the workspace copy (packages/core/dist), which is
- *     what the npm workspace symlink resolves to anyway. Until core's first
- *     publish (the core extraction plan's M4) every release needs the flag.
+ *   - a published pin (on npm, `npm view`) is fine even when the workspace
+ *     core is ahead of it: the @mikedown/* family versions independently, and
+ *     the release builds against the registry copy (a warning says so),
+ *   - an unpublished pin must equal packages/core/package.json's version (the
+ *     only copy a build could use) and needs `--allow-unpublished-core` to
+ *     build against the workspace copy (packages/core/dist). Only for a core
+ *     bump that is not on npm yet.
  *
  *   node deploy/check-core-pin.js [--allow-unpublished-core] [--offline]
  *

@@ -40,7 +40,7 @@
 #   --windows-exe <file>       Use this signed installer instead of the remote build.
 #   --no-linux                 Skip the Linux (preview) AppImage (full releases build it by default).
 #   --skip-notarize            Signed, not notarized. Not shippable.
-#   --allow-unpublished-core   See check-core-pin.js (needed until core is on npm).
+#   --allow-unpublished-core   See check-core-pin.js (only when the pinned core is not on npm yet).
 #   --yes                      Don't ask about the release notes (you just read them).
 #   --publish                  After staging, run pack-for-lymedeploy.sh (push,
 #                              release, deploy, wait, verify-published.sh).

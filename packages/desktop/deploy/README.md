@@ -120,13 +120,14 @@ has the exact commands). Check with `Get-WebVirtualDirectory -Site Interapp`.
 ## Core pinning
 
 Release builds (`RELEASE=1`, set by both build scripts) never use the Vite
-source alias: `@mikedown/core` resolves through the workspace package to
-`packages/core/dist`, and `vite.config.ts` fails the build unless the pin in
-`packages/desktop/package.json` equals `packages/core/package.json`'s version.
-`check-core-pin.js` also requires that version to be on npm (`0.1.0` is). A
-mismatch or an unpublished pin stops the release. For a future core bump that
-is not on npm yet, `--allow-unpublished-core` builds against the workspace copy
-and says so.
+source alias. `check-core-pin.js` requires an exact `@mikedown/core` pin in
+`packages/desktop/package.json`. The `@mikedown/*` family versions
+independently, so a pin that is on npm (`0.1.0` is) passes even when
+`packages/core` is ahead of it; the release builds against the registry copy
+and the check warns about the difference. A pin that is not on npm must equal
+`packages/core`'s version and needs `--allow-unpublished-core`, which builds
+against the workspace copy and says so. Use it only for a core bump that is not
+published yet.
 
 ## Minimum OS
 

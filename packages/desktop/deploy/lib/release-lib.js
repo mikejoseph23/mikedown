@@ -293,24 +293,28 @@ export function checkManifestShape(name, m, { expectVersion, baseUrl } = {}) {
 
 /**
  * Release builds consume `@mikedown/core` as a published package. The pin in
- * packages/desktop/package.json must equal packages/core's version, and the
- * version must be on npm unless the build explicitly allows the workspace copy.
+ * packages/desktop/package.json must be an exact version. The `@mikedown/*`
+ * family versions independently of the workspace, so a published pin is fine
+ * even when packages/core is ahead of it (the build uses the registry copy).
+ * An unpublished pin can only be built from the workspace copy, so it must
+ * equal packages/core's version and needs `allowUnpublished`.
  */
 export function checkCorePin({ pinned, coreVersion, published, allowUnpublished }) {
   const errors = [];
+  const warnings = [];
   if (!pinned) {errors.push('packages/desktop/package.json has no @mikedown/core dependency');}
   else if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(pinned)) {
     errors.push(`@mikedown/core must be pinned to an exact version for a release, found "${pinned}"`);
-  } else if (pinned !== coreVersion) {
-    errors.push(`@mikedown/core is pinned to ${pinned} but packages/core/package.json is ${coreVersion}`);
-  }
-  const warnings = [];
-  if (errors.length === 0 && !published) {
-    if (allowUnpublished) {
-      warnings.push(`@mikedown/core ${pinned} is not on npm; building against the workspace copy (packages/core/dist) because --allow-unpublished-core was given`);
-    } else {
-      errors.push(`@mikedown/core ${pinned} is not published on npm. Publish it first (npm run release:core), or pass --allow-unpublished-core to build against packages/core/dist`);
+  } else if (published) {
+    if (pinned !== coreVersion) {
+      warnings.push(`@mikedown/core is pinned to ${pinned} but packages/core/package.json is ${coreVersion}; the release builds against the registry copy of ${pinned}, not the workspace`);
     }
+  } else if (pinned !== coreVersion) {
+    errors.push(`@mikedown/core ${pinned} is not on npm and packages/core/package.json is ${coreVersion}, so no copy of ${pinned} can be built. Publish it first, or pin a published version`);
+  } else if (allowUnpublished) {
+    warnings.push(`@mikedown/core ${pinned} is not on npm; building against the workspace copy (packages/core/dist) because --allow-unpublished-core was given`);
+  } else {
+    errors.push(`@mikedown/core ${pinned} is not published on npm. Publish it first (npm run release:core), or pass --allow-unpublished-core to build against packages/core/dist`);
   }
   return { ok: errors.length === 0, errors, warnings };
 }

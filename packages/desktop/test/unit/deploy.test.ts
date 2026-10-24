@@ -137,10 +137,10 @@ describe('core pin', () => {
     expect(checkCorePin({ pinned: '0.2.0', coreVersion: '0.2.0', published: true, allowUnpublished: false })).toEqual({ ok: true, errors: [], warnings: [] });
   });
 
-  it('fails on a version mismatch even with the flag', () => {
-    const r = checkCorePin({ pinned: '0.1.0', coreVersion: '0.2.0', published: true, allowUnpublished: true });
-    expect(r.ok).toBe(false);
-    expect(r.errors[0]).toMatch(/pinned to 0.1.0 but packages\/core.* 0.2.0/);
+  it('passes a published pin that differs from the workspace, with a warning', () => {
+    const r = checkCorePin({ pinned: '0.1.0', coreVersion: '0.2.0-rc.0', published: true, allowUnpublished: false });
+    expect(r.ok).toBe(true);
+    expect(r.warnings[0]).toMatch(/0\.1\.0.*0\.2\.0-rc\.0.*registry copy/);
   });
 
   it('fails on a range', () => {
@@ -156,4 +156,9 @@ describe('core pin', () => {
     expect(yes.warnings[0]).toMatch(/workspace copy/);
   });
 
+  it('unpublished and differing from the workspace fails even with the flag', () => {
+    const r = checkCorePin({ pinned: '0.3.0', coreVersion: '0.2.0', published: false, allowUnpublished: true });
+    expect(r.ok).toBe(false);
+    expect(r.errors[0]).toMatch(/0\.3\.0.*not on npm.*0\.2\.0/);
+  });
 });

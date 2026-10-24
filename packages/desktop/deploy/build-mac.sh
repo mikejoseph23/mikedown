@@ -33,7 +33,7 @@
 #   --skip-notarize            Sign only (local dry run). Not shippable.
 #   --output <dir>             Default: packages/desktop/deploy/dist/<version>
 #   --allow-unpublished-core   Build against packages/core/dist while the pinned
-#                              @mikedown/core version is not on npm yet.
+#                              @mikedown/core version is not on npm yet (rare).
 #   --config <file>            Extra tauri config overlay (the staging updater
 #                              test uses this; never for a real release).
 #   --version-suffix <s>       Name artifacts MikeDown-<version><s>-... (tests).
