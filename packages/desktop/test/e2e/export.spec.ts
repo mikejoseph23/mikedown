@@ -49,6 +49,7 @@ test('Export as HTML writes a standalone file that renders offline', async ({ pa
   expect(html).not.toMatch(/\ssrc="(?:https?:)?\/\//);
   expect(html).not.toMatch(/url\(\s*['"]?(?:https?:)?\/\//);
   expect(html).not.toContain('asset://');
+  expect(html).not.toContain('--vscode-');
 
   const offline = await context.newPage();
   await offline.route(/^https?:/, (route) => route.abort());
