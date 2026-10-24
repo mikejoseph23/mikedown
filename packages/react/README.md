@@ -149,6 +149,8 @@ export default async function Page() {
 }
 ```
 
+Install `mermaid` too (`npm install mermaid`), even if you never write a diagram: `next build` resolves core's lazy `import('mermaid')` and fails with `Can't resolve 'mermaid'` without it. Vite builds do not need it.
+
 Add the packages to `transpilePackages` only if your Next version cannot load them as ESM:
 
 ```js

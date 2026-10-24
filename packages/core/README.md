@@ -151,7 +151,7 @@ The app must have exactly one copy of ProseMirror and CodeMirror, so these are p
 
 `tiptap-markdown`, `markdown-it-emoji`, `markdown-it-footnote`, `markdown-it-mark` and `nspell` are regular dependencies and install with the package.
 
-`katex` is a required peer because `styles.css` imports its stylesheet. `mermaid` is optional. Both are loaded with dynamic `import()` the first time a diagram or formula appears, so they stay out of your initial bundle. Without `mermaid` the diagram block shows an error or the raw source.
+`katex` is a required peer because `styles.css` imports its stylesheet. `mermaid` is optional. Both are loaded with dynamic `import()` the first time a diagram or formula appears, so they stay out of your initial bundle. Without `mermaid` the diagram block shows an error or the raw source. Install it anyway for Angular and Next.js (Turbopack) builds, which resolve the `import('mermaid')` at build time and fail without it; Vite builds pass.
 
 ## Bundler notes
 

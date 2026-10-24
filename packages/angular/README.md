@@ -13,7 +13,9 @@ The MikeDown WYSIWYG markdown editor as an Angular form control. The value is a 
 | 17, 18, 19, 20, 21, 22 | Supported (peer range `>=17.0.0 <23.0.0`) |
 | 16 and older | Not supported |
 
-The library is compiled with Angular 17 in partial-Ivy mode, so your app's compiler links it for whichever supported version you run. The specs run on Angular 19; consumer builds are checked on 17 and 19. `rxjs` `^7.5`. `@angular/router` is a peer because links use it when it is provided; an app without routes works too.
+Angular 22's CLI needs Node 22.22.3 or newer, 24.15 or newer, or 26. On older Node it refuses to run, whatever this package does.
+
+The library is compiled with Angular 17 in partial-Ivy mode, so your app's compiler links it for whichever supported version you run. The specs run on Angular 19; consumer builds are checked on 17, 19 and 22. `rxjs` `^7.5`. `@angular/router` is a peer because links use it when it is provided; an app without routes works too.
 
 ## Install
 
@@ -223,6 +225,13 @@ The editable surface is a `role="textbox"` with `aria-multiline="true"`. `<label
 - **Shortcuts.** Cmd/Ctrl+/ toggles the markdown source view.
 - **CommonJS warnings.** The build warns that `nspell`, `markdown-it-task-lists` and some of mermaid's dependencies are not ESM. They work; list them in `allowedCommonJsDependencies` in `angular.json` to silence the warnings.
 - **Bundle.** The editor is large (about 2.6 MB raw, 660 kB transfer) and belongs behind a lazy route. Mermaid and KaTeX load only when a document uses them.
+- **Budgets.** The default `ng new` production `initial` budget (500 kB warning, 1 MB error) rejects the editor: a consumer build measured about 3 MB for the initial bundle. A lazy route keeps the editor out of `initial`; if it must be there, raise the limit in `angular.json`:
+
+```json
+"budgets": [
+  { "type": "initial", "maximumWarning": "3.5mb", "maximumError": "4mb" }
+]
+```
 
 ## Testing
 
@@ -230,7 +239,7 @@ The specs here run on Angular's own runner. Jest: add `transformIgnorePatterns: 
 
 ## Known limitations
 
-- **`mermaid` must be installed**, even though diagrams load lazily, because the Angular builder resolves `import('mermaid')` at build time.
+- **`mermaid` must be installed**, even though diagrams load lazily, because the Angular builder resolves `import('mermaid')` at build time. An app that does not want diagrams can skip it instead: add `"externalDependencies": ["mermaid"]` to the build `options` in `angular.json` and set `features: { mermaid: false }`. The build then passes and about half the output goes away, but diagrams do not render.
 - **Several editors on one page share some state.** Overlays live in one portal that follows the last-focused editor, and turning `math` off in one editor's `features` turns KaTeX off page-wide.
 
 ## Migrating from the vendored copy
