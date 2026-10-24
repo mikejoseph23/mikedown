@@ -30,7 +30,7 @@
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
 | [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ✅ Complete | 2 | 0.1.0 on `latest` 2026-10-24; `core-v0.1.0` tag and push await Mike |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ✅ Complete | 5 | Mike uploads the `.vsix` |
-| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | 🔄 In Progress (gap fill 2: Vite pin check) | 10 | LymeStarter, Quantico Creek, Desktop pin |
+| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ✅ Complete | 15 | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | 🔄 In Progress | — | unit/integration + registry smoke |
 | [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
 | [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | ✅ Complete | 21 | `<mikedown-editor>`, form-associated, CDN bundle |
@@ -243,7 +243,7 @@ Apply to every milestone.
 
 - [x] LymeStarter (`develop`): `ng-app/package.json` `"@mikedown/core": "^0.1.0"`; delete `ng-app/vendor/mikedown-core-0.1.0-rc.1.tgz`; `npm install`; `ng build` and `ng test --watch=false` green; update the doc that mentions the vendored tarball. Commit.
 - [x] Quantico Creek (`master`): same in `quantico-creek-angular-app` and `quantico-creek-assistant-app`; both `ng build` green. Commit.
-- [ ] Desktop: pin `"@mikedown/core": "0.1.0"`; `node packages/desktop/deploy/check-core-pin.js` passes **without** `--allow-unpublished-core`. Remove the flag from `RESUME.md`, `packages/desktop/deploy/README.md` and the release examples; keep the flag in the script for future unpublished bumps. `npm run build:desktop` green. Commit.
+- [x] Desktop: pin `"@mikedown/core": "0.1.0"`; `node packages/desktop/deploy/check-core-pin.js` passes **without** `--allow-unpublished-core`. Remove the flag from `RESUME.md`, `packages/desktop/deploy/README.md` and the release examples; keep the flag in the script for future unpublished bumps. `npm run build:desktop` green. Commit.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 18:00** - M4 complete (gap fill 2 `553d4a6`, 5 min): `vite.config.ts#assertCorePin` accepts a pin that differs from the workspace core when exactly that version is installed under `packages/desktop/node_modules` (shared `checkInstalledCore` in `deploy/lib/release-lib.js`, unit tests), else throws with an `npm install` hint. A `RELEASE=1` Vite build bundled every `@mikedown/core` module from the registry 0.1.0 copy, none from the workspace. `build:desktop` (unsigned local bundle, nothing uploaded), Desktop unit (534), root `test:unit` (1568) green.
 
 **2026-10-24 17:55** - M14 done (`e895307`, 3 min): root README (More MikeDown block with VS Code page, Developers hub and every npm package, core npm badge, Repository layout), five package READMEs made consistent (Yarn peer line from core's `package.json`, ARIA accessible-name order, Jest line, theming pointer, browser support, no-telemetry line, demo/hub/GitHub links), CLAUDE.md (packages, `website/`, `test:wrappers`/`test:consumers`/`test:packages`, `dev:site`/`build:site`, site publish flow), BACKLOG (typedoc and `styles-base.css` added; Blazor and trusted publishing already there), `wrappers-decisions.md` note recording the ARIA order (Mike kept the standard order). Demo URLs go live in M15. `test:packages` green.
 
