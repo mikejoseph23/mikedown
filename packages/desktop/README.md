@@ -71,7 +71,9 @@ Rust edits rebuild and relaunch the window.
   open, `Cmd+/` source mode, `Cmd+,` Settings, `Cmd+Shift+O` Open Containing
   Folder, `Cmd+Alt+O` Open Folder, `Cmd+B` toggle the folder sidebar (only
   when focus is outside the editor, where `Cmd+B` stays Bold), `Cmd+Shift+E`
-  show the sidebar and focus the tree. Ctrl on Windows. M8's native menu reads
+  show the sidebar and focus the tree, `Cmd+Shift+F` search the opened folder
+  (M7: the sidebar swaps the tree for the search panel; Enter or a click opens
+  the match, Esc returns to the tree). Ctrl on Windows. M8's native menu reads
   the same rows.
 - `npm run dev -w packages/desktop -- -- /abs/path/folder` opens a folder
   (the sidebar's tree). `MIKEDOWN_WATCH_POLL=1` forces the watcher's 2 s
@@ -169,6 +171,7 @@ packages/desktop/
 ├── src/app/documentController.ts   open / save / Save As / read-only / dirty guard / window title
 ├── src/menu/shortcuts.ts           the single CmdOrCtrl shortcut table
 ├── src/tree/                       folder tree (fileTree), workspace ops (folderWorkspace), folder .md index (mdIndex), pure rules (treeLogic, dropRouting)
+├── src/search/                     folder search: controller + keyboard model (searchLogic), sidebar panel (searchPanel); results come from Rust
 ├── src/settings/desktopSettings.ts desktop-only settings (image paste policy, tree prefs), in memory until M5
 ├── src/ui/                         chrome (tab strip, status footer), sidebar frame, context menu, dialogs + toast, image viewer
 ├── src/smoke/                      fixture + in-app harness
@@ -196,7 +199,7 @@ All disk I/O goes through the app's own commands in `src-tauri/src/commands/`
 `read_bytes`, `write_bytes`, `open_in_default_app`, `allow_asset`, and for the
 tree `allow_folder`, `rename` (two-step for case-only changes), `create_file`,
 `create_dir`, `move_path`, `copy_path`, `trash`, `list_markdown`,
-`reveal_path`, `modifier_state`; `watcher.rs`: `watch`, `unwatch`,
+`reveal_path`, `modifier_state`; `search.rs`: `search_folder` (streams `search-batch` / `search-done` events, 2,000-match cap, files over 2 MB skipped), `search_cancel`; `watcher.rs`: `watch`, `unwatch`,
 `unwatch_all`, emitting `fs-changed`), called only from
 `src/documents/fsApi.ts`. On Windows, names are checked against reserved
 device names and the 259-character limit before anything touches the disk.

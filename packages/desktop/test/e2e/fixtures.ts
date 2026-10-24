@@ -36,6 +36,8 @@ export interface Ipc {
   /** The backup index as Rust would keep it. */
   backupIndex(): Record<string, { path: string | null; untitledId: string | null; folder: string | null; savedAt: number }>;
   session(label?: string): unknown | null;
+  /** Per-spec command handlers, checked before the built-in ones (M7: search_folder). */
+  custom: Record<string, (args: any) => unknown>;
 }
 
 function decode(bytes: Buffer): { text: string; encoding: string; eol: 'lf' | 'crlf' } {
@@ -259,6 +261,7 @@ export const test = base.extend<{ ipc: Ipc }>({
         return p;
       },
       read: (name) => fs.readFileSync(path.join(dir, name)),
+      custom: {},
       backupIndex: () => readIndex(ipc),
       session(label = 'main') {
         try { return JSON.parse(fs.readFileSync(sessionPath(ipc, label), 'utf8')); } catch { return null; }
@@ -267,7 +270,7 @@ export const test = base.extend<{ ipc: Ipc }>({
     await page.exposeFunction('__mikedownE2eInvoke', (cmd: string, args: unknown, headers: Record<string, string>) => {
       ipc.calls.push({ cmd, args, headers });
       try {
-        return handle(ipc, cmd, args, headers);
+        return ipc.custom[cmd] ? ipc.custom[cmd](args) : handle(ipc, cmd, args, headers);
       } catch (err) {
         return { __error: String((err as Error).message ?? err) };
       }
