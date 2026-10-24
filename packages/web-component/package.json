@@ -1,0 +1,76 @@
+{
+  "name": "@mikedown/web-component",
+  "version": "0.2.0-rc.0",
+  "description": "<mikedown-editor>: the MikeDown WYSIWYG markdown editor as a form-associated custom element, for plain HTML, CDN pages and any framework.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup && node scripts/build-standalone.mjs",
+    "build:standalone": "node scripts/build-standalone.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --root ../.. packages/web-component/test",
+    "demo": "npm run build && vite . --port 5197 --open /demo/",
+    "prepack": "npm run build"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./define": {
+      "types": "./dist/define.d.ts",
+      "import": "./dist/define.js",
+      "default": "./dist/define.js"
+    },
+    "./standalone": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/mikedown-editor.standalone.js",
+      "default": "./dist/mikedown-editor.standalone.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": [
+    "./dist/define.js",
+    "./dist/mikedown-editor.standalone.js"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "keywords": [
+    "markdown",
+    "editor",
+    "wysiwyg",
+    "web-component",
+    "custom-element",
+    "form-associated",
+    "tiptap",
+    "prosemirror"
+  ],
+  "peerDependencies": {
+    "@mikedown/core": "^0.2.0-rc.0"
+  },
+  "devDependencies": {
+    "@mikedown/core": "^0.2.0-rc.0",
+    "esbuild": "^0.27.3",
+    "tsup": "^9.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikejoseph23/mikedown.git",
+    "directory": "packages/web-component"
+  },
+  "bugs": {
+    "url": "https://github.com/mikejoseph23/mikedown/issues"
+  }
+}

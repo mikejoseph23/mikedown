@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MikeDown web component demo</title>
+  <!--
+    Plain HTML, no build step: the standalone bundle carries core, its peers and
+    core's CSS, and defines <mikedown-editor> on load. `npm run demo -w
+    packages/web-component` builds it and serves this folder. On a real page,
+    load it from a CDN with a pinned version (see the README).
+  -->
+  <script type="module" src="../dist/mikedown-editor.standalone.js"></script>
+  <style>
+    :root { color-scheme: light; --page-bg: #f6f7f9; --page-text: #1f2328; --card-bg: #fff; --card-border: #d8dee4; --muted: #59636e; --accent: #0969da; }
+    html.dark { color-scheme: dark; --page-bg: #0d1117; --page-text: #e6edf3; --card-bg: #161b22; --card-border: #30363d; --muted: #9198a1; --accent: #4493f8; }
+    body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--page-bg); color: var(--page-text); }
+    header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--card-border); background: var(--card-bg); }
+    header h1 { font-size: 1.1rem; margin: 0; }
+    header label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+    main { max-width: 1100px; margin: 24px auto; padding: 0 16px; display: grid; gap: 24px; }
+    section { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 16px 20px 20px; }
+    section h2 { font-size: 1rem; margin: 0 0 4px; }
+    section > p { margin: 0 0 16px; color: var(--muted); }
+    .field { display: grid; gap: 6px; margin-bottom: 16px; }
+    .field > label { font-weight: 600; }
+    .hint { color: var(--muted); font-size: 0.85rem; }
+    mikedown-editor { border: 1px solid var(--card-border); border-radius: 6px; overflow: hidden; }
+    mikedown-editor:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+    mikedown-editor.invalid { border-color: #cf222e; }
+    .actions { display: flex; gap: 8px; }
+    button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--card-border); background: var(--card-bg); color: inherit; cursor: pointer; }
+    button[type=submit] { background: var(--accent); border-color: var(--accent); color: #fff; }
+    pre { margin: 16px 0 0; padding: 12px; background: var(--page-bg); border: 1px solid var(--card-border); border-radius: 6px; white-space: pre-wrap; font-size: 0.85rem; max-height: 280px; overflow: auto; }
+
+    /*
+     * Preflight fixture: the rules of Tailwind's preflight reset that touch
+     * editor content, scoped to this section. Scoping raises their
+     * specificity above the real (unscoped) preflight, so this is a harsher
+     * test than a Tailwind page. Bullets, numbers, heading sizes and margins
+     * inside the editor must still show.
+     */
+    .preflight-fixture *, .preflight-fixture ::before, .preflight-fixture ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; }
+    .preflight-fixture :is(h1, h2, h3, h4, h5, h6) { font-size: inherit; font-weight: inherit; }
+    .preflight-fixture a { color: inherit; text-decoration: inherit; }
+    .preflight-fixture :is(blockquote, dl, dd, h1, h2, h3, h4, h5, h6, hr, figure, p, pre) { margin: 0; }
+    .preflight-fixture :is(ol, ul, menu) { list-style: none; margin: 0; padding: 0; }
+    .preflight-fixture :is(img, svg, video, canvas, audio, iframe, embed, object) { display: block; vertical-align: middle; }
+    .preflight-fixture :is(img, video) { max-width: 100%; height: auto; }
+    .preflight-fixture table { text-indent: 0; border-color: inherit; border-collapse: collapse; }
+    .preflight-fixture :is(button, input, optgroup, select, textarea) { font-family: inherit; font-size: 100%; font-weight: inherit; line-height: inherit; color: inherit; margin: 0; padding: 0; }
+    .preflight-fixture :is(code, kbd, samp, pre) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1em; }
+    .preflight-fixture mikedown-editor { border: 1px solid var(--card-border); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>&lt;mikedown-editor&gt;</h1>
+    <label>Page theme
+      <select id="page-theme">
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </label>
+    <span class="hint">Every editor here uses <code>theme="auto"</code> with <code>dark-selector="html.dark"</code>.</span>
+  </header>
+
+  <main>
+    <section>
+      <h2>A plain form</h2>
+      <p>Two editors inside a <code>&lt;form&gt;</code>. Submit reads <code>new FormData(form)</code>; Reset puts both back to their initial text.</p>
+      <form id="post-form" action="#" method="post">
+        <div class="field">
+          <label for="summary">Summary (required)</label>
+          <mikedown-editor id="summary" name="summary" required min-height="120"
+            dark-selector="html.dark" placeholder="One or two sentences"
+            features='{"sourceMode":false,"mermaid":false}'
+            value="A **short** summary with a [link](https://example.com)."></mikedown-editor>
+          <span class="hint">From the <code>value</code> attribute. Clear it and submit to see <code>valueMissing</code>.</span>
+        </div>
+
+        <div class="field">
+          <label for="body">Body</label>
+          <mikedown-editor id="body" dark-selector="html.dark" min-height="260">
+            <textarea name="body"># Server-rendered body
+
+This text came from a child `<textarea name="body">`, the way a Rails, Django or Razor
+template would render it. Without JavaScript the textarea still works.
+
+- Lists keep their bullets
+- **Bold**, *italic*, ==highlight==
+  - nested items too
+
+1. Numbered
+2. Lists
+
+```js
+console.log('code blocks');
+```
+
+| Column | Value |
+| --- | --- |
+| a | 1 |
+
+$$E = mc^2$$
+</textarea>
+          </mikedown-editor>
+          <span class="hint">From a child <code>&lt;textarea&gt;</code>, which is hidden and disabled once the element upgrades; its <code>name</code> moves to the element.</span>
+        </div>
+
+        <div class="actions">
+          <button type="submit">Submit</button>
+          <button type="reset">Reset</button>
+        </div>
+      </form>
+      <pre id="output">Submit the form to see what it would send.</pre>
+    </section>
+
+    <section class="preflight-fixture">
+      <h2>Tailwind preflight fixture</h2>
+      <p>This section applies the preflight reset rules (lists, headings, margins, links, tables, code). The editor should look the same as above.</p>
+      <mikedown-editor dark-selector="html.dark" min-height="200" aria-label="Preflight fixture" features='{"mermaid":false}'>
+        <script type="text/markdown">
+          ## Heading two
+
+          ### Heading three
+
+          A paragraph with a [link](https://example.com) and `inline code`.
+
+          - disc
+            - circle
+              - square
+
+          1. one
+          2. two
+
+          - [ ] task list items have no bullet
+          - [x] done
+
+          > A blockquote keeps its margin and border.
+        </script>
+      </mikedown-editor>
+    </section>
+  </main>
+
+  <script type="module">
+    const form = document.getElementById('post-form');
+    const output = document.getElementById('output');
+
+    document.getElementById('page-theme').addEventListener('change', (e) => {
+      document.documentElement.classList.toggle('dark', e.target.value === 'dark');
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) {
+        output.textContent = 'Invalid: ' + [...form.querySelectorAll('mikedown-editor')]
+          .filter((el) => !el.checkValidity())
+          .map((el) => `${el.name}: ${el.validationMessage}`)
+          .join(', ');
+        return;
+      }
+      const data = Object.fromEntries(new FormData(form));
+      output.textContent = JSON.stringify(data, null, 2);
+    });
+
+    form.addEventListener('reset', () => {
+      output.textContent = 'Form reset.';
+    });
+
+    // change is debounced (and fires at once on blur); ready carries the handle.
+    document.addEventListener('change', (event) => {
+      if (event.target.localName !== 'mikedown-editor') return;
+      event.target.classList.toggle('invalid', !event.target.checkValidity());
+      console.log(`change from #${event.target.id}:`, event.detail.value.length, 'chars');
+    });
+    document.addEventListener('ready', (event) => {
+      if (event.target.localName === 'mikedown-editor') console.log(`ready: #${event.target.id || '(no id)'}`, event.detail.handle);
+    });
+  </script>
+</body>
+</html>

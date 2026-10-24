@@ -686,6 +686,7 @@
     "test:angular": "npm run build:core && npm test --prefix packages/angular/test-app",
     "test:react": "npm test -w packages/react",
     "test:vue": "npm test -w packages/vue",
+    "test:web-component": "vitest run packages/web-component/test --reporter=verbose",
     "pretest": "npm run compile"
   },
   "devDependencies": {
