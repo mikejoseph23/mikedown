@@ -25,9 +25,9 @@
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [M0 — Decisions and spikes](#m0--decisions-and-spikes) | Opus | 👀 Awaiting review | 13 | Gate: Mike approves `wrappers-decisions.md` (7 departures from defaults) |
+| [M0 — Decisions and spikes](#m0--decisions-and-spikes) | Opus | ✅ Complete | 13 | `wrappers-decisions.md` approved 2026-10-24 |
 | [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | ✅ Complete | — | `interapp` owns `mikedown`; 2FA on for auth and publishing (security key) |
-| [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ⬜ Not Started | — | Decouple core from the vsix bump |
+| [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | 🔄 In Progress | — | Decouple core from the vsix bump |
 | [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ⬜ Not Started | — | Mike runs the publish |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ⬜ Not Started | — | Mike uploads the `.vsix` |
 | [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ⬜ Not Started | — | LymeStarter, Quantico Creek, Desktop pin |
@@ -193,6 +193,9 @@ Apply to every milestone.
 - [ ] Fix `packages/core/README.md` status line (not yet published; install will be `npm install @mikedown/core`). Add `.npmrc` to `.gitignore` (no tokens in the repo).
 - [ ] `.github/workflows/ci.yml` (required, decided): lint, `test:unit`, `test:edge`, `test:packages` on push and PR; no publish step. Trusted publishing later builds on it.
 - [ ] Update `CLAUDE.md` "Releasing" and the command table: npm family releases are independent of the extension; `npm run vsix` no longer touches core; the order (npm first) is only required when the extension or desktop needs a new core version.
+- [ ] *(M0)* Core: `katex` becomes a required peer (drop it from `peerDependenciesMeta`; `mermaid` stays optional). Shape test checks it.
+- [ ] *(M0)* Every `exports` entry in every public package gets `"default"` after `"import"` (Jest resolution). Shape test checks it.
+- [ ] *(M0)* `version-npm.mjs`, `release-npm.mjs` and the shape test find packages by globbing `packages/*/package.json`, and treat `packages/angular` (when it exists) as a non-workspace package with its own lockfile, published from `packages/angular/dist`. CI runs `npm ci --prefix packages/angular` when that folder exists.
 - [ ] `npm run lint`, `test:unit`, `test:edge`, `test:packages`, and `npm run release:npm` (dry run) green. Commit.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
@@ -257,6 +260,8 @@ Apply to every milestone.
 - [ ] LymeStarter and both Quantico Creek apps build from the registry core package (re-run if M4 did it before the smoke).
 - [ ] **Hands-on (Mike, 3 minutes):** in VS Code, Extensions panel, confirm MikeDown Editor shows 2.15.0 after the Marketplace update; open `~/git/mikedown/test/workspace/` any `.md` file; type, save, use the toolbar zoom `[−] 15 [+]`; open a callout document and confirm no duplicated body text. Orchestrator pauses for sign-off.
 
+**Also (M0):** apply the "What changes in this plan" lines for T1 in `wrappers-decisions.md`.
+
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
 ---
@@ -277,6 +282,8 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 - [ ] Export from the package root and as `@mikedown/core/binding`; add to `exports` and `index.d.ts`.
 - [ ] Unit tests in `packages/core/test/binding.test.ts` (jsdom): debounce, flush on blur, equal-value skip, pristine load, auto theme on selector change and media change, destroy removes observers.
 - [ ] Core README section. `test:unit`, `test:packages` green. Commit.
+
+**Also (M0):** apply the "What changes in this plan" lines for M5 in `wrappers-decisions.md`.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -301,6 +308,8 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 - [ ] `packages/web-component/demo/index.html` (plain HTML, form submit, two elements).
 - [ ] Tests (vitest, jsdom): attribute/property sync, events, form value and reset, validity, child-textarea init, disconnect/reconnect.
 - [ ] README: install, npm usage, CDN usage, attribute/property/event table, styling, htmx and server-rendered examples. Commit.
+
+**Also (M0):** apply the "What changes in this plan" lines for M6 in `wrappers-decisions.md`.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -353,6 +362,8 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 - [ ] Port the existing spec to the runner M0 chose; cover CVA write/read, pristine writes, disabled, debounce, `preserveBrackets`, `darkSelector`.
 - [ ] README: install, standalone (and NgModule, if built) examples, reactive forms and `ngModel`, `angular.json` styles and dictionaries assets (from the core README), supported Angular versions. Commit.
 
+**Also (M0):** apply the "What changes in this plan" lines for M9 in `wrappers-decisions.md`.
+
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
 ---
@@ -401,6 +412,8 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 - [ ] MIME check: `curl -sI` a `.woff2`, `.mjs`, `.svg` and `.webmanifest` already served by iadev-prod; list any type the new pages need that isn't served. Never add a `mimeMap` for a type already mapped machine-wide (duplicate entry 500s the folder, `latest.json` included).
 - [ ] Cloudflare purge list for every new page URL (apex and www), added to the `mikedown-downloads` yaml but disabled like the existing desktop entries.
 - [ ] Root scripts `dev:site`, `build:site`. Commit.
+
+**Also (M0):** apply the "What changes in this plan" lines for M11 in `wrappers-decisions.md`.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -453,6 +466,8 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 - [ ] Each package README: consistent sections (install for npm/pnpm plus the explicit Yarn peer line, minimal example, API table, accessibility props, theming pointer to core, browser support, "no telemetry, no network calls except the ones you configure", links to the demo page, Developers hub and GitHub). Core README links every wrapper.
 - [ ] `CLAUDE.md`: architecture section lists the new packages, `website/` workspace, `test:wrappers` / `test:consumers` / `test:packages`, `dev:site` / `build:site`, and the site publish flow.
 - [ ] `BACKLOG.md`: provenance via GitHub Actions trusted publishing; Blazor wrapper; typedoc API reference; any M0 deferrals. Commit.
+
+**Also (M0):** apply the "What changes in this plan" lines for M14 in `wrappers-decisions.md`.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -590,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 16:05** - Mike approved `wrappers-decisions.md` (all seven departures). M0 items for M1 added to its checklist; M5, M6, M9, M11, M14 and T1 point at their "What changes" lines. M1 dispatched (Sonnet, worktree).
 
 **2026-10-24 15:44** - M0 done (commit `729b955`, 13 min): `wrappers-decisions.md` and BACKLOG follow-ups. Departures from defaults awaiting Mike: `katex` becomes a required core peer before 0.1.0 (optional peer + CSS `@import` breaks a plain install); every `exports` gets a `default` condition (Jest); `packages/angular` stays out of root workspaces with its own lockfile; family goes to `0.2.0-rc.0` at M5; dictionary URL is the `dist/dictionaries` base; M5 adds placeholder/id/aria/landmark/outputTransform core options; core list CSS sets `list-style-type` (Tailwind). Standalone bundle ~780 kB gz, budget 850 kB. Cloudflare doesn't cache `/mikedown/`, so purge steps can be skipped.
 
