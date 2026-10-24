@@ -147,7 +147,7 @@ describe('recents store', () => {
 describe('window title (edge case 29)', () => {
   it('file — folder, Untitled — folder, MikeDown for the welcome screen', () => {
     expect(formatWindowTitle({ doc: { path: '/n/sub/a.md', dirty: false }, folder: '/n', platform: 'mac' })).toBe('a.md — n');
-    expect(formatWindowTitle({ doc: { path: '/x/lone.md', dirty: false }, folder: null, platform: 'mac' })).toBe('lone.md — x');
+    expect(formatWindowTitle({ doc: { path: '/x/lone.md', dirty: false }, folder: null, platform: 'mac' })).toBe('lone.md');
     expect(formatWindowTitle({ doc: { path: null, dirty: false }, folder: '/n', platform: 'mac' })).toBe('Untitled — n');
     expect(formatWindowTitle({ doc: { path: null, dirty: false }, folder: null, platform: 'mac' })).toBe('Untitled');
     expect(formatWindowTitle({ doc: null, folder: null, platform: 'other' })).toBe('MikeDown');
@@ -157,6 +157,8 @@ describe('window title (edge case 29)', () => {
   it('dirty: the macOS dot comes from setDocumentEdited, elsewhere a bullet', () => {
     expect(formatWindowTitle({ doc: { path: '/n/a.md', dirty: true }, folder: '/n', platform: 'mac' })).toBe('a.md — n');
     expect(formatWindowTitle({ doc: { path: '/n/a.md', dirty: true }, folder: '/n', platform: 'other' })).toBe('• a.md — n');
+    expect(formatWindowTitle({ doc: { path: '/x/com.interappdev.mikedown/Welcome to MikeDown.md', dirty: false }, folder: null, platform: 'other' })).toBe('Welcome to MikeDown.md');
+    expect(formatWindowTitle({ doc: { path: '/x/lone.md', dirty: true }, folder: null, platform: 'other' })).toBe('• lone.md');
   });
 });
 

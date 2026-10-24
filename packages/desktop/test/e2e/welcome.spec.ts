@@ -46,7 +46,7 @@ test('first launch opens the welcome guide and offers the default app once; the 
   }).toBe(true);
   await expect.poll(() => readRecents(ipc).files.map((f: { path: string }) => f.path)).toEqual([guide]);
   expect(readRecents(ipc).firstRunDone).toBe(true);
-  await expect.poll(() => titles(ipc).at(-1)).toMatch(/^Welcome to MikeDown\.md — /);
+  await expect.poll(() => titles(ipc).at(-1)).toBe('Welcome to MikeDown.md');
 
   // Closing the last tab of a lone-file window shows the welcome screen.
   await page.locator('#editor .ProseMirror').first().click();

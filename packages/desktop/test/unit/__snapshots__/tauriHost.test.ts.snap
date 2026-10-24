@@ -40,7 +40,7 @@ exports[`TauriHost invoke traffic > openLink: external goes to the shell plugin,
   {
     "args": {
       "label": "main",
-      "value": "other.md — notes",
+      "value": "other.md",
     },
     "cmd": "plugin:window|set_title",
   },
@@ -70,7 +70,7 @@ exports[`TauriHost invoke traffic > opening a file reads it and updates the nati
   {
     "args": {
       "label": "main",
-      "value": "todo.md — notes",
+      "value": "todo.md",
     },
     "cmd": "plugin:window|set_title",
   },
@@ -373,7 +373,7 @@ exports[`TauriHost invoke traffic > uploadImage on an unsaved document saves it 
   {
     "args": {
       "label": "main",
-      "value": "Untitled.md — new",
+      "value": "Untitled.md",
     },
     "cmd": "plugin:window|set_title",
   },

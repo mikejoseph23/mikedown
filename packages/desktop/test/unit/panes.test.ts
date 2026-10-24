@@ -99,7 +99,7 @@ describe('split panes', () => {
     expect(tabEl(0, 0).querySelector('.mdapp-tab__dot')?.hasAttribute('hidden')).toBe(false);
     // The window title follows the focused pane's document.
     const titles = calls.filter((c) => c.cmd === 'plugin:window|set_title').map((c) => (c.args as { value: string }).value);
-    expect(titles.at(-1)).toBe('a.md — notes');
+    expect(titles.at(-1)).toBe('a.md');
     expect(calls.filter((c) => c.cmd === 'set_document_edited').at(-1)?.args).toEqual({ edited: true });
 
     // And back: an edit in pane one reaches pane two.
