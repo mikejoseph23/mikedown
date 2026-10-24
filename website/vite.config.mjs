@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import mikedownShell from './shared/vite-plugin.js';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const page = (p) => resolve(root, p, 'index.html');
@@ -9,9 +10,12 @@ const page = (p) => resolve(root, p, 'index.html');
 // download page at /mikedown/ (mikedown-desktop/) is NOT part of this build; the
 // desktop release script renders it. developers/angular/index.html here is only a
 // placeholder: build:angular overwrites it with the Angular CLI build.
+// The shell plugin fills each page's header and footer markers (shared/partials.js)
+// and, in dev and preview, serves the desktop page at /mikedown/ for the nav.
 export default defineConfig({
   root,
   base: '/mikedown/',
+  plugins: [mikedownShell()],
   server: { port: 5180, strictPort: true },
   preview: { port: 5180, strictPort: true },
   build: {

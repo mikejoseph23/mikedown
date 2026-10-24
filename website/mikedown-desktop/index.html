@@ -22,48 +22,193 @@
     when a release has no Linux build) by deploy/render-page.js at staging.
   -->
   <style>
-    :root {
-      --bg: #0a0a0a;
-      --bg-raised: #141414;
-      --text: #e0e0e0;
-      --text-strong: #ffffff;
-      --muted: #9a9a9a;
-      --accent: #4e9de0;
-      --accent-hover: #3a8dd4;
-      --border: #2a2a2a;
-    }
+    /* The shared site shell: tokens, type, header, footer, buttons and the band.
+       Copied from website/shared/shell.css by `npm run sync:shell -w website`;
+       edit that file, not this block. */
+    /* shell:css:begin */
+/*
+ * MikeDown site shell: color tokens, type, header and footer.
+ *
+ * Tokens and type are lifted from the desktop download page
+ * (website/mikedown-desktop/index.html), which carries an inline copy of this
+ * file between its shell:css markers. After editing this file run
+ *   node website/scripts/sync-desktop-shell.js
+ * (build:site runs it with --check and fails when the copy is stale).
+ *
+ * Theme: follows prefers-color-scheme. A page with its own theme toggle sets
+ * data-theme="light" or data-theme="dark" on <html> to override it.
+ *
+ * Keep this file free of url() and @import: the desktop page is staged flat
+ * and its checks only allow the files it already ships.
+ */
+:root {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --bg-raised: #141414;
+  --text: #e0e0e0;
+  --text-strong: #ffffff;
+  --muted: #9a9a9a;
+  --accent: #4e9de0;
+  --accent-hover: #3a8dd4;
+  --border: #2a2a2a;
+  --accent-soft: rgba(78, 157, 224, 0.12);
+  --button-bg: #1f6fb8;
+  --button-bg-hover: #185a96;
+  --button-text: #ffffff;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --shell-max: 960px;
+}
 
-    @media (prefers-color-scheme: light) {
-      :root {
-        --bg: #fafafa;
-        --bg-raised: #ffffff;
-        --text: #2a2a2a;
-        --text-strong: #111111;
-        --muted: #5f5f5f;
-        --accent: #1f6fb8;
-        --accent-hover: #185a96;
-        --border: #dddddd;
-      }
-    }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #fafafa;
+    --bg-raised: #ffffff;
+    --text: #2a2a2a;
+    --text-strong: #111111;
+    --muted: #5f5f5f;
+    --accent: #1f6fb8;
+    --accent-hover: #185a96;
+    --border: #dddddd;
+    --accent-soft: rgba(31, 111, 184, 0.08);
+  }
+}
 
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #fafafa;
+  --bg-raised: #ffffff;
+  --text: #2a2a2a;
+  --text-strong: #111111;
+  --muted: #5f5f5f;
+  --accent: #1f6fb8;
+  --accent-hover: #185a96;
+  --border: #dddddd;
+  --accent-soft: rgba(31, 111, 184, 0.08);
+}
 
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.7;
-      -webkit-font-smoothing: antialiased;
-    }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a { color: var(--accent); }
+a:hover { color: var(--accent-hover); }
+img { max-width: 100%; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+.site-container { max-width: var(--shell-max); margin: 0 auto; padding: 0 16px; }
+
+.site-skip {
+  position: absolute; left: 16px; top: -48px; z-index: 10;
+  padding: 8px 14px; border-radius: 8px;
+  background: var(--button-bg); color: var(--button-text);
+  font-size: 14px; font-weight: 600; text-decoration: none;
+}
+.site-skip:focus { top: 12px; color: var(--button-text); }
+
+/* Header */
+.site-header { border-bottom: 1px solid var(--border); }
+.site-header__inner {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; column-gap: 24px; min-height: 60px;
+}
+.site-brand {
+  display: inline-flex; align-items: center; gap: 10px;
+  color: var(--text-strong); text-decoration: none;
+  font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+  padding: 12px 0;
+}
+.site-brand:hover { color: var(--text-strong); }
+.site-brand svg { flex: none; color: var(--accent); }
+.site-nav { display: flex; align-items: stretch; gap: 4px; align-self: stretch; }
+.site-nav a {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 12px; color: var(--muted); text-decoration: none;
+  font-size: 14.5px; font-weight: 500; white-space: nowrap;
+  transition: color 0.15s ease;
+}
+.site-nav a:hover { color: var(--text-strong); }
+.site-nav a[aria-current="page"] { color: var(--text-strong); }
+.site-nav a[aria-current="page"]::after {
+  content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px;
+  height: 2px; border-radius: 2px; background: var(--accent);
+}
+.site-nav a:last-child { padding-right: 0; }
+.site-nav a:last-child[aria-current="page"]::after { right: 0; }
+.site-nav svg { flex: none; }
+
+.site-brand:focus-visible, .site-nav a:focus-visible, .site-footer a:focus-visible, .band a:focus-visible, .btn:focus-visible {
+  outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px;
+}
+
+@media (max-width: 600px) {
+  .site-header__inner { padding-top: 4px; }
+  .site-nav { width: 100%; justify-content: space-between; gap: 0; border-top: 1px solid var(--border); }
+  .site-nav a { padding: 12px 0; }
+  .site-nav a[aria-current="page"]::after { left: 0; right: 0; }
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 48px; padding: 12px 22px; border-radius: 12px;
+  border: 1px solid transparent;
+  font: inherit; font-size: 16px; font-weight: 600; line-height: 1.2;
+  text-decoration: none; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.btn svg { flex: none; }
+.btn--primary { background: var(--button-bg); color: var(--button-text); }
+.btn--primary:hover { background: var(--button-bg-hover); color: var(--button-text); }
+.btn--secondary { background: transparent; color: var(--text-strong); border-color: var(--border); }
+.btn--secondary:hover { color: var(--text-strong); border-color: var(--muted); background: var(--accent-soft); }
+
+/* Band: a full-width raised strip that points at another MikeDown product. */
+.band { padding: 56px 0; background: var(--bg-raised); border-top: 1px solid var(--border); }
+.band__inner { display: grid; gap: 32px; }
+.band h2, .band h3 { color: var(--text-strong); line-height: 1.25; }
+.band h2 { font-size: 1.5rem; letter-spacing: -0.02em; margin-bottom: 8px; }
+.band h3 { font-size: 1.05rem; letter-spacing: -0.01em; margin-bottom: 6px; }
+.band p { color: var(--muted); font-size: 15.5px; max-width: 520px; }
+.band__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 20px; }
+.band__link { font-weight: 600; font-size: 15px; text-underline-offset: 3px; }
+.band__aside { padding-top: 28px; border-top: 1px solid var(--border); }
+.band__aside .band__link { display: inline-block; margin-top: 12px; }
+@media (min-width: 760px) {
+  .band__inner { grid-template-columns: 3fr 2fr; gap: 48px; align-items: start; }
+  .band__aside { padding: 4px 0 4px 40px; border-top: none; border-left: 1px solid var(--border); }
+}
+
+/* Footer */
+.site-footer { padding: 40px 0 56px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); }
+.site-footer p { line-height: 1.6; }
+.site-footer nav { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 10px; }
+.site-footer nav a { color: var(--text); text-decoration: none; }
+.site-footer nav a:hover { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .site-nav a, .btn { transition: none; }
+}
+    /* shell:css:end */
 
     h1, h2 { color: var(--text-strong); line-height: 1.25; }
-    a { color: var(--accent); }
-    a:hover { color: var(--accent-hover); }
 
     .container { max-width: 960px; margin: 0 auto; padding: 0 16px; }
     section { padding: 64px 0; border-top: 1px solid var(--border); }
 
-    .hero { padding: 96px 0 72px; text-align: center; border-top: none; }
+    .hero { padding: 80px 0 72px; text-align: center; border-top: none; }
     .hero h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); letter-spacing: -0.03em; margin-bottom: 16px; }
     .hero p { color: var(--muted); font-size: clamp(1rem, 2.4vw, 1.2rem); max-width: 560px; margin: 0 auto 40px; }
 
@@ -77,8 +222,8 @@
     .dl:hover { background: var(--accent-hover); color: #fff; }
     .dl:focus-visible { outline: 3px solid var(--text-strong); outline-offset: 3px; }
     .dl small { font-weight: 400; font-size: 13px; opacity: 0.9; }
-    .version { margin-top: 20px; color: var(--muted); font-size: 14px; }
-    .linux-dl { margin: 28px auto 0; font-size: 14px; color: var(--muted); }
+    .hero .version { margin: 20px auto 0; color: var(--muted); font-size: 14px; }
+    .hero .linux-dl { margin: 28px auto 0; font-size: 14px; color: var(--muted); }
     .linux-dl a { font-weight: 600; }
     .linux-dl small { display: block; max-width: 520px; margin: 4px auto 0; font-size: 13px; line-height: 1.5; }
     code { font-size: 0.92em; overflow-wrap: anywhere; }
@@ -101,13 +246,26 @@
     .shot figcaption { margin-top: 10px; color: var(--muted); font-size: 14px; line-height: 1.5; }
     .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-top: 32px; }
 
-    footer { padding: 40px 0 56px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); }
-
     @media (prefers-reduced-motion: reduce) { .dl { transition: none; } }
   </style>
 </head>
 <body>
-  <main>
+  <!--shell:header:begin-->
+  <a class="site-skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="site-container site-header__inner">
+      <a class="site-brand" href="/mikedown/"><svg width="24" height="24" viewBox="0 0 128 128" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,86 20,30 64,66 108,30 108,86" stroke-width="13"/><polyline points="49,99 64,114 79,99" stroke-width="10"/></g></svg><span>MikeDown</span></a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/mikedown/" aria-current="page">Desktop</a>
+        <a href="/mikedown/vscode/">VS Code</a>
+        <a href="/mikedown/developers/">Developers</a>
+        <a href="https://github.com/mikejoseph23/mikedown"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.37-3.87-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <!--shell:header:end-->
+
+  <main id="main">
     <section class="hero" id="download">
       <div class="container">
         <h1>MikeDown Desktop</h1>
@@ -173,6 +331,24 @@
       </div>
     </section>
 
+    <section class="band" id="vscode" aria-labelledby="also-vscode">
+      <div class="container band__inner">
+        <div>
+          <h2 id="also-vscode">Also for VS Code</h2>
+          <p>The same editor runs inside Visual Studio Code. Open any .md file in an editor tab and edit it as a formatted document, with Git and your other extensions beside it.</p>
+          <div class="band__actions">
+            <a class="btn btn--secondary" href="https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor">Get it on the Marketplace</a>
+            <a class="band__link" href="/mikedown/vscode/">See what the extension does</a>
+          </div>
+        </div>
+        <div class="band__aside">
+          <h3>For developers</h3>
+          <p>The editor is on npm as a web component and as React, Vue and Angular packages.</p>
+          <a class="band__link" href="/mikedown/developers/">Build it into your app</a>
+        </div>
+      </div>
+    </section>
+
     <section>
       <div class="container">
         <h2 class="section-title">Install</h2>
@@ -222,11 +398,20 @@
     </section>
   </main>
 
-  <footer>
-    <div class="container">
-      MikeDown Desktop is made by Interapp Development, Inc. Also available: <a href="https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor">MikeDown for VS Code</a>.
+  <!--shell:footer:begin-->
+  <footer class="site-footer">
+    <div class="site-container">
+      <p>MikeDown is made by Interapp Development, Inc.</p>
+      <nav aria-label="Footer">
+        <a href="/mikedown/">MikeDown Desktop</a>
+        <a href="/mikedown/vscode/">MikeDown for VS Code</a>
+        <a href="/mikedown/developers/">For developers</a>
+        <a href="https://github.com/mikejoseph23/mikedown">Source on GitHub</a>
+        <a href="/mikedown/#privacy">Privacy</a>
+      </nav>
     </div>
   </footer>
+  <!--shell:footer:end-->
 
   <script>
   // Rewrite the download buttons, version line and notes from the updater

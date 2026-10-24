@@ -6,8 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && npm run build:angular",
-    "build:vite": "vite build",
+    "build": "npm run check:shell && vite build && npm run build:angular",
+    "build:vite": "npm run check:shell && vite build",
+    "check:shell": "node scripts/sync-desktop-shell.js --check",
+    "sync:shell": "node scripts/sync-desktop-shell.js",
     "build:angular": "node scripts/build-angular.mjs",
     "preview": "vite preview"
   },

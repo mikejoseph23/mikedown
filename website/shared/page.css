@@ -1,0 +1,68 @@
+/*
+ * Content primitives for the Vite-built site pages (VS Code, developers).
+ * Load after shell.css. The desktop page keeps its own copies of the few it
+ * uses, so this file is not inlined there.
+ */
+h1, h2, h3 { color: var(--text-strong); line-height: 1.25; }
+h1 { letter-spacing: -0.03em; }
+h2 { letter-spacing: -0.02em; }
+h3 { letter-spacing: -0.01em; }
+
+.section { padding: 72px 0; border-top: 1px solid var(--border); }
+.section-title { font-size: clamp(1.5rem, 3.2vw, 1.875rem); margin-bottom: 12px; }
+.section-lede { color: var(--muted); font-size: 17px; max-width: 620px; }
+.section-head { margin-bottom: 36px; }
+
+.prose { max-width: 680px; color: var(--muted); font-size: 16.5px; }
+.prose p + p { margin-top: 14px; }
+.prose strong { color: var(--text); font-weight: 600; }
+
+code, kbd { font-family: var(--mono); font-size: 0.88em; }
+/* Inline snippets and key combos are short: keep each on one line. */
+:not(pre) > code, .keys { white-space: nowrap; }
+:not(pre) > code {
+  padding: 0.1em 0.35em; border-radius: 5px;
+  background: var(--accent-soft); color: var(--text-strong);
+}
+kbd {
+  display: inline-block; padding: 0 0.4em; border-radius: 5px;
+  border: 1px solid var(--border); border-bottom-width: 2px;
+  background: var(--bg-raised); color: var(--text-strong);
+  font-size: 0.82em; line-height: 1.6; white-space: nowrap;
+}
+
+/* A screenshot in a frame. Use <picture> for a light and a dark capture. */
+.shot { margin: 0; }
+.shot__frame {
+  display: block; border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  background: var(--bg-raised); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+}
+.shot__frame img { display: block; width: 100%; height: auto; }
+.shot figcaption { margin-top: 12px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+/* A one-line command with a copy button. */
+.command {
+  display: flex; align-items: center; gap: 12px;
+  max-width: 100%; padding: 6px 6px 6px 16px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg-raised);
+}
+.command code {
+  flex: 1; min-width: 0; padding: 0; background: none;
+  font-size: 14.5px; color: var(--text-strong); white-space: normal; overflow-wrap: anywhere; text-align: left;
+}
+.copy-button {
+  flex: none; min-width: 72px; min-height: 36px; padding: 6px 12px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: transparent; color: var(--text); font: inherit; font-size: 13.5px; font-weight: 500;
+  cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease;
+}
+.copy-button:hover { border-color: var(--muted); color: var(--text-strong); }
+.copy-button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+@media (max-width: 600px) {
+  .section { padding: 56px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-button { transition: none; }
+}
