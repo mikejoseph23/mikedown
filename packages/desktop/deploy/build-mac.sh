@@ -16,8 +16,9 @@
 #   4. Updater payload rebuilt from the stapled app and signed with the
 #      minisign key (tauri signer sign --app-version), so the bytes the
 #      updater verifies are the bytes that ship.
-#   5. DMG (hdiutil, app + /Applications link), DMG signature, notarize and
-#      staple the DMG (skippable).
+#   5. Styled DMG via make-dmg.sh (background art, icon layout, hidden toolbar;
+#      art source in assets/dmg/), DMG signature, notarize and staple the DMG
+#      (skippable). Needs a logged-in GUI session (Finder lays the window out).
 #   6. Verify: lipo, codesign --verify --deep --strict, spctl, stapler validate.
 #
 # Usage:
@@ -36,6 +37,14 @@
 #   --config <file>            Extra tauri config overlay (the staging updater
 #                              test uses this; never for a real release).
 #   --version-suffix <s>       Name artifacts MikeDown-<version><s>-... (tests).
+#   --dmg-only                 Skip the build, app notarization and updater
+#                              payload; restyle the DMG from an already signed
+#                              and stapled MikeDown.app (default
+#                              <output>/MikeDown.app) and sign, notarize and
+#                              staple it. For iterating on the DMG look.
+#   --app <path>               With --dmg-only: take the stapled app from here
+#                              (pair with --output to leave the original dist
+#                              folder untouched).
 #
 # Updater key: ~/.tauri/mikedown.key (override: $TAURI_SIGNING_PRIVATE_KEY_PATH),
 # password from the login Keychain item "mikedown-updater-key"
@@ -60,6 +69,8 @@ OUTPUT_DIR=""
 CORE_FLAG=""
 EXTRA_CONFIG=""
 SUFFIX=""
+DMG_ONLY=false
+APP_IN=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -70,6 +81,8 @@ while [[ $# -gt 0 ]]; do
         --allow-unpublished-core) CORE_FLAG="--allow-unpublished-core"; shift ;;
         --config)                 EXTRA_CONFIG="$2"; shift 2 ;;
         --version-suffix)         SUFFIX="$2"; shift 2 ;;
+        --dmg-only)               DMG_ONLY=true; shift ;;
+        --app)                    APP_IN="$2"; shift 2 ;;
         -h|--help) awk 'NR == 1 && /^#!/ { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"; exit 0 ;;
         *) echo "Unknown option: $1 (try --help)" >&2; exit 2 ;;
     esac
@@ -79,7 +92,7 @@ done
 
 VERSION="$(node "$SCRIPT_DIR/sync-version.js" --check)" || {
     echo "ERROR: versions out of sync; run node deploy/sync-version.js <version>." >&2; exit 1; }
-node "$SCRIPT_DIR/check-core-pin.js" $CORE_FLAG
+[[ "$DMG_ONLY" == true ]] || node "$SCRIPT_DIR/check-core-pin.js" $CORE_FLAG
 
 if [[ -z "$IDENTITY" ]]; then
     IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
@@ -95,6 +108,7 @@ if [[ "$SKIP_NOTARIZE" != true && -z "$NOTARY_PROFILE" ]]; then
 fi
 
 KEY_PATH="${TAURI_SIGNING_PRIVATE_KEY_PATH:-$HOME/.tauri/mikedown.key}"
+if [[ "$DMG_ONLY" != true ]]; then
 [[ -f "$KEY_PATH" ]] || { echo "ERROR: updater private key missing at $KEY_PATH (see deploy/README.md)." >&2; exit 1; }
 if [[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]]; then
     TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(security find-generic-password -s mikedown-updater-key -w)" || {
@@ -102,6 +116,7 @@ if [[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]]; then
 fi
 export TAURI_SIGNING_PRIVATE_KEY="$(cat "$KEY_PATH")"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+fi
 
 NAME="MikeDown-$VERSION$SUFFIX"
 OUTPUT_DIR="${OUTPUT_DIR:-$SCRIPT_DIR/dist/$VERSION$SUFFIX}"
@@ -116,6 +131,8 @@ echo "  Notarize:  $([[ "$SKIP_NOTARIZE" == true ]] && echo SKIPPED || echo "pro
 echo "  Output:    $OUTPUT_DIR"
 [[ -n "$EXTRA_CONFIG" ]] && echo "  Overlay:   $EXTRA_CONFIG (NOT a release build)"
 echo ""
+
+if [[ "$DMG_ONLY" != true ]]; then
 
 # ── 2. Build + sign (Tauri) ──────────────────────────────────────────────────
 
@@ -169,15 +186,25 @@ COPYFILE_DISABLE=1 tar -C "$WORK" -czf "$TARBALL" MikeDown.app
 ( cd "$PKG_DIR" && env -u TAURI_SIGNING_PRIVATE_KEY npx tauri signer sign -f "$KEY_PATH" --app-version "$VERSION" "$TARBALL" >/dev/null )
 [[ -s "$TARBALL.sig" ]] || { echo "ERROR: no signature written for $TARBALL" >&2; exit 1; }
 
+else
+    # --dmg-only: reuse an already signed and stapled app.
+    APP_FROM="${APP_IN:-$OUTPUT_DIR/MikeDown.app}"
+    [[ -d "$APP_FROM" ]] || { echo "ERROR: --dmg-only needs a stapled app at $APP_FROM (use --app)." >&2; exit 1; }
+    xcrun stapler validate "$APP_FROM" >/dev/null || { echo "ERROR: $APP_FROM is not stapled." >&2; exit 1; }
+    APP="$WORK/MikeDown.app"
+    ditto "$APP_FROM" "$APP"
+    codesign --verify --deep --strict "$APP"
+    TARBALL=""
+    echo "[1-3/6] skipped (--dmg-only, app from $APP_FROM)"
+fi
+
 # ── 5. DMG ───────────────────────────────────────────────────────────────────
 
 echo "[4/6] DMG"
 DMG="$OUTPUT_DIR/$NAME-macos-universal.dmg"
 rm -f "$DMG"
-mkdir -p "$WORK/dmg"
-ditto "$APP" "$WORK/dmg/MikeDown.app"
-ln -s /Applications "$WORK/dmg/Applications"
-hdiutil create -quiet -volname "MikeDown" -srcfolder "$WORK/dmg" -fs HFS+ -format UDZO -ov "$DMG"
+"$SCRIPT_DIR/make-dmg.sh" --app "$APP" --output "$DMG" --volname "MikeDown" \
+    --background "$SCRIPT_DIR/assets/dmg/background.png"
 codesign --force --sign "$IDENTITY" --timestamp "$DMG"
 
 if [[ "$SKIP_NOTARIZE" != true ]]; then
@@ -191,8 +218,10 @@ fi
 
 # Keep the signed (and stapled) app beside the artifacts for inspection and
 # for the staging updater test.
-rm -rf "$OUTPUT_DIR/MikeDown.app"
-ditto "$APP" "$OUTPUT_DIR/MikeDown.app"
+if [[ "${APP_FROM:-}" != "$OUTPUT_DIR/MikeDown.app" ]]; then
+    rm -rf "$OUTPUT_DIR/MikeDown.app"
+    ditto "$APP" "$OUTPUT_DIR/MikeDown.app"
+fi
 
 # ── 6. Verify ────────────────────────────────────────────────────────────────
 
@@ -212,13 +241,13 @@ VERIFY="$OUTPUT_DIR/verify-macos.txt"
     echo "## stapler validate $(basename "$DMG")"
     xcrun stapler validate "$DMG" 2>&1 || true
     echo "## sizes"
-    ls -l "$DMG" "$TARBALL" "$TARBALL.sig" | awk '{print $5, $NF}'
+    ls -l "$DMG" ${TARBALL:+"$TARBALL" "$TARBALL.sig"} | awk '{print $5, $NF}'
 } | tee "$VERIFY"
 
 echo ""
 echo "Done:"
 echo "  $DMG"
-echo "  $TARBALL (+ .sig)"
+[[ -n "$TARBALL" ]] && echo "  $TARBALL (+ .sig)"
 if [[ "$SKIP_NOTARIZE" == true ]]; then
     echo ""
     echo "  NOT NOTARIZED: Gatekeeper will reject this build on other Macs. Do not ship it."

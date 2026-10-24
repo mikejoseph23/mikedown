@@ -10,6 +10,7 @@ the checklist.
 | --- | --- | --- |
 | `release.sh <patch\|minor\|major\|x.y.z>` | Mac | bump + commit, Mac build, Windows build, `latest.json`, stage upload |
 | `build-mac.sh` | Mac | universal build, Developer ID, notarize + staple app and DMG, updater `.app.tar.gz` + `.sig` |
+| `make-dmg.sh` | Mac (GUI session) | styled drag-to-install DMG from a signed app (called by `build-mac.sh`) |
 | `remote-build-windows.sh` | Mac | drives the BEAST Scheduled Task, verifies, copies back, makes the updater `.sig` |
 | `build-windows.ps1` | BEAST | NSIS build, Trusted Signing via `sign-artifact.ps1` |
 | `beast/run-mikedown-build.ps1` | BEAST task | exact-commit checkout, `npm ci`, `build-windows.ps1`, restore, sentinel |
@@ -17,6 +18,33 @@ the checklist.
 | `check-core-pin.js` | either | `@mikedown/core` release gate (below) |
 | `make-latest-json.js` | Mac | updater manifest (Tauri static format) + website `downloads` block |
 | `updater-staging-test.sh` | Mac | local end-to-end updater test (N to N+1 from `127.0.0.1`) |
+
+## Styled DMG
+
+`make-dmg.sh` (adapted from LymeScribe's) lays out the install window: 600x400
+window, 128 px icons, app at 150,185 and the Applications link at 450,185,
+hidden toolbar and sidebar, brand background. Finder does the layout through
+AppleScript, so it needs a logged-in GUI session (a Finder window flashes open
+for a few seconds) and cannot run over bare SSH. The layout runs under a
+temporary volume name and is renamed to `MikeDown`, so a same-named volume that
+is already mounted is left alone. No volume icon is set (LymeScribe sets none).
+
+Background art lives in `assets/dmg/`: `make-background.py` (Pillow, run
+`python3 assets/dmg/make-background.py`) writes `background.png` (1x) and
+`background@2x.png`; `make-dmg.sh` fuses them into a HiDPI TIFF. If you move the
+icons, change `APP_POS`/`APPS_POS` in `make-dmg.sh` and the `*_ICON_CENTER`
+constants in the script together.
+
+To iterate on the look without the 15 minute universal build, restyle an
+already stapled app (still signs, notarizes and staples the DMG):
+
+```bash
+packages/desktop/deploy/build-mac.sh --dmg-only \
+  --app packages/desktop/deploy/dist/0.1.0/MikeDown.app \
+  --output packages/desktop/deploy/dist/0.1.0-styled
+```
+
+Without `--app` it uses `<output>/MikeDown.app`. It skips the updater payload.
 
 Artifacts are versioned only: `MikeDown-<v>-macos-universal.dmg`,
 `MikeDown-<v>-macos-universal.app.tar.gz(.sig)`,
