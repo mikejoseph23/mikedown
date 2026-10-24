@@ -21,6 +21,7 @@ import './styles/panes.css';
 import './styles/settings.css';
 import './styles/search.css';
 import './styles/versions.css';
+import './styles/welcome.css';
 
 import { createMikeDownEditor, type MikeDownEditorHandle, type MikeDownViewState } from '@mikedown/core';
 import { getVersion } from '@tauri-apps/api/app';
@@ -34,7 +35,15 @@ import { createSessionWriter, layoutFromSession, parseSession, serializeSession,
 import { createImagePipeline } from './host/imagePipeline';
 import { createPathOps, detectPathPlatform } from './host/pathOps';
 import { TauriHost } from './host/tauriHost';
-import { commandForKey, SHORTCUTS, formatAccelerator, type AppCommand } from './menu/shortcuts';
+import {
+  COMMANDS, SHORTCUTS, ISSUES_URL, WEBSITE_URL, chordKey, enablement, formatAccelerator, isEnabled, rowFor, rowForKey, rowsFor,
+  type AppCommand, type CommandId, type MenuContext, type ShortcutRow,
+} from './menu/shortcuts';
+import { buildMenuSpec, recentMenuItems, RECENT_FILE_PREFIX, RECENT_FOLDER_PREFIX, type MenuNode } from './menu/menuSpec';
+import { createRecentsStore, recentsApi, baseName, tildify, type RecentKind } from './app/recents';
+import { createWelcome } from './ui/welcome';
+import { showShortcutsSheet } from './ui/shortcutsSheet';
+import { menuApi } from './menu/menuApi';
 import { createPaneManager } from './panes/paneManager';
 import { createAppActions } from './settings/appActions';
 import { createAppTabSection } from './settings/appTab';
@@ -99,6 +108,8 @@ let searchPanelRef: ReturnType<typeof createSearchPanel> | null = null;
 let toggleVersionsRef: (() => void) | null = null;
 let refreshVersionsRef: (() => void) | null = null;
 let showVersionsRef: (() => void) | null = null;
+let syncWelcomeRef: (() => void) | null = null;
+let noteRecent: (kind: RecentKind, path: string) => void = () => { /* bound below */ };
 
 const sidebar = createSidebar({
   newFile: () => { void workspaceRef?.newFile(); },
@@ -319,8 +330,10 @@ const controller = createDocumentController({
     refreshVersionsRef?.();
     syncFolderButton();
     scheduleSession();
+    if (doc?.path) {noteRecent('file', doc.path);}
+    syncWelcomeRef?.();
   },
-  onDocumentsChanged: () => { reportWindowState(); scheduleSession(); },
+  onDocumentsChanged: () => { reportWindowState(); scheduleSession(); syncWelcomeRef?.(); },
   createFile: createFileWithText,
   compareWithDisk: async ({ doc, diskText }) => {
     const name = doc.path ? path.basename(doc.path) : 'Untitled';
@@ -337,6 +350,7 @@ const controller = createDocumentController({
     });
     return choice === 'overwrite' || choice === 'revert' ? choice : null;
   },
+  folder: () => workspaceRef?.root() ?? null,
 });
 controllerRef = controller;
 const baseOnStats = controller.onStats;
@@ -547,6 +561,9 @@ async function openFolder(dir: string): Promise<boolean> {
   syncFolderButton();
   reportWindowState();
   scheduleSession();
+  noteRecent('folder', dir);
+  syncWelcome();
+  controller.refresh();
   if (!panes.activeDoc()) {workspace.tree.focus();}
   if (timingEnabled) {
     // Rows are in the DOM (layout forced by offsetHeight). Not rAF: frames
@@ -798,7 +815,189 @@ if (!smokeEnabled()) {
   }).catch((err: unknown) => console.warn('MikeDown: drag and drop unavailable', err));
 }
 
-// ── App-level shortcuts (hostOwnsShortcuts): one table shared with the menu.
+// ── Welcome screen and recents (M8, edge case 18) ─────────────────────────
+
+const recents = createRecentsStore({ api: recentsApi, caseInsensitive: isMac || platform === 'win32' });
+let homeDir: string | null = null;
+
+const welcome = createWelcome({
+  isMac,
+  openFolder: () => { void openFolderViaDialog(); },
+  openFile: () => { void controller.openViaDialog(); },
+  newFile: () => { controller.newDocument(); },
+  openRecent: (kind, p) => { void openRecent(kind, p); },
+  removeRecent: (kind, p) => { void recents.remove(kind, p).catch((err: unknown) => console.warn('MikeDown: recents', err)); },
+  home: () => homeDir,
+});
+mainCol.appendChild(welcome.el);
+
+function renderWelcome(): void {
+  welcome.render(recents.view());
+}
+
+/** A window with no folder and no open document shows the welcome screen. */
+function syncWelcome(): void {
+  const show = booted && !smokeEnabled() && !workspace.root() && registry.all().length === 0;
+  if (show !== welcome.isVisible()) {
+    welcome.setVisible(show);
+    panes.el.style.display = show ? 'none' : '';
+    if (show) {
+      renderWelcome();
+      // Fresh "missing" flags for entries that went away since the last look.
+      void recents.load().catch(() => { /* not under Tauri */ });
+      const active = document.activeElement;
+      if (!active || active === document.body || mainCol.contains(active)) {welcome.focus();}
+    }
+  }
+  controller.refresh();
+  scheduleMenuSync();
+}
+syncWelcomeRef = syncWelcome;
+
+noteRecent = (kind, p) => {
+  if (smokeEnabled()) {return;}
+  const list = kind === 'folder' ? recents.data().folders : recents.data().files;
+  if (list[0]?.path === p && !recents.missing().has(p)) {return;}
+  void recents.add(kind, p).catch(() => { /* not under Tauri */ });
+};
+
+async function openRecent(kind: RecentKind, p: string): Promise<void> {
+  try { await recentsApi.allow(p); } catch { /* not listed or not under Tauri */ }
+  let ok = false;
+  try {
+    const st = await fsApi.stat(p);
+    ok = kind === 'folder' ? st.isDir : st.isFile;
+  } catch { /* gone or unreadable */ }
+  if (!ok) {
+    dialogs.toast(`${baseName(p)} is no longer at ${tildify(p, homeDir)}.`, { error: true, ms: 6000 });
+    await recents.load().catch(() => { /* not under Tauri */ });
+    return;
+  }
+  if (kind === 'folder') {await openFolder(p);}
+  else {await controller.openPath(p);}
+}
+
+/** First launch (edge case 29): the bundled cheat sheet as a lone file, and the default-app offer once. */
+async function firstRun(): Promise<boolean> {
+  if (!isMainWindow || recents.firstRunDone()) {return false;}
+  await recents.markFirstRunDone().catch(() => { /* not under Tauri */ });
+  let welcomePath: string | null = null;
+  try { welcomePath = await recentsApi.welcomeFile(); } catch { /* not under Tauri */ }
+  if (!welcomePath || !(await controller.openPath(welcomePath))) {return false;}
+  if (!settings.get().fileAssociationsOffered) {void offerDefaultApp();}
+  return true;
+}
+
+async function offerDefaultApp(): Promise<void> {
+  const choice = await dialogs.choose('Open .md files with MikeDown?', {
+    detail: isMac
+      ? 'MikeDown can be the app that opens markdown files when you double-click them. macOS asks you to confirm that in Finder; MikeDown shows the steps.'
+      : 'MikeDown can be the app that opens markdown files when you double-click them. Windows asks you to confirm that in Settings > Default apps.',
+    buttons: ['Not Now', 'Set as Default…'],
+    defaultIndex: 1,
+    cancelIndex: 0,
+  });
+  // Asked once either way; Settings > App keeps the button for later.
+  if (choice === 1) {await appActions.setDefaultApp();}
+  else {void settingsMgr.save({ fileAssociationsOffered: true }, { silent: true, force: true });}
+}
+
+void import('@tauri-apps/api/path')
+  .then((m) => m.homeDir())
+  .then((h) => { homeDir = h || null; renderWelcome(); syncRecentMenu(); })
+  .catch(() => { /* not under Tauri */ });
+
+// ── Native menu and shortcuts (M8, edge case 23): one table, `menu/shortcuts.ts` ──
+
+function menuContext(): MenuContext {
+  const doc = panes.activeDoc();
+  const editor = !!doc && (doc.kind === 'markdown' || doc.kind === 'text') && !!panes.activeHandle();
+  const active = document.activeElement as HTMLElement | null;
+  return {
+    hasDocument: !!doc,
+    editor,
+    sourceMode: editor && controller.isSourceMode(),
+    dirty: !!doc?.dirty,
+    hasPath: !!doc?.path,
+    insideFolder: !!(doc?.path && workspace.root() && isInside(workspace.root()!, doc.path, path)),
+    anyDirty: registry.all().some((d) => d.dirty),
+    folder: !!workspace.root(),
+    editorFocus: !!active?.closest?.('.mikedown-root'),
+  };
+}
+
+const rowEnabled = (row: ShortcutRow): boolean => isEnabled(row.when, menuContext());
+
+let menuTimer: ReturnType<typeof setTimeout> | undefined;
+let lastEnablement = '';
+/** Push the `when` state to the native menu (the focused window owns the shared bar). */
+function scheduleMenuSync(): void {
+  clearTimeout(menuTimer);
+  menuTimer = setTimeout(() => {
+    if (!booted || smokeEnabled() || !document.hasFocus()) {return;}
+    const state = enablement(menuContext(), isMac);
+    const json = JSON.stringify(state);
+    if (json === lastEnablement) {return;}
+    lastEnablement = json;
+    void menuApi.update(state).catch(() => { /* not under Tauri */ });
+  }, 60);
+}
+
+function recentLabel(p: string): string {
+  const where = tildify(path.dirname(p), homeDir);
+  return `${baseName(p)} — ${where}`;
+}
+
+let lastRecentMenu = '';
+function syncRecentMenu(): void {
+  if (smokeEnabled()) {return;}
+  const missing = recents.missing();
+  const toEntry = (e: { path: string }) => ({ path: e.path, label: recentLabel(e.path), missing: missing.has(e.path) });
+  const items: MenuNode[] = recentMenuItems(recents.data().folders.map(toEntry), recents.data().files.map(toEntry), isMac);
+  const json = JSON.stringify(items);
+  if (json === lastRecentMenu) {return;}
+  lastRecentMenu = json;
+  void menuApi.setRecents(items).catch(() => { /* not under Tauri */ });
+}
+
+const editorCommand = (row: ShortcutRow | undefined): void => {
+  const handle = panes.activeHandle();
+  if (!row?.core || !handle) {return;}
+  const active = document.activeElement as HTMLElement | null;
+  // Undo / Redo from the menu while typing in a field outside the editor
+  // (tree rename, find bar, dialogs) belong to that field.
+  if ((row.core === 'undo' || row.core === 'redo') && active && !active.closest('.mikedown-root')
+    && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+    document.execCommand(row.core);
+    return;
+  }
+  handle.command(row.core);
+};
+
+async function toggleSpellcheck(): Promise<void> {
+  const on = settingsMgr.coreSettings().spellCheckEnabled !== false;
+  for (const ed of panes.editors()) {ed.handle.updateSettings({ spellCheckEnabled: !on });}
+  await settingsMgr.save({ spellCheckEnabled: !on }, { silent: true });
+  dialogs.toast(on ? 'Spell check is off.' : 'Spell check is on.');
+}
+
+async function openUrl(url: string): Promise<void> {
+  // `shell.open` as in TauriHost.openLink; tauri-plugin-opener is the
+  // follow-up for both call sites.
+  try {
+    const { open } = await import('@tauri-apps/plugin-shell');
+    await open(url);
+  } catch (err) {
+    dialogs.toast(`Could not open ${url}: ${String(err)}`, { error: true });
+  }
+}
+
+async function showAbout(): Promise<void> {
+  let version = '';
+  try { version = await appActions.version(); } catch { /* not under Tauri */ }
+  await dialogs.info(`MikeDown${version ? ` ${version}` : ''}\n\nA WYSIWYG markdown editor.\n${WEBSITE_URL}`, 'About MikeDown');
+}
+
 const actions: Record<AppCommand, () => void> = {
   newDocument: () => { controller.newDocument(); },
   save: () => { void controller.save(); },
@@ -806,7 +1005,11 @@ const actions: Record<AppCommand, () => void> = {
   saveAll: () => { void controller.saveAll(); },
   open: () => { void controller.openViaDialog(); },
   toggleSource: () => controller.toggleSource(),
-  openSettings: () => panes.activeHandle()?.command('openSettings'),
+  openSettings: () => {
+    const handle = panes.activeHandle();
+    if (handle) {handle.command('openSettings');}
+    else {dialogs.toast('Open or create a document to change settings.');}
+  },
   openContainingFolder: () => controller.openContainingFolder(),
   openFolder: () => { void openFolderViaDialog(); },
   toggleSidebar: () => sidebar.toggle(),
@@ -827,25 +1030,101 @@ const actions: Record<AppCommand, () => void> = {
   searchFolder: showSearch,
   showVersions: () => toggleVersionsRef?.(),
   newWindow: () => { void windowsApi.newWindow().catch((err: unknown) => dialogs.toast(`Could not open a window: ${String(err)}`, { error: true })); },
-};
-const menuOnly: Record<string, () => void> = {
   closeWindow: () => { void tauriWindow.close(); },
   exportHtml: () => { void exporterRef?.exportHtml(); },
   exportPdf: () => { void exporterRef?.print(); },
+  reveal: () => {
+    const p = panes.activeDoc()?.path;
+    if (p) {void treeApi.revealPath(p);}
+  },
+  toggleHidden: () => { void Promise.resolve(workspace.toggleHidden()).then(() => searchPanel.refresh()); },
+  clearRecents: () => { void recents.clear().catch(() => { /* not under Tauri */ }); },
+  toggleSpellcheck: () => { void toggleSpellcheck(); },
+  spellingSettings: () => {
+    const handle = panes.activeHandle();
+    if (handle) {handle.command('openSettings', { tab: 'spelling' });}
+    else {dialogs.toast('Open or create a document to change settings.');}
+  },
+  welcome: () => {
+    void recentsApi.welcomeFile()
+      .then((p) => (p ? controller.openPath(p) : false))
+      .catch((err: unknown) => dialogs.toast(`Could not open the welcome guide: ${String(err)}`, { error: true }));
+  },
+  keyboardShortcuts: () => showShortcutsSheet(isMac),
+  checkUpdates: () => { void appActions.checkForUpdates(); },
+  website: () => { void openUrl(WEBSITE_URL); },
+  reportIssue: () => { void openUrl(ISSUES_URL); },
+  about: () => { void showAbout(); },
+  quit: () => { void windowsApi.requestQuit().catch(() => { /* not under Tauri */ }); },
 };
-window.addEventListener('keydown', (e) => {
-  const inEditor = !!(e.target as HTMLElement | null)?.closest?.('.mikedown-root');
-  const command = commandForKey(e, isMac, SHORTCUTS, { inEditor });
-  if (!command) {return;}
-  e.preventDefault();
-  actions[command]();
-});
-if (!smokeEnabled()) {
-  void windowsApi.onMenu((command) => {
-    if (command in actions) {actions[command as AppCommand]();}
-    else if (command in menuOnly) {menuOnly[command]();}
-  }).catch(() => { /* not under Tauri */ });
+
+/** Run a table command (keyboard or menu). */
+function runCommand(command: CommandId, row?: ShortcutRow): void {
+  const r = row ?? rowFor(command, isMac) ?? COMMANDS.find((c) => c.command === command);
+  if (r?.core) {editorCommand(r);}
+  else if (command in actions) {actions[command as AppCommand]();}
+  scheduleMenuSync();
 }
+
+// The page sees a chord before the native menu does (WKWebView), or both see
+// it (WebView2 may also fire the menu accelerator). Chords the page already
+// handled are remembered for a moment so the menu event that repeats one is
+// dropped.
+const DEDUPE_MS = 400;
+let handledChord: { chord: string; at: number } | null = null;
+const chordOf = (e: KeyboardEvent): string =>
+  [e.metaKey && 'meta', e.ctrlKey && 'ctrl', e.altKey && 'alt', e.shiftKey && 'shift', (e.key || '').toLowerCase()].filter(Boolean).join('+');
+const allChords = rowsFor(isMac).filter((r) => r.accelerator).map((r) => ({ row: r, chord: chordKey(r.accelerator!, isMac) }));
+
+window.addEventListener('keydown', (e) => {
+  if (e.defaultPrevented) {return;}
+  const inEditor = !!(e.target as HTMLElement | null)?.closest?.('.mikedown-root');
+  const row = rowForKey(e, isMac, SHORTCUTS, { inEditor, enabled: rowEnabled });
+  if (!row) {return;}
+  handledChord = { chord: chordKey(row.accelerator!, isMac), at: Date.now() };
+  if (!row.passThrough) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  runCommand(row.command, row);
+}, true);
+// Chords core handled itself (Bold, Undo, Find) end up default-prevented.
+window.addEventListener('keydown', (e) => {
+  if (!e.defaultPrevented) {return;}
+  const chord = chordOf(e);
+  const hit = allChords.find((c) => c.chord === chord);
+  if (hit) {handledChord = { chord: hit.chord, at: Date.now() };}
+  scheduleMenuSync();
+});
+
+function onMenuCommand(id: string): void {
+  if (id.startsWith(RECENT_FOLDER_PREFIX)) { void openRecent('folder', id.slice(RECENT_FOLDER_PREFIX.length)); return; }
+  if (id.startsWith(RECENT_FILE_PREFIX)) { void openRecent('file', id.slice(RECENT_FILE_PREFIX.length)); return; }
+  const row = rowFor(id as CommandId, isMac);
+  if (!row && !(id in actions)) {return;}
+  if (row?.accelerator && handledChord && Date.now() - handledChord.at < DEDUPE_MS && handledChord.chord === chordKey(row.accelerator, isMac)) {
+    handledChord = null;
+    return;
+  }
+  if (row && !rowEnabled(row)) {return;}
+  runCommand(id as CommandId, row);
+}
+
+if (!smokeEnabled()) {
+  void windowsApi.onMenu(onMenuCommand).catch(() => { /* not under Tauri */ });
+  void menuApi.set(buildMenuSpec(isMac))
+    .then(() => { lastEnablement = ''; lastRecentMenu = ''; scheduleMenuSync(); syncRecentMenu(); })
+    .catch(() => { /* not under Tauri */ });
+  // The shared menu bar follows the focused window.
+  window.addEventListener('focus', () => {
+    lastEnablement = '';
+    scheduleMenuSync();
+    void recents.load().then(() => { lastRecentMenu = ''; syncRecentMenu(); }).catch(() => { /* not under Tauri */ });
+  });
+  document.addEventListener('focusin', () => scheduleMenuSync());
+  registry.onChange(() => scheduleMenuSync());
+}
+recents.onChange(() => { renderWelcome(); syncRecentMenu(); });
 
 // ── Close and quit (edge case 7) ───────────────────────────────────────────
 
@@ -982,11 +1261,18 @@ async function boot(): Promise<void> {
   } catch (err) {
     console.warn('MikeDown: launch queue unavailable', err);
   }
+  // Nothing to show and no folder to browse: the first launch opens the
+  // bundled welcome guide; otherwise the welcome screen with the recents
+  // (M8). A folder window starts on its tree.
+  try {
+    await recents.load();
+    if (isMainWindow) {await recents.launchCheck();}
+  } catch { /* not under Tauri */ }
   if (!panes.activeDoc() && paneList().length === 1 && !workspace.root()) {
-    // Nothing to show and no folder to browse: an empty Untitled document,
-    // as a fresh editor window has. A folder window starts on its tree.
-    controller.newDocument();
+    await firstRun();
   }
+  syncWelcome();
+  syncRecentMenu();
 }
 
 void boot();

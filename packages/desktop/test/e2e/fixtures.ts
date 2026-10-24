@@ -274,8 +274,27 @@ function handle(ipc: Ipc, cmd: string, args: any, headers: Record<string, string
       fs.cpSync(args.from, args.to, { recursive: true, force: false });
       fs.rmSync(args.from, { recursive: true, force: true });
       return null;
+    // M8: recents.json in <app-data>, as src-tauri/src/commands/recents.rs keeps it.
+    case 'recents_read': {
+      const p = path.join(ipc.appData, 'recents.json');
+      if (!fs.existsSync(p)) {return { text: null, missing: [] };}
+      const text = fs.readFileSync(p, 'utf8');
+      let listed: string[] = [];
+      try {
+        const data = JSON.parse(text);
+        listed = [...(data.folders ?? []), ...(data.files ?? [])].map((e: { path?: string }) => e.path).filter((x): x is string => !!x);
+      } catch { /* corrupt: lists nothing */ }
+      return { text, missing: listed.filter((x) => !fs.existsSync(x)) };
+    }
+    case 'recents_write':
+      fs.mkdirSync(ipc.appData, { recursive: true });
+      fs.writeFileSync(path.join(ipc.appData, 'recents.json'), args.text);
+      return null;
+    case 'recents_allow':
+      return true;
     default:
-      // Window/title/represented-file, allow_asset, shell, dialogs: no-ops.
+      // Window/title/represented-file, allow_asset, shell, dialogs, menus,
+      // welcome_file (null: no first-run guide unless a spec provides one): no-ops.
       return null;
   }
 }

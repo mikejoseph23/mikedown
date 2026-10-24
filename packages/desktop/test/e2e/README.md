@@ -62,6 +62,14 @@ a WebDriver spec can sit next to this one; the spec itself only needs
   reloads silently; a 3 MB file saves with no snapshot and no message.
   `fixtures.ts` mirrors the `versions_*` commands. `M6_SHOTS=<dir>` saves
   screenshots.
+- `welcome.spec.ts` (M8): first run opens the welcome guide and offers the
+  default app once (the spec answers `welcome_file`), the next launch shows
+  the welcome screen with one recent file; a missing recent is greyed and
+  pruned on the third launch; a removed entry stays removed; `Cmd/Ctrl+,`
+  opens Settings from the welcome screen and a document; the menu spec,
+  recents and enablement reach `menu_*`, and `mikedown:menu` events run
+  commands. `fixtures.ts` mirrors `recents_read` / `recents_write` against
+  `ipc.appData`.
 
 Browsers: Playwright's Chromium (`npx playwright install chromium` once per
 machine if it is missing).

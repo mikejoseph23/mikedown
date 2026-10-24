@@ -23,7 +23,6 @@ import {
   planOpen,
   sizeClass,
   formatSize,
-  windowTitle,
   type DocNotice,
   type DocumentModel,
   type DocumentRegistry,
@@ -35,6 +34,7 @@ import type { FsApi, WindowApi } from '../documents/fsApi';
 import type { PaneManager } from '../panes/paneManager';
 import { applyQuitChoice, closeTabDialogSpec, dirtyDocuments, quitDialogSpec, type QuitChoice } from './quitDecision';
 import { MARKDOWN_FILTERS, type Dialogs } from '../ui/dialogs';
+import { formatWindowTitle } from './windowTitle';
 
 /** Edge case 10: a cloud placeholder's read that takes longer than this shows "still downloading". */
 export const DOWNLOAD_NOTICE_MS = 10_000;
@@ -65,6 +65,8 @@ export interface DocumentControllerDeps {
    * closed. Absent: the conflict question offers Overwrite / Revert only.
    */
   compareWithDisk?(input: { doc: DocumentModel; diskText: string }): Promise<'overwrite' | 'revert' | null>;
+  /** The window's open folder, for the title (`file — folder`, M8). */
+  folder?(): string | null;
 }
 
 /** The "changed on disk" question's answer. */
@@ -143,7 +145,7 @@ export function createDocumentController(deps: DocumentControllerDeps): Document
 
   function refresh(): void {
     const doc = activeDoc();
-    const title = doc ? windowTitle(doc, deps.isMac ? 'mac' : 'other') : 'MikeDown';
+    const title = formatWindowTitle({ doc, folder: deps.folder?.() ?? null, platform: deps.isMac ? 'mac' : 'other' });
     if (title !== lastTitle) {
       lastTitle = title;
       void deps.setTitle(title).catch(() => { /* window gone */ });

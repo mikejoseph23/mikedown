@@ -73,8 +73,22 @@ Rust edits rebuild and relaunch the window.
   when focus is outside the editor, where `Cmd+B` stays Bold), `Cmd+Shift+E`
   show the sidebar and focus the tree, `Cmd+Shift+F` search the opened folder
   (M7: the sidebar swaps the tree for the search panel; Enter or a click opens
-  the match, Esc returns to the tree). Ctrl on Windows. M8's native menu reads
-  the same rows.
+  the match, Esc returns to the tree). Ctrl on Windows.
+- M8: the same table (`COMMANDS`) holds every menu command with its `when`
+  clause and who handles the chord (`app` in the page, `core` in the editor's
+  keymap, `os`). `src/menu/menuSpec.ts` arranges it into the menu bar per OS
+  and sends it to `menu.rs` (`menu_set`); the focused window pushes enabled
+  state (`menu_update`) and File > Open Recent (`menu_set_recents`). Strike
+  moved to `Cmd+Shift+X` because `Cmd+Shift+S` is Save As. Help > Keyboard
+  Shortcuts lists the table. `test/fixtures/menu/*.json` is the spec `cargo
+  test` checks; regenerate with `UPDATE_MENU_FIXTURES=1 npm run test:unit -w
+  packages/desktop` after changing the table.
+- M8: a window with no folder and no open file shows the welcome screen
+  (`src/ui/welcome.ts`) with recent folders and files from
+  `<app-data>/recents.json` (`src/app/recents.ts`, `commands/recents.rs`).
+  The first launch opens `src-tauri/resources/welcome.md` (compiled in and
+  copied to `<app-data>/Welcome to MikeDown.md`) and offers the default-app
+  setting once. Delete `recents.json` to see the first run again.
 - `npm run dev -w packages/desktop -- -- /abs/path/folder` opens a folder
   (the sidebar's tree). `MIKEDOWN_WATCH_POLL=1` forces the watcher's 2 s
   polling fallback; `VITE_MIKEDOWN_TIMING=1` prints folder-open time and
@@ -169,11 +183,14 @@ packages/desktop/
 ├── src/documents/documentModel.ts  model: path, text, dirty, eol, bom, encoding, readOnly; title; open plan
 ├── src/documents/fsApi.ts          the only `invoke` wrapper (read/write/stat/bytes, window, launch queue)
 ├── src/app/documentController.ts   open / save / Save As / read-only / dirty guard / window title
-├── src/menu/shortcuts.ts           the single CmdOrCtrl shortcut table
+├── src/menu/shortcuts.ts           the single command table: CmdOrCtrl accelerators, `when` clauses
+├── src/menu/menuSpec.ts            the native menu bar built from that table (menuApi.ts sends it)
+├── src/app/recents.ts              recent folders/files rules + store (<app-data>/recents.json)
+├── src/app/windowTitle.ts          `file — folder` / `MikeDown` title rules
 ├── src/tree/                       folder tree (fileTree), workspace ops (folderWorkspace), folder .md index (mdIndex), pure rules (treeLogic, dropRouting)
 ├── src/search/                     folder search: controller + keyboard model (searchLogic), sidebar panel (searchPanel); results come from Rust
 ├── src/settings/desktopSettings.ts desktop-only settings (image paste policy, tree prefs), in memory until M5
-├── src/ui/                         chrome (tab strip, status footer), sidebar frame, context menu, dialogs + toast, image viewer
+├── src/ui/                         chrome (tab strip, status footer), sidebar frame, context menu, dialogs + toast, image viewer, welcome screen, shortcuts sheet
 ├── src/smoke/                      fixture + in-app harness
 ├── src/styles/app.css              app chrome only; editor styling stays in core
 ├── vite.config.ts                  core alias rule, dictionaries, Tauri port/targets
@@ -215,6 +232,12 @@ Every command checks the fs scope from `capabilities/default.json`
 command-line paths are added at runtime, and reading a document also allows
 its folder so the images beside it render through the asset protocol
 (`convertFileSrc`, `app.security.assetProtocol`).
+
+`recents.rs` reads and writes `<app-data>/recents.json`, reports which listed
+paths are missing, extends the scope only to listed entries
+(`recents_allow`) and copies the bundled welcome guide (`welcome_file`).
+`menu.rs` builds the menu bar from the page's spec (a bootstrap menu covers
+the first frame).
 
 `window.rs` adds what the JS window API lacks: `set_document_edited` (the
 macOS close-button dot) and `set_represented_file` (the title-bar proxy icon)
