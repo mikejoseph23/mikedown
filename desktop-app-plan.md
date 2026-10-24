@@ -695,6 +695,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
+**2026-10-24 01:45** - Auto-update work (`desktop-auto-update-plan.md`, separate orchestrator session) merged locally through `37d04ae`: update window, 4 h checks, per-platform manifests, LymeDeploy publish path, staging harness green on both OSes. T4 now runs together with that plan's T2 hands-on (`desktop-auto-update-handson.md`); the key backup gates both. Nothing published or pushed.
+
 **2026-10-24 00:20** - Mike approved the styled DMG: installed from `dist/0.1.0-styled/` and ran it ("looks niiiiice"). That DMG supersedes the unstyled one in `dist/0.1.0/` for the 0.1.0 release candidate.
 
 **2026-10-24 00:10** - Outside the milestone list, at Mike's request: (1) `desktop-auto-update-plan.md` written by an Opus worker (`f72c35e`): LymeScribe-parity updates on top of `tauri-plugin-updater`, 7 milestones, 3 open questions for Mike (Sparkle vs. plugin on macOS, NSIS quiet vs. passive, LymeDeploy publish with a purge-only Cloudflare token). (2) Styled DMG like LymeScribe's: Sonnet built `make-dmg.sh`, background generator and `build-mac.sh --dmg-only` (`8ae79b8`); Opus design pass (`5ad275f`) added the MikeDown heading and tagline, a one-piece arrow, and a faint markdown-glyph backdrop. Styled 0.1.0 DMG notarized and stapled at `packages/desktop/deploy/dist/0.1.0-styled/`; checked in dark-mode Finder only.
