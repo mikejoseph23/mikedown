@@ -380,7 +380,7 @@ Design bar: this should feel like a native macOS Software Update sheet or VS Cod
 - [x] Re-run `packages/desktop/deploy/updater-staging-test.sh` (macOS) and the Windows staging script; all PASS.
 - [x] Build a staging N and N+1 (`updater-staging-test.sh --keep`, which prints the install path and server URL); hand Mike the exact paths.
 - [ ] **macOS hands-on** (Mac Studio, Mike's non-admin account; N installed into `/Applications` by `macadmin`): launch N from `/Applications/MikeDown.app`; within ~10 s the "MikeDown N+1 is available" notice appears bottom-right → View → window shows notes and the three buttons in light and dark (toggle with the theme button) → Remind Me Later, relaunch, no notice → Help > Check for Updates… shows the window again → open a file, type, leave it dirty → Install and Relaunch → progress bar → dirty-file dialog → Cancel keeps the app open with "Update ready" → Install again → Save → admin password prompt appears (non-writable `/Applications`) → app relaunches; Help > About shows N+1.
-- [ ] **Windows hands-on** (DevBox1 over RDP, per-user install): same walk, plus Skip This Version then relaunch (no notice) then Check for Updates (window back); Install and Relaunch shows "MikeDown will reopen in a moment", app closes and reopens on N+1 within ~15 s with no UAC prompt.
+- [x] **Windows hands-on** (DevBox1 over RDP, per-user install): same walk, plus Skip This Version then relaunch (no notice) then Check for Updates (window back); Install and Relaunch shows "MikeDown will reopen in a moment", app closes and reopens on N+1 within ~15 s with no UAC prompt.
 - [ ] Mike signs off (orchestrator pauses here).
 - [ ] After sign-off and Mike's go-ahead: first real publish through `release.sh` and LymeDeploy, purge, `verify-published.sh` green, and a 0.1.0 install on each OS updates from production.
 
@@ -436,6 +436,8 @@ If dispatching fills the orchestrator's context, prompt Mike to run `/compact` w
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
 **2026-10-24 01:40** - T2 automated half done: macOS 20 PASS / 1 SKIP, Windows 23 PASS / 2 SKIP, 0 FAIL. Mac N/N+1 staged with the server on `127.0.0.1:18765`; Windows N (staging 0.0.9) and N+1 (the real Trusted-Signed 0.1.0, so the Authenticode pre-check passes; it lacks the new window after install) staged on DEVBOX1 under `C:\temp\mikedown-u4\bundle\`. BEAST's `C:\git\mikedown\node_modules` got `@tauri-apps/plugin-notification` copied in by hand (`npm install` crashed with `edgesOut`); run `npm ci` there before the next real Windows build. Paused for Mike's hands-on pass and sign-off.
+
+**2026-10-24 12:30** - T2 Windows hands-on passed on DEVBOX1, every step in `desktop-auto-update-handson.md` (toast, window in both themes, skip/snooze/manual check, Settings > Updates, failed state, hide during download, dirty-file cancel then save, quiet install and reopen on 0.1.0 with no UAC). Separately, a real 0.1.0 install self-updated to 0.2.0 from production. macOS hands-on still open.
 
 **2026-10-24** - U5 complete. Key file on the network drive (`interapp/mikedown.key`), password in LastPass ("MikeDown Note"); restore test signed with the backup copy and verified against `C5386105C2C03AF7`. Mike ruled one copy of each is enough, so the runbook's second-copy lines stay blank.
 
