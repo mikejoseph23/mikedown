@@ -4,6 +4,11 @@
 
 ![Dark mode editor](assets/screenshots/dark-mode-editor.jpg)
 
+## More MikeDown
+
+- [MikeDown Desktop](https://www.iadev.net/mikedown/), the same editor as a standalone app.
+- [`@mikedown/core` on npm](https://www.npmjs.com/package/@mikedown/core), to embed the editor in your own web app.
+
 ## Why MikeDown?
 
 The split-pane markdown preview workflow gets old fast — source on one side, rendered output on the other, constantly switching between the two. Standalone markdown editors solve the editing experience but pull you out of VS Code, away from Git integration, multi-language file support, and the extensions you already rely on.

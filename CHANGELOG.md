@@ -2,7 +2,7 @@
 
 All notable changes to MikeDown Editor are documented here.
 
-## [Unreleased]
+## [2.15.0] - 2026-10-24
 
 ### Added
 
@@ -17,10 +17,12 @@ All notable changes to MikeDown Editor are documented here.
 - Toggling to source mode and back without editing no longer changes what the editor treats as the saved text, so undoing your edits afterwards returns the document to its saved state instead of leaving it marked as changed.
 - Code blocks in dark themes are one solid surface again. Each line drew its own lighter band, so the block looked striped.
 - The document sidebar no longer squeezes the text in a narrow editor group. When docking it would leave the text column under 420px it hides, and comes back when the editor is wide enough again; opening it there shows it over the text instead, and a click in the text closes it. Your pin setting is unchanged.
+- The editor's text area is now named for screen readers and other assistive technology.
+- The font size fallback is 15px everywhere, matching the `mikedown.fontSize` default, instead of differing between the host, the webview and the stylesheet.
 
 ### Internal
 
-- The editor now lives in a new workspace package, `@mikedown/core` (`packages/core`), which also powers an Angular wrapper. There is no user-facing change in VS Code. The package is published separately from the extension.
+- The editor now lives in a new workspace package, `@mikedown/core` (`packages/core`), which also powers an Angular wrapper. There is no user-facing change in VS Code. The package is now on npm as `@mikedown/core` and is released separately from the extension.
 
 ## [2.14.2] - 2026-10-20
 
