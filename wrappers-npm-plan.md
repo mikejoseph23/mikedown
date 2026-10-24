@@ -38,7 +38,7 @@
 | [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | ✅ Complete | 3 | Vue 3, `v-model` |
 | [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | ✅ Complete | 15 | ng-packagr, partial Ivy, Angular 17+ |
 | [M10 — `@mikedown/svelte` (deferred)](#m10--mikedownsvelte-deferred) | Sonnet | ⏸ Deferred | — | Out of this plan; web component covers Svelte |
-| [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | 🔄 In Progress | — | vitest per package + throwaway apps |
+| [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | ✅ Complete | 11 | vitest per package + throwaway apps |
 | [M11 — Site build and deploy path](#m11--site-build-and-deploy-path) | Sonnet | ✅ Complete | 11 | `website/` Vite MPA, site-only publish via `mikedown-downloads` |
 | [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | 🔄 In Progress | — | UI design |
 | [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ✅ Complete | 14 | UI design |
@@ -382,15 +382,15 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 **Worker completion requirement:** complete ALL items; report failures as gap-fills for the owning wrapper milestone rather than patching wrapper code here.
 
-- [ ] Root `test:wrappers` runs every wrapper's `test` script (`npm run test --workspaces --if-present`, excluding desktop's e2e); green.
-- [ ] `scripts/consumer-smoke.mjs`: packs core and the wrapper (`npm pack`), scaffolds a throwaway app in the scratchpad, installs the tarballs, builds. Targets:
+- [x] Root `test:wrappers` runs every wrapper's `test` script (`npm run test --workspaces --if-present`, excluding desktop's e2e); green.
+- [x] `scripts/consumer-smoke.mjs`: packs core and the wrapper (`npm pack`), scaffolds a throwaway app in the scratchpad, installs the tarballs, builds. Targets:
   - [ ] `wc-vite` (vanilla Vite, `@mikedown/web-component/define`);
   - [ ] `wc-cdn` (static HTML loading the standalone bundle from the tarball; `jsdom` or `node --check` load);
   - [ ] `react-vite` (pinned to React 18) and `react-next` (React 19, Next.js app router, `next build` proves SSR safety);
   - [ ] `vue-vite`;
   - [ ] `angular-17`, `angular-19`, `angular-latest`.
-- [ ] Root script `test:consumers` (all targets, `--only` for one; cache the scaffolded apps in the scratchpad so re-runs skip `ng new`). Every target green; record build times and bundle sizes in the summary.
-- [ ] `test:packages` covers all new packages; MikeDown `test:unit`, `test:edge` still green.
+- [x] Root script `test:consumers` (all targets, `--only` for one; cache the scaffolded apps in the scratchpad so re-runs skip `ng new`). Every target green; record build times and bundle sizes in the summary.
+- [x] `test:packages` covers all new packages; MikeDown `test:unit`, `test:edge` still green.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 18:20** - T2 done (`5d0dfa9`, 11 min): `test:wrappers` (web component, React, Vue, Angular 25 specs) and CI switched from `test:angular` to `test:wrappers`; `scripts/consumer-smoke.mjs` / `test:consumers` (`--only`, scaffold cache in the scratchpad) builds `wc-vite`, `wc-cdn`, `react-vite` (React 18), `react-next` (React 19, `next build`), `vue-vite`, `angular-17`, `angular-19`, plus `angular-19-no-mermaid`; `angular-latest` (Angular 22.2.3) builds on Node 24.22.1 and is skipped on Node 22.20 (needs 22.22.3, 24.15 or 26). Not in CI (needs network and `ng new`). Findings, no wrapper bugs: without `mermaid` installed Angular and Next builds fail, Vite builds pass; Angular `externalDependencies: ["mermaid"]` works around it; Angular's default `initial` budget (1 MB error) rejects the editor (2.99 MB), so READMEs need a budget note (docs gap fill dispatched). Main tree: `test:wrappers` green, `test:consumers --only vue-vite` ok (876 kB gzip).
 
 **2026-10-24 18:10** - T1 automated items done (8 min, no commits): `test:unit`, `test:edge`, `test:packages`, `test:integration` (47) and `test:desktop` (50 e2e) green; one unit test failed once and passed on three reruns (not identified, watch for flakiness). Registry smoke: `@mikedown/core` 0.1.0 installs its peers, the README example and a bare `styles.css` import build in a fresh Vite app, `import('@mikedown/core')` is SSR-safe. LymeStarter and both Quantico Creek apps build from the registry core (budget warnings only). Hands-on waits on Mike's Marketplace upload.
 
