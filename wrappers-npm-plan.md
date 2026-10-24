@@ -40,7 +40,7 @@
 | [M10 — `@mikedown/svelte` (deferred)](#m10--mikedownsvelte-deferred) | Sonnet | ⏸ Deferred | — | Out of this plan; web component covers Svelte |
 | [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | ✅ Complete | 11 | vitest per package + throwaway apps |
 | [M11 — Site build and deploy path](#m11--site-build-and-deploy-path) | Sonnet | ✅ Complete | 11 | `website/` Vite MPA, site-only publish via `mikedown-downloads` |
-| [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | 🔄 In Progress | — | UI design |
+| [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | ✅ Complete | 27 | UI design |
 | [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ✅ Complete | 14 | UI design |
 | [M14 — READMEs](#m14--readmes) | Sonnet | ✅ Complete | 3 | Root (Marketplace listing) + per package |
 | [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ⬜ Not Started | — | link check + hands-on |
@@ -427,13 +427,13 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] `/mikedown/developers/`: what MikeDown is in two sentences, a live editor, a package grid (name, one line, install command with copy button, npm link, demo link), a "which package?" guide (framework → package; anything else → web component or CDN), links to Desktop, VS Code and GitHub.
-- [ ] One page per wrapper (`web-component`, `react`, `vue`, `angular`): live editor using that wrapper, a live markdown value panel, theme and read-only toggles, the install command, a minimal copy-paste code sample (the same code that runs on the page), framework notes (Next/Nuxt/Angular standalone; Svelte via the web component), and a link to the package README.
-- [ ] Web component page also shows the CDN snippet and a plain `<form>` submit.
-- [ ] Use the shared shell from M13 (`website/shared/`); extend it only if a demo page needs something new, and apply the change to every page.
+- [x] `/mikedown/developers/`: what MikeDown is in two sentences, a live editor, a package grid (name, one line, install command with copy button, npm link, demo link), a "which package?" guide (framework → package; anything else → web component or CDN), links to Desktop, VS Code and GitHub.
+- [x] One page per wrapper (`web-component`, `react`, `vue`, `angular`): live editor using that wrapper, a live markdown value panel, theme and read-only toggles, the install command, a minimal copy-paste code sample (the same code that runs on the page), framework notes (Next/Nuxt/Angular standalone; Svelte via the web component), and a link to the package README.
+- [x] Web component page also shows the CDN snippet and a plain `<form>` submit.
+- [x] Use the shared shell from M13 (`website/shared/`); extend it only if a demo page needs something new, and apply the change to every page.
 - [ ] *(optional)* "Open in StackBlitz" link per demo built from the page's own sample code.
-- [ ] Page titles, meta descriptions, Open Graph tags. Lighthouse accessibility pass (`npx lighthouse` CLI; contrast, labels, focus order) recorded in the summary.
-- [ ] `npm run build:site` green. Commit.
+- [x] Page titles, meta descriptions, Open Graph tags. Lighthouse accessibility pass (`npx lighthouse` CLI; contrast, labels, focus order) recorded in the summary.
+- [x] `npm run build:site` green. Commit.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 18:45** - M12 done (`bdefa6a`, `ceb0959`, 27 min): `/mikedown/developers/` hub (intro, live editor, package grid with copy buttons, "which package?" guide, Desktop/VS Code/GitHub links) and one demo page per wrapper (live editor through that wrapper, live markdown panel, theme and read-only toggles, install command, the running sample as code, framework notes; web component page adds the CDN snippet and a plain `<form>` submit). Titles, descriptions, Open Graph. Angular demo uses `file:` links to `packages/angular/dist` and `packages/core`, so `build:site` now builds every npm package first (+1 min) and a fresh checkout needs `npm ci --prefix website/developers-angular`. KaTeX CSS from jsDelivr to keep font files out; output types `.html .js .css .jpg .ico .txt .json`, site packer check accepts 195 files. StackBlitz (optional) cut: packages aren't on npm yet. Lighthouse accessibility 88 on all five pages; every remaining failure is inside core (completed-task text contrast 3.94:1, unlabeled small task checkboxes, toolbar button labels not matching text). Core findings: toolbar clipped below ~520 px; table toolbar shows on load when a document ends with a table. Checked at 1280/400 px light and dark. Main tree: `build:site`, `test:unit` (1568) green.
 
 **2026-10-24 18:35** - CI fix (`6738d38`, 3 min): every CI run since M1 failed at `test:unit` (`standaloneHtml.test.ts` reads `packages/core/dist/styles.css`, which only `test:packages` built, later), so later steps never ran in CI. Added `npm run build:core` before `test:unit`. A fresh clone on Node 22 (macOS) passed every step in order; Karma's `ChromeHeadlessCI` already uses `--no-sandbox`.
 
