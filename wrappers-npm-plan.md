@@ -28,7 +28,7 @@
 | [M0 — Decisions and spikes](#m0--decisions-and-spikes) | Opus | ✅ Complete | 13 | `wrappers-decisions.md` approved 2026-10-24 |
 | [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | ✅ Complete | — | `interapp` owns `mikedown`; 2FA on for auth and publishing (security key) |
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
-| [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ✅ Complete | 2 | 0.1.0 on `latest` 2026-10-24; `core-v0.1.0` tag and push await Mike |
+| [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ✅ Complete | 2 | 0.1.0 on `latest` 2026-10-24; tagged `core-v0.1.0` |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ✅ Complete | 5 | Mike uploads the `.vsix` |
 | [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ✅ Complete | 15 | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | 🔄 In Progress | — | unit/integration + registry smoke |
@@ -212,7 +212,7 @@ Apply to every milestone.
 - [x] `npm run test:packages` and `npm run release:npm -- --only core` (dry run) green; paste the packed file list and gzipped size into the summary. Commit `@mikedown/core 0.1.0`.
 - [x] **Stop.** Hand Mike: `cd ~/git/mikedown && npm run release:npm -- --only core --publish` (he enters the OTP).
 - [x] After Mike confirms: `npm view @mikedown/core version dist-tags` shows `0.1.0` on `latest`. Record it in the Progress Log. Ask Mike to set the package to "Require two-factor authentication and disallow tokens" on npmjs.com.
-- [ ] Ask Mike before tagging `core-v0.1.0` and pushing.
+- [x] Ask Mike before tagging `core-v0.1.0` and pushing.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 18:05** - Mike approved pushing and tagging. Tagged `core-v0.1.0` (`e7d4530`, core identical to the published tarball) and `v2.15.0` (`97a4929`), pushed with `main` (`4172f62..454ee8b`); LymeStarter `develop` (`779e906..f0be935`) and Quantico Creek `master` (`a310a42..59ed7d8`) pushed. Later merges in this plan get pushed as they land. Still with Mike: npm "disallow tokens" setting, Marketplace upload of `mikedown-editor-2.15.0.vsix`.
 
 **2026-10-24 18:00** - M4 complete (gap fill 2 `553d4a6`, 5 min): `vite.config.ts#assertCorePin` accepts a pin that differs from the workspace core when exactly that version is installed under `packages/desktop/node_modules` (shared `checkInstalledCore` in `deploy/lib/release-lib.js`, unit tests), else throws with an `npm install` hint. A `RELEASE=1` Vite build bundled every `@mikedown/core` module from the registry 0.1.0 copy, none from the workspace. `build:desktop` (unsigned local bundle, nothing uploaded), Desktop unit (534), root `test:unit` (1568) green.
 
