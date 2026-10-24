@@ -17,8 +17,15 @@ export interface MikeDownBindingOptions extends Omit<MikeDownOptions, 'host' | '
   initialValue?: string;
   /** Quiet time after the last keystroke before `onValue` fires. Default 150. 0 reports at once. */
   debounceMs?: number;
-  /** Called with the markdown after the debounce, and at once on blur. */
+  /** Called with the markdown after the debounce, and at once on blur. Not called when the text equals the last value. */
   onValue?: (markdown: string) => void;
+  /**
+   * Called when focus leaves the whole control (editor and toolbar), like a native input's blur. Moving into the
+   * core's menus and dialogs (`.mikedown-portal`) does not count. A pending change is flushed first.
+   */
+  onTouched?: () => void;
+  /** Start disabled. A disabled binding is read-only too. */
+  disabled?: boolean;
   /** Default 'auto'. */
   theme?: BindingTheme;
   /**
@@ -41,6 +48,9 @@ export interface MikeDownBinding {
   /** Report a pending change now. */
   flush(): void;
   setTheme(theme: BindingTheme): void;
+  /** Read-only is `readOnly || disabled`. */
+  setReadOnly(readOnly: boolean): void;
+  setDisabled(disabled: boolean): void;
   focus(): void;
   destroy(): void;
 }
@@ -61,6 +71,8 @@ export function bindMikeDownValue(container: HTMLElement, options: MikeDownBindi
     initialValue = '',
     debounceMs = 150,
     onValue,
+    onTouched,
+    disabled: initialDisabled = false,
     theme: initialTheme = 'auto',
     darkSelector,
     outputTransform,
@@ -75,6 +87,8 @@ export function bindMikeDownValue(container: HTMLElement, options: MikeDownBindi
   /** The value the outside world last saw: loaded or reported. */
   let lastValue = out(initialValue);
   let theme: BindingTheme = initialTheme;
+  let readOnly = editorOptions.readOnly === true;
+  let disabled = initialDisabled;
 
   const flush = (): void => {
     if (timer !== undefined) {
@@ -84,6 +98,8 @@ export function bindMikeDownValue(container: HTMLElement, options: MikeDownBindi
     if (pending === null) {return;}
     const value = out(pending);
     pending = null;
+    // Typing and undoing back to the loaded text reports nothing.
+    if (value === lastValue) {return;}
     lastValue = value;
     onValue?.(value);
   };
@@ -118,6 +134,7 @@ export function bindMikeDownValue(container: HTMLElement, options: MikeDownBindi
     ...editorOptions,
     ariaLabelledBy,
     landmark: editorOptions.landmark ?? false,
+    readOnly: readOnly || disabled,
     initialMarkdown: initialValue,
     theme: resolve(theme),
     host: {
@@ -168,6 +185,15 @@ export function bindMikeDownValue(container: HTMLElement, options: MikeDownBindi
   };
   startFollowing();
 
+  const onFocusOut = (event: FocusEvent): void => {
+    const next = event.relatedTarget as Node | null;
+    if (next && container.contains(next)) {return;}
+    if (next instanceof Element && next.closest('.mikedown-portal')) {return;}
+    flush();
+    onTouched?.();
+  };
+  container.addEventListener('focusout', onFocusOut);
+
   const onLabelClick = (): void => handle.focus();
   labelEl?.addEventListener('click', onLabelClick);
 
@@ -175,17 +201,15 @@ export function bindMikeDownValue(container: HTMLElement, options: MikeDownBindi
     handle,
     setValue(markdown: string): void {
       if (destroyed) {return;}
-      if (pending === null && (markdown === lastValue || markdown === out(handle.getMarkdown()))) {
-        lastValue = markdown;
-        return;
-      }
-      // An external write replaces any keystrokes still waiting to be reported.
+      // An external write wins over keystrokes still waiting in the debounce.
       if (timer !== undefined) {
         clearTimeout(timer);
         timer = undefined;
       }
       pending = null;
       lastValue = markdown;
+      // Reloading the text the editor already shows would reset the caret.
+      if (markdown === out(handle.getMarkdown())) {return;}
       handle.setMarkdown(markdown, { pristine: true });
     },
     flush,
@@ -194,6 +218,14 @@ export function bindMikeDownValue(container: HTMLElement, options: MikeDownBindi
       applyTheme();
       startFollowing();
     },
+    setReadOnly(next: boolean): void {
+      readOnly = next;
+      if (!destroyed) {handle.setReadOnly(readOnly || disabled);}
+    },
+    setDisabled(next: boolean): void {
+      disabled = next;
+      if (!destroyed) {handle.setReadOnly(readOnly || disabled);}
+    },
     focus: () => handle.focus(),
     destroy(): void {
       if (destroyed) {return;}
@@ -201,6 +233,7 @@ export function bindMikeDownValue(container: HTMLElement, options: MikeDownBindi
       destroyed = true;
       stopFollowing();
       unBlur();
+      container.removeEventListener('focusout', onFocusOut);
       labelEl?.removeEventListener('click', onLabelClick);
       handle.destroy();
     },

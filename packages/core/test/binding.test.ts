@@ -93,6 +93,84 @@ describe('debounce and flush', () => {
   });
 });
 
+describe('wrapper parity', () => {
+  it('does not report text equal to the last value (type then undo within the debounce)', () => {
+    const onValue = vi.fn();
+    const b = mount({ initialValue: 'Hello\n', onValue });
+    type(b, 'x');
+    b.handle.command('undo');
+    expect(b.handle.getMarkdown()).toBe('Hello\n');
+    vi.advanceTimersByTime(1000);
+    b.flush();
+    expect(onValue).not.toHaveBeenCalled();
+  });
+
+  it('an outside write equal to the editor text cancels the pending report and keeps the caret', () => {
+    const onValue = vi.fn();
+    const b = mount({ initialValue: 'Hello\n', onValue });
+    type(b, 'X');
+    const shown = b.handle.getMarkdown();
+    const spy = vi.spyOn(b.handle, 'setMarkdown');
+    b.setValue(shown);
+    vi.advanceTimersByTime(1000);
+    expect(spy).not.toHaveBeenCalled();
+    expect(onValue).not.toHaveBeenCalled();
+  });
+
+  it('readOnly and disabled combine into the editor read-only state', () => {
+    const b = mount({ initialValue: 'Hi\n' });
+    expect(b.handle.tiptap.isEditable).toBe(true);
+    b.setDisabled(true);
+    expect(b.handle.tiptap.isEditable).toBe(false);
+    b.setReadOnly(true);
+    b.setDisabled(false);
+    expect(b.handle.tiptap.isEditable).toBe(false);
+    b.setReadOnly(false);
+    expect(b.handle.tiptap.isEditable).toBe(true);
+  });
+
+  it('starts read-only from the readOnly and disabled options', () => {
+    expect(mount({ readOnly: true }).handle.tiptap.isEditable).toBe(false);
+    binding?.destroy();
+    expect(mount({ disabled: true }).handle.tiptap.isEditable).toBe(false);
+  });
+
+  it('onTouched fires when focus leaves the control, flushing first; not for moves inside or into the portal', () => {
+    const onValue = vi.fn();
+    const onTouched = vi.fn();
+    const b = mount({ initialValue: 'Hello\n', onValue, onTouched });
+    type(b, 'T');
+    const inside = el.querySelector('.ProseMirror') as HTMLElement;
+    inside.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: el.querySelector('.mikedown-root') }));
+    expect(onTouched).not.toHaveBeenCalled();
+    const portal = document.createElement('div');
+    portal.className = 'mikedown-portal';
+    const btn = document.createElement('button');
+    portal.appendChild(btn);
+    document.body.appendChild(portal);
+    inside.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: btn }));
+    expect(onTouched).not.toHaveBeenCalled();
+    expect(onValue).not.toHaveBeenCalled();
+    inside.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    expect(onValue).toHaveBeenCalledTimes(1);
+    expect(onTouched).toHaveBeenCalledTimes(1);
+  });
+
+  it('destroy flushes a pending change, then stops reporting', () => {
+    const onValue = vi.fn();
+    const onTouched = vi.fn();
+    const b = mount({ initialValue: 'Hello\n', onValue, onTouched });
+    type(b, 'D');
+    const inside = el.querySelector('.ProseMirror') as HTMLElement;
+    b.destroy();
+    expect(onValue).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1000);
+    expect(onValue).toHaveBeenCalledTimes(1);
+    inside.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    expect(onTouched).not.toHaveBeenCalled();
+  });
+});
+
 describe('external writes', () => {
   it('loads the value pristine, without reporting it back', () => {
     const onValue = vi.fn();
