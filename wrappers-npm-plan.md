@@ -35,7 +35,7 @@
 | [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
 | [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | 🔄 In Progress | — | `<mikedown-editor>`, form-associated, CDN bundle |
 | [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | 🔄 In Progress | — | Controlled/uncontrolled, ref, SSR-safe |
-| [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | 🔄 In Progress | — | Vue 3, `v-model` |
+| [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | ✅ Complete | 3 | Vue 3, `v-model` |
 | [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | 🔄 In Progress | — | ng-packagr, partial Ivy, Angular 17+ |
 | [M10 — `@mikedown/svelte` (deferred)](#m10--mikedownsvelte-deferred) | Sonnet | ⏸ Deferred | — | Out of this plan; web component covers Svelte |
 | [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | ⬜ Not Started | — | vitest per package + throwaway apps |
@@ -338,11 +338,11 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] `<MikeDownEditor v-model="md">` (`modelValue` / `update:modelValue`), props `theme`, `readOnly`, `placeholder`, `features`, `settings`, `host`, `darkSelector`; emits `ready`; `defineExpose({ handle })`. Also a plugin (`app.use(MikeDown)`) registering the component globally.
-- [ ] Built on `bindMikeDownValue`; created in `onMounted`, destroyed in `onBeforeUnmount`; prop watchers for theme/readOnly.
-- [ ] Peer `vue >=3.3` (explicit prop/emit, no `defineModel`, per M0). Vite library mode with `vue` and core external, `vue-tsc` d.ts. Forward `id`, `aria-label`, `aria-labelledby`.
-- [ ] Tests (vitest + `@vue/test-utils`, jsdom): v-model both directions, expose, prop updates, unmount.
-- [ ] README with Vite and Nuxt (`<ClientOnly>`) examples. Commit.
+- [x] `<MikeDownEditor v-model="md">` (`modelValue` / `update:modelValue`), props `theme`, `readOnly`, `placeholder`, `features`, `settings`, `host`, `darkSelector`; emits `ready`; `defineExpose({ handle })`. Also a plugin (`app.use(MikeDown)`) registering the component globally.
+- [x] Built on `bindMikeDownValue`; created in `onMounted`, destroyed in `onBeforeUnmount`; prop watchers for theme/readOnly.
+- [x] Peer `vue >=3.3` (explicit prop/emit, no `defineModel`, per M0). Vite library mode with `vue` and core external, `vue-tsc` d.ts. Forward `id`, `aria-label`, `aria-labelledby`.
+- [x] Tests (vitest + `@vue/test-utils`, jsdom): v-model both directions, expose, prop updates, unmount.
+- [x] README with Vite and Nuxt (`<ClientOnly>`) examples. Commit.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 17:00** - M8 done (`8eae38a`, lockfile `97a13d6`, 3 min): `@mikedown/vue` 0.2.0-rc.0, render-function component over `bindMikeDownValue` (no SFC compile), explicit `modelValue`/`update:modelValue`, `ready`, exposed `handle`, `app.use(MikeDown)` plugin, watchers for theme/readOnly/disabled/settings (`placeholder`, `features`, `host` read at mount, documented), Vite lib build plus `vue-tsc` d.ts, `test:vue` (11, binding mocked), `test/packages/vue-shape.test.ts`, README with Vite and Nuxt `<ClientOnly>`. Not yet run in a real Vue app (T2 consumer smoke). Main tree: compile, lint (0 errors), `test:unit` (1563), `test:edge` (22), `test:packages` (26), `test:vue` (11) green.
 
 **2026-10-24 16:55** - M5 merged (`f85a151`, `f0d3898`, cherry-picked onto `973a69b`, about 12 min plus a gap fill): `bindMikeDownValue` (debounce, blur flush, pristine and equal-value skips, pending-write cancel, `closest(darkSelector)` or `prefers-color-scheme` theme, `label[for]` lookup, `outputTransform`, `readOnly`/`disabled`, `onTouched`), core `placeholder`/`id`/`ariaLabel`/`ariaLabelledBy`/`landmark` options, root and `./binding` exports (alias of the root entry; a separate tsup entry needed splitting and broke the shape test), 24 binding tests, core README section. Gap fill compared against the LymeStarter Angular wrapper; zone, router, localStorage and upload concerns stay with M9. Family bumped to `0.2.0-rc.0` first (`973a69b`); Desktop's exact `0.1.0` pin now resolves from the registry. Main tree: compile, lint (0 errors), `test:unit` (1563), `test:edge` (22), `test:packages` (17) green.
 
