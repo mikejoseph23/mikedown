@@ -510,8 +510,11 @@
   flex: 1;
 }
 
+/* Done items: muted text plus a strikethrough. A muted color rather than
+   opacity, so the text keeps at least 4.5:1 contrast (opacity 0.6 left it at
+   about 3.9:1 on white). */
 :is(.mikedown-root, .mikedown-portal) .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
-  opacity: 0.6;
+  color: var(--mikedown-text-muted, #6f6f74);
   text-decoration: line-through;
 }
 

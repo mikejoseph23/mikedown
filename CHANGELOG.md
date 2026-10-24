@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- Completed task text is easier to read: it uses the muted text color instead of fading, so it keeps at least 4.5:1 contrast in light and dark themes while still looking done (struck through and dimmed).
+
 ## [2.15.0] - 2026-10-24
 
 ### Added
