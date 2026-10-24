@@ -47,7 +47,9 @@ function unescapeHtml(s) {
 
 export function highlight(code, lang) {
   const language = LANG_ALIASES[lang] ?? lang;
-  return hljs.highlight(code, { language, ignoreIllegals: true }).value;
+  // Cloudflare's email obfuscation rewrites "name@0.2.0" (a pinned package
+  // URL) as an email address; a tag around the @ keeps it from matching.
+  return hljs.highlight(code, { language, ignoreIllegals: true }).value.replace(/(\w)@(?=\d)/g, '$1<span>@</span>');
 }
 
 function slug(file) {
