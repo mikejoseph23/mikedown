@@ -38,7 +38,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [T3 — Feature tests](#t3--feature-tests) | Sonnet | ✅ Automated done (hands-on pending) | 3 | settings, versioning, search, export |
 | [M10 — Updater, signing, build pipeline, download page](#m10--updater-signing-build-pipeline-download-page) | Opus | ✅ Complete (Windows signing + GUI updater pending) | 25 | follows the LymeScribe deploy scripts |
 | [M11 — Polish: a11y, encoding, filesystem oddities](#m11--polish-a11y-encoding-filesystem-oddities) | Sonnet | ✅ Complete (screen-reader and GUI checks pending) | 26 | edge cases 10, 11, 12, 25, 26 |
-| [T4 — Release candidate hands-on](#t4--release-candidate-hands-on) | Sonnet | ⬜ Not Started | — | full checklist per OS on signed builds |
+| [T4 — Release candidate hands-on](#t4--release-candidate-hands-on) | Sonnet | 🔄 In Progress (Mike) | — | full checklist per OS on signed builds |
 
 **Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
 
@@ -694,6 +694,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 23:20** - Release candidate 0.1.0 built in the main tree from `a2715d9`. macOS: `MikeDown-0.1.0-macos-universal.dmg` (14.2 MB) plus updater `.app.tar.gz` and `.sig`; app and DMG both `accepted / Notarized Developer ID` by spctl, stapler validate passes (INTERAPP DEVELOPMENT, INC., UU626VCLYW). Windows: signed NSIS installer copied to DevBox1 `C:\temp\` (Authenticode Valid there). Artifacts in `packages/desktop/deploy/dist/0.1.0/` (gitignored). T4 handed to Mike.
 
 **2026-10-23 23:10** - Signed Windows build works end to end. Mike registered `MikeDownRemoteBuild` on BEAST; the orchestrator replaced BEAST's tarball snapshot with a clone (old copy kept as `C:\git\mikedown-snapshot`), pushed main (`b18d23c..a2715d9`), and fixed two release-script bugs found on first run (`a2715d9`): `Cargo.lock` version check failed on BEAST's CRLF checkout, and `release.sh`/`remote-build-windows.sh` were committed without the executable bit. `remote-build-windows.sh --version 0.1.0` produced `MikeDown-0.1.0-windows-x64-setup.exe` (5.4 MB), Authenticode valid with an RFC 3161 timestamp, SHA-256 matched, updater `.sig` generated. Cosmetic: the poll loop prints `tr: Illegal byte sequence` once. Mac 0.1.0 signed and notarized DMG building next for T4.
 
