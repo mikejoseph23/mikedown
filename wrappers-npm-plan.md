@@ -32,7 +32,7 @@
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ⬜ Not Started | — | Mike uploads the `.vsix` |
 | [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ⬜ Not Started | — | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
-| [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | 🔄 In Progress | — | Shared by every wrapper |
+| [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
 | [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | ⬜ Not Started | — | `<mikedown-editor>`, form-associated, CDN bundle |
 | [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | ⬜ Not Started | — | Controlled/uncontrolled, ref, SSR-safe |
 | [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | ⬜ Not Started | — | Vue 3, `v-model` |
@@ -278,10 +278,10 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] `packages/core/src/binding.ts` exporting `bindMikeDownValue(container, { initialValue, debounceMs = 150, onValue, theme, darkSelector?, ...MikeDownOptions })` → `{ handle, setValue(md), flush(), setTheme(t), destroy() }`. Lift the behavior from the Angular wrapper: `setValue` loads pristine and skips when equal; keystrokes report after the debounce and at once on blur; `theme: 'auto'` follows `darkSelector` (MutationObserver) or `prefers-color-scheme`. Accepts `ariaLabel` / `ariaLabelledBy` / `id` and applies them to the editable surface (M0 accessibility contract); exposes `focus()`.
-- [ ] Export from the package root and as `@mikedown/core/binding`; add to `exports` and `index.d.ts`.
-- [ ] Unit tests in `packages/core/test/binding.test.ts` (jsdom): debounce, flush on blur, equal-value skip, pristine load, auto theme on selector change and media change, destroy removes observers.
-- [ ] Core README section. `test:unit`, `test:packages` green. Commit.
+- [x] `packages/core/src/binding.ts` exporting `bindMikeDownValue(container, { initialValue, debounceMs = 150, onValue, theme, darkSelector?, ...MikeDownOptions })` → `{ handle, setValue(md), flush(), setTheme(t), destroy() }`. Lift the behavior from the Angular wrapper: `setValue` loads pristine and skips when equal; keystrokes report after the debounce and at once on blur; `theme: 'auto'` follows `darkSelector` (MutationObserver) or `prefers-color-scheme`. Accepts `ariaLabel` / `ariaLabelledBy` / `id` and applies them to the editable surface (M0 accessibility contract); exposes `focus()`.
+- [x] Export from the package root and as `@mikedown/core/binding`; add to `exports` and `index.d.ts`.
+- [x] Unit tests in `packages/core/test/binding.test.ts` (jsdom): debounce, flush on blur, equal-value skip, pristine load, auto theme on selector change and media change, destroy removes observers.
+- [x] Core README section. `test:unit`, `test:packages` green. Commit.
 
 **Also (M0):** apply the "What changes in this plan" lines for M5 in `wrappers-decisions.md`.
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 16:55** - M5 merged (`f85a151`, `f0d3898`, cherry-picked onto `973a69b`, about 12 min plus a gap fill): `bindMikeDownValue` (debounce, blur flush, pristine and equal-value skips, pending-write cancel, `closest(darkSelector)` or `prefers-color-scheme` theme, `label[for]` lookup, `outputTransform`, `readOnly`/`disabled`, `onTouched`), core `placeholder`/`id`/`ariaLabel`/`ariaLabelledBy`/`landmark` options, root and `./binding` exports (alias of the root entry; a separate tsup entry needed splitting and broke the shape test), 24 binding tests, core README section. Gap fill compared against the LymeStarter Angular wrapper; zone, router, localStorage and upload concerns stay with M9. Family bumped to `0.2.0-rc.0` first (`973a69b`); Desktop's exact `0.1.0` pin now resolves from the registry. Main tree: compile, lint (0 errors), `test:unit` (1563), `test:edge` (22), `test:packages` (17) green.
 
 **2026-10-24 16:45** - M2 published: Mike ran the publish at 16:42 (PUT 202, "being processed"); `npm view @mikedown/core` shows `0.1.0` on `latest` from 16:45, shasum `feecb779bd3811520dc7a5cb07743e6531c847d4`, 27 files, 843.1 kB, access public. npm normalized `repository.url` to `git+https://...`; fixed in source with the 0.2.0-rc.0 bump. Open: package 2FA setting "disallow tokens", `core-v0.1.0` tag and push (Mike).
 
