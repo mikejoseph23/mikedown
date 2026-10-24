@@ -29,6 +29,8 @@ jobs:
           fi
 
       - run: npm run lint
+      # Some unit tests read packages/core/dist (e.g. dist/styles.css), so build core first.
+      - run: npm run build:core
       - run: npm run test:unit
       - run: npm run test:edge
       # Builds every public package, then runs the package shape tests.
