@@ -411,8 +411,10 @@ export function createPaneManager(deps: PaneManagerDeps): PaneManager {
       <span class="mdapp-tab__name"></span>
       <span class="mdapp-tab__state" hidden></span>
       <span class="mdapp-tab__dot" hidden aria-label="Unsaved changes">●</span>
-      <button type="button" class="mdapp-tab__close" tabindex="-1">${ICONS.close}</button>`;
-    const close = tab.querySelector('.mdapp-tab__close') as HTMLButtonElement;
+      <span class="mdapp-tab__close" aria-hidden="true">${ICONS.close}</span>`;
+    // Not a button: a control inside role="tab" is a nested-interactive axe
+    // violation. Keyboard users close with Cmd/Ctrl+W (and the tab context menu).
+    const close = tab.querySelector('.mdapp-tab__close') as HTMLElement;
     close.addEventListener('click', (e) => {
       e.stopPropagation();
       const i = indexOfTab(view, tab);
@@ -431,7 +433,7 @@ export function createPaneManager(deps: PaneManagerDeps): PaneManager {
     const dot = tab.querySelector('.mdapp-tab__dot') as HTMLElement;
     const lock = tab.querySelector('.mdapp-tab__lock') as HTMLElement;
     const state = tab.querySelector('.mdapp-tab__state') as HTMLElement;
-    const close = tab.querySelector('.mdapp-tab__close') as HTMLButtonElement;
+    const close = tab.querySelector('.mdapp-tab__close') as HTMLElement;
     const title = fileName(doc);
     name.textContent = title;
     dot.hidden = !doc.dirty;
@@ -449,20 +451,11 @@ export function createPaneManager(deps: PaneManagerDeps): PaneManager {
     tab.setAttribute('aria-label', `${title}${doc.dirty ? ', unsaved changes' : ''}${doc.readOnly && doc.kind !== 'image' ? ', read-only' : ''}`);
     tab.dataset.index = String(index);
     close.title = `Close ${title}`;
-    close.setAttribute('aria-label', `Close ${title}`);
     if (doc.state === 'downloading') {
       state.hidden = false;
       state.replaceChildren();
-      const text = document.createElement('span');
-      text.textContent = 'still downloading…';
-      const retry = document.createElement('button');
-      retry.type = 'button';
-      retry.className = 'mdapp-tab__retry';
-      retry.textContent = 'Retry';
-      retry.title = 'The file is a cloud placeholder that has not finished downloading. Try reading it again.';
-      retry.addEventListener('click', (e) => { e.stopPropagation(); deps.retry(doc); });
-      retry.addEventListener('pointerdown', (e) => e.stopPropagation());
-      state.append(text, retry);
+      // Text only: Retry is a button in the pane's info bar (a button inside a tab is nested-interactive).
+      state.textContent = 'still downloading…';
     } else if (doc.state === 'loading') {
       state.hidden = false;
       state.textContent = 'loading…';
@@ -475,11 +468,14 @@ export function createPaneManager(deps: PaneManagerDeps): PaneManager {
   function renderNotice(view: PaneView): void {
     const doc = view.attached;
     const notice = doc?.notice ?? null;
-    view.notice.hidden = !notice;
-    view.noticeText.textContent = notice?.text ?? '';
-    view.noticeBtn.hidden = !notice?.action;
-    view.noticeBtn.textContent = notice?.action?.label ?? '';
-    view.noticeBtn.onclick = notice?.action ? () => notice.action!.run() : null;
+    // The cloud-placeholder state (edge 10) has no notice of its own; its Retry lives here.
+    const downloading = !notice && doc?.state === 'downloading' && doc.path ? doc : null;
+    view.notice.hidden = !notice && !downloading;
+    view.noticeText.textContent = notice?.text ?? (downloading ? 'This file is a cloud placeholder that has not finished downloading.' : '');
+    const action = notice?.action ?? (downloading ? { label: 'Retry', run: () => deps.retry(downloading) } : null);
+    view.noticeBtn.hidden = !action;
+    view.noticeBtn.textContent = action?.label ?? '';
+    view.noticeBtn.onclick = action ? () => action.run() : null;
   }
 
   // ── Tab strip interaction ─────────────────────────────────────────────

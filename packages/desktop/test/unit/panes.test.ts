@@ -185,7 +185,11 @@ describe('document states', () => {
     const state = tabEl(0, 0).querySelector('.mdapp-tab__state') as HTMLElement;
     expect(state.hidden).toBe(false);
     expect(state.textContent).toContain('still downloading');
-    expect(state.querySelector('.mdapp-tab__retry')).not.toBeNull();
+    // Retry is a real button in the pane's info bar, not inside the tab (axe: nested-interactive).
+    expect(state.querySelector('button')).toBeNull();
+    const bar = app.root.querySelector('.mdapp-pane__notice') as HTMLElement;
+    expect(bar.hidden).toBe(false);
+    expect((bar.querySelector('.mdapp-notice__action') as HTMLButtonElement).textContent).toBe('Retry');
     // The download finishes.
     slowReads.get(`${DIR}/a.md`)!();
     expect(await opening).toBe(true);

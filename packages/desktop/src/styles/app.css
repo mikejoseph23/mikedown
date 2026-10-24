@@ -222,8 +222,101 @@ body {
   object-fit: contain;
 }
 
+/*
+ * Edge 26. Reduced motion: nothing in the chrome animates (toast fade, tab and
+ * pane transitions, hover fades, smooth scrolling). The wildcard keeps this
+ * true for rules added later without having to remember a per-class override.
+ */
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * Edge 26. prefers-contrast: more. Core reads its colors from --mikedown-*
+ * tokens defined with zero specificity (:where), so these overrides win on
+ * the root, the editor root and portaled UI (menus, modals) alike. Hairlines
+ * become real lines, muted text darkens, the focus ring turns solid. No
+ * separate theme: light and dark each get their own stronger values.
+ */
+@media (prefers-contrast: more) {
+  :root,
+  .mikedown-root,
+  .mikedown-portal {
+    --mikedown-border: rgba(0, 0, 0, 0.7);
+    --mikedown-divider: rgba(0, 0, 0, 0.55);
+    --mikedown-input-border: rgba(0, 0, 0, 0.75);
+    --mikedown-button-border: rgba(0, 0, 0, 0.7);
+    --mikedown-quote-border: rgba(0, 0, 0, 0.65);
+    --mikedown-text: #000000;
+    --mikedown-text-ui: #000000;
+    --mikedown-text-muted: #2e2e33;
+    --mikedown-icon: #1a1a1d;
+    --mikedown-focus-ring: #0b1a8c;
+  }
+}
+
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root[data-mikedown-theme='auto'],
+  [data-mikedown-theme='auto'] .mikedown-root,
+  .mikedown-root[data-mikedown-theme='auto'],
+  .mikedown-portal[data-mikedown-theme='auto'] {
+    --mikedown-border: rgba(255, 255, 255, 0.75);
+    --mikedown-divider: rgba(255, 255, 255, 0.6);
+    --mikedown-input-border: rgba(255, 255, 255, 0.8);
+    --mikedown-button-border: rgba(255, 255, 255, 0.75);
+    --mikedown-quote-border: rgba(255, 255, 255, 0.7);
+    --mikedown-text: #ffffff;
+    --mikedown-text-ui: #ffffff;
+    --mikedown-text-muted: #d4d4d9;
+    --mikedown-icon: #f0f0f2;
+    --mikedown-focus-ring: #9fb0ff;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root[data-mikedown-theme='dark'],
+  .mikedown-root[data-mikedown-theme='dark'],
+  .mikedown-portal[data-mikedown-theme='dark'] {
+    --mikedown-border: rgba(255, 255, 255, 0.75);
+    --mikedown-divider: rgba(255, 255, 255, 0.6);
+    --mikedown-input-border: rgba(255, 255, 255, 0.8);
+    --mikedown-button-border: rgba(255, 255, 255, 0.75);
+    --mikedown-quote-border: rgba(255, 255, 255, 0.7);
+    --mikedown-text: #ffffff;
+    --mikedown-text-ui: #ffffff;
+    --mikedown-text-muted: #d4d4d9;
+    --mikedown-icon: #f0f0f2;
+    --mikedown-focus-ring: #9fb0ff;
+  }
+}
+
+/*
+ * Edge 26. forced-colors: the OS palette replaces author colors. Keep what
+ * carries meaning that color alone used to carry: focus outlines, the dirty
+ * dot, the diff, drop targets and buttons keep a visible border.
+ */
+@media (forced-colors: active) {
+  .mdapp-btn,
+  .mdapp-btn--toolbar,
+  .mdapp-iconbtn {
+    border: 1px solid ButtonText;
+  }
+
+  :where(button, [role='tab'], [role='treeitem'], [role='option'], input, select, textarea):focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+  }
+
   .mdapp-toast {
-    transition: none;
+    border: 1px solid CanvasText;
   }
 }

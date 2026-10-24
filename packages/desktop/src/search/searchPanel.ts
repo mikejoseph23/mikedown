@@ -49,7 +49,7 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
       <input class="mdapp-search__input" type="text" spellcheck="false" autocomplete="off" autocapitalize="off"
         placeholder="Search" aria-label="Search the folder" />
       <button type="button" class="mdapp-search__toggle" data-opt="case" aria-pressed="false" aria-label="Match case" title="Match case">Aa</button>
-      <button type="button" class="mdapp-search__toggle" data-opt="word" aria-pressed="false" aria-label="Match whole word" title="Match whole word"><span class="mdapp-search__word">ab</span></button>
+      <button type="button" class="mdapp-search__toggle" data-opt="word" aria-pressed="false" aria-label="Match whole word ab" title="Match whole word"><span class="mdapp-search__word">ab</span></button>
     </div>
     <div class="mdapp-search__status" role="status" aria-live="polite"></div>
     <div class="mdapp-search__results" role="tree" aria-label="Search results" tabindex="0"></div>`;
@@ -61,7 +61,7 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
 
   const collapsed = new Set<string>();
   /** Rendered rows, in order, keyed so streamed batches only append. */
-  const groupEls = new Map<string, { header: HTMLElement; rows: HTMLElement[]; count: HTMLElement }>();
+  const groupEls = new Map<string, { header: HTMLElement; rows: HTMLElement[]; count: HTMLElement; sr: HTMLElement }>();
   let selected = -1;
 
   const rowId = (row: NavRow): string => (row.kind === 'file' ? `${uid}-f-${hash(row.path)}` : `${uid}-m-${hash(row.path)}-${row.index}`);
@@ -105,18 +105,26 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
     const { before, hit, after } = splitSnippet(m.snippet, m.matchStart, m.matchEnd);
     const line = document.createElement('span');
     line.className = 'mdapp-search__line';
-    line.textContent = String(m.line);
+    line.append(srOnly('Line '), String(m.line));
     const text = document.createElement('span');
     text.className = 'mdapp-search__snippet';
     const mark = document.createElement('mark');
     mark.textContent = hit;
     text.append(before, mark, after);
     row.append(line, text);
-    row.setAttribute('aria-label', `Line ${m.line}: ${m.snippet}`);
+    // No aria-label: the name comes from the visible text, so it always contains it.
     return row;
   }
 
-  function renderGroup(path: string): { header: HTMLElement; rows: HTMLElement[]; count: HTMLElement } {
+  /** Text for assistive tech only; it stays part of the row's text so the accessible name matches it. */
+  function srOnly(text: string): HTMLElement {
+    const span = document.createElement('span');
+    span.className = 'mdapp-sr-only';
+    span.textContent = text;
+    return span;
+  }
+
+  function renderGroup(path: string): { header: HTMLElement; rows: HTMLElement[]; count: HTMLElement; sr: HTMLElement } {
     const root = deps.root() ?? '';
     const header = document.createElement('div');
     header.className = 'mdapp-search__file';
@@ -138,8 +146,9 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
     dir.textContent = relativeDir(root, path);
     const count = document.createElement('span');
     count.className = 'mdapp-search__count';
-    header.append(twisty, name, dir, count);
-    return { header, rows: [], count };
+    const sr = srOnly('');
+    header.append(twisty, name, dir, count, sr);
+    return { header, rows: [], count, sr };
   }
 
   /** Append what the controller has beyond what is on screen. */
@@ -167,7 +176,7 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
         ge.rows.push(node);
       }
       ge.count.textContent = String(g.matches.length);
-      ge.header.setAttribute('aria-label', `${baseName(g.path)}, ${g.matches.length} ${g.matches.length === 1 ? 'match' : 'matches'}`);
+      ge.sr.textContent = g.matches.length === 1 ? ' match' : ' matches';
       for (const r of ge.rows) {r.setAttribute('aria-setsize', String(g.matches.length));}
     }
     statusEl.textContent = statusText(state);

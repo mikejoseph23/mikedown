@@ -85,7 +85,15 @@
   padding: 0 12px 4px;
   font-size: 11px;
   color: var(--mikedown-text-muted, inherit);
-  opacity: 0.9;
+}
+
+.mdapp-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .mdapp-search__status--error {
