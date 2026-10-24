@@ -42,7 +42,7 @@
 | [M11 — Site build and deploy path](#m11--site-build-and-deploy-path) | Sonnet | ✅ Complete | 11 | `website/` Vite MPA, site-only publish via `mikedown-downloads` |
 | [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | 🔄 In Progress | — | UI design |
 | [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ✅ Complete | 14 | UI design |
-| [M14 — READMEs](#m14--readmes) | Sonnet | 🔄 In Progress | — | Root (Marketplace listing) + per package |
+| [M14 — READMEs](#m14--readmes) | Sonnet | ✅ Complete | 3 | Root (Marketplace listing) + per package |
 | [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ⬜ Not Started | — | link check + hands-on |
 | [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ⬜ Not Started | — | Mike runs publish and deploy |
 | [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | ⬜ Not Started | — | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
@@ -462,10 +462,10 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] Root `README.md` (Marketplace listing, absolute URLs only): extend the M3 "More MikeDown" block with the VS Code page, the Developers hub and each npm package; npm version badge for core; update "Repository layout" for the new packages and `website/`.
-- [ ] Each package README: consistent sections (install for npm/pnpm plus the explicit Yarn peer line, minimal example, API table, accessibility props, theming pointer to core, browser support, "no telemetry, no network calls except the ones you configure", links to the demo page, Developers hub and GitHub). Core README links every wrapper.
-- [ ] `CLAUDE.md`: architecture section lists the new packages, `website/` workspace, `test:wrappers` / `test:consumers` / `test:packages`, `dev:site` / `build:site`, and the site publish flow.
-- [ ] `BACKLOG.md`: provenance via GitHub Actions trusted publishing; Blazor wrapper; typedoc API reference; any M0 deferrals. Commit.
+- [x] Root `README.md` (Marketplace listing, absolute URLs only): extend the M3 "More MikeDown" block with the VS Code page, the Developers hub and each npm package; npm version badge for core; update "Repository layout" for the new packages and `website/`.
+- [x] Each package README: consistent sections (install for npm/pnpm plus the explicit Yarn peer line, minimal example, API table, accessibility props, theming pointer to core, browser support, "no telemetry, no network calls except the ones you configure", links to the demo page, Developers hub and GitHub). Core README links every wrapper.
+- [x] `CLAUDE.md`: architecture section lists the new packages, `website/` workspace, `test:wrappers` / `test:consumers` / `test:packages`, `dev:site` / `build:site`, and the site publish flow.
+- [x] `BACKLOG.md`: provenance via GitHub Actions trusted publishing; Blazor wrapper; typedoc API reference; any M0 deferrals. Commit.
 
 **Also (M0):** apply the "What changes in this plan" lines for M14 in `wrappers-decisions.md`.
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 17:55** - M14 done (`e895307`, 3 min): root README (More MikeDown block with VS Code page, Developers hub and every npm package, core npm badge, Repository layout), five package READMEs made consistent (Yarn peer line from core's `package.json`, ARIA accessible-name order, Jest line, theming pointer, browser support, no-telemetry line, demo/hub/GitHub links), CLAUDE.md (packages, `website/`, `test:wrappers`/`test:consumers`/`test:packages`, `dev:site`/`build:site`, site publish flow), BACKLOG (typedoc and `styles-base.css` added; Blazor and trusted publishing already there), `wrappers-decisions.md` note recording the ARIA order (Mike kept the standard order). Demo URLs go live in M15. `test:packages` green.
 
 **2026-10-24 17:45** - M6 done (`60b30e4` list markers, `65feeb5` theme fix, `d7fba47` package, 21 min): `@mikedown/web-component` 0.2.0-rc.0, light-DOM `<mikedown-editor>` over `bindMikeDownValue`, `/define` entry (only `sideEffects` entry), reflected attributes, properties, `change`/`ready` events, child `<textarea>`/`<script type="text/markdown">` init, form-associated (value, `required` validity, reset, disabled, state restore), CDN bundle 779 kB gzipped (budget 850 kB, asserted), `THIRD_PARTY_NOTICES.md`, demo with preflight fixture, `test:web-component` (48), README. Demo checked in Chrome (form submit, reset, disabled fieldset, label click, dark mode, KaTeX and Mermaid from jsDelivr). Core fix: a class-based `darkSelector` looped forever in a real browser (each theme apply woke the observer); the binding now re-applies only on change, with a test; M7 to M9 get it through core. Noted: `math` off is page-wide (added to the BACKLOG singleton line); label order is ARIA standard (`aria-labelledby` > `aria-label` > `<label>`), unlike the decisions doc, held for Mike; CI doesn't run the wrapper suites yet (T2). Main tree: compile, lint (0 errors), `test:unit` (1565), `test:edge` (22), `test:packages` (72), `test:web-component` (48), `test:react` (22), `test:vue` (11), `test:angular` (25), `release:npm` dry run green.
 
