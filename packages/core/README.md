@@ -8,7 +8,7 @@ The MikeDown WYSIWYG markdown editor as a framework-agnostic package: TipTap (Pr
 npm install @mikedown/core
 ```
 
-Install the peer dependencies too (see [Peer dependencies](#peer-dependencies)). The package is ESM only.
+npm 7+ and pnpm 8+ install the peer dependencies for you (see [Peer dependencies](#peer-dependencies)); Yarn does not, so use the `yarn add` line under [Framework wrappers](#framework-wrappers). The package is ESM only.
 
 ## Minimal example
 
@@ -61,7 +61,7 @@ field.destroy();              // flushes, then removes observers and listeners
 
 - **Change reporting.** `onValue` fires after `debounceMs` of quiet and at once on blur. `outputTransform(markdown)` maps the text on its way out; `setValue` compares against its output.
 - **Theme.** `auto` is dark when the container or an ancestor matches `darkSelector` (it uses `closest()`, so both `html[data-mode=dark]` and a `.dark-theme` wrapper work), re-checked when attributes change. Without a selector it follows `prefers-color-scheme`.
-- **Accessibility.** `id`, `ariaLabel` and `ariaLabelledBy` go on the editable surface in both views (rich text and source). With only an `id`, the binding looks up `label[for=id]`, uses it as the name and focuses the editor when it is clicked. `ariaLabelledBy` is the sturdier choice. A bound editor drops `role="main"` (`landmark: false`), since a field is not a page landmark; the same `landmark`, `placeholder`, `id`, `ariaLabel` and `ariaLabelledBy` options exist on `createMikeDownEditor`.
+- **Accessibility.** `id`, `ariaLabel` and `ariaLabelledBy` go on the editable surface in both views (rich text and source). With only an `id`, the binding looks up `label[for=id]`, uses it as the name and focuses the editor when it is clicked. `ariaLabelledBy` is the sturdier choice. The accessible name follows ARIA's order: `aria-labelledby`, then `aria-label`, then `<label for>` elements. A bound editor drops `role="main"` (`landmark: false`), since a field is not a page landmark; the same `landmark`, `placeholder`, `id`, `ariaLabel` and `ariaLabelledBy` options exist on `createMikeDownEditor`.
 
 ## Host interface
 
@@ -164,6 +164,23 @@ The app must have exactly one copy of ProseMirror and CodeMirror, so these are p
 
 Mermaid renders SVG with `securityLevel: 'strict'` and loads its diagram types by dynamic `import()`. Your CSP needs `script-src 'self'` (or wherever your chunks are served from) and must allow inline styles for the SVG output (`style-src 'unsafe-inline'`, or a nonce on the style elements your bundler injects). A page that cannot allow this should set `features: { mermaid: false }`. KaTeX needs no script or eval permissions, only its stylesheet and fonts.
 
+## Framework wrappers
+
+- [`@mikedown/web-component`](https://www.npmjs.com/package/@mikedown/web-component): `<mikedown-editor>`, a form-associated custom element for plain HTML, CDN pages and server-rendered templates.
+- [`@mikedown/react`](https://www.npmjs.com/package/@mikedown/react): `MikeDownEditor` for React 18 and 19.
+- [`@mikedown/vue`](https://www.npmjs.com/package/@mikedown/vue): `MikeDownEditor` with `v-model` for Vue 3.3+.
+- [`@mikedown/angular`](https://www.npmjs.com/package/@mikedown/angular): a form control for Angular 17+.
+
+Each wrapper depends only on core and its framework. Yarn does not install peers, so list core's:
+
+```bash
+yarn add @mikedown/core @codemirror/commands @codemirror/lang-markdown @codemirror/language @codemirror/state @codemirror/theme-one-dark @codemirror/view @tiptap/core @tiptap/extension-code-block-lowlight @tiptap/extension-hard-break @tiptap/extension-highlight @tiptap/extension-image @tiptap/extension-link @tiptap/extension-placeholder @tiptap/extension-table @tiptap/extension-table-cell @tiptap/extension-table-header @tiptap/extension-table-row @tiptap/extension-task-item @tiptap/extension-task-list @tiptap/extension-text @tiptap/pm @tiptap/starter-kit katex lowlight mermaid
+```
+
+## Testing
+
+Use vitest with jsdom, stubbing `Range.prototype.getBoundingClientRect` and `getClientRects`. Jest: add `transformIgnorePatterns: ['/node_modules/(?!(@mikedown|lowlight|devlop)/)']` so the ESM-only packages in core's import graph get transformed (TipTap, CodeMirror and `tiptap-markdown` ship `require` builds). vitest is the recommended runner.
+
 ## Demo
 
 From a clone of the repository:
@@ -173,6 +190,20 @@ npm run demo:core
 ```
 
 This builds the package and serves `packages/core/demo/` with two editors side by side, a theme toggle, a "Log markdown" button and an `uploadImage` stub that returns an object URL.
+
+## Browser support
+
+Current Chrome, Edge, Firefox and Safari (ES2020 output, ESM only).
+
+## Privacy
+
+No telemetry. The editor makes no network calls except the ones you configure: spell check dictionaries (when `spellcheckDictionaryUrl` is set), your `host` callbacks, and the lazy `import()` of KaTeX and Mermaid from your own bundle.
+
+## Links
+
+- [Developers hub](https://www.iadev.net/mikedown/developers/)
+- [npm](https://www.npmjs.com/package/@mikedown/core)
+- [GitHub](https://github.com/mikejoseph23/mikedown/tree/main/packages/core)
 
 ## Build
 

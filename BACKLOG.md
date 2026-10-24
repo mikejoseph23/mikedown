@@ -34,7 +34,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 - **M8 / M9** of `angular-core-extraction-plan.md`: Quantico Creek image upload API (M8, optional) and the remaining M9 work.
 - **Patch release 2.14.3** for the callout body duplication fix (f1befc5, in `[Unreleased]`).
-- **React wrapper** around `@mikedown/core`, only if ever wanted.
+- ~~**React wrapper** around `@mikedown/core`.~~ ✅ Done: `@mikedown/react` (npm packages and wrappers plan).
 - **Publish dictionaries separately** (e.g. `@mikedown/dictionaries`) instead of copying them into core `dist`.
 - **Content width setting is not persisted by VS Code** (setting round-trip gap in the host).
 - **Shared module singletons across two editors**: the portal mirrors the last-focused editor and the Mermaid theme init is global, and turning `math` off in one editor's `features` turns KaTeX off for every editor on the page.
@@ -47,7 +47,9 @@ Deferred in `wrappers-decisions.md` (M0 of `wrappers-npm-plan.md`).
 - **Provenance via npm trusted publishing.** Publish from GitHub Actions with OIDC (`id-token: write`, npm CLI 11.5.1+, 11.21+ to move dist-tags) so every package gets a provenance statement. Builds on the M1 `ci.yml`; local publishes cannot attest.
 - **Blazor wrapper.** The web component already works in Razor pages; a typed Blazor component with `@bind-Value` would be the wrapper.
 - **Solid and Preact wrappers.** Covered for now by the web component (Solid) and `preact/compat` with `@mikedown/react`.
+- **Typedoc API reference** for core and the wrappers, generated from the `.d.ts` and linked from the Developers hub. Deferred in `wrappers-decisions.md`.
 - **Svelte wrapper** (M10, deferred). The web component covers Svelte.
+- **`@mikedown/core/styles-base.css`** (no KaTeX `@import`), only needed if `katex` ever goes back to an optional peer.
 - **Trim the CDN bundle's code languages.** lowlight `common` instead of `all` cuts the standalone bundle from about 757 to 511 kB gzipped. Needs a core `codeLanguages` option so the language picker lists the same set.
 
 ## Product ideas

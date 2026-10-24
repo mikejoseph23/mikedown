@@ -321,6 +321,7 @@ Assumed: npm's 2025 policy text on retired tokens (docs pages fetched only in pa
 - **Web component:** the element keeps its own `id`, so `<label for>` works natively for a form-associated element. On a click whose target is the element itself, it calls `handle.focus()`, and it forwards `internals.labels` (else `aria-label` / `aria-labelledby`) to the surface.
 - **No `role="main"` when embedded:** the binding passes a new core option `landmark: false`, which drops the `role="main"` core puts on `.mikedown-editor-container`. That landmark is right for VS Code and Desktop but wrong for a form field.
 - **Methods:** `focus()` is on every wrapper's handle/ref.
+- **Name order (Mike's call, M14):** the bullets above list labels first, but M6 implemented the ARIA standard order and Mike kept it: `aria-labelledby`, then `aria-label`, then `<label for>` elements. Every wrapper (through `bindMikeDownValue`, which turns `label[for]` into `aria-labelledby` only when no `ariaLabelledBy` is given) and the web component behave this way, and the READMEs say so.
 
 **Why:** one implementation in core means M6 to M9 can't drift, and changing attributes through PM props keeps the "no DOM writes outside a transaction" rule.
 

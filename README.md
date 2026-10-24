@@ -6,8 +6,16 @@
 
 ## More MikeDown
 
+[![@mikedown/core on npm](https://img.shields.io/npm/v/@mikedown/core?label=%40mikedown%2Fcore)](https://www.npmjs.com/package/@mikedown/core)
+
 - [MikeDown Desktop](https://www.iadev.net/mikedown/), the same editor as a standalone app.
-- [`@mikedown/core` on npm](https://www.npmjs.com/package/@mikedown/core), to embed the editor in your own web app.
+- [MikeDown for VS Code](https://www.iadev.net/mikedown/vscode/), screenshots and features on the web.
+- [Developers hub](https://www.iadev.net/mikedown/developers/), to embed the editor in your own app, with a live demo for each package:
+  - [`@mikedown/core`](https://www.npmjs.com/package/@mikedown/core), the framework-agnostic editor.
+  - [`@mikedown/web-component`](https://www.npmjs.com/package/@mikedown/web-component) ([demo](https://www.iadev.net/mikedown/developers/web-component/)), `<mikedown-editor>` for plain HTML, CDN pages and server-rendered templates.
+  - [`@mikedown/react`](https://www.npmjs.com/package/@mikedown/react) ([demo](https://www.iadev.net/mikedown/developers/react/)), a React component.
+  - [`@mikedown/vue`](https://www.npmjs.com/package/@mikedown/vue) ([demo](https://www.iadev.net/mikedown/developers/vue/)), a Vue 3 component with `v-model`.
+  - [`@mikedown/angular`](https://www.npmjs.com/package/@mikedown/angular) ([demo](https://www.iadev.net/mikedown/developers/angular/)), an Angular form control.
 
 ## Why MikeDown?
 
@@ -290,6 +298,11 @@ MikeDown is open source under the [MIT License](LICENSE.md). Bug reports, featur
 ### Repository layout
 
 The repo is an npm workspace. The editor sources live in `packages/core` (`@mikedown/core`); the VS Code extension host is `src/`. Run `npm install` at the root, then `npm run compile`, `npm run test:unit` and `npm run test:edge`. Editor styles are in `packages/core/src/styles/`, and core-only tests are in `packages/core/test/`.
+
+- `packages/core`: `@mikedown/core`, the editor.
+- `packages/web-component`, `packages/react`, `packages/vue`, `packages/angular`: the framework packages, each a thin layer over core.
+- `packages/desktop`: MikeDown Desktop.
+- `website/`: the VS Code page and the [Developers hub](https://www.iadev.net/mikedown/developers/), built with Vite (`npm run build:site`).
 
 ## License
 

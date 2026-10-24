@@ -8,7 +8,11 @@ Vue 3 component for the [MikeDown](https://github.com/mikejoseph23/mikedown) WYS
 npm install @mikedown/vue @mikedown/core
 ```
 
-Yarn does not install peers. Add core's peers by hand (the full list is in the `@mikedown/core` README).
+npm 7+ and pnpm 8+ install core's peers (TipTap, CodeMirror, lowlight, KaTeX) for you. Yarn does not, so list them:
+
+```bash
+yarn add @mikedown/vue @mikedown/core vue @codemirror/commands @codemirror/lang-markdown @codemirror/language @codemirror/state @codemirror/theme-one-dark @codemirror/view @tiptap/core @tiptap/extension-code-block-lowlight @tiptap/extension-hard-break @tiptap/extension-highlight @tiptap/extension-image @tiptap/extension-link @tiptap/extension-placeholder @tiptap/extension-table @tiptap/extension-table-cell @tiptap/extension-table-header @tiptap/extension-table-row @tiptap/extension-task-item @tiptap/extension-task-list @tiptap/extension-text @tiptap/pm @tiptap/starter-kit katex lowlight mermaid
+```
 
 Requires `vue >=3.3`.
 
@@ -88,8 +92,36 @@ const editor = ref<{ handle: MikeDownEditorHandle | null }>();
 editor.value?.handle?.command('toggleBold');
 ```
 
+## Accessibility
+
+The editable surface is a `role="textbox"` with `aria-multiline="true"`. `aria-labelledby` is the sturdiest way to name it; `aria-label` works too. `<label for>` cannot target a contenteditable `div`, so with only an `id` the component finds `label[for=id]` at mount, uses it as the name and focuses the editor when the label is clicked. The accessible name follows ARIA's order: `aria-labelledby`, then `aria-label`, then `<label for>` elements. The editor is not a page landmark (no `role="main"`).
+
 ## Notes
 
 - Created in `onMounted` and destroyed in `onBeforeUnmount`; pending text is flushed first.
 - No `defineModel`, so Vue 3.3 works.
-- MIT, ESM only.
+- Testing: use vitest with jsdom, stubbing `Range.prototype.getBoundingClientRect` and `getClientRects`. Jest: add `transformIgnorePatterns: ['/node_modules/(?!(@mikedown|lowlight|devlop)/)']` so the ESM-only packages in core's import graph get transformed (TipTap, CodeMirror and `tiptap-markdown` ship `require` builds). vitest is the recommended runner.
+- ESM only.
+
+## Theming
+
+Colors, fonts and radii come from `--mikedown-*` custom properties, set on the editor or any ancestor. The token list, light and dark defaults and the portal note are in the [`@mikedown/core` README](https://www.npmjs.com/package/@mikedown/core#theming).
+
+## Browser support
+
+Current Chrome, Edge, Firefox and Safari (ES2020 output, ESM only).
+
+## Privacy
+
+No telemetry. The editor makes no network calls except the ones you configure: spell check dictionaries (when you set a dictionary URL), your `uploadImage` / `host` callbacks, and the lazy `import()` of KaTeX and Mermaid from your own bundle.
+
+## Links
+
+- [Live demo](https://www.iadev.net/mikedown/developers/vue/)
+- [Developers hub](https://www.iadev.net/mikedown/developers/)
+- [npm](https://www.npmjs.com/package/@mikedown/vue)
+- [GitHub](https://github.com/mikejoseph23/mikedown/tree/main/packages/vue)
+
+## License
+
+MIT

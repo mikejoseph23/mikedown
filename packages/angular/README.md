@@ -213,7 +213,7 @@ Use an arrow function (or `.bind(this)`), because the editor calls it without `t
 
 ## Accessibility
 
-The editable surface is a `role="textbox"` with `aria-multiline="true"`. `<label for>` cannot target it directly, so pass `inputId` with a matching `<label for>`: the label then names the surface (`aria-labelledby`) and focuses it on click. `ariaLabelledBy` is the most robust option; `ariaLabel` sets a name directly. The editor drops core's `role="main"` landmark, which is wrong for a form field.
+The editable surface is a `role="textbox"` with `aria-multiline="true"`. `<label for>` cannot target it directly, so pass `inputId` with a matching `<label for>`: the label then names the surface (`aria-labelledby`) and focuses it on click. `ariaLabelledBy` is the most robust option; `ariaLabel` sets a name directly. The accessible name follows ARIA's order: `aria-labelledby`, then `aria-label`, then `<label for>` elements. The editor drops core's `role="main"` landmark, which is wrong for a form field.
 
 ## Behaviour notes
 
@@ -223,6 +223,15 @@ The editable surface is a `role="textbox"` with `aria-multiline="true"`. `<label
 - **Shortcuts.** Cmd/Ctrl+/ toggles the markdown source view.
 - **CommonJS warnings.** The build warns that `nspell`, `markdown-it-task-lists` and some of mermaid's dependencies are not ESM. They work; list them in `allowedCommonJsDependencies` in `angular.json` to silence the warnings.
 - **Bundle.** The editor is large (about 2.6 MB raw, 660 kB transfer) and belongs behind a lazy route. Mermaid and KaTeX load only when a document uses them.
+
+## Testing
+
+The specs here run on Angular's own runner. Jest: add `transformIgnorePatterns: ['/node_modules/(?!(@mikedown|lowlight|devlop)/)']` so the ESM-only packages in core's import graph get transformed (TipTap, CodeMirror and `tiptap-markdown` ship `require` builds). vitest is the recommended runner.
+
+## Known limitations
+
+- **`mermaid` must be installed**, even though diagrams load lazily, because the Angular builder resolves `import('mermaid')` at build time.
+- **Several editors on one page share some state.** Overlays live in one portal that follows the last-focused editor, and turning `math` off in one editor's `features` turns KaTeX off page-wide.
 
 ## Migrating from the vendored copy
 
@@ -236,6 +245,25 @@ Apps that copied the wrapper (LymeStarter's `lymestack-optional/mikedown`, Quant
 ## Versioning
 
 `@mikedown/*` packages share one version. On 0.x a minor release may break, a patch never does. Install matching versions of `@mikedown/angular` and `@mikedown/core`.
+
+## Theming
+
+Colors, fonts and radii come from `--mikedown-*` custom properties, set on the editor or any ancestor. The token list, light and dark defaults and the portal note are in the [`@mikedown/core` README](https://www.npmjs.com/package/@mikedown/core#theming).
+
+## Browser support
+
+Current Chrome, Edge, Firefox and Safari (ES2020 output, ESM only).
+
+## Privacy
+
+No telemetry. The editor makes no network calls except the ones you configure: spell check dictionaries (when you set a dictionary URL), your `uploadImage` / `host` callbacks, and the lazy `import()` of KaTeX and Mermaid from your own bundle.
+
+## Links
+
+- [Live demo](https://www.iadev.net/mikedown/developers/angular/)
+- [Developers hub](https://www.iadev.net/mikedown/developers/)
+- [npm](https://www.npmjs.com/package/@mikedown/angular)
+- [GitHub](https://github.com/mikejoseph23/mikedown/tree/main/packages/angular)
 
 ## License
 

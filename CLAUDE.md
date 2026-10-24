@@ -16,6 +16,10 @@ npm run release:npm         # dry run of every public package (build, npm pack -
 npm run release:core        # alias for release:npm -- --only core
 npm run build:core          # build packages/core dist (tsup + CSS + dictionaries)
 npm run test:packages       # build every public package, then test/packages/package-shape.test.ts (test:core-package is an alias)
+npm run test:wrappers       # every wrapper's own test script (web-component, react, vue, angular)
+npm run test:consumers      # scaffold real consumer apps (Vite, Next, Nuxt, Angular...) and build them against the packed packages; --only <target> for one
+npm run dev:site            # website/ dev server (Vite, port 5180, base /mikedown/)
+npm run build:site          # build website/ (Vite pages, then the Angular demo)
 npm run lint                # eslint on src/**/*.ts
 npm run format              # prettier
 npm run test:unit           # vitest (jsdom) — pure logic + DOM utilities
@@ -39,7 +43,18 @@ This is a VS Code custom editor extension. It compiles into **two separate bundl
 | Extension host | `node` | `src/extension.ts` | `dist/extension.js` | `tsconfig.json` (excludes `src/webview`; includes `packages/core/src/shared`) |
 | Webview | `web` | `src/webview/editor-main.ts` (thin; imports `packages/core/src/editor-main.ts`) | `out/webview/editor-main.js` | `tsconfig.webview.json` (DOM lib, transpile-only) |
 
-The repo is an npm workspace (`"workspaces": ["packages/*"]`). The editor sources live in `packages/core` (`@mikedown/core`, private until M4 of `angular-core-extraction-plan.md`); the VS Code extension at the root consumes them.
+The repo is an npm workspace (`"workspaces": ["packages/*", "!packages/angular", "website"]`). The editor sources live in `packages/core` (`@mikedown/core`, public on npm); the VS Code extension at the root consumes them.
+
+Packages (`wrappers-decisions.md` has the reasoning):
+
+- `packages/core`: `@mikedown/core`, the framework-agnostic editor plus `bindMikeDownValue` (`@mikedown/core/binding`).
+- `packages/web-component`: `@mikedown/web-component`, the form-associated `<mikedown-editor>` (light DOM, plus a standalone CDN bundle).
+- `packages/react`, `packages/vue`: thin wrappers over `bindMikeDownValue`.
+- `packages/angular`: `@mikedown/angular`, a form control. Outside the root workspaces with its own lockfile; built by ng-packagr and published from `packages/angular/dist`.
+- `packages/desktop`: MikeDown Desktop (Tauri), private, with its own plan.
+- `website/` (`@mikedown/site`, private): the VS Code page (`vscode/`) and the developers hub with a demo per wrapper (`developers/`), built by Vite (base `/mikedown/`), shared shell in `website/shared/`. The Angular demo is a separate app in `website/developers-angular/`, built by `ng build` into the site output. The desktop download page (`website/mikedown-desktop/`) is rendered by the Desktop release script, not by Vite.
+
+All wrappers (and the web component) peer on `@mikedown/core` and their framework only; they share one lockstep family version.
 
 The extension host has zero DOM types. The webview has zero `vscode` Node APIs. They only communicate via `postMessage`.
 
@@ -90,6 +105,8 @@ npm family:
 3. `npm run release:npm` is a dry run (default): build, `npm pack --dry-run`, file list; nothing is published. Add `--only core,react` to limit it.
 4. `npm run release:npm -- --publish [--otp 123456]` publishes core first, then the rest, with `--access public` (`--tag rc` for prereleases). A version already on npm is skipped. If `npm whoami` fails it packs tarballs to `/Volumes/Storage/LymeStack/packages/npm/` (falling back to `.orchestrator/wrappers-npm-plan/artifacts/`) instead of publishing; `--pack` writes them without publishing.
 5. `packages/angular` (when it exists) is outside the root workspaces with its own lockfile and is published from `packages/angular/dist`; the scripts handle it.
+
+Website (`https://www.iadev.net/mikedown/`): `npm run build:site`, then the site-only publish through the same LymeDeploy project as Desktop (`mikedown-downloads`): `packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n N --dry-run` first, then without `--dry-run`. It packs only `vscode/`, `developers/`, site assets and the re-rendered desktop `index.html`, as release `<desktop-version>-site.N`, and never touches Desktop artifacts or manifests. Details in `packages/desktop/deploy/README.md`.
 
 Extension:
 

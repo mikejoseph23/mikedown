@@ -14,7 +14,6 @@ It submits like a `<textarea>`: the markdown goes out under its `name`, `require
 
 - Light DOM (no shadow root), so page CSS and `--mikedown-*` tokens reach the editor.
 - ESM only, typed, telemetry-free.
-- Browsers: Chrome 77+, Firefox 98+, Safari 16.4+ (form-associated custom elements).
 
 ## Install
 
@@ -22,7 +21,13 @@ It submits like a `<textarea>`: the markdown goes out under its `name`, `require
 npm install @mikedown/web-component @mikedown/core
 ```
 
-`@mikedown/core` is a peer dependency, and its own peers (TipTap, CodeMirror, lowlight, KaTeX) install with it on npm 7+ and pnpm 8+. Yarn does not install peers: copy the `yarn add` line from the [core README](https://github.com/mikejoseph23/mikedown/tree/main/packages/core#peer-dependencies).
+`@mikedown/core` is a peer dependency, and its own peers (TipTap, CodeMirror, lowlight, KaTeX) install with it on npm 7+ and pnpm 8+. Yarn does not install peers, so list them:
+
+```bash
+yarn add @mikedown/web-component @mikedown/core @codemirror/commands @codemirror/lang-markdown @codemirror/language @codemirror/state @codemirror/theme-one-dark @codemirror/view @tiptap/core @tiptap/extension-code-block-lowlight @tiptap/extension-hard-break @tiptap/extension-highlight @tiptap/extension-image @tiptap/extension-link @tiptap/extension-placeholder @tiptap/extension-table @tiptap/extension-table-cell @tiptap/extension-table-header @tiptap/extension-table-row @tiptap/extension-task-item @tiptap/extension-task-list @tiptap/extension-text @tiptap/pm @tiptap/starter-kit katex lowlight mermaid
+```
+
+Or skip all of it with the CDN bundle below.
 
 ## Use with a bundler
 
@@ -197,7 +202,7 @@ htmx reads the form with `FormData`, which includes the element's value. Swappin
 ## Labels and accessibility
 
 - `<label for="id">` names the editor and focuses it on click. The element keeps its own `id`; the label is linked to the editable surface through `aria-labelledby`. Prefer `<label for>` to a wrapping `<label>`.
-- `aria-labelledby`, then `aria-label`, then the element's `<label>`s name the editable surface (ARIA's order).
+- The accessible name of the editable surface follows ARIA's order: `aria-labelledby`, then `aria-label`, then the element's `<label>`s.
 - The surface has `role="textbox"` and `aria-multiline="true"`. The editor is not a page landmark.
 
 ## Styling
@@ -221,10 +226,33 @@ The element works anywhere custom elements do. Set `value`, `settings`, `host` a
 
 React, Vue and Angular: use `@mikedown/react`, `@mikedown/vue` or `@mikedown/angular`, which wrap core directly.
 
+## Testing
+
+Use vitest with jsdom (the element falls back to a hidden `<input>` without form internals). Jest: add `transformIgnorePatterns: ['/node_modules/(?!(@mikedown|lowlight|devlop)/)']` so the ESM-only packages in core's import graph get transformed (TipTap, CodeMirror and `tiptap-markdown` ship `require` builds). vitest is the recommended runner.
+
 ## Known limitations
 
 - **Several editors on one page share some state.** Core's menus and dialogs live in one `.mikedown-portal` that follows the last-focused editor, Mermaid's theme is set page-wide, and turning `math` off in one editor's `features` turns KaTeX rendering off for every editor on the page. Give editors on the same page the same `math` switch.
 - **Moving the element** in the DOM destroys and recreates the editor (keeping the text, and reporting a pending edit as `change` first). Undo history and the caret do not survive the move.
+
+## Theming
+
+Colors, fonts and radii come from `--mikedown-*` custom properties, set on the editor or any ancestor. The token list, light and dark defaults and the portal note are in the [`@mikedown/core` README](https://www.npmjs.com/package/@mikedown/core#theming).
+
+## Browser support
+
+Current Chrome, Edge, Firefox and Safari (ES2020 output, ESM only). The element itself needs form-associated custom elements: Chrome 77+, Firefox 98+, Safari 16.4+.
+
+## Privacy
+
+No telemetry. The editor makes no network calls except the ones you configure: spell check dictionaries (when you set a dictionary URL), your `uploadImage` / `host` callbacks, and the lazy `import()` of KaTeX and Mermaid from your own bundle (the CDN bundle loads KaTeX and Mermaid from jsDelivr instead; turn them off in `features` and nothing is fetched).
+
+## Links
+
+- [Live demo](https://www.iadev.net/mikedown/developers/web-component/)
+- [Developers hub](https://www.iadev.net/mikedown/developers/)
+- [npm](https://www.npmjs.com/package/@mikedown/web-component)
+- [GitHub](https://github.com/mikejoseph23/mikedown/tree/main/packages/web-component)
 
 ## License
 
