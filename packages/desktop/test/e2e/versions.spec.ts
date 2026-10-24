@@ -36,11 +36,6 @@ async function openFolderAndFile(page: Page, dir: string, file: string): Promise
 }
 
 async function typeAtEnd(page: Page, text: string): Promise<void> {
-  // Core reports "pristine" while ProseMirror's undo depth equals the depth
-  // at the last save, and typing within its 500 ms grouping window joins the
-  // previous undo event: wait it out so the new keystrokes count as an edit
-  // (a core quirk, not M6 behavior; see the M6 summary).
-  await page.waitForTimeout(600);
   const editor = page.locator('#editor .ProseMirror');
   await editor.locator('p').last().click();
   await page.keyboard.press('End');
