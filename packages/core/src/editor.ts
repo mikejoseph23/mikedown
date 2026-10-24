@@ -5248,6 +5248,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
    */
   function markSaved(content?: string): void {
     originalContent = content ?? getMarkdown();
+    // Seal the open undo group: otherwise typing within newGroupDelay of the
+    // save joins the saved group, the depth still equals the baseline, and
+    // those keystrokes are treated as pristine (and dropped by the next save).
+    // A metadata-only transaction, so the DOM is never touched directly.
+    editor.view.dispatch(closeHistory(editor.view.state.tr));
     lastSavedUndoDepth = pmUndoDepth(editor.state);
   }
 
