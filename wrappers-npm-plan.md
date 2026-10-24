@@ -29,7 +29,7 @@
 | [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | ✅ Complete | — | `interapp` owns `mikedown`; 2FA on for auth and publishing (security key) |
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
 | [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ✅ Complete | 2 | 0.1.0 on `latest` 2026-10-24; `core-v0.1.0` tag and push await Mike |
-| [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | 🔄 In Progress | — | Mike uploads the `.vsix` |
+| [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ✅ Complete | 5 | Mike uploads the `.vsix` |
 | [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | 🔄 In Progress | — | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
 | [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
@@ -224,12 +224,12 @@ Apply to every milestone.
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] Root `README.md`: add a short "More MikeDown" block near the top linking MikeDown Desktop (`https://www.iadev.net/mikedown/`) and, if M2 has shipped, `@mikedown/core` on npm (`https://www.npmjs.com/package/@mikedown/core`). Absolute URLs only (this file is the Marketplace listing). The Developers and VS Code pages are added in M14 once they exist.
-- [ ] `CHANGELOG.md`: `## [Unreleased]` becomes `## [2.15.0] - <date>`; check every merged fix since 2.14.2 is listed (`git log v2.14.2..HEAD --oneline -- src packages/core`); fix the Internal note to say `@mikedown/core` is now on npm.
-- [ ] `npm run lint`, `test:unit`, `test:edge`, `test:integration` green.
-- [ ] `npm run vsix:minor` → `mikedown-editor-2.15.0.vsix`; size within 10% of `mikedown-editor-2.14.2.vsix`; core's version unchanged.
-- [ ] Commit `Release 2.15.0`. Hand Mike the `.vsix` path for the manual Marketplace upload; ask before tagging `v2.15.0` and pushing.
-- [ ] After upload: GitHub issues fixed in this release get a reply per `CLAUDE.md` (first person as Mike, release name, one review ask per person; skip users in the memory list). Draft only, Mike posts.
+- [x] Root `README.md`: add a short "More MikeDown" block near the top linking MikeDown Desktop (`https://www.iadev.net/mikedown/`) and, if M2 has shipped, `@mikedown/core` on npm (`https://www.npmjs.com/package/@mikedown/core`). Absolute URLs only (this file is the Marketplace listing). The Developers and VS Code pages are added in M14 once they exist.
+- [x] `CHANGELOG.md`: `## [Unreleased]` becomes `## [2.15.0] - <date>`; check every merged fix since 2.14.2 is listed (`git log v2.14.2..HEAD --oneline -- src packages/core`); fix the Internal note to say `@mikedown/core` is now on npm.
+- [x] `npm run lint`, `test:unit`, `test:edge`, `test:integration` green.
+- [x] `npm run vsix:minor` → `mikedown-editor-2.15.0.vsix`; size within 10% of `mikedown-editor-2.14.2.vsix`; core's version unchanged.
+- [x] Commit `Release 2.15.0`. Hand Mike the `.vsix` path for the manual Marketplace upload; ask before tagging `v2.15.0` and pushing.
+- [x] After upload: GitHub issues fixed in this release get a reply per `CLAUDE.md` (first person as Mike, release name, one review ask per person; skip users in the memory list). Draft only, Mike posts.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 17:10** - M3 done (`97a4929` Release 2.15.0, 5 min): README "More MikeDown" block (Desktop and npm, absolute URLs), CHANGELOG `[2.15.0] - 2026-10-24` with two missing user-facing fixes added and the Internal note saying core is on npm; every claim on the VS Code page (zoom, narrow sidebar) is covered. `mikedown-editor-2.15.0.vsix` 4.60 MB vs 4.46 MB for 2.14.2 (+3.1%), copied to the repo root; core stays `0.2.0-rc.0`. No issue replies to draft (issues #1 to #10 all closed by 2026-10-20). In the worktree `test:integration` failed on IPC socket path length (`listen EINVAL`); in the main tree it passed (47). Main tree: compile, lint (0 errors), `test:unit` (1563), `test:edge` (22) green. Waiting on Mike: Marketplace upload, `v2.15.0` tag, push.
 
 **2026-10-24 17:05** - M7 done (`5c4ef61`, lockfile `7965a25`, 4 min): `@mikedown/react` 0.2.0-rc.0, `<MikeDownEditor>` over `bindMikeDownValue` (controlled/uncontrolled, `forwardRef` handle proxy, latest-props ref so new `onChange`/`host` identities never recreate the editor, equal-value `setValue` skip keeps the caret, StrictMode safe), `'use client'` banner, peers `>=18`, `test:react` 22 tests (passed on React 19.3.1 and 18.3.1), `test/packages/react-shape.test.ts`, README with Vite and Next.js app router (`next/dynamic` in place of the optional `lazy` prop, cut). `placeholder`, `features`, `darkSelector`, `debounceMs` are mount-only (documented). Main tree: compile, lint (0 errors), `test:unit` (1563), `test:packages` (38), `test:react` (22), `test:vue` (11) green.
 
