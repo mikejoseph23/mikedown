@@ -695,6 +695,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
+**2026-10-24 13:30** - Desktop releases now publish through LymeDeploy (project `mikedown-downloads`, id 26, Software Updates group, IADEV-2025 Production). 0.2.0 republished via `pack-for-lymedeploy.sh --version 0.2.0`: deployment succeeded and `verify-published.sh` passed on www and apex. No RDP copy and no Cloudflare purge needed: `/mikedown/` is not cached (`cf-cache-status: DYNAMIC`), so the purge step and `CloudflareToken` stay off. Release flow is now `release.sh` then `pack-for-lymedeploy.sh`, then tag.
+
 **2026-10-24 11:40** - Windows self-update proven in production: DevBox1 with a fresh 0.1.0 per-user install (the earlier copy there was a pre-M8 build with no menu bar) found 0.2.0 on its launch check, Restart Now installed it with no UAC prompt and reopened on 0.2.0. Both OSes have now taken a real update from production.
 
 **2026-10-24 03:05** - First real self-update: Mike's `/Applications/MikeDown.app` 0.1.0 found 0.2.0 on production, installed it and relaunched; About shows 0.2.0. Windows 0.1.0 to 0.2.0 still to try.

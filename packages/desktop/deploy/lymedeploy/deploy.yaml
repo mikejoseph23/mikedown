@@ -122,6 +122,9 @@ steps:
       retryDelaySeconds: 5
       requestTimeoutSeconds: 30
 
+  # Not needed as of 2026-10-24: Cloudflare does not cache /mikedown/ (manifests
+  # and the page answer cf-cache-status: DYNAMIC, cache-control no-cache), so
+  # there is nothing to purge. Kept disabled in case a cache rule is added later.
   # Disabled until CloudflareToken exists on this project. To turn it on:
   # add the Sensitive variable in the LymeDeploy UI (tick Sensitive BEFORE
   # pasting; the name must be exactly CloudflareToken), set `enabled: true`
