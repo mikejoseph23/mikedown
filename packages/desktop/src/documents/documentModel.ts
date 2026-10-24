@@ -55,7 +55,7 @@ export interface DocumentRecord {
   kind: DocKind;
   state: DocState;
   notice: DocNotice | null;
-  /** Set by `markExternalChange`; M6 builds the Compare / Overwrite / Revert UI on it. */
+  /** Set by `markExternalChange`: the file changed on disk under unsaved edits; saving asks Compare / Overwrite / Revert (M6). */
   externallyChanged: boolean;
   /** Rich text by default; text files and large files open in source mode. */
   sourceMode: boolean;
@@ -78,6 +78,11 @@ export interface DocumentModel extends DocumentRecord {
   reload(): Promise<void>;
   /** The file changed on disk behind the editor; records the new mtime for M6. */
   markExternalChange(mtimeMs?: number | null): void;
+  /**
+   * M6: the disk now holds exactly this buffer (another writer saved the same
+   * text): it becomes the saved baseline, the tab turns clean, no write.
+   */
+  adoptDisk(mtimeMs: number): void;
   /** Ask the panes to re-apply `readOnly` and `sourceMode`. */
   applyMode(): void;
   /** A fresh read of the file (open over a pending document, reload): the text becomes the clean baseline in every pane. */
@@ -300,8 +305,8 @@ export interface DocumentRegistry {
 
 export interface RegistryDeps {
   fs: Pick<FsApi, 'readText' | 'writeText'>;
-  /** Called when a save succeeded, with the new path (backups, versioning). */
-  onSaved?(doc: DocumentModel): void;
+  /** Called when a save succeeded, with the new path (backups, versioning) and what the write reported. */
+  onSaved?(doc: DocumentModel, write: { mtimeMs: number; size: number }): void;
 }
 
 let nextUntitled = 1;
@@ -415,7 +420,7 @@ export function createDocumentRegistry(deps: RegistryDeps): DocumentRegistry {
       setDirty();
       if (modeChanged) {emit('state');}
       emit('saved');
-      deps.onSaved?.(doc);
+      deps.onSaved?.(doc, res);
       return true;
     };
     doc.loadRead = (info, plan) => {
@@ -436,6 +441,14 @@ export function createDocumentRegistry(deps: RegistryDeps): DocumentRegistry {
     doc.markExternalChange = (mtimeMs) => {
       doc.externallyChanged = true;
       if (mtimeMs !== undefined) {doc.mtimeMs = mtimeMs;}
+      emit('state');
+    };
+    doc.adoptDisk = (mtimeMs) => {
+      doc.savedText = doc.text;
+      doc.mtimeMs = mtimeMs;
+      doc.externallyChanged = false;
+      for (const h of handles) {h.markSaved(doc.text);}
+      setDirty();
       emit('state');
     };
     doc.applyMode = () => {

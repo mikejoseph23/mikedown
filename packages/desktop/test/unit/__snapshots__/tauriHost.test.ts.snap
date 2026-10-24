@@ -246,6 +246,12 @@ exports[`TauriHost invoke traffic > save writes the document with its own line e
   },
   {
     "args": {
+      "path": "/Users/mike/notes/todo.md",
+    },
+    "cmd": "stat",
+  },
+  {
+    "args": {
       "options": {
         "bom": false,
         "eol": "lf",

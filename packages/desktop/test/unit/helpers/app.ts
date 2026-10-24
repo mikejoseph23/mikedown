@@ -7,7 +7,7 @@
  */
 import type { MikeDownEditorHandle, MikeDownViewState } from '@mikedown/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { createDocumentController, type DocumentController } from '../../../src/app/documentController';
+import { createDocumentController, type DocumentController, type DocumentControllerDeps } from '../../../src/app/documentController';
 import { createBackupScheduler, type BackupScheduler } from '../../../src/documents/backups';
 import { createDocumentRegistry, type DocumentModel, type DocumentRegistry } from '../../../src/documents/documentModel';
 import { appDataApi, fsApi, windowApi } from '../../../src/documents/fsApi';
@@ -108,6 +108,8 @@ export interface TestAppOptions {
   /** Where the panes render (default: a fresh element appended to the body). */
   root?: HTMLElement;
   downloadNoticeMs?: number;
+  /** Extra controller dependencies (M6: compareWithDisk). */
+  controller?: Partial<DocumentControllerDeps>;
 }
 
 /**
@@ -207,6 +209,7 @@ export function createTestApp(
     path,
     isMac: true,
     downloadNoticeMs: opts.downloadNoticeMs,
+    ...opts.controller,
   });
   controllerRef = controller;
 

@@ -8,6 +8,12 @@
  * document (edge case 7), following files through tree renames, moves and
  * deletes, offering to create a missing link target (edge case 13), and
  * Open Containing Folder (edge case 4).
+ *
+ * M6: external changes (`documents/externalChanges.ts`). A clean document
+ * whose file changed on disk reloads silently with the cursor kept; a dirty
+ * one keeps its edits, gets an info bar, and its next save asks "changed on
+ * disk" with Compare (the diff viewer: disk vs. buffer) / Overwrite / Revert.
+ * Every save checks the file first, so a change no watcher saw still asks.
  */
 import type { MikeDownEditorHandle, MikeDownStats } from '@mikedown/core';
 import type { PathOps } from '@mikedown/core/shared/imagePaste';
@@ -18,10 +24,12 @@ import {
   sizeClass,
   formatSize,
   windowTitle,
+  type DocNotice,
   type DocumentModel,
   type DocumentRegistry,
   type ReadInfo,
 } from '../documents/documentModel';
+import { createExternalChanges, type ExternalChanges } from '../documents/externalChanges';
 import type { BackupScheduler } from '../documents/backups';
 import type { FsApi, WindowApi } from '../documents/fsApi';
 import type { PaneManager } from '../panes/paneManager';
@@ -51,7 +59,16 @@ export interface DocumentControllerDeps {
   /** A missing markdown link target: create it (with this content) so it can open. */
   createFile?(path: string, content: string): Promise<void>;
   downloadNoticeMs?: number;
+  /**
+   * M6 Compare: show the file on disk against the buffer (the diff viewer)
+   * with Overwrite / Revert actions. Resolves with the choice, or null when
+   * closed. Absent: the conflict question offers Overwrite / Revert only.
+   */
+  compareWithDisk?(input: { doc: DocumentModel; diskText: string }): Promise<'overwrite' | 'revert' | null>;
 }
+
+/** The "changed on disk" question's answer. */
+export type ConflictChoice = 'cancel' | 'compare' | 'revert' | 'overwrite';
 
 export interface OpenOptions {
   anchor?: string | null;
@@ -104,6 +121,12 @@ export interface DocumentController {
   pathDeleted(path: string): void;
   /** Cloud placeholder: read the file again. */
   retry(doc: DocumentModel): void;
+  /** M6: watcher events, focus checks and the save-time check go through this. */
+  readonly external: ExternalChanges;
+  /** M6: discard the edits and load the file from disk (cursor kept). */
+  revert(doc: DocumentModel): Promise<boolean>;
+  /** M6: the Compare view for a document whose file changed on disk. */
+  compareWithDisk(doc: DocumentModel): Promise<boolean>;
 }
 
 export function createDocumentController(deps: DocumentControllerDeps): DocumentController {
@@ -143,10 +166,26 @@ export function createDocumentController(deps: DocumentControllerDeps): Document
 
   // ── Saving ────────────────────────────────────────────────────────────
 
+  /** Documents being written right now: their own write is not an external change. */
+  const saving = new Set<DocumentModel>();
+  /** The info bar each externally changed document shows, so only that one is cleared. */
+  const externalNotices = new WeakMap<DocumentModel, DocNotice>();
+
+  function clearExternalNotice(doc: DocumentModel): void {
+    const mine = externalNotices.get(doc);
+    externalNotices.delete(doc);
+    if (mine && doc.notice === mine) {
+      doc.notice = null;
+      panes.refreshDoc(doc);
+    }
+  }
+
   async function writeTo(doc: DocumentModel, target: string): Promise<boolean> {
+    saving.add(doc);
     try {
       const wasPath = doc.path;
       await doc.save(target);
+      clearExternalNotice(doc);
       if (wasPath !== target) {deps.onDocumentsChanged?.();}
       void backups.clear(doc);
       panes.refreshDoc(doc);
@@ -155,7 +194,126 @@ export function createDocumentController(deps: DocumentControllerDeps): Document
     } catch (err) {
       await dialogs.error(`Could not save ${fileName({ path: target })}.\n\n${String(err)}`);
       return false;
+    } finally {
+      saving.delete(doc);
     }
+  }
+
+  // ── External changes (M6) ─────────────────────────────────────────────
+
+  /** Panes showing `doc` right now, with their cursor and scroll. */
+  function captureViews(doc: DocumentModel): Array<{ handle: MikeDownEditorHandle; cursor: number; scrollTop: number }> {
+    const out: Array<{ handle: MikeDownEditorHandle; cursor: number; scrollTop: number }> = [];
+    for (const p of panesOf()) {
+      if (panes.activeDoc(p.id) !== doc) {continue;}
+      const handle = panes.editor(p.id)?.handle;
+      if (!handle) {continue;}
+      try {
+        const vs = handle.getViewState();
+        out.push({ handle, cursor: vs.cursor, scrollTop: vs.scrollTop });
+      } catch { /* editor gone */ }
+    }
+    return out;
+  }
+
+  /** New text from disk becomes the clean baseline everywhere, cursors kept where they still fit. */
+  function loadFromDisk(doc: DocumentModel, info: ReadInfo): void {
+    if (!doc.path) {return;}
+    const views = captureViews(doc);
+    clearExternalNotice(doc);
+    const plan = planOpen(doc.path, info);
+    const wasRich = !doc.sourceMode;
+    doc.loadRead(info, plan);
+    if (plan.offerRichText && wasRich) {
+      // The user already chose "Open as rich text anyway" for this file.
+      doc.sourceMode = false;
+      doc.notice = null;
+    } else {
+      applyLargeFileNotice(doc, plan);
+    }
+    doc.applyMode();
+    panes.applyMode(doc);
+    for (const v of views) {
+      try { v.handle.setViewState({ cursor: Math.min(v.cursor, Math.max(0, doc.text.length)), scrollTop: v.scrollTop }); } catch { /* best effort */ }
+    }
+    void backups.clear(doc);
+    panes.refreshDoc(doc);
+    refresh();
+  }
+
+  function flagExternal(doc: DocumentModel): void {
+    if (doc.notice && !externalNotices.has(doc)) {
+      // Another notice (large file, encoding) stays; the save still asks.
+      panes.refreshDoc(doc);
+      return;
+    }
+    const notice: DocNotice = {
+      text: `${fileName(doc)} changed on disk. Your unsaved edits are kept; saving asks what to do.`,
+      action: { label: 'Compare', run: () => { void compareWithDisk(doc); } },
+    };
+    externalNotices.set(doc, notice);
+    doc.notice = notice;
+    panes.refreshDoc(doc);
+  }
+
+  const external = createExternalChanges({
+    fs,
+    docs: () => registry.all(),
+    isSaving: (doc) => saving.has(doc),
+    reload: (doc, info) => loadFromDisk(doc, info),
+    flagged: (doc) => flagExternal(doc),
+    cleared: (doc) => { clearExternalNotice(doc); panes.refreshDoc(doc); refresh(); },
+    dirname: (p) => path.dirname(p),
+  });
+
+  async function revert(doc: DocumentModel): Promise<boolean> {
+    if (!doc.path) {return false;}
+    try {
+      loadFromDisk(doc, await fs.readText(doc.path));
+      return true;
+    } catch (err) {
+      await dialogs.error(`Could not read ${fileName(doc)}.\n\n${String(err)}`);
+      return false;
+    }
+  }
+
+  /** Compare view; resolves true when the conflict was settled (written or reverted). */
+  async function compareWithDisk(doc: DocumentModel): Promise<boolean> {
+    if (!doc.path) {return false;}
+    let diskText: string;
+    try {
+      diskText = (await fs.readText(doc.path)).text;
+    } catch (err) {
+      await dialogs.error(`Could not read ${fileName(doc)}.\n\n${String(err)}`);
+      return false;
+    }
+    if (!deps.compareWithDisk) {return false;}
+    const choice = await deps.compareWithDisk({ doc, diskText });
+    if (choice === 'overwrite') {return writeTo(doc, doc.path);}
+    if (choice === 'revert') {return revert(doc);}
+    return false;
+  }
+
+  /** "Changed on disk": Compare / Revert / Overwrite (decision: as VS Code). */
+  async function askConflict(doc: DocumentModel): Promise<ConflictChoice> {
+    const buttons = deps.compareWithDisk ? ['Cancel', 'Compare…', 'Revert', 'Overwrite'] : ['Cancel', 'Revert', 'Overwrite'];
+    const i = await dialogs.choose(`“${fileName(doc)}” changed on disk.`, {
+      detail: 'Another app or window saved this file after you started editing it here.\n\nOverwrite: replace the file with your version.\nRevert: discard your edits and load the file from disk.' + (deps.compareWithDisk ? '\nCompare: see both versions side by side first.' : ''),
+      buttons,
+      defaultIndex: deps.compareWithDisk ? 1 : 0,
+      cancelIndex: 0,
+    });
+    const picked = buttons[i] ?? 'Cancel';
+    return picked === 'Compare…' ? 'compare' : picked === 'Revert' ? 'revert' : picked === 'Overwrite' ? 'overwrite' : 'cancel';
+  }
+
+  async function resolveConflict(doc: DocumentModel): Promise<boolean> {
+    panes.open(doc, { focus: false });
+    const choice = await askConflict(doc);
+    if (choice === 'overwrite') {return writeTo(doc, doc.path!);}
+    if (choice === 'revert') {return revert(doc);}
+    if (choice === 'compare') {return compareWithDisk(doc);}
+    return false;
   }
 
   async function saveAs(doc = activeDoc()): Promise<boolean> {
@@ -189,6 +347,10 @@ export function createDocumentController(deps: DocumentControllerDeps): Document
       });
       return ok ? saveAs(doc) : false;
     }
+    // M6: the file may have changed behind the editor without an event
+    // reaching this window (no watcher on its folder, no focus change).
+    await external.check(doc);
+    if (doc.externallyChanged) {return resolveConflict(doc);}
     return writeTo(doc, doc.path);
   }
 
@@ -579,5 +741,8 @@ export function createDocumentController(deps: DocumentControllerDeps): Document
       refresh();
     },
     retry,
+    external,
+    revert,
+    compareWithDisk,
   };
 }
