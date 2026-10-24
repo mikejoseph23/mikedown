@@ -152,6 +152,10 @@ pub fn run() {
             commands::settings::open_default_apps_settings,
             commands::search::search_folder,
             commands::search::search_cancel,
+            commands::versions::versions_list,
+            commands::versions::versions_snapshot,
+            commands::versions::versions_prune,
+            commands::versions::versions_move,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MikeDown");

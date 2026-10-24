@@ -386,7 +386,7 @@ fn deepest_relative_len(dir: &Path) -> usize {
 
 /// Same file or folder on disk (case-only renames on case-insensitive
 /// volumes: `a.md` and `A.md` both resolve to it).
-fn same_entry(a: &Path, b: &Path) -> bool {
+pub(crate) fn same_entry(a: &Path, b: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
