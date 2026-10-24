@@ -32,7 +32,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [T2 — Workspace tests](#t2--workspace-tests) | Sonnet | ✅ Automated done (hands-on pending) | 9 | tree + tabs + hot exit |
 | [M5 — Settings: global, folder override, App tab](#m5--settings-global-folder-override-app-tab) | Sonnet | ✅ Complete (GUI checks pending) | 12 | reuses core settings modal via `extraSettingsSections` |
 | [M6 — Versioning, diff view, external changes](#m6--versioning-diff-view-external-changes) | Opus | ⬜ Not Started | — | `.mikedown/versions/`; Compare / Overwrite / Revert |
-| [M7 — Folder search](#m7--folder-search) | Sonnet | 🔄 In Progress | — | Rust-side search, grouped results |
+| [M7 — Folder search](#m7--folder-search) | Sonnet | ✅ Complete (GUI checks pending) | 35 | Rust-side search, grouped results |
 | [M8 — Welcome, recents, menus, window title](#m8--welcome-recents-menus-window-title) | Opus | ⬜ Not Started | — | native menus, `CmdOrCtrl` shortcuts, `welcome.md` |
 | [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | ✅ Complete (print GUI checks pending) | 12 | reuses `handle.getHtml()` |
 | [T3 — Feature tests](#t3--feature-tests) | Sonnet | ⬜ Not Started | — | settings, versioning, search, export |
@@ -473,10 +473,10 @@ Start: `npm run dev:desktop` on the Mac; the Windows build from BEAST per `packa
 
 **Tasks**
 
-- [ ] Rust `commands/search.rs` (edge 19): streaming search over `*.md`, `*.markdown`, `*.txt` (plus the text extensions M2 opens in source mode), honoring the tree's hidden/`node_modules` exclusions and `tree.showHidden`; options `caseSensitive`, `wholeWord`; emits batches of `{ path, line, column, snippet, matchStart, matchEnd }`; cancellable; skips files >2 MB; uses `ignore` or `walkdir` + a plain substring/`memchr` matcher (no regex exposed).
-- [ ] `src/search/`: panel in the sidebar with query input, case/whole-word toggles, result groups per file (collapsible, counts), highlighted snippets; click opens the file in the active pane and scrolls to the match (`handle.scrollToAnchor` is for headings; add a core `revealText(line, column)` or use `revealLink` if sufficient; if a core addition is needed, add it to `packages/core` with a test). Keyboard: Enter opens, arrows move, Esc closes; ARIA list roles (edge 26).
-- [ ] Debounce typing 250 ms, cancel in-flight searches, cap at 2,000 results with a "refine your search" note.
-- [ ] Commit.
+- [x] Rust `commands/search.rs` (edge 19): streaming search over `*.md`, `*.markdown`, `*.txt` (plus the text extensions M2 opens in source mode), honoring the tree's hidden/`node_modules` exclusions and `tree.showHidden`; options `caseSensitive`, `wholeWord`; emits batches of `{ path, line, column, snippet, matchStart, matchEnd }`; cancellable; skips files >2 MB; uses `ignore` or `walkdir` + a plain substring/`memchr` matcher (no regex exposed).
+- [x] `src/search/`: panel in the sidebar with query input, case/whole-word toggles, result groups per file (collapsible, counts), highlighted snippets; click opens the file in the active pane and scrolls to the match (`handle.scrollToAnchor` is for headings; add a core `revealText(line, column)` or use `revealLink` if sufficient; if a core addition is needed, add it to `packages/core` with a test). Keyboard: Enter opens, arrows move, Esc closes; ARIA list roles (edge 26).
+- [x] Debounce typing 250 ms, cancel in-flight searches, cap at 2,000 results with a "refine your search" note.
+- [x] Commit.
 
 **Acceptance criteria**
 
@@ -694,6 +694,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 20:35** - M7 complete (cherry-picked as `5f805b2`..`33b0374`; keep-both conflicts in `lib.rs`, `commands/mod.rs`, `main.ts`, `shortcuts.ts` with M5/M9). Rust `search_folder`/`search_cancel` streams batches with cancel, 2 MB skip, binary/non-UTF-8 skip, hidden and `node_modules` exclusions, case and whole-word, UTF-16 offsets, 2,000 cap; sidebar search panel with 250 ms debounce, grouped collapsible results, ARIA tree and full keyboard; `CmdOrCtrl+Shift+F` plus an Edit menu item. Core gained `revealText(line, column, length)` and stops treating Cmd+Shift+F as Find in source mode when `hostOwnsShortcuts` (VS Code unaffected). Measured on 2,000 files: first results ~0.2 ms, full scan ~50 ms release (~180 ms debug), asserted by a Rust test. Rich-text reveal re-finds the text in the rendered doc; matches in link URLs or frontmatter fall back to a proportional scroll. Verified in the main tree with M5/M9 merged: build:core, compile, lint 0 errors, unit 1247, edge 22, core-package 9, desktop tsc, desktop unit 279, e2e 18, cargo 68, vite build green. Real-window checks pending.
 
 **2026-10-23 20:20** - M5 complete (cherry-picked as `b9cb1dd`, `7f71162`; trivial keep-both conflicts in `commands/mod.rs` and `lib.rs` with M9). Global `<app-data>/settings.json` plus `<folder>/.mikedown/settings.json`, flat keys, folder wins per key; corrupt-file banner (Open file / Reset, never auto-overwrites); `imagePaste.folder` override validation; `saveSettings` routes global vs folder and writes only changed keys; App tab via `extraSettingsSections`; cross-window `mikedown:settings-changed` event; tree toggles persist. Verified in the main tree with M9 merged: desktop tsc, unit 256, e2e 17, cargo 54, vite build green. Notes: leaving `host.toggleTheme` absent still lets core flip the theme locally, so the button is hidden by CSS (core flag candidate); Check for Updates says not set up until M10, `updates.checkOnLaunch` stored but unread; macOS default-app button shows Finder steps; a folder-overridden core key reverts on folder switch only if the global file has it. Real-app checks pending (body font persists across relaunch and windows; Save for this folder; hand-corrupted file). Worker sandbox refused the main summary path again; copied by the orchestrator.
 
