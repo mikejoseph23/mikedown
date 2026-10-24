@@ -16,6 +16,11 @@
  *
  *   `MIKEDOWN_CORE=source|dist` overrides the choice for either command.
  *
+ *   `RELEASE=1` (set by deploy/build-mac.sh and build-windows.ps1): never the
+ *   source alias, and the build fails unless the pinned `@mikedown/core`
+ *   version equals packages/core's version. Whether that version is on npm is
+ *   checked by deploy/check-core-pin.js before the build starts.
+ *
  * `dictionaries/` (Hunspell, for `spellcheckDictionaryUrl`) is served from
  * core's `dist/dictionaries` when built, else the repo root `dictionaries/`,
  * and copied into the release bundle next to index.html.
@@ -88,10 +93,27 @@ function dictionaries(): Plugin {
   };
 }
 
+/** RELEASE=1: the pinned core version must be the workspace core's version. */
+function assertCorePin(): void {
+  const desktopPkg = JSON.parse(fs.readFileSync(path.join(here, 'package.json'), 'utf8'));
+  const corePkg = JSON.parse(fs.readFileSync(path.join(coreDir, 'package.json'), 'utf8'));
+  const pinned = desktopPkg.dependencies?.['@mikedown/core'];
+  if (pinned !== corePkg.version) {
+    throw new Error(`RELEASE=1: @mikedown/core is pinned to ${pinned} but packages/core is ${corePkg.version}. Update the pin in packages/desktop/package.json.`);
+  }
+}
+
 export default defineConfig(({ command }) => {
-  const useSource = process.env.MIKEDOWN_CORE
-    ? process.env.MIKEDOWN_CORE === 'source'
-    : command === 'serve';
+  const release = process.env.RELEASE === '1';
+  if (release) {
+    if (process.env.MIKEDOWN_CORE === 'source') {throw new Error('RELEASE=1 builds never use the core source alias (unset MIKEDOWN_CORE).');}
+    assertCorePin();
+  }
+  const useSource = release
+    ? false
+    : process.env.MIKEDOWN_CORE
+      ? process.env.MIKEDOWN_CORE === 'source'
+      : command === 'serve';
   if (!useSource && !fs.existsSync(path.join(coreDist, 'index.js'))) {
     throw new Error('packages/core/dist is missing: run `npm run build:core` first (or set MIKEDOWN_CORE=source).');
   }

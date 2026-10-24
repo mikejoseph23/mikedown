@@ -1,3 +1,8 @@
 # Vite output (the Tauri frontendDist)
 /dist/
 /node_modules/
+# Release staging and signing material never belong in git (M10).
+deploy/dist/
+*.key
+src-tauri/*.key
+.env*
