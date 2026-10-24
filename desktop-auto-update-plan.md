@@ -26,7 +26,7 @@
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [U1 — Updater engine: state, cadence, progress, channel](#u1--updater-engine-state-cadence-progress-channel) | Sonnet | 🔄 In Progress | — | Rust + TS logic, no UI |
+| [U1 — Updater engine: state, cadence, progress, channel](#u1--updater-engine-state-cadence-progress-channel) | Sonnet | ✅ Done | 9 | Rust + TS logic, no UI; Windows pre-check untested at runtime |
 | [U2 — Update window and settings UI](#u2--update-window-and-settings-ui) | Opus | ⬜ Not Started | — | Sparkle-style window, both OSes |
 | [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | ⬜ Not Started | — | vitest, cargo, e2e |
 | [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | 🔄 In Progress | — | touches `deploy/`; DMG styling landed in 8ae79b8 |
@@ -269,20 +269,20 @@ web.config                                   MIME maps only if verification show
 
 > **Worker requirement:** complete ALL items. If one should be deferred, say so in your summary but still attempt it unless truly blocked.
 
-- [ ] `updater-state.json` in `<app-data>/`: `skippedVersion`, `snoozeUntil`, `lastCheckedAt`, `lastResult`; atomic write; corrupt or missing file reads as empty and is logged.
-- [ ] Skip and snooze filtering in `updater_check` for silent checks; manual checks clear both first.
-- [ ] New commands `updater_skip(version)`, `updater_snooze(days)` (default 14), `updater_status()` (for the Settings "Last checked" line).
-- [ ] Cadence: first silent check 10 s after launch, then every 4 h, still one claim per app; constants in one place.
-- [ ] Download progress: emit `mikedown:update-progress { downloaded, total }` (throttled to ~10/s) from the plugin's chunk callback; keep the verified bytes for the session so a cancelled quit dialog doesn't re-download.
-- [ ] Controller states `idle → available → downloading → verifying → ready → installing | failed`, exposed to the UI; a manual check while downloading does not restart the download.
-- [ ] Windows: `installMode` per the open question (default `quiet`); emit `installing` before the plugin exits the app so the UI can show the reopen line.
-- [ ] Windows pre-install check: `WinVerifyTrust` on the downloaded `.exe` plus signer subject `Interapp Development, Inc.`; on failure log, refuse, and surface the install-failed message. Unit-test the subject matcher.
-- [ ] macOS pre-install check: if the plugin exposes the extracted app before the swap, `codesign --verify --deep --strict` and Team ID `UU626VCLYW`; if not, log the limitation in the summary and skip.
-- [ ] Endpoints: per-target template first, legacy `latest.json` second (exact template confirmed against the plugin's target and arch strings).
-- [ ] Channel: `MIKEDOWN_CHANNEL=store` leaves the updater uninitialized and hides Check for Updates; default `direct`.
-- [ ] Keep the existing `updater.log` lines and add skip, snooze, progress-complete, pre-check results.
-- [ ] Rust unit tests for state file read/write/corrupt, skip/snooze filter, cadence claim; TS unit tests for the controller transitions.
-- [ ] Commit.
+- [x] `updater-state.json` in `<app-data>/`: `skippedVersion`, `snoozeUntil`, `lastCheckedAt`, `lastResult`; atomic write; corrupt or missing file reads as empty and is logged.
+- [x] Skip and snooze filtering in `updater_check` for silent checks; manual checks clear both first.
+- [x] New commands `updater_skip(version)`, `updater_snooze(days)` (default 14), `updater_status()` (for the Settings "Last checked" line).
+- [x] Cadence: first silent check 10 s after launch, then every 4 h, still one claim per app; constants in one place.
+- [x] Download progress: emit `mikedown:update-progress { downloaded, total }` (throttled to ~10/s) from the plugin's chunk callback; keep the verified bytes for the session so a cancelled quit dialog doesn't re-download.
+- [x] Controller states `idle → available → downloading → verifying → ready → installing | failed`, exposed to the UI; a manual check while downloading does not restart the download.
+- [x] Windows: `installMode` per the open question (default `quiet`); emit `installing` before the plugin exits the app so the UI can show the reopen line.
+- [x] Windows pre-install check: `WinVerifyTrust` on the downloaded `.exe` plus signer subject `Interapp Development, Inc.`; on failure log, refuse, and surface the install-failed message. Unit-test the subject matcher.
+- [x] macOS pre-install check: if the plugin exposes the extracted app before the swap, `codesign --verify --deep --strict` and Team ID `UU626VCLYW`; if not, log the limitation in the summary and skip.
+- [x] Endpoints: per-target template first, legacy `latest.json` second (exact template confirmed against the plugin's target and arch strings).
+- [x] Channel: `MIKEDOWN_CHANNEL=store` leaves the updater uninitialized and hides Check for Updates; default `direct`.
+- [x] Keep the existing `updater.log` lines and add skip, snooze, progress-complete, pre-check results.
+- [x] Rust unit tests for state file read/write/corrupt, skip/snooze filter, cadence claim; TS unit tests for the controller transitions.
+- [x] Commit.
 
 [Return to Top](#mikedown-desktop-auto-update-lymescribe-parity--planning-document)
 
@@ -434,6 +434,8 @@ If dispatching fills the orchestrator's context, prompt Mike to run `/compact` w
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-24 00:12** - U1 done (cherry-picked from a50c40f). Persisted skip/snooze state, 10 s then 4 h cadence, throttled progress events, controller phases, Windows `quiet` + WinVerifyTrust signer check, macOS codesign/Team ID check (the plugin doesn't expose the staged app, so the verified archive is extracted and checked), `MIKEDOWN_CHANNEL=store`. Endpoint template confirmed: `{{target}}`=`darwin`/`windows`, `{{arch}}`=`aarch64`/`x86_64`, 404 falls through. Main tree: typecheck green, vitest 404/404, cargo 115 passed. Windows pre-check compiled only in a scratch crate; never run on Windows (U4 covers). U2 dispatched.
 
 **2026-10-23 23:59** - Orchestrator session started. All seven open questions answered with the recommended defaults. DMG styling landed (8ae79b8), so Group A dispatched in worktrees: U1 (Sonnet) and U3 (Opus).
 
