@@ -1,6 +1,6 @@
 {
   "name": "@mikedown/core",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0",
   "description": "MikeDown WYSIWYG markdown editor core (TipTap + CodeMirror), framework-agnostic.",
   "license": "MIT",
   "type": "module",
@@ -34,6 +34,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE.md"
   ],
   "peerDependencies": {

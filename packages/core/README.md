@@ -2,8 +2,6 @@
 
 The MikeDown WYSIWYG markdown editor as a framework-agnostic package: TipTap (ProseMirror) for the rich view, CodeMirror 6 for source mode, `tiptap-markdown` for parse and serialize. It is the same editor that ships in the MikeDown VS Code extension. No Angular, React or VS Code dependency.
 
-Status: not yet published to npm. Once it is, install with `npm install @mikedown/core`.
-
 ## Install
 
 ```bash
