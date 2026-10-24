@@ -695,6 +695,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
+**2026-10-24 11:40** - Windows self-update proven in production: DevBox1 with a fresh 0.1.0 per-user install (the earlier copy there was a pre-M8 build with no menu bar) found 0.2.0 on its launch check, Restart Now installed it with no UAC prompt and reopened on 0.2.0. Both OSes have now taken a real update from production.
+
 **2026-10-24 03:05** - First real self-update: Mike's `/Applications/MikeDown.app` 0.1.0 found 0.2.0 on production, installed it and relaunched; About shows 0.2.0. Windows 0.1.0 to 0.2.0 still to try.
 
 **2026-10-24 02:55** - 0.2.0 released (first build with the new update window; notes in `packages/desktop/deploy/release-notes/0.2.0.md`). Built by `release.sh` from `1c9ade2` (Mac notarized, Windows Trusted-Signed on BEAST), copied over RDP by Mike, `verify-published.sh 0.2.0` passed on www and apex. Tagged `desktop-v0.2.0`. Next: a 0.1.0 install on each OS should pick up 0.2.0 from production.
