@@ -154,7 +154,13 @@ const versioning = createVersioning({
 
 const registry = createDocumentRegistry({
   fs: fsApi,
-  onSaved: (doc, write) => { if (doc.path) {void versioning.onSaved(doc.path, write.size);} },
+  onSaved: (doc, write) => {
+    if (!doc.path) {return;}
+    void versioning.onSaved(doc.path, write.size);
+    // Its links may have changed: other documents' backlinks follow.
+    workspaceRef?.knowledgeBase()?.backlinks?.invalidate(doc.path);
+    refreshBacklinks();
+  },
 });
 
 const backups = createBackupScheduler({
@@ -196,6 +202,7 @@ const settingsMgr = createSettingsManager({
   openFile: (p) => fsApi.openInDefaultApp(p),
 });
 settings.onTreeChange((patch) => { void settingsMgr.save(patch, { silent: true, force: true }); });
+settings.onOutlineChange((patch) => { void settingsMgr.save(patch, { silent: true, force: true }); });
 // Self-update (M10, U1, U2): silent checks every 4 h, explicit feedback for
 // Help > Check for Updates…, the found-notice and the update window, and an
 // OS notification when no MikeDown window is focused.
@@ -248,6 +255,24 @@ const appActions = createAppActions({
 
 const hosts = new Map<string, TauriHost>();
 
+/** Set once the pane manager exists (its constructor already reports layout changes). */
+let panesReady = false;
+
+/** Hosts whose pane still exists (a closed pane's host is dropped). */
+function liveHosts(): TauriHost[] {
+  const out: TauriHost[] = [];
+  if (!panesReady) {return out;}
+  for (const [paneId, host] of hosts) {
+    if (panes.editor(paneId)) {out.push(host);} else {hosts.delete(paneId);}
+  }
+  return out;
+}
+
+/** Files in the folder changed: every pane's sidebar backlinks are recomputed. */
+function refreshBacklinks(): void {
+  for (const host of liveHosts()) {void host.refreshBacklinks();}
+}
+
 function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHandle {
   const host = new TauriHost({
     doc: () => panes.activeDoc(paneId),
@@ -265,15 +290,17 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
       printDocument: (html) => { void exporterRef?.print(html); },
     },
     diffBaseline: (p) => versioning.newestText(p),
+    outline: { get: () => settings.get().outline, set: (patch) => settings.setOutline(patch) },
   });
   const kb = workspaceRef?.knowledgeBase() ?? null;
   if (kb) {host.setKnowledgeBase(kb);}
   const handle = createMikeDownEditor(editorEl, {
     host,
     theme: 'auto',
-    // The folder tree is the app's own sidebar; core's outline sidebar stays
-    // off. Source mode stays available so text files can be forced into it.
-    features: { sidebar: false, supportCard: false, sourceMode: true },
+    // The folder tree is the app's own sidebar on the left; core's document
+    // sidebar (Outline / Backlinks / Properties) sits on the right of each
+    // pane. Source mode stays available so text files can be forced into it.
+    features: { sidebar: true, supportCard: false, sourceMode: true },
     hostOwnsShortcuts: true,
     // Desktop default is ON (edge case 22); served by vite.config.ts in dev and
     // copied next to index.html in release builds. `spellcheck="false"` on
@@ -326,7 +353,11 @@ const panes = createPaneManager({
   },
   showContextMenu: (x, y, entries, menuLabel) => showContextMenu(x, y, entries, { label: menuLabel }),
   retry: (doc) => controller.retry(doc),
-  onLayoutChanged: () => { scheduleSession(); reportWindowState(); },
+  onLayoutChanged: () => {
+    scheduleSession();
+    reportWindowState();
+    for (const host of liveHosts()) {host.syncBacklinks();}
+  },
   onFocusChanged: (paneId) => {
     controllerRef?.refresh();
     const ed = panes.editor(paneId);
@@ -337,6 +368,8 @@ const panes = createPaneManager({
   trailing: () => chrome.folderButton(),
   emptyStripDoubleClick: () => { controllerRef?.newDocument(); },
 });
+
+panesReady = true;
 
 // The panes container keeps the `#editor` id index.html had, so `#editor
 // .ProseMirror` still finds the editors (specs, Web Inspector habits).
@@ -372,6 +405,7 @@ const controller = createDocumentController({
   isMac,
   openFolder: (dir) => { void openFolder(dir); },
   onActiveDocument: (doc) => {
+    for (const host of liveHosts()) {host.syncBacklinks();}
     workspaceRef?.syncActive(doc?.path ?? null);
     refreshVersionsRef?.();
     syncFolderButton();
@@ -448,7 +482,11 @@ const workspace = createFolderWorkspace({
     pathDeleted: (p) => controller.pathDeleted(p),
   },
   setKnowledgeBase: (kb) => { for (const host of hosts.values()) {host.setKnowledgeBase(kb);} },
-  refreshLinks: () => { for (const ed of panes.editors()) {ed.handle.refreshLinks();} },
+  refreshLinks: () => {
+    for (const ed of panes.editors()) {ed.handle.refreshLinks();}
+    refreshBacklinks();
+  },
+  contentChanged: refreshBacklinks,
   focusEditor: () => panes.focusActiveEditor(),
   copyText,
   moveVersions: (from, to) => versioning.moved(from, to),
@@ -1059,6 +1097,7 @@ const actions: Record<AppCommand, () => void> = {
   openContainingFolder: () => controller.openContainingFolder(),
   openFolder: () => { void openFolderViaDialog(); },
   toggleSidebar: () => sidebar.toggle(),
+  toggleOutline: () => { panes.activeHandle()?.command('toggleSidebar'); },
   focusSidebar: () => {
     sidebar.setVisible(true);
     if (workspace.root()) {workspace.tree.focus();}
@@ -1240,6 +1279,8 @@ async function boot(): Promise<void> {
   try {
     await settingsMgr.load();
     void settingsMgr.listen().catch(() => { /* not under Tauri */ });
+    // The first pane's sidebar was built before the file was read.
+    for (const host of liveHosts()) {host.applySidebarState();}
   } catch (err) {
     console.warn('MikeDown: settings unavailable, using defaults', err);
   }

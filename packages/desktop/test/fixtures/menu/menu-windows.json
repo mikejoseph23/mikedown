@@ -374,6 +374,12 @@
       },
       {
         "kind": "item",
+        "id": "toggleOutline",
+        "label": "Toggle Outline",
+        "accelerator": "CmdOrCtrl+Alt+B"
+      },
+      {
+        "kind": "item",
         "id": "toggleSource",
         "label": "Toggle Source Mode",
         "accelerator": "CmdOrCtrl+/"

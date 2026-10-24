@@ -23,6 +23,7 @@ import { showContextMenu, type MenuEntry } from '../ui/contextMenu';
 import type { Sidebar } from '../ui/sidebar';
 import { dropRefusal, treeDropOperation, type TreeDropOperation } from './dropRouting';
 import { createFileTree, type FileTree, type TreeNode } from './fileTree';
+import { createBacklinkIndex, type BacklinkIndex } from './backlinks';
 import { createMdIndex, type MdIndex } from './mdIndex';
 import { isInside, uniqueName, validateTarget, versionsPathFor, withMarkdownExtension } from './treeLogic';
 
@@ -47,6 +48,8 @@ export interface WorkspaceDeps {
   setKnowledgeBase(kb: KnowledgeBase | null): void;
   /** Files around the document changed: core re-resolves wikilinks and re-checks links. */
   refreshLinks(): void;
+  /** A file in the folder was edited (its links may have changed): refresh the sidebar backlinks. */
+  contentChanged?(): void;
   /** Escape from the tree. */
   focusEditor(): void;
   copyText(text: string): Promise<void>;
@@ -83,6 +86,7 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
   const { path, dialogs, settings } = deps;
   let rootPath: string | null = null;
   let index: MdIndex | null = null;
+  let backlinks: BacklinkIndex | null = null;
   let knowledgeBase: KnowledgeBase | null = null;
   const lendKnowledgeBase = (kb: KnowledgeBase | null): void => {
     knowledgeBase = kb;
@@ -92,6 +96,7 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
   const fresh = new Set<string>();
   const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let linksTimer: ReturnType<typeof setTimeout> | undefined;
+  let contentTimer: ReturnType<typeof setTimeout> | undefined;
 
   const trashName = deps.isMac ? 'Trash' : 'Recycle Bin';
   const revealLabel = deps.isMac ? 'Reveal in Finder' : 'Show in Explorer';
@@ -148,9 +153,15 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
 
   function handleChange(change: FsChange): void {
     if (!rootPath || !isInside(rootPath, change.dir, path)) {return;}
+    // Whatever changed, the backlinks read the file again.
+    backlinks?.invalidate(change.path);
     // A content edit of a known file changes neither the tree nor the index's file list.
     const known = tree.findNode(change.path);
-    if (change.kind === 'modify' && known && !known.isDir) {return;}
+    if (change.kind === 'modify' && known && !known.isDir) {
+      clearTimeout(contentTimer);
+      contentTimer = setTimeout(() => deps.contentChanged?.(), LINKS_DEBOUNCE_MS);
+      return;
+    }
     scheduleRefresh(change.dir);
     // The watched folder itself went away or was renamed: its parent changed too.
     if (path.relative(change.path, change.dir) === '' && change.kind !== 'modify') {
@@ -391,6 +402,7 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
           await deps.fs.writeText(p, content, { eol: 'lf', bom: false });
         },
       });
+      backlinks = createBacklinkIndex({ path, index, readText: (p) => deps.fs.readText(p) });
       deps.sidebar.setFolder({ name: path.basename(root) || root, path: root });
       const rootLock = await lockReason(root);
       deps.sidebar.setWritable(!rootLock, rootLock ?? undefined);
@@ -398,6 +410,7 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
       await tree.setRoot(root);
       lendKnowledgeBase({
         index,
+        backlinks,
         openCreated: (p) => {
           void tree.refreshDir(path.dirname(p));
           void deps.doc.open(p);
@@ -408,6 +421,7 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
     async close() {
       rootPath = null;
       index = null;
+      backlinks = null;
       await deps.watch.unwatchAll().catch(() => { /* none */ });
       await tree.setRoot(null);
       deps.sidebar.setFolder(null);

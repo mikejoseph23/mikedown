@@ -97,7 +97,7 @@ export function buildMenuSpec(isMac: boolean, opts: MenuSpecOptions = {}): MenuN
     kind: 'submenu',
     label: 'View',
     items: [
-      i('toggleSidebar'), i('focusSidebar'), i('toggleSource'), i('showVersions'), sep,
+      i('toggleSidebar'), i('focusSidebar'), i('toggleOutline'), i('toggleSource'), i('showVersions'), sep,
       i('splitRight'), i('splitDown'), sep,
       i('zoomIn'), i('zoomOut'), i('zoomReset'), sep,
       i('toggleHidden'),

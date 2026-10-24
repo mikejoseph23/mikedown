@@ -23,7 +23,8 @@
  * convention). The sidebar row is `outsideEditor`, so Bold wins while typing
  * and the sidebar toggles from the tree or the chrome; the native menu shows
  * the chord on Bold only. `CmdOrCtrl+Shift+E` shows the sidebar from
- * anywhere.
+ * anywhere. `CmdOrCtrl+Alt+B` toggles core's document sidebar (Outline,
+ * Backlinks, Properties) on the right of the focused pane.
  *
  * Tabs (M4): `Ctrl+Tab` / `Ctrl+Shift+Tab` and `Ctrl+PageDown` /
  * `Ctrl+PageUp` cycle tabs on both platforms (`Cmd+Tab` is the macOS app
@@ -37,7 +38,7 @@ import type { MikeDownCommand } from '@mikedown/core';
 /** Commands `main.ts` runs itself (everything that is not an editor command). */
 export const APP_COMMANDS = [
   'save', 'saveAs', 'saveAll', 'open', 'toggleSource', 'openSettings', 'openContainingFolder', 'openFolder',
-  'toggleSidebar', 'focusSidebar', 'newDocument', 'closeTab', 'nextTab', 'prevTab', 'splitRight', 'splitDown',
+  'toggleSidebar', 'focusSidebar', 'toggleOutline', 'newDocument', 'closeTab', 'nextTab', 'prevTab', 'splitRight', 'splitDown',
   'newWindow', 'print', 'searchFolder',
   // M8
   'closeWindow', 'exportHtml', 'exportPdf', 'reveal', 'toggleHidden', 'clearRecents', 'toggleSpellcheck',
@@ -165,6 +166,10 @@ export const COMMANDS: readonly ShortcutRow[] = [
   // ── View ────────────────────────────────────────────────────────────────
   { command: 'toggleSidebar', accelerator: 'CmdOrCtrl+B', label: 'Toggle Sidebar', outsideEditor: true, hideAccelerator: true },
   { command: 'focusSidebar', accelerator: 'CmdOrCtrl+Shift+E', label: 'Show Sidebar' },
+  // Core's document sidebar (Outline / Backlinks / Properties) in the focused
+  // pane. VS Code's Cmd+\ is Split Right here; Cmd+Alt+B is VS Code's
+  // secondary (right-hand) side bar.
+  { command: 'toggleOutline', accelerator: 'CmdOrCtrl+Alt+B', label: 'Toggle Outline', when: 'editor' },
   { command: 'toggleSource', accelerator: 'CmdOrCtrl+/', label: 'Toggle Source Mode', when: 'editor' },
   { command: 'splitRight', accelerator: 'CmdOrCtrl+\\', label: 'Split Right', when: 'document' },
   { command: 'splitDown', accelerator: 'CmdOrCtrl+Shift+\\', label: 'Split Down', when: 'document' },

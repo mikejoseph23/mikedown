@@ -117,6 +117,13 @@ body.mdapp-dragging {
   display: none;
 }
 
+/* Core's document sidebar (Outline / Backlinks / Properties) in a narrow
+   pane: its minimum width, so the text column keeps room. Wins over the
+   width core sets inline (and a drag-resize) only while the pane is narrow. */
+.mdapp-pane__editor--narrow .mikedown-root {
+  --mikedown-outline-width: 160px !important;
+}
+
 /* An empty pane (no tabs): a quiet surface with nothing to type into. */
 .mdapp-pane--empty .mdapp-pane__editor {
   opacity: 0.35;
