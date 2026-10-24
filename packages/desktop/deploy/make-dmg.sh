@@ -37,9 +37,10 @@
 #                         renders it at the right point size on Retina. Default:
 #                         deploy/assets/dmg/background.png
 #   --icon-size <px>      Finder icon size. Default: 128.
-#   --window <WxH>        Logical window size in pt. Default: 600x400.
-#   --app-pos <x,y>       App icon center. Default: 150,170.
-#   --apps-pos <x,y>      /Applications alias center. Default: 450,170.
+#   --window <WxH>        Content (background) size in pt. Default: 600x400.
+#                         The title bar is added on top, so the whole art shows.
+#   --app-pos <x,y>       App icon center. Default: 150,196.
+#   --apps-pos <x,y>      /Applications alias center. Default: 450,196.
 #   -h | --help           Show this header.
 
 set -euo pipefail
@@ -54,8 +55,8 @@ BACKGROUND="$SCRIPT_DIR/assets/dmg/background.png"
 ICON_SIZE=128
 WIN_W=600
 WIN_H=400
-APP_POS="150,185"     # must match APP_ICON_CENTER in assets/dmg/make-background.py
-APPS_POS="450,185"    # must match APPS_ICON_CENTER in assets/dmg/make-background.py
+APP_POS="150,196"     # must match APP_ICON_CENTER in assets/dmg/make-background.py
+APPS_POS="450,196"    # must match APPS_ICON_CENTER in assets/dmg/make-background.py
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -83,11 +84,13 @@ APP_NAME="$(basename "$APP")"                       # e.g. "LymeScribe Personal.
 APP_X="${APP_POS%,*}";  APP_Y="${APP_POS#*,}"
 APPS_X="${APPS_POS%,*}"; APPS_Y="${APPS_POS#*,}"
 
-# Window bounds {left, top, right, bottom} in screen pt.
+# Window bounds {left, top, right, bottom} in screen pt. Finder's bounds include
+# the title bar, so add it to keep the full WIN_W x WIN_H art visible below it.
+TITLEBAR_H=28
 WIN_LEFT=200
 WIN_TOP=120
 WIN_RIGHT=$(( WIN_LEFT + WIN_W ))
-WIN_BOTTOM=$(( WIN_TOP + WIN_H ))
+WIN_BOTTOM=$(( WIN_TOP + WIN_H + TITLEBAR_H ))
 
 LAYOUT_NAME="$VOLNAME-layout-$$"
 

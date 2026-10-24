@@ -22,18 +22,25 @@ the checklist.
 ## Styled DMG
 
 `make-dmg.sh` (adapted from LymeScribe's) lays out the install window: 600x400
-window, 128 px icons, app at 150,185 and the Applications link at 450,185,
-hidden toolbar and sidebar, brand background. Finder does the layout through
-AppleScript, so it needs a logged-in GUI session (a Finder window flashes open
-for a few seconds) and cannot run over bare SSH. The layout runs under a
-temporary volume name and is renamed to `MikeDown`, so a same-named volume that
-is already mounted is left alone. No volume icon is set (LymeScribe sets none).
+pt of art below the title bar (the script adds the 28 pt title bar to the window
+bounds so none of the art is cut off), 128 px icons, app at 150,196 and the
+Applications link at 450,196, hidden toolbar and sidebar. Finder does the layout
+through AppleScript, so it needs a logged-in GUI session (a Finder window
+flashes open for a few seconds) and cannot run over bare SSH. The layout runs
+under a temporary volume name and is renamed to `MikeDown`, so a same-named
+volume that is already mounted is left alone. No volume icon is set (LymeScribe
+sets none).
 
-Background art lives in `assets/dmg/`: `make-background.py` (Pillow, run
-`python3 assets/dmg/make-background.py`) writes `background.png` (1x) and
-`background@2x.png`; `make-dmg.sh` fuses them into a HiDPI TIFF. If you move the
-icons, change `APP_POS`/`APPS_POS` in `make-dmg.sh` and the `*_ICON_CENTER`
-constants in the script together.
+Background art lives in `assets/dmg/`: `make-background.py` (Pillow plus the
+macOS SF Pro and SF Mono system fonts, run
+`python3 assets/dmg/make-background.py`) writes `background.png` (1x, rendered
+natively) and `background@2x.png`; `make-dmg.sh` fuses them into a HiDPI TIFF.
+The art is a "MikeDown" heading and subtitle, a one-piece gradient arrow in the
+icon's periwinkle-to-sky colors, the instruction line, and a faint row of
+markdown glyphs along the bottom. It is opaque and light, so Finder's black icon
+labels read the same in light and dark appearance. If you move the icons,
+change `APP_POS`/`APPS_POS` in `make-dmg.sh` and the `*_ICON_CENTER` constants
+in the script together.
 
 To iterate on the look without the 15 minute universal build, restyle an
 already stapled app (still signs, notarizes and staples the DMG):
