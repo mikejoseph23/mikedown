@@ -24,6 +24,8 @@ export const DESKTOP_KEY_DEFAULTS = {
   'imageResize.overwrite': true,
   'tree.showHidden': false,
   'tree.confirmDelete': true,
+  'outline.visibility': 'never',
+  'outline.sectionPrefs': {} as Record<string, boolean>,
   fileAssociationsOffered: false,
 } as const;
 
@@ -36,7 +38,7 @@ export const SAVE_FOR_FOLDER_KEY = 'app.saveForFolder';
 /** Keys that never reach the editors or the files (the app follows the OS theme). */
 const IGNORED_CORE_KEYS = new Set(['editorTheme']);
 
-const NESTED_DESKTOP_GROUPS = new Set(['versioning', 'updates', 'imagePaste', 'imageResize', 'tree']);
+const NESTED_DESKTOP_GROUPS = new Set(['versioning', 'updates', 'imagePaste', 'imageResize', 'tree', 'outline']);
 
 export function isDesktopKey(key: string): key is DesktopKey {
   return Object.prototype.hasOwnProperty.call(DESKTOP_KEY_DEFAULTS, key);
@@ -79,11 +81,21 @@ export function sanitizeDesktopValue(key: DesktopKey, value: unknown): { ok: tru
   if (typeof def === 'number') {
     return typeof value === 'number' && Number.isFinite(value) && value > 0 ? { ok: true, value } : { ok: false };
   }
+  if (def && typeof def === 'object') {
+    // `outline.sectionPrefs`: section name to collapsed.
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {return { ok: false };}
+    const out: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof v === 'boolean') {out[k] = v;}
+    }
+    return { ok: true, value: out };
+  }
   if (typeof value !== 'string' || value.trim() === '') {return { ok: false };}
   const enums: Partial<Record<DesktopKey, string[]>> = {
     'imagePaste.folderRelativeTo': ['document', 'workspace'],
     'imagePaste.pathStyle': ['relative', 'workspace-absolute'],
     'imagePaste.altText': ['empty', 'filename', 'prompt'],
+    'outline.visibility': ['always', 'never'],
   };
   const allowed = enums[key];
   if (allowed && !allowed.includes(value)) {return { ok: false };}

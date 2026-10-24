@@ -324,6 +324,50 @@ describe('settings manager: save routing', () => {
   });
 });
 
+describe('settings: document sidebar state (outline.*)', () => {
+  it('the pin and collapsed sections persist globally and come back in a new window', async () => {
+    const world = createWorld();
+    const win = createWindow(world, { folder: '/notes' });
+    await win.manager.load();
+    const saves: Array<Promise<void>> = [];
+    win.store.onOutlineChange((patch) => { saves.push(win.manager.save(patch, { silent: true, force: true })); });
+    win.store.setOutline({ visibility: 'always' });
+    await Promise.all(saves);
+    win.store.setOutline({ sectionPrefs: { properties: true, backlinks: false } });
+    await Promise.all(saves);
+    // Global file, never the folder override; no toast.
+    expect(JSON.parse(world.files.get(GLOBAL) as string)).toEqual({
+      'outline.visibility': 'always',
+      'outline.sectionPrefs': { properties: true, backlinks: false },
+    });
+    expect(world.files.has(folderFile('/notes'))).toBe(false);
+    expect(win.toasts).toEqual([]);
+
+    const next = createWindow(world, { label: 'w2' });
+    await next.manager.load();
+    expect(next.store.get().outline).toEqual({ visibility: 'always', sectionPrefs: { properties: true, backlinks: false } });
+  });
+
+  it('bad values in the file fall back to the defaults', () => {
+    const store = createDesktopSettingsStore();
+    store.load({ 'outline.visibility': 'sometimes', 'outline.sectionPrefs': ['properties'] });
+    expect(store.get().outline).toEqual({ visibility: 'never', sectionPrefs: {} });
+    store.load({ 'outline.sectionPrefs': { outline: true, tags: 'yes' } });
+    expect(store.get().outline.sectionPrefs).toEqual({ outline: true });
+  });
+
+  it('setOutline ignores unknown values and does not notify for them', () => {
+    const store = createDesktopSettingsStore();
+    const seen: Array<Record<string, unknown>> = [];
+    store.onOutlineChange((p) => seen.push(p));
+    store.setOutline({ visibility: 'sideways' as never });
+    expect(seen).toEqual([]);
+    store.setOutline({ visibility: 'always' });
+    expect(seen).toEqual([{ 'outline.visibility': 'always' }]);
+    expect(store.get().outline.visibility).toBe('always');
+  });
+});
+
 describe('settings manager: other windows', () => {
   it('a save in one window is re-read and applied by the other', async () => {
     const world = createWorld();

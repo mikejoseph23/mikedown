@@ -24,12 +24,25 @@ export interface VersioningSettings {
   maxSizeMB: number;
 }
 
+/**
+ * Core's document sidebar (Outline / Backlinks / Properties), global for
+ * every window. `visibility` is the pin: `always` opens the sidebar for every
+ * document and new pane. `sectionPrefs` holds the sections the user collapsed
+ * (true) or expanded (false); a section missing from it follows core's
+ * collapse-when-empty rule.
+ */
+export interface OutlineSettings {
+  visibility: 'always' | 'never';
+  sectionPrefs: Record<string, boolean>;
+}
+
 export interface DesktopSettings {
   imagePaste: ImagePasteSettings;
   imageResize: { overwrite: boolean };
   tree: TreeSettings;
   versioning: VersioningSettings;
   updates: { checkOnLaunch: boolean };
+  outline: OutlineSettings;
   /** The "make MikeDown the default for .md" offer was shown (M8 reads it). */
   fileAssociationsOffered: boolean;
 }
@@ -51,6 +64,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   tree: { showHidden: false, confirmDelete: true },
   versioning: { enabled: true, keep: 25, maxSizeMB: 2 },
   updates: { checkOnLaunch: true },
+  outline: { visibility: 'never', sectionPrefs: {} },
   fileAssociationsOffered: false,
 };
 
@@ -81,12 +95,16 @@ export interface DesktopSettingsStore {
   pendingPatch(): Record<string, unknown>;
   /** Tree preferences (show hidden, delete confirmation); persisted by the settings manager. */
   setTree(patch: Partial<TreeSettings>): void;
+  /** Document sidebar state (pin, collapsed sections); persisted by the settings manager. */
+  setOutline(patch: Partial<OutlineSettings>): void;
   /** The merged files replace everything: defaults, then these dotted desktop keys. */
   load(flat: SettingsRecord): void;
   /** Current values as dotted keys (`versioning.keep`), for diffing patches. */
   flat(): SettingsRecord;
   /** `setTree` was called (the user toggled it in the tree); the manager saves it. */
   onTreeChange(fn: (patch: SettingsRecord) => void): void;
+  /** `setOutline` was called (pin or section toggle in the sidebar); the manager saves it. */
+  onOutlineChange(fn: (patch: SettingsRecord) => void): void;
 }
 
 function cloneSettings(from: DesktopSettings): DesktopSettings {
@@ -96,6 +114,7 @@ function cloneSettings(from: DesktopSettings): DesktopSettings {
     tree: { ...from.tree },
     versioning: { ...from.versioning },
     updates: { ...from.updates },
+    outline: { visibility: from.outline.visibility, sectionPrefs: { ...from.outline.sectionPrefs } },
     fileAssociationsOffered: from.fileAssociationsOffered,
   };
 }
@@ -104,6 +123,7 @@ export function createDesktopSettingsStore(initial: DesktopSettings = DEFAULT_DE
   const current: DesktopSettings = cloneSettings(initial);
   const received: Record<string, unknown> = {};
   const treeListeners: Array<(patch: SettingsRecord) => void> = [];
+  const outlineListeners: Array<(patch: SettingsRecord) => void> = [];
 
   /** Set one dotted desktop key; unknown keys and wrong types are ignored. */
   function setKey(key: string, value: unknown): void {
@@ -136,7 +156,7 @@ export function createDesktopSettingsStore(initial: DesktopSettings = DEFAULT_DE
     apply(patch) {
       for (const [key, value] of Object.entries(patch)) {
         received[key] = value;
-        if (value && typeof value === 'object' && ['imagePaste', 'imageResize', 'versioning', 'updates', 'tree'].includes(key)) {
+        if (value && typeof value === 'object' && ['imagePaste', 'imageResize', 'versioning', 'updates', 'tree', 'outline'].includes(key)) {
           for (const [k, v] of Object.entries(value as Record<string, unknown>)) {setKey(`${key}.${k}`, v);}
         } else if (key === 'imagePasteEnabled') {
           setKey('imagePaste.enabled', value);
@@ -155,6 +175,18 @@ export function createDesktopSettingsStore(initial: DesktopSettings = DEFAULT_DE
       }
       for (const fn of treeListeners) {fn(flatPatch);}
     },
+    setOutline(patch) {
+      const flatPatch: SettingsRecord = {};
+      for (const [k, v] of Object.entries(patch)) {
+        const key = `outline.${k}`;
+        if (!isDesktopKey(key) || !sanitizeDesktopValue(key, v).ok) {continue;}
+        setKey(key, v);
+        received[key] = v;
+        flatPatch[key] = v;
+      }
+      if (Object.keys(flatPatch).length === 0) {return;}
+      for (const fn of outlineListeners) {fn(flatPatch);}
+    },
     load(values) {
       Object.assign(current, cloneSettings(DEFAULT_DESKTOP_SETTINGS));
       // Keep the cleanup policy the schema does not expose.
@@ -163,5 +195,6 @@ export function createDesktopSettingsStore(initial: DesktopSettings = DEFAULT_DE
     },
     flat,
     onTreeChange: (fn) => { treeListeners.push(fn); },
+    onOutlineChange: (fn) => { outlineListeners.push(fn); },
   };
 }
