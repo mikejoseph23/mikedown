@@ -27,6 +27,8 @@ export interface Sidebar {
   setFolder(folder: { name: string; path: string } | null): void;
   setTreeEl(tree: HTMLElement): void;
   setShowHidden(on: boolean): void;
+  /** Edge 10: a folder without write permission turns New File / New Folder off, with the reason as the tooltip. */
+  setWritable(writable: boolean, reason?: string): void;
   /** Lone-file empty state: whether Open Containing Folder applies. */
   setCanOpenContaining(can: boolean): void;
   isVisible(): boolean;
@@ -250,6 +252,12 @@ export function createSidebar(actions: SidebarActions, opts: { newFileLabel: str
       btn('hidden').setAttribute('aria-pressed', on ? 'true' : 'false');
       btn('hidden').classList.toggle('mdapp-iconbtn--on', on);
       btn('hidden').title = on ? 'Hide Hidden Files' : 'Show Hidden Files';
+    },
+    setWritable(writable, reason) {
+      for (const name of ['new-file', 'new-folder']) {
+        btn(name).disabled = !writable;
+        btn(name).title = writable ? labels[name] : (reason ?? 'This folder is read-only.');
+      }
     },
     setCanOpenContaining(can) {
       btn('open-containing').hidden = !can || hasFolder;

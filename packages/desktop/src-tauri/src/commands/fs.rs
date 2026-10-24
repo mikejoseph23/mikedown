@@ -233,8 +233,49 @@ fn is_read_only(path: &Path, meta: &stdfs::Metadata) -> bool {
     }
 }
 
+/// The OS error in plain words (edge 10): what happened and what to do, with
+/// the system's own message kept at the end for anyone who needs to search it.
+/// `None` for kinds without a better sentence than the OS gives.
+pub fn plain_reason(e: &io::Error) -> Option<&'static str> {
+    use io::ErrorKind::*;
+    Some(match e.kind() {
+        PermissionDenied => "You do not have permission to change this file. Save a copy somewhere you can write, or ask the owner to allow it.",
+        ReadOnlyFilesystem => "The disk it is on is read-only. Save a copy somewhere else.",
+        NotFound => "It is no longer there. It may have been moved, renamed or deleted.",
+        StorageFull => "The disk is full. Free some space or save a copy on another disk.",
+        QuotaExceeded => "Your storage quota is used up. Free some space or save a copy elsewhere.",
+        FileTooLarge => "The file is too large for this disk.",
+        ResourceBusy | ExecutableFileBusy => "Another program is using it. Close it there and try again.",
+        _ => return None,
+    })
+}
+
+/// Whether new files can be created in, renamed in and deleted from a
+/// folder (edge 10). Unix asks the kernel (`access` honours owner, group,
+/// ACLs and read-only volumes); Windows only sees the read-only attribute, so
+/// an ACL-denied folder stays enabled there and fails with a plain message
+/// when used.
+fn is_dir_read_only(path: &Path, meta: &stdfs::Metadata) -> bool {
+    if meta.permissions().readonly() && cfg!(windows) {
+        return true;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        if let Ok(c) = std::ffi::CString::new(path.as_os_str().as_bytes()) {
+            // SAFETY: `c` is a valid NUL-terminated path for the call's duration.
+            return unsafe { libc::access(c.as_ptr(), libc::W_OK | libc::X_OK) } != 0;
+        }
+    }
+    let _ = path;
+    false
+}
+
 fn describe(path: &Path, e: &io::Error) -> String {
-    format!("{}: {}", path.display(), e)
+    match plain_reason(e) {
+        Some(plain) => format!("{} {} ({})", display_name(path), plain, e),
+        None => format!("{}: {}", path.display(), e),
+    }
 }
 
 // ── Tree helpers (pure, unit-tested below) ─────────────────────────────────
@@ -362,6 +403,17 @@ pub fn validate_target(path: &Path, extra: usize, windows: bool) -> Result<(), S
 
 fn check_target(path: &Path, extra: usize) -> Result<(), String> {
     validate_target(path, extra, cfg!(windows))
+}
+
+/// Edge 25 for writes that may create a file (Save As, a pasted image): a
+/// path that does not exist yet gets the name and length check before any
+/// directory or file is created. An existing file is simply overwritten, so
+/// a legacy long path that already works keeps saving.
+pub fn check_new_target(path: &Path, windows: bool) -> Result<(), String> {
+    if path.exists() {
+        return Ok(());
+    }
+    validate_target(path, 0, windows)
 }
 
 /// Longest relative path (in UTF-16 units, with its leading separator) under
@@ -595,6 +647,7 @@ pub fn write_text<R: Runtime>(
     options: WriteOptions,
 ) -> Result<WriteResult, String> {
     ensure_allowed(&app, &path)?;
+    check_new_target(&path, cfg!(windows))?;
     let bytes = encode(&text, options.eol, options.bom);
     atomic_write(&path, &bytes).map_err(|e| describe(&path, &e))?;
     allow_document(&app, &path);
@@ -612,7 +665,7 @@ pub fn stat<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<Stat, String
             is_dir: meta.is_dir(),
             mtime_ms: mtime_ms(&meta),
             size: meta.len(),
-            read_only: meta.is_file() && is_read_only(&path, &meta),
+            read_only: if meta.is_dir() { is_dir_read_only(&path, &meta) } else { meta.is_file() && is_read_only(&path, &meta) },
         }),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Stat::default()),
         Err(e) => Err(describe(&path, &e)),
@@ -734,6 +787,7 @@ pub fn write_bytes<R: Runtime>(
         InvokeBody::Raw(b) => b.as_slice(),
         InvokeBody::Json(_) => return Err("write_bytes expects a raw body".into()),
     };
+    check_new_target(&path, cfg!(windows))?;
     if let Some(dir) = path.parent() {
         stdfs::create_dir_all(dir).map_err(|e| describe(dir, &e))?;
     }
@@ -1152,6 +1206,109 @@ mod tests {
                 assert_eq!(encode(&d.text, d.eol, bom), bytes, "{name} round-trip");
             }
         }
+    }
+
+    /// Edge 11 acceptance, at the file level: read each fixture from disk,
+    /// run it through decode, encode and the atomic write the save command
+    /// uses, and the file on disk is byte-identical afterwards (the `cmp`
+    /// check). The non-UTF-8 file is excluded: it is never rewritten.
+    #[test]
+    fn saving_a_fixture_leaves_the_file_byte_identical() {
+        let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("../test/fixtures/encoding");
+        let dir = temp_dir("fixture-cmp");
+        let mut checked = 0;
+        for entry in stdfs::read_dir(&src).unwrap() {
+            let entry = entry.unwrap();
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if !name.ends_with(".md") {
+                continue;
+            }
+            let original = stdfs::read(entry.path()).unwrap();
+            let decoded = decode(&original);
+            if decoded.encoding == Encoding::Unknown {
+                continue;
+            }
+            let target = dir.join(&name);
+            stdfs::write(&target, &original).unwrap();
+            let bom = decoded.encoding == Encoding::Utf8Bom;
+            atomic_write(&target, &encode(&decoded.text, decoded.eol, bom)).unwrap();
+            assert_eq!(stdfs::read(&target).unwrap(), original, "{name} changed on save");
+            checked += 1;
+        }
+        assert!(checked >= 4, "expected the four UTF-8 fixtures, saw {checked}");
+    }
+
+    /// Edge 11: a file with mixed endings is written back in the detected
+    /// majority style (a tie keeps CRLF), with the BOM kept. Documented in
+    /// the README; this pins the on-disk result.
+    #[test]
+    fn mixed_line_endings_are_written_back_as_the_majority() {
+        let dir = temp_dir("mixed-eol");
+        let cases: [(&str, &[u8], &[u8]); 3] = [
+            ("crlf-majority", b"a\r\nb\r\nc\nd\r\n", b"a\r\nb\r\nc\r\nd\r\n"),
+            ("lf-majority", b"a\nb\nc\r\nd\n", b"a\nb\nc\nd\n"),
+            ("bom-tie", b"\xEF\xBB\xBFa\r\nb\n", b"\xEF\xBB\xBFa\r\nb\r\n"),
+        ];
+        for (name, original, expected) in cases {
+            let target = dir.join(format!("{name}.md"));
+            stdfs::write(&target, original).unwrap();
+            let d = decode(original);
+            atomic_write(&target, &encode(&d.text, d.eol, d.encoding == Encoding::Utf8Bom)).unwrap();
+            assert_eq!(stdfs::read(&target).unwrap(), expected, "{name}");
+        }
+    }
+
+    /// Edge 25: Save As and pasted images get the Windows name and length
+    /// checks before anything is created, and an existing file is left alone.
+    #[test]
+    fn new_targets_are_validated_but_existing_files_are_not() {
+        let dir = temp_dir("new-target");
+        let reserved = dir.join("CON.md");
+        let err = check_new_target(&reserved, true).unwrap_err();
+        assert!(err.contains("reserves for devices"), "{err}");
+        assert!(!reserved.exists(), "nothing is created by the check");
+        assert!(check_new_target(&reserved, false).is_ok());
+        let long = dir.join("x".repeat(300) + ".md");
+        assert!(check_new_target(&long, true).unwrap_err().contains("characters long"));
+        // An existing file keeps saving, whatever its name.
+        let existing = dir.join("notes.md");
+        stdfs::write(&existing, b"x").unwrap();
+        assert!(check_new_target(&existing, true).is_ok());
+    }
+
+    /// Edge 10: OS failures come back as sentences, not "os error 13".
+    #[test]
+    fn io_errors_are_described_in_plain_words() {
+        let denied = io::Error::from(io::ErrorKind::PermissionDenied);
+        let msg = describe(Path::new("/n/locked.md"), &denied);
+        assert!(msg.starts_with("locked.md You do not have permission"), "{msg}");
+        assert!(!msg.contains("/n/"), "no raw path noise: {msg}");
+        let ro = describe(Path::new("/n/a.md"), &io::Error::from(io::ErrorKind::ReadOnlyFilesystem));
+        assert!(ro.contains("read-only"), "{ro}");
+        // A kind without a better sentence keeps the system text and the path.
+        let other = describe(Path::new("/n/a.md"), &io::Error::other("weird"));
+        assert!(other.starts_with("/n/a.md: "), "{other}");
+    }
+
+    /// Edge 10: a folder without write permission reports read-only through
+    /// `stat`, so New / Rename / Delete can be disabled. Skipped as root
+    /// (root can write anywhere).
+    #[cfg(unix)]
+    #[test]
+    fn a_folder_without_write_permission_is_read_only() {
+        use std::os::unix::fs::PermissionsExt;
+        if unsafe { libc::geteuid() } == 0 {
+            return;
+        }
+        let dir = temp_dir("ro-dir");
+        let sub = dir.join("locked");
+        stdfs::create_dir(&sub).unwrap();
+        let meta = stdfs::metadata(&sub).unwrap();
+        assert!(!is_dir_read_only(&sub, &meta));
+        stdfs::set_permissions(&sub, stdfs::Permissions::from_mode(0o555)).unwrap();
+        let meta = stdfs::metadata(&sub).unwrap();
+        assert!(is_dir_read_only(&sub, &meta));
+        stdfs::set_permissions(&sub, stdfs::Permissions::from_mode(0o755)).unwrap();
     }
 
     #[test]

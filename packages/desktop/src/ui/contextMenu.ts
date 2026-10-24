@@ -10,6 +10,8 @@ export interface MenuItem {
   /** Shown right-aligned, e.g. `⌫` or `F2`. */
   hint?: string;
   disabled?: boolean;
+  /** Tooltip; for a disabled item it says why. */
+  title?: string;
   run(): void;
 }
 
@@ -46,6 +48,7 @@ export function showContextMenu(x: number, y: number, entries: readonly MenuEntr
     btn.setAttribute('role', 'menuitem');
     btn.tabIndex = -1;
     btn.disabled = !!entry.disabled;
+    if (entry.title) {btn.title = entry.title;}
     if (entry.disabled) {btn.setAttribute('aria-disabled', 'true');}
     const label = document.createElement('span');
     label.textContent = entry.label;

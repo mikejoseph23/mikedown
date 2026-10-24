@@ -2191,6 +2191,7 @@ dependencies = [
 name = "mikedown-desktop"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "notify",
  "objc2-app-kit",
  "objc2-foundation",

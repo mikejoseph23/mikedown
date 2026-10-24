@@ -19,9 +19,10 @@ let files: Record<string, string>;
 let calls: IpcCall[];
 let app: TestApp;
 let slowReads: Map<string, () => void>;
+const readOnlyFiles = new Set<string>();
 
-function info(text: string): ReadInfo {
-  return { text, encoding: 'utf8', eol: 'lf', mtimeMs: 1, readOnly: false, size: text.length };
+function info(text: string, readOnly = false): ReadInfo {
+  return { text, encoding: 'utf8', eol: 'lf', mtimeMs: 1, readOnly, size: text.length };
 }
 
 function handler(cmd: string, args: any): unknown {
@@ -38,7 +39,7 @@ function handler(cmd: string, args: any): unknown {
       if (slowReads.has(args.path)) {
         return new Promise<ReadInfo>((resolve) => slowReads.set(args.path, () => resolve(info(text))));
       }
-      return info(text);
+      return info(text, readOnlyFiles.has(args.path));
     }
     case 'write_text':
       files[args.path] = args.text;
@@ -59,6 +60,7 @@ beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   files = { [`${DIR}/a.md`]: '# A\n\nAlpha body.\n', [`${DIR}/b.md`]: '# B\n\nBeta body.\n' };
   slowReads = new Map();
+  readOnlyFiles.clear();
   calls = installIpc(handler);
   app = createTestApp((host, container) => createMikeDownEditor(container, {
     host,
@@ -197,6 +199,25 @@ describe('document states', () => {
     expect(doc.text).toContain('Alpha body.');
     expect((tabEl(0, 0).querySelector('.mdapp-tab__state') as HTMLElement).hidden).toBe(true);
     expect(pm(0).textContent).toContain('Alpha body.');
+  });
+
+  it('a read-only file opens normally with a lock badge; Cmd+S offers Save As with the reason (edge 10)', async () => {
+    files[`${DIR}/locked.md`] = '# Locked\n\nBody.\n';
+    readOnlyFiles.add(`${DIR}/locked.md`);
+    expect(await app.controller.openPath(`${DIR}/locked.md`)).toBe(true);
+    const doc = app.registry.get(`${DIR}/locked.md`)!;
+    expect(doc.readOnly).toBe(true);
+    expect(doc.sourceMode).toBe(false);
+    const lock = tabEl(0, 0).querySelector('.mdapp-tab__lock') as HTMLElement;
+    expect(lock.hidden).toBe(false);
+    expect(lock.title).toMatch(/read-only/i);
+    expect(tabEl(0, 0).getAttribute('aria-label')).toMatch(/read-only/);
+
+    // Cancel keeps everything as it was; Save As writes a copy elsewhere.
+    expect(await app.controller.save()).toBe(false);
+    expect(calls.some((c) => c.cmd === 'write_text')).toBe(false);
+    const prompt = calls.find((c) => c.cmd === 'plugin:dialog|message');
+    expect((prompt?.args as { message: string }).message).toMatch(/cannot be saved in place[\s\S]*read-only/);
   });
 
   it('a large markdown file opens in source mode with an "Open as rich text anyway" action (edge 12)', async () => {

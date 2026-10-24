@@ -56,6 +56,10 @@ function listDir(dir: string): DirEntry[] {
 }
 
 /** M6: when set, the workspace routes mirror moves through it (versioning.moved). */
+/** Folders the stand-in disk reports as read-only (edge 10). */
+const lockedDirs = new Set<string>();
+let sidebarWritable: Array<[boolean, string | undefined]> = [];
+
 let moveVersionsHook: ((from: string, to: string) => Promise<void>) | undefined;
 
 function setup(windows: boolean): void {
@@ -67,11 +71,14 @@ function setup(windows: boolean): void {
   confirmAnswer = { ok: true, checked: false };
   altHeld = false;
   doc = { path: '/n/sub/b.md', moved: [], deleted: [] };
+  lockedDirs.clear();
+  sidebarWritable = [];
   settings.setTree({ confirmDelete: true, showHidden: false });
 
   const fs = {
     listDir: async (dir: string) => { calls.push(`list ${dir}`); return listDir(dir); },
     exists: async (p: string) => disk.has(p),
+    stat: async (p: string) => ({ exists: disk.has(p), isFile: disk.get(p) === false, isDir: disk.get(p) === true, mtimeMs: 0, size: 0, readOnly: lockedDirs.has(p) }),
     readText: async () => ({ text: '', encoding: 'utf8', eol: 'lf', mtimeMs: 0, readOnly: false, size: 0 }),
     writeText: async () => ({ mtimeMs: 0, size: 0 }),
   } as unknown as FsApi;
@@ -101,7 +108,7 @@ function setup(windows: boolean): void {
     toast: (m: string) => { calls.push(`toast ${m}`); },
     confirm: async (m: string) => { calls.push(`confirm ${m}`); return confirmAnswer; },
   } as unknown as Dialogs;
-  const sidebar = { el: document.createElement('aside'), setFolder: () => {}, setShowHidden: () => {} } as unknown as Sidebar;
+  const sidebar = { el: document.createElement('aside'), setFolder: () => {}, setShowHidden: () => {}, setWritable: (w: boolean, r?: string) => { sidebarWritable.push([w, r]); } } as unknown as Sidebar;
 
   ws = createFolderWorkspace({
     path,
@@ -389,5 +396,76 @@ describe('folder workspace', () => {
     expect(row.getAttribute('role')).toBe('treeitem');
     expect(row.getAttribute('aria-level')).toBe('1');
     expect(row.tabIndex).toBe(0);
+  });
+  it('every Windows reserved device name, a trailing dot or space and a 260-character path are refused before any disk call (edge 25)', async () => {
+    const names = ['CON', 'PRN', 'AUX', 'NUL', ...Array.from({ length: 9 }, (_, i) => `COM${i + 1}`), ...Array.from({ length: 9 }, (_, i) => `LPT${i + 1}`)];
+    setup(true);
+    await ws.open('/n');
+    for (const base of names) {
+      for (const bad of [`${base}.md`, base.toLowerCase(), `${base}.`, `${base} .md`]) {
+        await ws.tree.startRename('/n/a.md');
+        const field = input();
+        field.value = bad;
+        field.dispatchEvent(new Event('input'));
+        press(field, 'Enter');
+        await settle();
+        expect(calls.some((c) => c.startsWith('rename')), bad).toBe(false);
+        press(input(), 'Escape');
+        await settle();
+      }
+    }
+    // A name that is fine on its own, but whose full path is over the limit.
+    await ws.tree.startRename('/n/a.md');
+    const field = input();
+    field.value = 'y'.repeat(260) + '.md';
+    field.dispatchEvent(new Event('input'));
+    press(field, 'Enter');
+    await settle();
+    expect(calls.some((c) => c.startsWith('rename'))).toBe(false);
+    expect(calls.some((c) => c.startsWith('createFile'))).toBe(false);
+  });
+
+  it('a folder without write permission disables New, Rename and Delete with the reason (edge 10)', async () => {
+    lockedDirs.add('/n');
+    await ws.open('/n');
+    // The sidebar's New buttons go off with the reason as their tooltip.
+    expect(sidebarWritable[sidebarWritable.length - 1]).toEqual([false, expect.stringMatching(/read-only/)]);
+    // Creating, renaming and deleting inside it are refused before any disk call.
+    await ws.newFile('/n');
+    await settle();
+    expect(calls.some((c) => c.startsWith('createFile'))).toBe(false);
+    expect(calls.filter((c) => c.startsWith('toast')).join()).toMatch(/read-only/);
+    await ws.tree.startRename('/n/a.md');
+    const field = input();
+    field.value = 'b.md';
+    field.dispatchEvent(new Event('input'));
+    press(field, 'Enter');
+    await settle();
+    expect(calls.some((c) => c.startsWith('rename'))).toBe(false);
+    const row = ws.tree.el.querySelector<HTMLElement>('[data-path="/n/a.md"]')!;
+    press(row, 'Delete');
+    await settle();
+    expect(calls.some((c) => c.startsWith('trash') || c.startsWith('confirm'))).toBe(false);
+  });
+
+  it('the context menu shows New, Rename and Delete disabled with a tooltip in a read-only folder', async () => {
+    lockedDirs.add('/n');
+    await ws.open('/n');
+    const row = ws.tree.el.querySelector<HTMLElement>('[data-path="/n/a.md"]')!;
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 10, clientY: 10 }));
+    await settle();
+    const items = [...document.querySelectorAll<HTMLButtonElement>('.mdapp-menu__item')];
+    const byLabel = (re: RegExp) => items.find((b) => re.test(b.textContent ?? ''))!;
+    for (const re of [/New File/, /New Folder/, /Rename/, /Move to/]) {
+      const b = byLabel(re);
+      expect(b.disabled, String(re)).toBe(true);
+      expect(b.title, String(re)).toMatch(/read-only/);
+    }
+    expect(byLabel(/Copy Path/).disabled).toBe(false);
+  });
+
+  it('a writable folder keeps the sidebar buttons on', async () => {
+    await ws.open('/n');
+    expect(sidebarWritable[sidebarWritable.length - 1]).toEqual([true, undefined]);
   });
 });

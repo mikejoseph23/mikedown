@@ -54,6 +54,8 @@ objc2-foundation = { version = "0.3", features = ["NSString"] }
 # copies and cross-volume moves.
 [target.'cfg(unix)'.dependencies]
 xattr = "1"
+# `access(2)` for a folder's write permission (edge 10).
+libc = "0.2"
 
 [profile.release]
 codegen-units = 1

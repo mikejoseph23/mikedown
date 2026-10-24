@@ -107,7 +107,7 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
     },
     unwatch: (dir) => { void deps.watch.unwatch(dir).catch(() => { /* already gone */ }); },
     open: (node) => { void deps.doc.open(node.path); },
-    contextMenu: (node, x, y) => contextMenu(node, x, y),
+    contextMenu: (node, x, y) => { void contextMenu(node, x, y); },
     rename: (node, name) => renameNode(node, name),
     remove: (nodes) => { void removePaths(nodes.map((n) => n.path)); },
     drop: (sources, dir, alt) => { void transfer(sources.map((s) => s.path), dir, treeDropOperation('tree', alt)); },
@@ -115,6 +115,18 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
   });
 
   void deps.watch.onChange((change) => handleChange(change));
+
+  const READ_ONLY_FOLDER = 'This folder is read-only. You do not have permission to add, rename or delete items in it.';
+
+  /** Edge 10: why `dir` cannot be changed, or null when it can (or cannot be checked). */
+  async function lockReason(dir: string): Promise<string | null> {
+    try {
+      const st = await deps.fs.stat(dir);
+      return st.exists && st.isDir && st.readOnly ? READ_ONLY_FOLDER : null;
+    } catch {
+      return null;
+    }
+  }
 
   function fail(err: unknown): void {
     dialogs.toast(err instanceof Error ? err.message : String(err), { error: true, ms: 6000 });
@@ -161,6 +173,11 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
   async function create(kind: 'file' | 'folder', dir?: string): Promise<void> {
     const parent = targetDirFor(dir);
     if (!parent) {return;}
+    const locked = await lockReason(parent);
+    if (locked) {
+      fail(locked);
+      return;
+    }
     try {
       const name = uniqueName(kind === 'file' ? 'Untitled.md' : 'New Folder', await namesIn(parent));
       const p = path.join(parent, name);
@@ -202,9 +219,10 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
     const to = path.join(path.dirname(node.path), name);
     fresh.delete(node.path);
     if (name === node.name) {return node.path;}
-    const problem = validateTarget(to, name, deps.windows);
+    const problem = validateTarget(to, name, deps.windows) ?? (await lockReason(path.dirname(node.path)));
     if (problem) {
       fail(problem);
+      if (isFresh) {fresh.add(node.path);}
       return false;
     }
     try {
@@ -224,6 +242,13 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
     if (!rootPath || paths.length === 0) {return;}
     const targets = paths.filter((p) => path.relative(rootPath!, p) !== '');
     if (targets.length === 0) {return;}
+    for (const dir of new Set(targets.map((t) => path.dirname(t)))) {
+      const locked = await lockReason(dir);
+      if (locked) {
+        fail(locked);
+        return;
+      }
+    }
     if (settings.get().tree.confirmDelete) {
       const what = targets.length === 1 ? `“${path.basename(targets[0])}”` : `${targets.length} items`;
       const answer = await dialogs.confirm(`Move ${what} to the ${trashName}?`, {
@@ -302,25 +327,28 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
     return rootPath ? path.relative(rootPath, p).replace(/\\/g, '/') : p;
   }
 
-  function contextMenu(node: TreeNode | null, x: number, y: number): void {
+  async function contextMenu(node: TreeNode | null, x: number, y: number): Promise<void> {
     if (!rootPath) {return;}
     const target = node?.path ?? rootPath;
     const dir = node ? (node.isDir ? node.path : path.dirname(node.path)) : rootPath;
     const renameHint = deps.isMac ? '↩' : 'F2';
     const deleteHint = deps.isMac ? '⌘⌫' : 'Del';
+    // Edge 10: New needs the folder to be writable; Rename and Delete need its parent to be.
+    const newLock = await lockReason(dir);
+    const parentLock = node ? await lockReason(path.dirname(node.path)) : null;
     const entries: MenuEntry[] = [];
     if (node && !node.isDir) {
       entries.push({ label: 'Open', run: () => { void deps.doc.open(node.path); } }, null);
     }
     entries.push(
-      { label: 'New File', run: () => { void create('file', dir); } },
-      { label: 'New Folder', run: () => { void create('folder', dir); } },
+      { label: 'New File', disabled: !!newLock, title: newLock ?? undefined, run: () => { void create('file', dir); } },
+      { label: 'New Folder', disabled: !!newLock, title: newLock ?? undefined, run: () => { void create('folder', dir); } },
     );
     if (node) {
       entries.push(
         null,
-        { label: 'Rename…', hint: renameHint, run: () => { void tree.startRename(node.path, { selectStem: !node.isDir }); } },
-        { label: `Move to ${trashName}`, hint: deleteHint, run: () => { void removePaths([node.path]); } },
+        { label: 'Rename…', hint: renameHint, disabled: !!parentLock, title: parentLock ?? undefined, run: () => { void tree.startRename(node.path, { selectStem: !node.isDir }); } },
+        { label: `Move to ${trashName}`, hint: deleteHint, disabled: !!parentLock, title: parentLock ?? undefined, run: () => { void removePaths([node.path]); } },
       );
     }
     entries.push(
@@ -364,6 +392,8 @@ export function createFolderWorkspace(deps: WorkspaceDeps): FolderWorkspace {
         },
       });
       deps.sidebar.setFolder({ name: path.basename(root) || root, path: root });
+      const rootLock = await lockReason(root);
+      deps.sidebar.setWritable(!rootLock, rootLock ?? undefined);
       deps.sidebar.setShowHidden(settings.get().tree.showHidden);
       await tree.setRoot(root);
       lendKnowledgeBase({
