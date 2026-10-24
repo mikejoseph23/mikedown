@@ -13,7 +13,7 @@ All notable changes to MikeDown Editor are documented here.
 - Toolbar hover tooltips are no longer cut off below the toolbar. The toolbar clipped its own overflow, which could also clip the tooltips that hang beneath it; the editor container already hides off-screen buttons, so the toolbar no longer clips at all.
 - Callout body text no longer duplicates when a note, tip or other callout is parsed. This bug shipped in 2.14.2, so the fix is for the next release.
 - Typing within half a second of a save is no longer lost. Those keystrokes joined the undo step that was just saved, so the editor thought the document was unchanged and the next save could drop them.
-- Saving after an edit keeps the document's markdown as you wrote it: a final newline stays (and isn't added to a file without one), hard breaks written as a trailing `\` or two trailing spaces keep that form, tight task lists no longer gain blank lines between items, and a code fence with no language no longer becomes ` ```plaintext `. Switching back from source mode (Cmd/Ctrl+/) also puts the cursor in the right table cell or task item.
+- Saving after an edit keeps the document's markdown as you wrote it: a final newline stays (and isn't added to a file without one), hard breaks written as a trailing `\` or two trailing spaces keep that form, a new break from Shift+Enter saves as a trailing `\` (so it survives in other Markdown renderers) while plain soft wraps stay bare newlines, tight task lists no longer gain blank lines between items, and a code fence with no language no longer becomes ` ```plaintext `. Switching back from source mode (Cmd/Ctrl+/) also puts the cursor in the right table cell or task item.
 
 ### Internal
 

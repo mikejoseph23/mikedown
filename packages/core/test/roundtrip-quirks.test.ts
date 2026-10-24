@@ -98,6 +98,46 @@ describe('hard breaks', () => {
   });
 });
 
+describe('new hard breaks', () => {
+  function lastChange(handle: MikeDownEditorHandle, changes: string[]) {
+    return changes[changes.length - 1] ?? handle.getMarkdown();
+  }
+
+  it('serializes a Shift+Enter break as backslash + newline', () => {
+    const { handle, changes } = mount('onetwo\n');
+    handle.tiptap.commands.focus('start');
+    handle.tiptap.commands.setTextSelection(4);
+    const ev = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
+    handle.tiptap.view.dom.dispatchEvent(ev);
+    expect(lastChange(handle, changes)).toBe('one\\\ntwo\n');
+  });
+
+  it('serializes setHardBreak as backslash + newline', () => {
+    const { handle, changes } = mount('onetwo\n');
+    handle.tiptap.commands.setTextSelection(4);
+    handle.tiptap.commands.setHardBreak();
+    expect(lastChange(handle, changes)).toBe('one\\\ntwo\n');
+  });
+
+  it('serializes a hardBreak node from pasted <br> as backslash + newline', () => {
+    const { handle, changes } = mount('start\n');
+    handle.tiptap.commands.focus('end');
+    // What pasting `a<br>b` yields: a hardBreak node with no source tag.
+    handle.tiptap.commands.insertContent([
+      { type: 'text', text: 'a' }, { type: 'hardBreak' }, { type: 'text', text: 'b' },
+    ]);
+    expect(lastChange(handle, changes)).toBe('starta\\\nb\n');
+  });
+
+  it('keeps soft wraps bare next to a new break', () => {
+    const { handle, changes } = mount('a\nb\n');
+    handle.tiptap.commands.focus('end');
+    handle.tiptap.commands.setHardBreak();
+    handle.tiptap.commands.insertContent('c');
+    expect(lastChange(handle, changes)).toBe('a\nb\\\nc\n');
+  });
+});
+
 describe('task lists', () => {
   it('keeps a tight task list tight', () => {
     expect(editedRoundTrip('- [ ] a\n- [x] b\n')).toBe('- [ ] a\n- [x] b\n');

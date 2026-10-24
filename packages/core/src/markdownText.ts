@@ -71,8 +71,8 @@ export const MarkdownText = Text.extend({
   },
 });
 
-/** How the source spelled a hard break; `null` for a bare newline or a new break. */
-export type HardBreakStyle = 'backslash' | 'spaces';
+/** How the source spelled a break; `soft` is a plain line wrap, `null` a break inserted in the editor. */
+export type HardBreakStyle = 'backslash' | 'spaces' | 'soft';
 
 /**
  * Wrap markdown-it's `escape` (`\` + newline) and `newline` (two trailing
@@ -103,6 +103,15 @@ function tagHardBreakStyles(md: any): void {
     if (style) {return `<br data-md-break="${style}">\n`;}
     return fallback ? fallback(tokens, idx, options, env, self) : '<br>\n';
   };
+
+  // With `breaks: true` a source soft wrap also becomes a <br>, identical to a
+  // break inserted in the editor. Tag it so the two stay distinguishable: soft
+  // wraps save as a bare newline, new breaks as `\`.
+  const softFallback = md.renderer.rules.softbreak;
+  md.renderer.rules.softbreak = (tokens: any[], idx: number, options: any, env: any, self: any) => {
+    if (options.breaks) {return '<br data-md-break="soft">\n';}
+    return softFallback ? softFallback(tokens, idx, options, env, self) : '\n';
+  };
 }
 
 export const MarkdownHardBreak = HardBreak.extend({
@@ -113,7 +122,7 @@ export const MarkdownHardBreak = HardBreak.extend({
         default: null,
         parseHTML: (element: HTMLElement) => {
           const style = element.getAttribute('data-md-break');
-          return style === 'backslash' || style === 'spaces' ? style : null;
+          return style === 'backslash' || style === 'spaces' || style === 'soft' ? style : null;
         },
         renderHTML: (attributes: { mdBreak?: HardBreakStyle | null }) =>
           attributes.mdBreak ? { 'data-md-break': attributes.mdBreak } : {},
@@ -147,7 +156,7 @@ export const MarkdownHardBreak = HardBreak.extend({
             if (style === 'spaces' && !afterBreak) {
               state.write('  \n');
             } else {
-              state.write(breaks && !afterBreak && style !== 'backslash' ? '\n' : '\\\n');
+              state.write(breaks && !afterBreak && style === 'soft' ? '\n' : '\\\n');
             }
             state.mikedownAfterHardBreak = true;
             return;
