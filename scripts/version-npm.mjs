@@ -36,7 +36,9 @@ for (const pkg of packages) {
   json.version = version;
   if (json.name !== CORE_NAME) {
     for (const field of ['peerDependencies', 'devDependencies']) {
-      if (json[field]?.[CORE_NAME] !== undefined && json[field][CORE_NAME] !== range) {
+      const spec = json[field]?.[CORE_NAME];
+      // packages/angular links the repo's core with file:../core; keep the link.
+      if (spec !== undefined && spec !== range && !spec.startsWith('file:')) {
         notes.push(`${field}.${CORE_NAME} ${json[field][CORE_NAME]} -> ${range}`);
         json[field][CORE_NAME] = range;
       }
@@ -54,5 +56,12 @@ if (dryRun) {
     stdio: 'inherit',
   });
   if (lock.status !== 0) console.warn('version-npm: lockfile refresh failed; run `npm install` by hand.');
+  // Non-workspace packages (angular) keep their own lockfile.
+  for (const pkg of packages.filter((p) => p.nonWorkspace)) {
+    const own = run('npm', ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund', '--prefix', pkg.dirPath], {
+      stdio: 'inherit',
+    });
+    if (own.status !== 0) console.warn(`version-npm: lockfile refresh failed for packages/${pkg.folder}; run \`npm install --prefix packages/${pkg.folder}\`.`);
+  }
 }
 console.log(`Family version: ${version}`);

@@ -1,0 +1,85 @@
+// The frame that makes the editor read as a form control: border, radius, focus treatment, invalid and disabled
+// states. Every colour is a --mikedown-field-* variable with a neutral fallback, so an app maps them to its own
+// design tokens (Bootstrap, Material, a skin) in its global styles. Colours inside the editor come from the core's
+// --mikedown-* tokens (see @mikedown/core's README, Theming).
+//
+//   --mikedown-field-bg               frame background (default transparent: the editor paints its own surface)
+//   --mikedown-field-border           border colour
+//   --mikedown-field-border-hover     border colour on hover
+//   --mikedown-field-border-disabled  border colour while disabled
+//   --mikedown-field-radius           corner radius
+//   --mikedown-field-focus            border colour while focused
+//   --mikedown-field-focus-ring       focus box-shadow colour
+//   --mikedown-field-invalid          border colour for .ng-invalid.ng-touched
+//   --mikedown-field-invalid-ring     focus box-shadow colour while invalid
+//   --mikedown-field-padding          padding of the editor page inside the frame
+//   --mikedown-field-min-height       set from the minHeight input
+
+:host {
+  display: block;
+}
+
+.mikedown-field__frame {
+  // Starts at min-height; the user can drag it taller (or back down to min-height), like a textarea.
+  height: var(--mikedown-field-min-height, 240px);
+  min-height: var(--mikedown-field-min-height, 240px);
+  resize: vertical;
+  overflow: hidden;
+  border: 1px solid var(--mikedown-field-border, rgba(127, 127, 127, 0.4));
+  border-radius: var(--mikedown-field-radius, 6px);
+  background-color: var(--mikedown-field-bg, transparent);
+  transition:
+    border-color 0.15s ease-in-out,
+    box-shadow 0.15s ease-in-out;
+
+  &:hover {
+    border-color: var(--mikedown-field-border-hover, rgba(127, 127, 127, 0.7));
+  }
+
+  &:focus-within {
+    border-color: var(--mikedown-field-focus, #2563eb);
+    box-shadow: 0 0 0 0.2rem var(--mikedown-field-focus-ring, rgba(37, 99, 235, 0.25));
+  }
+}
+
+.mikedown-field__editor {
+  height: 100%;
+  // The frame owns the minimum; the core's own 240px floor would fight a smaller minHeight.
+  --mikedown-min-height: 0;
+}
+
+// Invalid after the user has been in the control
+:host(.ng-invalid.ng-touched) .mikedown-field__frame {
+  border-color: var(--mikedown-field-invalid, #dc3545);
+
+  &:focus-within {
+    box-shadow: 0 0 0 0.2rem var(--mikedown-field-invalid-ring, rgba(220, 53, 69, 0.25));
+  }
+}
+
+// Disabled: recessed like a disabled input; the frame is inert (no focus, no toolbar)
+:host(.mikedown-field--disabled) .mikedown-field__frame {
+  resize: none;
+  border-color: var(--mikedown-field-border-disabled, rgba(127, 127, 127, 0.3));
+  opacity: 0.65;
+}
+
+// Read-only (but not disabled): text stays selectable, the formatting toolbar is greyed out
+:host(.mikedown-field--readonly),
+:host(.mikedown-field--disabled) {
+  ::ng-deep .mikedown-root .mikedown-toolbar {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+}
+
+// The core pads its page for a full-window editor; a form field wants a tighter page
+:host ::ng-deep .mikedown-root .mikedown-editor-container {
+  padding: var(--mikedown-field-padding, 16px 20px 24px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mikedown-field__frame {
+    transition: none;
+  }
+}

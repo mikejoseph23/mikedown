@@ -1,0 +1,56 @@
+{
+  "name": "@mikedown/angular",
+  "version": "0.2.0-rc.0",
+  "description": "MikeDown WYSIWYG markdown editor as an Angular form control (reactive forms and ngModel), Angular 17+.",
+  "license": "MIT",
+  "keywords": [
+    "markdown",
+    "wysiwyg",
+    "editor",
+    "angular",
+    "tiptap",
+    "codemirror",
+    "control-value-accessor"
+  ],
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json -c tsconfig.lib.json"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=17.0.0 <23.0.0",
+    "@angular/core": ">=17.0.0 <23.0.0",
+    "@angular/forms": ">=17.0.0 <23.0.0",
+    "@angular/router": ">=17.0.0 <23.0.0",
+    "@mikedown/core": "^0.2.0-rc.0",
+    "rxjs": "^7.5.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/common": "~17.3.12",
+    "@angular/compiler": "~17.3.12",
+    "@angular/compiler-cli": "~17.3.12",
+    "@angular/core": "~17.3.12",
+    "@angular/forms": "~17.3.12",
+    "@angular/platform-browser": "~17.3.12",
+    "@angular/router": "~17.3.12",
+    "@mikedown/core": "file:../core",
+    "ng-packagr": "~17.3.0",
+    "rxjs": "~7.8.1",
+    "typescript": "~5.4.5",
+    "zone.js": "~0.14.10"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/mikejoseph23/mikedown/tree/main/packages/angular#readme",
+  "bugs": {
+    "url": "https://github.com/mikejoseph23/mikedown/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikejoseph23/mikedown.git",
+    "directory": "packages/angular"
+  }
+}

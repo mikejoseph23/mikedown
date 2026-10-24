@@ -1,0 +1,3 @@
+# Angular CLI build cache (test-app)
+.angular/
+out-tsc/

@@ -129,7 +129,8 @@ for (const pkg of packages) {
       it(`peers on ${CORE_NAME} at ^<family version>`, () => {
         expect(m.peerDependencies?.[CORE_NAME]).toBe(`^${family}`);
         const dev = src.devDependencies?.[CORE_NAME];
-        if (dev !== undefined) expect(dev).toBe(`^${family}`);
+        // A non-workspace package (angular) links the repo's core with `file:../core`.
+        if (dev !== undefined) expect(dev).toBe(pkg.nonWorkspace ? 'file:../core' : `^${family}`);
       });
     }
   });
