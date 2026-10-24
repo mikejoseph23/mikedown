@@ -41,7 +41,7 @@
 | [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | ⬜ Not Started | — | vitest per package + throwaway apps |
 | [M11 — Site build and deploy path](#m11--site-build-and-deploy-path) | Sonnet | ✅ Complete | 11 | `website/` Vite MPA, site-only publish via `mikedown-downloads` |
 | [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | ⬜ Not Started | — | UI design |
-| [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | 🔄 In Progress | — | UI design |
+| [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ✅ Complete | 14 | UI design |
 | [M14 — READMEs](#m14--readmes) | Sonnet | ⬜ Not Started | — | Root (Marketplace listing) + per package |
 | [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ⬜ Not Started | — | link check + hands-on |
 | [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ⬜ Not Started | — | Mike runs publish and deploy |
@@ -445,12 +445,12 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] Shared site shell in `website/shared/` (header nav Desktop · VS Code · Developers · GitHub, footer as on the desktop page, tokens and type lifted from `website/mikedown-desktop/index.html`, light and dark). The M12 design bar applies.
-- [ ] `git mv website/index.html website/vscode/index.html`; rebuild it on the shell.
-- [ ] Refresh the copy from the current `README.md` and `CHANGELOG.md` (drop "beta", add sidebar, slash commands, math, tags, zoom); fix the footer GitHub link to `mikejoseph23`; copy the screenshots it needs into the site (no `../assets/` paths).
-- [ ] Prominent Marketplace install button and "Open in VS Code" deep link (`vscode:extension/interapp.mikedown-editor`).
-- [ ] Desktop page (`website/mikedown-desktop/index.html`): add the shared nav and a visible "Also for VS Code" band below the screenshots (Marketplace button + link to `/mikedown/vscode/`), plus a "Build it into your app" link to `/mikedown/developers/`. Keep every `@@PLACEHOLDER@@` and the `data-dl` buttons intact; run `packages/desktop/deploy/render-page.js` against the 0.3.0 inputs and `check-upload.js` rules to prove the page still renders and passes.
-- [ ] Commit.
+- [x] Shared site shell in `website/shared/` (header nav Desktop · VS Code · Developers · GitHub, footer as on the desktop page, tokens and type lifted from `website/mikedown-desktop/index.html`, light and dark). The M12 design bar applies.
+- [x] `git mv website/index.html website/vscode/index.html`; rebuild it on the shell.
+- [x] Refresh the copy from the current `README.md` and `CHANGELOG.md` (drop "beta", add sidebar, slash commands, math, tags, zoom); fix the footer GitHub link to `mikejoseph23`; copy the screenshots it needs into the site (no `../assets/` paths).
+- [x] Prominent Marketplace install button and "Open in VS Code" deep link (`vscode:extension/interapp.mikedown-editor`).
+- [x] Desktop page (`website/mikedown-desktop/index.html`): add the shared nav and a visible "Also for VS Code" band below the screenshots (Marketplace button + link to `/mikedown/vscode/`), plus a "Build it into your app" link to `/mikedown/developers/`. Keep every `@@PLACEHOLDER@@` and the `data-dl` buttons intact; run `packages/desktop/deploy/render-page.js` against the 0.3.0 inputs and `check-upload.js` rules to prove the page still renders and passes.
+- [x] Commit.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 17:10** - M13 done (`31b1a85`, `1596c78`, 14 min): shared shell in `website/shared/` (nav, footer, tokens from the desktop page, light/dark), VS Code page rebuilt with current features, Marketplace and `vscode:` deep-link buttons, desktop page gets the nav, an "Also for VS Code" band and a Developers link. Desktop page renders for 0.3.0 and passes `check-upload.js`; site pack dry run green (26 files, no MIME warnings). Checked at 1280/400 px light and dark. For M12: the desktop page carries an inline copy of the shell, so run `npm run sync:shell -w website` after any `website/shared/` edit (`build:site` fails on a stale copy); the Angular demo index needs the shell markers. VS Code page copy mentions the zoom control and narrow-sidebar fix, which ship in 2.15.0 (M3). Main tree: `build:site`, `test:unit` (1539) green.
 
 **2026-10-24 16:50** - M11 done (`4f0f971`, `cf86f41`, lockfile `23c945c`, 11 min): `website/` workspace (`@mikedown/site`, Vite MPA, base `/mikedown/`, port 5180), `website/index.html` moved to `website/vscode/`, placeholder developer pages, Angular 21 demo scaffold (own lockfile; newest CLI refuses Node 22.20), `pack-for-lymedeploy.sh --site` with guards (no `latest*.json`, artifacts, `web.config`), `verify-site.js`, disabled Cloudflare purge step. LymeDeploy checks: `0.3.0-site.N` accepted (versions are free strings, never compared); `retain: 3` only prunes agent work folders, left as is; `publishLast` tolerates missing files (`index.html` added). `publish-files` has no delete path. Desktop re-render is byte-identical to live. MIME check partial: no `.woff2/.mjs/.svg/.webmanifest` found on iadev.net to probe; the packer warns on any extension beyond `.html .js .css .jpg .png .ico .txt .json`. Main tree: `build:site`, compile, `test:unit` (1529), `test:packages` green. M13 dispatched (Opus).
 
