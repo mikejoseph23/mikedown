@@ -1,0 +1,50 @@
+{
+  "name": "@mikedown/vue",
+  "version": "0.2.0-rc.0",
+  "description": "Vue 3 component for the MikeDown WYSIWYG markdown editor, with v-model.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE.md"
+  ],
+  "scripts": {
+    "build": "vite build && vue-tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "@mikedown/core": "^0.2.0-rc.0",
+    "vue": ">=3.3.0"
+  },
+  "devDependencies": {
+    "@mikedown/core": "^0.2.0-rc.0",
+    "@vue/test-utils": "^2.4.6",
+    "vite": "^7.3.0",
+    "vitest": "^3.2.0",
+    "vue": "^3.5.0",
+    "vue-tsc": "^3.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikejoseph23/mikedown.git",
+    "directory": "packages/vue"
+  }
+}
