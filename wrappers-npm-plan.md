@@ -30,19 +30,19 @@
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
 | [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ✅ Complete | 2 | 0.1.0 on `latest` 2026-10-24; `core-v0.1.0` tag and push await Mike |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ✅ Complete | 5 | Mike uploads the `.vsix` |
-| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | 🔄 In Progress (vite pin check) | 10 | LymeStarter, Quantico Creek, Desktop pin |
-| [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
+| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | 🔄 In Progress (gap fill 2: Vite pin check) | 10 | LymeStarter, Quantico Creek, Desktop pin |
+| [T1 — Release verification](#t1--release-verification) | Sonnet | 🔄 In Progress | — | unit/integration + registry smoke |
 | [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
 | [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | ✅ Complete | 21 | `<mikedown-editor>`, form-associated, CDN bundle |
 | [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | ✅ Complete | 4 | Controlled/uncontrolled, ref, SSR-safe |
 | [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | ✅ Complete | 3 | Vue 3, `v-model` |
 | [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | ✅ Complete | 15 | ng-packagr, partial Ivy, Angular 17+ |
 | [M10 — `@mikedown/svelte` (deferred)](#m10--mikedownsvelte-deferred) | Sonnet | ⏸ Deferred | — | Out of this plan; web component covers Svelte |
-| [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | ⬜ Not Started | — | vitest per package + throwaway apps |
+| [T2 — Wrapper tests and consumer smoke](#t2--wrapper-tests-and-consumer-smoke) | Sonnet | 🔄 In Progress | — | vitest per package + throwaway apps |
 | [M11 — Site build and deploy path](#m11--site-build-and-deploy-path) | Sonnet | ✅ Complete | 11 | `website/` Vite MPA, site-only publish via `mikedown-downloads` |
-| [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | ⬜ Not Started | — | UI design |
+| [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | 🔄 In Progress | — | UI design |
 | [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ✅ Complete | 14 | UI design |
-| [M14 — READMEs](#m14--readmes) | Sonnet | ⬜ Not Started | — | Root (Marketplace listing) + per package |
+| [M14 — READMEs](#m14--readmes) | Sonnet | 🔄 In Progress | — | Root (Marketplace listing) + per package |
 | [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ⬜ Not Started | — | link check + hands-on |
 | [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ⬜ Not Started | — | Mike runs publish and deploy |
 | [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | ⬜ Not Started | — | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
