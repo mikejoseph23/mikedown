@@ -29,7 +29,7 @@
 | [U1 — Updater engine: state, cadence, progress, channel](#u1--updater-engine-state-cadence-progress-channel) | Sonnet | ✅ Done | 9 | Rust + TS logic, no UI; Windows pre-check untested at runtime |
 | [U2 — Update window and settings UI](#u2--update-window-and-settings-ui) | Opus | 🔄 In Progress | — | Sparkle-style window, both OSes |
 | [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | ⬜ Not Started | — | vitest, cargo, e2e |
-| [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | 🔄 In Progress | — | touches `deploy/`; DMG styling landed in 8ae79b8 |
+| [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | ✅ Done | 18 | publish path `C:\WebApps\Downloads\mikedown` (vdir), not `Interapp\mikedown`; Mike's manual steps in `deploy/lymedeploy/deploy.yaml` |
 | [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | ⬜ Not Started | — | macOS + Windows staging |
 | [T2 — Release verification on both OSes](#t2--release-verification-on-both-oses) | Sonnet | ⬜ Not Started | — | hands-on, Mike signs off |
 | [U5 — Docs and runbooks](#u5--docs-and-runbooks) | Haiku | ⬜ Not Started | — | README, key backup and rotation |
@@ -338,15 +338,15 @@ Design bar: this should feel like a native macOS Software Update sheet or VS Cod
 
 > **Worker requirement:** complete ALL items. If one should be deferred, say so in your summary but still attempt it unless truly blocked.
 
-- [ ] `make-latest-json.js`: write per-target files (`latest-<target>-<arch>.json`) with `sha256` and `size` extras; write combined `latest.json` only for full releases; unit tests for both and for the split-release rule.
-- [ ] `release.sh`: `--mac-only` / `--windows-only`; show the release notes and require confirmation (`--yes` to skip), as LymeScribe does; refuse to sign without the minisign key and refuse a signature that lacks the signed version.
-- [ ] `pack-for-lymedeploy.sh` modeled on LymeScribe's: pack `upload/` into a nupkg, push, `create-release`, `deploy` to a `mikedown-downloads` project, block until terminal, `--dry-run`, `--from-<stage>` resume.
-- [ ] LymeDeploy project definition (documented for Mike to create if the CLI can't): `publish-files` to `C:\WebApps\Interapp\mikedown`, never deleting older versions; purge step covering apex and `www` for every manifest URL, disabled until the token variables exist.
-- [ ] `verify-published.sh <version>`: cache-busted fetch of each manifest, minisign-verify each signature against the `tauri.conf.json` pubkey, version-in-signature check, HEAD each artifact URL for 200 and matching length, and confirm `www` and apex agree.
-- [ ] IIS MIME check: confirm `.tar.gz`, `.exe`, `.dmg`, `.json` serve (200, not 404) from `iadev.net/mikedown/`; add `web.config` maps only for what fails, without `<remove>` guards for unmapped types (LymeScribe gotcha).
-- [ ] Download page reads the Windows and Mac per-target manifests (falls back to `latest.json`).
-- [ ] Unit tests for `release-lib.js` changes; `release.sh --dry-run` end to end green.
-- [ ] Commit.
+- [x] `make-latest-json.js`: write per-target files (`latest-<target>-<arch>.json`) with `sha256` and `size` extras; write combined `latest.json` only for full releases; unit tests for both and for the split-release rule.
+- [x] `release.sh`: `--mac-only` / `--windows-only`; show the release notes and require confirmation (`--yes` to skip), as LymeScribe does; refuse to sign without the minisign key and refuse a signature that lacks the signed version.
+- [x] `pack-for-lymedeploy.sh` modeled on LymeScribe's: pack `upload/` into a nupkg, push, `create-release`, `deploy` to a `mikedown-downloads` project, block until terminal, `--dry-run`, `--from-<stage>` resume.
+- [x] LymeDeploy project definition (documented for Mike to create if the CLI can't): `publish-files` to `C:\WebApps\Interapp\mikedown`, never deleting older versions; purge step covering apex and `www` for every manifest URL, disabled until the token variables exist.
+- [x] `verify-published.sh <version>`: cache-busted fetch of each manifest, minisign-verify each signature against the `tauri.conf.json` pubkey, version-in-signature check, HEAD each artifact URL for 200 and matching length, and confirm `www` and apex agree.
+- [x] IIS MIME check: confirm `.tar.gz`, `.exe`, `.dmg`, `.json` serve (200, not 404) from `iadev.net/mikedown/`; add `web.config` maps only for what fails, without `<remove>` guards for unmapped types (LymeScribe gotcha).
+- [x] Download page reads the Windows and Mac per-target manifests (falls back to `latest.json`).
+- [x] Unit tests for `release-lib.js` changes; `release.sh --dry-run` end to end green.
+- [x] Commit.
 
 [Return to Top](#mikedown-desktop-auto-update-lymescribe-parity--planning-document)
 
@@ -434,6 +434,8 @@ If dispatching fills the orchestrator's context, prompt Mike to run `/compact` w
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-24 00:20** - U3 done (cherry-picked from 989169c). Per-target manifests with sha256/size and the split-release rule, `release.sh` `--mac-only`/`--windows-only` + notes confirmation + key and signed-version guards, `pack-for-lymedeploy.sh`, `deploy/lymedeploy/deploy.yaml`, `verify-published.sh` (minisign verify, www/apex agree, HEAD lengths), download page reads per-target manifests. Publish target changed to the `C:\WebApps\Downloads\mikedown` virtual directory to match other downloads projects. `web.config` has no MIME maps; `.sig` files no longer uploaded. MIME: `.tar.gz`/`.dmg`/`.json` 200 on the same site, `.exe` unconfirmed until first publish. Main tree: typecheck green, vitest 433/433. Nothing published, purged or pushed. U4 dispatched.
 
 **2026-10-24 00:12** - U1 done (cherry-picked from a50c40f). Persisted skip/snooze state, 10 s then 4 h cadence, throttled progress events, controller phases, Windows `quiet` + WinVerifyTrust signer check, macOS codesign/Team ID check (the plugin doesn't expose the staged app, so the verified archive is extracted and checked), `MIKEDOWN_CHANNEL=store`. Endpoint template confirmed: `{{target}}`=`darwin`/`windows`, `{{arch}}`=`aarch64`/`x86_64`, 404 falls through. Main tree: typecheck green, vitest 404/404, cargo 115 passed. Windows pre-check compiled only in a scratch crate; never run on Windows (U4 covers). U2 dispatched.
 
