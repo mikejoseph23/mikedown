@@ -35,7 +35,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M7 — Folder search](#m7--folder-search) | Sonnet | ✅ Complete (GUI checks pending) | 35 | Rust-side search, grouped results |
 | [M8 — Welcome, recents, menus, window title](#m8--welcome-recents-menus-window-title) | Opus | ✅ Complete (GUI checks pending) | 31 | native menus, `CmdOrCtrl` shortcuts, `welcome.md` |
 | [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | ✅ Complete (print GUI checks pending) | 12 | reuses `handle.getHtml()` |
-| [T3 — Feature tests](#t3--feature-tests) | Sonnet | 🔄 In Progress | — | settings, versioning, search, export |
+| [T3 — Feature tests](#t3--feature-tests) | Sonnet | ✅ Automated done (hands-on pending) | 3 | settings, versioning, search, export |
 | [M10 — Updater, signing, build pipeline, download page](#m10--updater-signing-build-pipeline-download-page) | Opus | ⬜ Not Started | — | follows the LymeScribe deploy scripts |
 | [M11 — Polish: a11y, encoding, filesystem oddities](#m11--polish-a11y-encoding-filesystem-oddities) | Sonnet | ⬜ Not Started | — | edge cases 10, 11, 12, 25, 26 |
 | [T4 — Release candidate hands-on](#t4--release-candidate-hands-on) | Sonnet | ⬜ Not Started | — | full checklist per OS on signed builds |
@@ -542,11 +542,11 @@ Start: `npm run dev:desktop` on the Mac; the Windows build from BEAST per `packa
 
 **Automated**
 
-- [ ] `settings.test.ts`: merge precedence, corrupt-file fallback without writes, folder-override image-folder validation, "Save for this folder" routing.
-- [ ] `versioning.test.ts`: timestamp naming sorts chronologically, identical-content skip, pruning to N, >2 MB skip, rename moves the versions folder.
-- [ ] `search.test.ts` (Rust + TS): exclusions, case/whole-word, cancellation, result cap.
-- [ ] `export.test.ts`: standalone HTML contains inlined CSS and no `--vscode-` strings; title derivation.
-- [ ] E2E: settings change persists across relaunch; save twice and open the diff; search and click a result; export HTML to a temp dir.
+- [x] `settings.test.ts`: merge precedence, corrupt-file fallback without writes, folder-override image-folder validation, "Save for this folder" routing.
+- [x] `versioning.test.ts`: timestamp naming sorts chronologically, identical-content skip, pruning to N, >2 MB skip, rename moves the versions folder.
+- [x] `search.test.ts` (Rust + TS): exclusions, case/whole-word, cancellation, result cap.
+- [x] `export.test.ts`: standalone HTML contains inlined CSS and no `--vscode-` strings; title derivation.
+- [x] E2E: settings change persists across relaunch; save twice and open the diff; search and click a result; export HTML to a temp dir.
 
 **Hands-on (user, about 15 minutes per OS)**
 
@@ -694,6 +694,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 21:05** - T3 automated part complete (cherry-picked as `44fa47c`). M5 to M9 tests already covered most checkboxes; added: no `--vscode-` strings in a standalone export (unit + e2e) and `versions-rename.spec.ts` (tree rename of a file or folder moves its snapshots). No production bugs found. Verified in the main tree: desktop tsc, unit 358, full e2e 27 green. Consolidated hands-on walkthrough (one ~15-minute session per OS, covering the pending real-window checks from M4, T2, M5 to M9) is in `.orchestrator/desktop-app-plan/processed/worker-summary-t3-feature-tests.md`, fixture `~/tmp-mikedown-t3/notes/`. Awaiting Mike's sign-off before M10/M11.
 
 **2026-10-23 20:50** - M8 complete (fast-forwarded to `c563d38`..`4ca1fd2`; the worker rebased onto main with M6 itself after two 529 interruptions). One command table with `when` clauses in `src/menu/` drives both the native menu bar (`menu.rs` now builds from the page's spec) and in-page handling; full App/File/Edit/Format/View/Window/Help menus with Windows variants; welcome screen with recent folders and files (`recents.json`, greyed when missing, pruned after three missing launches, × removal persists); first run opens bundled `welcome.md` and offers default-app once; window title rules plus `setDocumentEdited`/`setRepresentedFile`; Keyboard Shortcuts sheet. Core gained 15 menu commands (headings, paragraph, find, insert table/link/image, font zoom) with a jsdom test. Changes: Strikethrough is now `CmdOrCtrl+Shift+X` (Cmd+Shift+S is Save As, both fired before); M6's Show Versions moved to `CmdOrCtrl+Alt+V` (Cmd+Shift+H is Highlight); Save stays enabled on clean docs. Verified in the main tree: build:core, compile, lint 0 errors, unit 1331, edge 22, desktop tsc, unit 357, e2e 26, cargo 88, vite build green. Follow-ups: Website/Report an Issue still on deprecated `shell.open`; the worker's own steps expect the first-run title `Welcome to MikeDown.md — com.interappdev.mikedown` (app-data folder name leaking into the title; likely should be the bare filename). Real-window checks pending.
 
