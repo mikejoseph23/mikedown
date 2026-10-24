@@ -30,9 +30,9 @@
 | [U2 — Update window and settings UI](#u2--update-window-and-settings-ui) | Opus | ✅ Done | 17 | Sparkle-style window, both OSes; notification click inferred from focus |
 | [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | ✅ Done | 9 | vitest, cargo, e2e |
 | [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | ✅ Done | 18 | publish path `C:\WebApps\Downloads\mikedown` (vdir), not `Interapp\mikedown`; Mike's manual steps in `deploy/lymedeploy/deploy.yaml` |
-| [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | 🔄 In Progress | — | macOS + Windows staging |
-| [T2 — Release verification on both OSes](#t2--release-verification-on-both-oses) | Sonnet | ⬜ Not Started | — | hands-on, Mike signs off |
-| [U5 — Docs and runbooks](#u5--docs-and-runbooks) | Haiku | ⬜ Not Started | — | README, key backup and rotation |
+| [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | ✅ Done | 56 | Mac 20 PASS/1 SKIP, Win 23 PASS/2 SKIP; real 0.1.0 process not exercised (labeled equivalent) |
+| [T2 — Release verification on both OSes](#t2--release-verification-on-both-oses) | Sonnet | 🔄 In Progress | — | hands-on, Mike signs off |
+| [U5 — Docs and runbooks](#u5--docs-and-runbooks) | Haiku | 🔄 In Progress | — | README, key backup and rotation |
 
 ---
 
@@ -360,12 +360,12 @@ Design bar: this should feel like a native macOS Software Update sheet or VS Cod
 
 > **Worker requirement:** complete ALL items. If one should be deferred, say so in your summary but still attempt it unless truly blocked.
 
-- [ ] macOS headless cases (local `127.0.0.1` server, staging overlay): N to N+1 via the per-target file; per-target 404 falls back to `latest.json`; tampered artifact rejected; manifest signed with a different key rejected; downgrade (manifest version lower than running) offers nothing; replay (N-1 artifact and signature under an N+1 version) rejected by `requireSignedVersion`; offline (server down) logs and stays silent; skipped version not announced on a silent check.
-- [ ] Continuity: the real 0.1.0 build (from `deploy/dist/0.1.0/`) updates to a staging N+1 through the **legacy `latest.json` path only**, on both OSes.
-- [ ] Windows staging script: install N per-user, serve N+1 locally, trigger the update, confirm N+1 runs after relaunch (`quiet` mode), and that a tampered or unsigned `.exe` is refused by the Authenticode pre-check.
-- [ ] Non-admin macOS case documented as a T2 hands-on step (the harness can't fake the admin prompt).
-- [ ] Every case prints PASS/FAIL; the script exits non-zero on any FAIL. Run both OSes and paste results in the summary.
-- [ ] Commit.
+- [x] macOS headless cases (local `127.0.0.1` server, staging overlay): N to N+1 via the per-target file; per-target 404 falls back to `latest.json`; tampered artifact rejected; manifest signed with a different key rejected; downgrade (manifest version lower than running) offers nothing; replay (N-1 artifact and signature under an N+1 version) rejected by `requireSignedVersion`; offline (server down) logs and stays silent; skipped version not announced on a silent check.
+- [ ] Continuity (labeled equivalent only: same plugin with 0.1.0's shipped updater config over a copy of the real 0.1.0 app, `latest.json` only; the real 0.1.0 process can't reach staging without hosts/CA changes, so T2's production update covers it): the real 0.1.0 build (from `deploy/dist/0.1.0/`) updates to a staging N+1 through the **legacy `latest.json` path only**, on both OSes.
+- [x] Windows staging script: install N per-user, serve N+1 locally, trigger the update, confirm N+1 runs after relaunch (`quiet` mode), and that a tampered or unsigned `.exe` is refused by the Authenticode pre-check.
+- [x] Non-admin macOS case documented as a T2 hands-on step (the harness can't fake the admin prompt).
+- [x] Every case prints PASS/FAIL; the script exits non-zero on any FAIL. Run both OSes and paste results in the summary.
+- [x] Commit.
 
 [Return to Top](#mikedown-desktop-auto-update-lymescribe-parity--planning-document)
 
@@ -434,6 +434,8 @@ If dispatching fills the orchestrator's context, prompt Mike to run `/compact` w
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-24 01:20** - U4 done (merged as 872da72). `updater-staging-test.sh --headless` (macOS, 20 PASS / 1 SKIP) and `updater-staging-test-windows.sh` driving `updater-staging-test.ps1` on DEVBOX1 (23 PASS / 2 SKIP), 0 FAIL: per-target N to N+1, 404 fallback, tampered, other key, downgrade, replay, offline, skip/snooze, codesign and Authenticode pre-checks, quiet relaunch. The engine is compiled into `tests/updater_cases.rs`; T1's mock-runtime endpoint tests moved to `tests/updater_endpoints.rs` in the merge. Continuity is a labeled equivalent (see U4). Windows relaunch needs an interactive session, so the script hands over via a per-user scheduled task. One early silent check on DEVBOX1 fetched the production manifest (read only) before the staging build was fixed. No U1 bugs found. Main tree: cargo 120 + 26 + 7, vitest 498/498. T2 (automated half) and U5 dispatched.
 
 **2026-10-24 00:50** - Mike confirmed the publish path `C:\WebApps\Downloads\mikedown` (virtual directory), matching the other downloads projects.
 
