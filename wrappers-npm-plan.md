@@ -28,7 +28,7 @@
 | [M0 — Decisions and spikes](#m0--decisions-and-spikes) | Opus | ✅ Complete | 13 | `wrappers-decisions.md` approved 2026-10-24 |
 | [G1 — npm account and org (Mike)](#g1--npm-account-and-org-mike) | — (Mike) | ✅ Complete | — | `interapp` owns `mikedown`; 2FA on for auth and publishing (security key) |
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
-| [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | 🔄 In Progress | — | Mike runs the publish |
+| [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ⏸ Awaiting Mike's publish | 2 | Mike runs the publish |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ⬜ Not Started | — | Mike uploads the `.vsix` |
 | [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ⬜ Not Started | — | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
@@ -208,8 +208,8 @@ Apply to every milestone.
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] `npm run version:npm -- 0.1.0`. Add `packages/core/CHANGELOG.md` with a 0.1.0 entry (first public release; API summary).
-- [ ] `npm run test:packages` and `npm run release:npm -- --only core` (dry run) green; paste the packed file list and gzipped size into the summary. Commit `@mikedown/core 0.1.0`.
+- [x] `npm run version:npm -- 0.1.0`. Add `packages/core/CHANGELOG.md` with a 0.1.0 entry (first public release; API summary).
+- [x] `npm run test:packages` and `npm run release:npm -- --only core` (dry run) green; paste the packed file list and gzipped size into the summary. Commit `@mikedown/core 0.1.0`.
 - [ ] **Stop.** Hand Mike: `cd ~/git/mikedown && npm run release:npm -- --only core --publish` (he enters the OTP).
 - [ ] After Mike confirms: `npm view @mikedown/core version dist-tags` shows `0.1.0` on `latest`. Record it in the Progress Log. Ask Mike to set the package to "Require two-factor authentication and disallow tokens" on npmjs.com.
 - [ ] Ask Mike before tagging `core-v0.1.0` and pushing.
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 16:35** - M2 prep done (`e7d4530`, 2 min): core 0.1.0, `packages/core/CHANGELOG.md` (shipped via `files`), Desktop pin `0.1.0`, lockfile refreshed. Main tree: `test:packages` 17 passed; dry run 27 files, 823 KB packed / 2.87 MB unpacked; tarball installs and builds in a throwaway Vite app with no extra peers. Waiting on Mike's `release:npm -- --only core --publish`.
 
 **2026-10-24 16:20** - M1 done (`a66b865`, `7d4b4ab`, 20 min): `version-npm.mjs`, `release-npm.mjs` (dry run default, `--pack` for tarballs), shared `scripts/lib/npm-packages.mjs`, `test/packages/package-shape.test.ts`, `vsix:minor`, CI workflow (YAML-validated only, no actionlint), katex required peer, `default` export conditions; `release-core.sh` and `sync-core-version.js` removed. Re-verified in the main tree: compile, `test:packages` (17) and the `release:npm` dry run green. Note for M2: Desktop pins core `0.1.0-rc.1` exactly and `version:npm` doesn't touch it, so M2 bumps that pin in the same commit. The worktree was again created off a stale commit (`0103b15`) and reset to base.
 
