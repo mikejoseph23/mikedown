@@ -20,7 +20,7 @@ Desktop contains no editor logic. Document versioning lives only in desktop, nev
 - Windows 0.1.0 → 0.2.0 self-update is untested (DevBox1 has 0.1.0).
 - Two plan-log commits are unpushed: `d24b4d5` and `6bdf006`. Push only on Mike's say-so.
 - The VS Code extension is still at 2.14.2. `## [Unreleased]` in `CHANGELOG.md` holds the toolbar zoom control (feature), the condensed-toolbar tooltip clipping fix (`838d1cc`), the callout duplication fix (`f1befc5`), plus the core save-race fix (`96e93cd`, typing within 500 ms of a save was lost), which is **not yet in the changelog**; add it before release. Recommended: release **2.15.0 from `main`**.
-- `@mikedown/core` `0.1.0-rc.1` is still unpublished. It needs Mike's `npm login` and the `mikedown` org. Desktop releases use `--allow-unpublished-core` until then.
+- `@mikedown/core` 0.1.0 is on npm and Desktop pins it. The pin gate also requires `packages/core` to be at the pinned version, so a release needs the pin and core's version aligned (core is at 0.2.0-rc.0 now).
 
 ## What's Done
 
@@ -38,7 +38,7 @@ Desktop contains no editor logic. Document versioning lives only in desktop, nev
 4. **Pending decisions from Mike:**
    - Windows-only disable of Tauri OS file drops, because `dragDropEnabled` breaks in-page HTML5 drag on WebView2.
    - Add the core serializer quirks to `BACKLOG.md`: trailing newline dropped after edits, hard-break/task-list/bare-fence quirks, caret position after Cmd+/.
-5. **Core publish, then extension 2.15.0:** `npm publish -w packages/core --tag rc --access public`, then `npm run vsix`, `npm run release:core`, upload the `.vsix`, commit `Release X.Y.Z` and tag. After that, bump LymeStarter and Quantico Creek off the vendored tarball, and drop `--allow-unpublished-core` from desktop releases.
+5. **Core publish, then extension 2.15.0:** `npm publish -w packages/core --tag rc --access public`, then `npm run vsix`, `npm run release:core`, upload the `.vsix`, commit `Release X.Y.Z` and tag. LymeStarter and Quantico Creek already install core from the registry.
 6. **Optional:** set up LymeDeploy and a Cloudflare purge token so desktop releases skip RDP (steps in the header of `packages/desktop/deploy/lymedeploy/deploy.yaml`).
 7. **Older open items:**
    - M8 hands-on (Quantico KB image paste).
@@ -99,7 +99,7 @@ Desktop contains no editor logic. Document versioning lives only in desktop, nev
 ## Any Other Notes
 
 - **Desktop release flow:**
-  1. `release.sh <x.y.z> --notes-file release-notes/<v>.md --yes --allow-unpublished-core`. It stops with exit 10 until the bump commit is on origin; push with Mike's OK, then re-run with `--no-bump`.
+  1. `release.sh <x.y.z> --notes-file release-notes/<v>.md --yes`. It stops with exit 10 until the bump commit is on origin; push with Mike's OK, then re-run with `--no-bump`.
   2. Mike copies `dist/<v>/upload/` over RDP and purges Cloudflare (the manifests get overwritten).
   3. Run `verify-published.sh <v>`, then tag `desktop-v<v>`.
 - Mac release builds are slow on purpose: a universal build compiles twice, with LTO and `codegen-units = 1`, and then waits on notarization. Keep those settings.

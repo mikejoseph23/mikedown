@@ -123,11 +123,10 @@ Release builds (`RELEASE=1`, set by both build scripts) never use the Vite
 source alias: `@mikedown/core` resolves through the workspace package to
 `packages/core/dist`, and `vite.config.ts` fails the build unless the pin in
 `packages/desktop/package.json` equals `packages/core/package.json`'s version.
-`check-core-pin.js` also requires that version to be on npm. Core is not
-published yet (the core extraction plan's M4), so every release until then
-passes `--allow-unpublished-core`, which builds against the workspace copy and
-says so. Once core is published, drop the flag; a mismatch or an unpublished
-pin then stops the release.
+`check-core-pin.js` also requires that version to be on npm (`0.1.0` is). A
+mismatch or an unpublished pin stops the release. For a future core bump that
+is not on npm yet, `--allow-unpublished-core` builds against the workspace copy
+and says so.
 
 ## Minimum OS
 
