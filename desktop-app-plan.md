@@ -695,6 +695,8 @@ When a milestone finishes with items skipped or partially done, the orchestrator
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
+**2026-10-24 03:05** - First real self-update: Mike's `/Applications/MikeDown.app` 0.1.0 found 0.2.0 on production, installed it and relaunched; About shows 0.2.0. Windows 0.1.0 to 0.2.0 still to try.
+
 **2026-10-24 02:55** - 0.2.0 released (first build with the new update window; notes in `packages/desktop/deploy/release-notes/0.2.0.md`). Built by `release.sh` from `1c9ade2` (Mac notarized, Windows Trusted-Signed on BEAST), copied over RDP by Mike, `verify-published.sh 0.2.0` passed on www and apex. Tagged `desktop-v0.2.0`. Next: a 0.1.0 install on each OS should pick up 0.2.0 from production.
 
 **2026-10-24 02:10** - 0.1.0 published by hand: Mike created the `/mikedown` virtual directory (site Interapp, `C:\WebApps\Downloads\mikedown`) and copied the staged folder (`dist/0.1.0-publish/upload`, styled DMG, pre-auto-update builds from `a2715d9`) over RDP. `verify-published.sh 0.1.0` passed: every manifest agrees on www and apex, and every artifact serves 200 with the right size, hash and signature (`.exe` MIME confirmed).
