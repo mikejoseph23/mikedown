@@ -43,7 +43,7 @@
 | [M12 — Developers hub and demo pages](#m12--developers-hub-and-demo-pages) | Opus | ✅ Complete | 27 | UI design |
 | [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ✅ Complete | 14 | UI design |
 | [M14 — READMEs](#m14--readmes) | Sonnet | ✅ Complete | 3 | Root (Marketplace listing) + per package |
-| [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | 🔄 Awaiting Mike hands-on | 7 | link check + hands-on |
+| [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ✅ Complete | 7 | link check + hands-on |
 | [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ⬜ Not Started | — | Mike runs publish and deploy |
 | [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | ⬜ Not Started | — | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
 | [T4 — Final verification](#t4--final-verification) | Sonnet | ⬜ Not Started | — | registry smoke + production URLs |
@@ -495,10 +495,10 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 On each demo page:
 
-- [ ] Typing updates the value panel within a moment; theme toggle flips editor and page; read-only blocks typing; copy buttons copy the install command and sample.
-- [ ] The web component page's form submit shows the markdown in the submitted data.
-- [ ] Nav works across all pages; at 400 px wide nothing scrolls sideways.
-- [ ] Judge the look: spacing, type, code blocks, dark mode, consistency with the desktop page. Orchestrator pauses for sign-off.
+- [x] Typing updates the value panel within a moment; theme toggle flips editor and page; read-only blocks typing; copy buttons copy the install command and sample.
+- [x] The web component page's form submit shows the markdown in the submitted data.
+- [x] Nav works across all pages; at 400 px wide nothing scrolls sideways.
+- [x] Judge the look: spacing, type, code blocks, dark mode, consistency with the desktop page. Orchestrator pauses for sign-off.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 19:45** - T3 hands-on: Mike signed off the developers hub, four demo pages and the VS Code page ("fucking awesome"). T3 complete; M15 unblocked.
 
 **2026-10-24 19:20** - M12 core gap fill merged (`7a9135f`, `67e74dc`, `855a988`, `95e9bb3`, `8bbafc7`, 18 min): completed-task text 5.0:1+ in light and dark; task checkboxes named after their item with a 24 px target (still drawn at 14 px, through the node view); toolbar button names start with their visible text; table toolbar only while a focused cursor is in a table (and wraps on phones); toolbar buttons that don't fit move into a More (⋯) menu, not horizontal scroll (keeps the 2.15.0 tooltip fix). Lighthouse accessibility 100 on all five developer pages (was 88). Playwright sweep 320/400/1280 light/dark: no sideways scroll, no table toolbar on load. CHANGELOG `[Unreleased]` lists the fixes (they ship in the next extension release, not 2.15.0). Main tree: compile, lint (0 errors), `test:unit` (1577), `test:edge` (22), `test:packages` (72), `test:wrappers`, `test:site` (27), `test:integration` (47) green.
 
