@@ -92,6 +92,7 @@ pub fn run() {
         .manage(commands::multiwindow::QuitState::default())
         .manage(commands::print::PrintJobs::default())
         .manage(commands::search::Searches::default())
+        .manage(menu::MenuState::default())
         .menu(|handle| menu::build(handle))
         .on_menu_event(|app, event| menu::handle(app, event.id().as_ref()))
         .setup(|app| {
@@ -156,6 +157,13 @@ pub fn run() {
             commands::versions::versions_snapshot,
             commands::versions::versions_prune,
             commands::versions::versions_move,
+            menu::menu_set,
+            menu::menu_update,
+            menu::menu_set_recents,
+            commands::recents::recents_read,
+            commands::recents::recents_write,
+            commands::recents::recents_allow,
+            commands::recents::welcome_file,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MikeDown");
