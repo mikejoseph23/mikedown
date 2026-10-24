@@ -618,7 +618,7 @@ Start: `npm run dev:desktop` on the Mac; the Windows build from BEAST per `packa
 
 **Modes:** hands-on on the signed RC artifacts from M10, one pass per OS, plus a fresh-machine install on each.
 
-- [ ] Write `packages/desktop/docs/manual-test-checklist.md` covering: install from the DMG/installer on a clean account, first run (`welcome.md`, default-app offer), double-click open, lone file → Open Containing Folder, tree CRUD + Trash, tabs/panes, hot exit after force quit, settings global vs. folder, versioning + restore + diff, external change conflict, search, export HTML + print PDF, updater toast from a staging manifest, dark mode flip, reduced motion, keyboard-only pass, CRLF/BOM fixture, 3 MB and 25 MB files, reserved-name rename.
+- [x] Write `packages/desktop/docs/manual-test-checklist.md` covering: install from the DMG/installer on a clean account, first run (`welcome.md`, default-app offer), double-click open, lone file → Open Containing Folder, tree CRUD + Trash, tabs/panes, hot exit after force quit, settings global vs. folder, versioning + restore + diff, external change conflict, search, export HTML + print PDF, updater toast from a staging manifest, dark mode flip, reduced motion, keyboard-only pass, CRLF/BOM fixture, 3 MB and 25 MB files, reserved-name rename.
 - [ ] Record results per OS in the Progress Log; every failure becomes a gap-fill. Orchestrator pauses for sign-off; release follows sign-off.
 
 [Return to Top](#mikedown-desktop--planning-document)
