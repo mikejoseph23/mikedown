@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # packages/angular is outside the root workspaces and has its own lockfile.
+      - name: Install packages/angular
+        run: |
+          if [ -d packages/angular ]; then
+            npm ci --prefix packages/angular
+          fi
+
+      - run: npm run lint
+      - run: npm run test:unit
+      - run: npm run test:edge
+      # Builds every public package, then runs the package shape tests.
+      - run: npm run test:packages

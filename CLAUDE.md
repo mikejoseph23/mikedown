@@ -9,10 +9,13 @@ npm run compile             # webpack — builds both bundles (extension + webvi
 npm run watch               # webpack --watch
 npm run dev                 # build, then open a dev host on test/workspace (no debugger; F5 attach is flaky)
 npm run package             # production build (used by vscode:prepublish)
-npm run vsix                # patch-bump version (root + packages/core), build:core, build, package .vsix
-npm run release:core        # publish @mikedown/core (or pack it when npm whoami fails)
+npm run vsix                # patch-bump the extension version, build, package .vsix (does not touch packages/*)
+npm run vsix:minor          # same, minor bump
+npm run version:npm -- X.Y.Z   # set one version on every public packages/* package + their @mikedown/core peer
+npm run release:npm         # dry run of every public package (build, npm pack --dry-run); --only a,b / --publish / --otp
+npm run release:core        # alias for release:npm -- --only core
 npm run build:core          # build packages/core dist (tsup + CSS + dictionaries)
-npm run test:core-package   # build core, then package-shape test
+npm run test:packages       # build every public package, then test/packages/package-shape.test.ts (test:core-package is an alias)
 npm run lint                # eslint on src/**/*.ts
 npm run format              # prettier
 npm run test:unit           # vitest (jsdom) — pure logic + DOM utilities
@@ -78,13 +81,22 @@ Always send full document content for `update`/`edit`. The host re-applies into 
 
 ## Releasing
 
-Core publish comes first, then the vsix:
+The npm family (`@mikedown/*`, every public `packages/*` package) and the extension release independently. The `@mikedown/*` packages share one (lockstep) family version (see `wrappers-decisions.md`, Versioning) that has nothing to do with the extension's 2.x.
 
-1. Bump: `npm run vsix` patch-bumps the root version, copies it to `packages/core` (`scripts/sync-core-version.js`), runs `build:core`, builds and packages the `.vsix`. (To release core alone, bump both versions by hand.)
-2. `npm run release:core` publishes `@mikedown/core` (`--tag rc` while the version is a prerelease). If `npm whoami` fails it packs the tarball to `/Volumes/Storage/LymeStack/packages/npm/`, falling back to `.orchestrator/angular-core-extraction-plan/artifacts/`, and prints which.
-3. Upload the `.vsix` to the Marketplace by hand, then commit `Release X.Y.Z` and tag `vX.Y.Z`.
+npm family:
 
-Downstream apps (LymeStarter, Quantico Creek) pin `@mikedown/core`; bump them after the real publish.
+1. `npm run version:npm -- X.Y.Z` sets the version on every public package and each wrapper's `@mikedown/core` peer to `^X.Y.Z`. It refuses a lower version.
+2. `npm run test:packages` builds every public package and runs the shape test.
+3. `npm run release:npm` is a dry run (default): build, `npm pack --dry-run`, file list; nothing is published. Add `--only core,react` to limit it.
+4. `npm run release:npm -- --publish [--otp 123456]` publishes core first, then the rest, with `--access public` (`--tag rc` for prereleases). A version already on npm is skipped. If `npm whoami` fails it packs tarballs to `/Volumes/Storage/LymeStack/packages/npm/` (falling back to `.orchestrator/wrappers-npm-plan/artifacts/`) instead of publishing; `--pack` writes them without publishing.
+5. `packages/angular` (when it exists) is outside the root workspaces with its own lockfile and is published from `packages/angular/dist`; the scripts handle it.
+
+Extension:
+
+1. `npm run vsix` (patch) or `npm run vsix:minor` bumps only the root version, builds and packages the `.vsix`. It no longer touches `packages/*`.
+2. Upload the `.vsix` to the Marketplace by hand, then commit `Release X.Y.Z` and tag `vX.Y.Z`.
+
+The order (npm first) only matters when the extension or Desktop needs a new core version: publish core, then bump the pin in Desktop and the downstream apps (LymeStarter, Quantico Creek). CI (`.github/workflows/ci.yml`) runs lint, `test:unit`, `test:edge` and `test:packages`; it does not publish.
 
 ## Settings rule
 
