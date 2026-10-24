@@ -3,7 +3,8 @@
 //! Plugin registration, windows, the launch-file queue, the menu bar and the
 //! commands under `src/commands/` (file I/O and the folder tree's operations,
 //! the per-directory watcher, native window state, hot-exit backups and
-//! sessions, multi-window routing and the quit handshake, folder search).
+//! sessions, multi-window routing and the quit handshake, folder search,
+//! the self-updater).
 
 use std::path::PathBuf;
 
@@ -91,6 +92,7 @@ pub fn run() {
         .manage(commands::multiwindow::WindowRegistry::default())
         .manage(commands::multiwindow::QuitState::default())
         .manage(commands::print::PrintJobs::default())
+        .manage(commands::updater::UpdaterState::default())
         .manage(commands::search::Searches::default())
         .manage(menu::MenuState::default())
         .menu(|handle| menu::build(handle))
@@ -164,6 +166,11 @@ pub fn run() {
             commands::recents::recents_write,
             commands::recents::recents_allow,
             commands::recents::welcome_file,
+            commands::updater::updater_claim,
+            commands::updater::updater_check,
+            commands::updater::updater_pending,
+            commands::updater::updater_install,
+            commands::updater::updater_log,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MikeDown");

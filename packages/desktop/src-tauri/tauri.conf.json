@@ -37,13 +37,23 @@
       "requireLiteralLeadingDot": false
     },
     "updater": {
-      "pubkey": "PLACEHOLDER-REPLACED-IN-M10",
-      "endpoints": []
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM1Mzg2MTA1QzJDMDNBRjcKUldUM09zRENCV0U0eGY2OUNvYjNIekdqT1V2T2hkZ1pSR1FMWHlUVitqdjNoOWtsdXRQanVvZysK",
+      "endpoints": ["https://www.iadev.net/mikedown/latest.json"],
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "passive"
+      }
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["app", "dmg"],
+    "createUpdaterArtifacts": true,
+    "publisher": "Interapp Development, Inc.",
+    "copyright": "Copyright 2026 Interapp Development, Inc.",
+    "category": "Productivity",
+    "shortDescription": "A WYSIWYG markdown editor",
+    "homepage": "https://www.iadev.net/mikedown/",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -69,7 +79,9 @@
       }
     ],
     "macOS": {
-      "minimumSystemVersion": "12.0"
+      "minimumSystemVersion": "12.0",
+      "hardenedRuntime": true,
+      "entitlements": "Entitlements.plist"
     },
     "windows": {
       "webviewInstallMode": {

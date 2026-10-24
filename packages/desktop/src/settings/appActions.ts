@@ -1,8 +1,8 @@
 /**
  * Actions behind the App tab's buttons: the app version, "Check for
- * Updates…" and "Set MikeDown as default for .md". The updater's real
- * install flow, signing keys and endpoints belong to M10; until the build has
- * them, the check reports that plainly instead of failing silently.
+ * Updates…" and "Set MikeDown as default for .md". "Check for Updates…" is
+ * the updater controller's manual check (`src/app/updater.ts`), which gives
+ * explicit feedback for every outcome.
  */
 import type { Dialogs } from '../ui/dialogs';
 
@@ -10,7 +10,8 @@ export interface AppActionsDeps {
   dialogs: Pick<Dialogs, 'toast' | 'info'>;
   isMac: boolean;
   appVersion(): Promise<string>;
-  checkUpdate(): Promise<{ version: string } | null>;
+  /** The updater's manual check (`UpdaterController.manualCheck`). */
+  manualUpdateCheck(): Promise<void>;
   openDefaultAppsSettings(): Promise<boolean>;
   /** Remember that the offer was made (`fileAssociationsOffered`). */
   markAssociationsOffered(): void;
@@ -28,14 +29,7 @@ export const MAC_DEFAULT_APP_STEPS =
 export function createAppActions(deps: AppActionsDeps): AppActions {
   return {
     version: () => deps.appVersion(),
-    async checkForUpdates() {
-      try {
-        const update = await deps.checkUpdate();
-        deps.dialogs.toast(update ? `MikeDown ${update.version} is available.` : 'MikeDown is up to date.');
-      } catch {
-        deps.dialogs.toast('Checking for updates is not set up in this build yet.', { error: true });
-      }
-    },
+    checkForUpdates: () => deps.manualUpdateCheck(),
     async setDefaultApp() {
       deps.markAssociationsOffered();
       if (deps.isMac) {

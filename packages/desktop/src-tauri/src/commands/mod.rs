@@ -13,3 +13,4 @@ pub mod watcher;
 pub mod window;
 pub mod versions;
 pub mod recents;
+pub mod updater;

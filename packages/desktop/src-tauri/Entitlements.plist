@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for MikeDown (bundle.macOS.entitlements).
+  Deliberately empty: the app is not sandboxed, WKWebView runs JavaScript in
+  Apple's own WebContent process (no allow-jit needed), and the app loads no
+  unsigned libraries. Add a key here only with a reason next to it.
+-->
+<plist version="1.0">
+<dict>
+</dict>
+</plist>

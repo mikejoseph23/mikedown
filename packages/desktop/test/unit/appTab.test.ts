@@ -109,7 +109,7 @@ describe('app actions', () => {
   const base = () => ({
     dialogs: { toast: vi.fn(), info: vi.fn(async () => undefined) },
     appVersion: async () => '0.1.0',
-    checkUpdate: async () => null,
+    manualUpdateCheck: vi.fn(async () => undefined),
     openDefaultAppsSettings: async () => true,
     markAssociationsOffered: vi.fn(),
   });
@@ -128,13 +128,9 @@ describe('app actions', () => {
     expect(deps.dialogs.toast).toHaveBeenCalled();
   });
 
-  it('update check reports up to date, available, and not configured', async () => {
+  it('Check for Updates runs the updater\'s manual check', async () => {
     const deps = base();
     await createAppActions({ ...deps, isMac: true }).checkForUpdates();
-    expect(deps.dialogs.toast).toHaveBeenLastCalledWith('MikeDown is up to date.');
-    await createAppActions({ ...deps, isMac: true, checkUpdate: async () => ({ version: '2.0.0' }) }).checkForUpdates();
-    expect(deps.dialogs.toast).toHaveBeenLastCalledWith('MikeDown 2.0.0 is available.');
-    await createAppActions({ ...deps, isMac: true, checkUpdate: async () => { throw new Error('no endpoint'); } }).checkForUpdates();
-    expect(deps.dialogs.toast).toHaveBeenLastCalledWith(expect.stringContaining('not set up'), { error: true });
+    expect(deps.manualUpdateCheck).toHaveBeenCalledOnce();
   });
 });

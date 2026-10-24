@@ -207,13 +207,26 @@ pub fn focused_label<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
 
 /// Ask every window, one at a time, then exit. Safe to call from any thread.
 pub fn request_quit<R: Runtime>(app: &AppHandle<R>) {
+    request_quit_then(app, |app| app.exit(0), || {});
+}
+
+/// The quit handshake with a custom ending: `then` runs once every window
+/// agreed (the updater installs and restarts there), `on_cancel` when one
+/// said Cancel or a handshake was already running.
+pub fn request_quit_then<R, F, C>(app: &AppHandle<R>, then: F, on_cancel: C)
+where
+    R: Runtime,
+    F: FnOnce(&AppHandle<R>) + Send + 'static,
+    C: FnOnce() + Send + 'static,
+{
     {
         let state = app.state::<QuitState>();
         if state.approved.load(Ordering::SeqCst) {
-            app.exit(0);
+            then(app);
             return;
         }
         if state.in_progress.swap(true, Ordering::SeqCst) {
+            on_cancel();
             return;
         }
     }
@@ -222,7 +235,9 @@ pub fn request_quit<R: Runtime>(app: &AppHandle<R>) {
         let proceed = handshake(&app);
         if proceed {
             app.state::<QuitState>().approved.store(true, Ordering::SeqCst);
-            app.exit(0);
+            then(&app);
+        } else {
+            on_cancel();
         }
     });
 }

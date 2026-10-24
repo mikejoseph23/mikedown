@@ -46,6 +46,9 @@ import { showShortcutsSheet } from './ui/shortcutsSheet';
 import { menuApi } from './menu/menuApi';
 import { createPaneManager } from './panes/paneManager';
 import { createAppActions } from './settings/appActions';
+import { createUpdater } from './app/updater';
+import { updaterApi } from './app/updaterApi';
+import { createUpdatePrompt } from './ui/updateToast';
 import { createAppTabSection } from './settings/appTab';
 import { createSettingsBanner } from './settings/banner';
 import { settingsApi } from './settings/settingsApi';
@@ -190,14 +193,21 @@ const settingsMgr = createSettingsManager({
   openFile: (p) => fsApi.openInDefaultApp(p),
 });
 settings.onTreeChange((patch) => { void settingsMgr.save(patch, { silent: true, force: true }); });
+// Self-update (M10, edge case 17): silent launch + daily checks, explicit
+// feedback for Help > Check for Updates…, and the Restart Now / Later toast.
+const updater = createUpdater({
+  api: updaterApi,
+  prompt: createUpdatePrompt(document.body),
+  toast: (message, opts) => dialogs.toast(message, opts),
+  checkOnLaunch: () => settings.get().updates.checkOnLaunch,
+  appVersion: getVersion,
+  setInterval: (fn, ms) => window.setInterval(fn, ms),
+});
 const appActions = createAppActions({
   dialogs,
   isMac,
   appVersion: getVersion,
-  checkUpdate: async () => {
-    const { check } = await import('@tauri-apps/plugin-updater');
-    return check();
-  },
+  manualUpdateCheck: () => updater.manualCheck(),
   openDefaultAppsSettings: () => settingsApi.openDefaultAppsSettings(),
   markAssociationsOffered: () => { void settingsMgr.save({ fileAssociationsOffered: true }, { silent: true, force: true }); },
 });
@@ -1273,6 +1283,11 @@ async function boot(): Promise<void> {
   }
   syncWelcome();
   syncRecentMenu();
+
+  // Updates last, so a slow network never delays opening documents.
+  void updaterApi.onAvailable((info) => updater.announce(info)).catch(() => { /* not under Tauri */ });
+  void updaterApi.pending().then((info) => { if (info) {updater.announce(info);} }).catch(() => { /* not under Tauri */ });
+  void updater.start();
 }
 
 void boot();

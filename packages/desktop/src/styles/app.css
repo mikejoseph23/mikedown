@@ -320,3 +320,42 @@ body {
     border: 1px solid CanvasText;
   }
 }
+
+/* ── Update available (M10, edge 17) ───────────────────────────────────── */
+.mdapp-update {
+  position: fixed;
+  right: 16px;
+  bottom: 40px;
+  z-index: 1000;
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid var(--mikedown-border, #d0d0d0);
+  border-radius: 8px;
+  background: var(--mikedown-surface, #fff);
+  color: var(--mikedown-text, #1f1f1f);
+  font-size: 13px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+
+.mdapp-update__title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.mdapp-update__body {
+  line-height: 1.4;
+  color: var(--mikedown-text-muted, inherit);
+}
+
+.mdapp-update__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+@media (forced-colors: active) {
+  .mdapp-update {
+    border: 1px solid CanvasText;
+  }
+}
