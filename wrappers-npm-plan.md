@@ -30,7 +30,7 @@
 | [M1 — Release tooling and versioning](#m1--release-tooling-and-versioning) | Sonnet | ✅ Complete | 20 | Decouple core from the vsix bump |
 | [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ✅ Complete | 2 | 0.1.0 on `latest` 2026-10-24; `core-v0.1.0` tag and push await Mike |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ✅ Complete | 5 | Mike uploads the `.vsix` |
-| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | 🔄 In Progress | — | LymeStarter, Quantico Creek, Desktop pin |
+| [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | 🔄 In Progress (gap fill) | 6 | LymeStarter, Quantico Creek, Desktop pin |
 | [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
 | [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
 | [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | 🔄 In Progress | — | `<mikedown-editor>`, form-associated, CDN bundle |
@@ -241,8 +241,8 @@ Apply to every milestone.
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] LymeStarter (`develop`): `ng-app/package.json` `"@mikedown/core": "^0.1.0"`; delete `ng-app/vendor/mikedown-core-0.1.0-rc.1.tgz`; `npm install`; `ng build` and `ng test --watch=false` green; update the doc that mentions the vendored tarball. Commit.
-- [ ] Quantico Creek (`master`): same in `quantico-creek-angular-app` and `quantico-creek-assistant-app`; both `ng build` green. Commit.
+- [x] LymeStarter (`develop`): `ng-app/package.json` `"@mikedown/core": "^0.1.0"`; delete `ng-app/vendor/mikedown-core-0.1.0-rc.1.tgz`; `npm install`; `ng build` and `ng test --watch=false` green; update the doc that mentions the vendored tarball. Commit.
+- [x] Quantico Creek (`master`): same in `quantico-creek-angular-app` and `quantico-creek-assistant-app`; both `ng build` green. Commit.
 - [ ] Desktop: pin `"@mikedown/core": "0.1.0"`; `node packages/desktop/deploy/check-core-pin.js` passes **without** `--allow-unpublished-core`. Remove the flag from `RESUME.md`, `packages/desktop/deploy/README.md` and the release examples; keep the flag in the script for future unpublished bumps. `npm run build:desktop` green. Commit.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 17:15** - M4 partial (6 min): LymeStarter `f0be935` on `develop` (`^0.1.0` from the registry, vendored tarball and doc mention removed; `ng build` green, `ng test` 558/558) and Quantico Creek `59ed7d8` on `master` (both apps; `ng build` green, `ng test` 148/148 and 45/45). Desktop docs drop `--allow-unpublished-core` (`f396810`), `build:desktop` green. Gap: `check-core-pin.js` fails because `checkCorePin` requires the pin to equal the workspace core version (`0.1.0` vs `0.2.0-rc.0`), which the decoupled family versioning breaks; gap fill dispatched to accept a published pin that differs from the workspace.
 
 **2026-10-24 17:10** - M3 done (`97a4929` Release 2.15.0, 5 min): README "More MikeDown" block (Desktop and npm, absolute URLs), CHANGELOG `[2.15.0] - 2026-10-24` with two missing user-facing fixes added and the Internal note saying core is on npm; every claim on the VS Code page (zoom, narrow sidebar) is covered. `mikedown-editor-2.15.0.vsix` 4.60 MB vs 4.46 MB for 2.14.2 (+3.1%), copied to the repo root; core stays `0.2.0-rc.0`. No issue replies to draft (issues #1 to #10 all closed by 2026-10-20). In the worktree `test:integration` failed on IPC socket path length (`listen EINVAL`); in the main tree it passed (47). Main tree: compile, lint (0 errors), `test:unit` (1563), `test:edge` (22) green. Waiting on Mike: Marketplace upload, `v2.15.0` tag, push.
 
