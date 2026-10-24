@@ -1,0 +1,504 @@
+[
+  {
+    "kind": "submenu",
+    "label": "File",
+    "items": [
+      {
+        "kind": "item",
+        "id": "newDocument",
+        "label": "New File",
+        "accelerator": "CmdOrCtrl+N"
+      },
+      {
+        "kind": "item",
+        "id": "newWindow",
+        "label": "New Window",
+        "accelerator": "CmdOrCtrl+Shift+N"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "open",
+        "label": "Open File…",
+        "accelerator": "CmdOrCtrl+O"
+      },
+      {
+        "kind": "item",
+        "id": "openFolder",
+        "label": "Open Folder…",
+        "accelerator": "CmdOrCtrl+Alt+O"
+      },
+      {
+        "kind": "submenu",
+        "id": "openRecent",
+        "label": "Open Recent",
+        "items": [
+          {
+            "kind": "item",
+            "id": "clearRecents",
+            "label": "Clear Recently Opened"
+          }
+        ]
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "save",
+        "label": "Save",
+        "accelerator": "CmdOrCtrl+S"
+      },
+      {
+        "kind": "item",
+        "id": "saveAs",
+        "label": "Save As…",
+        "accelerator": "CmdOrCtrl+Shift+S"
+      },
+      {
+        "kind": "item",
+        "id": "saveAll",
+        "label": "Save All",
+        "accelerator": "CmdOrCtrl+Alt+S"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "openContainingFolder",
+        "label": "Open Containing Folder",
+        "accelerator": "CmdOrCtrl+Shift+O"
+      },
+      {
+        "kind": "item",
+        "id": "reveal",
+        "label": "Show in Explorer",
+        "accelerator": "CmdOrCtrl+Alt+R"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "submenu",
+        "label": "Export",
+        "items": [
+          {
+            "kind": "item",
+            "id": "exportHtml",
+            "label": "HTML…"
+          },
+          {
+            "kind": "item",
+            "id": "exportPdf",
+            "label": "PDF…"
+          }
+        ]
+      },
+      {
+        "kind": "item",
+        "id": "print",
+        "label": "Print…",
+        "accelerator": "CmdOrCtrl+P"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "openSettings",
+        "label": "Settings…",
+        "accelerator": "CmdOrCtrl+,"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "closeTab",
+        "label": "Close Tab",
+        "accelerator": "CmdOrCtrl+W"
+      },
+      {
+        "kind": "item",
+        "id": "closeWindow",
+        "label": "Close Window",
+        "accelerator": "CmdOrCtrl+Shift+W"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "quit",
+        "label": "Exit",
+        "accelerator": "Alt+F4"
+      }
+    ]
+  },
+  {
+    "kind": "submenu",
+    "label": "Edit",
+    "items": [
+      {
+        "kind": "item",
+        "id": "undo",
+        "label": "Undo",
+        "accelerator": "CmdOrCtrl+Z"
+      },
+      {
+        "kind": "item",
+        "id": "redo",
+        "label": "Redo",
+        "accelerator": "CmdOrCtrl+Shift+Z"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "predefined",
+        "role": "cut"
+      },
+      {
+        "kind": "predefined",
+        "role": "copy"
+      },
+      {
+        "kind": "predefined",
+        "role": "paste"
+      },
+      {
+        "kind": "item",
+        "id": "pasteWithoutFormatting",
+        "label": "Paste Without Formatting",
+        "accelerator": "CmdOrCtrl+Shift+V"
+      },
+      {
+        "kind": "predefined",
+        "role": "selectAll"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "openFind",
+        "label": "Find…",
+        "accelerator": "CmdOrCtrl+F"
+      },
+      {
+        "kind": "item",
+        "id": "openFindReplace",
+        "label": "Replace…",
+        "accelerator": "CmdOrCtrl+H"
+      },
+      {
+        "kind": "item",
+        "id": "searchFolder",
+        "label": "Find in Folder…",
+        "accelerator": "CmdOrCtrl+Shift+F"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "submenu",
+        "label": "Spelling",
+        "items": [
+          {
+            "kind": "item",
+            "id": "toggleSpellcheck",
+            "label": "Check Spelling While Typing"
+          },
+          {
+            "kind": "item",
+            "id": "spellingSettings",
+            "label": "Spelling Settings…"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "submenu",
+    "label": "Format",
+    "items": [
+      {
+        "kind": "item",
+        "id": "toggleBold",
+        "label": "Bold",
+        "accelerator": "CmdOrCtrl+B"
+      },
+      {
+        "kind": "item",
+        "id": "toggleItalic",
+        "label": "Italic",
+        "accelerator": "CmdOrCtrl+I"
+      },
+      {
+        "kind": "item",
+        "id": "toggleStrike",
+        "label": "Strikethrough",
+        "accelerator": "CmdOrCtrl+Shift+X"
+      },
+      {
+        "kind": "item",
+        "id": "toggleHighlight",
+        "label": "Highlight",
+        "accelerator": "CmdOrCtrl+Shift+H"
+      },
+      {
+        "kind": "item",
+        "id": "toggleCode",
+        "label": "Inline Code",
+        "accelerator": "CmdOrCtrl+E"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "toggleBulletList",
+        "label": "Bulleted List",
+        "accelerator": "CmdOrCtrl+Shift+8"
+      },
+      {
+        "kind": "item",
+        "id": "toggleOrderedList",
+        "label": "Numbered List",
+        "accelerator": "CmdOrCtrl+Shift+7"
+      },
+      {
+        "kind": "item",
+        "id": "toggleTaskList",
+        "label": "Task List",
+        "accelerator": "CmdOrCtrl+Shift+9"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "submenu",
+        "label": "Heading",
+        "items": [
+          {
+            "kind": "item",
+            "id": "paragraph",
+            "label": "Paragraph",
+            "accelerator": "CmdOrCtrl+Alt+0"
+          },
+          {
+            "kind": "item",
+            "id": "heading1",
+            "label": "Heading 1",
+            "accelerator": "CmdOrCtrl+Alt+1"
+          },
+          {
+            "kind": "item",
+            "id": "heading2",
+            "label": "Heading 2",
+            "accelerator": "CmdOrCtrl+Alt+2"
+          },
+          {
+            "kind": "item",
+            "id": "heading3",
+            "label": "Heading 3",
+            "accelerator": "CmdOrCtrl+Alt+3"
+          },
+          {
+            "kind": "item",
+            "id": "heading4",
+            "label": "Heading 4",
+            "accelerator": "CmdOrCtrl+Alt+4"
+          },
+          {
+            "kind": "item",
+            "id": "heading5",
+            "label": "Heading 5",
+            "accelerator": "CmdOrCtrl+Alt+5"
+          },
+          {
+            "kind": "item",
+            "id": "heading6",
+            "label": "Heading 6",
+            "accelerator": "CmdOrCtrl+Alt+6"
+          }
+        ]
+      },
+      {
+        "kind": "submenu",
+        "label": "Insert",
+        "items": [
+          {
+            "kind": "item",
+            "id": "insertTable",
+            "label": "Table"
+          },
+          {
+            "kind": "item",
+            "id": "insertLink",
+            "label": "Link…",
+            "accelerator": "CmdOrCtrl+K"
+          },
+          {
+            "kind": "item",
+            "id": "insertImage",
+            "label": "Image…"
+          },
+          {
+            "kind": "item",
+            "id": "openEmojiPicker",
+            "label": "Emoji…",
+            "accelerator": "CmdOrCtrl+;"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "submenu",
+    "label": "View",
+    "items": [
+      {
+        "kind": "item",
+        "id": "toggleSidebar",
+        "label": "Toggle Sidebar"
+      },
+      {
+        "kind": "item",
+        "id": "focusSidebar",
+        "label": "Show Sidebar",
+        "accelerator": "CmdOrCtrl+Shift+E"
+      },
+      {
+        "kind": "item",
+        "id": "toggleSource",
+        "label": "Toggle Source Mode",
+        "accelerator": "CmdOrCtrl+/"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "splitRight",
+        "label": "Split Right",
+        "accelerator": "CmdOrCtrl+\\"
+      },
+      {
+        "kind": "item",
+        "id": "splitDown",
+        "label": "Split Down",
+        "accelerator": "CmdOrCtrl+Shift+\\"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "zoomIn",
+        "label": "Zoom In",
+        "accelerator": "CmdOrCtrl+="
+      },
+      {
+        "kind": "item",
+        "id": "zoomOut",
+        "label": "Zoom Out",
+        "accelerator": "CmdOrCtrl+-"
+      },
+      {
+        "kind": "item",
+        "id": "zoomReset",
+        "label": "Actual Size",
+        "accelerator": "CmdOrCtrl+0"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "toggleHidden",
+        "label": "Show Hidden Files",
+        "accelerator": "CmdOrCtrl+Shift+."
+      }
+    ]
+  },
+  {
+    "kind": "submenu",
+    "label": "Window",
+    "role": "window",
+    "items": [
+      {
+        "kind": "predefined",
+        "role": "minimize"
+      },
+      {
+        "kind": "predefined",
+        "role": "maximize"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "nextTab",
+        "label": "Next Tab",
+        "accelerator": "Ctrl+Tab"
+      },
+      {
+        "kind": "item",
+        "id": "prevTab",
+        "label": "Previous Tab",
+        "accelerator": "Ctrl+Shift+Tab"
+      }
+    ]
+  },
+  {
+    "kind": "submenu",
+    "label": "Help",
+    "role": "help",
+    "items": [
+      {
+        "kind": "item",
+        "id": "welcome",
+        "label": "Welcome Guide"
+      },
+      {
+        "kind": "item",
+        "id": "keyboardShortcuts",
+        "label": "Keyboard Shortcuts"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "checkUpdates",
+        "label": "Check for Updates…"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "website",
+        "label": "MikeDown Website"
+      },
+      {
+        "kind": "item",
+        "id": "reportIssue",
+        "label": "Report an Issue"
+      },
+      {
+        "kind": "separator"
+      },
+      {
+        "kind": "item",
+        "id": "about",
+        "label": "About MikeDown"
+      }
+    ]
+  }
+]

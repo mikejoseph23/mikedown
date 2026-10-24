@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { commandForKey, formatAccelerator, parseAccelerator, SHORTCUTS } from '../../src/menu/shortcuts';
 
+const forPlatform = (isMac: boolean) => SHORTCUTS.filter((s) => !s.platform || s.platform === (isMac ? 'mac' : 'other'));
+
 const key = (k: string, mods: Partial<{ meta: boolean; ctrl: boolean; shift: boolean; alt: boolean }> = {}, code?: string) => ({
   key: k, metaKey: !!mods.meta, ctrlKey: !!mods.ctrl, shiftKey: !!mods.shift, altKey: !!mods.alt, code,
 });
 
 describe('shortcut table', () => {
-  it('has unique accelerators', () => {
-    const accs = SHORTCUTS.map((s) => s.accelerator.toLowerCase());
-    expect(new Set(accs).size).toBe(accs.length);
+  it('has unique accelerators on each platform', () => {
+    for (const isMac of [true, false]) {
+      const accs = forPlatform(isMac).map((s) => s.accelerator.toLowerCase());
+      expect(new Set(accs).size).toBe(accs.length);
+    }
   });
 
   it('parses CmdOrCtrl chords', () => {
@@ -77,7 +81,8 @@ describe('shortcut table', () => {
   });
 
   it('formats labels per platform', () => {
-    expect(formatAccelerator('CmdOrCtrl+Shift+S', true)).toBe('⌘⇧S');
+    expect(formatAccelerator('CmdOrCtrl+Shift+S', true)).toBe('⇧⌘S');
+    expect(formatAccelerator('CmdOrCtrl+Alt+O', true)).toBe('⌥⌘O');
     expect(formatAccelerator('CmdOrCtrl+Shift+S', false)).toBe('Ctrl+Shift+S');
     expect(formatAccelerator('Ctrl+Tab', true)).toBe('⌃Tab');
     expect(formatAccelerator('Ctrl+PageDown', false)).toBe('Ctrl+PageDown');
