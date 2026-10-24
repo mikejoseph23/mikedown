@@ -50,6 +50,12 @@
   outline-offset: -2px;
 }
 
+/* Disabled item (e.g. an overflowed Zoom In at the maximum size). */
+:is(.mikedown-root, .mikedown-portal) .tdd-item.tdd-disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 :is(.mikedown-root, .mikedown-portal) .tdd-item-icon {
   display: inline-flex;
   align-items: center;

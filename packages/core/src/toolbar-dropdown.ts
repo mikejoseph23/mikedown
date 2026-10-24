@@ -14,6 +14,8 @@ export interface ToolbarDropdownItem {
   label: string;
   icon?: string;       // HTML string (SVG or span)
   isActive?: () => boolean;
+  /** Greyed out and inert while this returns true (read when the menu opens). */
+  isDisabled?: () => boolean;
   action: () => void;
 }
 
@@ -180,10 +182,17 @@ function buildActionItem(item: ToolbarDropdownItem): HTMLElement {
     }
   }
 
+  const disabled = item.isDisabled?.() ?? false;
+  if (disabled) {
+    el.classList.add('tdd-disabled');
+    el.setAttribute('aria-disabled', 'true');
+  }
+
   // Click handler
   el.addEventListener('mousedown', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (disabled) {return;}
     hideToolbarDropdown();
     item.action();
   });

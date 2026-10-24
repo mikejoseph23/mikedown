@@ -162,6 +162,19 @@
   overflow: visible;
 }
 
+/* Buttons that don't fit move into the More (⋯) menu, from the right
+   (layoutToolbarOverflow in toolbar-overflow.ts), so the toolbar stays one
+   row at phone widths. More sits at the right edge while it is shown. */
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar .toolbar-overflowed {
+  display: none !important;
+}
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button.toolbar-more {
+  margin-left: auto;
+}
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar button.toolbar-more[hidden] {
+  display: none;
+}
+
 :is(.mikedown-root, .mikedown-portal) .condensed-dropdown-trigger {
   display: inline-flex !important;
   align-items: center;

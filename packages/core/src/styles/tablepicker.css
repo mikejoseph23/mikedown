@@ -102,7 +102,9 @@
   z-index: 999;
   display: inline-flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  /* Wraps to a second row on a phone instead of running off the screen. */
+  flex-wrap: wrap;
+  max-width: calc(100vw - 8px);
   align-items: center;
   gap: 2px;
   background: var(--mikedown-surface-raised, var(--mikedown-surface));

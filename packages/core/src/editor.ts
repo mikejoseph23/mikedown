@@ -71,7 +71,8 @@ import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTable
 import { initTableDrag, clearCellSelection } from './tabledrag';
 import { locateInSource, findInDoc } from './revealText';
 import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks, type LinkSuggestion } from './linkautocomplete';
-import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates } from './toolbar-dropdown';
+import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates, type ToolbarDropdownEntry } from './toolbar-dropdown';
+import { layoutToolbarOverflow } from './toolbar-overflow';
 import { showLanguagePicker } from './languagepicker';
 import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
 import { resolveImageRenderSrc } from './imageSrcPolicy';
@@ -272,7 +273,7 @@ const toolbarIcons = {
   undo: toolbarSvg('<polyline points="4 7 2 5 4 3"/><path d="M2 5h8a4 4 0 0 1 0 8H7"/>'),
   redo: toolbarSvg('<polyline points="12 7 14 5 12 3"/><path d="M14 5H6a4 4 0 0 0 0 8h3"/>'),
   source: toolbarSvg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/><line x1="9" y1="3" x2="7" y2="13"/>'),
-  gear: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  gear: `<svg aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`,
   diff: toolbarSvg('<path d="M4 3v10"/><path d="M12 3v10"/><path d="M7 5h2" stroke-opacity="0.5"/><path d="M7 8h2"/><path d="M7 11h2" stroke-opacity="0.5"/>'),
   sun: toolbarSvg('<circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/>'),
   moon: toolbarSvg('<path d="M13.5 8a5.5 5.5 0 0 1-8.38 4.68A5.5 5.5 0 0 1 8 2.5c0 .5.05 1 .16 1.47A4.5 4.5 0 0 0 13.5 8z"/>'),
@@ -284,6 +285,7 @@ const toolbarIcons = {
   headingNumbers: toolbarSvg('<text x="8" y="11.5" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor" stroke="none" font-family="sans-serif">1.2</text>', 0),
   zoomIn: toolbarSvg('<circle cx="7" cy="7" r="4.5"/><line x1="10.2" y1="10.2" x2="14" y2="14"/><line x1="5" y1="7" x2="9" y2="7"/><line x1="7" y1="5" x2="7" y2="9"/>'),
   zoomOut: toolbarSvg('<circle cx="7" cy="7" r="4.5"/><line x1="10.2" y1="10.2" x2="14" y2="14"/><line x1="5" y1="7" x2="9" y2="7"/>'),
+  more: toolbarSvg('<circle cx="3.5" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor" stroke="none"/>'),
   emoji: toolbarSvg('<circle cx="8" cy="8" r="6"/><circle cx="6" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="10" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><path d="M5.5 9.5c.7 1.2 1.7 1.8 2.5 1.8s1.8-.6 2.5-1.8"/>'),
 };
 
@@ -1985,6 +1987,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     currentHeadingNumbering = mode;
     const btn = shell.toolbar?.querySelector<HTMLButtonElement>('button[data-action="headingNumbers"]');
     if (btn) {btn.style.display = mode === 'off' ? 'none' : '';}
+    if (shell.toolbar) {layoutToolbarOverflow(shell.toolbar);}
   }
 
   // Sidebar footer link (the VS Code support appeal). Null hides it.
@@ -2251,13 +2254,26 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       return sep;
     }
 
+    // How a button runs from the More menu when it has overflowed: dropdown
+    // triggers and the emoji picker open against the More button (their own
+    // button is hidden), everything else is a plain click.
+    const overflowOpeners = new Map<HTMLElement, (anchor: HTMLElement) => void>();
+
+    /** A dropdown trigger: click toggles its menu, anchored to `anchor`. */
+    function wireDropdown(btn: HTMLButtonElement, open: (anchor: HTMLElement) => void): void {
+      overflowOpeners.set(btn, open);
+      btn.addEventListener('click', () => {
+        if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
+        open(btn);
+      });
+    }
+
     // ── Text Format dropdown (Aa ▾) ─────────────────────────────────────────
     const textFormatBtn = makeDropdownTrigger('textFormat', 'Text Format', getBlockLabel());
     // The accessible name includes the visible label ("Aa", "H1"; WCAG 2.5.3).
     textFormatBtn.setAttribute('aria-label', `${getBlockLabel()} Text Format`);
-    textFormatBtn.addEventListener('click', () => {
-      if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
-      showToolbarDropdown(textFormatBtn, [
+    wireDropdown(textFormatBtn, (anchor) => {
+      showToolbarDropdown(anchor, [
         { type: 'action', id: 'h1', label: 'Heading 1', icon: '<span style="font-weight:700;font-size:14px">H1</span>', isActive: () => editor.isActive('heading', { level: 1 }), action: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
         { type: 'action', id: 'h2', label: 'Heading 2', icon: '<span style="font-weight:600;font-size:13px">H2</span>', isActive: () => editor.isActive('heading', { level: 2 }), action: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
         { type: 'action', id: 'h3', label: 'Heading 3', icon: '<span style="font-weight:500;font-size:12px">H3</span>', isActive: () => editor.isActive('heading', { level: 3 }), action: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
@@ -2278,9 +2294,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     // ── List & Block dropdown (≡ ▾) ─────────────────────────────────────────
     const listBlockBtn = makeDropdownTrigger('listBlock', 'Lists & Blocks', icons.ul);
-    listBlockBtn.addEventListener('click', () => {
-      if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
-      showToolbarDropdown(listBlockBtn, [
+    wireDropdown(listBlockBtn, (anchor) => {
+      showToolbarDropdown(anchor, [
         { type: 'action', id: 'bulletList', label: 'Bullet List', icon: icons.ul, isActive: () => editor.isActive('bulletList'), action: () => editor.chain().focus().toggleBulletList().run() },
         { type: 'action', id: 'orderedList', label: 'Ordered List', icon: icons.ol, isActive: () => editor.isActive('orderedList'), action: () => editor.chain().focus().toggleOrderedList().run() },
         { type: 'action', id: 'taskList', label: 'Task List', icon: icons.task, isActive: () => editor.isActive('taskList'), action: () => editor.chain().focus().toggleTaskList().run() },
@@ -2308,11 +2323,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     // ── Insert dropdown (Image, Table, HR) ──────────────────────────────────
     const insertBtn = makeDropdownTrigger('insert', 'Insert', icons.image);
-    insertBtn.addEventListener('click', () => {
-      if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
-      showToolbarDropdown(insertBtn, [
+    wireDropdown(insertBtn, (anchor) => {
+      showToolbarDropdown(anchor, [
         { type: 'action', id: 'image', label: 'Image', icon: icons.image, action: () => showImageInsertDialog(editor) },
-        { type: 'action', id: 'table', label: 'Table', icon: icons.table, isActive: () => editor.isActive('table'), action: () => showTableGridPicker(editor, insertBtn) },
+        { type: 'action', id: 'table', label: 'Table', icon: icons.table, isActive: () => editor.isActive('table'), action: () => showTableGridPicker(editor, anchor) },
         { type: 'action', id: 'hr', label: 'Horizontal Rule', icon: icons.hr, action: () => editor.chain().focus().setHorizontalRule().run() },
       ]);
     });
@@ -2330,10 +2344,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     // ── Share dropdown (View in Browser, Print / Export as PDF) ─────────────
     const shareBtn = makeDropdownTrigger('share', 'Share', icons.share);
-    shareBtn.addEventListener('click', () => {
-      if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
+    wireDropdown(shareBtn, (anchor) => {
       // Only the outputs the host can handle.
-      showToolbarDropdown(shareBtn, [
+      showToolbarDropdown(anchor, [
         ...(host.viewInBrowser ? [{ type: 'action' as const, id: 'viewInBrowser', label: 'View in Browser', icon: icons.browser, action: () => {
           host.viewInBrowser?.(getHtml());
         }}] : []),
@@ -2542,9 +2555,46 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     const emojiBtn = makeBtn('emoji', 'Insert Emoji (Cmd+;)', icons.emoji);
     emojiBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    emojiBtn.addEventListener('click', () => {
+    const openEmoji = (anchor: HTMLElement) => {
       if (isEmojiPickerOpen()) { hideEmojiPicker(); return; }
-      showEmojiPicker(editor, { anchorRect: emojiBtn.getBoundingClientRect() });
+      showEmojiPicker(editor, { anchorRect: anchor.getBoundingClientRect() });
+    };
+    overflowOpeners.set(emojiBtn, openEmoji);
+    emojiBtn.addEventListener('click', () => openEmoji(emojiBtn));
+
+    // ── More (⋯): holds whatever doesn't fit (layoutToolbarOverflow) ────────
+    const moreBtn = makeBtn('more', 'More', icons.more);
+    moreBtn.classList.add('toolbar-more');
+    moreBtn.setAttribute('aria-haspopup', 'menu');
+    moreBtn.hidden = true;
+    // Keep the editor's selection: the overflowed commands act on it.
+    moreBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    moreBtn.addEventListener('click', () => {
+      if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
+      const entries: ToolbarDropdownEntry[] = [];
+      for (const el of Array.from(toolbar.children) as HTMLElement[]) {
+        if (!el.classList.contains('toolbar-overflowed')) {continue;}
+        if (el.classList.contains('toolbar-separator')) {
+          if (entries.length && entries[entries.length - 1].type !== 'separator') {entries.push({ type: 'separator' });}
+          continue;
+        }
+        if (!(el instanceof HTMLButtonElement) || el.style.display === 'none') {continue;}
+        const btn = el;
+        const svg = btn.querySelector('svg');
+        const opener = overflowOpeners.get(btn);
+        entries.push({
+          type: 'action',
+          id: `more-${btn.dataset.action ?? ''}`,
+          label: btn.dataset.menuLabel ?? btn.dataset.tip ?? btn.getAttribute('aria-label') ?? '',
+          // An empty icon slot keeps text-only entries (the size readout) aligned.
+          icon: svg ? svg.outerHTML : '<span aria-hidden="true"></span>',
+          isActive: () => btn.classList.contains('active'),
+          isDisabled: () => btn.disabled,
+          action: () => { if (opener) {opener(moreBtn);} else {btn.click();} },
+        });
+      }
+      while (entries.length && entries[entries.length - 1].type === 'separator') {entries.pop();}
+      if (entries.length) {showToolbarDropdown(moreBtn, entries);}
     });
 
     // ── Assemble ────────────────────────────────────────────────────────────
@@ -2573,6 +2623,20 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     toolbar.appendChild(makeSeparator());
     toolbar.appendChild(themeBtn);
     toolbar.appendChild(settingsBtn);
+    toolbar.appendChild(moreBtn);
+
+    // Keep the toolbar on one row at any width: buttons that don't fit move,
+    // from the right, into the More menu. Rerun whenever the toolbar resizes.
+    if (typeof ResizeObserver !== 'undefined') {
+      let frame = 0;
+      const ro = new ResizeObserver(() => {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => layoutToolbarOverflow(toolbar));
+      });
+      ro.observe(toolbar);
+      disposers.push(() => { cancelAnimationFrame(frame); ro.disconnect(); });
+    }
+    layoutToolbarOverflow(toolbar);
 
     // ── Update dynamic label on selection changes ──────────────────────────
     (toolbar as any).__condensedUpdate = () => {
@@ -2605,11 +2669,15 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const size = currentFontSize();
     const resetBtn = toolbar.querySelector<HTMLButtonElement>('button[data-action="zoomReset"]');
     if (resetBtn) {
+      const sizeChanged = resetBtn.textContent !== String(size);
       resetBtn.textContent = String(size);
+      resetBtn.dataset.menuLabel = `Reset Font Size (${size}px)`;
       const tip = `Font size ${size}px (click to reset to ${DEFAULT_FONT_SIZE}px)`;
       resetBtn.dataset.tip = tip;
       // The accessible name starts with the visible number (WCAG 2.5.3).
       resetBtn.setAttribute('aria-label', `${size} px font size (click to reset to ${DEFAULT_FONT_SIZE}px)`);
+      // A wider readout (9 → 24) can push the row past the edge.
+      if (sizeChanged && resetBtn.isConnected) {layoutToolbarOverflow(toolbar);}
     }
     const outBtn = toolbar.querySelector<HTMLButtonElement>('button[data-action="zoomOut"]');
     if (outBtn) {outBtn.disabled = size <= WHEEL_ZOOM_MIN;}

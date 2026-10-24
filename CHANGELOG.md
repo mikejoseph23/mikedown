@@ -10,6 +10,7 @@ All notable changes to MikeDown Editor are documented here.
 - Task checkboxes are named after their item for screen readers (checkboxes in table cells read "Task done"), and each one now has a 24 by 24px click and touch target. The box looks the same size as before.
 - Toolbar buttons that show text (the "Aa"/"H1" text format menu and the font size readout) now have screen reader names that start with that text, so voice control users can say what they see. Toolbar icons are hidden from assistive technology.
 - The floating table toolbar no longer appears when a document that ends with a table is opened. It shows only once you click or type in a table.
+- The toolbar fits narrow editors and phone screens. Buttons that don't fit move, from the right, into a More (⋯) menu at the end of the toolbar instead of being cut off, and come back as the editor widens. The floating table toolbar wraps to a second row on a phone instead of running off the screen.
 
 ## [2.15.0] - 2026-10-24
 
