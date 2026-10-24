@@ -59,6 +59,13 @@ describe('sync-version rewriting', () => {
     expect(report.mismatches).toEqual([]);
   });
 
+  it('reads and sets versions in CRLF files (Windows checkouts)', () => {
+    const crlf = Object.fromEntries(Object.entries(real).map(([k, v]) => [k, v.replace(/\r?\n/g, '\r\n')]));
+    expect(versionReport(crlf).mismatches).toEqual([]);
+    const lock = setCargoLockVersion(crlf.cargoLock, 'mikedown-desktop', '9.8.7');
+    expect(readCargoLockVersion(lock, 'mikedown-desktop')).toBe('9.8.7');
+  });
+
   it('reports which file drifted', () => {
     const r = versionReport({ ...real, tauriConf: setJsonVersion(real.tauriConf, '5.5.5') });
     expect(r.mismatches).toEqual([expect.stringContaining('tauri.conf.json has 5.5.5')]);

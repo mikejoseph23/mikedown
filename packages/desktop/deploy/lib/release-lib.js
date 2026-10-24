@@ -68,13 +68,13 @@ function packageTable(toml) {
 
 /** The `[[package]] name = "<crate>"` entry in Cargo.lock. */
 export function setCargoLockVersion(lock, crate, version) {
-  const re = new RegExp(`(\\[\\[package\\]\\]\\nname = "${crate}"\\nversion = ")([^"]*)(")`);
+  const re = new RegExp(`(\\[\\[package\\]\\]\\r?\\nname = "${crate}"\\r?\\nversion = ")([^"]*)(")`);
   if (!re.test(lock)) {throw new Error(`no ${crate} entry in Cargo.lock`);}
   return lock.replace(re, `$1${version}$3`);
 }
 
 export function readCargoLockVersion(lock, crate) {
-  const m = new RegExp(`\\[\\[package\\]\\]\\nname = "${crate}"\\nversion = "([^"]*)"`).exec(lock);
+  const m = new RegExp(`\\[\\[package\\]\\]\\r?\\nname = "${crate}"\\r?\\nversion = "([^"]*)"`).exec(lock);
   return m ? m[1] : null;
 }
 
