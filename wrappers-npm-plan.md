@@ -34,7 +34,7 @@
 | [T1 — Release verification](#t1--release-verification) | Sonnet | ⬜ Not Started | — | unit/integration + registry smoke |
 | [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
 | [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | 🔄 In Progress | — | `<mikedown-editor>`, form-associated, CDN bundle |
-| [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | 🔄 In Progress | — | Controlled/uncontrolled, ref, SSR-safe |
+| [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | ✅ Complete | 4 | Controlled/uncontrolled, ref, SSR-safe |
 | [M8 — `@mikedown/vue`](#m8--mikedownvue) | Sonnet | ✅ Complete | 3 | Vue 3, `v-model` |
 | [M9 — `@mikedown/angular`](#m9--mikedownangular) | Opus | 🔄 In Progress | — | ng-packagr, partial Ivy, Angular 17+ |
 | [M10 — `@mikedown/svelte` (deferred)](#m10--mikedownsvelte-deferred) | Sonnet | ⏸ Deferred | — | Out of this plan; web component covers Svelte |
@@ -321,12 +321,12 @@ Package layout for every wrapper: `packages/<name>/` with `package.json` (MIT, `
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] `<MikeDownEditor>` with `value` + `onChange` (controlled) or `defaultValue` (uncontrolled), `theme`, `readOnly`, `placeholder`, `features`, `settings`, `host`, `darkSelector`, `className`, `style`, `onReady(handle)`. `forwardRef` exposes `MikeDownEditorHandle`.
-- [ ] Built on `bindMikeDownValue`; created in `useEffect`, destroyed in cleanup; correct under React StrictMode double mount (mount, unmount, mount); `onChange`/`host` read through a ref so a new callback identity never recreates the editor; a parent re-render with the same `value` never resets the cursor.
-- [ ] SSR-safe: no DOM access at import or render; `'use client'` banner kept in the build (tsup `banner`). *(optional)* `lazy` prop loading core with dynamic `import()`; `next/dynamic` covers the same need, so cut it if time is short.
-- [ ] Peer `react`/`react-dom` `>=18`. tsup ESM + d.ts; `react`, `react-dom` and core external. Forward `id`, `aria-label`, `aria-labelledby`.
-- [ ] Tests (vitest + `@testing-library/react`, jsdom): controlled and uncontrolled, ref, StrictMode, readOnly/theme updates, unmount cleanup.
-- [ ] README with Vite and Next.js (app router) examples. Commit.
+- [x] `<MikeDownEditor>` with `value` + `onChange` (controlled) or `defaultValue` (uncontrolled), `theme`, `readOnly`, `placeholder`, `features`, `settings`, `host`, `darkSelector`, `className`, `style`, `onReady(handle)`. `forwardRef` exposes `MikeDownEditorHandle`.
+- [x] Built on `bindMikeDownValue`; created in `useEffect`, destroyed in cleanup; correct under React StrictMode double mount (mount, unmount, mount); `onChange`/`host` read through a ref so a new callback identity never recreates the editor; a parent re-render with the same `value` never resets the cursor.
+- [x] SSR-safe: no DOM access at import or render; `'use client'` banner kept in the build (tsup `banner`). *(optional)* `lazy` prop loading core with dynamic `import()`; `next/dynamic` covers the same need, so cut it if time is short.
+- [x] Peer `react`/`react-dom` `>=18`. tsup ESM + d.ts; `react`, `react-dom` and core external. Forward `id`, `aria-label`, `aria-labelledby`.
+- [x] Tests (vitest + `@testing-library/react`, jsdom): controlled and uncontrolled, ref, StrictMode, readOnly/theme updates, unmount cleanup.
+- [x] README with Vite and Next.js (app router) examples. Commit.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 17:05** - M7 done (`5c4ef61`, lockfile `7965a25`, 4 min): `@mikedown/react` 0.2.0-rc.0, `<MikeDownEditor>` over `bindMikeDownValue` (controlled/uncontrolled, `forwardRef` handle proxy, latest-props ref so new `onChange`/`host` identities never recreate the editor, equal-value `setValue` skip keeps the caret, StrictMode safe), `'use client'` banner, peers `>=18`, `test:react` 22 tests (passed on React 19.3.1 and 18.3.1), `test/packages/react-shape.test.ts`, README with Vite and Next.js app router (`next/dynamic` in place of the optional `lazy` prop, cut). `placeholder`, `features`, `darkSelector`, `debounceMs` are mount-only (documented). Main tree: compile, lint (0 errors), `test:unit` (1563), `test:packages` (38), `test:react` (22), `test:vue` (11) green.
 
 **2026-10-24 17:00** - M8 done (`8eae38a`, lockfile `97a13d6`, 3 min): `@mikedown/vue` 0.2.0-rc.0, render-function component over `bindMikeDownValue` (no SFC compile), explicit `modelValue`/`update:modelValue`, `ready`, exposed `handle`, `app.use(MikeDown)` plugin, watchers for theme/readOnly/disabled/settings (`placeholder`, `features`, `host` read at mount, documented), Vite lib build plus `vue-tsc` d.ts, `test:vue` (11, binding mocked), `test/packages/vue-shape.test.ts`, README with Vite and Nuxt `<ClientOnly>`. Not yet run in a real Vue app (T2 consumer smoke). Main tree: compile, lint (0 errors), `test:unit` (1563), `test:edge` (22), `test:packages` (26), `test:vue` (11) green.
 
