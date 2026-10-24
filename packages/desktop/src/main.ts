@@ -236,7 +236,7 @@ const updater = createUpdater({
 });
 // A store build (MIKEDOWN_CHANNEL=store) hides Check for Updates. Resolved before the menu is built.
 let updatesEnabled = true;
-const channelKnown = updaterApi.status().then((st) => { updatesEnabled = st.channel !== 'store'; }, () => { /* not under Tauri */ });
+const channelKnown = updaterApi.status().then((st) => { updatesEnabled = st?.channel !== 'store'; }, () => { /* not under Tauri */ });
 const appActions = createAppActions({
   dialogs,
   isMac,

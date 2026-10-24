@@ -26,11 +26,11 @@ test('the App tab is there and Save for this folder is off in a lone-file window
   await page.goto('/');
   await expect(page.locator('#editor .ProseMirror')).toContainText('Text.');
   const modal = await openAppTab(page);
-  for (const text of ['Versions to keep', 'Check for updates on launch', 'Show hidden files', 'Confirm before delete', 'About MikeDown']) {
+  for (const text of ['Versions to keep', 'Automatically check for updates', 'Show hidden files', 'Confirm before delete', 'About MikeDown']) {
     await expect(modal).toContainText(text);
   }
   await expect(modal.getByRole('button', { name: 'Set MikeDown as default for .md' })).toBeVisible();
-  await expect(modal.getByRole('button', { name: /Check for Updates/ })).toBeVisible();
+  await expect(modal.getByRole('button', { name: 'Check Now' })).toBeVisible();
   await expect(check(modal, 'Save for this folder')).toBeDisabled();
 });
 

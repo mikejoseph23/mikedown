@@ -346,6 +346,72 @@ describe('updater: Restart Now', () => {
   });
 });
 
+describe('updater: lifecycle (T1)', () => {
+  const host = (t: ReturnType<typeof setup>, state: 'downloading' | 'verifying' | 'ready' | 'installing' | 'failed' | 'idle', error: string | null = null) =>
+    t.updater.applyHostState({ state, version: '0.2.0', error });
+
+  it('install, cancel at the quit dialog, ready again, then a second install works', async () => {
+    const t = setup();
+    t.updater.announce(INFO);
+    await t.updater.restartNow(); // download + verify, then the quit handshake starts
+    host(t, 'verifying');
+    host(t, 'ready');
+    host(t, 'installing');
+    host(t, 'ready'); // the user cancelled the dirty-file dialog
+    expect(t.updater.getSnapshot()).toMatchObject({ state: 'ready', error: null, progress: null });
+    await t.updater.restartNow();
+    expect(t.api.install).toHaveBeenCalledTimes(2);
+  });
+
+  it('a download that fails lands in failed with the error, and the prompt stays hidden', () => {
+    const t = setup();
+    t.updater.announce(INFO);
+    host(t, 'downloading');
+    t.prompt.show.mockClear();
+    host(t, 'failed', 'signature mismatch');
+    expect(t.updater.getSnapshot()).toMatchObject({ state: 'failed', error: 'signature mismatch', progress: null });
+    expect(t.prompt.show).not.toHaveBeenCalled();
+  });
+
+  it('a manual check during verifying and installing never reaches the host', async () => {
+    const t = setup();
+    t.updater.announce(INFO);
+    for (const s of ['verifying', 'installing'] as const) {
+      host(t, s);
+      await t.updater.manualCheck();
+    }
+    expect(t.api.check).not.toHaveBeenCalled();
+    expect(t.toast).not.toHaveBeenCalledWith(MESSAGES.checking, expect.anything());
+  });
+
+  it('a manual check after a failure checks again and clears the failure', async () => {
+    const t = setup({ check: async () => INFO });
+    t.updater.announce(INFO);
+    host(t, 'failed', 'x');
+    await t.updater.manualCheck();
+    expect(t.api.check).toHaveBeenCalledWith(true);
+    expect(t.updater.getSnapshot()).toMatchObject({ state: 'available', error: null });
+  });
+
+  it('errors are silent on a silent check and spoken on a manual one', async () => {
+    const t = setup({ check: async () => { throw new Error('network down'); } });
+    await t.updater.tick();
+    expect(t.toast).not.toHaveBeenCalled();
+    await t.updater.manualCheck();
+    expect(t.toast).toHaveBeenLastCalledWith(MESSAGES.couldNotCheck, expect.objectContaining({ error: true }));
+  });
+
+  it('a manifest without this platform is a feed error on a manual check, nothing on a silent one', async () => {
+    // The plugin's real text for this case (see tests/updater_staging.rs).
+    const err = new Error('None of the fallback platforms `["darwin-aarch64-app", "darwin-aarch64"]` were found in the response `platforms` object');
+    const t = setup({ check: async () => { throw err; } });
+    await t.updater.tick();
+    expect(t.toast).not.toHaveBeenCalled();
+    await t.updater.manualCheck();
+    expect(t.toast).toHaveBeenLastCalledWith(MESSAGES.badFeed, expect.objectContaining({ error: true }));
+  });
+});
+
 describe('classifyCheckError', () => {
   it.each([
     ['error sending request for url (https://www.iadev.net/mikedown/latest.json)', 'network'],

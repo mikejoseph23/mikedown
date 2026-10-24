@@ -649,6 +649,10 @@ pub async fn updater_install<R: Runtime>(app: AppHandle<R>, state: State<'_, Upd
     Ok(())
 }
 
+// Mock-runtime download tests (progress events, state events, the cache).
+#[cfg(test)]
+mod flow_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;
