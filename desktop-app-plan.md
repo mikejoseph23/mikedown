@@ -37,7 +37,7 @@ MikeDown Desktop is a lightweight standalone WYSIWYG markdown editor for non-dev
 | [M9 — Export HTML and PDF/print](#m9--export-html-and-pdfprint) | Sonnet | ✅ Complete (print GUI checks pending) | 12 | reuses `handle.getHtml()` |
 | [T3 — Feature tests](#t3--feature-tests) | Sonnet | ✅ Automated done (hands-on pending) | 3 | settings, versioning, search, export |
 | [M10 — Updater, signing, build pipeline, download page](#m10--updater-signing-build-pipeline-download-page) | Opus | ⬜ Not Started | — | follows the LymeScribe deploy scripts |
-| [M11 — Polish: a11y, encoding, filesystem oddities](#m11--polish-a11y-encoding-filesystem-oddities) | Sonnet | ⬜ Not Started | — | edge cases 10, 11, 12, 25, 26 |
+| [M11 — Polish: a11y, encoding, filesystem oddities](#m11--polish-a11y-encoding-filesystem-oddities) | Sonnet | 🔄 In Progress | — | edge cases 10, 11, 12, 25, 26 |
 | [T4 — Release candidate hands-on](#t4--release-candidate-hands-on) | Sonnet | ⬜ Not Started | — | full checklist per OS on signed builds |
 
 **Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
