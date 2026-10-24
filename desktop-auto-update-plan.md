@@ -26,10 +26,10 @@
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [U1 — Updater engine: state, cadence, progress, channel](#u1--updater-engine-state-cadence-progress-channel) | Sonnet | ⬜ Not Started | — | Rust + TS logic, no UI |
+| [U1 — Updater engine: state, cadence, progress, channel](#u1--updater-engine-state-cadence-progress-channel) | Sonnet | 🔄 In Progress | — | Rust + TS logic, no UI |
 | [U2 — Update window and settings UI](#u2--update-window-and-settings-ui) | Opus | ⬜ Not Started | — | Sparkle-style window, both OSes |
 | [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | ⬜ Not Started | — | vitest, cargo, e2e |
-| [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | ⬜ Not Started | — | touches `deploy/`; wait for the DMG styling worker |
+| [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | 🔄 In Progress | — | touches `deploy/`; DMG styling landed in 8ae79b8 |
 | [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | ⬜ Not Started | — | macOS + Windows staging |
 | [T2 — Release verification on both OSes](#t2--release-verification-on-both-oses) | Sonnet | ⬜ Not Started | — | hands-on, Mike signs off |
 | [U5 — Docs and runbooks](#u5--docs-and-runbooks) | Haiku | ⬜ Not Started | — | README, key backup and rotation |
@@ -247,7 +247,7 @@ web.config                                   MIME maps only if verification show
 
 ## Open questions
 
-Answer before dispatching U1 and U3. Each has a recommended default that the plan already assumes.
+**Answered 2026-10-23: Mike accepted all seven recommended defaults.**
 
 1. **Mac engine: plugin with Sparkle-style UX, or real Sparkle?** Recommend the plugin (see Gap analysis). Real Sparkle means a native bridge, an EdDSA key and appcast alongside minisign, and a plugin-delivered bridge release for 0.1.0.
 2. **Windows install mode: `quiet` (LymeScribe parity, app blinks and returns) or keep `passive` (NSIS progress window)?** Recommend `quiet` with the in-app "MikeDown will reopen in a moment" line.
@@ -434,6 +434,8 @@ If dispatching fills the orchestrator's context, prompt Mike to run `/compact` w
 ## Progress Log / Notes
 
 Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
+
+**2026-10-23 23:59** - Orchestrator session started. All seven open questions answered with the recommended defaults. DMG styling landed (8ae79b8), so Group A dispatched in worktrees: U1 (Sonnet) and U3 (Opus).
 
 **2026-10-23 23:53** - Plan written from research of LymeScribe (`deploy/`, `docs/deployment.md`, Sparkle and WPF updater code) and MikeDown's M10 updater. Decision: keep `tauri-plugin-updater` on both OSes and rebuild LymeScribe's UX, cadence, per-platform manifests and LymeDeploy publish on top of it. Seven open questions, defaults assumed. Not started.
 
