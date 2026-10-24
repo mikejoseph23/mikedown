@@ -31,7 +31,7 @@
 | [M2 — Publish `@mikedown/core` 0.1.0](#m2--publish-mikedowncore-010) | Sonnet | ✅ Complete | 2 | 0.1.0 on `latest` 2026-10-24; tagged `core-v0.1.0` |
 | [M3 — VS Code extension 2.15.0](#m3--vs-code-extension-2150) | Sonnet | ✅ Complete | 5 | Mike uploads the `.vsix` |
 | [M4 — Downstream onto registry core](#m4--downstream-onto-registry-core) | Sonnet | ✅ Complete | 15 | LymeStarter, Quantico Creek, Desktop pin |
-| [T1 — Release verification](#t1--release-verification) | Sonnet | 🔄 In Progress | — | unit/integration + registry smoke |
+| [T1 — Release verification](#t1--release-verification) | Sonnet | 🔄 Awaiting Mike hands-on | 8 | unit/integration + registry smoke |
 | [M5 — Core value binding helper](#m5--core-value-binding-helper) | Sonnet | ✅ Complete | 12 | Shared by every wrapper; family at 0.2.0-rc.0 |
 | [M6 — `@mikedown/web-component`](#m6--mikedownweb-component) | Opus | ✅ Complete | 21 | `<mikedown-editor>`, form-associated, CDN bundle |
 | [M7 — `@mikedown/react`](#m7--mikedownreact) | Sonnet | ✅ Complete | 4 | Controlled/uncontrolled, ref, SSR-safe |
@@ -255,9 +255,9 @@ Apply to every milestone.
 
 **Worker completion requirement:** complete ALL automated items; report failures, don't fix them (open a gap-fill for the owning milestone).
 
-- [ ] MikeDown: `test:unit`, `test:edge`, `test:integration`, `test:packages`, `test:desktop` green.
-- [ ] Registry smoke: in the scratchpad, `npm create vite@latest smoke -- --template vanilla-ts`, `npm install @mikedown/core` (peers auto-install), mount the README example, `npm run build` green; `node -e "import('@mikedown/core')"` succeeds (import stays SSR-safe).
-- [ ] LymeStarter and both Quantico Creek apps build from the registry core package (re-run if M4 did it before the smoke).
+- [x] MikeDown: `test:unit`, `test:edge`, `test:integration`, `test:packages`, `test:desktop` green.
+- [x] Registry smoke: in the scratchpad, `npm create vite@latest smoke -- --template vanilla-ts`, `npm install @mikedown/core` (peers auto-install), mount the README example, `npm run build` green; `node -e "import('@mikedown/core')"` succeeds (import stays SSR-safe).
+- [x] LymeStarter and both Quantico Creek apps build from the registry core package (re-run if M4 did it before the smoke).
 - [ ] **Hands-on (Mike, 3 minutes):** in VS Code, Extensions panel, confirm MikeDown Editor shows 2.15.0 after the Marketplace update; open `~/git/mikedown/test/workspace/` any `.md` file; type, save, use the toolbar zoom `[−] 15 [+]`; open a callout document and confirm no duplicated body text. Orchestrator pauses for sign-off.
 
 **Also (M0):** apply the "What changes in this plan" lines for T1 in `wrappers-decisions.md`.
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 18:10** - T1 automated items done (8 min, no commits): `test:unit`, `test:edge`, `test:packages`, `test:integration` (47) and `test:desktop` (50 e2e) green; one unit test failed once and passed on three reruns (not identified, watch for flakiness). Registry smoke: `@mikedown/core` 0.1.0 installs its peers, the README example and a bare `styles.css` import build in a fresh Vite app, `import('@mikedown/core')` is SSR-safe. LymeStarter and both Quantico Creek apps build from the registry core (budget warnings only). Hands-on waits on Mike's Marketplace upload.
 
 **2026-10-24 18:05** - Mike approved pushing and tagging. Tagged `core-v0.1.0` (`e7d4530`, core identical to the published tarball) and `v2.15.0` (`97a4929`), pushed with `main` (`4172f62..454ee8b`); LymeStarter `develop` (`779e906..f0be935`) and Quantico Creek `master` (`a310a42..59ed7d8`) pushed. Later merges in this plan get pushed as they land. Still with Mike: npm "disallow tokens" setting, Marketplace upload of `mikedown-editor-2.15.0.vsix`.
 
