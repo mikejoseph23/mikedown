@@ -27,7 +27,7 @@
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
 | [U1 — Updater engine: state, cadence, progress, channel](#u1--updater-engine-state-cadence-progress-channel) | Sonnet | ✅ Done | 9 | Rust + TS logic, no UI; Windows pre-check untested at runtime |
-| [U2 — Update window and settings UI](#u2--update-window-and-settings-ui) | Opus | ⬜ Not Started | — | Sparkle-style window, both OSes |
+| [U2 — Update window and settings UI](#u2--update-window-and-settings-ui) | Opus | 🔄 In Progress | — | Sparkle-style window, both OSes |
 | [T1 — Engine and UI tests](#t1--engine-and-ui-tests) | Sonnet | ⬜ Not Started | — | vitest, cargo, e2e |
 | [U3 — Manifests, hosting and release pipeline](#u3--manifests-hosting-and-release-pipeline) | Opus | 🔄 In Progress | — | touches `deploy/`; DMG styling landed in 8ae79b8 |
 | [U4 — Staging harness: adversarial and continuity cases](#u4--staging-harness-adversarial-and-continuity-cases) | Sonnet | ⬜ Not Started | — | macOS + Windows staging |
