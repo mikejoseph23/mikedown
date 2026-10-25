@@ -30,7 +30,7 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | M1 Core contracts: schema, capabilities, task taxonomy, router | Opus | ✅ Done | 17 | `@mikedown/core/ai` |
 | T1 Unit tests: schema, router, locality, SSE parser | Sonnet | ✅ Done | 8 | vitest, pure |
 | M2 VS Code host: adapters, secrets, settings, protocol | Opus | ✅ Done | 16 | `src/ai/` |
-| T2 Host tests: adapters with mocked fetch, live opt-in run | Sonnet | ⬜ Not Started | — | `MIKEDOWN_AI_LIVE=1` |
+| T2 Host tests: adapters with mocked fetch, live opt-in run | Sonnet | 🔄 In Progress | — | `MIKEDOWN_AI_LIVE=1` |
 | M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | 🔄 In Progress | — | core, all hosts |
 | M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | 🔄 In Progress | — | reqwest + keyring |
 | T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | ⬜ Not Started | — | shared fixtures |
