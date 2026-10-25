@@ -28,11 +28,11 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
 | M1 Core contracts: schema, capabilities, task taxonomy, router | Opus | ✅ Done | 17 | `@mikedown/core/ai` |
-| T1 Unit tests: schema, router, locality, SSE parser | Sonnet | 🔄 In Progress | — | vitest, pure |
-| M2 VS Code host: adapters, secrets, settings, protocol | Opus | ⬜ Not Started | — | `src/ai/` |
+| T1 Unit tests: schema, router, locality, SSE parser | Sonnet | ✅ Done | 8 | vitest, pure |
+| M2 VS Code host: adapters, secrets, settings, protocol | Opus | 🔄 In Progress | — | `src/ai/` |
 | T2 Host tests: adapters with mocked fetch, live opt-in run | Sonnet | ⬜ Not Started | — | `MIKEDOWN_AI_LIVE=1` |
-| M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | ⬜ Not Started | — | core, all hosts |
-| M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | ⬜ Not Started | — | reqwest + keyring |
+| M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | 🔄 In Progress | — | core, all hosts |
+| M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | 🔄 In Progress | — | reqwest + keyring |
 | T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | ⬜ Not Started | — | shared fixtures |
 | M5 Proof feature: selection rewrite with preview popover | Opus | ⬜ Not Started | — | feature id `rewrite` |
 | M6 npm consumers: wrappers, demo stub host, docs | Sonnet | ⬜ Not Started | — | website demo |
@@ -404,13 +404,13 @@ Host to webview:
 
 > Workers must complete ALL items, including running the suite green.
 
-- [ ] `packages/core/test/ai-schema.test.ts`: defaults, unknown keys preserved, missing ids generated once and stable across parse/serialize, malformed entries dropped with a warning not a throw.
-- [ ] `packages/core/test/ai-router.test.ts`: every fixture scenario; capability gating; `fallback` modes; cloud never reached without `allowCloud` plus consent; `viaFallback` set; disabled model skipped; `missing` model skipped.
-- [ ] `packages/core/test/ai-locality.test.ts`: loopback, RFC 1918, `.local`, WireGuard range from `localNetworks`, public host, pinned override.
-- [ ] `packages/core/test/ai-capabilities.test.ts`: heuristics for the model ids in `~/git/home-lab/local-ai/model-catalog.md` (Qwen VL and non-VL, Gemma 4, MiniMax M3, nomic-embed, Qwen Coder), endpoint metadata wins over heuristics, user edits survive re-discovery.
-- [ ] `packages/core/test/ai-sse.test.ts`: both stream shapes, split-across-chunks lines, `[DONE]`, truncated stream yields `finishReason: 'error'`.
-- [ ] `packages/core/test/ai-requests.test.ts`: body per kind, `requestOverrides` merge order (overrides win), `format: 'json'` mapping per kind, image parts.
-- [ ] Run `npm run test:unit` and `npm run test:packages` green; record the commands in the Progress Log.
+- [x] `packages/core/test/ai-schema.test.ts`: defaults, unknown keys preserved, missing ids generated once and stable across parse/serialize, malformed entries dropped with a warning not a throw.
+- [x] `packages/core/test/ai-router.test.ts`: every fixture scenario; capability gating; `fallback` modes; cloud never reached without `allowCloud` plus consent; `viaFallback` set; disabled model skipped; `missing` model skipped.
+- [x] `packages/core/test/ai-locality.test.ts`: loopback, RFC 1918, `.local`, WireGuard range from `localNetworks`, public host, pinned override.
+- [x] `packages/core/test/ai-capabilities.test.ts`: heuristics for the model ids in `~/git/home-lab/local-ai/model-catalog.md` (Qwen VL and non-VL, Gemma 4, MiniMax M3, nomic-embed, Qwen Coder), endpoint metadata wins over heuristics, user edits survive re-discovery.
+- [x] `packages/core/test/ai-sse.test.ts`: both stream shapes, split-across-chunks lines, `[DONE]`, truncated stream yields `finishReason: 'error'`.
+- [x] `packages/core/test/ai-requests.test.ts`: body per kind, `requestOverrides` merge order (overrides win), `format: 'json'` mapping per kind, image parts.
+- [x] Run `npm run test:unit` and `npm run test:packages` green; record the commands in the Progress Log.
 
 [Return to Top](#ai-inference-engines-plan)
 
@@ -638,5 +638,7 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 00:00** - Plan written. Inputs: `ai-copilot-brainstorm.md`, LymeScribe `docs/ai-features-plan.md`, `home-lab/local-ai` catalog (oMLX `:8000` MLX-only with key, LM Studio `:1234` GGUF plus MLX with no auth and loopback-only as of 2026-10-04, Gemma 4 26B-A4B as the vision pick, MiniMax M3 on oMLX, DeepSeek V4 Flash and Qwen 3.8 Flash Next as default brains). Open decisions listed with recommendations; no code written.
 
 **2026-10-25 15:36** - M1 done (`acf4b60`, 17 min). All 12 items plus extras `discovery.ts`, `wire.ts`, `presets.ts`. `localNetworks` is a sixth top-level key; router returns `needsConsent` for an un-asked cloud engine; Anthropic requests omit `temperature`. Verified on branch: `npm run test:unit` 1610 passed. Work is on branch `ai-engines` (worktree `../mikedown-ai-engines`).
+
+**2026-10-25 15:45** - T1 done (`ea462de`, 8 min). Six new test files, 213 tests, no source bugs found. Commands: `npm run test:unit` 1823 passed (verified on branch), `npm run test:packages` 75 passed. Group A (M2, M3, M4) dispatched in parallel, each in its own worktree off the branch.
 
 [Return to Top](#ai-inference-engines-plan)
