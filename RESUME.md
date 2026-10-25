@@ -32,7 +32,7 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
 
    Then close the plan: archive `.orchestrator/wrappers-npm-plan/processed/` into `docs/_archive/`, and remove the plan's entry from `.orchestrator/active-sessions.json`.
 2. **Mike:** on npmjs.com, set each `@mikedown/*` package to "Require two-factor authentication and disallow tokens". The settings page needs his security key.
-3. **Favicon:** a favicon for the website was dispatched at the end of 2026-10-24. If it landed, deploy it as site release 3 (`packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n 3`, with Mike's OK).
+3. **Favicon:** committed (`95deb11`) and not deployed yet. Deploy it as site release 3 (`packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n 3`, with Mike's OK), then check that `/mikedown/favicon.ico` returns 200.
 4. **Mike:** run the Desktop T4 checklist (`packages/desktop/docs/manual-test-checklist.md`, 82 checks) on both OSes, then log it in `desktop-app-plan.md`.
 5. **Re-encrypt the updater key** with a new password (same key, so installs keep working). The current password was shown in chat on 2026-10-24. Then update the Keychain item `mikedown-updater-key` and the LastPass "MikeDown Note".
 6. **Bitbucket is near its 1 GB workspace cap.** The plan is to move `~/git/rando` to private GitHub; it's queued in `~/Desktop/RESUME.md`.
