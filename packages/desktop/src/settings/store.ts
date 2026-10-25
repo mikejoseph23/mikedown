@@ -18,8 +18,11 @@
  */
 import type { MikeDownSettings } from '@mikedown/core';
 import type { PathOps } from '@mikedown/core/shared/imagePaste';
+import type { AiSettings } from '@mikedown/core/ai';
+import { aiSettingsFromFlat, removedEngineIds } from './aiSettings';
 import { DESKTOP_CORE_SETTING_DEFAULTS, type DesktopSettingsStore } from './desktopSettings';
 import {
+  APP_WIDE_KEYS,
   flattenPatch,
   isDesktopKey,
   mergeSettings,
@@ -86,6 +89,8 @@ export interface SettingsManagerDeps {
   desktopChanged?(prev: SettingsRecord, next: SettingsRecord): void;
   banner: SettingsBanner;
   notify(message: string, opts?: { error?: boolean }): void;
+  /** Engines that left `ai.engines` in a save: delete their stored API keys. */
+  onEnginesRemoved?(engineIds: string[]): void;
   /** Open a file in the OS default app ("Open file" in the banner). */
   openFile(path: string): Promise<void> | void;
 }
@@ -106,6 +111,8 @@ export interface SettingsManager {
   save(patch: Record<string, unknown>, opts?: { silent?: boolean; force?: boolean }): Promise<void>;
   /** Core settings every new editor starts with. */
   coreSettings(): Partial<MikeDownSettings>;
+  /** Typed `ai.*` settings (engines, routing, features) as last loaded; what the editors get as `settings.ai`. */
+  aiSettings(): AiSettings;
   /** Desktop defaults, merged files; dotted desktop keys plus core keys. */
   effective(): SettingsRecord;
   /** True when the folder file exists and the last load read it. */
@@ -126,6 +133,7 @@ export function createSettingsManager(deps: SettingsManagerDeps): SettingsManage
   /** Core values the modal showed after the last save (exact baseline for the next diff). */
   let knownCore: SettingsRecord = {};
   let overrideProblems: string[] = [];
+  let ai: AiSettings = aiSettingsFromFlat(store.flat());
 
   async function readFile(scope: SettingsScope, folder: string | null): Promise<FileState> {
     let info: { path: string; text: string | null } | null = null;
@@ -191,10 +199,11 @@ export function createSettingsManager(deps: SettingsManagerDeps): SettingsManage
       lastDesktop = store.flat();
 
       core = coreValues;
+      ai = aiSettingsFromFlat(lastDesktop);
       knownCore = {};
       // A key a previous folder set and this one does not falls back to the
       // global value (or stays as it was when no file has it).
-      const toApply: SettingsRecord = { ...DESKTOP_CORE_SETTING_DEFAULTS, ...core };
+      const toApply: SettingsRecord = { ...DESKTOP_CORE_SETTING_DEFAULTS, ...core, ai };
       for (const key of Object.keys(lastCoreApplied)) {
         if (!(key in toApply) && key in globalFile.values) {toApply[key] = globalFile.values[key];}
       }
@@ -238,6 +247,21 @@ export function createSettingsManager(deps: SettingsManagerDeps): SettingsManage
       }
       knownCore = { ...knownCore, ...coreIn };
 
+      // Engines, the cloud switch and local networks are app-wide (OPEN-4): a
+      // "Save for this folder" save puts them in the global file instead.
+      if (toFolder) {
+        const appWide: SettingsRecord = {};
+        for (const key of APP_WIDE_KEYS) {
+          if (key in changes) {
+            appWide[key] = changes[key];
+            delete changes[key];
+          }
+        }
+        if (Object.keys(appWide).length > 0) {
+          await manager.save(appWide, { silent: true, force: true });
+        }
+      }
+
       if (Object.keys(changes).length === 0) {
         if (!opts?.silent) {deps.notify('Settings saved.');}
         return;
@@ -273,13 +297,18 @@ export function createSettingsManager(deps: SettingsManagerDeps): SettingsManage
       const keepKnown = knownCore;
       await manager.load();
       knownCore = keepKnown;
+      if (scope === 'global' && 'ai.engines' in toWrite) {
+        const gone = removedEngineIds(current['ai.engines'], toWrite['ai.engines']);
+        if (gone.length > 0) {deps.onEnginesRemoved?.(gone);}
+      }
       void api.emitChanged({ from: deps.windowLabel, scope, folder: scope === 'folder' ? folder : null }).catch(() => { /* not under Tauri */ });
       if (!opts?.silent) {
         deps.notify(scope === 'folder' ? 'Settings saved for this folder.' : 'Settings saved.');
       }
     },
 
-    coreSettings: () => ({ ...DESKTOP_CORE_SETTING_DEFAULTS, ...core }) as Partial<MikeDownSettings>,
+    aiSettings: () => ai,
+    coreSettings: () => ({ ...DESKTOP_CORE_SETTING_DEFAULTS, ...core, ai }) as Partial<MikeDownSettings>,
     effective: () => ({ ...store.flat(), ...DESKTOP_CORE_SETTING_DEFAULTS, ...core }),
     folderFileState: () => ({ exists: !!folderFile && (folderFile.corrupt !== null || Object.keys(folderFile.values).length > 0), path: folderFile?.path ?? null }),
 

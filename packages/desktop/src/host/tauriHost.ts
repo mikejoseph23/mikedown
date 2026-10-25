@@ -17,6 +17,11 @@
  * the "committed" text core highlights changes against. `exportHtml` and `printDocument` (M9) are
  * present: core shows its Print / Export as PDF toolbar entry, which is wanted.
  *
+ * `ai` (tier 2, `MikeDownAiHost`) exists when the app passes `deps.ai`: the
+ * engine registry and completions run in the Rust side (`commands/ai.rs`),
+ * `aiHost.ts` adapts them to the host contract. API keys never reach the
+ * webview.
+ *
  * Core's document sidebar (Outline / Backlinks / Properties) gets its
  * persisted pin and section state through `sidebarPrefs` (the app's settings
  * file, `outline.*`) and its backlinks from `refreshBacklinks` /
@@ -43,6 +48,7 @@ import type { DocumentModel } from '../documents/documentModel';
 import type { FsApi } from '../documents/fsApi';
 import type { DesktopSettingsStore } from '../settings/desktopSettings';
 import type { ImagePipeline } from './imagePipeline';
+import { createAiHost, type AiHostDeps } from './aiHost';
 import { routeLink } from './linkRouting';
 import { stripQuery } from './imagePipeline';
 import type { BacklinkIndex } from '../tree/backlinks';
@@ -83,6 +89,8 @@ export interface TauriHostDeps {
   };
   /** M6: text of the newest version snapshot of a file, or null (none, or no folder). */
   diffBaseline?(path: string): Promise<string | null>;
+  /** The AI engine registry (tier 2 `host.ai`). Absent: core keeps every AI surface off. */
+  ai?: AiHostDeps;
   /** Persisted sidebar state (pin, collapsed sections). Absent: core keeps it in memory. */
   outline?: {
     get(): OutlineSettings;
@@ -99,6 +107,7 @@ export class TauriHost implements MikeDownHost {
   private backlinksFor: string | null | undefined = undefined;
   private backlinksRun = 0;
   readonly sidebarPrefs?: MikeDownSidebarPrefs;
+  readonly ai?: MikeDownHost['ai'];
 
   readonly uploadImage: MikeDownHost['uploadImage'];
   readonly pickImage: MikeDownHost['pickImage'];
@@ -127,6 +136,7 @@ export class TauriHost implements MikeDownHost {
         return { headContent: head, hasChanges: head !== null && head !== doc.text };
       };
     }
+    if (deps.ai) {this.ai = createAiHost(deps.ai);}
     const outline = deps.outline;
     if (outline) {
       this.sidebarPrefs = {

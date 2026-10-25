@@ -36,6 +36,20 @@ export interface OutlineSettings {
   sectionPrefs: Record<string, boolean>;
 }
 
+/**
+ * The `ai.*` keys as stored (flat keys `ai.engines` etc. in the settings
+ * files). The values are open-ended; `parseAiSettings` from
+ * `@mikedown/core/ai` turns them into the typed `AiSettings` core uses.
+ */
+export interface AiStoreSettings {
+  enabled: boolean;
+  allowCloud: boolean;
+  engines: unknown[];
+  routing: Record<string, unknown>;
+  features: Record<string, unknown>;
+  localNetworks: unknown[];
+}
+
 export interface DesktopSettings {
   imagePaste: ImagePasteSettings;
   imageResize: { overwrite: boolean };
@@ -43,6 +57,7 @@ export interface DesktopSettings {
   versioning: VersioningSettings;
   updates: { checkOnLaunch: boolean };
   outline: OutlineSettings;
+  ai: AiStoreSettings;
   /** The "make MikeDown the default for .md" offer was shown (M8 reads it). */
   fileAssociationsOffered: boolean;
 }
@@ -65,6 +80,14 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   versioning: { enabled: true, keep: 25, maxSizeMB: 2 },
   updates: { checkOnLaunch: true },
   outline: { visibility: 'never', sectionPrefs: {} },
+  ai: {
+    enabled: false,
+    allowCloud: false,
+    engines: [],
+    routing: {},
+    features: {},
+    localNetworks: [...(DESKTOP_KEY_DEFAULTS['ai.localNetworks'] as unknown[])],
+  },
   fileAssociationsOffered: false,
 };
 
@@ -107,6 +130,11 @@ export interface DesktopSettingsStore {
   onOutlineChange(fn: (patch: SettingsRecord) => void): void;
 }
 
+/** Deep copy of plain JSON values (the AI containers), so the store never aliases a caller's arrays. */
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 function cloneSettings(from: DesktopSettings): DesktopSettings {
   return {
     imagePaste: { ...from.imagePaste },
@@ -115,6 +143,7 @@ function cloneSettings(from: DesktopSettings): DesktopSettings {
     versioning: { ...from.versioning },
     updates: { ...from.updates },
     outline: { visibility: from.outline.visibility, sectionPrefs: { ...from.outline.sectionPrefs } },
+    ai: cloneJson(from.ai),
     fileAssociationsOffered: from.fileAssociationsOffered,
   };
 }
@@ -136,7 +165,7 @@ export function createDesktopSettingsStore(initial: DesktopSettings = DEFAULT_DE
     }
     const dot = key.indexOf('.');
     const group = current[key.slice(0, dot) as 'imagePaste'] as unknown as Record<string, unknown>;
-    group[key.slice(dot + 1)] = checked.value;
+    group[key.slice(dot + 1)] = key.startsWith('ai.') ? cloneJson(checked.value) : checked.value;
   }
 
   function flat(): SettingsRecord {
@@ -156,7 +185,7 @@ export function createDesktopSettingsStore(initial: DesktopSettings = DEFAULT_DE
     apply(patch) {
       for (const [key, value] of Object.entries(patch)) {
         received[key] = value;
-        if (value && typeof value === 'object' && ['imagePaste', 'imageResize', 'versioning', 'updates', 'tree', 'outline'].includes(key)) {
+        if (value && typeof value === 'object' && ['imagePaste', 'imageResize', 'versioning', 'updates', 'tree', 'outline', 'ai'].includes(key)) {
           for (const [k, v] of Object.entries(value as Record<string, unknown>)) {setKey(`${key}.${k}`, v);}
         } else if (key === 'imagePasteEnabled') {
           setKey('imagePaste.enabled', value);

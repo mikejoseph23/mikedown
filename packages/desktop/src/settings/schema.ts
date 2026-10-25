@@ -26,8 +26,28 @@ export const DESKTOP_KEY_DEFAULTS = {
   'tree.confirmDelete': true,
   'outline.visibility': 'never',
   'outline.sectionPrefs': {} as Record<string, boolean>,
+  // AI inference engines (ai-inference-engines-plan.md). Same keys the VS Code
+  // extension keeps under `mikedown.ai.*`; core's `parseAiSettings` validates
+  // the open-ended values, so only the container type is checked here.
+  'ai.enabled': false,
+  'ai.allowCloud': false,
+  'ai.engines': [] as unknown[],
+  'ai.routing': {} as Record<string, unknown>,
+  'ai.features': {} as Record<string, unknown>,
+  // RFC 1918, the same default as core's DEFAULT_LOCAL_NETWORKS.
+  'ai.localNetworks': ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'] as unknown[],
   fileAssociationsOffered: false,
 } as const;
+
+/**
+ * AI keys that only the global settings file may carry (OPEN-4). A repo's
+ * `.mikedown/settings.json` must not be able to add an endpoint, turn the
+ * cloud switch on, or re-label a public host as local: the folder file is
+ * dropped of them on load (with a reason in the banner) and a "Save for this
+ * folder" save writes them to the global file instead. The Rust side reads
+ * only the global file for the same keys (`commands/ai.rs`).
+ */
+export const APP_WIDE_KEYS: readonly DesktopKey[] = ['ai.engines', 'ai.allowCloud', 'ai.localNetworks'];
 
 export type DesktopKey = keyof typeof DESKTOP_KEY_DEFAULTS;
 export type SettingsRecord = Record<string, unknown>;
@@ -38,7 +58,7 @@ export const SAVE_FOR_FOLDER_KEY = 'app.saveForFolder';
 /** Keys that never reach the editors or the files (the app follows the OS theme). */
 const IGNORED_CORE_KEYS = new Set(['editorTheme']);
 
-const NESTED_DESKTOP_GROUPS = new Set(['versioning', 'updates', 'imagePaste', 'imageResize', 'tree', 'outline']);
+const NESTED_DESKTOP_GROUPS = new Set(['versioning', 'updates', 'imagePaste', 'imageResize', 'tree', 'outline', 'ai']);
 
 export function isDesktopKey(key: string): key is DesktopKey {
   return Object.prototype.hasOwnProperty.call(DESKTOP_KEY_DEFAULTS, key);
@@ -80,6 +100,12 @@ export function sanitizeDesktopValue(key: DesktopKey, value: unknown): { ok: tru
   if (typeof def === 'boolean') {return typeof value === 'boolean' ? { ok: true, value } : { ok: false };}
   if (typeof def === 'number') {
     return typeof value === 'number' && Number.isFinite(value) && value > 0 ? { ok: true, value } : { ok: false };
+  }
+  if (key.startsWith('ai.')) {
+    // Containers only; the entries are core's to validate (`parseAiSettings`).
+    if (Array.isArray(def)) {return Array.isArray(value) ? { ok: true, value } : { ok: false };}
+    const plain = !!value && typeof value === 'object' && !Array.isArray(value);
+    return plain ? { ok: true, value } : { ok: false };
   }
   if (def && typeof def === 'object') {
     // `outline.sectionPrefs`: section name to collapsed.
@@ -139,6 +165,13 @@ export function validateFolderOverride(
   const value: SettingsRecord = {};
   const problems: OverrideProblem[] = [];
   for (const [key, v] of Object.entries(override)) {
+    if ((APP_WIDE_KEYS as readonly string[]).includes(key)) {
+      problems.push({
+        key,
+        reason: `${key} in this folder's settings file was ignored: AI engines, the cloud switch and local networks can only be set in your own settings, not per folder.`,
+      });
+      continue;
+    }
     if (key === 'imagePaste.folder' && typeof v === 'string') {
       const expanded = v.replace(/\$\{docName\}/g, 'doc');
       const home = /^~(?:[\\/]|$)/.test(expanded);

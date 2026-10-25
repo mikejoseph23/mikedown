@@ -55,8 +55,10 @@ function coreFromSource(): Plugin {
       if (id === '@mikedown/core') {return path.join(coreSrc, 'index.ts');}
       if (id.startsWith('@mikedown/core/')) {
         // `@mikedown/core/shared/imagePaste` → `../core/src/shared/imagePaste.ts`
+        // `@mikedown/core/ai` → `../core/src/ai/index.ts` (a folder entry).
         const file = path.join(coreSrc, id.slice('@mikedown/core/'.length));
-        return path.extname(file) ? file : `${file}.ts`;
+        if (path.extname(file)) {return file;}
+        return fs.existsSync(file) && fs.statSync(file).isDirectory() ? path.join(file, 'index.ts') : `${file}.ts`;
       }
       return null;
     },

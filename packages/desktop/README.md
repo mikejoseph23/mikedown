@@ -221,6 +221,33 @@ watcher; `tauri.conf.json` sets the fs plugin's `requireLiteralLeadingDot:
 false` so `$HOME/**` also covers dotfolders (`.mikedown/versions`, show
 hidden).
 
+### AI engines (`commands/ai.rs`)
+
+The AI provider layer (see `ai-inference-engines-plan.md`) runs in Rust: the
+webview never opens a socket to an engine and never sees an API key. The
+commands are `ai_complete` (streams `ai-token:<id>`, then `ai-done:<id>` or
+`ai-error:<id>` to the calling window; closing the window cancels its
+requests), `ai_cancel`, `ai_list_engines`, `ai_test_engine`,
+`ai_discover_models`, `ai_set_secret` and `ai_request_cloud_consent` (a native
+dialog), called only from `src/host/aiApi.ts`; `src/host/aiHost.ts` turns them
+into core's `host.ai` (tier 2). Adapters per engine kind are in
+`commands/ai/providers/`; request building, SSE reading and discovery parsing
+are ports of `packages/core/src/ai/` and run against the shared
+`test/ai-fixtures/`.
+
+- Engines come from the **global** `<app-data>/settings.json` (`ai.engines`,
+  `ai.allowCloud`, `ai.localNetworks`). A folder's `.mikedown/settings.json`
+  cannot add an endpoint or switch the cloud on; the app drops those keys with
+  a banner message. Everything else under `ai.*` follows the folder-wins merge.
+- Keys live in the OS keychain (service `net.iadev.mikedown`, account = engine
+  id). With no stored key, the engine's `apiKeyEnv` variable is read from the
+  app's environment; a Dock or Finder launch has no shell profile, so store the
+  key in Settings instead.
+- A cloud engine needs `ai.allowCloud` and the user's answer for the window's
+  folder (`ai.consent.<engineId>` in that folder's settings file; a window
+  with no folder remembers it for the session). The Rust side checks this
+  itself, whatever the webview asks for.
+
 ### Disk, scope and native window state
 
 All disk I/O goes through the app's own commands in `src-tauri/src/commands/`

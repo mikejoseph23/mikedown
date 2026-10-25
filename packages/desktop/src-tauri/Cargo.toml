@@ -42,9 +42,30 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Hot-exit backups are keyed by the sha256 of the document path (M4).
 sha2 = "0.10"
+# AI inference engines (commands/ai.rs): streaming HTTP to the user's own
+# endpoints (oMLX, LM Studio, Ollama, Anthropic, OpenAI...). rustls, no
+# system OpenSSL; `stream` for the SSE bodies.
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+futures-util = "0.3"
+# Cooperative cancellation of in-flight completions (watch channel + select!).
+tokio = { version = "1", features = ["sync", "macros", "time"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
+
+# Engine API keys live in the OS keychain (service net.iadev.mikedown, account
+# = engine id); they never reach the webview or settings.json. Each OS gets its
+# native store; any other target falls back to the crate's in-memory mock.
+[target.'cfg(target_os = "macos")'.dependencies.keyring]
+version = "3"
+features = ["apple-native"]
+
+[target.'cfg(windows)'.dependencies.keyring]
+version = "3"
+features = ["windows-native"]
+
+[target.'cfg(not(any(target_os = "macos", windows)))'.dependencies.keyring]
+version = "3"
 
 # macOS title-bar state Tauri does not wrap: NSWindow.documentEdited (dirty
 # dot) and representedFilename (proxy icon). Same crates Tauri itself uses.
@@ -67,6 +88,8 @@ libc = "0.2"
 [dev-dependencies]
 # `tests/updater_staging.rs` drives the updater plugin on Tauri's mock runtime.
 tauri = { version = "2", features = ["protocol-asset", "test"] }
+# `commands/ai/tests.rs` runs the provider adapters against a loopback HTTP server.
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
 
 [profile.release]
 codegen-units = 1

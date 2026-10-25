@@ -292,6 +292,9 @@ function handle(ipc: Ipc, cmd: string, args: any, headers: Record<string, string
       return null;
     case 'recents_allow':
       return true;
+    case 'ai_list_engines':
+      // No engines on disk in e2e; the AI commands themselves are covered by cargo tests.
+      return [];
     default:
       // Window/title/represented-file, allow_asset, shell, dialogs, menus,
       // welcome_file (null: no first-run guide unless a spec provides one): no-ops.

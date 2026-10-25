@@ -33,6 +33,7 @@ import { createBackupScheduler, planRestore } from './documents/backups';
 import { createDocumentRegistry, planOpen, type DocumentModel } from './documents/documentModel';
 import { appDataApi, fsApi, launchApi, searchApi, treeApi, watchApi, windowApi, windowsApi } from './documents/fsApi';
 import { createSessionWriter, layoutFromSession, parseSession, serializeSession, type SessionData, type SessionTab } from './documents/session';
+import { aiApi } from './host/aiApi';
 import { createImagePipeline } from './host/imagePipeline';
 import { createPathOps, detectPathPlatform } from './host/pathOps';
 import { TauriHost } from './host/tauriHost';
@@ -199,6 +200,8 @@ const settingsMgr = createSettingsManager({
   },
   banner: settingsBanner,
   notify: (message, opts) => dialogs.toast(message, opts),
+  // An engine deleted in the Settings modal leaves its API key in the keychain otherwise.
+  onEnginesRemoved: (ids) => { for (const id of ids) {void aiApi.setSecret(id, null).catch(() => { /* no keychain entry */ });} },
   openFile: (p) => fsApi.openInDefaultApp(p),
 });
 settings.onTreeChange((patch) => { void settingsMgr.save(patch, { silent: true, force: true }); });
@@ -291,6 +294,11 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
     },
     diffBaseline: (p) => versioning.newestText(p),
     outline: { get: () => settings.get().outline, set: (patch) => settings.setOutline(patch) },
+    ai: {
+      api: aiApi,
+      settings: () => settingsMgr.aiSettings(),
+      saveEngines: (engines) => settingsMgr.save({ 'ai.engines': engines }, { silent: true }),
+    },
   });
   const kb = workspaceRef?.knowledgeBase() ?? null;
   if (kb) {host.setKnowledgeBase(kb);}

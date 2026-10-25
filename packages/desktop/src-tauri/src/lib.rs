@@ -4,7 +4,7 @@
 //! commands under `src/commands/` (file I/O and the folder tree's operations,
 //! the per-directory watcher, native window state, hot-exit backups and
 //! sessions, multi-window routing and the quit handshake, folder search,
-//! the self-updater).
+//! the self-updater, the AI engine commands).
 
 use std::path::PathBuf;
 
@@ -101,6 +101,7 @@ pub fn run() {
         .manage(commands::print::PrintJobs::default())
         .manage(commands::updater::UpdaterState::default())
         .manage(commands::search::Searches::default())
+        .manage(commands::ai::AiState::new())
         .manage(menu::MenuState::default())
         .menu(|handle| menu::build(handle))
         .on_menu_event(|app, event| menu::handle(app, event.id().as_ref()))
@@ -182,6 +183,13 @@ pub fn run() {
             commands::updater::updater_skip,
             commands::updater::updater_snooze,
             commands::updater::updater_status,
+            commands::ai::ai_complete,
+            commands::ai::ai_cancel,
+            commands::ai::ai_list_engines,
+            commands::ai::ai_test_engine,
+            commands::ai::ai_discover_models,
+            commands::ai::ai_set_secret,
+            commands::ai::ai_request_cloud_consent,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MikeDown");
@@ -212,6 +220,8 @@ pub fn run() {
             tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } => {
                 app_handle.state::<commands::multiwindow::WindowRegistry>().remove(label);
                 commands::launch::forget(app_handle, label);
+                // A closed window's AI requests have nowhere to stream to.
+                commands::ai::cancel_window(app_handle, label);
                 commands::print::close_stragglers(app_handle);
             }
             _ => {}

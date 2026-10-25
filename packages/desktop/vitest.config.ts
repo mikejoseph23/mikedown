@@ -15,6 +15,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@mikedown\/core\/shared(\/.*)?$/, replacement: path.join(coreSrc, 'shared') + '$1' },
+      { find: /^@mikedown\/core\/ai$/, replacement: path.join(coreSrc, 'ai', 'index.ts') },
       { find: /^@mikedown\/core$/, replacement: path.join(coreSrc, 'index.ts') },
     ],
   },

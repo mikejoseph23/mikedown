@@ -50,6 +50,11 @@ impl WindowRegistry {
         self.windows.lock().unwrap().remove(label);
     }
 
+    /// The folder a window reported (None for a lone-file window or an unknown label).
+    pub fn folder_of(&self, label: &str) -> Option<PathBuf> {
+        self.windows.lock().unwrap().get(label).and_then(|info| info.folder.clone())
+    }
+
     pub fn snapshot(&self) -> Vec<(String, WindowInfo)> {
         self.windows.lock().unwrap().iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }

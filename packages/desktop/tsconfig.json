@@ -13,6 +13,7 @@
     "types": ["vite/client"],
     "paths": {
       "@mikedown/core": ["../core/dist/index.d.ts"],
+      "@mikedown/core/ai": ["../core/dist/ai/index.d.ts"],
       "@mikedown/core/shared/*": ["../core/src/shared/*"]
     }
   },
