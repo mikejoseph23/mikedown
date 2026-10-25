@@ -13,6 +13,7 @@
 import { countWords, readingMinutes } from './shared/wordCount';
 import { formatRelativeTime } from './relativeTime';
 import type { BacklinkItem, MikeDownSidebarPrefs } from './host';
+import type { AiIndicatorState, AiIndicatorTone } from './ai-settings-model';
 
 export type OutlineVisibilityPref = 'always' | 'never';
 export type OutlinePosition = 'left' | 'right';
@@ -53,6 +54,8 @@ interface InitOptions {
   onSupportOpen?: () => void;
   /** Footer × clicked — the owner persists `mikedown.support.showSidebarLink = false`. */
   onSupportDismiss?: () => void;
+  /** Footer AI chip clicked — the owner opens the AI settings tab. */
+  onAiIndicatorClick?: () => void;
 }
 
 /** Entry point labels this module renders (subset of `ENTRY_COPY` in src/supportCopy.ts). */
@@ -88,6 +91,18 @@ const SIDEBAR_ARROW_RIGHT = '<svg width="14" height="14" viewBox="0 0 24 24" fil
 const SIDEBAR_ICON_LEFT  = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1"/><rect x="3" y="4" width="3" height="8" fill="currentColor" stroke="none"/></svg>';
 const SIDEBAR_ICON_RIGHT = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1"/><rect x="10" y="4" width="3" height="8" fill="currentColor" stroke="none"/></svg>';
 
+// Footer AI chip glyphs, 10px: a house for local, a cloud, a hollow ring when
+// off or unrouted, a filled dot for a host that routes by itself.
+const aiGlyph = (body: string) => `<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const AI_CHIP_GLYPHS: Record<AiIndicatorTone | 'warn', string> = {
+  local: aiGlyph('<path d="M2.5 7.5L8 3l5.5 4.5M4 6.5V13h8V6.5"/>'),
+  cloud: aiGlyph('<path d="M4.5 12.5h7a2.75 2.75 0 0 0 .3-5.48A4 4 0 0 0 4.1 7.6 2.5 2.5 0 0 0 4.5 12.5z"/>'),
+  off: aiGlyph('<circle cx="8" cy="8" r="4.5"/>'),
+  none: aiGlyph('<circle cx="8" cy="8" r="4.5"/><path d="M5 11l6-6"/>'),
+  on: aiGlyph('<circle cx="8" cy="8" r="4" fill="currentColor"/>'),
+  warn: aiGlyph('<path d="M8 2.2l6.2 11H1.8z"/><path d="M8 6.5v3M8 11.4v.1"/>'),
+};
+
 interface TagItem {
   tag: string;
   count: number;
@@ -112,6 +127,8 @@ export interface OutlineSidebar {
   /** True while the sidebar is showing. */
   isVisible(): boolean;
   applySupportLink(opts: { visible: boolean; copy?: SupportLinkCopy | null }): void;
+  /** Show the AI indicator chip in the footer, or hide it with null. */
+  applyAiIndicator(state: AiIndicatorState | null): void;
   /** Stop the footer clock and forget the DOM this instance was bound to. */
   destroy(): void;
 }
@@ -198,6 +215,12 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
   let supportStatusTimer: number | null = null;
   const SUPPORT_STATUS_MS = 4000;
 
+  // AI indicator chip (which engine served the last request). Persistent, so
+  // keyboard focus survives the footer's row re-renders.
+  let aiChipEl: HTMLButtonElement | null = null;
+  let aiIndicatorCb: (() => void) | null = null;
+  let aiIndicator: AiIndicatorState | null = null;
+
   function init(opts: InitOptions): void {
     editorRef = opts.editor;
     prefsRef = opts.prefs ?? null;
@@ -207,6 +230,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     propertiesChangeCb = opts.onPropertiesChange ?? null;
     supportOpenCb = opts.onSupportOpen ?? null;
     supportDismissCb = opts.onSupportDismiss ?? null;
+    aiIndicatorCb = opts.onAiIndicatorClick ?? null;
 
     sidebarEl = opts.sidebarEl;
     toggleEl = opts.toggleEl;
@@ -320,8 +344,14 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     supportStatusEl.className = 'sidebar-footer-status';
     supportStatusEl.setAttribute('role', 'status');
     supportStatusEl.setAttribute('data-testid', 'sidebar-support-status');
-    footerEl.append(footerRowsEl, supportStatusEl);
+    aiChipEl = document.createElement('button');
+    aiChipEl.type = 'button';
+    aiChipEl.className = 'sidebar-ai-chip';
+    aiChipEl.setAttribute('data-testid', 'sidebar-ai-chip');
+    aiChipEl.addEventListener('click', () => aiIndicatorCb?.());
+    footerEl.append(aiChipEl, footerRowsEl, supportStatusEl);
     root.appendChild(footerEl);
+    renderAiIndicator();
 
     // Resize handle — same role as before
     const handle = document.createElement('div');
@@ -1553,6 +1583,33 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     renderFooter();
   }
 
+  /** The AI chip: tone drives the glyph and colour, text is ellipsized, the tooltip has the detail. */
+  function applyAiIndicator(state: AiIndicatorState | null): void {
+    aiIndicator = state;
+    renderAiIndicator();
+  }
+
+  function renderAiIndicator(): void {
+    const chip = aiChipEl;
+    if (!chip) {return;}
+    const state = aiIndicator;
+    chip.hidden = !state;
+    if (!state) {return;}
+    chip.dataset.tone = state.tone;
+    chip.classList.toggle('is-fallback', state.fallback);
+    chip.classList.toggle('is-warn', state.warn);
+    chip.title = state.title;
+    chip.setAttribute('aria-label', `${state.text}. Open AI settings`);
+    const glyph = document.createElement('span');
+    glyph.className = 'sidebar-ai-glyph';
+    glyph.setAttribute('aria-hidden', 'true');
+    glyph.innerHTML = AI_CHIP_GLYPHS[state.warn ? 'warn' : state.tone];
+    const text = document.createElement('span');
+    text.className = 'sidebar-ai-text';
+    text.textContent = state.text;
+    chip.replaceChildren(glyph, text);
+  }
+
   /**
    * Stop the footer clock and forget the DOM this module was bound to. Called
    * when the owning editor is destroyed.
@@ -1596,6 +1653,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     applyPlainText,
     toggleSidebarVisible,
     applySupportLink,
+    applyAiIndicator,
     isVisible: () => !!sidebarEl && !sidebarEl.hidden,
     destroy: destroyOutlineSidebar,
   };

@@ -3,7 +3,7 @@
  * Build the core stylesheets into packages/core/dist:
  *
  *   dist/tokens.css  the --mikedown-* token defaults (copy of src/styles/tokens.css)
- *   dist/styles.css  KaTeX import + tokens + the 20 component files, in cascade order
+ *   dist/styles.css  KaTeX import + tokens + the 21 component files, in cascade order
  *
  * Plain Node, no dependencies. Relative `@import "./x.css"` lines inside a
  * component file (editor.css pulls in theme.css) are inlined in place. The
@@ -42,6 +42,7 @@ export const ORDER = [
   'slashcommands.css',
   'spellcheck.css',
   'settings-modal.css',
+  'ai.css',
 ];
 
 /** Inline relative @import lines (recursively); returns the CSS and the files it pulled in. */

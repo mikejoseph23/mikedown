@@ -1,0 +1,825 @@
+/* MikeDown — AI settings tab (ai-settings.ts) and the sidebar AI chip.
+ *
+ * The tab is built from the Settings modal's own rows and groups
+ * (settings-modal.css); this file only adds what those do not have: the
+ * engine list (glyph, local/cloud pill, status dot, default star, switch),
+ * the inline engine editor, the models table with capability chips, route
+ * pickers and notes. Loaded after settings-modal.css so it can lean on the
+ * --settings-* tokens.
+ */
+
+:is(.mikedown-root, .mikedown-portal) .settings-modal {
+  --ai-ok: var(--mikedown-success, #2e7d32);
+  --ai-error: var(--mikedown-danger, #c62828);
+  --ai-warn: var(--mikedown-warning, #b26a00);
+  --ai-info: var(--mikedown-info, #1e70d6);
+  --ai-local: var(--mikedown-success, #2e7d32);
+  --ai-cloud: var(--mikedown-info, #1e70d6);
+  --ai-tile-bg: var(--mikedown-active, rgba(128, 128, 128, 0.18));
+  --ai-row-hover: var(--mikedown-hover, rgba(128, 128, 128, 0.08));
+  --ai-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Screen-reader-only live region for probe results. */
+:is(.mikedown-root, .mikedown-portal) .ai-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-mono {
+  font-family: var(--mikedown-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-muted {
+  font-size: 12px;
+  color: var(--settings-muted);
+}
+
+/* ── Notes (warnings, info, inline results) ─────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .ai-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-note-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-note--warning .ai-note-icon { color: var(--ai-warn); }
+:is(.mikedown-root, .mikedown-portal) .ai-note--error { color: var(--ai-error); }
+:is(.mikedown-root, .mikedown-portal) .ai-note--ok .ai-note-icon { color: var(--ai-ok); }
+:is(.mikedown-root, .mikedown-portal) .ai-note--info .ai-note-icon { color: var(--ai-info); }
+
+/* Notes and errors span both columns of an inline row (and stay left). */
+:is(.mikedown-root, .mikedown-portal) .settings-row--inline > .ai-row-note,
+:is(.mikedown-root, .mikedown-portal) .settings-row--inline > .ai-locality-note,
+:is(.mikedown-root, .mikedown-portal) .settings-row--inline > .ai-field-error { justify-self: stretch; }
+:is(.mikedown-root, .mikedown-portal) .ai-row-note,
+:is(.mikedown-root, .mikedown-portal) .ai-locality-note,
+:is(.mikedown-root, .mikedown-portal) .ai-field-error {
+  grid-column: 1 / -1;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-locality-note:empty,
+:is(.mikedown-root, .mikedown-portal) .ai-field-error:empty { display: none; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-field-error {
+  font-size: 12px;
+  color: var(--ai-error);
+}
+:is(.mikedown-root, .mikedown-portal) .settings-input[aria-invalid="true"] {
+  border-color: var(--ai-error);
+}
+
+/* A result appears with a short fade and rise, so a probe that comes back
+   reads as an answer rather than a layout jump. */
+:is(.mikedown-root, .mikedown-portal) .ai-result {
+  animation: ai-arrive 220ms var(--ai-ease);
+}
+@keyframes ai-arrive {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── Pills, tags, glyphs ─────────────────────────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .ai-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  height: 17px;
+  border-radius: 9px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-pill--local {
+  color: var(--ai-local);
+  background: color-mix(in srgb, var(--ai-local) 12%, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-pill--cloud {
+  color: var(--ai-cloud);
+  background: color-mix(in srgb, var(--ai-cloud) 12%, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-pill--mismatch {
+  border-color: var(--ai-warn);
+  border-style: dashed;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-pill--blocked {
+  color: var(--settings-muted);
+  border-color: var(--settings-control-border);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-pill--soon {
+  color: var(--settings-muted);
+  border-color: var(--settings-control-border);
+  font-weight: 400;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-tag {
+  font-size: 10.5px;
+  padding: 0 5px;
+  line-height: 16px;
+  border-radius: 3px;
+  color: var(--settings-muted);
+  background: var(--ai-tile-bg);
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-tag--loaded {
+  color: var(--ai-ok);
+  background: color-mix(in srgb, var(--ai-ok) 12%, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-tag--loaded::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 1px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-tag--missing { font-style: italic; }
+
+/* Kind tile: a rounded square like an extension icon. */
+:is(.mikedown-root, .mikedown-portal) .ai-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--ai-tile-bg);
+  color: var(--mikedown-text-ui, var(--settings-fg));
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+  user-select: none;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-glyph[data-kind="lmstudio"] { background: color-mix(in srgb, var(--mikedown-accent, #3f51b5) 16%, transparent); }
+:is(.mikedown-root, .mikedown-portal) .ai-glyph[data-kind="ollama"] { background: color-mix(in srgb, var(--mikedown-text, #888) 14%, transparent); }
+:is(.mikedown-root, .mikedown-portal) .ai-glyph[data-kind="anthropic"] { background: color-mix(in srgb, #d97757 22%, transparent); }
+:is(.mikedown-root, .mikedown-portal) .ai-glyph[data-kind="openai"] { background: color-mix(in srgb, #10a37f 20%, transparent); }
+:is(.mikedown-root, .mikedown-portal) .ai-glyph[data-kind="unknown"] { border: 1px dashed var(--settings-control-border); background: transparent; }
+:is(.mikedown-root, .mikedown-portal) .ai-glyph--sm {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  font-size: 9.5px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-glyph--sm svg { width: 12px; height: 12px; }
+
+/* ── Controls ────────────────────────────────────────────────────────────── */
+
+/* Switch: a checkbox with role="switch". */
+:is(.mikedown-root, .mikedown-portal) .ai-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 28px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--settings-control-border);
+  cursor: pointer;
+  transition: background 160ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--mikedown-surface-raised, #fff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 160ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-switch:checked { background: var(--mikedown-accent, #3f51b5); }
+:is(.mikedown-root, .mikedown-portal) .ai-switch:checked::after { transform: translateX(12px); background: var(--mikedown-accent-text, #fff); }
+:is(.mikedown-root, .mikedown-portal) .ai-switch:disabled { opacity: 0.45; cursor: default; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--mikedown-radius-sm, 4px);
+  background: transparent;
+  color: var(--settings-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-icon-btn:hover {
+  background: var(--settings-hover-bg);
+  color: var(--settings-fg);
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-star.is-on { color: #e3a008; }
+:is(.mikedown-root, .mikedown-portal) .ai-delete-btn:hover { color: var(--ai-error); }
+
+:is(.mikedown-root, .mikedown-portal) .settings-btn:has(svg) {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+:is(.mikedown-root, .mikedown-portal) .settings-btn[aria-disabled="true"],
+:is(.mikedown-root, .mikedown-portal) .settings-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-btn--danger {
+  color: var(--ai-error);
+  border-color: color-mix(in srgb, var(--ai-error) 55%, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-btn--danger:hover {
+  background: color-mix(in srgb, var(--ai-error) 12%, transparent);
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-edit-btn svg { transition: transform 160ms var(--ai-ease); }
+:is(.mikedown-root, .mikedown-portal) .ai-edit-btn[aria-expanded="true"] svg { transform: rotate(90deg); }
+
+:is(.mikedown-root, .mikedown-portal) .ai-switch:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .ai-icon-btn:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .ai-chip:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .ai-menu-item:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .ai-model-check:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .ai-model-label:focus-visible {
+  outline: 1px solid var(--settings-focus);
+  outline-offset: 1px;
+}
+
+/* ── Engines list ────────────────────────────────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .ai-engines {
+  border: 1px solid var(--settings-divider);
+  border-radius: var(--mikedown-radius, 6px);
+  overflow: hidden;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-engine + .ai-engine { border-top: 1px solid var(--settings-divider); }
+:is(.mikedown-root, .mikedown-portal) .ai-engine.is-open { background: color-mix(in srgb, var(--ai-row-hover) 60%, transparent); }
+
+:is(.mikedown-root, .mikedown-portal) .ai-engine-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 12px;
+  min-height: 34px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-engine:not(.is-open) .ai-engine-head:hover { background: var(--ai-row-hover); }
+
+:is(.mikedown-root, .mikedown-portal) .ai-engine-glyph { display: inline-flex; }
+:is(.mikedown-root, .mikedown-portal) .ai-engine.is-disabled .ai-engine-glyph,
+:is(.mikedown-root, .mikedown-portal) .ai-engine.is-disabled .ai-engine-main { opacity: 0.55; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-engine-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-engine-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 6px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-engine-name {
+  font-weight: 600;
+  color: var(--settings-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-engine-sub {
+  font-size: 12px;
+  color: var(--settings-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-engine-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-engine-actions .ai-switch { margin: 0 6px; }
+
+/* Status dot: hollow ring never probed, green ok, red failed, a soft pulse
+   while a probe runs. Colour changes ease so a result lands calmly. */
+:is(.mikedown-root, .mikedown-portal) .ai-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 74px;
+  justify-content: flex-end;
+  margin-right: 4px;
+  font-size: 11.5px;
+  color: var(--settings-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 1.5px solid var(--settings-muted);
+  background: transparent;
+  transition: background-color 240ms var(--ai-ease), border-color 240ms var(--ai-ease), box-shadow 240ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-status[data-state="ok"] .ai-status-dot {
+  background: var(--ai-ok);
+  border-color: var(--ai-ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ai-ok) 18%, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-status[data-state="error"] .ai-status-dot {
+  background: var(--ai-error);
+  border-color: var(--ai-error);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ai-error) 16%, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-status[data-state="error"] { color: var(--ai-error); }
+:is(.mikedown-root, .mikedown-portal) .ai-status[data-state="busy"] .ai-status-dot {
+  border-color: var(--ai-warn);
+  background: var(--ai-warn);
+  animation: ai-pulse 1s ease-in-out infinite;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-status-text { transition: color 240ms var(--ai-ease); }
+@keyframes ai-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-engine-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 12px 10px 54px;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 10px 10px 54px;
+  padding: 8px 10px;
+  border-radius: var(--mikedown-radius-sm, 4px);
+  background: color-mix(in srgb, var(--ai-error) 8%, transparent);
+  animation: ai-arrive 160ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-confirm-text {
+  flex: 1;
+  min-width: 180px;
+  font-size: 12px;
+  color: var(--settings-fg);
+}
+
+/* ── Add engine ──────────────────────────────────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .ai-add,
+:is(.mikedown-root, .mikedown-portal) .ai-empty-actions {
+  position: relative;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-add-menu-wrap { position: relative; display: inline-block; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-menu {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 270px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--mikedown-surface-raised, #252526);
+  border: 1px solid var(--settings-border);
+  border-radius: var(--mikedown-radius, 6px);
+  box-shadow: 0 8px 24px var(--mikedown-shadow, rgba(0, 0, 0, 0.3));
+  animation: ai-arrive 140ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-menu[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-menu-heading {
+  padding: 6px 8px 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--mikedown-radius-sm, 4px);
+  background: transparent;
+  color: var(--settings-fg);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-menu-item:hover,
+:is(.mikedown-root, .mikedown-portal) .ai-menu-item:focus {
+  background: var(--settings-hover-bg);
+  outline: none;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-menu-text { display: flex; flex-direction: column; min-width: 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-menu-name { font-size: 12.5px; }
+:is(.mikedown-root, .mikedown-portal) .ai-menu-url {
+  font-size: 11px;
+  color: var(--settings-muted);
+  font-family: var(--mikedown-font-mono, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Empty state: an invitation, not an error. */
+:is(.mikedown-root, .mikedown-portal) .ai-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 22px 20px 20px;
+  text-align: center;
+  border: 1px dashed var(--settings-control-border);
+  border-radius: var(--mikedown-radius, 6px);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-empty-art {
+  color: var(--settings-muted);
+  opacity: 0.8;
+  margin-bottom: 2px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-empty-art .ai-empty-spark { color: var(--mikedown-accent, #3f51b5); stroke: var(--mikedown-accent, #3f51b5); }
+:is(.mikedown-root, .mikedown-portal) .ai-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--settings-fg);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-empty-text {
+  max-width: 380px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-empty-actions .ai-menu { left: 50%; transform: translateX(-50%); animation: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-empty-preset { display: inline-flex; align-items: center; gap: 6px; padding-left: 6px; }
+
+/* ── Engine editor ───────────────────────────────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .ai-engine-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 12px 14px 54px;
+  animation: ai-arrive 180ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-editor-group {
+  background: var(--mikedown-surface-raised, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-field .settings-input { width: 100%; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-key {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-key .settings-btn[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-key-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ai-ok);
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-key-state:empty { display: none; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-probe { gap: 8px; }
+:is(.mikedown-root, .mikedown-portal) .ai-probe-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-probe-buttons .settings-btn[hidden] { display: none; }
+
+/* ── Models ──────────────────────────────────────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .ai-models {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-models-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-models-count {
+  font-size: 11.5px;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-models-empty {
+  font-size: 12px;
+  color: var(--settings-muted);
+  padding: 10px 12px;
+  border: 1px dashed var(--settings-control-border);
+  border-radius: var(--mikedown-radius-sm, 4px);
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-model-list {
+  border: 1px solid var(--settings-divider);
+  border-radius: var(--mikedown-radius-sm, 4px);
+  max-height: 360px;
+  overflow-y: auto;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-model {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  transition: opacity 160ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-model + .ai-model { border-top: 1px solid var(--settings-divider); }
+:is(.mikedown-root, .mikedown-portal) .ai-model.is-missing { opacity: 0.55; }
+:is(.mikedown-root, .mikedown-portal) .ai-model.is-off .ai-chips { opacity: 0.6; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-model-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-model-check {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  accent-color: var(--mikedown-accent, #3f51b5);
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-model-names {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Label field reads as text until hovered or focused. */
+:is(.mikedown-root, .mikedown-portal) .ai-model-label {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 5px;
+  margin-left: -5px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--settings-fg);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-model-label::placeholder {
+  color: var(--settings-fg);
+  opacity: 0.9;
+  font-family: var(--mikedown-font-mono, monospace);
+  font-size: 12px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-model-label:hover { border-color: var(--settings-control-border); }
+:is(.mikedown-root, .mikedown-portal) .ai-model-label:focus {
+  border-color: var(--settings-focus);
+  background: var(--mikedown-input-bg, transparent);
+  outline: none;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-model-id {
+  font-family: var(--mikedown-font-mono, monospace);
+  font-size: 11px;
+  color: var(--settings-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-model-tags {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-model-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-model-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-context-input {
+  width: 72px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-context-unit {
+  font-size: 10.5px;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-overrides-btn {
+  font-family: var(--mikedown-font-mono, monospace);
+  font-size: 11px;
+  width: auto;
+  padding: 0 6px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-overrides-btn.has-value { color: var(--mikedown-accent, #3f51b5); }
+:is(.mikedown-root, .mikedown-portal) .ai-overrides-btn[aria-expanded="true"] { background: var(--settings-hover-bg); color: var(--settings-fg); }
+
+/* Capability chips: pressed chips are filled; the source tag sits at the end. */
+:is(.mikedown-root, .mikedown-portal) .ai-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding-left: 22px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-chip {
+  padding: 0 7px;
+  height: 19px;
+  border-radius: 10px;
+  border: 1px solid var(--settings-control-border);
+  background: transparent;
+  color: var(--settings-muted);
+  font: inherit;
+  font-size: 11px;
+  line-height: 17px;
+  cursor: pointer;
+  transition: background-color 120ms var(--ai-ease), color 120ms var(--ai-ease), border-color 120ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-chip:hover { border-color: var(--settings-fg); color: var(--settings-fg); }
+:is(.mikedown-root, .mikedown-portal) .ai-chip.is-on {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--mikedown-accent, #3f51b5) 18%, transparent);
+  color: var(--settings-fg);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-source {
+  margin-left: 4px;
+  font-size: 10.5px;
+  color: var(--settings-muted);
+  font-style: italic;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-source--user { color: var(--mikedown-accent, #3f51b5); font-style: normal; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-overrides {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 22px;
+  animation: ai-arrive 160ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-overrides-text {
+  resize: vertical;
+  min-height: 54px;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-model-add {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ── Routing and features ────────────────────────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .settings-row.ai-section[hidden] { display: none; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-routing {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-subhead {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) select.ai-route-select { max-width: 260px; }
+:is(.mikedown-root, .mikedown-portal) .ai-task-row .settings-desc { font-size: 11.5px; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-feature-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-feature.is-planned .settings-row-text { opacity: 0.55; }
+
+/* The master switch carries the tab: a touch more presence. */
+:is(.mikedown-root, .mikedown-portal) .ai-master .settings-label { font-size: 13.5px; }
+
+:is(.mikedown-root, .mikedown-portal) .settings-row--check .ai-row-note { margin-top: -2px; }
+
+/* ── Narrow content pane ─────────────────────────────────────────────────── */
+
+@container settings-content (max-width: 520px) {
+  :is(.mikedown-root, .mikedown-portal) .ai-engine-head { flex-wrap: wrap; }
+  :is(.mikedown-root, .mikedown-portal) .ai-engine-actions { width: 100%; justify-content: flex-end; }
+  :is(.mikedown-root, .mikedown-portal) .ai-status { margin-right: auto; justify-content: flex-start; min-width: 0; }
+  :is(.mikedown-root, .mikedown-portal) .ai-engine-editor,
+  :is(.mikedown-root, .mikedown-portal) .ai-engine-issues,
+  :is(.mikedown-root, .mikedown-portal) .ai-confirm { padding-left: 12px; margin-left: 10px; }
+  :is(.mikedown-root, .mikedown-portal) .ai-engine-editor { margin-left: 0; }
+  :is(.mikedown-root, .mikedown-portal) .ai-model-top { flex-wrap: wrap; }
+  :is(.mikedown-root, .mikedown-portal) .ai-chips { padding-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.mikedown-root, .mikedown-portal) .ai-result,
+  :is(.mikedown-root, .mikedown-portal) .ai-confirm,
+  :is(.mikedown-root, .mikedown-portal) .ai-menu,
+  :is(.mikedown-root, .mikedown-portal) .ai-engine-editor,
+  :is(.mikedown-root, .mikedown-portal) .ai-overrides,
+  :is(.mikedown-root, .mikedown-portal) .ai-status[data-state="busy"] .ai-status-dot { animation: none; }
+  :is(.mikedown-root, .mikedown-portal) .ai-switch,
+  :is(.mikedown-root, .mikedown-portal) .ai-switch::after,
+  :is(.mikedown-root, .mikedown-portal) .ai-status-dot { transition: none; }
+}
+
+/* ── Sidebar footer chip ─────────────────────────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  max-width: 100%;
+  margin: 0 0 1px -5px;
+  padding: 1px 6px 1px 5px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.5;
+  cursor: pointer;
+  text-align: left;
+}
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-chip[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-chip:hover {
+  background: var(--mikedown-hover, rgba(128, 128, 128, 0.12));
+  color: var(--mikedown-text-ui, inherit);
+}
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-chip:focus-visible {
+  outline: 1px solid var(--mikedown-focus-ring, #007fd4);
+  outline-offset: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-glyph { display: inline-flex; flex-shrink: 0; }
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-chip[data-tone="local"] .sidebar-ai-glyph { color: var(--mikedown-success, #2e7d32); }
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-chip[data-tone="cloud"] .sidebar-ai-glyph { color: var(--mikedown-info, #1e70d6); }
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-chip[data-tone="none"] .sidebar-ai-glyph { color: var(--mikedown-warning, #b26a00); }
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-chip[data-tone="cloud"] {
+  border-color: color-mix(in srgb, var(--mikedown-info, #1e70d6) 35%, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .sidebar-ai-chip.is-warn .sidebar-ai-glyph { color: var(--mikedown-warning, #b26a00); }

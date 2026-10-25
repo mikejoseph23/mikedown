@@ -4,7 +4,7 @@
  */
 
 import type { Editor } from '@tiptap/core';
-import type { AiSettings } from './ai/types';
+import type { AiEngineStatus, AiServedBy, AiSettings } from './ai/types';
 import type { BacklinkItem, ImageInsertResult, LinkSuggestion, MikeDownHost, TagCount } from './host';
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -233,6 +233,8 @@ export type MikeDownCommand =
   | 'toggleSource'
   | 'toggleSidebar'
   | 'openSettings'
+  /** Open the Settings modal on the AI tab (no-op without `host.ai`). */
+  | 'openAiSettings'
   | 'copyAsRichText'
   // Menu-bar commands for hosts with their own menus (MikeDown Desktop). Each
   // mirrors an existing toolbar action or keystroke; no-ops in source mode
@@ -331,6 +333,14 @@ export interface MikeDownEditorHandle {
   /** Show or hide the sidebar footer link (requires `features.supportCard`). */
   setSidebarFooterLink(link: SidebarFooterLink | null): void;
   setDiffAvailable(available: boolean): void;
+  /**
+   * Show which engine served the last AI request in the sidebar's AI chip
+   * (`AI: local · oMLX · Qwen 3.8 Flash Next`). `viaFallback` adds
+   * "(fallback)". Null forgets it, so the chip shows the route again.
+   */
+  setAiServed(served: AiServedBy | null, opts?: { viaFallback?: boolean }): void;
+  /** Push engine statuses the host learned on its own (VS Code's `aiEngines` broadcast). */
+  setAiEngineStatuses(statuses: AiEngineStatus[]): void;
   /** True while the Settings modal or another core modal is open. */
   isModalOpen(): boolean;
   /** Which view is showing, where the caret is and how far it is scrolled. */

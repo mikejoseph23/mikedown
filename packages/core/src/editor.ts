@@ -91,12 +91,17 @@ import {
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
+import { defaultAiSettings, parseAiSettings } from './ai';
+import type { AiEngineStatus, AiServedBy, AiSettings } from './ai';
+import { buildAiSettingsSection } from './ai-settings';
+import { aiHostTier, aiIndicatorState } from './ai-settings-model';
 import type {
   MikeDownEditorHandle,
   MikeDownEvent,
   MikeDownFeatures,
   MikeDownOptions,
   MikeDownSettings,
+  MikeDownSettingsSection,
   MikeDownSettingsSectionContext,
   MikeDownViewState,
   NormalizationStyle,
@@ -1707,7 +1712,29 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       makeSelectRow,
       close: () => overlay.remove(),
     };
-    const builtSections = (options.extraSettingsSections ?? []).map((section) => ({
+    // The AI tab is core's own section, built only for a host with an `ai`
+    // group. Listed after the host's sections so it lands right after Spelling.
+    const aiSections: MikeDownSettingsSection[] = aiHost ? [{
+      tab: 'ai',
+      tabLabel: 'AI',
+      afterTab: spellcheckAvailable ? 'spelling' : 'markdown',
+      panelClassName: 'settings-panel--ai',
+      build: (ctx) => buildAiSettingsSection(ctx, {
+        ai: aiHost,
+        settings: currentAiSettings,
+        statuses: aiStatuses,
+        getHostSettings: () => currentAiSettings,
+        saveNow: host.saveSettings ? (patch) => host.saveSettings?.(patch, { silent: true }) : undefined,
+        waitForSettings: waitForAiSettings,
+        onStatuses: (list) => { aiStatuses = list; renderAiIndicator(); },
+        onSaved: (saved) => {
+          currentAiSettings = saved;
+          renderAiIndicator();
+          scheduleAiStatusRefresh();
+        },
+      }),
+    }] : [];
+    const builtSections = [...(options.extraSettingsSections ?? []), ...aiSections].map((section) => ({
       section,
       build: section.build(sectionCtx),
     }));
@@ -1992,6 +2019,69 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   // Sidebar footer link (the VS Code support appeal). Null hides it.
   let sidebarFooterLink: SidebarFooterLink | null = null;
+
+  // ── AI (host.ai): settings, engine statuses and the footer chip ────────────
+  // Inert without host.ai. Settings arrive as `settings.ai`; statuses come
+  // from host.ai.listEngines (tier 2) or handle.setAiEngineStatuses; the chip
+  // shows what served the last request (handle.setAiServed).
+  const aiHost = features.ai ? host.ai : undefined;
+  let currentAiSettings: AiSettings = defaultAiSettings();
+  let aiStatuses: AiEngineStatus[] = [];
+  let aiServed: { served: AiServedBy; viaFallback: boolean } | null = null;
+  /** Pending waiters for a settings echo (the AI tab saving engines before a test). */
+  const aiSettingsWaiters = new Set<(s: AiSettings) => void>();
+  let aiStatusTimer: number | undefined;
+  disposers.push(() => window.clearTimeout(aiStatusTimer));
+
+  function renderAiIndicator(): void {
+    outlineSidebar?.applyAiIndicator(aiHost
+      ? aiIndicatorState({
+        settings: currentAiSettings,
+        statuses: aiStatuses,
+        tier: aiHostTier(aiHost),
+        served: aiServed?.served ?? null,
+        viaFallback: aiServed?.viaFallback ?? false,
+      })
+      : null);
+  }
+
+  function applyAiSettings(raw: unknown): void {
+    // Hosts send parsed settings; parsing again is cheap and keeps a sloppy host safe.
+    currentAiSettings = parseAiSettings(raw, { onWarning: () => { /* the host already warned */ } });
+    for (const waiter of [...aiSettingsWaiters]) {waiter(currentAiSettings);}
+    renderAiIndicator();
+    scheduleAiStatusRefresh();
+  }
+
+  /** Refresh engine statuses from the host (debounced: settings broadcasts come in bursts). */
+  function scheduleAiStatusRefresh(): void {
+    const ai = aiHost;
+    if (!ai?.listEngines) {return;}
+    window.clearTimeout(aiStatusTimer);
+    aiStatusTimer = window.setTimeout(() => {
+      ai.listEngines?.().then((list) => {
+        if (destroyed) {return;}
+        aiStatuses = list;
+        renderAiIndicator();
+      }).catch(() => { /* keep the last statuses */ });
+    }, 150);
+  }
+
+  function waitForAiSettings(accept: (s: AiSettings) => boolean, timeoutMs: number): Promise<AiSettings | null> {
+    return new Promise((resolve) => {
+      const waiter = (s: AiSettings) => {
+        if (!accept(s)) {return;}
+        window.clearTimeout(timer);
+        aiSettingsWaiters.delete(waiter);
+        resolve(s);
+      };
+      const timer = window.setTimeout(() => {
+        aiSettingsWaiters.delete(waiter);
+        resolve(null);
+      }, timeoutMs);
+      aiSettingsWaiters.add(waiter);
+    });
+  }
   // This editor's own sidebar (null when features.sidebar is off).
   let outlineSidebar: OutlineSidebar | null = null;
 
@@ -3895,6 +3985,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // and dismissing do; see handle.setSidebarFooterLink.
     onSupportOpen: () => sidebarFooterLink?.onOpen(),
     onSupportDismiss: () => sidebarFooterLink?.onDismiss(),
+    onAiIndicatorClick: () => showSettingsModal('ai'),
   });
   disposers.push(() => outlineSidebar?.destroy());
   }
@@ -5490,6 +5581,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       case 'openSettings':
         showSettingsModal(args?.tab);
         break;
+      // The host's "Open AI settings" (VS Code: mikedown.openAiSettings, the AI status bar item).
+      case 'openAiSettings':
+        if (aiHost) {showSettingsModal('ai');}
+        break;
       // M11 — Copy as rich text: write HTML + plain text to clipboard.
       case 'copyAsRichText':
         copyAsRichText();
@@ -5615,6 +5710,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (typeof patch.docDir === 'string') {
       docDirFsPath = patch.docDir;
     }
+    if (patch.ai !== undefined && aiHost) {applyAiSettings(patch.ai);}
     const spellKeys: Array<keyof MikeDownSettings> = [
       'spellCheckEnabled', 'spellCheckLanguage', 'spellCheckIgnoreCodeBlocks', 'spellCheckUserWords', 'spellCheckExternalWords',
     ];
@@ -5843,6 +5939,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     setSidebarState,
     setSidebarFooterLink,
     setDiffAvailable: (available: boolean) => { fileHasGitChanges = available; },
+    setAiServed: (served, o) => {
+      aiServed = served ? { served, viaFallback: !!o?.viaFallback } : null;
+      renderAiIndicator();
+    },
+    setAiEngineStatuses: (list) => {
+      aiStatuses = Array.isArray(list) ? list : [];
+      renderAiIndicator();
+    },
     isModalOpen: () => !!settingsOverlay?.isConnected,
     getViewState,
     setViewState,
@@ -5870,6 +5974,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   if (!features.slashCommands) {setSlashCommandsConfig({ enabled: false });}
   outlineSidebar?.setTagsSectionEnabled(tagsAvailable && currentTagsEnabled);
   if (options.settings) {updateSettings(options.settings);}
+  if (aiHost) {
+    renderAiIndicator();
+    scheduleAiStatusRefresh();
+  }
   if (options.theme) {setTheme(options.theme);}
   if (options.readOnly) {setReadOnly(true);}
   if (options.initialMarkdown !== undefined) {setMarkdown(options.initialMarkdown, { pristine: true });}
