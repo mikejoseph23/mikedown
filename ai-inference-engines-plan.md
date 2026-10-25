@@ -29,7 +29,7 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 |---|---|---|---|---|
 | M1 Core contracts: schema, capabilities, task taxonomy, router | Opus | ✅ Done | 17 | `@mikedown/core/ai` |
 | T1 Unit tests: schema, router, locality, SSE parser | Sonnet | ✅ Done | 8 | vitest, pure |
-| M2 VS Code host: adapters, secrets, settings, protocol | Opus | 🔄 In Progress | — | `src/ai/` |
+| M2 VS Code host: adapters, secrets, settings, protocol | Opus | ✅ Done | 16 | `src/ai/` |
 | T2 Host tests: adapters with mocked fetch, live opt-in run | Sonnet | ⬜ Not Started | — | `MIKEDOWN_AI_LIVE=1` |
 | M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | 🔄 In Progress | — | core, all hosts |
 | M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | 🔄 In Progress | — | reqwest + keyring |
@@ -422,16 +422,16 @@ Host to webview:
 
 > Workers must complete ALL items in this list. If an item seems out of scope, note it in your summary for the orchestrator, but attempt it unless truly blocked.
 
-- [ ] `package.json#contributes.configuration`: `mikedown.ai.enabled`, `mikedown.ai.allowCloud`, `mikedown.ai.engines` (user scope, OPEN-3), `mikedown.ai.routing`, `mikedown.ai.features`, `mikedown.ai.localNetworks`, with schemas and descriptions that point at the Settings modal.
-- [ ] `src/settings.ts`: `ai: AiSettings` via `parseAiSettings`; included in the `settings` broadcast without secrets.
-- [ ] `src/ai/secrets.ts`: SecretStorage get/set/delete by engine id, `apiKeyEnv` fallback, delete on engine removal (diff old and new `engines` on config change).
-- [ ] `src/ai/providers/openaiCompatible.ts`, `lmstudio.ts`, `ollama.ts`, `anthropic.ts`, `openai.ts` implementing `ProviderAdapter` with Node `fetch`, SSE via core `sse.ts`, request bodies via core `requests.ts`, HTTP status to `AiErrorCode` mapping (401/403 auth, 404 modelNotFound, 413 or 400 with "context" contextOverflow, 429 rateLimited, network unreachable).
-- [ ] `src/ai/engineService.ts`: adapter map, probe cache with timestamps, one in-flight request per panel keyed by `requestId` with `AbortController`, cloud gate enforcement (`cloudBlocked`), consent store in `workspaceState` keyed `mikedown.ai.consent.<engineId>`, consent modal via `vscode.window.showWarningMessage({ modal: true })`.
-- [ ] `markdownEditorProvider.ts`: route the seven webview messages, emit the six host messages, dispose in-flight requests on `onDidDispose`, broadcast `aiEngines` after a config change.
-- [ ] `src/webview/vsCodeHost.ts`: implement `MikeDownAiHost` (tier 2) over `post` with request-id correlation.
-- [ ] Status bar item `AI: …` updated from `aiDone`, hidden when `enabled` is false; click runs `mikedown.openAiSettings` which opens the modal on the AI tab.
-- [ ] Commands: `mikedown.openAiSettings`, `mikedown.ai.testAllEngines` (writes results to an output channel "MikeDown AI").
-- [ ] Output channel logging: one line per request (feature, task, engine, model, local/cloud, latency, finish reason), never the prompt text.
+- [x] `package.json#contributes.configuration`: `mikedown.ai.enabled`, `mikedown.ai.allowCloud`, `mikedown.ai.engines` (user scope, OPEN-3), `mikedown.ai.routing`, `mikedown.ai.features`, `mikedown.ai.localNetworks`, with schemas and descriptions that point at the Settings modal.
+- [x] `src/settings.ts`: `ai: AiSettings` via `parseAiSettings`; included in the `settings` broadcast without secrets.
+- [x] `src/ai/secrets.ts`: SecretStorage get/set/delete by engine id, `apiKeyEnv` fallback, delete on engine removal (diff old and new `engines` on config change).
+- [x] `src/ai/providers/openaiCompatible.ts`, `lmstudio.ts`, `ollama.ts`, `anthropic.ts`, `openai.ts` implementing `ProviderAdapter` with Node `fetch`, SSE via core `sse.ts`, request bodies via core `requests.ts`, HTTP status to `AiErrorCode` mapping (401/403 auth, 404 modelNotFound, 413 or 400 with "context" contextOverflow, 429 rateLimited, network unreachable).
+- [x] `src/ai/engineService.ts`: adapter map, probe cache with timestamps, one in-flight request per panel keyed by `requestId` with `AbortController`, cloud gate enforcement (`cloudBlocked`), consent store in `workspaceState` keyed `mikedown.ai.consent.<engineId>`, consent modal via `vscode.window.showWarningMessage({ modal: true })`.
+- [x] `markdownEditorProvider.ts`: route the seven webview messages, emit the six host messages, dispose in-flight requests on `onDidDispose`, broadcast `aiEngines` after a config change.
+- [x] `src/webview/vsCodeHost.ts`: implement `MikeDownAiHost` (tier 2) over `post` with request-id correlation.
+- [x] Status bar item `AI: …` updated from `aiDone`, hidden when `enabled` is false; click runs `mikedown.openAiSettings` which opens the modal on the AI tab.
+- [x] Commands: `mikedown.openAiSettings`, `mikedown.ai.testAllEngines` (writes results to an output channel "MikeDown AI").
+- [x] Output channel logging: one line per request (feature, task, engine, model, local/cloud, latency, finish reason), never the prompt text.
 
 [Return to Top](#ai-inference-engines-plan)
 
@@ -640,5 +640,7 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 15:36** - M1 done (`acf4b60`, 17 min). All 12 items plus extras `discovery.ts`, `wire.ts`, `presets.ts`. `localNetworks` is a sixth top-level key; router returns `needsConsent` for an un-asked cloud engine; Anthropic requests omit `temperature`. Verified on branch: `npm run test:unit` 1610 passed. Work is on branch `ai-engines` (worktree `../mikedown-ai-engines`).
 
 **2026-10-25 15:45** - T1 done (`ea462de`, 8 min). Six new test files, 213 tests, no source bugs found. Commands: `npm run test:unit` 1823 passed (verified on branch), `npm run test:packages` 75 passed. Group A (M2, M3, M4) dispatched in parallel, each in its own worktree off the branch.
+
+**2026-10-25 16:05** - M2 done (`ce8db45`, 16 min), fast-forwarded into `ai-engines`; main-tree check: `npm run compile` ok, `npm run test:unit` 1867 passed. `engines`/`localNetworks` are `scope: machine`; a workspace can turn `allowCloud` off but not on. Contract additions: non-image wire messages carry a `requestId`; `VsCodeHost.onAiEngines` push listener (non-contract, decide before M5); "Not now" consent is not stored. M5 should re-resolve and retry once after an `unreachable` before the first token so fallback works on the first attempt. Discovery writes merged models to settings itself (relayed to M3).
 
 [Return to Top](#ai-inference-engines-plan)
