@@ -80,6 +80,11 @@ export interface AiModelConfig {
   manual?: boolean;
 }
 
+export interface AiApiKeyFile {
+  path: string;
+  jsonPath: string;
+}
+
 export interface AiEngineConfig {
   /** Stable, generated once, never shown. */
   id: string;
@@ -91,6 +96,12 @@ export interface AiEngineConfig {
   locality: AiLocalitySetting;
   /** Environment variable the host reads when no key is stored. The key itself is never in settings. */
   apiKeyEnv?: string;
+  /**
+   * A JSON file in the user's home folder the host reads when no key is stored and
+   * `apiKeyEnv` is unset. `path` may start with `~/`; `jsonPath` is a dotted path to
+   * a string value (`auth.api_key`). The key itself is never in settings.
+   */
+  apiKeyFile?: AiApiKeyFile;
   /** `auto` lists models from the endpoint and merges them with manual ones; `manual` never asks. */
   discovery: 'auto' | 'manual';
   models: AiModelConfig[];

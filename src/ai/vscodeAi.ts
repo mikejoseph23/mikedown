@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as os from 'os';
 import { AI_SETTINGS_KEYS, getAiFeature, hostOfUrl, parseAiSettings, serializeAiSettings, type AiEngineConfig } from '@mikedown/core/ai';
 import { getSettings, stableEngineIdGenerator, effectiveAiRaw } from '../settings';
 import { AiEngineService } from './engineService';
@@ -43,9 +44,10 @@ async function askCloudConsent(engine: AiEngineConfig, feature: string | undefin
 }
 
 export function createVsCodeAiService(context: vscode.ExtensionContext, output: vscode.OutputChannel): AiEngineService {
+  const log = (line: string) => output.appendLine(`[${timestamp()}] ${line}`);
   return new AiEngineService({
     readSettings: () => getSettings().ai,
-    secrets: new AiSecrets(context.secrets),
+    secrets: new AiSecrets(context.secrets, process.env, os.homedir, log),
     consent: {
       get: (id) => context.workspaceState.get<boolean>(`${CONSENT_PREFIX}${id}`),
       grant: (id) => context.workspaceState.update(`${CONSENT_PREFIX}${id}`, true),
@@ -53,7 +55,7 @@ export function createVsCodeAiService(context: vscode.ExtensionContext, output: 
     },
     askConsent: askCloudConsent,
     saveEngines: (engines) => vscode.workspace.getConfiguration('mikedown').update('ai.engines', JSON.parse(JSON.stringify(engines)), vscode.ConfigurationTarget.Global),
-    log: (line) => output.appendLine(`[${timestamp()}] ${line}`),
+    log,
   });
 }
 

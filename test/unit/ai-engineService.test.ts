@@ -3,11 +3,14 @@
  * gate, consent once per workspace, one in-flight request per panel, secrets
  * pruned when an engine disappears, statuses from probes and failures.
  */
-import { describe, expect, it, vi } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeAiError, parseAiSettings, type AiEngineKind, type AiSettings, type ProviderAdapter } from '@mikedown/core/ai';
 import { AiEngineService, type EngineServiceDeps } from '../../src/ai/engineService';
 import { createAdapters } from '../../src/ai/providers';
-import { AiSecrets, secretKey, type SecretStore } from '../../src/ai/secrets';
+import { AiSecrets, KEY_FILE_MAX_BYTES, secretKey, type SecretStore } from '../../src/ai/secrets';
 import { effectiveAiRaw, stableEngineIdGenerator } from '../../src/settings';
 
 const rawSettings = {
@@ -514,5 +517,140 @@ describe('secrets follow the settings', () => {
     expect(service.cachedStatuses().find((s) => s.engineId === 'omlx')?.ok).toBe(true);
     setSettings({ ...rawSettings, engines: [{ ...rawSettings.engines[0], baseUrl: 'http://127.0.0.1:9000/v1' }, rawSettings.engines[1]] });
     expect(service.cachedStatuses().find((s) => s.engineId === 'omlx')?.ok).toBeNull();
+  });
+});
+
+describe('AiSecrets key file', () => {
+  const dirs: string[] = [];
+  const tmp = (): string => {
+    const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'mikedown-keyfile-')));
+    dirs.push(dir);
+    return dir;
+  };
+  afterEach(() => {
+    while (dirs.length) {fs.rmSync(dirs.pop()!, { recursive: true, force: true });}
+  });
+
+  /** A fake home with `.omlx/settings.json` holding `body`, and a secrets object rooted there. */
+  function setup(body: string | null, env: Record<string, string> = {}, store = memoryStore()) {
+    const home = tmp();
+    fs.mkdirSync(path.join(home, '.omlx'));
+    if (body !== null) {fs.writeFileSync(path.join(home, '.omlx', 'settings.json'), body);}
+    const log: string[] = [];
+    const secrets = new AiSecrets(store, env, () => home, (l) => log.push(l));
+    return { home, log, secrets, store };
+  }
+  const omlx = { id: 'omlx', apiKeyEnv: 'OMLX_API_KEY', apiKeyFile: { path: '~/.omlx/settings.json', jsonPath: 'auth.api_key' } };
+  const good = JSON.stringify({ auth: { api_key: ' sk-file ' } });
+
+  it('reads the key through ~ and answers hasKey from the file alone', async () => {
+    const { secrets } = setup(good);
+    expect(await secrets.resolve(omlx)).toBe('sk-file');
+    expect(await secrets.hasKey(omlx)).toBe(true);
+  });
+
+  it('the order is stored, then the variable, then the file', async () => {
+    const store = memoryStore({ [secretKey('omlx')]: 'stored' });
+    const { secrets, home } = setup(good, { OMLX_API_KEY: 'from-env' }, store);
+    expect(await secrets.resolve(omlx)).toBe('stored');
+    await secrets.delete('omlx');
+    expect(await secrets.resolve(omlx)).toBe('from-env');
+    expect(await new AiSecrets(store, {}, () => home).resolve(omlx)).toBe('sk-file');
+  });
+
+  it('accepts an absolute path under home', async () => {
+    const { secrets, home } = setup(good);
+    const abs = { ...omlx, apiKeyFile: { path: path.join(home, '.omlx', 'settings.json'), jsonPath: 'auth.api_key' } };
+    expect(await secrets.resolve(abs)).toBe('sk-file');
+  });
+
+  it('refuses a file outside home, and relative paths', async () => {
+    const { secrets, log } = setup(good);
+    const elsewhere = tmp();
+    fs.writeFileSync(path.join(elsewhere, 'k.json'), good);
+    expect(await secrets.resolve({ ...omlx, apiKeyFile: { path: path.join(elsewhere, 'k.json'), jsonPath: 'auth.api_key' } })).toBeNull();
+    expect(await secrets.resolve({ ...omlx, apiKeyFile: { path: '~/../' + path.basename(elsewhere) + '/k.json', jsonPath: 'auth.api_key' } })).toBeNull();
+    expect(await secrets.resolve({ ...omlx, apiKeyFile: { path: 'k.json', jsonPath: 'auth.api_key' } })).toBeNull();
+    expect(log.join('\n')).toContain('outside the home folder');
+  });
+
+  it.skipIf(process.platform === 'win32')('refuses a symlink that escapes home and follows one that stays inside', async () => {
+    const { secrets, home, log } = setup(null);
+    const elsewhere = tmp();
+    fs.writeFileSync(path.join(elsewhere, 'k.json'), good);
+    fs.symlinkSync(path.join(elsewhere, 'k.json'), path.join(home, '.omlx', 'settings.json'));
+    expect(await secrets.resolve(omlx)).toBeNull();
+    expect(log[0]).toContain('outside the home folder');
+
+    fs.writeFileSync(path.join(home, 'real.json'), good);
+    fs.symlinkSync(path.join(home, 'real.json'), path.join(home, 'link.json'));
+    expect(await secrets.resolve({ ...omlx, apiKeyFile: { path: '~/link.json', jsonPath: 'auth.api_key' } })).toBe('sk-file');
+  });
+
+  it('refuses a file over 64 KB and a directory', async () => {
+    const { secrets, home } = setup(JSON.stringify({ auth: { api_key: 'big' }, pad: 'x'.repeat(KEY_FILE_MAX_BYTES) }));
+    expect(await secrets.resolve(omlx)).toBeNull();
+    expect(await secrets.resolve({ ...omlx, apiKeyFile: { path: '~/.omlx', jsonPath: 'auth.api_key' } })).toBeNull();
+    expect(fs.statSync(path.join(home, '.omlx', 'settings.json')).size).toBeGreaterThan(KEY_FILE_MAX_BYTES);
+  });
+
+  it('ignores a missing file, bad JSON, a non-string, a blank string and a missing path, and logs without leaking', async () => {
+    const missing = setup(null);
+    expect(await missing.secrets.resolve(omlx)).toBeNull();
+    expect(missing.log).toHaveLength(1);
+
+    for (const body of ['{ nope sk-leak', JSON.stringify({ auth: { api_key: 42 } }), JSON.stringify({ auth: { api_key: '  ' } }), JSON.stringify({ auth: 'sk-leak' }), JSON.stringify({ auth: { api_key: { v: 'sk-leak' } } }), JSON.stringify({})]) {
+      const { secrets, log } = setup(body);
+      expect(await secrets.resolve(omlx)).toBeNull();
+      expect(await secrets.hasKey(omlx)).toBe(false);
+      expect(log.length).toBeGreaterThan(0);
+      expect(log.join('\n')).not.toContain('sk-leak');
+    }
+  });
+
+  it('logs one distinct failure once, and again after it recovers and fails anew', async () => {
+    const { secrets, log, home } = setup('{ bad');
+    await secrets.hasKey(omlx);
+    await secrets.hasKey(omlx);
+    expect(log).toHaveLength(1);
+    fs.writeFileSync(path.join(home, '.omlx', 'settings.json'), good);
+    expect(await secrets.resolve(omlx)).toBe('sk-file');
+    fs.writeFileSync(path.join(home, '.omlx', 'settings.json'), '{ bad');
+    await secrets.hasKey(omlx);
+    expect(log).toHaveLength(2);
+  });
+
+  it('an engine without a key file, or with blank parts, gets nothing and logs nothing', async () => {
+    const { secrets, log } = setup(good);
+    expect(await secrets.resolve({ id: 'omlx' })).toBeNull();
+    expect(await secrets.resolve({ id: 'omlx', apiKeyFile: { path: ' ', jsonPath: 'auth.api_key' } })).toBeNull();
+    expect(log).toEqual([]);
+  });
+
+  it('the service sends the file key and reports hasKey, never the key itself', async () => {
+    const { secrets } = setup(good);
+    let sent: string | null = null;
+    const settings = parseAiSettings({ ...rawSettings, engines: [{ ...rawSettings.engines[0], apiKeyFile: omlx.apiKeyFile }], routing: { default: { engineId: 'omlx', modelId: 'qwen' }, fallback: 'none', tasks: {} } }, { onWarning: () => {} });
+    const adapter = fakeAdapter('openai-compatible', {
+      complete: async (engine, apiKey, model, _req, onToken) => {
+        sent = apiKey;
+        onToken('ok');
+        return { text: 'ok', served: { engineId: engine.id, engineName: engine.name, modelId: model.id, isLocal: true }, finishReason: 'stop' };
+      },
+    });
+    const service = new AiEngineService({
+      readSettings: () => settings,
+      secrets,
+      consent: { get: () => undefined, grant: async () => {}, forget: async () => {} },
+      askConsent: async () => true,
+      saveEngines: async () => {},
+      log: () => {},
+      adapters: new Map([['openai-compatible', adapter]]),
+    });
+    await service.complete({}, req(), () => {});
+    expect(sent).toBe('sk-file');
+    const status = await service.listEngines();
+    expect(status[0].hasKey).toBe(true);
+    expect(JSON.stringify(status)).not.toContain('sk-file');
   });
 });

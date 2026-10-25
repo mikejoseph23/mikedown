@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import type { AiEngineConfig } from '@mikedown/core/ai';
 
 /**
@@ -5,8 +8,21 @@ import type { AiEngineConfig } from '@mikedown/core/ai';
  * `mikedown.ai.apiKey.<engineId>`, never in settings and never sent to the
  * webview (it only learns `hasKey`). When nothing is stored, the engine's
  * `apiKeyEnv` names an environment variable of the extension host process
- * to read instead (covers `OMLX_API_KEY`).
+ * to read instead (covers `OMLX_API_KEY`), and after that its `apiKeyFile`: a
+ * small JSON file in the user's home folder (oMLX's `~/.omlx/settings.json`),
+ * which also works when VS Code was launched from the Dock and has no shell
+ * environment. Engines are user scope only, so a repo cannot point this at a file.
  */
+
+/** A key file bigger than this is not read. */
+export const KEY_FILE_MAX_BYTES = 64 * 1024;
+
+type KeySource = Pick<AiEngineConfig, 'id' | 'apiKeyEnv' | 'apiKeyFile'>;
+
+function isInside(parent: string, child: string): boolean {
+  const rel = path.relative(parent, child);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
 
 export const SECRET_KEY_PREFIX = 'mikedown.ai.apiKey.';
 
@@ -28,9 +44,13 @@ export function removedEngineIds(before: readonly Pick<AiEngineConfig, 'id'>[], 
 }
 
 export class AiSecrets {
+  private readonly lastFailure = new Map<string, string>();
+
   constructor(
     private readonly store: SecretStore,
     private readonly env: Readonly<Record<string, string | undefined>> = process.env,
+    private readonly home: () => string = os.homedir,
+    private readonly log: (line: string) => void = () => {},
   ) {}
 
   async getStored(engineId: string): Promise<string | null> {
@@ -60,12 +80,55 @@ export class AiSecrets {
     return value ? value : null;
   }
 
-  /** The key to send: the stored one, then `apiKeyEnv`, then none. */
-  async resolve(engine: Pick<AiEngineConfig, 'id' | 'apiKeyEnv'>): Promise<string | null> {
-    return (await this.getStored(engine.id)) ?? this.envKey(engine);
+  /**
+   * The string at `jsonPath` in the engine's `apiKeyFile`, or null. Only a regular
+   * file under the home folder (after resolving `~` and symlinks) is read, at most
+   * 64 KB. Any failure is "no key from this source" and logs one line that never
+   * holds the key or the file's contents.
+   */
+  fileKey(engine: Pick<AiEngineConfig, 'id' | 'apiKeyFile'>): string | null {
+    const spec = engine.apiKeyFile;
+    const rawPath = spec?.path.trim();
+    const jsonPath = spec?.jsonPath.trim();
+    if (!rawPath || !jsonPath) {return null;}
+    const fail = (why: string): null => {
+      // Status polls call this often: say each distinct failure once per engine, and say again after a recovery.
+      const line = `${engine.id}: key file ${rawPath} not used (${why})`;
+      if (this.lastFailure.get(engine.id) !== line) {
+        this.lastFailure.set(engine.id, line);
+        this.log(line);
+      }
+      return null;
+    };
+    try {
+      const home = fs.realpathSync(this.home());
+      const expanded = rawPath === '~' ? home : rawPath.startsWith('~/') ? path.join(home, rawPath.slice(2)) : rawPath;
+      if (!path.isAbsolute(expanded)) {return fail('not an absolute path');}
+      const resolved = fs.realpathSync(expanded);
+      if (!isInside(home, resolved)) {return fail('outside the home folder');}
+      const stat = fs.statSync(resolved);
+      if (!stat.isFile()) {return fail('not a regular file');}
+      if (stat.size > KEY_FILE_MAX_BYTES) {return fail('file too large');}
+      let value: unknown = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+      for (const part of jsonPath.split('.')) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value) || !Object.prototype.hasOwnProperty.call(value, part)) {return fail('no string at the JSON path');}
+        value = (value as Record<string, unknown>)[part];
+      }
+      if (typeof value !== 'string' || !value.trim()) {return fail('no string at the JSON path');}
+      this.lastFailure.delete(engine.id);
+      return value.trim();
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      return fail(code ?? (err instanceof SyntaxError ? 'not valid JSON' : 'unreadable'));
+    }
   }
 
-  async hasKey(engine: Pick<AiEngineConfig, 'id' | 'apiKeyEnv'>): Promise<boolean> {
+  /** The key to send: the stored one, then `apiKeyEnv`, then `apiKeyFile`, then none. */
+  async resolve(engine: KeySource): Promise<string | null> {
+    return (await this.getStored(engine.id)) ?? this.envKey(engine) ?? this.fileKey(engine);
+  }
+
+  async hasKey(engine: KeySource): Promise<boolean> {
     return (await this.resolve(engine)) !== null;
   }
 

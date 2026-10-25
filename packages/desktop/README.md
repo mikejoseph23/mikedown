@@ -242,7 +242,9 @@ are ports of `packages/core/src/ai/` and run against the shared
 - Keys live in the OS keychain (service `net.iadev.mikedown`, account = engine
   id). With no stored key, the engine's `apiKeyEnv` variable is read from the
   app's environment; a Dock or Finder launch has no shell profile, so store the
-  key in Settings instead.
+  key in Settings instead, or rely on the engine's `apiKeyFile` (the oMLX preset
+  sets `~/.omlx/settings.json`, `auth.api_key`): a JSON file read last, only if
+  it is a regular file under your home folder (symlinks resolved), at most 64 KB.
 - A cloud engine needs `ai.allowCloud` and the user's answer for the window's
   folder (`ai.consent.<engineId>` in that folder's settings file; a window
   with no folder remembers it for the session). The Rust side checks this

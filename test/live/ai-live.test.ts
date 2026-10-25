@@ -12,7 +12,7 @@
  * `MIKEDOWN_AI_LIVE_{OMLX,LMSTUDIO,OLLAMA}_MODEL`.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { parseAiSettings, type AiCompletionRequest, type AiDiscoveredModel, type AiEngineConfig, type AiEngineKind } from '@mikedown/core/ai';
+import { AI_ENGINE_PRESETS, parseAiSettings, type AiCompletionRequest, type AiDiscoveredModel, type AiEngineConfig, type AiEngineKind } from '@mikedown/core/ai';
 import { AiEngineService } from '../../src/ai/engineService';
 import { AiSecrets } from '../../src/ai/secrets';
 import { createAdapters } from '../../src/ai/providers';
@@ -209,4 +209,32 @@ describe.skipIf(!LIVE)('live AI engines', () => {
       }, 60_000);
     });
   }
+});
+
+/**
+ * The oMLX preset finds its key in `~/.omlx/settings.json` when `OMLX_API_KEY` is
+ * not set (a Dock-launched VS Code). Run with `env -u OMLX_API_KEY` to prove it
+ * against the real file; with the variable set the variable wins and the test
+ * still passes. The key is never printed.
+ */
+describe.skipIf(!LIVE)('live oMLX key file', () => {
+  it('resolves a non-empty key from the real settings file and the server accepts it', async (ctx) => {
+    const preset = AI_ENGINE_PRESETS.find((p) => p.id === 'omlx')!;
+    const baseUrl = env.MIKEDOWN_AI_LIVE_OMLX_URL ?? preset.baseUrl;
+    if (!(await listening(baseUrl))) {ctx.skip(`oMLX is not reachable at ${baseUrl}`);}
+    const engine = parseAiSettings({
+      enabled: true,
+      engines: [{ id: 'omlx', name: preset.name, kind: preset.kind, baseUrl, apiKeyEnv: preset.apiKeyEnv, apiKeyFile: preset.apiKeyFile }],
+    }, { onWarning: () => {} }).engines[0];
+    const log: string[] = [];
+    const secrets = new AiSecrets({ get: async () => undefined, store: async () => {}, delete: async () => {} }, process.env, undefined, (l) => log.push(l));
+    const key = await secrets.resolve(engine);
+    if (!key && log.some((l) => l.includes('ENOENT'))) {ctx.skip('no ~/.omlx/settings.json on this machine');}
+    expect(typeof key).toBe('string');
+    expect((key ?? '').length).toBeGreaterThan(0);
+    expect(await secrets.hasKey(engine)).toBe(true);
+    const probe = await createAdapters().get(engine.kind)!.probe(engine, key, AbortSignal.timeout(10000));
+    expect(probe.error).toBeUndefined();
+    expect(probe.ok).toBe(true);
+  }, 30_000);
 });

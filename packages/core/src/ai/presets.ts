@@ -1,9 +1,9 @@
 /**
  * "Add engine" presets. A preset only fills the new engine's name, kind, base
- * URL and key variable; everything else is the user's.
+ * URL, key variable and key file; everything else is the user's.
  */
 
-import type { AiEngineKind } from './types';
+import type { AiApiKeyFile, AiEngineKind } from './types';
 
 export interface AiEnginePreset {
   id: string;
@@ -11,12 +11,13 @@ export interface AiEnginePreset {
   kind: AiEngineKind;
   baseUrl: string;
   apiKeyEnv?: string;
+  apiKeyFile?: AiApiKeyFile;
   /** Whether the endpoint expects a key at all (LM Studio accepts any). */
   needsKey: boolean;
 }
 
 export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
-  { id: 'omlx', name: 'oMLX', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8000/v1', apiKeyEnv: 'OMLX_API_KEY', needsKey: true },
+  { id: 'omlx', name: 'oMLX', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8000/v1', apiKeyEnv: 'OMLX_API_KEY', apiKeyFile: { path: '~/.omlx/settings.json', jsonPath: 'auth.api_key' }, needsKey: true },
   { id: 'lmstudio', name: 'LM Studio', kind: 'lmstudio', baseUrl: 'http://127.0.0.1:1234/v1', needsKey: false },
   { id: 'ollama', name: 'Ollama', kind: 'ollama', baseUrl: 'http://127.0.0.1:11434/v1', needsKey: false },
   { id: 'llamacpp', name: 'llama.cpp server', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8080/v1', needsKey: false },

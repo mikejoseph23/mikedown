@@ -139,6 +139,7 @@ export function engineFromPreset(preset: AiEnginePreset, existingIds: Iterable<s
     models: [],
   };
   if (preset.apiKeyEnv) {engine.apiKeyEnv = preset.apiKeyEnv;}
+  if (preset.apiKeyFile) {engine.apiKeyFile = { ...preset.apiKeyFile };}
   return engine;
 }
 
@@ -344,8 +345,8 @@ export function engineIssues(engine: AiEngineConfig, settings: AiSettings, hasKe
   const urlProblem = baseUrlProblem(engine.baseUrl);
   if (urlProblem) {issues.push({ level: 'warning', code: 'badUrl', text: urlProblem });}
   const info = engineLocalityInfo(engine, settings.localNetworks);
-  if (info.locality === 'cloud' && !hasKey && !engine.apiKeyEnv?.trim()) {
-    issues.push({ level: 'warning', code: 'noKey', text: 'No API key. Store one, or name the environment variable that holds it.' });
+  if (info.locality === 'cloud' && !hasKey && !engine.apiKeyEnv?.trim() && !engine.apiKeyFile?.path.trim()) {
+    issues.push({ level: 'warning', code: 'noKey', text: 'No API key. Store one, or name the environment variable or key file that holds it.' });
   }
   if (info.mismatch) {
     issues.push({

@@ -14,6 +14,7 @@ import { completeCapabilities, detectCapabilities } from './capabilityHeuristics
 import { DEFAULT_LOCAL_NETWORKS } from './locality';
 import { AI_ENGINE_KINDS, AI_FALLBACK_MODES } from './types';
 import type {
+  AiApiKeyFile,
   AiCapabilitiesSource,
   AiEngineConfig,
   AiEngineKind,
@@ -131,7 +132,15 @@ function unflatten(raw: Json): Json {
   return out;
 }
 
-const ENGINE_KEYS = ['id', 'name', 'kind', 'baseUrl', 'enabled', 'locality', 'apiKeyEnv', 'discovery', 'models'] as const;
+const ENGINE_KEYS = ['id', 'name', 'kind', 'baseUrl', 'enabled', 'locality', 'apiKeyEnv', 'apiKeyFile', 'discovery', 'models'] as const;
+
+/** `{ path, jsonPath }` with both non-empty strings; unknown keys survive, like on engines. */
+function parseApiKeyFile(raw: unknown): AiApiKeyFile | undefined {
+  if (!isObject(raw) || typeof raw.path !== 'string' || typeof raw.jsonPath !== 'string') {return undefined;}
+  const path = raw.path.trim();
+  const jsonPath = raw.jsonPath.trim();
+  return path && jsonPath ? { ...extras(raw, ['path', 'jsonPath']), path, jsonPath } : undefined;
+}
 
 function parseEngines(raw: unknown, genId: (name: string) => string, warn: (m: string) => void): AiEngineConfig[] {
   if (raw === undefined) {return [];}
@@ -167,6 +176,10 @@ function parseEngines(raw: unknown, genId: (name: string) => string, warn: (m: s
     engine.enabled = typeof entry.enabled === 'boolean' ? entry.enabled : true;
     engine.locality = entry.locality === 'local' || entry.locality === 'cloud' ? entry.locality : ('auto' as AiLocalitySetting);
     if (typeof entry.apiKeyEnv === 'string' && entry.apiKeyEnv.trim()) {engine.apiKeyEnv = entry.apiKeyEnv.trim();}
+    if (entry.apiKeyFile !== undefined) {
+      const file = parseApiKeyFile(entry.apiKeyFile);
+      if (file) {engine.apiKeyFile = file;} else {warn(`engines[${index}].apiKeyFile needs a path and a jsonPath (both strings); dropped.`);}
+    }
     engine.discovery = entry.discovery === 'manual' ? 'manual' : 'auto';
     engine.models = parseModels(entry.models, engine.kind, `engines[${index}]`, warn);
     engines.push(engine);

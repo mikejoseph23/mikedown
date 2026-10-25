@@ -76,7 +76,7 @@ export const PROBE_RETRY_MS = 15_000;
 export const AUTO_PROBE_TIMEOUT_MS = 2_500;
 
 function fingerprint(engine: AiEngineConfig): string {
-  return [engine.kind, engine.baseUrl, engine.apiKeyEnv ?? '', engine.locality].join('\u0000');
+  return [engine.kind, engine.baseUrl, engine.apiKeyEnv ?? '', engine.apiKeyFile ? `${engine.apiKeyFile.path}\u0001${engine.apiKeyFile.jsonPath}` : '', engine.locality].join('\u0000');
 }
 
 function engineName(engine: AiEngineConfig): string {

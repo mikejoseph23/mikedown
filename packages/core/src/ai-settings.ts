@@ -649,6 +649,40 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
     envRow.append(envInput);
     groupRows.push(envRow);
 
+    // Key file fallback: a JSON file in the home folder (oMLX keeps its key in ~/.omlx/settings.json).
+    const fileRow = ctx.makeFieldLabel('Key file', 'Used when no key is stored and the variable is unset: a JSON file in your home folder and the dotted path to the key inside it. Works for apps opened from the Dock or Start menu.', 'stacked');
+    const fileLine = el('div', 'ai-key');
+    const filePath = el('input', 'settings-input settings-input--grow ai-mono');
+    const fileJson = el('input', 'settings-input settings-input--medium ai-mono');
+    for (const input of [filePath, fileJson]) {
+      input.type = 'text';
+      input.spellcheck = false;
+      input.autocomplete = 'off';
+    }
+    filePath.placeholder = '~/path/to/settings.json';
+    fileJson.placeholder = 'auth.api_key';
+    filePath.value = engine.apiKeyFile?.path ?? '';
+    fileJson.value = engine.apiKeyFile?.jsonPath ?? '';
+    filePath.dataset.fk = fk('keyfile-path');
+    fileJson.dataset.fk = fk('keyfile-json');
+    filePath.setAttribute('aria-label', `Key file path for ${engineDisplayName(engine)}`);
+    fileJson.setAttribute('aria-label', `Key file JSON path for ${engineDisplayName(engine)}`);
+    const saveKeyFile = () => {
+      const current = getEngine(id);
+      if (!current) {return;}
+      const path = filePath.value.trim();
+      const jsonPath = fileJson.value.trim();
+      const next: AiEngineConfig = { ...current };
+      // Both parts are needed; a half-filled pair is not saved.
+      if (path && jsonPath) {next.apiKeyFile = { ...current.apiKeyFile, path, jsonPath };} else {delete next.apiKeyFile;}
+      replaceEngine(next, { head: true });
+    };
+    filePath.addEventListener('input', saveKeyFile);
+    fileJson.addEventListener('input', saveKeyFile);
+    fileLine.append(filePath, fileJson);
+    fileRow.append(fileLine);
+    groupRows.push(fileRow);
+
     const enabledField = ctx.makeCheckboxRow('Enabled', 'Engines that are off are never routed.', engine.enabled);
     enabledField.input.dataset.fk = fk('enabled');
     enabledField.input.addEventListener('change', () => updateEngine(id, { enabled: enabledField.input.checked }, { rerender: true }));
@@ -709,7 +743,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
       if (value !== null) {keysStored.add(id);} else {keysStored.delete(id);}
       results.set(id, value !== null
         ? { level: 'ok', text: 'Key stored.' }
-        : { level: 'info', text: engine.apiKeyEnv ? `Key cleared. ${engine.apiKeyEnv} is used if it is set.` : 'Key cleared.' });
+        : { level: 'info', text: engine.apiKeyEnv ? `Key cleared. ${engine.apiKeyEnv} is used if it is set.` : engine.apiKeyFile ? 'Key cleared. The key file is used if it has a key.' : 'Key cleared.' });
       announce(value !== null ? `API key stored for ${name}.` : `API key cleared for ${name}.`);
     } catch (err) {
       const e = toAiError(err);

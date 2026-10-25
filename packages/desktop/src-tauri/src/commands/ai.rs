@@ -51,7 +51,7 @@ use self::locality::{default_local_networks, engine_locality, host_of_url, Local
 use self::model::{
     CompletionRequest, DiscoveryResult, DoneEvent, EngineConfig, EngineInfo, ErrorEvent, ServedBy, TokenEvent,
 };
-use self::secrets::{resolve_key, KeychainStore, SecretStore};
+use self::secrets::{resolve_key_with_file, KeychainStore, SecretStore};
 use super::multiwindow::WindowRegistry;
 use super::settings::{read_settings, settings_path, write_settings};
 
@@ -191,6 +191,8 @@ pub struct AiState {
     consent: Mutex<HashMap<(String, String), bool>>,
     /// One consent dialog at a time.
     consent_dialog: tokio::sync::Mutex<()>,
+    /// The last key-file problem logged per engine, so status polls say it once.
+    key_file_logged: Mutex<HashMap<String, String>>,
 }
 
 impl AiState {
@@ -206,6 +208,7 @@ impl AiState {
             probes: Mutex::new(HashMap::new()),
             consent: Mutex::new(HashMap::new()),
             consent_dialog: tokio::sync::Mutex::new(()),
+            key_file_logged: Mutex::new(HashMap::new()),
         }
     }
 
@@ -250,9 +253,33 @@ impl AiState {
         let store = self.secrets.clone();
         let id = engine.id.clone();
         let env_name = engine.api_key_env.clone();
-        tauri::async_runtime::spawn_blocking(move || resolve_key(store.as_ref(), &id, env_name.as_deref(), &|n| std::env::var(n).ok()))
-            .await
-            .unwrap_or((None, Some("the key lookup failed".to_string())))
+        let key_file = engine.api_key_file.clone();
+        let lookup = tauri::async_runtime::spawn_blocking(move || {
+            resolve_key_with_file(store.as_ref(), &id, env_name.as_deref(), key_file.as_ref(), &|n| std::env::var(n).ok())
+        })
+        .await;
+        let Ok(lookup) = lookup else {
+            return (None, Some("the key lookup failed".to_string()));
+        };
+        self.log_key_file_problem(engine, lookup.file_problem.as_deref());
+        (lookup.key, lookup.keychain_problem)
+    }
+
+    /// One log line per distinct key-file failure; never the key or the file's contents.
+    fn log_key_file_problem(&self, engine: &EngineConfig, problem: Option<&str>) {
+        let mut logged = self.key_file_logged.lock().unwrap();
+        match (problem, &engine.api_key_file) {
+            (Some(why), Some(spec)) => {
+                let line = format!("{}: key file {} not used ({why})", engine.id, spec.path);
+                if logged.get(&engine.id) != Some(&line) {
+                    eprintln!("[mikedown ai] {line}");
+                    logged.insert(engine.id.clone(), line);
+                }
+            }
+            _ => {
+                logged.remove(&engine.id);
+            }
+        }
     }
 
     fn cached_info(&self, engine: &EngineConfig, config: &AiConfig, has_key: bool) -> EngineInfo {

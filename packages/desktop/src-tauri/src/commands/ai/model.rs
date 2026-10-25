@@ -45,6 +45,16 @@ pub struct ModelConfig {
     pub request_overrides: Option<Map<String, Value>>,
 }
 
+/// A JSON file in the user's home folder holding the engine's key (oMLX's
+/// `~/.omlx/settings.json`, `auth.api_key`). Engines are app-wide user
+/// settings, so a project folder cannot set this.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiKeyFile {
+    pub path: String,
+    pub json_path: String,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineConfig {
@@ -60,8 +70,16 @@ pub struct EngineConfig {
     pub locality: String,
     #[serde(default)]
     pub api_key_env: Option<String>,
+    /// A malformed value (a missing part, wrong types) is treated as absent, like the webview's parser.
+    #[serde(default, deserialize_with = "lenient_key_file")]
+    pub api_key_file: Option<ApiKeyFile>,
     #[serde(default)]
     pub models: Vec<ModelConfig>,
+}
+
+fn lenient_key_file<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<ApiKeyFile>, D::Error> {
+    let value = Option::<Value>::deserialize(d)?;
+    Ok(value.and_then(|v| serde_json::from_value::<ApiKeyFile>(v).ok()))
 }
 
 impl EngineConfig {

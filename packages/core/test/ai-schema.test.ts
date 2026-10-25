@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import {
+  AI_ENGINE_PRESETS,
   AI_SETTINGS_KEYS,
   DEFAULT_LOCAL_NETWORKS,
   defaultAiSettings,
@@ -326,5 +327,35 @@ describe('serializeAiSettings', () => {
     const s = parseAiSettings({ engines: [engine({ id: 'e', apiKeyEnv: 'ANTHROPIC_API_KEY' })] }, { onWarning: quiet });
     expect(JSON.stringify(serializeAiSettings(s))).toContain('ANTHROPIC_API_KEY');
     expect(s.engines[0]).not.toHaveProperty('apiKey');
+  });
+
+  describe('apiKeyFile', () => {
+    const file = { path: '~/.omlx/settings.json', jsonPath: 'auth.api_key' };
+
+    it('parses and round-trips a key file, trimming both parts and keeping unknown keys', () => {
+      const s = parseAiSettings({ engines: [engine({ id: 'e', apiKeyFile: { path: '  ~/.omlx/settings.json ', jsonPath: ' auth.api_key ', extra: 1 } })] }, { onWarning: quiet });
+      expect(s.engines[0].apiKeyFile).toEqual({ ...file, extra: 1 });
+      const again = parseAiSettings(serializeAiSettings(s), { onWarning: quiet });
+      expect(again.engines[0].apiKeyFile).toEqual({ ...file, extra: 1 });
+      expect(serializeAiSettings(s)['ai.engines']).toEqual([expect.objectContaining({ apiKeyFile: { ...file, extra: 1 } })]);
+    });
+
+    it('drops a malformed key file with a warning and keeps the engine', () => {
+      for (const bad of ['~/x', 7, null, [], { path: '~/x' }, { jsonPath: 'a' }, { path: '', jsonPath: 'a' }, { path: '~/x', jsonPath: ' ' }, { path: 1, jsonPath: 'a' }]) {
+        const warn = vi.fn();
+        const s = parseAiSettings({ engines: [engine({ id: 'e', apiKeyFile: bad })] }, { onWarning: warn });
+        expect(s.engines).toHaveLength(1);
+        expect(s.engines[0].apiKeyFile).toBeUndefined();
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('apiKeyFile'));
+      }
+    });
+
+    it('is absent unless set, and the oMLX preset sets it beside the variable', () => {
+      expect(parseAiSettings({ engines: [engine({ id: 'e' })] }, { onWarning: quiet }).engines[0]).not.toHaveProperty('apiKeyFile');
+      const omlx = AI_ENGINE_PRESETS.find((p) => p.id === 'omlx')!;
+      expect(omlx.apiKeyEnv).toBe('OMLX_API_KEY');
+      expect(omlx.apiKeyFile).toEqual(file);
+      expect(AI_ENGINE_PRESETS.filter((p) => p.id !== 'omlx').some((p) => p.apiKeyFile)).toBe(false);
+    });
   });
 });

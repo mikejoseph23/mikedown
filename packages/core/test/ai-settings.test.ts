@@ -1,11 +1,12 @@
 /** AI settings tab (M3): the pure model behind it, and the tab and chip in the real Settings modal. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle, type MikeDownHost } from '../src/index';
-import { parseAiSettings } from '../src/ai';
+import { AI_ENGINE_PRESETS, parseAiSettings } from '../src/ai';
 import type { AiEngineStatus, AiSettings, MikeDownAiHost } from '../src/ai';
 import {
   aiIndicatorState,
   changedAiPatch,
+  engineFromPreset,
   engineIssues,
   mergeDiscoveryStatus,
   parseContextTokens,
@@ -63,7 +64,17 @@ describe('AI settings model', () => {
     expect(engineIssues(claude, s, false).map((i) => i.code)).toEqual(['noKey', 'cloudBlocked']);
     expect(engineIssues({ ...claude, apiKeyEnv: 'ANTHROPIC_API_KEY' }, s, false).map((i) => i.code)).toEqual(['cloudBlocked']);
     expect(engineIssues(claude, s, true).map((i) => i.code)).toEqual(['cloudBlocked']);
+    // A key file counts like a variable.
+    expect(engineIssues({ ...claude, apiKeyFile: { path: '~/k.json', jsonPath: 'key' } }, s, false).map((i) => i.code)).toEqual(['cloudBlocked']);
     expect(engineIssues(s.engines[0], s, false)).toEqual([]);
+  });
+
+  it('the oMLX preset brings its key file along as a copy', () => {
+    const omlx = AI_ENGINE_PRESETS.find((p) => p.id === 'omlx')!;
+    const engine = engineFromPreset(omlx, []);
+    expect(engine.apiKeyFile).toEqual({ path: '~/.omlx/settings.json', jsonPath: 'auth.api_key' });
+    expect(engine.apiKeyFile).not.toBe(omlx.apiKeyFile);
+    expect(engineFromPreset(AI_ENGINE_PRESETS.find((p) => p.id === 'lmstudio')!, [])).not.toHaveProperty('apiKeyFile');
   });
 
   it('notes a task routed to a model that lacks a capability, with its fallback', () => {
@@ -244,6 +255,37 @@ describe('AI tab in the Settings modal', () => {
     expect(engines.map((e) => e.id)).toEqual(['omlx', 'lms']);
     await Promise.resolve();
     expect(ai.setSecret).toHaveBeenCalledWith('claude', null);
+  });
+
+  it('edits the key file next to the variable, keeps its unknown keys, and never saves a half-filled pair', () => {
+    const saveSettings = vi.fn();
+    class Host extends NoopHost { ai = tier2(); saveSettings = saveSettings; }
+    const base = settings();
+    const withFile = {
+      ...base,
+      engines: base.engines.map((e) => (e.id === 'omlx' ? { ...e, apiKeyEnv: 'OMLX_API_KEY', apiKeyFile: { path: '~/.omlx/settings.json', jsonPath: 'auth.api_key', future: true } } : e)),
+    } as AiSettings;
+    const handle = mount(new Host(), withFile);
+    handle.command('openAiSettings');
+    click(document.querySelector('[aria-label="Edit oMLX"]'));
+    const path = document.querySelector<HTMLInputElement>('[data-fk="eng:omlx:keyfile-path"]')!;
+    const json = document.querySelector<HTMLInputElement>('[data-fk="eng:omlx:keyfile-json"]')!;
+    expect([path.value, json.value]).toEqual(['~/.omlx/settings.json', 'auth.api_key']);
+    expect(document.body.textContent).toContain('Key file');
+
+    const edit = (input: HTMLInputElement, value: string) => { input.value = value; input.dispatchEvent(new Event('input', { bubbles: true })); };
+    edit(json, 'auth.token');
+    click(byText('.settings-btn--primary', 'Save to Settings'));
+    const saved = (saveSettings.mock.calls[0][0]['ai.engines'] as Array<Record<string, any>>).find((e) => e.id === 'omlx')!;
+    expect(saved.apiKeyFile).toEqual({ path: '~/.omlx/settings.json', jsonPath: 'auth.token', future: true });
+    expect(saved.apiKeyEnv).toBe('OMLX_API_KEY');
+
+    handle.command('openAiSettings');
+    click(document.querySelector('[aria-label="Edit oMLX"]'));
+    edit(document.querySelector<HTMLInputElement>('[data-fk="eng:omlx:keyfile-json"]')!, '');
+    click(byText('.settings-btn--primary', 'Save to Settings'));
+    const cleared = (saveSettings.mock.calls[1][0]['ai.engines'] as Array<Record<string, any>>).find((e) => e.id === 'omlx')!;
+    expect(cleared).not.toHaveProperty('apiKeyFile');
   });
 
   it('stores a key through setSecret straight away, never in the patch', async () => {

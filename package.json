@@ -684,7 +684,7 @@
           "type": "array",
           "default": [],
           "scope": "machine",
-          "markdownDescription": "The AI engines MikeDown can use (oMLX, LM Studio, Ollama, OpenAI-compatible servers, Anthropic, OpenAI) and the models each one serves. User settings only, so a repository cannot add an endpoint. API keys are never stored here: they live in VS Code's secret storage, or come from the environment variable named in `apiKeyEnv`. Edit engines in the MikeDown Settings modal (toolbar gear, AI tab).",
+          "markdownDescription": "The AI engines MikeDown can use (oMLX, LM Studio, Ollama, OpenAI-compatible servers, Anthropic, OpenAI) and the models each one serves. User settings only, so a repository cannot add an endpoint. API keys are never stored here: they live in VS Code's secret storage, or come from the environment variable named in `apiKeyEnv` or the JSON file named in `apiKeyFile`. Edit engines in the MikeDown Settings modal (toolbar gear, AI tab).",
           "items": {
             "type": "object",
             "required": [
@@ -730,6 +730,15 @@
               "apiKeyEnv": {
                 "type": "string",
                 "description": "Environment variable to read the API key from when none is stored, for example OMLX_API_KEY."
+              },
+              "apiKeyFile": {
+                "type": "object",
+                "description": "A JSON file in your home folder to read the API key from when none is stored and the environment variable is unset, for example oMLX's ~/.omlx/settings.json with jsonPath auth.api_key.",
+                "properties": {
+                  "path": { "type": "string", "description": "File path; may start with ~/." },
+                  "jsonPath": { "type": "string", "description": "Dotted path to a string value in the file, for example auth.api_key." }
+                },
+                "required": ["path", "jsonPath"]
               },
               "discovery": {
                 "type": "string",
