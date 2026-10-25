@@ -46,7 +46,7 @@
 | [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ✅ Complete | 7 | link check + hands-on |
 | [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ✅ Complete | 6 | Mike runs publish and deploy |
 | [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | ✅ Complete | 20 | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
-| [T4 — Final verification](#t4--final-verification) | Sonnet | ⬜ Not Started | — | registry smoke + production URLs |
+| [T4 — Final verification](#t4--final-verification) | Sonnet | 🔄 Awaiting Mike hands-on | — | registry smoke + production URLs |
 
 **Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
 
@@ -543,9 +543,9 @@ On each demo page:
 
 **Worker completion requirement:** complete ALL automated items; report failures, don't patch packages here.
 
-- [ ] `npm run test:consumers -- --from-registry` (installs `@mikedown/*@0.2.0` from npm instead of tarballs): every target green.
-- [ ] LymeStarter and the Quantico assistant app build and test green on the package (legacy app unchanged, still on its vendored copy).
-- [ ] MikeDown full run: `test:unit`, `test:edge`, `test:integration`, `test:packages`, `test:wrappers`, `test:desktop`.
+- [x] `npm run test:consumers -- --from-registry` (installs `@mikedown/*@0.2.0` from npm instead of tarballs): every target green.
+- [x] LymeStarter and the Quantico assistant app build and test green on the package (legacy app unchanged, still on its vendored copy).
+- [x] MikeDown full run: `test:unit`, `test:edge`, `test:integration`, `test:packages`, `test:wrappers`, `test:desktop`.
 - [ ] **Hands-on (Mike, 5 minutes):** open `https://www.iadev.net/mikedown/`, `https://www.iadev.net/mikedown/vscode/`, `https://www.iadev.net/mikedown/developers/` and two demo pages; follow the nav between them; type in a demo editor; click a Marketplace and an npm link. Then `https://www.npmjs.com/package/@mikedown/react` shows its README. Orchestrator pauses for sign-off.
 - [ ] Update `RESUME.md`; archive this plan's processed summaries.
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 20:35** - T4 automated items done (`a4e883f`, 7 min): `test:consumers -- --from-registry` added and green against the published 0.2.0 family (`angular-latest` skipped, Node 22.20); LymeStarter and Quantico assistant `ng build` and `ng test` green on the package, legacy app builds on its vendored copy; LymeStarter demo route checked in a browser at 1280 px light and dark, typing updates `form.value` (API stubbed for the screenshots). `test:unit`, `test:edge`, `test:packages`, `test:wrappers`, `test:desktop` green in the worktree; `test:integration` 47 passing in the main tree. Production pages 200, `latest.json` 0.3.0, all five at 0.2.0 on npm, jsDelivr bundle 200; npmjs.com returns 403 to curl (bot check), registry 200. Hands-on waits on Mike.
 
 **2026-10-24 20:20** - M16 done (20 min), pushed: LymeStarter `7f85ca3` on `develop` (optional `mikedown/` folder keeps only theme SCSS, new `_mikedown-field.scss`, demo and README; vendored component, host and spec removed; `@mikedown/angular`/`@mikedown/core` `^0.2.0`; ownership manifest lists the package; `docs/architecture.md` updated; `ng build` green, `ng test` 549/549, down from 558 with the vendored spec gone; adopt into a scratch app works and the scaffold strip leaves no mikedown traces). Quantico Creek `d9b7cb6` (assistant app on the package, `ng build` green, `ng test` 36/36) and `b027710` (legacy wrapper comment pointing at the package for Angular 17+) on `master`. Not checked in a browser (T4). Unrelated: `lymetools scaffold app` reports a template error about a missing `about` route in `app.routes.ts`, the same on the commit before.
 
