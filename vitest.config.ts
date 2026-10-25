@@ -4,6 +4,7 @@ export default defineConfig({
     alias: {
       vscode: new URL('./test/stubs/vscode.ts', import.meta.url).pathname,
       '@mikedown/core/shared': new URL('./packages/core/src/shared', import.meta.url).pathname,
+      '@mikedown/core/ai': new URL('./packages/core/src/ai/index.ts', import.meta.url).pathname,
       '@mikedown/core': new URL('./packages/core/src', import.meta.url).pathname,
     },
   },

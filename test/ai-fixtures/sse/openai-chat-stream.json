@@ -1,0 +1,24 @@
+{
+  "description": "OpenAI Chat Completions stream (oMLX shape): role chunk, three content deltas, a keep-alive comment, one event with CRLF line endings, a finish chunk carrying usage, then [DONE]. Chunks split mid-line, inside the \"data:\" prefix and inside a JSON string.",
+  "kind": "openai-compatible",
+  "chunks": [
+    "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n\ndata: {\"i",
+    "d\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\", wor",
+    "ld\"},\"finish_reason\":null}]}\n\n: keep-alive\n\ndata: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"!\"},\"finish_reason\":null}]}\r\n\r\ndata: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"st",
+    "op\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":4,\"total_tokens\":16}}\n\ndata: [DONE]\n\n"
+  ],
+  "expected": {
+    "deltas": [
+      "Hello",
+      ", world",
+      "!"
+    ],
+    "text": "Hello, world!",
+    "finishReason": "stop",
+    "stopReason": "stop",
+    "usage": {
+      "promptTokens": 12,
+      "completionTokens": 4
+    }
+  }
+}

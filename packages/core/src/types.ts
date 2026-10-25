@@ -4,6 +4,7 @@
  */
 
 import type { Editor } from '@tiptap/core';
+import type { AiSettings } from './ai/types';
 import type { BacklinkItem, ImageInsertResult, LinkSuggestion, MikeDownHost, TagCount } from './host';
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -53,6 +54,13 @@ export interface MikeDownSettings {
   spellCheckLanguage: 'en' | 'en-GB';
   spellCheckIgnoreCodeBlocks: boolean;
   spellCheckUserWords: string[];
+  // AI
+  /**
+   * `mikedown.ai.*`, parsed by `parseAiSettings` from `@mikedown/core/ai`.
+   * Absent means the defaults (off). Saved as `ai.*` patch keys built by
+   * `serializeAiSettings`; API keys are never part of it (`host.ai.setSecret`).
+   */
+  ai?: AiSettings;
 
   // ── Host policy ──────────────────────────────────────────────────────────
   // Inputs the core reads but never shows in its own Settings sections. A
@@ -104,6 +112,8 @@ export interface MikeDownFeatures {
   findReplace: boolean;
   /** Collapsible frontmatter block above the document. Default on. */
   frontmatter: boolean;
+  /** AI features and the AI settings tab. Default on, but inert unless `host.ai` is set. */
+  ai: boolean;
 }
 
 export const DEFAULT_FEATURES: MikeDownFeatures = {
@@ -117,6 +127,7 @@ export const DEFAULT_FEATURES: MikeDownFeatures = {
   supportCard: false,
   findReplace: true,
   frontmatter: true,
+  ai: true,
 };
 
 // ── Settings modal extension ──────────────────────────────────────────────────

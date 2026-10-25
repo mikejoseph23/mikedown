@@ -21,7 +21,8 @@ const extensionConfig = {
   resolve: {
     extensions: ['.ts', '.js'],
     alias: {
-      '@mikedown/core/shared': path.resolve(__dirname, 'packages', 'core', 'src', 'shared')
+      '@mikedown/core/shared': path.resolve(__dirname, 'packages', 'core', 'src', 'shared'),
+      '@mikedown/core/ai': path.resolve(__dirname, 'packages', 'core', 'src', 'ai', 'index.ts')
     }
   },
   module: {
@@ -63,6 +64,7 @@ const webviewConfig = {
     alias: {
       // The extension always builds @mikedown/core from source, never from
       // packages/core/dist or a published version, so edits hot-rebuild.
+      '@mikedown/core/ai': path.resolve(__dirname, 'packages', 'core', 'src', 'ai', 'index.ts'),
       '@mikedown/core': path.resolve(__dirname, 'packages', 'core', 'src'),
       '@tiptap/core': path.resolve(__dirname, 'node_modules', '@tiptap', 'core'),
       '@tiptap/pm': path.resolve(__dirname, 'node_modules', '@tiptap', 'pm'),

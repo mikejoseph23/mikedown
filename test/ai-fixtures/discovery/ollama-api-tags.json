@@ -1,0 +1,62 @@
+{
+  "description": "Ollama GET /api/tags: the model names to query with POST /api/show.",
+  "kind": "ollama",
+  "request": "GET http://127.0.0.1:11434/api/tags",
+  "response": {
+    "models": [
+      {
+        "name": "gemma3:12b",
+        "model": "gemma3:12b",
+        "modified_at": "2026-09-30T10:12:00.000Z",
+        "size": 8149190253,
+        "digest": "f4031aab637d",
+        "details": {
+          "format": "gguf",
+          "family": "gemma3",
+          "families": [
+            "gemma3"
+          ],
+          "parameter_size": "12.2B",
+          "quantization_level": "Q4_K_M"
+        }
+      },
+      {
+        "name": "qwen2.5-coder:7b",
+        "model": "qwen2.5-coder:7b",
+        "modified_at": "2026-09-12T08:00:00.000Z",
+        "size": 4683087332,
+        "digest": "2b0496514337",
+        "details": {
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "7.6B",
+          "quantization_level": "Q4_K_M"
+        }
+      },
+      {
+        "name": "nomic-embed-text:latest",
+        "model": "nomic-embed-text:latest",
+        "modified_at": "2026-08-01T08:00:00.000Z",
+        "size": 274302450,
+        "digest": "0a109f422b47",
+        "details": {
+          "format": "gguf",
+          "family": "nomic-bert",
+          "families": [
+            "nomic-bert"
+          ],
+          "parameter_size": "137M",
+          "quantization_level": "F16"
+        }
+      }
+    ]
+  },
+  "expectedNames": [
+    "gemma3:12b",
+    "qwen2.5-coder:7b",
+    "nomic-embed-text:latest"
+  ]
+}

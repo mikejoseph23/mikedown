@@ -16,7 +16,20 @@
  *   retries and transport details stay inside the host implementation.
  */
 
+import type { MikeDownAiHost } from './ai/types';
 import type { MikeDownSettingsPatch } from './types';
+
+export type {
+  MikeDownAiHost,
+  AiMessage,
+  AiMessagePart,
+  AiCompletionRequest,
+  AiCompletionResult,
+  AiServedBy,
+  AiEngineStatus,
+  AiError,
+  AiErrorCode,
+} from './ai/types';
 
 /** How a link should open. Absent means the host's default. */
 export type LinkOpenBehavior = 'navigateCurrentTab' | 'openNewTab';
@@ -204,6 +217,14 @@ export interface MikeDownHost {
 
   // ── Sidebar ───────────────────────────────────────────────────────────────
   sidebarPrefs?: MikeDownSidebarPrefs;
+
+  // ── AI (absent = every AI surface hidden) ─────────────────────────────────
+  /**
+   * Inference through the host. `complete` alone (tier 1) turns the features
+   * on; the registry methods (tier 2) turn on the engine UI and core routing.
+   * Types and helpers live in `@mikedown/core/ai`.
+   */
+  ai?: MikeDownAiHost;
 }
 
 /** A host with every optional method absent. `onChange` does nothing. */

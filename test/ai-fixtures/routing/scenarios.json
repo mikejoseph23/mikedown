@@ -1,0 +1,2972 @@
+{
+  "description": "resolveRoute scenarios on the plan's example registry (oMLX default, Gemma on LM Studio for vision, MiniMax for structure, Claude for notes). settings is raw (run it through parseAiSettings); expected is a subset of the result.",
+  "scenarios": [
+    {
+      "name": "rewrite uses the default route",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {},
+      "request": {
+        "feature": "rewrite"
+      },
+      "expected": {
+        "engineId": "omlx-studio",
+        "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+        "viaFallback": false,
+        "isLocal": true,
+        "needsConsent": false,
+        "task": "rewrite"
+      }
+    },
+    {
+      "name": "altText routes the vision task to Gemma on LM Studio",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [
+        {
+          "engineId": "lmstudio",
+          "ok": true,
+          "isLocal": true,
+          "hasKey": true,
+          "latencyMs": 40,
+          "models": []
+        }
+      ],
+      "consent": {},
+      "request": {
+        "feature": "altText"
+      },
+      "expected": {
+        "engineId": "lmstudio",
+        "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+        "viaFallback": false,
+        "isLocal": true,
+        "needsConsent": false,
+        "task": "vision"
+      }
+    },
+    {
+      "name": "frontmatter routes the structure task to MiniMax on oMLX",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {},
+      "request": {
+        "feature": "frontmatter"
+      },
+      "expected": {
+        "engineId": "omlx-studio",
+        "modelId": "minimax-m3",
+        "viaFallback": false,
+        "isLocal": true,
+        "needsConsent": false,
+        "task": "structure"
+      }
+    },
+    {
+      "name": "notes go to Claude with Allow cloud on and consent granted",
+      "settings": {
+        "enabled": true,
+        "allowCloud": true,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {
+        "claude": true
+      },
+      "request": {
+        "feature": "rewrite",
+        "task": "notes"
+      },
+      "expected": {
+        "engineId": "claude",
+        "modelId": "claude-sonnet-5-5",
+        "viaFallback": false,
+        "isLocal": false,
+        "needsConsent": false,
+        "task": "notes"
+      }
+    },
+    {
+      "name": "notes to Claude ask for consent first",
+      "settings": {
+        "enabled": true,
+        "allowCloud": true,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {},
+      "request": {
+        "feature": "rewrite",
+        "task": "notes"
+      },
+      "expected": {
+        "engineId": "claude",
+        "modelId": "claude-sonnet-5-5",
+        "viaFallback": false,
+        "isLocal": false,
+        "needsConsent": true
+      }
+    },
+    {
+      "name": "cloud blocked: notes fall back to the default local route",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {
+        "claude": true
+      },
+      "request": {
+        "feature": "rewrite",
+        "task": "notes"
+      },
+      "expected": {
+        "engineId": "omlx-studio",
+        "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+        "viaFallback": true,
+        "isLocal": true,
+        "needsConsent": false
+      }
+    },
+    {
+      "name": "cloud blocked with fallback none disables the surface",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "none",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {
+        "claude": true
+      },
+      "request": {
+        "feature": "rewrite",
+        "task": "notes"
+      },
+      "expected": {
+        "unusable": "cloudBlocked"
+      }
+    },
+    {
+      "name": "consent refused falls back to the default local route",
+      "settings": {
+        "enabled": true,
+        "allowCloud": true,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {
+        "claude": false
+      },
+      "request": {
+        "feature": "rewrite",
+        "task": "notes"
+      },
+      "expected": {
+        "engineId": "omlx-studio",
+        "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+        "viaFallback": true,
+        "isLocal": true,
+        "needsConsent": false
+      }
+    },
+    {
+      "name": "fallback chain: oMLX down, anyLocal picks LM Studio",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [
+        {
+          "engineId": "omlx-studio",
+          "ok": false,
+          "isLocal": true,
+          "hasKey": true,
+          "latencyMs": 40,
+          "models": [],
+          "error": "connect ECONNREFUSED"
+        },
+        {
+          "engineId": "lmstudio",
+          "ok": true,
+          "isLocal": true,
+          "hasKey": true,
+          "latencyMs": 40,
+          "models": []
+        }
+      ],
+      "consent": {},
+      "request": {
+        "feature": "rewrite"
+      },
+      "expected": {
+        "engineId": "lmstudio",
+        "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+        "viaFallback": true,
+        "isLocal": true,
+        "needsConsent": false
+      }
+    },
+    {
+      "name": "fallback default: vision engine off, the default route has vision",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": false,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "default",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {},
+      "request": {
+        "feature": "altText"
+      },
+      "expected": {
+        "engineId": "omlx-studio",
+        "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+        "viaFallback": true,
+        "isLocal": true,
+        "needsConsent": false
+      }
+    },
+    {
+      "name": "fallback never moves a local route to a cloud default without any",
+      "settings": {
+        "enabled": true,
+        "allowCloud": true,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic",
+                "missing": true
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "claude",
+            "modelId": "claude-sonnet-5-5"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {
+        "claude": true
+      },
+      "request": {
+        "feature": "frontmatter"
+      },
+      "expected": {
+        "engineId": "omlx-studio",
+        "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+        "viaFallback": true,
+        "isLocal": true,
+        "needsConsent": false
+      }
+    },
+    {
+      "name": "fallback any reaches the cloud after every local engine fails",
+      "settings": {
+        "enabled": true,
+        "allowCloud": true,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "any",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [
+        {
+          "engineId": "omlx-studio",
+          "ok": false,
+          "isLocal": true,
+          "hasKey": true,
+          "latencyMs": 40,
+          "models": [],
+          "error": "connect ECONNREFUSED"
+        },
+        {
+          "engineId": "lmstudio",
+          "ok": false,
+          "isLocal": true,
+          "hasKey": true,
+          "latencyMs": 40,
+          "models": [],
+          "error": "connect ECONNREFUSED"
+        }
+      ],
+      "consent": {
+        "claude": true
+      },
+      "request": {
+        "feature": "rewrite"
+      },
+      "expected": {
+        "engineId": "claude",
+        "modelId": "claude-sonnet-5-5",
+        "viaFallback": true,
+        "isLocal": false,
+        "needsConsent": false
+      }
+    },
+    {
+      "name": "fallback anyLocal stops before the cloud",
+      "settings": {
+        "enabled": true,
+        "allowCloud": true,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [
+        {
+          "engineId": "omlx-studio",
+          "ok": false,
+          "isLocal": true,
+          "hasKey": true,
+          "latencyMs": 40,
+          "models": [],
+          "error": "connect ECONNREFUSED"
+        },
+        {
+          "engineId": "lmstudio",
+          "ok": false,
+          "isLocal": true,
+          "hasKey": true,
+          "latencyMs": 40,
+          "models": [],
+          "error": "connect ECONNREFUSED"
+        }
+      ],
+      "consent": {
+        "claude": true
+      },
+      "request": {
+        "feature": "rewrite"
+      },
+      "expected": {
+        "unusable": "probeFailed"
+      }
+    },
+    {
+      "name": "fallback any still needs Allow cloud",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "any",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [
+        {
+          "engineId": "omlx-studio",
+          "ok": false,
+          "isLocal": true,
+          "hasKey": true,
+          "latencyMs": 40,
+          "models": [],
+          "error": "connect ECONNREFUSED"
+        },
+        {
+          "engineId": "lmstudio",
+          "ok": false,
+          "isLocal": true,
+          "hasKey": true,
+          "latencyMs": 40,
+          "models": [],
+          "error": "connect ECONNREFUSED"
+        }
+      ],
+      "consent": {
+        "claude": true
+      },
+      "request": {
+        "feature": "rewrite"
+      },
+      "expected": {
+        "unusable": "probeFailed"
+      }
+    },
+    {
+      "name": "master switch off",
+      "settings": {
+        "enabled": false,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {},
+      "request": {
+        "feature": "rewrite"
+      },
+      "expected": {
+        "unusable": "aiDisabled"
+      }
+    },
+    {
+      "name": "feature turned off",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": false
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {},
+      "request": {
+        "feature": "rewrite"
+      },
+      "expected": {
+        "unusable": "featureDisabled"
+      }
+    },
+    {
+      "name": "capability gating: vision routed to a model without vision",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "none",
+          "tasks": {
+            "vision": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {},
+      "request": {
+        "feature": "altText"
+      },
+      "expected": {
+        "unusable": "capability"
+      }
+    },
+    {
+      "name": "disabled model is skipped by the fallback scan",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": false,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": {
+            "engineId": "omlx-studio",
+            "modelId": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp"
+          },
+          "fallback": "anyLocal",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {},
+      "request": {
+        "feature": "rewrite"
+      },
+      "expected": {
+        "engineId": "omlx-studio",
+        "modelId": "minimax-m3",
+        "viaFallback": true,
+        "isLocal": true,
+        "needsConsent": false
+      }
+    },
+    {
+      "name": "no default and no task route",
+      "settings": {
+        "enabled": true,
+        "allowCloud": false,
+        "engines": [
+          {
+            "id": "omlx-studio",
+            "name": "oMLX (Mac Studio)",
+            "kind": "openai-compatible",
+            "baseUrl": "http://127.0.0.1:8000/v1",
+            "enabled": true,
+            "locality": "auto",
+            "apiKeyEnv": "OMLX_API_KEY",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+                "label": "Qwen 3.8 Flash Next",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 262144
+                },
+                "capabilitiesSource": "heuristic",
+                "requestOverrides": {
+                  "reasoning_effort": "low"
+                }
+              },
+              {
+                "id": "minimax-m3",
+                "label": "MiniMax M3",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": false,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 196608
+                },
+                "capabilitiesSource": "heuristic"
+              }
+            ]
+          },
+          {
+            "id": "lmstudio",
+            "name": "LM Studio",
+            "kind": "lmstudio",
+            "baseUrl": "http://127.0.0.1:1234/v1",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "gemma-4-26b-a4b-it-qat-mlx-4bit",
+                "label": "Gemma 4 26B-A4B",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 131072
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "name": "Anthropic",
+            "kind": "anthropic",
+            "baseUrl": "https://api.anthropic.com",
+            "enabled": true,
+            "locality": "auto",
+            "discovery": "auto",
+            "models": [
+              {
+                "id": "claude-sonnet-5-5",
+                "enabled": true,
+                "capabilities": {
+                  "chat": true,
+                  "stream": true,
+                  "vision": true,
+                  "json": true,
+                  "tools": true,
+                  "fim": false,
+                  "embed": false,
+                  "contextTokens": 1000000
+                },
+                "capabilitiesSource": "endpoint"
+              }
+            ]
+          }
+        ],
+        "routing": {
+          "default": null,
+          "fallback": "none",
+          "tasks": {
+            "vision": {
+              "engineId": "lmstudio",
+              "modelId": "gemma-4-26b-a4b-it-qat-mlx-4bit"
+            },
+            "structure": {
+              "engineId": "omlx-studio",
+              "modelId": "minimax-m3"
+            },
+            "notes": {
+              "engineId": "claude",
+              "modelId": "claude-sonnet-5-5"
+            }
+          }
+        },
+        "features": {
+          "rewrite": {
+            "enabled": true
+          }
+        },
+        "localNetworks": [
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ]
+      },
+      "statuses": [],
+      "consent": {},
+      "request": {
+        "feature": "rewrite"
+      },
+      "expected": {
+        "unusable": "noRoute"
+      }
+    }
+  ]
+}

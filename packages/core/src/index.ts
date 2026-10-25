@@ -34,7 +34,17 @@ export type {
   LinkCheckRequest,
   DiffBaseline,
   MikeDownStats,
+  MikeDownAiHost,
+  AiMessage,
+  AiMessagePart,
+  AiCompletionRequest,
+  AiCompletionResult,
+  AiServedBy,
+  AiEngineStatus,
+  AiError,
+  AiErrorCode,
 } from './host';
+export type { AiSettings } from './ai/types';
 export { DEFAULT_FEATURES } from './types';
 export type {
   MikeDownSettings,

@@ -1,0 +1,105 @@
+{
+  "description": "Ollama POST /api/show responses keyed by model name (body {\"model\": name}). capabilities: completion, vision, tools, embedding, insert (FIM). Context length lives at model_info[\"<general.architecture>.context_length\"].",
+  "kind": "ollama",
+  "request": "POST http://127.0.0.1:11434/api/show",
+  "responses": {
+    "gemma3:12b": {
+      "license": "...",
+      "modelfile": "# Modelfile",
+      "parameters": "stop \"<end_of_turn>\"",
+      "template": "{{ .Prompt }}",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "gemma3",
+        "families": [
+          "gemma3"
+        ],
+        "parameter_size": "12.2B",
+        "quantization_level": "Q4_K_M"
+      },
+      "model_info": {
+        "general.architecture": "gemma3",
+        "general.parameter_count": 12187325040,
+        "gemma3.context_length": 131072,
+        "gemma3.embedding_length": 3840
+      },
+      "capabilities": [
+        "completion",
+        "vision"
+      ],
+      "modified_at": "2026-09-30T10:12:00.000Z"
+    },
+    "qwen2.5-coder:7b": {
+      "modelfile": "# Modelfile",
+      "details": {
+        "format": "gguf",
+        "family": "qwen2"
+      },
+      "model_info": {
+        "general.architecture": "qwen2",
+        "qwen2.context_length": 32768
+      },
+      "capabilities": [
+        "completion",
+        "tools",
+        "insert"
+      ]
+    },
+    "nomic-embed-text:latest": {
+      "modelfile": "# Modelfile",
+      "details": {
+        "format": "gguf",
+        "family": "nomic-bert"
+      },
+      "model_info": {
+        "general.architecture": "nomic-bert",
+        "nomic-bert.context_length": 2048
+      },
+      "capabilities": [
+        "embedding"
+      ]
+    }
+  },
+  "expected": [
+    {
+      "id": "gemma3:12b",
+      "capabilities": {
+        "chat": true,
+        "stream": true,
+        "vision": true,
+        "tools": false,
+        "embed": false,
+        "fim": false,
+        "contextTokens": 131072
+      },
+      "source": "endpoint"
+    },
+    {
+      "id": "qwen2.5-coder:7b",
+      "capabilities": {
+        "chat": true,
+        "stream": true,
+        "vision": false,
+        "tools": true,
+        "embed": false,
+        "fim": true,
+        "contextTokens": 32768
+      },
+      "source": "endpoint"
+    },
+    {
+      "id": "nomic-embed-text:latest",
+      "capabilities": {
+        "chat": false,
+        "stream": false,
+        "vision": false,
+        "tools": false,
+        "embed": true,
+        "fim": false,
+        "contextTokens": 2048
+      },
+      "source": "endpoint"
+    }
+  ]
+}

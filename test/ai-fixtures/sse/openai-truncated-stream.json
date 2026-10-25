@@ -1,0 +1,16 @@
+{
+  "description": "A stream that drops mid-event: no finish_reason, no [DONE], the last line cut inside its JSON. The partial event is ignored and the outcome is an error.",
+  "kind": "openai-compatible",
+  "chunks": [
+    "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"The first\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" sen",
+    "tence.\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" And mo"
+  ],
+  "expected": {
+    "deltas": [
+      "The first",
+      " sentence."
+    ],
+    "text": "The first sentence.",
+    "finishReason": "error"
+  }
+}

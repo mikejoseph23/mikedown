@@ -16,6 +16,9 @@ export default defineConfig({
     'shared/sha1': 'src/shared/sha1.ts',
     'shared/wordCount': 'src/shared/wordCount.ts',
     'shared/anchoring': 'src/shared/anchoring.ts',
+    // @mikedown/core/ai: the pure AI layer (schema, router, SSE, request
+    // builders) for hosts that run inference, without the editor.
+    'ai/index': 'src/ai/index.ts',
   },
   format: ['esm'],
   dts: true,

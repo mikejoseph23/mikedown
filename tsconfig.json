@@ -6,7 +6,10 @@
     "outDir": "out",
     "rootDir": ".",
     "baseUrl": ".",
-    "paths": { "@mikedown/core/shared/*": ["packages/core/src/shared/*"] },
+    "paths": {
+      "@mikedown/core/shared/*": ["packages/core/src/shared/*"],
+      "@mikedown/core/ai": ["packages/core/src/ai/index.ts"]
+    },
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -23,6 +26,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/**/*", "packages/core/src/shared/**/*"],
+  "include": ["src/**/*", "packages/core/src/shared/**/*", "packages/core/src/ai/**/*"],
   "exclude": ["node_modules", "out", "dist", "src/webview"]
 }

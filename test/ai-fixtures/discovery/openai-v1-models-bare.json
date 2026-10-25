@@ -1,0 +1,98 @@
+{
+  "description": "Bare OpenAI-compatible GET /v1/models (oMLX): ids only, so capabilities come from the id heuristics. expectedHeuristics is detectCapabilities(id) for each id.",
+  "kind": "openai-compatible",
+  "request": "GET http://127.0.0.1:8000/v1/models",
+  "response": {
+    "object": "list",
+    "data": [
+      {
+        "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+        "object": "model",
+        "created": 1792000000,
+        "owned_by": "omlx"
+      },
+      {
+        "id": "Vontra/DeepSeek-V4-Flash-0731-MXFP4-MLX",
+        "object": "model",
+        "created": 1792000000,
+        "owned_by": "omlx"
+      },
+      {
+        "id": "gemma-4-26B-A4B-it-QAT-MLX-4bit",
+        "object": "model",
+        "created": 1792000000,
+        "owned_by": "omlx"
+      },
+      {
+        "id": "minimax-m3",
+        "object": "model",
+        "created": 1792000000,
+        "owned_by": "omlx"
+      }
+    ]
+  },
+  "expected": [
+    {
+      "id": "tls20/Qwen3.8-Flash-Next-oQ5e-mtp",
+      "capabilities": {},
+      "source": "heuristic"
+    },
+    {
+      "id": "Vontra/DeepSeek-V4-Flash-0731-MXFP4-MLX",
+      "capabilities": {},
+      "source": "heuristic"
+    },
+    {
+      "id": "gemma-4-26B-A4B-it-QAT-MLX-4bit",
+      "capabilities": {},
+      "source": "heuristic"
+    },
+    {
+      "id": "minimax-m3",
+      "capabilities": {},
+      "source": "heuristic"
+    }
+  ],
+  "expectedHeuristics": {
+    "tls20/Qwen3.8-Flash-Next-oQ5e-mtp": {
+      "chat": true,
+      "stream": true,
+      "vision": true,
+      "json": true,
+      "tools": true,
+      "fim": false,
+      "embed": false,
+      "contextTokens": 262144
+    },
+    "Vontra/DeepSeek-V4-Flash-0731-MXFP4-MLX": {
+      "chat": true,
+      "stream": true,
+      "vision": false,
+      "json": true,
+      "tools": true,
+      "fim": false,
+      "embed": false,
+      "contextTokens": 1048576
+    },
+    "gemma-4-26B-A4B-it-QAT-MLX-4bit": {
+      "chat": true,
+      "stream": true,
+      "vision": true,
+      "json": true,
+      "tools": true,
+      "fim": false,
+      "embed": false,
+      "contextTokens": 131072
+    },
+    "minimax-m3": {
+      "chat": true,
+      "stream": true,
+      "vision": false,
+      "json": true,
+      "tools": true,
+      "fim": false,
+      "embed": false,
+      "contextTokens": 196608
+    }
+  }
+}

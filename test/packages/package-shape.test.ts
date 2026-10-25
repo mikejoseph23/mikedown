@@ -244,3 +244,25 @@ suite('@mikedown/core shared subpath', () => {
     expect(read('index.d.ts')).not.toMatch(/\bcreateImagePasteHelpers\b/);
   });
 });
+
+suite('@mikedown/core ai subpath', () => {
+  it('ai/index is built, ESM, free of Node, DOM and provider SDK imports', () => {
+    const js = read('ai/index.js');
+    expect(js).toContain('parseAiSettings');
+    expect(js).toContain('resolveRoute');
+    expect(js).not.toMatch(/\brequire\(/);
+    expect(js).not.toMatch(/^import /m);
+    expect(js).not.toMatch(/\bdocument\.(createElement|querySelector|body)|\bwindow\.(addEventListener|location|postMessage)/);
+    expect(existsSync(join(dist, 'ai', 'index.d.ts'))).toBe(true);
+  });
+
+  it('core adds no runtime dependency for AI', () => {
+    const m = JSON.parse(readFileSync(join(corePkg.dirPath, 'package.json'), 'utf8'));
+    const deps = Object.keys(m.dependencies ?? {});
+    expect(deps.filter((d) => /openai|anthropic|ollama|nanoid/.test(d))).toEqual([]);
+  });
+
+  it('index.d.ts exposes the ai host group on MikeDownHost', () => {
+    expect(read('index.d.ts')).toMatch(/\bai\?: MikeDownAiHost\b/);
+  });
+});
