@@ -33,7 +33,7 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | T2 Host tests: adapters with mocked fetch, live opt-in run | Sonnet | ✅ Done | 25 | `MIKEDOWN_AI_LIVE=1` |
 | M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | ✅ Done | 22 | core, all hosts |
 | M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | ✅ Done | 18 | reqwest + keyring |
-| T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | 🔄 In Progress | — | shared fixtures |
+| T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | 🟡 Partial | 20 | real-webview smoke moved to T4 | shared fixtures |
 | M5 Proof feature: selection rewrite with preview popover | Opus | 🔄 In Progress | — | feature id `rewrite` |
 | M6 npm consumers: wrappers, demo stub host, docs | Sonnet | ✅ Done | 14 | website demo |
 | T4 Hands-on: end to end on Mike's machines | Sonnet | ⬜ Not Started | — | user sign-off |
@@ -502,9 +502,9 @@ Host to webview:
 
 > Workers must complete ALL items, including running green.
 
-- [ ] Cargo tests in `commands/ai/`: SSE reassembly and request bodies against `test/ai-fixtures/` (same files as T1, read by relative path), discovery parsing per kind, error mapping, `requestOverrides` merge.
-- [ ] Cargo test for the keyring wrapper using the `keyring` mock credential store (no real keychain in CI).
-- [ ] Mock HTTP server test (`wiremock` or `httpmock`) for `ai_complete` streaming and `ai_cancel` mid-stream.
+- [x] Cargo tests in `commands/ai/`: SSE reassembly and request bodies against `test/ai-fixtures/` (same files as T1, read by relative path), discovery parsing per kind, error mapping, `requestOverrides` merge.
+- [x] Cargo test for the keyring wrapper using the `keyring` mock credential store (no real keychain in CI).
+- [x] Mock HTTP server test (`wiremock` or `httpmock`) for `ai_complete` streaming and `ai_cancel` mid-stream.
 - [ ] Smoke (`packages/desktop/src/smoke`): host `ai` group round-trips `listEngines` and a completion against the mock server; Settings modal AI tab renders with an engine.
 - [ ] Run `cargo test` in `packages/desktop/src-tauri` and the Desktop smoke script green; record in the Progress Log.
 
@@ -650,5 +650,7 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 16:30** - T2 done (`294e283`, ~25 min), cherry-picked as `f2d9b83`; M3 follow-up `7556187` (Cancel drops keys of never-saved engines via a new optional section hook `onDiscarded`; core subscribes to `host.onAiEngines` when present) cherry-picked as `8b8f210`. Verified on branch: `npm run test:unit` 1988 passed, `npm run test:packages` 75, lint 0 errors, `npm run test:ai-live` 13 skipped without the env var, `MIKEDOWN_AI_LIVE=1 npm run test:ai-live` 7 passed / 6 skipped (oMLX probe, auth, discovery, 20-token completion, cancel pass; LM Studio probe and discovery pass, completion and cancel skipped because no chat model was loaded; Ollama skipped, not running, OPEN-7 stands). No source bugs found.
 
 **2026-10-25 16:40** - M6 done (`1ccdb23`, 14 min), cherry-picked as `4f82fa7`. Fixed a real React bug (`stableHost` dropped non-function host entries, so `host.ai` never reached core). Web component `ai` property, Angular `[ai]` input, "Bring your own AI" docs in core README and on the hub (`#byo-ai`), tier-2 stub host in every demo. Verified on branch: `npm run test:unit` 1989, `npm run test:packages` 79, `npm run test:wrappers` (web component 49, React 24, Vue 12, Angular 26), `npm run build:site` ok. Demo note mentions Rewrite, which appears once M5 merges.
+
+**2026-10-25 16:45** - T3 partial (`6a6479c`, ~20 min), cherry-picked as `ba71468`. New `command_layer.rs` drives every `ai_*` command on Tauri's mock runtime against the loopback server (streaming, cancel mid-stream, window isolation, route and cloud gates); keychain wrapper tested on a mock `keyring` credential builder; Playwright `ai.spec.ts` (AI tab with engine and empty, `listEngines`, streamed completion, abort). Verified on branch: `cargo test` 176 + 26 + 7, Desktop e2e 55 passed, Desktop unit 559. **Not run:** the real-webview smoke (`src/smoke/harness.ts` AI group typechecks but never executed) because the installed `/Applications/MikeDown.app` was running and the single-instance plugin swallowed the dev launch. Moved to T4: quit MikeDown, run the README smoke command, then `npm run smoke:compare`. No bugs found.
 
 [Return to Top](#ai-inference-engines-plan)
