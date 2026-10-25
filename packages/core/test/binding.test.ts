@@ -3,6 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bindMikeDownValue, selectorAttributes, type MikeDownBinding } from '../src/binding';
+import type { MikeDownAiHost } from '../src/ai';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
 stubLayoutMeasurement();
@@ -340,5 +341,19 @@ describe('accessibility', () => {
     mount({ placeholder: 'Say something' });
     const p = el.querySelector('.ProseMirror p');
     expect(p?.getAttribute('data-placeholder')).toBe('Say something');
+  });
+});
+
+describe('host.ai', () => {
+  it('reaches the editor untouched: the AI tab exists, and without it it does not', () => {
+    mount();
+    binding!.handle.command('openAiSettings');
+    expect(document.querySelector('.settings-panel--ai')).toBeNull();
+    binding!.destroy();
+
+    const ai = { complete: vi.fn() } as unknown as MikeDownAiHost;
+    mount({ host: { ai } });
+    binding!.handle.command('openAiSettings');
+    expect(document.querySelector('.settings-panel--ai')).not.toBeNull();
   });
 });

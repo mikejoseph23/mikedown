@@ -1,7 +1,7 @@
 import { StrictMode, createRef, useState } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MikeDownEditorHandle } from '@mikedown/core';
+import type { MikeDownAiHost, MikeDownEditorHandle } from '@mikedown/core';
 import { MikeDownEditor } from '../src';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -179,6 +179,24 @@ describe('controlled', () => {
     const root = rootOf(container);
     rerender(<MikeDownEditor defaultValue="A" host={hostB} />);
     expect(rootOf(container)).toBe(root);
+  });
+});
+
+describe('host.ai', () => {
+  it('is handed to the core untouched, next to the function host methods', () => {
+    const ai = { complete: vi.fn() } as unknown as MikeDownAiHost;
+    const ref = createRef<MikeDownEditorHandle>();
+    render(<MikeDownEditor ref={ref} defaultValue="A" host={{ ai, onStats: () => undefined }} />);
+    act(() => ref.current!.command('openAiSettings'));
+    expect(document.querySelector('.settings-panel--ai')).not.toBeNull();
+    document.getElementById('mikedown-settings-overlay')?.remove();
+  });
+
+  it('is absent when the host has none', () => {
+    const ref = createRef<MikeDownEditorHandle>();
+    render(<MikeDownEditor ref={ref} defaultValue="A" host={{ onStats: () => undefined }} />);
+    act(() => ref.current!.command('openAiSettings'));
+    expect(document.querySelector('.settings-panel--ai')).toBeNull();
   });
 });
 

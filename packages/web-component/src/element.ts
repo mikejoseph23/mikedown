@@ -107,6 +107,7 @@ export class MikeDownElement extends Base {
   #featuresAttrCache: { raw: string | null; parsed: Partial<MikeDownFeatures> | null } = { raw: null, parsed: null };
   #settings: Partial<MikeDownSettings> = {};
   #host: MikeDownElementHost = {};
+  #ai: MikeDownAiHost | undefined;
   #formDisabled = false;
   #rebuildQueued = false;
   #fallbackInput: HTMLInputElement | null = null;
@@ -348,6 +349,19 @@ export class MikeDownElement extends Base {
     this.#scheduleRebuild();
   }
 
+  /**
+   * The AI host group (`complete`, and for tier 2 `listEngines`, `testEngine`, ...). A property only: it holds
+   * functions, so there is no attribute. Wins over `host.ai`. Core turns the AI features on when it is present,
+   * so a change rebuilds the editor. Core ships no provider SDK; the page supplies the transport.
+   */
+  get ai(): MikeDownAiHost | undefined {
+    return this.#ai ?? this.#host.ai;
+  }
+  set ai(ai: MikeDownAiHost | null | undefined) {
+    this.#ai = ai ?? undefined;
+    this.#scheduleRebuild();
+  }
+
   /** The editor handle while connected, else null. */
   get handle(): MikeDownEditorHandle | null {
     return this.#binding?.handle ?? null;
@@ -444,6 +458,7 @@ export class MikeDownElement extends Base {
     if (this.#binding || !this.isConnected) {return;}
     const { ariaLabel, ariaLabelledBy } = this.#accessibleName();
     const userHost = this.#host;
+    const ai = this.#ai ?? userHost.ai;
     const binding = bindMikeDownValue(this, {
       initialValue: this.#value,
       debounceMs: this.debounce,
@@ -459,6 +474,7 @@ export class MikeDownElement extends Base {
       ariaLabelledBy,
       host: {
         ...userHost,
+        ...(ai ? { ai } : {}),
         // Every keystroke keeps `value`, the form value and validity current;
         // the debounced `change` event comes from onValue below.
         onChange: (markdown: string, meta: { pristine: boolean }) => {

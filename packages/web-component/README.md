@@ -107,6 +107,7 @@ Every attribute has a matching property; setting either updates the other.
 | `value` | `string` | The current markdown, updated on every keystroke. Setting it loads the text as the clean baseline and fires no `change`. |
 | `settings` | `Partial<MikeDownSettings>` | Core settings (`fontFamily`, `fontSize`, `contentWidth`, `spellCheckLanguage`, ...), applied live. |
 | `host` | `Partial<MikeDownHost>` | Host methods: `uploadImage`, `openLink`, `resolveImageSrc`, `pickImage`, `getLinkSuggestions`, ... Core turns a feature on only when its method is present. Setting it rebuilds the editor. |
+| `ai` | `MikeDownAiHost` | The AI host group (`complete`, and for tier 2 `listEngines`, ...), passed to the core untouched. A property only, no attribute; `host.ai` works too. Setting it rebuilds the editor. See [Bring your own AI](https://github.com/mikejoseph23/mikedown/tree/main/packages/core#bring-your-own-ai). |
 | `handle` | `MikeDownEditorHandle \| null` | Read only. The core editor handle while connected (`command`, `getHtml`, `insertImage`, ...). |
 | `form`, `labels`, `validity`, `validationMessage`, `willValidate` | | As on native form controls. |
 

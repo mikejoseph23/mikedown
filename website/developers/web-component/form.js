@@ -1,10 +1,15 @@
 import '@mikedown/core/styles.css';
 import '@mikedown/web-component/define';
+import { stubAiHost, stubAiSettings } from '../common/stub-ai';
 
 const form = document.querySelector('#post-form');
 const editor = form.querySelector('mikedown-editor');
 const value = document.querySelector('#post-value');
 const result = form.querySelector('output');
+
+// The demo's AI is a stub: it streams canned text and calls no server.
+editor.settings = { ai: stubAiSettings };
+editor.ai = stubAiHost;
 
 const showValue = () => { value.textContent = editor.value; };
 editor.addEventListener('ready', showValue);

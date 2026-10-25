@@ -3,6 +3,7 @@ import './common/stage.js';
 import '../shared/copy.js';
 import '@mikedown/core/styles.css';
 import '@mikedown/web-component/define';
+import { stubAiHost, stubAiSettings } from './common/stub-ai';
 
 const starter = `# Meeting notes
 
@@ -28,6 +29,9 @@ root.innerHTML = `<div class="demo">
 
 const editor = root.querySelector('mikedown-editor');
 const value = root.querySelector('.demo__value');
+// The demo's AI is a stub: it streams canned text and calls no server.
+editor.settings = { ai: stubAiSettings };
+editor.ai = stubAiHost;
 editor.value = starter;
 value.textContent = starter;
 editor.addEventListener('change', (e) => { value.textContent = e.detail.value; });

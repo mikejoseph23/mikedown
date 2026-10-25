@@ -87,6 +87,7 @@ export function renderStage(pkg, rootElement) {
         </div>
         <div class="stage__cols" aria-hidden="true"><span>Editor</span><span>Markdown value <span class="stage__live" data-stage-live>Synced</span></span></div>
         <div class="stage__body" id="demo-root">${body}</div>
+        <p class="stage__stub"><strong>The AI here is a stub.</strong> It streams canned text from no server and no model. Open Settings (the gear), then the AI tab, to see its engine; select text and choose Rewrite to watch the text stream in. <a href="/mikedown/developers/#byo-ai">Bring your own AI</a> shows the real thing.</p>
       </section>`;
 }
 

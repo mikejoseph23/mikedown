@@ -148,3 +148,14 @@ describe('plugin', () => {
     expect(app.component('MikeDownEditor')).toBe(MikeDownEditor);
   });
 });
+
+describe('MikeDownEditor host.ai', () => {
+  it('passes the host, and the ai group inside it, to the binding as is', () => {
+    const ai = { complete: vi.fn() };
+    const host = { ai, onStats: vi.fn() };
+    mount(MikeDownEditor, { props: { modelValue: '', host } });
+    // Vue wraps props in reactive proxies, so compare what is inside.
+    expect(last().options.host.ai.complete).toBe(ai.complete);
+    expect(Object.keys(last().options.host).sort()).toEqual(['ai', 'onStats']);
+  });
+});

@@ -2,6 +2,7 @@ import { Component, input } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MikeDownEditorComponent } from '@mikedown/angular';
+import { stubAiHost, stubAiSettings } from '../../../developers/common/stub-ai';
 
 const starter = `# Release notes
 
@@ -27,6 +28,8 @@ Type / for headings, callouts and more.
         [formControl]="notes"
         [theme]="theme()"
         [readOnly]="readOnly()"
+        [ai]="ai"
+        [settings]="settings"
         ariaLabel="Release notes"
         minHeight="440px"
       />
@@ -37,6 +40,10 @@ Type / for headings, callouts and more.
 export class Demo {
   readonly theme = input<'auto' | 'light' | 'dark'>('auto');
   readonly readOnly = input(false);
+
+  // The demo's AI is a stub: it streams canned text and calls no server.
+  readonly ai = stubAiHost;
+  readonly settings = { ai: stubAiSettings };
 
   readonly notes = new FormControl(starter, { nonNullable: true });
   readonly markdown = toSignal(this.notes.valueChanges, { initialValue: starter });

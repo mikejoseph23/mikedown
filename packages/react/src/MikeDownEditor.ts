@@ -38,6 +38,7 @@ export interface MikeDownEditorProps {
   /**
    * Host methods (image upload, wikilinks, ...). Read through a ref, so a new object
    * never recreates the editor; the set of methods present is fixed at mount.
+   * `host.ai` (the AI group) is handed to the core untouched, as read at mount.
    */
   host?: Partial<MikeDownHost>;
   /** CSS selector for theme 'auto': dark when the editor or an ancestor matches. Read at mount. */
@@ -84,7 +85,13 @@ function createHandleProxy(getHandle: () => MikeDownEditorHandle | null): MikeDo
 function stableHost(initial: Partial<MikeDownHost> | undefined, latest: () => Partial<MikeDownHost> | undefined): Partial<MikeDownHost> {
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(initial ?? {})) {
-    if (typeof (initial as Record<string, unknown>)[key] !== 'function') {continue;}
+    const value = (initial as Record<string, unknown>)[key];
+    // The `ai` group is an object of methods, not a method: core owns its shape, so it goes through as is.
+    if (key === 'ai') {
+      if (value) {out.ai = value;}
+      continue;
+    }
+    if (typeof value !== 'function') {continue;}
     out[key] = (...args: unknown[]) => {
       const fn = (latest() as Record<string, unknown> | undefined)?.[key];
       return typeof fn === 'function' ? (fn as (...a: unknown[]) => unknown)(...args) : undefined;

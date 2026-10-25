@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { MikeDownEditor } from '@mikedown/react';
 import '@mikedown/core/styles.css';
+import { stubAiHost, stubAiSettings } from '../common/stub-ai';
+
+// The demo's AI is a stub: it streams canned text and calls no server.
+const host = { ai: stubAiHost };
+const settings = { ai: stubAiSettings };
 
 const starter = `# Release notes
 
@@ -29,6 +34,8 @@ export function Demo({ theme = 'auto', readOnly = false }: Props) {
         onChange={setMarkdown}
         theme={theme}
         readOnly={readOnly}
+        host={host}
+        settings={settings}
         aria-label="Release notes"
       />
       <pre className="demo__value" tabIndex={0} aria-label="Markdown value">{markdown}</pre>

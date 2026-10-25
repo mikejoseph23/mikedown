@@ -38,7 +38,7 @@ export const MikeDownEditor = defineComponent({
     features: { type: Object as PropType<Partial<MikeDownFeatures>>, default: undefined },
     /** Initial settings; later changes are pushed with `updateSettings`. */
     settings: { type: Object as PropType<Partial<MikeDownSettings>>, default: undefined },
-    /** Optional host methods (image upload, wikilinks, ...). Read once at mount. */
+    /** Optional host methods (image upload, wikilinks, ...). Read once at mount. `host.ai` goes to the core untouched. */
     host: { type: Object as PropType<Partial<MikeDownHost>>, default: undefined },
     /** CSS selector for `theme="auto"`: dark when an ancestor matches. */
     darkSelector: { type: String, default: undefined },

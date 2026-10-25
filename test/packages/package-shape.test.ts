@@ -265,4 +265,42 @@ suite('@mikedown/core ai subpath', () => {
   it('index.d.ts exposes the ai host group on MikeDownHost', () => {
     expect(read('index.d.ts')).toMatch(/\bai\?: MikeDownAiHost\b/);
   });
+
+  it('the ./ai export maps types and code to files that exist', () => {
+    const m = JSON.parse(readFileSync(join(corePkg.dirPath, 'package.json'), 'utf8'));
+    const entry = m.exports['./ai'];
+    expect(entry).toBeTruthy();
+    expect(entry.types).toBe('./dist/ai/index.d.ts');
+    for (const target of targetsOf(entry)) {
+      expect(existsSync(join(corePkg.dirPath, target)), target).toBe(true);
+    }
+  });
+
+  it('ai/index.d.ts declares the host contract and every relative import in it resolves', () => {
+    const dts = read('ai/index.d.ts');
+    for (const name of ['MikeDownAiHost', 'AiCompletionRequest', 'AiCompletionResult', 'AiEngineStatus', 'AiSettings', 'parseAiSettings', 'resolveRoute']) {
+      expect(dts, name).toContain(name);
+    }
+    for (const m of dts.matchAll(/from ['"](\.{1,2}\/[^'"]+)['"]/g)) {
+      const base = join(dist, 'ai', m[1].replace(/\.js$/, ''));
+      expect(existsSync(`${base}.d.ts`) || existsSync(join(base, 'index.d.ts')) || existsSync(`${base}.d.mts`), m[1]).toBe(true);
+    }
+  });
+
+  it('the main entry types expose the AI host types, and ai/index.js makes no network calls', () => {
+    const dts = read('index.d.ts');
+    for (const name of ['MikeDownAiHost', 'AiCompletionRequest', 'AiCompletionResult', 'AiEngineStatus']) {
+      expect(dts, name).toContain(name);
+    }
+    expect(read('ai/index.js')).not.toMatch(/\b(fetch|XMLHttpRequest|WebSocket|EventSource)\b\s*\(|\bnew\s+(XMLHttpRequest|WebSocket|EventSource)\b/);
+  });
+
+  it('no public package depends on a provider SDK or an HTTP client', () => {
+    const banned = /^(openai|@anthropic-ai\/.+|anthropic|ollama|@google\/genai|@google\/generative-ai|cohere-ai|@mistralai\/.+|langchain|@langchain\/.+|ai|@ai-sdk\/.+|axios|node-fetch|undici|got|ky|superagent)$/;
+    for (const pkg of packages) {
+      const m = manifestOf(pkg);
+      const names = ['dependencies', 'peerDependencies', 'optionalDependencies'].flatMap((k) => Object.keys(m[k] ?? {}));
+      expect(names.filter((n) => banned.test(n)), pkg.name).toEqual([]);
+    }
+  });
 });

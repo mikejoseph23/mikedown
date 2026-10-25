@@ -22,7 +22,7 @@ import {
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Router } from '@angular/router';
 import { bindMikeDownValue } from '@mikedown/core';
-import type { MikeDownBinding, MikeDownEditorHandle, MikeDownFeatures, MikeDownSettings } from '@mikedown/core';
+import type { MikeDownAiHost, MikeDownBinding, MikeDownEditorHandle, MikeDownFeatures, MikeDownSettings } from '@mikedown/core';
 import { AngularMikeDownHost, MikeDownImageSrcResolver, MikeDownImageUpload } from './angular-mikedown-host';
 import { unescapeBrackets } from './unescape-brackets';
 
@@ -119,6 +119,13 @@ export class MikeDownEditorComponent implements ControlValueAccessor, AfterViewI
   /** Full control over image paths the core cannot load as is. Wins over `imageBaseUrl`. Return null for the placeholder. */
   @Input() imageSrcResolver?: MikeDownImageSrcResolver;
 
+  /**
+   * The AI host group (`complete`, and for tier 2 `listEngines`, `testEngine`, ...), handed to the core untouched.
+   * Without it the AI features stay off. The core ships no provider SDK; your `complete` does the transport.
+   * Read once, at creation (presence decides whether the feature exists).
+   */
+  @Input() ai?: MikeDownAiHost;
+
   /** Emits the editor handle once the editor exists, for advanced use (`command`, `getHtml`, `focus`...). */
   @Output() ready = new EventEmitter<MikeDownEditorHandle>();
 
@@ -164,6 +171,7 @@ export class MikeDownEditorComponent implements ControlValueAccessor, AfterViewI
       imageUpload: () => this.imageUpload,
       imageSrcResolver: () => this.imageSrcResolver,
       imageBaseUrl: () => this.imageBaseUrl,
+      ai: () => this.ai,
     });
 
     this.zone.runOutsideAngular(() => {

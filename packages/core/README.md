@@ -86,10 +86,118 @@ field.destroy();              // flushes, then removes observers and listeners
 | `onHeadingRenamed`, `onHeadingRenameAmbiguous` | no rename callbacks |
 | `exportHtml`, `printDocument`, `viewInBrowser` | export buttons hidden |
 | `sidebarPrefs` | sidebar keeps in-memory defaults |
+| `ai` | no AI features, no AI tab (see [Bring your own AI](#bring-your-own-ai)) |
 
 Request and response methods return Promises. For example `uploadImage(file)` receives `{ mime, bytes, name }` and resolves `{ src, alt }`.
 
 The returned `MikeDownEditorHandle` takes pushes from the host: `setMarkdown`, `markSaved`, `updateSettings`, `setReadOnly`, `setTags`, `setBacklinks`, `setDocMeta`, `scrollToAnchor`, `getHtml`, `command(name)` and more. `handle.on('ready' | ...)` subscribes to events. All types are exported from the package root.
+
+## Bring your own AI
+
+`host.ai` turns on the editor's AI features (selection rewrite today, more later) and an AI tab in the Settings modal. Leave it out and nothing AI shows. **`@mikedown/core` ships no provider SDK and makes no AI network calls of its own.** Your `host.ai` does the transport; `@mikedown/core/ai` holds only pure helpers (settings schema, router, request builders, stream parsers) you may use or ignore.
+
+There are two tiers. Pick by how much of the engine setup you want the editor to own.
+
+**Tier 1: one method.** Implement `complete` and proxy it to your backend. Your server picks the model, holds the keys and decides what may leave your network. The editor shows the on/off switch and the feature toggles in Settings, but no engine list.
+
+```ts
+import { createMikeDownEditor, type MikeDownAiHost } from '@mikedown/core';
+
+const ai: MikeDownAiHost = {
+  async complete(req, onToken, signal) {
+    const res = await fetch('/api/ai/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Image parts carry raw bytes; encode them first (bytesToBase64 from '@mikedown/core/ai') if you forward them.
+      body: JSON.stringify({ feature: req.feature, task: req.task, messages: req.messages, maxTokens: req.maxTokens }),
+      signal,
+    });
+    if (!res.ok) throw { code: res.status === 429 ? 'rateLimited' : 'unknown', message: await res.text() };
+    // This backend streams plain text. Rejecting with an AbortError (or aborting `signal`) cancels cleanly.
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let text = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const delta = decoder.decode(value, { stream: true });
+      text += delta;
+      onToken(delta);
+    }
+    return { text, served: { engineName: 'Our AI service', modelId: 'server-chosen', isLocal: false }, finishReason: 'stop' };
+  },
+};
+
+createMikeDownEditor(el, { host: { onChange, ai } });
+```
+
+**Tier 2: an engine registry.** Add `listEngines` (and optionally `testEngine`, `discoverModels`, `setSecret`, `requestCloudConsent`) and the editor shows the full AI tab: engines, models, capabilities and per-task routing. Core resolves which engine and model serves each request and passes it as `req.route`; your host sends it. The example calls a local Ollama from the browser, which suits development (start Ollama with `OLLAMA_ORIGINS` set to your dev origin so the browser may call it; in production, send these calls through your server).
+
+```ts
+import { createMikeDownEditor, type MikeDownAiHost } from '@mikedown/core';
+import {
+  aiErrorCodeFromHttp, buildAuthHeaders, buildCompletionBody, completeCapabilities, createCompletionStreamReader,
+  engineEndpoints, makeAiError, parseAiSettings, parseOllamaTags, type AiEngineStatus,
+} from '@mikedown/core/ai';
+
+const settings = parseAiSettings({
+  enabled: true,
+  engines: [{ id: 'ollama', name: 'Ollama (dev)', kind: 'ollama', baseUrl: 'http://127.0.0.1:11434/v1', models: [{ id: 'qwen3:8b' }] }],
+  routing: { default: { engineId: 'ollama', modelId: 'qwen3:8b' }, fallback: 'none', tasks: {} },
+});
+const engine = settings.engines[0];
+const urls = engineEndpoints(engine);
+
+async function probe(): Promise<AiEngineStatus> {
+  const started = performance.now();
+  try {
+    const res = await fetch(urls.nativeModels!);
+    if (!res.ok) throw makeAiError(aiErrorCodeFromHttp(res.status));
+    const ids = parseOllamaTags(await res.json());
+    return {
+      engineId: engine.id, ok: true, isLocal: true, hasKey: false, latencyMs: Math.round(performance.now() - started),
+      models: ids.map((id) => ({ id, capabilities: completeCapabilities({}, id, engine.kind), source: 'heuristic' as const })),
+    };
+  } catch (err) {
+    return { engineId: engine.id, ok: false, isLocal: true, hasKey: false, error: err instanceof Error ? err.message : 'Ollama is not reachable', models: [] };
+  }
+}
+
+const ai: MikeDownAiHost = {
+  async complete(req, onToken, signal) {
+    const model = engine.models.find((m) => m.id === req.route?.modelId) ?? engine.models[0];
+    const res = await fetch(urls.completions, {
+      method: 'POST',
+      headers: buildAuthHeaders(engine.kind, null),
+      body: JSON.stringify(buildCompletionBody(engine.kind, model, req)),
+      signal,
+    });
+    if (!res.ok) throw makeAiError(aiErrorCodeFromHttp(res.status, await res.text()));
+    const stream = createCompletionStreamReader(engine.kind);
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const delta of stream.push(decoder.decode(value, { stream: true }))) onToken(delta);
+    }
+    const out = stream.finish();
+    return {
+      text: out.text, usage: out.usage, finishReason: out.finishReason,
+      served: { engineId: engine.id, engineName: engine.name, modelId: model.id, isLocal: true },
+    };
+  },
+  listEngines: async () => [await probe()],
+  testEngine: probe,
+  discoverModels: probe,
+};
+
+createMikeDownEditor(el, { host: { onChange, ai, saveSettings /* persists the ai.* keys */ }, settings: { ai: settings } });
+```
+
+**Consent.** Cloud engines are off until the user turns on *Allow cloud engines* in the AI tab. Even then, in tier 2 the first request a cloud engine would serve calls your `requestCloudConsent(engineId)`. Show your own dialog naming the engine, its URL and what is sent (the selection and one paragraph for rewrite), and resolve `true` or `false`. A `false` counts as unusable for that session. A host without `requestCloudConsent` is treated as having consented (the *Allow cloud engines* switch still applies), so implement it if users can add cloud engines. In tier 1 core never sees which model answers, so consent is your backend's and your UI's to handle.
+
+The wrappers pass `host.ai` through untouched: `host={{ ai }}` in React, `:host` in Vue, the `[ai]` input in Angular, and the `ai` property (properties only, no attribute) on `<mikedown-editor>`. Wrapper docs list the exact binding. The [developers hub](https://www.iadev.net/mikedown/developers/#byo-ai) has a live demo with a stub host that streams canned text.
 
 ## Features
 
@@ -197,7 +305,7 @@ Current Chrome, Edge, Firefox and Safari (ES2020 output, ESM only).
 
 ## Privacy
 
-No telemetry. The editor makes no network calls except the ones you configure: spell check dictionaries (when `spellcheckDictionaryUrl` is set), your `host` callbacks, and the lazy `import()` of KaTeX and Mermaid from your own bundle.
+No telemetry. The editor makes no network calls except the ones you configure: spell check dictionaries (when `spellcheckDictionaryUrl` is set), your `host` callbacks (including `host.ai`, which is the only way AI requests leave the page), and the lazy `import()` of KaTeX and Mermaid from your own bundle.
 
 ## Links
 

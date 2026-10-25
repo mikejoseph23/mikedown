@@ -115,6 +115,8 @@ body { overflow-x: hidden; }
 .stage__live.is-updated { color: var(--success); transition: none; }
 
 .stage__body { min-height: 440px; }
+.stage__stub { margin: 0; padding: 10px 16px; border-top: 1px dashed var(--border); font-size: 13px; line-height: 1.5; color: var(--muted); }
+.stage__stub strong { color: var(--text-strong); font-weight: 600; }
 .stage__loading { padding: 24px 16px; color: var(--muted); font-size: 14px; }
 
 /* The sample's own markup: .demo > editor (or .demo__main) + pre.demo__value */
@@ -186,6 +188,8 @@ pre.snippet {
 .split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
 .split > * { min-width: 0; }
 .split__aside { max-width: 640px; }
+.split__aside h3 { font-size: clamp(1.25rem, 2.6vw, 1.5rem); margin-bottom: 12px; }
+.split + .split, .split + .notes { margin-top: 48px; }
 .split__aside h2 { font-size: clamp(1.5rem, 3.2vw, 1.875rem); margin-bottom: 12px; }
 .split__aside p { color: var(--muted); font-size: 16px; }
 .split__aside p + p { margin-top: 10px; }

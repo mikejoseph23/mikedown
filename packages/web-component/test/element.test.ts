@@ -9,6 +9,7 @@
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
+import type { MikeDownAiHost as MikeDownAi } from '@mikedown/core';
 import { MikeDownElement, defineMikeDownElement, dedentScriptText } from '../src/index';
 
 stubLayoutMeasurement();
@@ -184,6 +185,36 @@ describe('attributes and properties', () => {
     expect(el.handle).not.toBe(first);
     type(el, 'x');
     expect(onChange).toHaveBeenCalled();
+  });
+
+  it('accepts ai as a property, before connecting and later (which rebuilds), and also through host.ai', async () => {
+    const ai = { complete: vi.fn() } as unknown as MikeDownAi;
+    const before = document.createElement('mikedown-editor') as MikeDownElement;
+    before.ai = ai;
+    document.body.appendChild(before);
+    expect(before.ai).toBe(ai);
+    expect(before.getAttribute('ai')).toBeNull();
+    before.handle!.command('openAiSettings');
+    expect(document.querySelector('.settings-panel--ai')).not.toBeNull();
+    document.getElementById('mikedown-settings-overlay')?.remove();
+
+    const later = editor();
+    later.handle!.command('openAiSettings');
+    expect(document.querySelector('.settings-panel--ai')).toBeNull();
+    const first = later.handle;
+    later.ai = ai;
+    await flushMicrotasks();
+    expect(later.handle).not.toBe(first);
+    later.handle!.command('openAiSettings');
+    expect(document.querySelector('.settings-panel--ai')).not.toBeNull();
+    document.getElementById('mikedown-settings-overlay')?.remove();
+
+    const viaHost = editor();
+    viaHost.host = { ai };
+    await flushMicrotasks();
+    expect(viaHost.ai).toBe(ai);
+    viaHost.handle!.command('openAiSettings');
+    expect(document.querySelector('.settings-panel--ai')).not.toBeNull();
   });
 
   it('handle is read-only and null while disconnected', () => {

@@ -4,6 +4,7 @@ import type {
   ImageInsertResult,
   ImageUploadRequest,
   LinkOpenBehavior,
+  MikeDownAiHost,
   MikeDownHost,
   MikeDownSettings,
   MikeDownSettingsPatch,
@@ -26,6 +27,8 @@ export interface AngularMikeDownHostBindings {
   imageUpload(): MikeDownImageUpload | undefined;
   imageSrcResolver(): MikeDownImageSrcResolver | undefined;
   imageBaseUrl(): string | undefined;
+  /** The AI host group, handed to the core as is. */
+  ai?(): MikeDownAiHost | undefined;
 }
 
 const QUALIFIED_URL = /^[a-z][a-z0-9+.-]*:/i;
@@ -41,8 +44,11 @@ const QUALIFIED_URL = /^[a-z][a-z0-9+.-]*:/i;
 export class AngularMikeDownHost implements Partial<MikeDownHost> {
   uploadImage?: (file: ImageUploadRequest) => Promise<ImageInsertResult>;
   resolveImageSrc?: (src: string) => string | null;
+  /** Present only when the component has an `ai` input, because the core turns AI off when it is absent. */
+  ai?: MikeDownAiHost;
 
   constructor(private readonly bindings: AngularMikeDownHostBindings) {
+    this.ai = bindings.ai?.();
     if (bindings.imageUpload()) {
       this.uploadImage = (file) => {
         const upload = this.bindings.imageUpload();

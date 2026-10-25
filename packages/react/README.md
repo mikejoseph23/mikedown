@@ -65,7 +65,7 @@ The editor fills its container, so give the component a height through `style` o
 | `readOnly`, `disabled` | Reactive. `disabled` is read-only too. |
 | `placeholder`, `features` | Read at mount. `features` switches the toolbar, sidebar, source mode, slash commands, spellcheck, math, mermaid, find/replace and frontmatter. |
 | `settings` | Core settings (`fontSize`, `contentWidth`, ...). Compared by content; changes call `updateSettings`. |
-| `host` | Optional host methods (image upload, wikilinks, ...). Read through a ref, so a new object never recreates the editor. The set of methods present is fixed at mount, because a missing method turns its feature off. |
+| `host` | Optional host methods (image upload, wikilinks, ...). Read through a ref, so a new object never recreates the editor. The set of methods present is fixed at mount, because a missing method turns its feature off. `host.ai` (the AI group) goes to the core untouched; see [Bring your own AI](https://github.com/mikejoseph23/mikedown/tree/main/packages/core#bring-your-own-ai). |
 | `id`, `aria-label`, `aria-labelledby` | Go on the editable surface. With only an `id`, a `<label for>` is found and used as the name. See [Accessibility](#accessibility). |
 | `className`, `style` | On the wrapper `div`. |
 | `onReady(handle)` | Called when the editor exists. |

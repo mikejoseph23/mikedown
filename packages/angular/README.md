@@ -124,6 +124,7 @@ Import it into the feature module that uses the editor (not a shared module) so 
 | `imageUpload` | none | `(file) => Observable<{ src, alt? }>`. Without it, pasting or dropping an image does nothing. |
 | `imageBaseUrl` | none | Base URL for relative image paths in the markdown. |
 | `imageSrcResolver` | none | `(src) => string \| null`, full control over image paths. Wins over `imageBaseUrl`. |
+| `ai` | none | The AI host group (`complete`, and for tier 2 `listEngines`, ...), passed to the core untouched. Without it the AI features stay off. Read once, at creation. See [Bring your own AI](https://github.com/mikejoseph23/mikedown/tree/main/packages/core#bring-your-own-ai). |
 
 "Read once" means the input is read when the editor is created. `theme`, `readOnly` and `settings` changes apply live.
 

@@ -2,6 +2,11 @@
 import { ref } from 'vue';
 import { MikeDownEditor } from '@mikedown/vue';
 import '@mikedown/core/styles.css';
+import { stubAiHost, stubAiSettings } from '../common/stub-ai';
+
+// The demo's AI is a stub: it streams canned text and calls no server.
+const host = { ai: stubAiHost };
+const settings = { ai: stubAiSettings };
 
 defineProps<{ theme?: 'auto' | 'light' | 'dark'; readOnly?: boolean }>();
 
@@ -27,6 +32,8 @@ Type / for headings, callouts and more.
       class="demo__editor"
       :theme="theme"
       :read-only="readOnly"
+      :host="host"
+      :settings="settings"
       aria-label="Release notes"
     />
     <pre class="demo__value" tabindex="0" aria-label="Markdown value">{{ markdown }}</pre>

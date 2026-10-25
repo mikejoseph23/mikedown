@@ -38,7 +38,7 @@
             <code id="hub-install">npm install @mikedown/web-component @mikedown/core</code>
             <button class="copy-button" type="button" data-copy-target="#hub-install">Copy</button>
           </div>
-          <p class="dev-head__links"><a href="#packages">All packages</a><a href="#which">Which one do I need?</a></p>
+          <p class="dev-head__links"><a href="#packages">All packages</a><a href="#which">Which one do I need?</a><a href="#byo-ai">Bring your own AI</a></p>
         </div>
       </header>
 
@@ -142,6 +142,140 @@
             <span class="chooser__use"><a href="./web-component/#cdn">The web component from a CDN</a>, one script tag</span>
           </li>
         </ul>
+      </div>
+    </section>
+
+    <section class="section" id="byo-ai" aria-labelledby="byo-ai-title">
+      <div class="site-container">
+        <div class="section-head">
+          <h2 class="section-title" id="byo-ai-title">Bring your own AI</h2>
+          <p class="section-lede">Give the editor a <code>host.ai</code> and it gains an AI tab in Settings and a Rewrite action for the selected text. Leave it out and nothing AI appears. <strong>MikeDown ships no provider SDK</strong> and makes no AI network calls of its own: your <code>host.ai</code> does the transport, to your backend or to a local model.</p>
+        </div>
+
+        <div class="split">
+          <div class="split__aside">
+            <h3>Tier 1: one method</h3>
+            <p>Implement <code>complete</code> and proxy it to your backend. Your server picks the model, holds the keys and decides what may leave your network. Settings shows the on/off switch and the feature toggles, but no engine list.</p>
+            <p>Pass <code>ai</code> as <code>host.ai</code> in React and Vue, the <code>[ai]</code> input in Angular, or the <code>ai</code> property on <code>&lt;mikedown-editor&gt;</code> (a property only, never an attribute).</p>
+          </div>
+          <div>
+          <figure class="code">
+            <figcaption class="code__bar"><span class="code__file">tier-1.ts</span><button class="copy-button" type="button" data-copy-target="#code-byo-tier1" aria-label="Copy the tier 1 example">Copy</button></figcaption>
+            <pre class="code__body" tabindex="0" aria-label="the tier 1 example"><code id="code-byo-tier1" data-highlight="ts">import { createMikeDownEditor, type MikeDownAiHost } from '@mikedown/core';
+
+const ai: MikeDownAiHost = {
+  async complete(req, onToken, signal) {
+    const res = await fetch('/api/ai/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Image parts carry raw bytes; encode them first (bytesToBase64 from '@mikedown/core/ai') if you forward them.
+      body: JSON.stringify({ feature: req.feature, task: req.task, messages: req.messages, maxTokens: req.maxTokens }),
+      signal,
+    });
+    if (!res.ok) throw { code: res.status === 429 ? 'rateLimited' : 'unknown', message: await res.text() };
+    // This backend streams plain text. Rejecting with an AbortError (or aborting `signal`) cancels cleanly.
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let text = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const delta = decoder.decode(value, { stream: true });
+      text += delta;
+      onToken(delta);
+    }
+    return { text, served: { engineName: 'Our AI service', modelId: 'server-chosen', isLocal: false }, finishReason: 'stop' };
+  },
+};
+
+createMikeDownEditor(el, { host: { onChange, ai } });</code></pre>
+          </figure>
+          </div>
+        </div>
+
+        <div class="split">
+          <div class="split__aside">
+            <h3>Tier 2: an engine registry</h3>
+            <p>Add <code>listEngines</code> (and optionally <code>testEngine</code>, <code>discoverModels</code>, <code>setSecret</code>, <code>requestCloudConsent</code>) and Settings shows engines, models, capabilities and per-task routing. Core picks the engine and model for each request and hands it to your <code>complete</code> as <code>req.route</code>.</p>
+            <p>This example calls Ollama straight from the browser, which suits development: start Ollama with <code>OLLAMA_ORIGINS</code> set to your dev origin. In production, send these calls through your server. The helpers come from <code>@mikedown/core/ai</code>, which is pure functions with no network access.</p>
+          </div>
+          <div>
+          <figure class="code">
+            <figcaption class="code__bar"><span class="code__file">tier-2.ts</span><button class="copy-button" type="button" data-copy-target="#code-byo-tier2" aria-label="Copy the tier 2 example">Copy</button></figcaption>
+            <pre class="code__body" tabindex="0" aria-label="the tier 2 example"><code id="code-byo-tier2" data-highlight="ts">import { createMikeDownEditor, type MikeDownAiHost } from '@mikedown/core';
+import {
+  aiErrorCodeFromHttp, buildAuthHeaders, buildCompletionBody, completeCapabilities, createCompletionStreamReader,
+  engineEndpoints, makeAiError, parseAiSettings, parseOllamaTags, type AiEngineStatus,
+} from '@mikedown/core/ai';
+
+const settings = parseAiSettings({
+  enabled: true,
+  engines: [{ id: 'ollama', name: 'Ollama (dev)', kind: 'ollama', baseUrl: 'http://127.0.0.1:11434/v1', models: [{ id: 'qwen3:8b' }] }],
+  routing: { default: { engineId: 'ollama', modelId: 'qwen3:8b' }, fallback: 'none', tasks: {} },
+});
+const engine = settings.engines[0];
+const urls = engineEndpoints(engine);
+
+async function probe(): Promise&lt;AiEngineStatus&gt; {
+  const started = performance.now();
+  try {
+    const res = await fetch(urls.nativeModels!);
+    if (!res.ok) throw makeAiError(aiErrorCodeFromHttp(res.status));
+    const ids = parseOllamaTags(await res.json());
+    return {
+      engineId: engine.id, ok: true, isLocal: true, hasKey: false, latencyMs: Math.round(performance.now() - started),
+      models: ids.map((id) =&gt; ({ id, capabilities: completeCapabilities({}, id, engine.kind), source: 'heuristic' as const })),
+    };
+  } catch (err) {
+    return { engineId: engine.id, ok: false, isLocal: true, hasKey: false, error: err instanceof Error ? err.message : 'Ollama is not reachable', models: [] };
+  }
+}
+
+const ai: MikeDownAiHost = {
+  async complete(req, onToken, signal) {
+    const model = engine.models.find((m) =&gt; m.id === req.route?.modelId) ?? engine.models[0];
+    const res = await fetch(urls.completions, {
+      method: 'POST',
+      headers: buildAuthHeaders(engine.kind, null),
+      body: JSON.stringify(buildCompletionBody(engine.kind, model, req)),
+      signal,
+    });
+    if (!res.ok) throw makeAiError(aiErrorCodeFromHttp(res.status, await res.text()));
+    const stream = createCompletionStreamReader(engine.kind);
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const delta of stream.push(decoder.decode(value, { stream: true }))) onToken(delta);
+    }
+    const out = stream.finish();
+    return {
+      text: out.text, usage: out.usage, finishReason: out.finishReason,
+      served: { engineId: engine.id, engineName: engine.name, modelId: model.id, isLocal: true },
+    };
+  },
+  listEngines: async () =&gt; [await probe()],
+  testEngine: probe,
+  discoverModels: probe,
+};
+
+createMikeDownEditor(el, { host: { onChange, ai, saveSettings /* persists the ai.* keys */ }, settings: { ai: settings } });</code></pre>
+          </figure>
+          </div>
+        </div>
+
+        <div class="notes">
+          <div class="note">
+            <h3>Consent</h3>
+            <p>Cloud engines stay off until the user turns on <em>Allow cloud engines</em>. Then, the first time a cloud engine would serve a request, core calls your <code>requestCloudConsent(engineId)</code>; show a dialog naming the engine, its URL and what is sent, and resolve <code>true</code> or <code>false</code>. A host without it is treated as having consented. In tier 1 your backend owns this decision.</p>
+          </div>
+          <div class="note">
+            <h3>Try it here</h3>
+            <p>Every demo on these pages uses a <strong>stub</strong> host that streams canned text from no server and no model. Open Settings (the gear) and the AI tab to see its engine, or select text and choose Rewrite.</p>
+          </div>
+        </div>
+        <a class="readme-link" href="https://github.com/mikejoseph23/mikedown/tree/main/packages/core#bring-your-own-ai">Read "Bring your own AI" in the @mikedown/core README</a>
       </div>
     </section>
 

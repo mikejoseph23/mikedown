@@ -4,7 +4,7 @@ import { Component } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { provideRouter } from '@angular/router';
-import type { MikeDownEditorHandle } from '@mikedown/core';
+import type { MikeDownAiHost, MikeDownEditorHandle } from '@mikedown/core';
 import { of } from 'rxjs';
 import {
   MIKEDOWN_SETTINGS_KEY,
@@ -38,6 +38,7 @@ function pasteImage(handle: MikeDownEditorHandle): void {
   template: `<mikedown-editor
     [formControl]="control"
     [imageUpload]="upload"
+    [ai]="ai"
     [preserveBrackets]="preserveBrackets"
     [debounceMs]="debounceMs"
     (ready)="handle = $event"
@@ -46,6 +47,7 @@ function pasteImage(handle: MikeDownEditorHandle): void {
 class ControlHostComponent {
   control = new FormControl<string>('', { nonNullable: true });
   upload?: MikeDownImageUpload;
+  ai?: MikeDownAiHost;
   preserveBrackets = false;
   debounceMs = 150;
   handle?: MikeDownEditorHandle;
@@ -297,6 +299,22 @@ describe('MikeDownEditorComponent', () => {
       tick(500);
       expect(host.handle!.getMarkdown()).toBe(before);
       expect(root(fixture)?.querySelectorAll('img').length).toBe(0);
+      fixture.destroy();
+    }));
+
+    it('hands the ai input to the core: the AI tab opens with it and not without', fakeAsync(() => {
+      setup('');
+      host.handle!.command('openAiSettings');
+      expect(document.querySelector('.settings-panel--ai')).toBeNull();
+      fixture.destroy();
+
+      fixture = TestBed.createComponent(ControlHostComponent);
+      host = fixture.componentInstance;
+      host.ai = { complete: () => Promise.reject(new Error('unused')) };
+      init(fixture);
+      host.handle!.command('openAiSettings');
+      expect(document.querySelector('.settings-panel--ai')).not.toBeNull();
+      document.getElementById('mikedown-settings-overlay')?.remove();
       fixture.destroy();
     }));
 

@@ -73,7 +73,7 @@ If the server render complains about the stylesheet import, add `@mikedown/core`
 | `theme` | `'light' \| 'dark' \| 'auto'` | Default `'auto'`: follows `darkSelector`, else `prefers-color-scheme`. Reactive. |
 | `readOnly` | `boolean` | Reactive. |
 | `disabled` | `boolean` | Reactive; implies read-only. |
-| `placeholder` | `string` | Read once at mount. |
+| `placeholder` | `string` | Read once at mount. `host.ai` goes to the core untouched; see [Bring your own AI](https://github.com/mikejoseph23/mikedown/tree/main/packages/core#bring-your-own-ai). |
 | `features` | `Partial<MikeDownFeatures>` | Read once at mount. |
 | `settings` | `Partial<MikeDownSettings>` | Initial settings; later changes are pushed with `updateSettings`. |
 | `host` | `Partial<MikeDownHost>` | Image upload, wikilinks and other host methods. Read once at mount. |
