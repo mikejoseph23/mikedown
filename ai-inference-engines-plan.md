@@ -30,7 +30,7 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | M1 Core contracts: schema, capabilities, task taxonomy, router | Opus | ✅ Done | 17 | `@mikedown/core/ai` |
 | T1 Unit tests: schema, router, locality, SSE parser | Sonnet | ✅ Done | 8 | vitest, pure |
 | M2 VS Code host: adapters, secrets, settings, protocol | Opus | ✅ Done | 16 | `src/ai/` |
-| T2 Host tests: adapters with mocked fetch, live opt-in run | Sonnet | 🔄 In Progress | — | `MIKEDOWN_AI_LIVE=1` |
+| T2 Host tests: adapters with mocked fetch, live opt-in run | Sonnet | ✅ Done | 25 | `MIKEDOWN_AI_LIVE=1` |
 | M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | ✅ Done | 22 | core, all hosts |
 | M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | ✅ Done | 18 | reqwest + keyring |
 | T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | 🔄 In Progress | — | shared fixtures |
@@ -443,11 +443,11 @@ Host to webview:
 
 > Workers must complete ALL items, including running the suite green. Live tests must skip cleanly, not fail, when the env var or the server is absent.
 
-- [ ] `test/unit/ai-providers.test.ts`: each adapter against the fixtures (discovery parsing, capabilities, probe ok/auth/unreachable, streaming reassembly, cancellation mid-stream aborts the fetch, `requestOverrides` present in the body, `apiKeyEnv` fallback used when no secret).
-- [ ] `test/unit/ai-engineService.test.ts`: cloud gate refuses without `allowCloud`, consent prompt once per workspace per engine, second request while one is in flight cancels the first, secret deleted when an engine disappears from settings.
-- [ ] `test/unit/ai-protocol.test.ts`: `vsCodeHost` `ai` group correlates `aiDone`/`aiError` by `requestId`, tokens forwarded in order, `aiCancel` posted on abort.
-- [ ] `test/live/ai-live.test.ts` (new folder, excluded from `test:unit`, run by `npm run test:ai-live`): against oMLX `http://127.0.0.1:8000/v1` with `OMLX_API_KEY` and LM Studio `http://127.0.0.1:1234/v1`: probe, discovery, a 20-token completion, a cancelled completion. Ollama live only if reachable at `:11434` (OPEN-7).
-- [ ] Run `npm run test:unit` green and `MIKEDOWN_AI_LIVE=1 npm run test:ai-live` on the Mac Studio with both servers up; paste the summary lines into the Progress Log.
+- [x] `test/unit/ai-providers.test.ts`: each adapter against the fixtures (discovery parsing, capabilities, probe ok/auth/unreachable, streaming reassembly, cancellation mid-stream aborts the fetch, `requestOverrides` present in the body, `apiKeyEnv` fallback used when no secret).
+- [x] `test/unit/ai-engineService.test.ts`: cloud gate refuses without `allowCloud`, consent prompt once per workspace per engine, second request while one is in flight cancels the first, secret deleted when an engine disappears from settings.
+- [x] `test/unit/ai-protocol.test.ts`: `vsCodeHost` `ai` group correlates `aiDone`/`aiError` by `requestId`, tokens forwarded in order, `aiCancel` posted on abort.
+- [x] `test/live/ai-live.test.ts` (new folder, excluded from `test:unit`, run by `npm run test:ai-live`): against oMLX `http://127.0.0.1:8000/v1` with `OMLX_API_KEY` and LM Studio `http://127.0.0.1:1234/v1`: probe, discovery, a 20-token completion, a cancelled completion. Ollama live only if reachable at `:11434` (OPEN-7).
+- [x] Run `npm run test:unit` green and `MIKEDOWN_AI_LIVE=1 npm run test:ai-live` on the Mac Studio with both servers up; paste the summary lines into the Progress Log.
 
 [Return to Top](#ai-inference-engines-plan)
 
@@ -646,5 +646,7 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 16:15** - M4 done (`f000f82`, 18 min), cherry-picked onto `ai-engines` as `900766b`. Verified on branch: `npm run test:unit` 1892 passed, Desktop typecheck clean and unit 559 passed, `cargo test` 166 + 26 + 7 passed. `ai.localNetworks` also app-wide (with engines and `allowCloud`) so a folder file cannot relabel a public host as local. Host lives in `src/host/aiHost.ts`, exposed as `TauriHost.ai`. No `embed`/`transcribe` on Desktop yet. **M7 blocker:** Desktop dist-mode `vite build` fails until core with `./ai` is published and the Desktop core pin is bumped.
 
 **2026-10-25 16:20** - M3 done (`0612550`, 22 min), cherry-picked onto `ai-engines` as `bb803db`. Verified on branch: build:core, compile, both `tsc --noEmit`, lint 0 errors, `npm run test:unit` 1911 passed, `npm run test:packages` 75, Desktop typecheck and 559 unit. New handle API `setAiServed` and `setAiEngineStatuses`; `openAiSettings` is a `MikeDownCommand`. Chip hidden while AI is off with no engines (ships dark). Push decision: no contract change; core re-calls `listEngines` on every `settings.ai` change and hosts may push via `handle.setAiEngineStatuses` (M5 wires `VsCodeHost.onAiEngines` to it). Group B dispatched: T3, M5, M6 (T2 already running).
+
+**2026-10-25 16:30** - T2 done (`294e283`, ~25 min), cherry-picked as `f2d9b83`; M3 follow-up `7556187` (Cancel drops keys of never-saved engines via a new optional section hook `onDiscarded`; core subscribes to `host.onAiEngines` when present) cherry-picked as `8b8f210`. Verified on branch: `npm run test:unit` 1988 passed, `npm run test:packages` 75, lint 0 errors, `npm run test:ai-live` 13 skipped without the env var, `MIKEDOWN_AI_LIVE=1 npm run test:ai-live` 7 passed / 6 skipped (oMLX probe, auth, discovery, 20-token completion, cancel pass; LM Studio probe and discovery pass, completion and cancel skipped because no chat model was loaded; Ollama skipped, not running, OPEN-7 stands). No source bugs found.
 
 [Return to Top](#ai-inference-engines-plan)
