@@ -99,6 +99,8 @@ export interface AiSettingsSectionOptions {
   waitForSettings(accept: (s: AiSettings) => boolean, timeoutMs: number): Promise<AiSettings | null>;
   /** Fresh statuses (list, test, discover) for the editor's cache and the indicator. */
   onStatuses(statuses: AiEngineStatus[]): void;
+  /** Statuses that arrive without the tab asking (a host push, a settings refresh). Returns an unsubscribe. */
+  subscribeStatuses?(listener: (statuses: AiEngineStatus[]) => void): () => void;
   /** The modal saved; the draft is the new settings. */
   onSaved(draft: AiSettings): void;
 }
@@ -228,6 +230,8 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   const keyOverride = new Map<string, boolean>();
   /** Engines deleted in this session: their keys are dropped on Save. */
   const deleted = new Set<string>();
+  /** Engines this session stored a key for; dropped again if the modal closes before the engine is saved. */
+  const keysStored = new Set<string>();
   const busy = new Map<string, 'test' | 'discover'>();
   /** Last Test / Discover / key result per engine, shown in its editor. */
   const results = new Map<string, { level: 'ok' | 'error' | 'info'; text: string }>();
@@ -702,6 +706,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
     try {
       await ai.setSecret(id, value);
       keyOverride.set(id, value !== null);
+      if (value !== null) {keysStored.add(id);} else {keysStored.delete(id);}
       results.set(id, value !== null
         ? { level: 'ok', text: 'Key stored.' }
         : { level: 'info', text: engine.apiKeyEnv ? `Key cleared. ${engine.apiKeyEnv} is used if it is set.` : 'Key cleared.' });
@@ -1427,6 +1432,17 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   }
   rows.push(featuresRow, live);
 
+  // Statuses pushed while the tab is open refresh the dots and pickers in
+  // place (no full rebuild, so typing is never interrupted).
+  const unsubscribe = opts.subscribeStatuses?.((list) => {
+    if (!enginesRow.isConnected) {return;}
+    for (const s of list) {
+      if (!busy.has(s.engineId)) {statuses.set(s.engineId, s);}
+    }
+    for (const engine of draft.engines) {refreshHead(engine.id);}
+    scheduleRouting();
+  });
+
   // Fresh statuses as the tab opens: the dots should not be stale.
   if (tier === 2 && ai.listEngines) {
     ai.listEngines().then((list) => {
@@ -1442,8 +1458,20 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   return {
     rows,
     collect: () => changedAiPatch(original, draft),
+    onDiscarded: () => {
+      window.clearTimeout(liveTimer);
+      unsubscribe?.();
+      // The host keeps a key for an engine id it has never seen; if that
+      // engine was never saved, nothing would ever clean it up.
+      if (!ai.setSecret) {return;}
+      const saved = new Set(opts.getHostSettings().engines.map((e) => e.id));
+      for (const id of keysStored) {
+        if (!saved.has(id)) {ai.setSecret(id, null).catch(() => { /* best effort */ });}
+      }
+    },
     onSaved: () => {
       window.clearTimeout(liveTimer);
+      unsubscribe?.();
       if (ai.setSecret) {
         for (const id of deleted) {
           if (draft.engines.some((e) => e.id === id)) {continue;}

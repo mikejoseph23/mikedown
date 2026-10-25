@@ -1046,10 +1046,20 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** This editor's open Settings modal, if any (appended to document.body). */
   let settingsOverlay: HTMLElement | null = null;
+  /** Tells the open modal's sections it closed unsaved. Null once saved or closed. */
+  let discardSettings: (() => void) | null = null;
+
+  /** Close the Settings modal without saving. */
+  function closeSettingsModal(): void {
+    const discard = discardSettings;
+    discardSettings = null;
+    settingsOverlay?.remove();
+    discard?.();
+  }
 
   function showSettingsModal(initialTab?: SettingsTabId): void {
     // Remove existing modal if open
-    settingsOverlay?.remove();
+    closeSettingsModal();
 
     const overlay = document.createElement('div');
     overlay.id = 'mikedown-settings-overlay';
@@ -1076,7 +1086,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const closeBtn = document.createElement('button');
     closeBtn.innerHTML = '&times;';
     closeBtn.className = 'settings-close';
-    closeBtn.addEventListener('click', () => overlay.remove());
+    closeBtn.addEventListener('click', () => closeSettingsModal());
     title.appendChild(titleText);
     title.appendChild(closeBtn);
 
@@ -1710,7 +1720,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       makeFieldLabel,
       makeCheckboxRow,
       makeSelectRow,
-      close: () => overlay.remove(),
+      close: () => closeSettingsModal(),
     };
     // The AI tab is core's own section, built only for a host with an `ai`
     // group. Listed after the host's sections so it lands right after Spelling.
@@ -1727,6 +1737,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         saveNow: host.saveSettings ? (patch) => host.saveSettings?.(patch, { silent: true }) : undefined,
         waitForSettings: waitForAiSettings,
         onStatuses: (list) => { aiStatuses = list; renderAiIndicator(); },
+        subscribeStatuses: (fn) => {
+          aiStatusListeners.add(fn);
+          return () => { aiStatusListeners.delete(fn); };
+        },
         onSaved: (saved) => {
           currentAiSettings = saved;
           renderAiIndicator();
@@ -1813,6 +1827,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         ignoreCodeBlocks: currentSpellCheckIgnoreCodeBlocks,
         userWords: [...currentSpellCheckUserWords, ...currentSpellCheckExternalWords],
       });
+      discardSettings = null;
       for (const { build } of builtSections) {build.onSaved?.();}
       overlay.remove();
     });
@@ -1984,9 +1999,18 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     getPortal().appendChild(overlay);
 
     // Close on backdrop click or Escape
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) {overlay.remove();} });
+    discardSettings = () => {
+      for (const { build } of builtSections) {
+        try { build.onDiscarded?.(); } catch (err) { console.error('MikeDown: settings section discard failed —', err); }
+      }
+    };
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) {closeSettingsModal();} });
     listen(document, 'keydown', function escHandler(e: KeyboardEvent) {
-      if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+      if (e.key === 'Escape') {
+        // A handler left over from an earlier modal must not close this one.
+        if (overlay === settingsOverlay && overlay.isConnected) {closeSettingsModal();}
+        document.removeEventListener('keydown', escHandler);
+      }
     });
   }
 
@@ -2032,6 +2056,22 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   const aiSettingsWaiters = new Set<(s: AiSettings) => void>();
   let aiStatusTimer: number | undefined;
   disposers.push(() => window.clearTimeout(aiStatusTimer));
+  /** The open AI tab, listening for statuses that arrive without it asking. */
+  const aiStatusListeners = new Set<(list: AiEngineStatus[]) => void>();
+
+  function setAiStatuses(list: AiEngineStatus[]): void {
+    aiStatuses = list;
+    renderAiIndicator();
+    for (const fn of aiStatusListeners) {fn(list);}
+  }
+
+  // VsCodeHost pushes statuses after probes and settings changes. Not part of
+  // MikeDownAiHost, so only used when the host happens to offer it.
+  const aiPushSource = host as MikeDownHost & { onAiEngines?: (fn: (list: AiEngineStatus[]) => void) => () => void };
+  if (aiHost && typeof aiPushSource.onAiEngines === 'function') {
+    const off = aiPushSource.onAiEngines((list) => { if (Array.isArray(list)) {setAiStatuses(list);} });
+    if (typeof off === 'function') {disposers.push(off);}
+  }
 
   function renderAiIndicator(): void {
     outlineSidebar?.applyAiIndicator(aiHost
@@ -2061,8 +2101,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     aiStatusTimer = window.setTimeout(() => {
       ai.listEngines?.().then((list) => {
         if (destroyed) {return;}
-        aiStatuses = list;
-        renderAiIndicator();
+        setAiStatuses(list);
       }).catch(() => { /* keep the last statuses */ });
     }, 150);
   }
@@ -5908,7 +5947,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       try { disposers.pop()?.(); } catch (err) { console.error('MikeDown: dispose failed —', err); }
     }
     setSlashDisableHandler(null);
-    settingsOverlay?.remove();
+    closeSettingsModal();
     cmView?.destroy();
     cmView = null;
     editor.destroy();
@@ -5943,10 +5982,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       aiServed = served ? { served, viaFallback: !!o?.viaFallback } : null;
       renderAiIndicator();
     },
-    setAiEngineStatuses: (list) => {
-      aiStatuses = Array.isArray(list) ? list : [];
-      renderAiIndicator();
-    },
+    setAiEngineStatuses: (list) => setAiStatuses(Array.isArray(list) ? list : []),
     isModalOpen: () => !!settingsOverlay?.isConnected,
     getViewState,
     setViewState,

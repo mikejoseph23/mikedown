@@ -155,6 +155,8 @@ export interface MikeDownSettingsSectionBuild {
   collect?(): Record<string, unknown>;
   /** Runs after Save, once the patch was sent. */
   onSaved?(): void;
+  /** Runs when the modal closes without saving (close button, Escape, backdrop, reopen, destroy). */
+  onDiscarded?(): void;
 }
 
 /** A host-owned block of rows in the Settings modal. */

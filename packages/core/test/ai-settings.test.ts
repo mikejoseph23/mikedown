@@ -278,6 +278,58 @@ describe('AI tab in the Settings modal', () => {
   });
 });
 
+describe('AI tab lifecycle', () => {
+  it('closing unsaved drops a key stored for an engine the host never saw, keeps the rest', async () => {
+    const ai = tier2();
+    class Host extends NoopHost { ai = ai; saveSettings = vi.fn(); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    // A key for a saved engine, then a new engine with its own key.
+    click(document.querySelector('[aria-label="Edit Anthropic"]'));
+    document.querySelector<HTMLInputElement>('input[type="password"]')!.value = 'sk-saved';
+    click(byText('.ai-key .settings-btn', 'Store'));
+    await vi.waitFor(() => expect(ai.setSecret).toHaveBeenCalledWith('claude', 'sk-saved'));
+    click(document.querySelector('.ai-add-btn'));
+    click(Array.from(document.querySelectorAll('.ai-menu-item')).find((n) => n.textContent?.includes('OpenRouter')));
+    const key = () => document.querySelector<HTMLInputElement>('.ai-engine.is-open input[type="password"]')!;
+    key().value = 'sk-new';
+    click(byText('.ai-engine.is-open .ai-key .settings-btn', 'Store'));
+    await vi.waitFor(() => expect(ai.setSecret).toHaveBeenCalledWith(expect.stringMatching(/^openrouter-/), 'sk-new'));
+    const newId = (ai.setSecret as ReturnType<typeof vi.fn>).mock.calls[1][0] as string;
+
+    click(document.querySelector('.settings-close'));
+    expect(document.querySelector('.settings-modal')).toBeNull();
+    expect(ai.setSecret).toHaveBeenCalledWith(newId, null);
+    expect(ai.setSecret).not.toHaveBeenCalledWith('claude', null);
+  });
+
+  it('statuses pushed while the tab is open update the engine dots', () => {
+    class Host extends NoopHost { ai = tier2(); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    const dot = () => document.querySelector('.ai-engine .ai-status')?.getAttribute('data-state');
+    expect(dot()).toBe('unknown');
+    handle.setAiEngineStatuses([{ engineId: 'omlx', ok: false, isLocal: true, hasKey: false, error: 'ECONNREFUSED', models: [] }]);
+    expect(dot()).toBe('error');
+    expect(document.querySelector('.ai-engine .ai-status')?.getAttribute('title')).toContain('ECONNREFUSED');
+  });
+
+  it('listens to a host onAiEngines push when the host offers one', () => {
+    let push: ((list: AiEngineStatus[]) => void) | null = null;
+    class Host extends NoopHost {
+      ai = tier2();
+      onAiEngines(fn: (list: AiEngineStatus[]) => void) { push = fn; return () => { push = null; }; }
+    }
+    const handle = mount(new Host(), settings({ routing: { default: { engineId: 'omlx', modelId: 'qwen3.8-flash' }, fallback: 'none', tasks: {} } }));
+    const chip = document.querySelector<HTMLButtonElement>('[data-testid="sidebar-ai-chip"]')!;
+    expect(chip.textContent).toBe('AI: local · oMLX · Qwen Flash');
+    push!([{ engineId: 'omlx', ok: false, isLocal: true, hasKey: false, models: [] }]);
+    expect(chip.textContent).toBe('AI: no route');
+    handle.destroy();
+    expect(push).toBeNull();
+  });
+});
+
 describe('AI indicator chip', () => {
   it('shows the served engine and opens the AI tab on click', () => {
     class Host extends NoopHost { ai = tier2(); }
