@@ -27,8 +27,8 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| M1 Core contracts: schema, capabilities, task taxonomy, router | Opus | ⬜ Not Started | — | `@mikedown/core/ai` |
-| T1 Unit tests: schema, router, locality, SSE parser | Sonnet | ⬜ Not Started | — | vitest, pure |
+| M1 Core contracts: schema, capabilities, task taxonomy, router | Opus | ✅ Done | 17 | `@mikedown/core/ai` |
+| T1 Unit tests: schema, router, locality, SSE parser | Sonnet | 🔄 In Progress | — | vitest, pure |
 | M2 VS Code host: adapters, secrets, settings, protocol | Opus | ⬜ Not Started | — | `src/ai/` |
 | T2 Host tests: adapters with mocked fetch, live opt-in run | Sonnet | ⬜ Not Started | — | `MIKEDOWN_AI_LIVE=1` |
 | M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | ⬜ Not Started | — | core, all hosts |
@@ -381,18 +381,18 @@ Host to webview:
 
 > Workers must complete ALL items in this list. If an item seems out of scope, note it in your summary for the orchestrator, but attempt it unless truly blocked.
 
-- [ ] `packages/core/src/ai/types.ts`: `AiEngineKind`, `AiEngineConfig`, `AiModelConfig`, `AiModelCapabilities`, `AiRouting`, `AiFeatureSettings`, `AiSettings`, plus the host types above (`AiMessage`, `AiCompletionRequest`, `AiCompletionResult`, `AiEngineStatus`, `AiError`, `AiErrorCode`).
-- [ ] `packages/core/src/ai/schema.ts`: `parseAiSettings(raw: unknown): AiSettings` with defaults, id generation for engines missing an id, preservation of unknown keys; `serializeAiSettings` for the patch.
-- [ ] `packages/core/src/ai/features.ts`: feature registry (`id`, `label`, `defaultEnabled`, `defaultTask`, `requires: Partial<AiModelCapabilities>`), seeded with `rewrite` and placeholders for the brainstorm's top 5 (`ghostText`, `chat`, `summary`, `frontmatter`, `altText`) marked `planned` so the tab can list them greyed.
-- [ ] `packages/core/src/ai/tasks.ts`: task taxonomy table from this plan with required capabilities.
-- [ ] `packages/core/src/ai/locality.ts`: `detectLocality(baseUrl, localNetworks)`.
-- [ ] `packages/core/src/ai/capabilityHeuristics.ts`: id-based detection and the static cloud tables (Anthropic, OpenAI) with prefix matching; `mergeDiscoveredModels(existing, discovered)` honoring `capabilitiesSource`.
-- [ ] `packages/core/src/ai/router.ts`: `resolveRoute(settings, statuses, consent, { feature })` implementing steps 1 to 5, returning `{ engineId, modelId, viaFallback, reason }` or `{ unusable: reason }`.
-- [ ] `packages/core/src/ai/sse.ts` and `requests.ts`: pure SSE reassembly (OpenAI and Anthropic event shapes) and request body builders per kind with `requestOverrides` merge and image parts.
-- [ ] `packages/core/src/ai/errors.ts`: user copy per `AiErrorCode`.
-- [ ] `packages/core/src/host.ts`: add `ai?: MikeDownAiHost`; `packages/core/src/types.ts`: add `ai` to `MikeDownSettings` and the feature flags; export `@mikedown/core/ai` from `packages/core/package.json#exports` and tsup entries.
-- [ ] Add the `@mikedown/core/ai` alias to `tsconfig.json`, `webpack.config.js`, `vitest.config.ts`.
-- [ ] `test/ai-fixtures/`: JSON fixtures for SSE streams (OpenAI chunked deltas with `[DONE]`, Anthropic `content_block_delta` sequence, a truncated stream), discovery responses (LM Studio `/api/v0/models`, Ollama `/api/tags` + `/api/show`, bare `/v1/models`, Anthropic `/v1/models`), and routing scenarios (the vision/structure/notes example, cloud blocked, fallback chain).
+- [x] `packages/core/src/ai/types.ts`: `AiEngineKind`, `AiEngineConfig`, `AiModelConfig`, `AiModelCapabilities`, `AiRouting`, `AiFeatureSettings`, `AiSettings`, plus the host types above (`AiMessage`, `AiCompletionRequest`, `AiCompletionResult`, `AiEngineStatus`, `AiError`, `AiErrorCode`).
+- [x] `packages/core/src/ai/schema.ts`: `parseAiSettings(raw: unknown): AiSettings` with defaults, id generation for engines missing an id, preservation of unknown keys; `serializeAiSettings` for the patch.
+- [x] `packages/core/src/ai/features.ts`: feature registry (`id`, `label`, `defaultEnabled`, `defaultTask`, `requires: Partial<AiModelCapabilities>`), seeded with `rewrite` and placeholders for the brainstorm's top 5 (`ghostText`, `chat`, `summary`, `frontmatter`, `altText`) marked `planned` so the tab can list them greyed.
+- [x] `packages/core/src/ai/tasks.ts`: task taxonomy table from this plan with required capabilities.
+- [x] `packages/core/src/ai/locality.ts`: `detectLocality(baseUrl, localNetworks)`.
+- [x] `packages/core/src/ai/capabilityHeuristics.ts`: id-based detection and the static cloud tables (Anthropic, OpenAI) with prefix matching; `mergeDiscoveredModels(existing, discovered)` honoring `capabilitiesSource`.
+- [x] `packages/core/src/ai/router.ts`: `resolveRoute(settings, statuses, consent, { feature })` implementing steps 1 to 5, returning `{ engineId, modelId, viaFallback, reason }` or `{ unusable: reason }`.
+- [x] `packages/core/src/ai/sse.ts` and `requests.ts`: pure SSE reassembly (OpenAI and Anthropic event shapes) and request body builders per kind with `requestOverrides` merge and image parts.
+- [x] `packages/core/src/ai/errors.ts`: user copy per `AiErrorCode`.
+- [x] `packages/core/src/host.ts`: add `ai?: MikeDownAiHost`; `packages/core/src/types.ts`: add `ai` to `MikeDownSettings` and the feature flags; export `@mikedown/core/ai` from `packages/core/package.json#exports` and tsup entries.
+- [x] Add the `@mikedown/core/ai` alias to `tsconfig.json`, `webpack.config.js`, `vitest.config.ts`.
+- [x] `test/ai-fixtures/`: JSON fixtures for SSE streams (OpenAI chunked deltas with `[DONE]`, Anthropic `content_block_delta` sequence, a truncated stream), discovery responses (LM Studio `/api/v0/models`, Ollama `/api/tags` + `/api/show`, bare `/v1/models`, Anthropic `/v1/models`), and routing scenarios (the vision/structure/notes example, cloud blocked, fallback chain).
 
 [Return to Top](#ai-inference-engines-plan)
 
@@ -636,5 +636,7 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 ## Progress Log / Notes
 
 **2026-10-25 00:00** - Plan written. Inputs: `ai-copilot-brainstorm.md`, LymeScribe `docs/ai-features-plan.md`, `home-lab/local-ai` catalog (oMLX `:8000` MLX-only with key, LM Studio `:1234` GGUF plus MLX with no auth and loopback-only as of 2026-10-04, Gemma 4 26B-A4B as the vision pick, MiniMax M3 on oMLX, DeepSeek V4 Flash and Qwen 3.8 Flash Next as default brains). Open decisions listed with recommendations; no code written.
+
+**2026-10-25 15:36** - M1 done (`acf4b60`, 17 min). All 12 items plus extras `discovery.ts`, `wire.ts`, `presets.ts`. `localNetworks` is a sixth top-level key; router returns `needsConsent` for an un-asked cloud engine; Anthropic requests omit `temperature`. Verified on branch: `npm run test:unit` 1610 passed. Work is on branch `ai-engines` (worktree `../mikedown-ai-engines`).
 
 [Return to Top](#ai-inference-engines-plan)
