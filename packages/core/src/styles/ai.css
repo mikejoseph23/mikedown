@@ -1,10 +1,12 @@
-/* MikeDown — AI settings tab (ai-settings.ts) and the sidebar AI chip.
+/* MikeDown — AI settings tab (ai-settings.ts), the Express engine form
+ * (ai-engine-form.ts) and the sidebar AI chip.
  *
  * The tab is built from the Settings modal's own rows and groups
  * (settings-modal.css); this file only adds what those do not have: the
  * engine list (glyph, local/cloud pill, status dot, default star, switch),
- * the inline engine editor, the models table with capability chips, route
- * pickers and notes. Loaded after settings-modal.css so it can lean on the
+ * the quick-start cards, the Express form (sheet, models combobox, Advanced
+ * fold), the full models table with capability chips, route pickers and
+ * notes. Loaded after settings-modal.css so it can lean on the
  * --settings-* tokens.
  */
 
@@ -264,7 +266,6 @@
 :is(.mikedown-root, .mikedown-portal) .ai-switch:focus-visible,
 :is(.mikedown-root, .mikedown-portal) .ai-icon-btn:focus-visible,
 :is(.mikedown-root, .mikedown-portal) .ai-chip:focus-visible,
-:is(.mikedown-root, .mikedown-portal) .ai-menu-item:focus-visible,
 :is(.mikedown-root, .mikedown-portal) .ai-model-check:focus-visible,
 :is(.mikedown-root, .mikedown-portal) .ai-model-label:focus-visible {
   outline: 1px solid var(--settings-focus);
@@ -404,141 +405,416 @@
   color: var(--settings-fg);
 }
 
-/* ── Add engine ──────────────────────────────────────────────────────────── */
+/* ── Add engine: quick-start cards ───────────────────────────────────────── */
 
-:is(.mikedown-root, .mikedown-portal) .ai-add,
-:is(.mikedown-root, .mikedown-portal) .ai-empty-actions {
-  position: relative;
+:is(.mikedown-root, .mikedown-portal) .ai-add[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-add {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
 }
-:is(.mikedown-root, .mikedown-portal) .ai-add-menu-wrap { position: relative; display: inline-block; }
-
-:is(.mikedown-root, .mikedown-portal) .ai-menu {
-  position: absolute;
-  z-index: 2;
-  top: calc(100% + 4px);
-  left: 0;
-  width: 270px;
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 4px;
-  background: var(--mikedown-surface-raised, #252526);
-  border: 1px solid var(--settings-border);
+:is(.mikedown-root, .mikedown-portal) .ai-add-btn svg { transition: transform 160ms var(--ai-ease); }
+:is(.mikedown-root, .mikedown-portal) .ai-add-btn[aria-expanded="true"] svg { transform: rotate(45deg); }
+:is(.mikedown-root, .mikedown-portal) .ai-add .ai-cards {
+  align-self: stretch;
+  padding: 14px;
+  border: 1px solid var(--settings-divider);
   border-radius: var(--mikedown-radius, 6px);
-  box-shadow: 0 8px 24px var(--mikedown-shadow, rgba(0, 0, 0, 0.3));
-  animation: ai-arrive 140ms var(--ai-ease);
+  animation: ai-arrive 180ms var(--ai-ease);
 }
-:is(.mikedown-root, .mikedown-portal) .ai-menu[hidden] { display: none; }
-:is(.mikedown-root, .mikedown-portal) .ai-menu-heading {
-  padding: 6px 8px 3px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--settings-muted);
+
+:is(.mikedown-root, .mikedown-portal) .ai-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
-:is(.mikedown-root, .mikedown-portal) .ai-menu-item {
+:is(.mikedown-root, .mikedown-portal) .ai-cards-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-cards-heading {
   display: flex;
   align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 5px 8px;
-  border: none;
-  border-radius: var(--mikedown-radius-sm, 4px);
-  background: transparent;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--settings-fg);
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
 }
-:is(.mikedown-root, .mikedown-portal) .ai-menu-item:hover,
-:is(.mikedown-root, .mikedown-portal) .ai-menu-item:focus {
-  background: var(--settings-hover-bg);
-  outline: none;
-}
-:is(.mikedown-root, .mikedown-portal) .ai-menu-text { display: flex; flex-direction: column; min-width: 0; }
-:is(.mikedown-root, .mikedown-portal) .ai-menu-name { font-size: 12.5px; }
-:is(.mikedown-root, .mikedown-portal) .ai-menu-url {
-  font-size: 11px;
+:is(.mikedown-root, .mikedown-portal) .ai-cards-heading svg { color: var(--settings-muted); }
+:is(.mikedown-root, .mikedown-portal) .ai-cards-explainer {
+  margin-bottom: 4px;
+  font-size: 12px;
+  line-height: 1.45;
   color: var(--settings-muted);
-  font-family: var(--mikedown-font-mono, monospace);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  gap: 8px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--settings-divider);
+  border-radius: var(--mikedown-radius, 6px);
+  background: var(--mikedown-surface-raised, transparent);
+  color: var(--settings-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms var(--ai-ease), background-color 120ms var(--ai-ease), transform 120ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-card:hover {
+  border-color: var(--settings-control-border);
+  background: var(--ai-row-hover);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-card:active { transform: translateY(1px); }
+:is(.mikedown-root, .mikedown-portal) .ai-card:focus-visible {
+  outline: 1px solid var(--settings-focus);
+  outline-offset: 1px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-card-name {
+  font-size: 12.5px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+:is(.mikedown-root, .mikedown-portal) .ai-card-caption {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--settings-muted);
+}
 
-/* Empty state: an invitation, not an error. */
+/* Empty state: an invitation, not an error. The cards are the call to action. */
 :is(.mikedown-root, .mikedown-portal) .ai-empty {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 22px 20px 20px;
-  text-align: center;
+  gap: 16px;
+  padding: 18px;
   border: 1px dashed var(--settings-control-border);
   border-radius: var(--mikedown-radius, 6px);
 }
-:is(.mikedown-root, .mikedown-portal) .ai-empty-art {
-  color: var(--settings-muted);
-  opacity: 0.8;
-  margin-bottom: 2px;
+:is(.mikedown-root, .mikedown-portal) .ai-empty-lead {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
-:is(.mikedown-root, .mikedown-portal) .ai-empty-art .ai-empty-spark { color: var(--mikedown-accent, #3f51b5); stroke: var(--mikedown-accent, #3f51b5); }
 :is(.mikedown-root, .mikedown-portal) .ai-empty-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--settings-fg);
 }
 :is(.mikedown-root, .mikedown-portal) .ai-empty-text {
-  max-width: 380px;
+  max-width: 460px;
   font-size: 12px;
   line-height: 1.5;
   color: var(--settings-muted);
 }
-:is(.mikedown-root, .mikedown-portal) .ai-empty-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 8px;
-}
-:is(.mikedown-root, .mikedown-portal) .ai-empty-actions .ai-menu { left: 50%; transform: translateX(-50%); animation: none; }
-:is(.mikedown-root, .mikedown-portal) .ai-empty-preset { display: inline-flex; align-items: center; gap: 6px; padding-left: 6px; }
 
-/* ── Engine editor ───────────────────────────────────────────────────────── */
+/* ── Express engine form (ai-engine-form.ts) ─────────────────────────────── */
 
-:is(.mikedown-root, .mikedown-portal) .ai-engine-editor {
+/* One calm column like a macOS "Add Account" sheet: labels on the left,
+   controls on the right, a short caption under a control when it helps. */
+:is(.mikedown-root, .mikedown-portal) .ai-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 0 12px 14px 54px;
+  gap: 14px;
+  padding: 4px 16px 18px 54px;
   animation: ai-arrive 180ms var(--ai-ease);
 }
-:is(.mikedown-root, .mikedown-portal) .ai-editor-group {
+:is(.mikedown-root, .mikedown-portal) .ai-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--settings-divider);
+  border-radius: 8px;
   background: var(--mikedown-surface-raised, transparent);
 }
-:is(.mikedown-root, .mikedown-portal) .ai-field .settings-input { width: 100%; }
+:is(.mikedown-root, .mikedown-portal) .ai-sheet--advanced { background: transparent; }
+:is(.mikedown-root, .mikedown-portal) .ai-sheet-row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 14px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-sheet-row--block { display: block; }
+:is(.mikedown-root, .mikedown-portal) .ai-sheet-label {
+  padding-top: 6px;
+  text-align: right;
+  font-size: 12.5px;
+  color: var(--settings-fg);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-sheet-input { width: 100%; }
+:is(.mikedown-root, .mikedown-portal) .ai-caption {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-url { display: flex; flex-direction: column; gap: 4px; }
+:is(.mikedown-root, .mikedown-portal) .ai-locality { display: flex; flex-direction: column; gap: 6px; }
 
 :is(.mikedown-root, .mikedown-portal) .ai-key {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-:is(.mikedown-root, .mikedown-portal) .ai-key .settings-btn[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-key .settings-input--medium { flex: 0 1 130px; width: 130px; min-width: 90px; }
 :is(.mikedown-root, .mikedown-portal) .ai-key-state {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
   color: var(--ai-ok);
+  font-weight: 500;
   white-space: nowrap;
 }
-:is(.mikedown-root, .mikedown-portal) .ai-key-state:empty { display: none; }
 
-:is(.mikedown-root, .mikedown-portal) .ai-probe { gap: 8px; }
-:is(.mikedown-root, .mikedown-portal) .ai-probe-buttons {
+:is(.mikedown-root, .mikedown-portal) .ai-enabled-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-default {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+:is(.mikedown-root, .mikedown-portal) select.ai-default-select { min-width: 0; max-width: 100%; flex: 1 1 200px; }
+:is(.mikedown-root, .mikedown-portal) .ai-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-thinking select { max-width: 150px; }
+
+/* Text buttons: Fetch models, Retry, Type a model id. */
+:is(.mikedown-root, .mikedown-portal) .ai-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border: none;
+  border-radius: var(--mikedown-radius-sm, 4px);
+  background: none;
+  color: var(--mikedown-link, var(--mikedown-accent, #3f51b5));
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-link-btn:hover:not(:disabled) { text-decoration: underline; }
+:is(.mikedown-root, .mikedown-portal) .ai-link-btn:disabled,
+:is(.mikedown-root, .mikedown-portal) .ai-link-btn[aria-disabled="true"] { color: var(--settings-muted); cursor: default; text-decoration: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-link-btn:focus-visible {
+  outline: 1px solid var(--settings-focus);
+  outline-offset: 1px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-type-btn { align-self: flex-start; margin-top: 2px; }
+
+/* Models picker: a head line, the combobox field, then the inline listbox. */
+:is(.mikedown-root, .mikedown-portal) .ai-picker {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
-:is(.mikedown-root, .mikedown-portal) .ai-probe-buttons .settings-btn[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-picker-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-picker-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--settings-fg);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-picker-head .ai-models-count { flex: 1; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-spinner {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--settings-muted) 35%, transparent);
+  border-top-color: var(--mikedown-accent, #3f51b5);
+  animation: ai-spin 700ms linear infinite;
+}
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+
+:is(.mikedown-root, .mikedown-portal) .ai-combo { position: relative; }
+:is(.mikedown-root, .mikedown-portal) .ai-combo-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: var(--settings-muted);
+  pointer-events: none;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-combo-input { padding-left: 28px; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-listbox,
+:is(.mikedown-root, .mikedown-portal) .ai-listbox-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-listbox {
+  max-height: 248px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--settings-divider);
+  border-radius: 6px;
+  outline: none;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-listbox:focus-visible { border-color: var(--settings-focus); }
+:is(.mikedown-root, .mikedown-portal) .ai-listbox-group + .ai-listbox-group { margin-top: 6px; }
+:is(.mikedown-root, .mikedown-portal) .ai-listbox-heading {
+  padding: 4px 8px 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-listbox-empty {
+  padding: 10px 8px;
+  font-size: 12px;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 28px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-option:hover { background: var(--ai-row-hover); }
+:is(.mikedown-root, .mikedown-portal) .ai-option.is-active {
+  background: var(--settings-hover-bg);
+  box-shadow: inset 0 0 0 1px var(--settings-focus);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-option.is-missing { opacity: 0.5; }
+:is(.mikedown-root, .mikedown-portal) .ai-option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  box-sizing: border-box;
+  border: 1px solid var(--settings-control-border);
+  border-radius: 4px;
+  color: transparent;
+  transition: background-color 120ms var(--ai-ease), border-color 120ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-option-check svg { width: 11px; height: 11px; }
+:is(.mikedown-root, .mikedown-portal) .ai-option.is-on .ai-option-check {
+  border-color: var(--mikedown-accent, #3f51b5);
+  background: var(--mikedown-accent, #3f51b5);
+  color: var(--mikedown-accent-text, #fff);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-option-names {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-option-name {
+  font-size: 12.5px;
+  color: var(--settings-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-option-id {
+  font-family: var(--mikedown-font-mono, monospace);
+  font-size: 10.5px;
+  color: var(--settings-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-option-tags { display: flex; gap: 4px; flex-shrink: 0; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-fetch-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  animation: ai-arrive 220ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-fetch-note .ai-note { flex: 1; }
+:is(.mikedown-root, .mikedown-portal) .ai-fetch-note .ai-link-btn { margin-top: -1px; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-form-actions .ai-result { flex-basis: 100%; }
+
+/* Advanced: a quiet disclosure, not a second form. */
+:is(.mikedown-root, .mikedown-portal) .ai-disclosure {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  margin-left: -6px;
+  border: none;
+  border-radius: var(--mikedown-radius-sm, 4px);
+  background: none;
+  color: var(--settings-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-disclosure:hover { color: var(--settings-fg); background: var(--ai-row-hover); }
+:is(.mikedown-root, .mikedown-portal) .ai-disclosure:focus-visible {
+  outline: 1px solid var(--settings-focus);
+  outline-offset: 1px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-disclosure svg { transition: transform 160ms var(--ai-ease); }
+:is(.mikedown-root, .mikedown-portal) .ai-disclosure[aria-expanded="true"] { color: var(--settings-fg); }
+:is(.mikedown-root, .mikedown-portal) .ai-disclosure[aria-expanded="true"] svg { transform: rotate(90deg); }
+:is(.mikedown-root, .mikedown-portal) .ai-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: -6px;
+  animation: ai-arrive 180ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-advanced[hidden] { display: none; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-thinking-select.settings-input--small { width: auto; }
 
 /* ── Models ──────────────────────────────────────────────────────────────── */
 
@@ -761,10 +1037,13 @@
   :is(.mikedown-root, .mikedown-portal) .ai-engine-head { flex-wrap: wrap; }
   :is(.mikedown-root, .mikedown-portal) .ai-engine-actions { width: 100%; justify-content: flex-end; }
   :is(.mikedown-root, .mikedown-portal) .ai-status { margin-right: auto; justify-content: flex-start; min-width: 0; }
-  :is(.mikedown-root, .mikedown-portal) .ai-engine-editor,
+  :is(.mikedown-root, .mikedown-portal) .ai-form,
   :is(.mikedown-root, .mikedown-portal) .ai-engine-issues,
-  :is(.mikedown-root, .mikedown-portal) .ai-confirm { padding-left: 12px; margin-left: 10px; }
-  :is(.mikedown-root, .mikedown-portal) .ai-engine-editor { margin-left: 0; }
+  :is(.mikedown-root, .mikedown-portal) .ai-confirm { padding-left: 12px; margin-left: 0; }
+  :is(.mikedown-root, .mikedown-portal) .ai-form { padding-right: 12px; }
+  :is(.mikedown-root, .mikedown-portal) .ai-sheet { padding: 12px; }
+  :is(.mikedown-root, .mikedown-portal) .ai-sheet-row { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+  :is(.mikedown-root, .mikedown-portal) .ai-sheet-label { padding-top: 0; text-align: left; font-weight: 500; }
   :is(.mikedown-root, .mikedown-portal) .ai-model-top { flex-wrap: wrap; }
   :is(.mikedown-root, .mikedown-portal) .ai-chips { padding-left: 0; }
 }
@@ -772,13 +1051,20 @@
 @media (prefers-reduced-motion: reduce) {
   :is(.mikedown-root, .mikedown-portal) .ai-result,
   :is(.mikedown-root, .mikedown-portal) .ai-confirm,
-  :is(.mikedown-root, .mikedown-portal) .ai-menu,
-  :is(.mikedown-root, .mikedown-portal) .ai-engine-editor,
+  :is(.mikedown-root, .mikedown-portal) .ai-form,
+  :is(.mikedown-root, .mikedown-portal) .ai-advanced,
+  :is(.mikedown-root, .mikedown-portal) .ai-add .ai-cards,
+  :is(.mikedown-root, .mikedown-portal) .ai-fetch-note,
   :is(.mikedown-root, .mikedown-portal) .ai-overrides,
   :is(.mikedown-root, .mikedown-portal) .ai-status[data-state="busy"] .ai-status-dot { animation: none; }
   :is(.mikedown-root, .mikedown-portal) .ai-switch,
   :is(.mikedown-root, .mikedown-portal) .ai-switch::after,
-  :is(.mikedown-root, .mikedown-portal) .ai-status-dot { transition: none; }
+  :is(.mikedown-root, .mikedown-portal) .ai-status-dot,
+  :is(.mikedown-root, .mikedown-portal) .ai-card,
+  :is(.mikedown-root, .mikedown-portal) .ai-option-check,
+  :is(.mikedown-root, .mikedown-portal) .ai-disclosure svg,
+  :is(.mikedown-root, .mikedown-portal) .ai-add-btn svg { transition: none; }
+  :is(.mikedown-root, .mikedown-portal) .ai-spinner { animation-duration: 2s; }
 }
 
 /* ── Sidebar footer chip ─────────────────────────────────────────────────── */

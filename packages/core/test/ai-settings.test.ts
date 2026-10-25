@@ -174,6 +174,13 @@ function tier2(over: Partial<MikeDownAiHost> = {}): MikeDownAiHost {
   } as unknown as MikeDownAiHost;
 }
 
+/** Type into a field the way a paste does, then press Enter (the key field stores on Enter). */
+function typeAndEnter(input: HTMLInputElement, value: string): void {
+  input.value = value;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+}
+
 const tabLabels = () => Array.from(document.querySelectorAll('.settings-tab')).map((t) => t.textContent);
 const click = (el: Element | null | undefined) => (el as HTMLElement).click();
 const byText = (selector: string, text: string) => Array.from(document.querySelectorAll<HTMLElement>(selector)).find((n) => n.textContent?.trim() === text);
@@ -268,6 +275,9 @@ describe('AI tab in the Settings modal', () => {
     const handle = mount(new Host(), withFile);
     handle.command('openAiSettings');
     click(document.querySelector('[aria-label="Edit oMLX"]'));
+    // The key file sits under Advanced, collapsed by default.
+    expect(document.querySelector('[data-fk="eng:omlx:keyfile-path"]')).toBeNull();
+    click(document.querySelector('[data-fk="eng:omlx:advanced"]'));
     const path = document.querySelector<HTMLInputElement>('[data-fk="eng:omlx:keyfile-path"]')!;
     const json = document.querySelector<HTMLInputElement>('[data-fk="eng:omlx:keyfile-json"]')!;
     expect([path.value, json.value]).toEqual(['~/.omlx/settings.json', 'auth.api_key']);
@@ -282,6 +292,7 @@ describe('AI tab in the Settings modal', () => {
 
     handle.command('openAiSettings');
     click(document.querySelector('[aria-label="Edit oMLX"]'));
+    click(document.querySelector('[data-fk="eng:omlx:advanced"]'));
     edit(document.querySelector<HTMLInputElement>('[data-fk="eng:omlx:keyfile-json"]')!, '');
     click(byText('.settings-btn--primary', 'Save to Settings'));
     const cleared = (saveSettings.mock.calls[1][0]['ai.engines'] as Array<Record<string, any>>).find((e) => e.id === 'omlx')!;
@@ -289,15 +300,18 @@ describe('AI tab in the Settings modal', () => {
   });
 
   it('stores a key through setSecret straight away, never in the patch', async () => {
-    const ai = tier2();
+    const listed: AiEngineStatus = {
+      engineId: 'claude', ok: true, isLocal: false, hasKey: true,
+      models: [{ id: 'claude-sonnet-5-5', capabilities: { chat: true, stream: true, vision: true, json: true, tools: true, fim: false, embed: false, contextTokens: 200000 }, source: 'endpoint' }],
+    };
+    const ai = tier2({ discoverModels: vi.fn(async () => listed) });
     const saveSettings = vi.fn();
     class Host extends NoopHost { ai = ai; saveSettings = saveSettings; }
     const handle = mount(new Host(), settings());
     handle.command('openAiSettings');
     click(document.querySelector('[aria-label="Edit Anthropic"]'));
     const key = document.querySelector<HTMLInputElement>('input[type="password"]')!;
-    key.value = 'sk-secret';
-    click(byText('.ai-key .settings-btn', 'Store'));
+    typeAndEnter(key, 'sk-secret');
     await vi.waitFor(() => expect(ai.setSecret).toHaveBeenCalledWith('claude', 'sk-secret'));
     await vi.waitFor(() => expect(document.querySelector<HTMLInputElement>('input[type="password"]')?.placeholder).toBe('Stored'));
     expect(document.querySelector<HTMLInputElement>('input[type="password"]')?.value).toBe('');
@@ -328,14 +342,14 @@ describe('AI tab lifecycle', () => {
     handle.command('openAiSettings');
     // A key for a saved engine, then a new engine with its own key.
     click(document.querySelector('[aria-label="Edit Anthropic"]'));
-    document.querySelector<HTMLInputElement>('input[type="password"]')!.value = 'sk-saved';
-    click(byText('.ai-key .settings-btn', 'Store'));
+    typeAndEnter(document.querySelector<HTMLInputElement>('input[type="password"]')!, 'sk-saved');
     await vi.waitFor(() => expect(ai.setSecret).toHaveBeenCalledWith('claude', 'sk-saved'));
     click(document.querySelector('.ai-add-btn'));
-    click(Array.from(document.querySelectorAll('.ai-menu-item')).find((n) => n.textContent?.includes('OpenRouter')));
+    click(document.querySelector('[aria-label="Add OpenRouter"]'));
     const key = () => document.querySelector<HTMLInputElement>('.ai-engine.is-open input[type="password"]')!;
-    key().value = 'sk-new';
-    click(byText('.ai-engine.is-open .ai-key .settings-btn', 'Store'));
+    // A new cloud engine opens with focus on its key field (design call 2).
+    expect(document.activeElement).toBe(key());
+    typeAndEnter(key(), 'sk-new');
     await vi.waitFor(() => expect(ai.setSecret).toHaveBeenCalledWith(expect.stringMatching(/^openrouter-/), 'sk-new'));
     const newId = (ai.setSecret as ReturnType<typeof vi.fn>).mock.calls[1][0] as string;
 
