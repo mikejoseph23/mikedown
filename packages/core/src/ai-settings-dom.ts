@@ -1,10 +1,15 @@
 /**
- * Small DOM builders shared by the AI settings tab (`ai-settings.ts`) and the
- * Express engine form (`ai-engine-form.ts`): inline icons, kind glyphs,
- * buttons, switches, notes, and a rebuild helper that keeps keyboard focus.
+ * Small DOM builders shared by the AI settings tab (`ai-settings.ts`), the
+ * AI Engines page (`ai-engines-page.ts`) and the Express engine form
+ * (`ai-engine-form.ts`): inline icons, kind glyphs, buttons, switches, notes,
+ * the status dot and locality pills, and a rebuild helper that keeps
+ * keyboard focus.
  *
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
+
+import type { AiEngineConfig, AiEngineStatus, AiSettings } from './ai';
+import { engineLocalityInfo } from './ai-settings-model';
 
 // ── Icons (inline, currentColor) ────────────────────────────────────────────
 
@@ -26,6 +31,8 @@ export const ICONS = {
   close: svg('<path d="M4 4l8 8M12 4l-8 8"/>', 10),
   refresh: svg('<path d="M13 8a5 5 0 1 1-1.5-3.55M13 2.5v3h-3"/>', 12),
   search: svg('<circle cx="7" cy="7" r="4.25"/><path d="M10.2 10.2l3.3 3.3"/>', 12),
+  back: svg('<path d="M10 3.5L5.5 8l4.5 4.5"/>', 14),
+  routing: svg('<path d="M3 4h4.5a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2H13M3 12h3M11 2.5L13 4l-2 1.5M11 10.5l2 1.5-2 1.5"/>', 16),
 };
 
 /** Two-letter tiles for the kinds without a glyph; the generic kind gets braces. */
@@ -111,4 +118,64 @@ export function keepFocus(scope: HTMLElement, rebuild: () => HTMLElement | void)
   if (sel && (next instanceof HTMLInputElement || next instanceof HTMLTextAreaElement)) {
     try { next.setSelectionRange(sel[0], sel[1]); } catch { /* number inputs have no selection */ }
   }
+}
+
+// ── Engine status and locality ──────────────────────────────────────────────
+
+/**
+ * The status dot with a terse label ("42 ms", "Failed"); the tooltip and the
+ * accessible name say more. `compact` keeps only the dot on screen.
+ */
+export function statusBadge(status: AiEngineStatus | undefined, busy: 'test' | 'discover' | undefined, opts: { compact?: boolean } = {}): HTMLElement {
+  const badge = el('span', `ai-status${opts.compact ? ' ai-status--compact' : ''}`);
+  const dot = el('span', 'ai-status-dot');
+  dot.setAttribute('aria-hidden', 'true');
+  const text = el('span', 'ai-status-text');
+  let state: string;
+  let label: string;
+  let title: string;
+  if (busy) {
+    state = 'busy';
+    label = busy === 'test' ? 'Testing…' : 'Fetching…';
+    title = busy === 'test' ? 'Testing the connection…' : 'Fetching models…';
+  } else if (!status || status.ok === null) {
+    state = 'unknown';
+    label = 'Not tested';
+    title = 'Never tested. Open the engine and choose Test connection.';
+  } else if (status.ok) {
+    state = 'ok';
+    label = status.latencyMs !== undefined ? `${Math.round(status.latencyMs)} ms` : 'OK';
+    title = `Connected${status.latencyMs !== undefined ? ` in ${Math.round(status.latencyMs)} ms` : ''} on the last test.`;
+  } else {
+    state = 'error';
+    label = 'Failed';
+    title = status.error ? `Last test failed: ${status.error}` : 'The last test failed.';
+  }
+  badge.dataset.state = state;
+  badge.title = title;
+  text.textContent = label;
+  badge.append(dot, text);
+  // The visible text is terse; screen readers get the tooltip.
+  badge.setAttribute('aria-label', `Status: ${title}`);
+  badge.setAttribute('role', 'img');
+  return badge;
+}
+
+/** The local/cloud pill, plus "blocked by Allow cloud" for a cloud engine while cloud is off. */
+export function localityPills(engine: AiEngineConfig, settings: AiSettings): HTMLElement[] {
+  const info = engineLocalityInfo(engine, settings.localNetworks);
+  const pill = el('span', `ai-pill ai-pill--${info.locality}`);
+  pill.innerHTML = info.locality === 'local' ? ICONS.local : ICONS.cloud;
+  pill.append(el('span', '', info.locality === 'local' ? 'local' : 'cloud'));
+  if (info.mismatch) {
+    pill.classList.add('ai-pill--mismatch');
+    pill.title = info.locality === 'cloud' ? 'Pinned to cloud, but the address looks local.' : 'Pinned to local, but the address looks like a cloud server.';
+  }
+  const pills = [pill];
+  if (info.locality === 'cloud' && !settings.allowCloud) {
+    const blocked = el('span', 'ai-pill ai-pill--blocked', 'blocked by Allow cloud');
+    blocked.title = 'Turn on Allow cloud engines to route tasks here.';
+    pills.push(blocked);
+  }
+  return pills;
 }

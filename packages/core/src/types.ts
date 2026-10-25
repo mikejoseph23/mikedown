@@ -235,7 +235,11 @@ export type MikeDownCommand =
   | 'toggleSource'
   | 'toggleSidebar'
   | 'openSettings'
-  /** Open the Settings modal on the AI tab (no-op without `host.ai`). */
+  /**
+   * Open the Settings modal on the AI tab (no-op without `host.ai`). With
+   * `{ page: true }`, open the full-window AI Engines page instead (engines
+   * and routing; hosts with an engine registry only, others get the tab).
+   */
   | 'openAiSettings'
   /** Rewrite the selection with AI: opens the rewrite popover's choices (no-op without `host.ai`). */
   | 'aiRewrite'
@@ -299,8 +303,8 @@ export interface MikeDownEditorHandle {
   focus(): void;
   setReadOnly(readOnly: boolean): void;
   setTheme(theme: 'light' | 'dark' | 'auto'): void;
-  /** Run a toolbar or keybinding command. `openSettings` takes `{ tab }`. */
-  command(name: MikeDownCommand, args?: { tab?: string }): void;
+  /** Run a toolbar or keybinding command. `openSettings` takes `{ tab }`, `openAiSettings` takes `{ page }`. */
+  command(name: MikeDownCommand, args?: { tab?: string; page?: boolean }): void;
   /** Apply settings without persisting them. */
   updateSettings(patch: Partial<MikeDownSettings>): void;
   /** The host saved the document; `content` (default: current markdown) is the new baseline. */

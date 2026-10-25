@@ -191,7 +191,7 @@ afterEach(() => {
     try { handle.destroy(); } catch { /* already destroyed */ }
     el.remove();
   }
-  document.querySelectorAll('#mikedown-settings-overlay').forEach((n) => n.remove());
+  document.querySelectorAll('#mikedown-settings-overlay, #mikedown-ai-page-overlay').forEach((n) => n.remove());
 });
 
 describe('AI tab in the Settings modal', () => {
@@ -246,18 +246,95 @@ describe('AI tab in the Settings modal', () => {
     expect(patch['ai.allowCloud']).toBe(true);
   });
 
-  it('deleting an engine asks first, then drops its key on save', async () => {
+  it('shows a compact engine list, the default route and Manage engines…', () => {
+    class Host extends NoopHost { ai = tier2(); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    const panel = document.querySelector('.settings-panel--ai')!;
+    const rows = Array.from(panel.querySelectorAll('.ai-engines [role="listitem"]'));
+    expect(rows).toHaveLength(3);
+    // Name, pill, dot and switch only: no Edit, star or Delete on the tab.
+    expect(panel.querySelector('[aria-label="Edit oMLX"], [aria-label="Delete oMLX"], .ai-form')).toBeNull();
+    expect(rows[0].querySelector('.ai-pill--local')).not.toBeNull();
+    expect(rows[0].querySelector('.ai-status')).not.toBeNull();
+    expect(rows[0].querySelector('input[role="switch"]')).not.toBeNull();
+    expect(panel.querySelector('.ai-route-line')?.textContent).toContain('oMLX · Qwen Flash');
+    expect(byText('.settings-btn', 'Manage engines…')).toBeTruthy();
+  });
+
+  it('Manage engines… opens the page over the modal; Done saves and the tab keeps its own edits', () => {
+    const saveSettings = vi.fn();
+    class Host extends NoopHost { ai = tier2(); saveSettings = saveSettings; }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    // An unsaved tab edit, then the page.
+    click(byText('.settings-label', 'Allow cloud engines'));
+    const manage = byText('.settings-btn', 'Manage engines…')!;
+    manage.focus();
+    click(manage);
+    const page = document.querySelector('#mikedown-ai-page-overlay .ai-page-frame')!;
+    expect(page.getAttribute('role')).toBe('dialog');
+    expect(page.getAttribute('aria-modal')).toBe('true');
+    expect(document.querySelector('.settings-modal')).not.toBeNull();
+    // The page started from the tab's draft: Anthropic is not blocked any more.
+    expect(page.querySelector('.ai-pill--blocked')).toBeNull();
+
+    click(page.querySelector('[data-fk="nav:eng:lms"]'));
+    const enabled = page.querySelector<HTMLInputElement>('[data-fk="nav:eng:lms:enabled"]')!;
+    enabled.checked = false;
+    enabled.dispatchEvent(new Event('change', { bubbles: true }));
+    click(byText('.ai-page-done', 'Done'));
+    expect(document.querySelector('#mikedown-ai-page-overlay')).toBeNull();
+    // Only what the page changed is saved now; the tab's Allow cloud waits for Save.
+    expect(Object.keys(saveSettings.mock.calls[0][0])).toEqual(['ai.engines']);
+    expect(document.activeElement?.textContent).toBe('Manage engines…');
+
+    click(byText('.settings-btn--primary', 'Save to Settings'));
+    const patch = saveSettings.mock.calls[1][0] as Record<string, unknown>;
+    expect(Object.keys(patch).filter((k) => k.startsWith('ai.'))).toEqual(['ai.allowCloud']);
+  });
+
+  it('Change… opens the page on routing', () => {
+    class Host extends NoopHost { ai = tier2(); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    click(document.querySelector('[data-fk="route:change"]'));
+    expect(document.querySelector('[data-fk="nav:routing"]')?.getAttribute('aria-current')).toBe('true');
+    expect(document.activeElement?.getAttribute('data-fk')).toBe('route:default');
+  });
+});
+
+describe('AI Engines page in the editor', () => {
+  const openPage = (handle: MikeDownEditorHandle) => handle.command('openAiSettings', { page: true });
+
+  it('openAiSettings with page opens the page directly; a tier-1 host gets the tab', () => {
+    class Host extends NoopHost { ai = tier2(); }
+    const handle = mount(new Host(), settings());
+    openPage(handle);
+    expect(document.querySelector('.settings-modal')).toBeNull();
+    expect(document.querySelector('.ai-page-title')?.textContent).toBe('AI Engines');
+    // The status bar command lands on the first list item.
+    expect(document.activeElement?.getAttribute('data-fk')).toBe('nav:eng:omlx');
+
+    class Tier1 extends NoopHost { ai = { complete: vi.fn() } as unknown as MikeDownAiHost; }
+    const t1 = mount(new Tier1());
+    t1.command('openAiSettings', { page: true });
+    expect(document.querySelector('.settings-tab[aria-selected="true"]')?.textContent).toBe('AI');
+  });
+
+  it('deleting an engine asks first, then drops its key on Done', async () => {
     const ai = tier2();
     const saveSettings = vi.fn();
     class Host extends NoopHost { ai = ai; saveSettings = saveSettings; }
     const handle = mount(new Host(), settings());
-    handle.command('openAiSettings');
+    openPage(handle);
+    click(document.querySelector('[data-fk="nav:eng:claude"]'));
     click(document.querySelector('[aria-label="Delete Anthropic"]'));
     expect(document.querySelector('.ai-confirm')?.textContent).toContain('Delete Anthropic?');
     click(byText('.ai-confirm .settings-btn', 'Delete'));
-    expect(Array.from(document.querySelectorAll('.ai-engine-name')).map((n) => n.textContent)).toEqual(['oMLX', 'LM Studio']);
+    expect(Array.from(document.querySelectorAll('.ai-nav-name')).map((n) => n.textContent).slice(0, 2)).toEqual(['oMLX', 'LM Studio']);
     expect(ai.setSecret).not.toHaveBeenCalled();
-    click(byText('.settings-btn--primary', 'Save to Settings'));
+    click(byText('.ai-page-done', 'Done'));
     const engines = saveSettings.mock.calls[0][0]['ai.engines'] as Array<{ id: string }>;
     expect(engines.map((e) => e.id)).toEqual(['omlx', 'lms']);
     await Promise.resolve();
@@ -273,9 +350,8 @@ describe('AI tab in the Settings modal', () => {
       engines: base.engines.map((e) => (e.id === 'omlx' ? { ...e, apiKeyEnv: 'OMLX_API_KEY', apiKeyFile: { path: '~/.omlx/settings.json', jsonPath: 'auth.api_key', future: true } } : e)),
     } as AiSettings;
     const handle = mount(new Host(), withFile);
-    handle.command('openAiSettings');
-    click(document.querySelector('[aria-label="Edit oMLX"]'));
-    // The key file sits under Advanced, collapsed by default.
+    openPage(handle);
+    // oMLX is the first engine, so its form is open. The key file sits under Advanced, collapsed by default.
     expect(document.querySelector('[data-fk="eng:omlx:keyfile-path"]')).toBeNull();
     click(document.querySelector('[data-fk="eng:omlx:advanced"]'));
     const path = document.querySelector<HTMLInputElement>('[data-fk="eng:omlx:keyfile-path"]')!;
@@ -285,16 +361,15 @@ describe('AI tab in the Settings modal', () => {
 
     const edit = (input: HTMLInputElement, value: string) => { input.value = value; input.dispatchEvent(new Event('input', { bubbles: true })); };
     edit(json, 'auth.token');
-    click(byText('.settings-btn--primary', 'Save to Settings'));
+    click(byText('.ai-page-done', 'Done'));
     const saved = (saveSettings.mock.calls[0][0]['ai.engines'] as Array<Record<string, any>>).find((e) => e.id === 'omlx')!;
     expect(saved.apiKeyFile).toEqual({ path: '~/.omlx/settings.json', jsonPath: 'auth.token', future: true });
     expect(saved.apiKeyEnv).toBe('OMLX_API_KEY');
 
-    handle.command('openAiSettings');
-    click(document.querySelector('[aria-label="Edit oMLX"]'));
+    openPage(handle);
     click(document.querySelector('[data-fk="eng:omlx:advanced"]'));
     edit(document.querySelector<HTMLInputElement>('[data-fk="eng:omlx:keyfile-json"]')!, '');
-    click(byText('.settings-btn--primary', 'Save to Settings'));
+    click(byText('.ai-page-done', 'Done'));
     const cleared = (saveSettings.mock.calls[1][0]['ai.engines'] as Array<Record<string, any>>).find((e) => e.id === 'omlx')!;
     expect(cleared).not.toHaveProperty('apiKeyFile');
   });
@@ -308,15 +383,15 @@ describe('AI tab in the Settings modal', () => {
     const saveSettings = vi.fn();
     class Host extends NoopHost { ai = ai; saveSettings = saveSettings; }
     const handle = mount(new Host(), settings());
-    handle.command('openAiSettings');
-    click(document.querySelector('[aria-label="Edit Anthropic"]'));
+    openPage(handle);
+    click(document.querySelector('[data-fk="nav:eng:claude"]'));
     const key = document.querySelector<HTMLInputElement>('input[type="password"]')!;
     typeAndEnter(key, 'sk-secret');
     await vi.waitFor(() => expect(ai.setSecret).toHaveBeenCalledWith('claude', 'sk-secret'));
     await vi.waitFor(() => expect(document.querySelector<HTMLInputElement>('input[type="password"]')?.placeholder).toBe('Stored'));
     expect(document.querySelector<HTMLInputElement>('input[type="password"]')?.value).toBe('');
-    click(byText('.settings-btn--primary', 'Save to Settings'));
-    expect(JSON.stringify(saveSettings.mock.calls[0][0])).not.toContain('sk-secret');
+    click(byText('.ai-page-done', 'Done'));
+    expect(JSON.stringify(saveSettings.mock.calls)).not.toContain('sk-secret');
   });
 
   it('test connection reports the result inline and in the live region', async () => {
@@ -324,41 +399,53 @@ describe('AI tab in the Settings modal', () => {
     const ai = tier2({ testEngine: vi.fn(async () => status) });
     class Host extends NoopHost { ai = ai; }
     const handle = mount(new Host(), settings());
-    handle.command('openAiSettings');
-    click(document.querySelector('[aria-label="Edit oMLX"]'));
+    openPage(handle);
     click(byText('.settings-btn', 'Test connection'));
     await vi.waitFor(() => expect(document.querySelector('.ai-result')?.textContent).toContain('Connected in 42 ms'));
     expect(ai.testEngine).toHaveBeenCalledWith('omlx');
-    expect(document.querySelector('.ai-status')?.getAttribute('data-state')).toBe('ok');
-    await vi.waitFor(() => expect(document.querySelector('.ai-live')?.textContent).toContain('oMLX: Connected in 42 ms'));
+    expect(document.querySelector('.ai-nav-item .ai-status')?.getAttribute('data-state')).toBe('ok');
+    expect(document.querySelector('.ai-detail-actions .ai-status')?.textContent).toBe('42 ms');
+    await vi.waitFor(() => expect(document.querySelector('.ai-page .ai-live')?.textContent).toContain('oMLX: Connected in 42 ms'));
   });
-});
 
-describe('AI tab lifecycle', () => {
-  it('closing unsaved drops a key stored for an engine the host never saw, keeps the rest', async () => {
+  it('Back with unsaved changes asks; discarding drops a key stored for an engine the host never saw, keeps the rest', async () => {
     const ai = tier2();
     class Host extends NoopHost { ai = ai; saveSettings = vi.fn(); }
     const handle = mount(new Host(), settings());
-    handle.command('openAiSettings');
+    openPage(handle);
     // A key for a saved engine, then a new engine with its own key.
-    click(document.querySelector('[aria-label="Edit Anthropic"]'));
+    click(document.querySelector('[data-fk="nav:eng:claude"]'));
     typeAndEnter(document.querySelector<HTMLInputElement>('input[type="password"]')!, 'sk-saved');
     await vi.waitFor(() => expect(ai.setSecret).toHaveBeenCalledWith('claude', 'sk-saved'));
-    click(document.querySelector('.ai-add-btn'));
+    click(document.querySelector('[data-fk="nav:add"]'));
     click(document.querySelector('[aria-label="Add OpenRouter"]'));
-    const key = () => document.querySelector<HTMLInputElement>('.ai-engine.is-open input[type="password"]')!;
+    const key = () => document.querySelector<HTMLInputElement>('.ai-page-detail input[type="password"]')!;
     // A new cloud engine opens with focus on its key field (design call 2).
     expect(document.activeElement).toBe(key());
     typeAndEnter(key(), 'sk-new');
     await vi.waitFor(() => expect(ai.setSecret).toHaveBeenCalledWith(expect.stringMatching(/^openrouter-/), 'sk-new'));
     const newId = (ai.setSecret as ReturnType<typeof vi.fn>).mock.calls[1][0] as string;
 
-    click(document.querySelector('.settings-close'));
-    expect(document.querySelector('.settings-modal')).toBeNull();
+    // Escape is Back: unsaved, so it asks first (in the page, not window.confirm).
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(document.querySelector('.ai-page-confirm')?.textContent).toContain('Discard changes?');
+    expect(document.activeElement?.textContent).toBe('Keep editing');
+    click(byText('.ai-page-confirm .settings-btn', 'Discard'));
+    expect(document.querySelector('#mikedown-ai-page-overlay')).toBeNull();
     expect(ai.setSecret).toHaveBeenCalledWith(newId, null);
     expect(ai.setSecret).not.toHaveBeenCalledWith('claude', null);
   });
 
+  it('a clean Back closes at once', () => {
+    class Host extends NoopHost { ai = tier2(); }
+    const handle = mount(new Host(), settings());
+    openPage(handle);
+    click(document.querySelector('[data-fk="page:back"]'));
+    expect(document.querySelector('#mikedown-ai-page-overlay')).toBeNull();
+  });
+});
+
+describe('AI tab lifecycle', () => {
   it('statuses pushed while the tab is open update the engine dots', () => {
     class Host extends NoopHost { ai = tier2(); }
     const handle = mount(new Host(), settings());
@@ -398,6 +485,20 @@ describe('AI indicator chip', () => {
     expect(chip.dataset.tone).toBe('cloud');
     chip.click();
     expect(document.querySelector('.settings-tab[aria-selected="true"]')?.textContent).toBe('AI');
+  });
+
+  it('opens the page on routing when nothing can be routed', () => {
+    class Host extends NoopHost { ai = tier2(); }
+    mount(new Host(), settings({ routing: { default: null, fallback: 'none', tasks: {} } }));
+    const chip = document.querySelector<HTMLButtonElement>('[data-testid="sidebar-ai-chip"]')!;
+    expect(chip.textContent).toBe('AI: no route');
+    chip.focus();
+    chip.click();
+    expect(document.querySelector('.settings-modal')).toBeNull();
+    expect(document.querySelector('[data-fk="nav:routing"]')?.getAttribute('aria-current')).toBe('true');
+    // Back returns focus to the chip.
+    click(document.querySelector('[data-fk="page:back"]'));
+    expect(document.activeElement).toBe(chip);
   });
 
   it('stays hidden while AI was never set up', () => {

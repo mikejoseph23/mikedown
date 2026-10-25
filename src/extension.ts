@@ -453,7 +453,8 @@ function registerAi(context: vscode.ExtensionContext): void {
       const panel = MarkdownEditorProvider.activePanel ?? MarkdownEditorProvider.findVisiblePanel();
       if (panel) {
         panel.reveal(undefined, false);
-        void panel.webview.postMessage({ type: 'command', command: 'openAiSettings' });
+        // Straight to the AI Engines page; the gear's AI tab is the summary.
+        void panel.webview.postMessage({ type: 'command', command: 'openAiSettings', page: true });
       } else {
         void vscode.window.showInformationMessage('Open a markdown file in MikeDown to change its AI settings (toolbar gear, AI tab).');
       }

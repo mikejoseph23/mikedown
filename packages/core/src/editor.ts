@@ -92,8 +92,13 @@ import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
 import { defaultAiSettings, parseAiSettings } from './ai';
-import type { AiEngineStatus, AiServedBy, AiSettings } from './ai';
+import type { AiEngineStatus, AiServedBy, AiSettings, AiSettingsPatch, MikeDownAiHost } from './ai';
 import { buildAiSettingsSection } from './ai-settings';
+import { mountAiEnginesPage } from './ai-engines-page';
+import type { AiEnginesPageHandle, AiEnginesPageSection } from './ai-engines-page';
+import { withSavedAiKeys } from './ai-settings-session';
+import type { AiSettingsSessionOptions } from './ai-settings-session';
+import { makeCheckboxRow, makeGroup, makeRow, makeSelectRow, settingsSectionContext } from './settings-rows';
 import { aiHostTier, aiIndicatorState } from './ai-settings-model';
 import { aiFeatureAvailability, runAiCompletion, type AiFeatureAvailability } from './ai-request';
 import {
@@ -1057,6 +1062,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** Close the Settings modal without saving. */
   function closeSettingsModal(): void {
+    // A page opened from the modal works on the modal's draft: it goes too.
+    if (aiPage?.fromModal) {closeAiEnginesPage();}
     const discard = discardSettings;
     discardSettings = null;
     settingsOverlay?.remove();
@@ -1095,34 +1102,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     closeBtn.addEventListener('click', () => closeSettingsModal());
     title.appendChild(titleText);
     title.appendChild(closeBtn);
-
-    // ── Helper to create a setting row. Styling lives in settings-modal.css.
-    // 'inline' puts the control appended by the caller to the right of the
-    // label + hint (selects, short inputs); 'stacked' puts it underneath (long
-    // text inputs, lists, sections).
-    function makeRow(label: string, description: string, layout: 'inline' | 'stacked' = 'stacked'): HTMLElement {
-      const row = document.createElement('div');
-      row.className = layout === 'inline' ? 'settings-row settings-row--inline' : 'settings-row';
-      const text = document.createElement('div');
-      text.className = 'settings-row-text';
-      const lbl = document.createElement('label');
-      lbl.className = 'settings-label';
-      lbl.textContent = label;
-      const desc = document.createElement('div');
-      desc.className = 'settings-desc';
-      desc.textContent = description;
-      text.append(lbl, desc);
-      row.appendChild(text);
-      return row;
-    }
-
-    // Boxed list of sub-rows under a section row (Slash commands, Image Paste…).
-    function makeGroup(...rows: HTMLElement[]): HTMLDivElement {
-      const group = document.createElement('div');
-      group.className = 'settings-group';
-      group.append(...rows);
-      return group;
-    }
 
     // ── Font Size
     const fontSizeRow = makeRow('Font Size', 'Size in pixels for the editor content.', 'inline');
@@ -1302,24 +1281,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // Apply initial styling
     updateThemeItems();
 
-    // A sub-row whose <label> wraps both the text and the control the caller
-    // appends, so clicking the text focuses the control.
-    function makeFieldLabel(text: string, hint: string, layout: 'inline' | 'stacked' = 'inline'): HTMLLabelElement {
-      const l = document.createElement('label');
-      l.className = layout === 'inline' ? 'settings-row settings-row--inline' : 'settings-row';
-      const wrap = document.createElement('span');
-      wrap.className = 'settings-row-text';
-      const top = document.createElement('span');
-      top.textContent = text;
-      top.className = 'settings-label';
-      const sub = document.createElement('span');
-      sub.className = 'settings-desc';
-      sub.textContent = hint;
-      wrap.append(top, sub);
-      l.appendChild(wrap);
-      return l;
-    }
-
     // ── Content Width
     const widthRow = makeRow('Content Width', 'Max width of the editor content area. Use "100%" for full width or a value like "800px".', 'inline');
     const widthSelect = document.createElement('select');
@@ -1341,58 +1302,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     widthSelect.addEventListener('change', () => {
       setRootVar('--mikedown-content-width', widthSelect.value);
     });
-
-    // ── Helper to build a labeled <select> populated from a list of options.
-    // Returns the row element and the select element so callers can read its
-    // value on save and wire change listeners.
-    function makeSelectRow<T extends string>(
-      label: string,
-      description: string,
-      current: T,
-      options: Array<{ value: T; label: string }>,
-    ): { row: HTMLElement; select: HTMLSelectElement } {
-      const row = makeRow(label, description, 'inline');
-      const select = document.createElement('select');
-      select.className = 'settings-input';
-      for (const opt of options) {
-        const o = document.createElement('option');
-        o.value = opt.value;
-        o.textContent = opt.label;
-        if (current === opt.value) {o.selected = true;}
-        select.appendChild(o);
-      }
-      row.appendChild(select);
-      return { row, select };
-    }
-
-    function makeCheckboxRow(label: string, description: string, current: boolean): { row: HTMLElement; input: HTMLInputElement } {
-      const row = document.createElement('div');
-      row.className = 'settings-row settings-row--inline settings-row--check';
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.checked = current;
-      const labelWrap = document.createElement('label');
-      labelWrap.className = 'settings-row-text';
-      const lbl = document.createElement('span');
-      lbl.className = 'settings-label';
-      lbl.textContent = label;
-      const desc = document.createElement('span');
-      desc.className = 'settings-desc';
-      desc.textContent = description;
-      labelWrap.append(lbl);
-      if (description) {labelWrap.append(desc);}
-      labelWrap.addEventListener('click', (e) => {
-        // Native label-for would be cleaner but we'd need unique ids; cheaper to
-        // forward clicks manually (and we still want the entire row clickable).
-        if (e.target !== input) {
-          e.preventDefault();
-          input.checked = !input.checked;
-          input.dispatchEvent(new Event('change'));
-        }
-      });
-      row.append(labelWrap, input);
-      return { row, input };
-    }
 
     // ── Behavior tab fields
     const ctrlWheelZoomField = makeCheckboxRow(
@@ -1720,14 +1629,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // Built after the core rows so a section can be placed after a specific
     // core row. Each section returns rows plus an optional collect() whose
     // values join the saveSettings patch.
-    const sectionCtx: MikeDownSettingsSectionContext = {
-      makeRow,
-      makeGroup,
-      makeFieldLabel,
-      makeCheckboxRow,
-      makeSelectRow,
-      close: () => closeSettingsModal(),
-    };
+    const sectionCtx: MikeDownSettingsSectionContext = settingsSectionContext(() => closeSettingsModal());
     // The AI tab is core's own section, built only for a host with an `ai`
     // group. Listed after the host's sections so it lands right after Spelling.
     const aiSections: MikeDownSettingsSection[] = aiHost ? [{
@@ -1736,22 +1638,19 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       afterTab: spellcheckAvailable ? 'spelling' : 'markdown',
       panelClassName: 'settings-panel--ai',
       build: (ctx) => buildAiSettingsSection(ctx, {
-        ai: aiHost,
-        settings: currentAiSettings,
-        statuses: aiStatuses,
-        getHostSettings: () => currentAiSettings,
-        saveNow: host.saveSettings ? (patch) => host.saveSettings?.(patch, { silent: true }) : undefined,
-        waitForSettings: waitForAiSettings,
-        onStatuses: (list) => { aiStatuses = list; renderAiIndicator(); },
-        subscribeStatuses: (fn) => {
-          aiStatusListeners.add(fn);
-          return () => { aiStatusListeners.delete(fn); };
-        },
+        ...aiSessionOptions(aiHost),
         onSaved: (saved) => {
           currentAiSettings = saved;
           renderAiIndicator();
           scheduleAiStatusRefresh();
         },
+        // "Manage engines…" and "Change…" open the page over the modal.
+        openEnginesPage: (request) => showAiEnginesPage({
+          initial: request.initial,
+          session: request.session,
+          onDone: (patch, saved) => request.onDone(patch, saved),
+          fromModal: true,
+        }),
       }),
     }] : [];
     const builtSections = [...(options.extraSettingsSections ?? []), ...aiSections].map((section) => ({
@@ -2126,6 +2025,136 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       }, timeoutMs);
       aiSettingsWaiters.add(waiter);
     });
+  }
+
+  /** What an AI settings session (the AI tab, the AI Engines page) needs from the editor. */
+  function aiSessionOptions(ai: MikeDownAiHost): AiSettingsSessionOptions {
+    return {
+      ai,
+      settings: currentAiSettings,
+      statuses: aiStatuses,
+      getHostSettings: () => currentAiSettings,
+      saveNow: host.saveSettings ? (patch) => host.saveSettings?.(patch, { silent: true }) : undefined,
+      waitForSettings: waitForAiSettings,
+      onStatuses: (list) => { aiStatuses = list; renderAiIndicator(); },
+      subscribeStatuses: (fn) => {
+        aiStatusListeners.add(fn);
+        return () => { aiStatusListeners.delete(fn); };
+      },
+    };
+  }
+
+  // ── AI Engines page (overlay) ──────────────────────────────────────────────
+  // ai-engines-page.ts mounted full-window in the portal, above the Settings
+  // modal when opened from it. This host owns the dialog semantics: focus
+  // trap, focus restore to the opener; the page owns Escape (= Back).
+
+  /** The open AI Engines page, if any. */
+  let aiPage: { overlay: HTMLElement; handle: AiEnginesPageHandle; fromModal: boolean } | null = null;
+
+  /** Tear the page down without saving (it discards what it added). */
+  function closeAiEnginesPage(): void {
+    const page = aiPage;
+    aiPage = null;
+    if (!page) {return;}
+    page.handle.dispose();
+    page.overlay.remove();
+  }
+
+  function showAiEnginesPage(o: {
+    initial?: { engineId?: string; section?: AiEnginesPageSection };
+    /** Start from a parent session (the AI tab's draft) instead of the host's settings. */
+    session?: AiSettingsSessionOptions & { keyOverride?: Map<string, boolean> };
+    onDone?(patch: AiSettingsPatch, settings: AiSettings): void;
+    fromModal?: boolean;
+  } = {}): void {
+    const ai = aiHost;
+    if (!ai || aiHostTier(ai) !== 2) {return;}
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeAiEnginesPage();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'mikedown-ai-page-overlay';
+    const frame = document.createElement('div');
+    frame.className = 'ai-page-frame';
+    frame.setAttribute('role', 'dialog');
+    frame.setAttribute('aria-modal', 'true');
+    overlay.appendChild(frame);
+    getPortal().appendChild(overlay);
+
+    const finish = (): void => {
+      closeAiEnginesPage();
+      restoreFocus(opener);
+    };
+    const handle = mountAiEnginesPage(frame, settingsSectionContext(finish), {
+      ...(o.session ?? aiSessionOptions(ai)),
+      initial: o.initial,
+      onDone: (patch, settings) => {
+        if (Object.keys(patch).length > 0) {
+          // The normal save path. The page may start from the tab's unsaved
+          // draft, so only the keys it sends count as saved.
+          host.saveSettings?.(patch);
+          currentAiSettings = withSavedAiKeys(currentAiSettings, settings, patch);
+          renderAiIndicator();
+          scheduleAiStatusRefresh();
+        }
+        o.onDone?.(patch, settings);
+        finish();
+      },
+      onCancel: finish,
+    });
+    aiPage = { overlay, handle, fromModal: !!o.fromModal };
+    const titleId = frame.querySelector('.ai-page-title')?.id;
+    if (titleId) {frame.setAttribute('aria-labelledby', titleId);}
+    frame.addEventListener('keydown', (e) => { if (e.key === 'Tab') {trapTab(frame, e);} });
+    handle.focus();
+  }
+
+  /** Keep Tab inside `scope` (the page is modal). */
+  function trapTab(scope: HTMLElement, e: KeyboardEvent): void {
+    const focusables = Array.from(scope.querySelectorAll<HTMLElement>(
+      'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    )).filter((n) => !(n as HTMLButtonElement).disabled && !n.closest('[inert], [hidden]') && n.getClientRects().length > 0);
+    if (focusables.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || !scope.contains(active))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (active === last || !scope.contains(active))) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  /** Focus back where the page was opened from; a re-rendered opener is found again by its `data-fk`. */
+  function restoreFocus(opener: HTMLElement | null): void {
+    if (!opener) {return;}
+    if (opener.isConnected) {
+      opener.focus({ preventScroll: true });
+      return;
+    }
+    const fk = opener.dataset.fk;
+    const again = fk && settingsOverlay?.isConnected
+      ? Array.from(settingsOverlay.querySelectorAll<HTMLElement>('[data-fk]')).find((n) => n.dataset.fk === fk)
+      : undefined;
+    again?.focus({ preventScroll: true });
+  }
+
+  /** The sidebar chip: the AI tab, or the page when nothing can be routed. */
+  function openAiFromChip(): void {
+    const ai = aiHost;
+    if (!ai) {return;}
+    const state = aiIndicatorState({ settings: currentAiSettings, statuses: aiStatuses, tier: aiHostTier(ai), served: aiServed?.served ?? null, viaFallback: aiServed?.viaFallback ?? false });
+    if (state?.tone === 'none' && aiHostTier(ai) === 2) {
+      showAiEnginesPage({ initial: currentAiSettings.engines.length > 0 ? { section: 'routing' } : undefined });
+    } else {
+      showSettingsModal('ai');
+    }
   }
 
   /** This session's cloud consent answers (grants), shared by every AI request in this editor. */
@@ -3589,7 +3618,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** The selection's rect when the bubble may show over it. */
   function aiBubbleSelectionRect(): DOMRect | null {
-    if (aiRewrite?.isOpen() || settingsOverlay?.isConnected || aiPointerDown) {return null;}
+    if (aiRewrite?.isOpen() || settingsOverlay?.isConnected || aiPage || aiPointerDown) {return null;}
     if (sourceMode) {
       if (!cmView || !cmView.hasFocus) {return null;}
       const sel = cmView.state.selection.main;
@@ -4162,7 +4191,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // and dismissing do; see handle.setSidebarFooterLink.
     onSupportOpen: () => sidebarFooterLink?.onOpen(),
     onSupportDismiss: () => sidebarFooterLink?.onDismiss(),
-    onAiIndicatorClick: () => showSettingsModal('ai'),
+    onAiIndicatorClick: () => openAiFromChip(),
   });
   disposers.push(() => outlineSidebar?.destroy());
   }
@@ -5723,7 +5752,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   /** Run a toolbar / keybinding command (M3). */
-  function runCommand(name: string, args?: { tab?: string }): void {
+  function runCommand(name: string, args?: { tab?: string; page?: boolean }): void {
     switch (name) {
       // Same desync hazard as the list toggles below: no-op in source mode.
       case 'toggleBold': if (!sourceMode) {editor.chain().focus().toggleBold().run();} break;
@@ -5766,9 +5795,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       case 'openSettings':
         showSettingsModal(args?.tab);
         break;
-      // The host's "Open AI settings" (VS Code: mikedown.openAiSettings, the AI status bar item).
+      // The host's "Open AI settings" (VS Code: mikedown.openAiSettings, the AI
+      // status bar item). `page: true` opens the AI Engines page directly
+      // (tier 2 hosts); otherwise, or for a tier 1 host, the AI tab.
       case 'openAiSettings':
-        if (aiHost) {showSettingsModal('ai');}
+        if (!aiHost) {break;}
+        if (args?.page && aiHostTier(aiHost) === 2) {showAiEnginesPage();} else {showSettingsModal('ai');}
         break;
       // Rewrite the selection with AI (VS Code: mikedown.ai.rewrite). Opens the choices.
       case 'aiRewrite':
@@ -6097,6 +6129,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       try { disposers.pop()?.(); } catch (err) { console.error('MikeDown: dispose failed —', err); }
     }
     setSlashDisableHandler(null);
+    closeAiEnginesPage();
     closeSettingsModal();
     cmView?.destroy();
     cmView = null;
@@ -6133,7 +6166,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       renderAiIndicator();
     },
     setAiEngineStatuses: (list) => setAiStatuses(Array.isArray(list) ? list : []),
-    isModalOpen: () => !!settingsOverlay?.isConnected,
+    isModalOpen: () => !!settingsOverlay?.isConnected || !!aiPage?.overlay.isConnected,
     getViewState,
     setViewState,
     focus: () => { if (sourceMode && cmView) {cmView.focus();} else {editor.commands.focus();} },

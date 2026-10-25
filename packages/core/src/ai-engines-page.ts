@@ -1,0 +1,768 @@
+/**
+ * The AI Engines page (M3c): engines and routing on a full-size page of
+ * their own, laid out like VS Code's Settings editor or the Network pane of
+ * Apple's System Settings. A header with Back and Done; on the left a quiet
+ * list of engines, then Routing, then Add engine; on the right the selected
+ * engine's Express form (`ai-engine-form.ts`), the routing section
+ * (`ai-routing-section.ts`) or the quick-start cards. Under 720 px the page
+ * is one column: the list first, and picking an entry pushes its detail,
+ * with Back returning to the list.
+ *
+ * Standalone and mountable: it renders into the container it is given and
+ * touches nothing outside it (no modal, no editor, no `document.body`), so a
+ * host can show it as an overlay (`editor.ts#showAiEnginesPage`) or, later,
+ * in its own editor tab or window. Dialog semantics, the focus trap and
+ * focus restore belong to whoever hosts it.
+ *
+ * Edits run in an `AiSettingsSession` (`ai-settings-session.ts`): Done hands
+ * the changed `ai.*` keys to `onDone`; Back with unsaved changes asks
+ * "Discard changes?" in the page, and discarding takes back engines added
+ * here and their keys before `onCancel`.
+ *
+ * Modal UI only: nothing here touches the editor document or its DOM.
+ */
+
+import { AI_ENGINE_PRESETS, AI_PRESET_FAMILIES } from './ai';
+import type { AiEngineConfig, AiEnginePreset, AiRoute, AiSettings, AiSettingsPatch } from './ai';
+import {
+  defaultRouteForEngine,
+  engineDisplayName,
+  engineFromPreset,
+  engineIssues,
+  engineKindLabel,
+  groupPresets,
+  routeLabel,
+  shortUrl,
+} from './ai-settings-model';
+import { createEngineFormController } from './ai-engine-form';
+import type { EngineFormRefresh } from './ai-engine-form';
+import { createRoutingSection } from './ai-routing-section';
+import { createAiSettingsSession } from './ai-settings-session';
+import type { AiSettingsSessionOptions } from './ai-settings-session';
+import { ICONS, button, el, keepFocus, kindGlyphHtml, localityPills, nextId, note, statusBadge, switchInput } from './ai-settings-dom';
+import type { MikeDownSettingsSectionContext } from './types';
+
+export type AiEnginesPageSection = 'engines' | 'routing';
+
+export interface AiEnginesPageOptions extends AiSettingsSessionOptions {
+  /** What to show first: an engine, or the routing section. Default: the first engine (the cards when there is none). */
+  initial?: { engineId?: string; section?: AiEnginesPageSection };
+  /** Shared with the session that opened the page (stored-key knowledge). */
+  keyOverride?: Map<string, boolean>;
+  /** Done: the `ai.*` keys that changed (possibly none) and the settings they lead to. */
+  onDone(patch: AiSettingsPatch, settings: AiSettings): void;
+  /** Back without saving; the page already took back what it added. */
+  onCancel(): void;
+}
+
+export interface AiEnginesPageHandle {
+  /** Tear down (timers, listeners) and leave the container empty. Unresolved changes are discarded. */
+  dispose(): void;
+  /** Focus where a keyboard user should land: the selected list entry, or the detail when it was pushed. */
+  focus(): void;
+}
+
+/** Narrower than this and the page is one column. */
+const NARROW_PX = 720;
+
+type Selection = { kind: 'engine'; id: string } | { kind: 'routing' } | { kind: 'add' };
+
+export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettingsSectionContext, opts: AiEnginesPageOptions): AiEnginesPageHandle {
+  const session = createAiSettingsSession(opts);
+  const { ai } = session;
+  const getEngine = (id: string) => session.getEngine(id);
+
+  let selection: Selection = initialSelection();
+  let narrow = false;
+  /** Narrow layout only: which pane shows. */
+  let view: 'list' | 'detail' = opts.initial?.engineId || opts.initial?.section === 'routing' ? 'detail' : 'list';
+  let confirmDeleteId: string | null = null;
+  let confirmDiscard = false;
+  let finished = false;
+  /** One-line notes under an engine's header (the star found no model to make the default). */
+  const headNotes = new Map<string, { level: 'info' | 'warning'; text: string }>();
+
+  function initialSelection(): Selection {
+    const engines = session.draft.engines;
+    if (opts.initial?.section === 'routing') {return { kind: 'routing' };}
+    const wanted = opts.initial?.engineId && engines.find((e) => e.id === opts.initial?.engineId);
+    if (wanted) {return { kind: 'engine', id: wanted.id };}
+    return engines[0] ? { kind: 'engine', id: engines[0].id } : { kind: 'add' };
+  }
+  const selectedEngineId = () => (selection.kind === 'engine' ? selection.id : null);
+
+  // ── Shell ─────────────────────────────────────────────────────────────────
+
+  const root = el('div', 'ai-page');
+  const titleId = nextId('ai-page-title');
+
+  const header = el('div', 'ai-page-header');
+  const backBtn = button('ai-page-back', 'Back', { html: ICONS.back, fk: 'page:back' });
+  backBtn.addEventListener('click', () => back());
+  const title = el('h2', 'ai-page-title', 'AI Engines');
+  title.id = titleId;
+  const doneBtn = button('settings-btn settings-btn--primary ai-page-done', 'Done', { fk: 'page:done' });
+  doneBtn.addEventListener('click', () => done());
+  header.append(backBtn, title, doneBtn);
+
+  const body = el('div', 'ai-page-body');
+  const nav = el('nav', 'ai-page-nav');
+  nav.setAttribute('aria-label', 'Engines and routing');
+  const detail = el('section', 'ai-page-detail');
+  const detailId = nextId('ai-page-detail');
+  detail.id = detailId;
+  body.append(nav, detail);
+
+  // Screen reader announcements for probe results and key changes.
+  const live = el('div', 'ai-live');
+  live.setAttribute('role', 'status');
+  live.setAttribute('aria-live', 'polite');
+  let liveTimer: number | undefined;
+  function announce(text: string): void {
+    window.clearTimeout(liveTimer);
+    live.textContent = '';
+    // A fresh text node after a tick, so repeating the same message is read again.
+    liveTimer = window.setTimeout(() => { live.textContent = text; }, 40);
+  }
+
+  const confirmHost = el('div', 'ai-page-confirm-host');
+  root.append(header, body, confirmHost, live);
+
+  // ── The engine form and routing ───────────────────────────────────────────
+
+  const form = createEngineFormController({
+    ai,
+    getDraft: () => session.draft,
+    setDraft: (next, refresh) => {
+      session.draft = next;
+      applyRefresh(selectedEngineId(), refresh);
+    },
+    refresh: (engineId, refresh) => applyRefresh(engineId, refresh),
+    statuses: session.statuses,
+    onStatuses: () => opts.onStatuses(session.statusList()),
+    hasKey: (id) => session.hasKey(id),
+    setKey,
+    ensureSaved: (id) => session.ensureSaved(id),
+    savesFirst: (id) => session.savesFirst(id),
+    announce,
+    focusKey,
+  });
+
+  const routing = createRoutingSection(ctx, {
+    getDraft: () => session.draft,
+    setDraft: (next, change) => {
+      session.draft = next;
+      if (change.defaultChanged) {renderNav();}
+      else {refreshRoutingEntry();}
+    },
+    statusList: () => session.statusList(),
+  });
+
+  async function setKey(id: string, value: string | null): Promise<string | null> {
+    const engine = getEngine(id);
+    const error = await session.setKey(id, value);
+    if (engine) {
+      const name = engineDisplayName(engine);
+      announce(error
+        ? `The key for ${name} could not be ${value !== null ? 'stored' : 'cleared'}.`
+        : value !== null ? `API key stored for ${name}.` : `API key cleared for ${name}.`);
+      refreshHead(id);
+    }
+    return error;
+  }
+
+  function applyRefresh(engineId: string | null, refresh: EngineFormRefresh): void {
+    if (refresh.list) {
+      renderNav();
+      renderDetailHead();
+    } else if (refresh.head) {
+      // A default model change moves the star; every row may need it.
+      for (const e of session.draft.engines) {refreshNavItem(e.id);}
+      refreshRoutingEntry();
+      renderDetailHead();
+    }
+    if (refresh.form && engineId) {rerenderForm(engineId);}
+    if (refresh.routing || refresh.list) {scheduleRouting();}
+  }
+
+  let routingQueued = false;
+  function scheduleRouting(): void {
+    if (routingQueued) {return;}
+    routingQueued = true;
+    queueMicrotask(() => {
+      routingQueued = false;
+      if (finished) {return;}
+      refreshRoutingEntry();
+      if (selection.kind === 'routing') {routing.render();}
+    });
+  }
+
+  function refreshHead(engineId: string): void {
+    refreshNavItem(engineId);
+    if (selectedEngineId() === engineId) {renderDetailHead();}
+  }
+
+  function focusKey(key: string): void {
+    const n = Array.from(root.querySelectorAll<HTMLElement>('[data-fk]')).find((x) => x.dataset.fk === key);
+    n?.focus({ preventScroll: true });
+  }
+
+  // ── Left list ─────────────────────────────────────────────────────────────
+
+  const navList = el('div', 'ai-nav-list');
+  navList.setAttribute('role', 'list');
+  navList.setAttribute('aria-label', 'Engines');
+  const navEngines = el('div', 'ai-nav-group');
+  const routingEntry = el('div', 'ai-nav-group ai-nav-group--tools');
+  nav.append(navEngines, routingEntry);
+  nav.addEventListener('keydown', onNavKeydown);
+
+  function navButton(fk: string, selected: boolean): HTMLButtonElement {
+    const b = button('ai-nav-btn', '', { fk });
+    b.setAttribute('aria-controls', detailId);
+    if (selected) {b.setAttribute('aria-current', 'true');}
+    return b;
+  }
+
+  function renderNav(): void {
+    keepFocus(nav, () => {
+      navEngines.replaceChildren();
+      const heading = el('div', 'ai-nav-heading', 'Engines');
+      heading.setAttribute('aria-hidden', 'true');
+      navEngines.append(heading);
+      navList.replaceChildren();
+      if (session.draft.engines.length === 0) {
+        navEngines.append(el('div', 'ai-nav-empty', 'No engines yet'));
+      } else {
+        for (const engine of session.draft.engines) {navList.append(buildNavItem(engine));}
+        navEngines.append(navList);
+      }
+      routingEntry.replaceChildren(buildRoutingEntry(), buildAddEntry());
+    });
+  }
+
+  function buildNavItem(engine: AiEngineConfig): HTMLElement {
+    const item = el('div', 'ai-nav-item');
+    item.setAttribute('role', 'listitem');
+    item.dataset.engineId = engine.id;
+    fillNavItem(item, engine);
+    return item;
+  }
+
+  function fillNavItem(item: HTMLElement, engine: AiEngineConfig): void {
+    item.replaceChildren();
+    const selected = selection.kind === 'engine' && selection.id === engine.id;
+    const name = engineDisplayName(engine);
+    item.classList.toggle('is-selected', selected);
+    item.classList.toggle('is-disabled', !engine.enabled);
+
+    const btn = navButton(`nav:eng:${engine.id}`, selected);
+    btn.setAttribute('aria-label', `${name}, ${engineKindLabel(engine.kind)}`);
+    btn.title = name;
+    btn.innerHTML = kindGlyphHtml(engine.kind);
+    const text = el('span', 'ai-nav-text');
+    const line = el('span', 'ai-nav-name-line');
+    line.append(el('span', 'ai-nav-name', name));
+    const isDefault = session.draft.routing.default?.engineId === engine.id;
+    if (isDefault) {
+      const star = el('span', 'ai-nav-star');
+      star.innerHTML = ICONS.starOn;
+      star.title = 'Default engine';
+      line.append(star);
+    }
+    // The pill sits on the second line so the name keeps its room.
+    const subLine = el('span', 'ai-nav-sub-line');
+    subLine.append(...localityPills(engine, session.draft).slice(0, 1), el('span', 'ai-nav-sub', shortUrl(engine.baseUrl) || 'no address'));
+    text.append(line, subLine);
+    btn.append(text, statusBadge(session.statuses.get(engine.id), form.busy(engine.id), { compact: true }));
+    btn.addEventListener('click', () => select({ kind: 'engine', id: engine.id }));
+
+    const enabled = switchInput(engine.enabled, `Enable ${name}`, `nav:eng:${engine.id}:enabled`);
+    enabled.addEventListener('change', () => {
+      session.updateEngine(engine.id, { enabled: enabled.checked });
+      applyRefresh(engine.id, { list: true, form: true, routing: true });
+    });
+    item.append(btn, enabled);
+  }
+
+  function refreshNavItem(engineId: string): void {
+    const engine = getEngine(engineId);
+    const item = Array.from(navList.querySelectorAll<HTMLElement>('.ai-nav-item')).find((n) => n.dataset.engineId === engineId);
+    if (!engine || !item) {return;}
+    keepFocus(item, () => fillNavItem(item, engine));
+  }
+
+  function routingSubline(): string {
+    const d = session.draft.routing.default;
+    return d ? routeLabel(session.draft, d) : 'No default model';
+  }
+
+  function buildRoutingEntry(): HTMLElement {
+    const btn = navButton('nav:routing', selection.kind === 'routing');
+    btn.classList.add('ai-nav-btn--routing');
+    const icon = el('span', 'ai-nav-icon');
+    icon.innerHTML = ICONS.routing;
+    const text = el('span', 'ai-nav-text');
+    text.append(el('span', 'ai-nav-name', 'Routing'), el('span', 'ai-nav-sub', routingSubline()));
+    btn.append(icon, text);
+    btn.addEventListener('click', () => select({ kind: 'routing' }));
+    return btn;
+  }
+
+  function refreshRoutingEntry(): void {
+    const sub = routingEntry.querySelector('.ai-nav-btn--routing .ai-nav-sub');
+    if (sub) {sub.textContent = routingSubline();}
+  }
+
+  function buildAddEntry(): HTMLElement {
+    const btn = navButton('nav:add', selection.kind === 'add');
+    btn.classList.add('ai-nav-btn--add');
+    const icon = el('span', 'ai-nav-icon');
+    icon.innerHTML = ICONS.plus;
+    btn.append(icon, el('span', 'ai-nav-name', 'Add engine'));
+    btn.addEventListener('click', () => select({ kind: 'add' }));
+    return btn;
+  }
+
+  /** Up and Down move between list entries, Home and End jump. */
+  function onNavKeydown(e: KeyboardEvent): void {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {return;}
+    const buttons = Array.from(nav.querySelectorAll<HTMLButtonElement>('.ai-nav-btn'));
+    const at = buttons.indexOf(e.target as HTMLButtonElement);
+    if (at < 0) {return;}
+    e.preventDefault();
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1
+      : Math.max(0, Math.min(buttons.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)));
+    buttons[next]?.focus();
+  }
+
+  // ── Detail pane ───────────────────────────────────────────────────────────
+
+  const detailHead = el('div', 'ai-detail-head');
+  const detailBody = el('div', 'ai-detail-body');
+  detail.append(detailHead, detailBody);
+
+  function select(next: Selection, o: { isNew?: boolean } = {}): void {
+    const sameEngine = next.kind === 'engine' && selection.kind === 'engine' && selection.id === next.id;
+    selection = next;
+    confirmDeleteId = null;
+    if (next.kind === 'engine') {headNotes.delete(next.id);}
+    if (narrow) {view = 'detail';}
+    applyLayout();
+    renderNav();
+    if (!sameEngine || o.isNew) {renderDetail();}
+    let first: string | null = null;
+    if (next.kind === 'engine' && (!sameEngine || o.isNew)) {first = form.opened(next.id, o);}
+    if (o.isNew && first) {
+      // A new engine lands on its first empty required field (design call 2).
+      focusKey(first);
+      if (first.endsWith(':url')) {
+        const input = root.querySelector<HTMLInputElement>(`[data-fk="${first}"]`);
+        input?.select();
+      }
+    } else if (narrow) {
+      // The list just went away: land on the pushed detail.
+      focusDetailTitle();
+    }
+    detail.scrollTop = 0;
+  }
+
+  function focusDetailTitle(): void {
+    detailHead.querySelector<HTMLElement>('.ai-detail-title')?.focus({ preventScroll: true });
+  }
+
+  function renderDetail(): void {
+    renderDetailHead();
+    detailBody.replaceChildren();
+    detail.dataset.kind = selection.kind;
+    if (selection.kind === 'engine') {
+      const engine = getEngine(selection.id);
+      if (engine) {detailBody.append(form.build(engine.id));}
+    } else if (selection.kind === 'routing') {
+      routing.render();
+      detailBody.append(routing.element);
+    } else {
+      detailBody.append(buildPresetCards());
+    }
+  }
+
+  function detailTitle(text: string): HTMLElement {
+    const h = el('h3', 'ai-detail-title', text);
+    h.id = nextId('ai-detail-title');
+    // Focus target when the narrow layout pushes the detail.
+    h.tabIndex = -1;
+    detail.setAttribute('aria-labelledby', h.id);
+    return h;
+  }
+
+  function renderDetailHead(): void {
+    keepFocus(detailHead, () => {
+      detailHead.replaceChildren();
+      if (selection.kind === 'routing') {
+        const icon = el('span', 'ai-detail-icon');
+        icon.innerHTML = ICONS.routing;
+        const main = el('div', 'ai-detail-main');
+        main.append(detailTitle('Routing'), el('div', 'ai-detail-sub', 'Which model serves each kind of task. Tasks on Default use the default model.'));
+        detailHead.append(icon, main);
+        return;
+      }
+      if (selection.kind === 'add') {
+        const icon = el('span', 'ai-detail-icon');
+        icon.innerHTML = ICONS.plus;
+        const main = el('div', 'ai-detail-main');
+        const empty = session.draft.engines.length === 0;
+        main.append(
+          detailTitle(empty ? 'No engines yet' : 'Add an engine'),
+          el('div', 'ai-detail-sub', 'Two ways to connect: run models on your own machine, or paste a cloud API key. Nothing is sent until AI is on.'),
+        );
+        detailHead.append(icon, main);
+        return;
+      }
+      const engine = getEngine(selection.id);
+      if (!engine) {return;}
+      fillEngineHead(engine);
+    });
+  }
+
+  function fillEngineHead(engine: AiEngineConfig): void {
+    const name = engineDisplayName(engine);
+    const glyph = el('span', 'ai-detail-glyph');
+    glyph.innerHTML = kindGlyphHtml(engine.kind);
+
+    const main = el('div', 'ai-detail-main');
+    const titleLine = el('div', 'ai-detail-title-line');
+    titleLine.append(detailTitle(name), ...localityPills(engine, session.draft));
+    const models = engine.models.filter((m) => !m.missing).length;
+    const picked = engine.models.filter((m) => !m.missing && m.enabled).length;
+    const subParts = [engineKindLabel(engine.kind), shortUrl(engine.baseUrl) || 'no address'];
+    if (engine.models.length > 0) {subParts.push(picked === models ? `${models} ${models === 1 ? 'model' : 'models'}` : `${picked} of ${models} models`);}
+    main.append(titleLine, el('div', 'ai-detail-sub', subParts.join(' · ')));
+
+    const isDefault = session.draft.routing.default?.engineId === engine.id;
+    const star = button(`settings-btn ai-default-btn${isDefault ? ' is-on' : ''}`, isDefault ? 'Default' : 'Make default', {
+      html: isDefault ? ICONS.starOn : ICONS.starOff,
+      title: isDefault ? `Default: ${routeLabel(session.draft, session.draft.routing.default as AiRoute)}` : 'Make this the default engine',
+      fk: `eng:${engine.id}:star`,
+    });
+    star.setAttribute('aria-pressed', String(isDefault));
+    star.setAttribute('aria-label', `Default engine: ${name}`);
+    star.addEventListener('click', () => toggleDefault(engine.id));
+
+    const del = button('ai-icon-btn ai-delete-btn', '', { html: ICONS.trash, ariaLabel: `Delete ${name}`, title: 'Delete engine', fk: `eng:${engine.id}:delete` });
+    del.addEventListener('click', () => {
+      confirmDeleteId = engine.id;
+      renderDetailHead();
+      focusKey(`eng:${engine.id}:confirm-cancel`);
+    });
+
+    const actions = el('div', 'ai-detail-actions');
+    actions.append(statusBadge(session.statuses.get(engine.id), form.busy(engine.id)), star, del);
+    const top = el('div', 'ai-detail-top');
+    top.append(glyph, main, actions);
+    detailHead.append(top);
+
+    // The form shows key, URL and locality problems at their fields; the pill says "blocked".
+    const issues = engineIssues(engine, session.draft, session.hasKey(engine.id))
+      .filter((i) => !['cloudBlocked', 'badUrl', 'localityMismatch', 'noKey'].includes(i.code));
+    const headNote = headNotes.get(engine.id);
+    if (issues.length > 0 || headNote) {
+      const box = el('div', 'ai-engine-issues');
+      for (const i of issues) {box.append(note(i.level, i.text));}
+      if (headNote) {box.append(note(headNote.level, headNote.text, 'ai-result'));}
+      detailHead.append(box);
+    }
+    if (confirmDeleteId === engine.id) {detailHead.append(buildDeleteConfirm(engine));}
+  }
+
+  function rerenderForm(engineId: string): void {
+    if (selectedEngineId() !== engineId) {return;}
+    const current = detailBody.querySelector<HTMLElement>('.ai-form');
+    if (!current) {return;}
+    keepFocus(current, () => {
+      const fresh = form.build(engineId);
+      current.replaceWith(fresh);
+      return fresh;
+    });
+  }
+
+  function buildDeleteConfirm(engine: AiEngineConfig): HTMLElement {
+    const box = el('div', 'ai-confirm');
+    box.setAttribute('role', 'group');
+    const name = engineDisplayName(engine);
+    box.setAttribute('aria-label', `Delete ${name}?`);
+    const msg = el('span', 'ai-confirm-text', `Delete ${name}? Routes to it are cleared${ai.setSecret ? ' and its stored API key is removed' : ''} when you choose Done.`);
+    const yes = button('settings-btn ai-btn--danger', 'Delete', { fk: `eng:${engine.id}:confirm-delete` });
+    const no = button('settings-btn', 'Cancel', { fk: `eng:${engine.id}:confirm-cancel` });
+    yes.addEventListener('click', () => deleteEngine(engine.id));
+    no.addEventListener('click', () => {
+      confirmDeleteId = null;
+      renderDetailHead();
+      focusKey(`eng:${engine.id}:delete`);
+    });
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        // Cancel the confirmation, not the page.
+        e.preventDefault();
+        e.stopPropagation();
+        no.click();
+      }
+    });
+    box.append(msg, yes, no);
+    return box;
+  }
+
+  /** The quick-start cards in two groups, with the "two ways to connect" line over each (design call 2). */
+  function buildPresetCards(): HTMLElement {
+    const groups = groupPresets(AI_ENGINE_PRESETS);
+    const box = el('div', 'ai-cards');
+    for (const family of AI_PRESET_FAMILIES) {
+      const presets = groups[family.family];
+      if (presets.length === 0) {continue;}
+      const section = el('section', 'ai-cards-group');
+      const headingId = nextId('ai-cards-heading');
+      const heading = el('div', 'ai-cards-heading');
+      heading.id = headingId;
+      heading.innerHTML = family.family === 'local' ? ICONS.local : ICONS.cloud;
+      heading.append(el('span', '', family.label));
+      section.setAttribute('aria-labelledby', headingId);
+      const grid = el('div', 'ai-cards-grid');
+      grid.setAttribute('role', 'group');
+      grid.setAttribute('aria-labelledby', headingId);
+      for (const preset of presets) {
+        const card = button('ai-card', '', { fk: `card:${preset.id}`, ariaLabel: `Add ${preset.name}` });
+        card.innerHTML = kindGlyphHtml(preset.kind);
+        const text = el('span', 'ai-card-text');
+        text.append(el('span', 'ai-card-name', preset.name), el('span', 'ai-card-caption', preset.caption));
+        card.append(text);
+        card.title = preset.caption;
+        card.addEventListener('click', () => addEngine(preset));
+        grid.append(card);
+      }
+      section.append(heading, el('div', 'ai-cards-explainer', family.explainer), grid);
+      box.append(section);
+    }
+    return box;
+  }
+
+  // ── Edits ─────────────────────────────────────────────────────────────────
+
+  function addEngine(preset: AiEnginePreset): void {
+    const engine = engineFromPreset(preset, session.draft.engines.map((e) => e.id));
+    session.addEngine(engine);
+    select({ kind: 'engine', id: engine.id }, { isNew: true });
+    scheduleRouting();
+    announce(preset.family === 'cloud' ? `Added ${engine.name}. Paste your API key.` : `Added ${engine.name}. Check the address; models are fetched from it.`);
+  }
+
+  function deleteEngine(id: string): void {
+    const engine = getEngine(id);
+    if (!engine) {return;}
+    const index = session.draft.engines.findIndex((e) => e.id === id);
+    session.deleteEngine(id);
+    headNotes.delete(id);
+    form.forget(id);
+    confirmDeleteId = null;
+    const next = session.draft.engines[Math.min(index, session.draft.engines.length - 1)];
+    selection = next ? { kind: 'engine', id: next.id } : { kind: 'add' };
+    renderNav();
+    renderDetail();
+    if (next) {form.opened(next.id);}
+    announce(`Deleted ${engineDisplayName(engine)}. Choose Done to apply.`);
+    focusKey(next ? `nav:eng:${next.id}` : 'nav:add');
+  }
+
+  function toggleDefault(engineId: string): void {
+    const engine = getEngine(engineId);
+    if (!engine) {return;}
+    const name = engineDisplayName(engine);
+    const draft = session.draft;
+    if (draft.routing.default?.engineId === engineId) {
+      session.draft = { ...draft, routing: { ...draft.routing, default: null } };
+      announce(`${name} is no longer the default.`);
+    } else {
+      const route = defaultRouteForEngine(draft, session.statusList(), engineId);
+      if (!route) {
+        headNotes.set(engineId, { level: 'info', text: 'No model here can be the default yet. Pick or add a chat model first.' });
+        announce(`${name} has no chat model to make the default yet.`);
+        renderDetailHead();
+        return;
+      }
+      session.draft = { ...draft, routing: { ...draft.routing, default: route } };
+      announce(`Default model: ${routeLabel(session.draft, route)}.`);
+    }
+    headNotes.delete(engineId);
+    renderNav();
+    renderDetailHead();
+    rerenderForm(engineId);
+  }
+
+  // ── Back, Done and the discard confirmation ───────────────────────────────
+
+  function back(): void {
+    if (confirmDiscard) {
+      hideDiscard();
+      return;
+    }
+    if (narrow && view === 'detail') {
+      view = 'list';
+      applyLayout();
+      focusSelectedEntry();
+      return;
+    }
+    if (session.dirty()) {
+      showDiscard();
+      return;
+    }
+    cancel();
+  }
+
+  function cancel(): void {
+    if (finished) {return;}
+    finished = true;
+    session.discard();
+    opts.onCancel();
+  }
+
+  function done(): void {
+    if (finished) {return;}
+    finished = true;
+    const patch = session.collect();
+    const saved = session.commit();
+    opts.onDone(patch, saved);
+  }
+
+  function showDiscard(): void {
+    confirmDiscard = true;
+    const scrim = el('div', 'ai-page-confirm-scrim');
+    const box = el('div', 'ai-page-confirm');
+    box.setAttribute('role', 'alertdialog');
+    const headId = nextId('ai-discard-title');
+    const textId = nextId('ai-discard-text');
+    box.setAttribute('aria-labelledby', headId);
+    box.setAttribute('aria-describedby', textId);
+    const head = el('div', 'ai-page-confirm-title', 'Discard changes?');
+    head.id = headId;
+    const text = el('div', 'ai-page-confirm-text', 'Your changes to engines and routing have not been saved. Engines added here and their keys are removed.');
+    text.id = textId;
+    const keep = button('settings-btn', 'Keep editing', { fk: 'page:keep' });
+    keep.addEventListener('click', () => hideDiscard());
+    const discard = button('settings-btn ai-btn--danger', 'Discard', { fk: 'page:discard' });
+    discard.addEventListener('click', () => cancel());
+    const actions = el('div', 'ai-page-confirm-actions');
+    actions.append(keep, discard);
+    box.append(head, text, actions);
+    scrim.append(box);
+    confirmHost.replaceChildren(scrim);
+    header.inert = true;
+    body.inert = true;
+    keep.focus();
+  }
+
+  function hideDiscard(): void {
+    confirmDiscard = false;
+    confirmHost.replaceChildren();
+    header.inert = false;
+    body.inert = false;
+    backBtn.focus();
+  }
+
+  root.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented) {return;}
+    // Escape is Back; nothing else (a modal under the page) should see it.
+    e.preventDefault();
+    e.stopPropagation();
+    back();
+  });
+
+  // ── Layout ────────────────────────────────────────────────────────────────
+
+  function applyLayout(): void {
+    root.classList.toggle('is-narrow', narrow);
+    root.dataset.view = narrow ? view : 'both';
+    backBtn.setAttribute('aria-label', narrow && view === 'detail' ? 'Back to the list' : 'Back');
+  }
+
+  function measure(width: number): void {
+    // Zero means "not laid out" (jsdom, a hidden host): keep two panes.
+    const next = width > 0 && width < NARROW_PX;
+    if (next === narrow) {return;}
+    narrow = next;
+    applyLayout();
+  }
+
+  function focusSelectedEntry(): void {
+    const fk = selection.kind === 'engine' ? `nav:eng:${selection.id}` : selection.kind === 'routing' ? 'nav:routing' : 'nav:add';
+    focusKey(fk);
+  }
+
+  let resizeObserver: ResizeObserver | null = null;
+  if (typeof ResizeObserver === 'function') {
+    resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[entries.length - 1];
+      if (entry) {measure(entry.contentRect.width);}
+    });
+    resizeObserver.observe(container);
+  }
+
+  // ── Statuses ──────────────────────────────────────────────────────────────
+
+  // Statuses pushed while the page is open refresh the dots and pickers in
+  // place (no full rebuild, so typing is never interrupted).
+  const unsubscribe = opts.subscribeStatuses?.((list) => {
+    if (finished) {return;}
+    for (const s of list) {
+      if (!form.busy(s.engineId)) {session.statuses.set(s.engineId, s);}
+    }
+    for (const engine of session.draft.engines) {refreshNavItem(engine.id);}
+    renderDetailHead();
+    scheduleRouting();
+  });
+
+  // ── Mount ─────────────────────────────────────────────────────────────────
+
+  container.replaceChildren(root);
+  measure(container.getBoundingClientRect().width);
+  applyLayout();
+  renderNav();
+  renderDetail();
+  if (selection.kind === 'engine') {form.opened(selection.id);}
+
+  // Fresh statuses as the page opens: the dots should not be stale.
+  if (session.tier === 2) {
+    void session.refreshStatuses().then((ok) => {
+      if (!ok || finished) {return;}
+      for (const engine of session.draft.engines) {refreshNavItem(engine.id);}
+      renderDetailHead();
+      scheduleRouting();
+    });
+  }
+
+  return {
+    dispose(): void {
+      // Torn down without Done or Back (the host closed): nothing is kept.
+      if (!finished) {
+        finished = true;
+        session.discard();
+      }
+      finished = true;
+      window.clearTimeout(liveTimer);
+      unsubscribe?.();
+      resizeObserver?.disconnect();
+      form.dispose();
+      container.replaceChildren();
+    },
+    focus(): void {
+      if (confirmDiscard) {
+        focusKey('page:keep');
+      } else if (narrow && view === 'detail') {
+        focusDetailTitle();
+      } else if (!narrow && selection.kind === 'routing') {
+        focusKey('route:default');
+      } else if (!narrow && selection.kind === 'add' && session.draft.engines.length === 0) {
+        focusKey(`card:${AI_ENGINE_PRESETS[0].id}`);
+      } else {
+        focusSelectedEntry();
+      }
+    },
+  };
+}

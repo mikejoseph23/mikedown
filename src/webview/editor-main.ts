@@ -137,8 +137,11 @@
  *         also pushed after a settings change, probe or discovery.
  *     { type: 'aiEngineStatus', requestId, status: AiEngineStatus }
  *     { type: 'aiConsent', requestId, engineId, granted }
- *     { type: 'command', command: 'openAiSettings' } — mikedown.openAiSettings
- *         (and the AI status bar item): open the Settings modal on the AI tab.
+ *     { type: 'command', command: 'openAiSettings', page?: boolean } —
+ *         mikedown.openAiSettings (and the AI status bar item) send
+ *         `page: true`: open the full-window AI Engines page. Without `page`
+ *         (or for a host with no engine registry) the Settings modal opens
+ *         on the AI tab, as before.
  *     { type: 'command', command: 'aiRewrite' } — mikedown.ai.rewrite: open the
  *         rewrite popover on the selection.
  *
@@ -314,7 +317,7 @@ window.addEventListener('message', (event: MessageEvent) => {
 
   switch (message?.type) {
     case 'update': handle.setMarkdown(message.content ?? '', { pristine: true }); break;
-    case 'command': handle.command(message.command, { tab: message.tab }); break;
+    case 'command': handle.command(message.command, { tab: message.tab, page: message.page === true }); break;
     case 'toggleSource': handle.command('toggleSource'); break;
     case 'copyAsRichText': handle.command('copyAsRichText'); break;
     case 'theme':

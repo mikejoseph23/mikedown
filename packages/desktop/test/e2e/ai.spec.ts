@@ -1,6 +1,6 @@
 /**
- * AI inference engines (M4 host, M3 tab): the Settings modal AI tab with an
- * engine, and the `host.ai` group (aiHost.ts over aiApi.ts) round-tripping
+ * AI inference engines (M4 host, M3 tab, M3c page): the Settings modal AI tab
+ * with an engine, the AI Engines page it opens, and the `host.ai` group (aiHost.ts over aiApi.ts) round-tripping
  * `listEngines` and a streamed completion.
  *
  * The Rust side is replaced by this file: `ai_*` commands are answered here
@@ -151,7 +151,7 @@ let engine: MockEngine;
 test.beforeEach(async () => { engine = await startEngine(); });
 test.afterEach(async () => { await engine.close(); });
 
-test('the Settings modal has an AI tab that lists the saved engine and tests it', async ({ page, ipc }) => {
+test('the Settings modal AI tab lists the saved engine; the AI Engines page tests it', async ({ page, ipc }) => {
   writeEngineSettings(ipc, engine.base);
   wireAi(page, ipc, engine);
   ipc.launchFiles = [ipc.write('a.md', '# A\n\nText.\n')];
@@ -169,10 +169,22 @@ test('the Settings modal has an AI tab that lists the saved engine and tests it'
   await expect(engines).toContainText('oMLX');
   await expect(modal.getByText('No engines yet')).toHaveCount(0);
 
-  await modal.getByRole('button', { name: 'Edit oMLX' }).click();
-  await modal.getByRole('button', { name: 'Test connection' }).click();
+  // Engines are edited on the page, which opens over the modal inside the window.
+  await modal.getByRole('button', { name: 'Manage engines…' }).click();
+  const enginesPage = page.getByRole('dialog', { name: 'AI Engines' });
+  await expect(enginesPage).toBeVisible();
+  const box = await enginesPage.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box && viewport && box.width >= viewport.width - 1 && box.height >= viewport.height - 1).toBe(true);
+  await expect(enginesPage.getByRole('list', { name: 'Engines' })).toContainText('oMLX');
+  await enginesPage.getByRole('button', { name: 'Test connection' }).click();
   await expect.poll(() => ipc.calls.some((c) => c.cmd === 'ai_test_engine')).toBe(true);
-  await expect(modal.locator('[data-state="ok"]').filter({ hasText: '12 ms' }).first()).toBeVisible();
+  await expect(enginesPage.locator('[data-state="ok"]').filter({ hasText: '12 ms' }).first()).toBeVisible();
+
+  // Escape is Back: nothing changed, so the page closes and the modal is still there.
+  await page.keyboard.press('Escape');
+  await expect(enginesPage).toHaveCount(0);
+  await expect(modal).toBeVisible();
 });
 
 test('the AI tab shows the empty state when no engine is saved', async ({ page, ipc }) => {
@@ -184,7 +196,10 @@ test('the AI tab shows the empty state when no engine is saved', async ({ page, 
   const modal = page.locator('.settings-modal');
   await modal.getByRole('tab', { name: 'AI', exact: true }).click();
   await expect(modal.getByText('No engines yet')).toBeVisible();
-  await expect(modal.getByRole('button', { name: 'Add oMLX' })).toBeVisible();
+  await modal.getByRole('button', { name: 'Add engine…' }).click();
+  // The page opens on the quick-start cards.
+  const enginesPage = page.getByRole('dialog', { name: 'AI Engines' });
+  await expect(enginesPage.getByRole('button', { name: 'Add oMLX' })).toBeVisible();
 });
 
 /** The same host module the app builds (`createAiHost` over `aiApi`), driven from the page. */
