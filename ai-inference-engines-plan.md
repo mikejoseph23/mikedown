@@ -34,7 +34,7 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | ✅ Done | 22 | core, all hosts |
 | M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | ✅ Done | 18 | reqwest + keyring |
 | T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | 🟡 Partial | 20 | real-webview smoke moved to T4 | shared fixtures |
-| M5 Proof feature: selection rewrite with preview popover | Opus | 🔄 In Progress | — | feature id `rewrite` |
+| M5 Proof feature: selection rewrite with preview popover | Opus | ✅ Done | 28 | feature id `rewrite` |
 | M6 npm consumers: wrappers, demo stub host, docs | Sonnet | ✅ Done | 14 | website demo |
 | T4 Hands-on: end to end on Mike's machines | Sonnet | ⬜ Not Started | — | user sign-off |
 | M7 Release prep: CHANGELOG, README, versions | Haiku | ⬜ Not Started | — | ships dark |
@@ -518,14 +518,14 @@ Host to webview:
 
 > Workers must complete ALL items in this list. The popover should feel like a native editor affordance (Notion's AI block, Apple Notes' Writing Tools), streaming text with a calm cursor, old and new side by side only when the selection is more than one line. Constraints 4, 5 and 7 from the brainstorm apply: decorations only, one transaction on accept, cancellation on every new request.
 
-- [ ] Feature registry entry `rewrite` (default enabled, task `rewrite`, requires chat + stream).
-- [ ] Entry points: selection bubble item "Rewrite" with a submenu (Shorter, Longer, Fix flow, Custom prompt), the same in `contextmenu.ts`, a `mikedown.ai.rewrite` command and `Mod-Shift-K` hotkey (customizable through the existing hotkeys tab). Hidden when the route is unusable; disabled with a reason tooltip when AI is on but no route works.
-- [ ] Prompt builder in `packages/core/src/ai/prompts/rewrite.ts`: system prompt that preserves markdown structure, links, code and inline formatting; context is the selection plus the enclosing paragraph before and after (constraint 8); custom prompt gets the same guardrails.
-- [ ] `packages/core/src/ai-rewrite.ts`: popover anchored to the selection, streaming preview, header badge with served engine (local/cloud, fallback), Accept (one `tr.replaceWith` from the markdown-parsed result), Retry, Copy, Esc or click-away cancels and aborts; selection highlighted with a decoration while the popover is open.
-- [ ] Source mode: the same commands operate on the CodeMirror selection and replace through one CM transaction; no popover redesign, same component rendered next to the CM selection.
-- [ ] Error states from `AiErrorCode` with one-click "Open AI settings"; `contextOverflow` suggests a shorter selection.
-- [ ] Indicator chip and VS Code status bar update from the served result.
-- [ ] Telemetry: none. Logging only through the host output channel line from M2.
+- [x] Feature registry entry `rewrite` (default enabled, task `rewrite`, requires chat + stream).
+- [x] Entry points: selection bubble item "Rewrite" with a submenu (Shorter, Longer, Fix flow, Custom prompt), the same in `contextmenu.ts`, a `mikedown.ai.rewrite` command and `Mod-Alt-K` hotkey (was `Mod-Shift-K`, which is Inline Code) (customizable through the existing hotkeys tab). Hidden when the route is unusable; disabled with a reason tooltip when AI is on but no route works.
+- [x] Prompt builder in `packages/core/src/ai/prompts/rewrite.ts`: system prompt that preserves markdown structure, links, code and inline formatting; context is the selection plus the enclosing paragraph before and after (constraint 8); custom prompt gets the same guardrails.
+- [x] `packages/core/src/ai-rewrite.ts`: popover anchored to the selection, streaming preview, header badge with served engine (local/cloud, fallback), Accept (one `tr.replaceWith` from the markdown-parsed result), Retry, Copy, Esc or click-away cancels and aborts; selection highlighted with a decoration while the popover is open.
+- [x] Source mode: the same commands operate on the CodeMirror selection and replace through one CM transaction; no popover redesign, same component rendered next to the CM selection.
+- [x] Error states from `AiErrorCode` with one-click "Open AI settings"; `contextOverflow` suggests a shorter selection.
+- [x] Indicator chip and VS Code status bar update from the served result.
+- [x] Telemetry: none. Logging only through the host output channel line from M2.
 
 [Return to Top](#ai-inference-engines-plan)
 
@@ -652,5 +652,7 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 16:40** - M6 done (`1ccdb23`, 14 min), cherry-picked as `4f82fa7`. Fixed a real React bug (`stableHost` dropped non-function host entries, so `host.ai` never reached core). Web component `ai` property, Angular `[ai]` input, "Bring your own AI" docs in core README and on the hub (`#byo-ai`), tier-2 stub host in every demo. Verified on branch: `npm run test:unit` 1989, `npm run test:packages` 79, `npm run test:wrappers` (web component 49, React 24, Vue 12, Angular 26), `npm run build:site` ok. Demo note mentions Rewrite, which appears once M5 merges.
 
 **2026-10-25 16:45** - T3 partial (`6a6479c`, ~20 min), cherry-picked as `ba71468`. New `command_layer.rs` drives every `ai_*` command on Tauri's mock runtime against the loopback server (streaming, cancel mid-stream, window isolation, route and cloud gates); keychain wrapper tested on a mock `keyring` credential builder; Playwright `ai.spec.ts` (AI tab with engine and empty, `listEngines`, streamed completion, abort). Verified on branch: `cargo test` 176 + 26 + 7, Desktop e2e 55 passed, Desktop unit 559. **Not run:** the real-webview smoke (`src/smoke/harness.ts` AI group typechecks but never executed) because the installed `/Applications/MikeDown.app` was running and the single-instance plugin swallowed the dev launch. Moved to T4: quit MikeDown, run the README smoke command, then `npm run smoke:compare`. No bugs found.
+
+**2026-10-25 17:00** - M5 done (`ea80385`, 28 min), cherry-picked as `8d21d58`; orchestrator dropped M5's duplicate `onAiEngines` subscription in `src/webview/editor-main.ts` (core already subscribes since `8b8f210`). Hotkey is `Mod-Alt-K` (Mod-Shift-K is Inline Code); Desktop binds it host side in `menu/shortcuts.ts`. Consent "Not now" applies to that request only; retry once on `unreachable` before the first token overlays the engine as failed so fallback works on the first attempt. Prompt builder not yet exported from `@mikedown/core/ai`. Verified on branch: lint 0 errors, `npm run test:unit` 2021, `npm run test:edge` 22, `npm run test:packages` 79, `npm run test:wrappers` ok, `npm run build:site` ok, Desktop typecheck, unit 559, e2e 55. All build milestones merged; T4 next (needs Mike).
 
 [Return to Top](#ai-inference-engines-plan)
