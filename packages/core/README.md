@@ -238,7 +238,7 @@ Without `spellcheckDictionaryUrl`, spell check stays off and nothing is fetched.
 
 ## Shortcuts
 
-The core binds `Mod-/` (Cmd on macOS, Ctrl elsewhere) to the source toggle in both the rich editor and source mode. A host that binds the shortcut itself, such as the VS Code keybinding, passes `hostOwnsShortcuts: true` so one keystroke never toggles twice.
+The core binds `Mod-/` (Cmd on macOS, Ctrl elsewhere) to the source toggle in both the rich editor and source mode. A host that binds the shortcut itself, such as the VS Code keybinding, passes `hostOwnsShortcuts: true` so one keystroke never toggles twice. The same goes for `Mod-Alt-K`, which opens the AI rewrite popover when the host has an `ai` group (VS Code binds it as `mikedown.ai.rewrite`).
 
 ## Peer dependencies
 

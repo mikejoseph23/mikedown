@@ -1,0 +1,315 @@
+/* MikeDown — selection rewrite (ai-rewrite.ts): the target highlight, the
+ * selection bubble and the preview popover. Overlays live in the portal and
+ * read only --mikedown-* tokens.
+ */
+
+/* ── Target highlight (PM inline decoration, CM mark) ───────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite-target {
+  background: color-mix(in srgb, var(--mikedown-accent, #3f51b5) 16%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--mikedown-accent, #3f51b5) 55%, transparent);
+  border-radius: 2px;
+}
+
+/* ── Selection bubble ───────────────────────────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-bubble {
+  position: fixed;
+  z-index: 990;
+  font-family: var(--mikedown-font-ui, system-ui, sans-serif);
+  font-size: 12.5px;
+  animation: mikedown-ai-fade 0.12s ease-out;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 7px 0 8px;
+  border: 1px solid var(--mikedown-border, rgba(15, 15, 20, 0.1));
+  border-radius: 13px;
+  background: var(--mikedown-surface-raised, #fff);
+  color: var(--mikedown-text-ui, #3a3a3d);
+  box-shadow: 0 2px 8px var(--mikedown-shadow, rgba(15, 15, 20, 0.12));
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn:hover { background: var(--mikedown-hover, rgba(55, 53, 47, 0.06)); }
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn[aria-disabled="true"] {
+  color: var(--mikedown-text-muted, #6f6f74);
+  cursor: default;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn[aria-disabled="true"]:hover { background: var(--mikedown-surface-raised, #fff); }
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-spark { display: inline-flex; color: var(--mikedown-accent, #3f51b5); }
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn[aria-disabled="true"] .ai-bubble-spark { color: inherit; }
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-chevron { display: inline-flex; opacity: 0.7; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 176px;
+  padding: 4px;
+  border: 1px solid var(--mikedown-border, rgba(15, 15, 20, 0.1));
+  border-radius: var(--mikedown-radius, 8px);
+  background: var(--mikedown-surface-raised, #fff);
+  box-shadow: 0 6px 20px var(--mikedown-shadow, rgba(15, 15, 20, 0.12));
+  animation: mikedown-ai-fade 0.08s ease-out;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--mikedown-radius-sm, 6px);
+  background: none;
+  color: var(--mikedown-text-ui, #3a3a3d);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-item:hover { background: var(--mikedown-hover, rgba(55, 53, 47, 0.06)); }
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-item-key { color: var(--mikedown-text-muted, #6f6f74); font-size: 11.5px; }
+
+/* ── Popover ────────────────────────────────────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite {
+  position: fixed;
+  z-index: 995;
+  display: flex;
+  flex-direction: column;
+  width: 440px;
+  max-width: calc(100vw - 16px);
+  max-height: min(70vh, 520px);
+  border: 1px solid var(--mikedown-border, rgba(15, 15, 20, 0.1));
+  border-radius: var(--mikedown-radius-lg, 12px);
+  background: var(--mikedown-surface-raised, #fff);
+  color: var(--mikedown-text-ui, #3a3a3d);
+  box-shadow: 0 12px 36px var(--mikedown-shadow, rgba(15, 15, 20, 0.12)), 0 0 1px var(--mikedown-shadow, rgba(15, 15, 20, 0.12));
+  font-family: var(--mikedown-font-ui, system-ui, sans-serif);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow: hidden;
+  animation: mikedown-ai-fade 0.14s ease-out;
+}
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite:focus { outline: none; }
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-layout="split"]:is([data-phase="running"], [data-phase="done"]) { width: 680px; }
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite [hidden] { display: none !important; }
+
+@keyframes mikedown-ai-fade {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-rw-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 6px 6px 12px;
+  border-bottom: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08));
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-spark { display: inline-flex; color: var(--mikedown-accent, #3f51b5); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-title {
+  flex-shrink: 0;
+  max-width: 50%;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-left: auto;
+  padding: 1px 8px 1px 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--mikedown-hover, rgba(55, 53, 47, 0.06));
+  color: var(--mikedown-text-muted, #6f6f74);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge-glyph { display: inline-flex; flex-shrink: 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge[data-where="local"] .ai-rw-badge-glyph { color: var(--mikedown-success, #2e7d32); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge[data-where="cloud"] { border-color: color-mix(in srgb, var(--mikedown-info, #1e70d6) 35%, transparent); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge[data-where="cloud"] .ai-rw-badge-glyph { color: var(--mikedown-info, #1e70d6); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge.is-pending { opacity: 0.75; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge-fallback { color: var(--mikedown-warning, #b26a00); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-head .ai-rw-badge[hidden] + .ai-rw-icon-btn { margin-left: auto; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-rw-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--mikedown-radius-sm, 6px);
+  background: none;
+  color: var(--mikedown-text-muted, #6f6f74);
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-icon-btn:hover { background: var(--mikedown-hover, rgba(55, 53, 47, 0.06)); color: var(--mikedown-text-ui, #3a3a3d); }
+
+/* Choices (hotkey, Custom prompt…). */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-choose { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-chip {
+  height: 26px;
+  padding: 0 11px;
+  border: 1px solid var(--mikedown-input-border, rgba(15, 15, 20, 0.16));
+  border-radius: 13px;
+  background: none;
+  color: var(--mikedown-text-ui, #3a3a3d);
+  font: inherit;
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-chip:hover { background: var(--mikedown-hover, rgba(55, 53, 47, 0.06)); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-form { display: flex; gap: 6px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--mikedown-input-border, rgba(15, 15, 20, 0.16));
+  border-radius: var(--mikedown-radius-sm, 6px);
+  background: var(--mikedown-input-bg, #fff);
+  color: var(--mikedown-text-ui, #3a3a3d);
+  font: inherit;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-input:focus { outline: none; border-color: var(--mikedown-focus-ring, rgba(63, 81, 181, 0.55)); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-input::placeholder { color: var(--mikedown-text-muted, #6f6f74); }
+
+/* Preview: one pane, or old and new side by side for a multi-line selection. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 0;
+  flex: 1;
+}
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-layout="single"] .ai-rw-pane--old { display: none; }
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-layout="split"] .ai-rw-body { grid-template-columns: 1fr 1fr; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-pane--old { border-right: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08)); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-label {
+  padding: 8px 14px 0;
+  color: var(--mikedown-text-muted, #6f6f74);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-layout="single"] .ai-rw-label { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-text {
+  padding: 8px 14px 12px;
+  max-height: 300px;
+  overflow: auto;
+  color: var(--mikedown-text, #2b2b2b);
+  font-family: var(--mikedown-font-family, var(--mikedown-font-ui, system-ui, sans-serif));
+  font-size: 13.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-pane--old .ai-rw-text { color: var(--mikedown-text-muted, #6f6f74); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-out[data-placeholder]::before {
+  content: attr(data-placeholder);
+  color: var(--mikedown-text-muted, #6f6f74);
+}
+
+/* A calm caret: a slow fade, not a hard blink, only while streaming. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-caret {
+  display: none;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 1px;
+  border-radius: 1px;
+  vertical-align: -0.15em;
+  background: var(--mikedown-accent, #3f51b5);
+}
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-phase="running"] .ai-rw-caret {
+  display: inline-block;
+  animation: mikedown-ai-caret 1.2s ease-in-out infinite;
+}
+@keyframes mikedown-ai-caret {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-phase="running"] .ai-rw-caret { animation: none; opacity: 0.6; }
+  :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite,
+  :is(.mikedown-root, .mikedown-portal) .mikedown-ai-bubble,
+  :is(.mikedown-root, .mikedown-portal) .ai-bubble-menu { animation: none; }
+}
+
+/* Errors. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-error { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; padding: 12px 14px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-error-icon { display: inline-flex; padding-top: 1px; color: var(--mikedown-warning, #b26a00); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-error-title { font-weight: 600; color: var(--mikedown-text-ui, #3a3a3d); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-error-message { color: var(--mikedown-text-ui, #3a3a3d); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-error-detail { margin-top: 2px; color: var(--mikedown-text-muted, #6f6f74); font-size: 12px; overflow-wrap: anywhere; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-error-actions { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+/* Footer. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08));
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-note { color: var(--mikedown-warning, #b26a00); font-size: 12px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-hint { margin-left: auto; color: var(--mikedown-text-muted, #6f6f74); font-size: 11.5px; white-space: nowrap; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-rw-btn {
+  height: 26px;
+  padding: 0 11px;
+  border: 1px solid var(--mikedown-button-border, transparent);
+  border-radius: var(--mikedown-radius-sm, 6px);
+  background: var(--mikedown-button-bg, #f1f1ef);
+  color: var(--mikedown-button-text, #2b2b2b);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-btn:hover { background: var(--mikedown-button-hover, #e7e7e4); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-btn--primary {
+  background: var(--mikedown-accent, #3f51b5);
+  color: var(--mikedown-accent-text, #fff);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-btn--primary:hover { background: var(--mikedown-accent-hover, #3546a0); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-btn[aria-disabled="true"] { opacity: 0.5; cursor: default; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-btn[aria-disabled="true"]:hover { background: var(--mikedown-button-bg, #f1f1ef); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-btn--primary[aria-disabled="true"]:hover { background: var(--mikedown-accent, #3f51b5); }
+:is(.mikedown-root, .mikedown-portal) :is(.ai-rw-btn, .ai-rw-chip, .ai-rw-icon-btn, .ai-bubble-item):focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, rgba(63, 81, 181, 0.55));
+  outline-offset: 1px;
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-rw-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-layout="split"] .ai-rw-body { grid-template-columns: 1fr; }
+  :is(.mikedown-root, .mikedown-portal) .ai-rw-pane--old { border-right: 0; border-bottom: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08)); }
+  :is(.mikedown-root, .mikedown-portal) .ai-rw-hint { display: none; }
+}

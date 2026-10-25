@@ -43,6 +43,7 @@ export const ORDER = [
   'spellcheck.css',
   'settings-modal.css',
   'ai.css',
+  'ai-rewrite.css',
 ];
 
 /** Inline relative @import lines (recursively); returns the CSS and the files it pulled in. */

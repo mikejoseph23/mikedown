@@ -458,6 +458,13 @@ function registerAi(context: vscode.ExtensionContext): void {
         void vscode.window.showInformationMessage('Open a markdown file in MikeDown to change its AI settings (toolbar gear, AI tab).');
       }
     }),
+    // Opens the webview's rewrite popover on the selection (Cmd/Ctrl+Alt+K).
+    vscode.commands.registerCommand('mikedown.ai.rewrite', () => {
+      const panel = MarkdownEditorProvider.activePanel;
+      if (panel) {
+        void panel.webview.postMessage({ type: 'command', command: 'aiRewrite' });
+      }
+    }),
     vscode.commands.registerCommand('mikedown.ai.testAllEngines', async () => {
       output.show(true);
       await vscode.window.withProgress(

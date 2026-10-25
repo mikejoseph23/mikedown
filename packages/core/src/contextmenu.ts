@@ -2,6 +2,7 @@ import { Editor } from '@tiptap/core';
 import { hideTableToolbar } from './tablepicker';
 import { setColumnAlign } from './table-align';
 import { getPortal } from './portal';
+import { AI_REWRITE_VARIANTS, type AiRewriteVariant } from './ai/prompts/rewrite';
 
 export interface ContextMenuItem {
   label: string;
@@ -13,6 +14,8 @@ export interface ContextMenuItem {
   isActive?: () => boolean;
   /** Extra class on the row — used by the spelling menu to style suggestions. */
   className?: string;
+  /** Tooltip (a disabled row says why). */
+  title?: string;
 }
 export interface ContextMenuSeparator { separator: true; }
 export interface ContextMenuSubmenu {
@@ -30,6 +33,8 @@ export interface ContextMenuActions {
   showEmojiPicker(): void;
   showLanguagePicker(): void;
   openLink(href: string, behavior: 'navigateCurrentTab' | 'openNewTab'): void;
+  /** The AI rewrite entry: null hides it, `enabled: false` greys it with the reason. */
+  aiRewrite?(): { enabled: boolean; reason?: string; run(variant: AiRewriteVariant): void } | null;
 }
 
 let menuEl: HTMLElement | null = null;
@@ -63,6 +68,8 @@ function buildMenuItemEl(item: ContextMenuItem): HTMLElement {
     + (item.isActive?.() ? ' cm-active' : '')
     + (item.className ? ` ${item.className}` : '');
   el.setAttribute('role', 'menuitem');
+  if (item.title) {el.title = item.title;}
+  if (item.disabled) {el.setAttribute('aria-disabled', 'true');}
 
   const indicator = document.createElement('span');
   indicator.className = 'cm-item-active-indicator';
@@ -233,6 +240,7 @@ export function buildTextMenu(editor: Editor, actions?: ContextMenuActions): Con
   const mod = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+';
   const shift = navigator.platform.includes('Mac') ? '⇧' : 'Shift+';
   return [
+    ...buildAiRewriteEntries(editor, actions),
     { label: 'Bold', shortcut: `${mod}B`, action: () => editor.chain().focus().toggleBold().run(), isActive: () => editor.isActive('bold') },
     { label: 'Italic', shortcut: `${mod}I`, action: () => editor.chain().focus().toggleItalic().run(), isActive: () => editor.isActive('italic') },
     { label: 'Strikethrough', shortcut: `${mod}${shift}S`, action: () => editor.chain().focus().toggleStrike().run(), isActive: () => editor.isActive('strike') },
@@ -285,6 +293,24 @@ export function buildTextMenu(editor: Editor, actions?: ContextMenuActions): Con
     },
     { separator: true },
     { label: 'Insert Emoji…', shortcut: `${mod};`, action: () => actions?.showEmojiPicker() },
+  ];
+}
+
+/** "Rewrite" (Shorter, Longer, Fix flow, Custom prompt…) for a non-empty selection when AI rewrite is offered. */
+function buildAiRewriteEntries(editor: Editor, actions?: ContextMenuActions): ContextMenuEntry[] {
+  if (editor.state.selection.empty) {return [];}
+  const rewrite = actions?.aiRewrite?.();
+  if (!rewrite) {return [];}
+  if (!rewrite.enabled) {
+    return [{ label: 'Rewrite', action: () => {}, disabled: true, title: rewrite.reason }, { separator: true }];
+  }
+  return [
+    {
+      submenu: true,
+      label: 'Rewrite',
+      items: AI_REWRITE_VARIANTS.map((v): ContextMenuItem => ({ label: v.label, action: () => rewrite.run(v.id) })),
+    },
+    { separator: true },
   ];
 }
 

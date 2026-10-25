@@ -2231,6 +2231,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'spellcheck.css',
       'settings-modal.css',
       'ai.css',
+      'ai-rewrite.css',
     ];
     const cssPaths = [
       // KaTeX ships its own stylesheet, which loads its fonts relative to itself.

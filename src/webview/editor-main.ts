@@ -139,6 +139,8 @@
  *     { type: 'aiConsent', requestId, engineId, granted }
  *     { type: 'command', command: 'openAiSettings' } — mikedown.openAiSettings
  *         (and the AI status bar item): open the Settings modal on the AI tab.
+ *     { type: 'command', command: 'aiRewrite' } — mikedown.ai.rewrite: open the
+ *         rewrite popover on the selection.
  *
  * Also handled here (pushes from the extension host):
  *   { type: 'theme', fontFamily, headingFontFamily, fontSize } — folded into updateSettings
@@ -215,6 +217,10 @@ if (mikedownRoot) {
   mirrorTheme();
   new MutationObserver(mirrorTheme).observe(mikedownRoot, { attributes: true, attributeFilter: ['data-mikedown-theme'] });
 }
+
+// Engine statuses the host pushes (after a probe, a discovery, a failed
+// request) go straight to the router and the AI chip.
+host.onAiEngines((engines) => handle.setAiEngineStatuses(engines));
 
 // Test-only hook: gives the webview test harness (test/harness/webviewHarness.ts)
 // direct access to the live TipTap editor/PM view so it can drive real

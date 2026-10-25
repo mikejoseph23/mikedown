@@ -237,6 +237,8 @@ export type MikeDownCommand =
   | 'openSettings'
   /** Open the Settings modal on the AI tab (no-op without `host.ai`). */
   | 'openAiSettings'
+  /** Rewrite the selection with AI: opens the rewrite popover's choices (no-op without `host.ai`). */
+  | 'aiRewrite'
   | 'copyAsRichText'
   // Menu-bar commands for hosts with their own menus (MikeDown Desktop). Each
   // mirrors an existing toolbar action or keystroke; no-ops in source mode

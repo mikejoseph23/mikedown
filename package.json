@@ -156,6 +156,10 @@
         "title": "MikeDown: Test All AI Engines"
       },
       {
+        "command": "mikedown.ai.rewrite",
+        "title": "MikeDown: Rewrite Selection with AI"
+      },
+      {
         "command": "mikedown.dev.resetSupportPrompt",
         "title": "MikeDown (Dev): Reset Support Prompt State"
       }
@@ -195,6 +199,10 @@
         {
           "command": "mikedown.toggleSidebar",
           "when": "activeCustomEditorId == 'mikedown.editor'"
+        },
+        {
+          "command": "mikedown.ai.rewrite",
+          "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
         },
         {
           "command": "mikedown.dev.resetSupportPrompt",
@@ -286,6 +294,12 @@
         "key": "ctrl+\\",
         "mac": "cmd+\\",
         "when": "activeCustomEditorId == 'mikedown.editor'"
+      },
+      {
+        "command": "mikedown.ai.rewrite",
+        "key": "ctrl+alt+k",
+        "mac": "cmd+alt+k",
+        "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
       }
     ],
     "configuration": {

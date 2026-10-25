@@ -57,6 +57,7 @@ export const EDITOR_COMMANDS = [
   'insertTable', 'insertLink', 'insertImage', 'openEmojiPicker',
   'undo', 'redo', 'pasteWithoutFormatting', 'openFind', 'openFindReplace',
   'zoomIn', 'zoomOut', 'zoomReset',
+  'aiRewrite',
 ] as const satisfies readonly MikeDownCommand[];
 
 export type EditorCommand = typeof EDITOR_COMMANDS[number];
@@ -162,6 +163,9 @@ export const COMMANDS: readonly ShortcutRow[] = [
   editor('insertLink', 'Link…', 'CmdOrCtrl+K', 'richText'),
   editor('insertImage', 'Image…', undefined, 'richText'),
   editor('openEmojiPicker', 'Emoji…', 'CmdOrCtrl+;', 'richText', 'app'),
+  // Core binds the chord only when the host does not own shortcuts; no menu
+  // item (AI is off by default), and a no-op without AI.
+  editor('aiRewrite', 'Rewrite with AI', 'CmdOrCtrl+Alt+K', 'editor', 'app', { keyOnly: true }),
 
   // ── View ────────────────────────────────────────────────────────────────
   { command: 'toggleSidebar', accelerator: 'CmdOrCtrl+B', label: 'Toggle Sidebar', outsideEditor: true, hideAccelerator: true },

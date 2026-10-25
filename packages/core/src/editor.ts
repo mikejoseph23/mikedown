@@ -10,7 +10,7 @@
  * TipTap (ProseMirror) renders the WYSIWYG surface with tiptap-markdown for
  * parse/serialize; CodeMirror 6 is the source view (Cmd+/).
  */
-import { Editor, Extension, mergeAttributes } from '@tiptap/core';
+import { Editor, Extension, mergeAttributes, posToDOMRect } from '@tiptap/core';
 import { Selection, TextSelection, EditorState as PmEditorState } from '@tiptap/pm/state';
 import { undoDepth as pmUndoDepth, closeHistory } from '@tiptap/pm/history';
 import { StarterKit } from '@tiptap/starter-kit';
@@ -95,6 +95,12 @@ import { defaultAiSettings, parseAiSettings } from './ai';
 import type { AiEngineStatus, AiServedBy, AiSettings } from './ai';
 import { buildAiSettingsSection } from './ai-settings';
 import { aiHostTier, aiIndicatorState } from './ai-settings-model';
+import { aiFeatureAvailability, runAiCompletion, type AiFeatureAvailability } from './ai-request';
+import {
+  AiRewriteHighlight, cmAiRewriteHighlight, createAiRewriteBubble, createAiRewritePopover,
+  richRewriteTarget, sourceRewriteTarget, type AiRewriteBadge,
+} from './ai-rewrite';
+import type { AiRewriteVariant } from './ai/prompts/rewrite';
 import type {
   MikeDownEditorHandle,
   MikeDownEvent,
@@ -2121,6 +2127,15 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       aiSettingsWaiters.add(waiter);
     });
   }
+
+  /** This session's cloud consent answers (grants), shared by every AI request in this editor. */
+  const aiConsent: Record<string, boolean | undefined> = {};
+
+  /** Whether the rewrite entry points show: hidden, disabled with a reason, or enabled. */
+  function aiRewriteAvailability(): AiFeatureAvailability {
+    if (readOnly) {return { state: 'hidden' };}
+    return aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, 'rewrite');
+  }
   // This editor's own sidebar (null when features.sidebar is off).
   let outlineSidebar: OutlineSidebar | null = null;
 
@@ -3168,6 +3183,17 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         },
       }),
 
+      // ── AI rewrite (host.ai) ──────────────────────────────────────────────────
+      // The target highlight while the popover is open, and Mod-Alt-K unless
+      // the host binds it (VS Code: mikedown.ai.rewrite).
+      ...(aiHost ? [AiRewriteHighlight, Extension.create({
+        name: 'mikedownAiRewriteShortcut',
+        addKeyboardShortcuts(): Record<string, () => boolean> {
+          if (hostOwnsShortcuts) {return {};}
+          return { 'Mod-Alt-k': () => startAiRewrite() };
+        },
+      })] : []),
+
       // ── Placeholder (M2c / M5) ────────────────────────────────────────────────
       // "Type / for commands…" is shown when the slash-command menu is enabled;
       // "Start writing…" otherwise. The CSS rule
@@ -3307,7 +3333,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         }
 
         // M3 — Cmd+K / Ctrl+K: Insert/edit link (not inside a table).
-        if ((event.metaKey || event.ctrlKey) && event.key === 'k' && !editor.isActive('table')) {
+        // (Not with Alt: Ctrl+Alt+K is the AI rewrite.)
+        if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key === 'k' && !editor.isActive('table')) {
           event.preventDefault();
           showLinkDialog(editor);
           return true;
@@ -3493,7 +3520,118 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     showEmojiPicker: () => showEmojiPicker(editor, {}),
     showLanguagePicker: () => showLanguagePickerForSelection(),
     openLink: (href, behavior) => openLinkViaHost(href, behavior),
+    aiRewrite: () => {
+      const a = aiRewriteAvailability();
+      if (a.state === 'hidden') {return null;}
+      return a.state === 'enabled'
+        ? { enabled: true, run: (variant) => { startAiRewrite(variant); } }
+        : { enabled: false, reason: a.reason, run: () => {} };
+    },
   };
+
+  // ── AI rewrite: popover, selection bubble, entry point ─────────────────────
+  // Inert without host.ai. Every request resolves its route afresh
+  // (runAiCompletion); the popover previews, Accept replaces in one transaction.
+  const aiRewrite = aiHost ? createAiRewritePopover({
+    run: (req, events, signal) => runAiCompletion({
+      ai: aiHost,
+      settings: () => currentAiSettings,
+      statuses: () => aiStatuses,
+      consent: aiConsent,
+    }, req, events, signal),
+    badge: (route, served, viaFallback): AiRewriteBadge | null => {
+      const by: AiServedBy | null = served ?? (route ? {
+        engineId: route.engineId,
+        engineName: currentAiSettings.engines.find((e) => e.id === route.engineId)?.name ?? route.engineId,
+        modelId: route.modelId,
+        isLocal: route.isLocal,
+      } : null);
+      if (!by) {return null;}
+      const s = aiIndicatorState({ settings: { ...currentAiSettings, enabled: true }, statuses: aiStatuses, tier: aiHostTier(aiHost), served: by, viaFallback: false });
+      if (!s) {return null;}
+      return {
+        where: by.isLocal ? 'local' : 'cloud',
+        text: s.text.replace(/^AI: /, ''),
+        title: served ? s.title.replace(/ Click to open AI settings\.$/, '') : `Sending to ${s.text.replace(/^AI: (local|cloud) · /, '')}.`,
+        fallback: viaFallback,
+      };
+    },
+    onServed: (served, viaFallback) => {
+      aiServed = { served, viaFallback };
+      renderAiIndicator();
+    },
+    openSettings: () => showSettingsModal('ai'),
+  }) : null;
+  if (aiRewrite) {disposers.push(() => aiRewrite.destroy());}
+
+  /**
+   * Open the rewrite popover on the selection (or the block at the caret).
+   * With a variant it runs at once; without one (hotkey, command, Custom
+   * prompt…) it shows the choices. False when AI rewrite is not offered.
+   */
+  function startAiRewrite(variant?: AiRewriteVariant): boolean {
+    if (!aiRewrite || destroyed) {return false;}
+    const availability = aiRewriteAvailability();
+    if (availability.state === 'hidden') {return false;}
+    aiBubble?.hide();
+    aiRewrite.close();
+    const target = sourceMode
+      ? (cmView ? sourceRewriteTarget(cmView) : null)
+      : richRewriteTarget(editor);
+    if (!target) {return true;}
+    if (availability.state === 'disabled') {
+      aiRewrite.openUnavailable(target, availability.reason);
+    } else {
+      aiRewrite.open(target, variant && variant !== 'custom' ? { variant } : undefined);
+    }
+    return true;
+  }
+
+  /** The selection's rect when the bubble may show over it. */
+  function aiBubbleSelectionRect(): DOMRect | null {
+    if (aiRewrite?.isOpen() || settingsOverlay?.isConnected || aiPointerDown) {return null;}
+    if (sourceMode) {
+      if (!cmView || !cmView.hasFocus) {return null;}
+      const sel = cmView.state.selection.main;
+      if (sel.empty || !cmView.state.sliceDoc(sel.from, sel.to).trim()) {return null;}
+      const a = cmView.coordsAtPos(sel.from);
+      const b = cmView.coordsAtPos(sel.to, -1);
+      if (!a) {return null;}
+      return new DOMRect(a.left, a.top, Math.max(1, (b?.right ?? a.right) - a.left), Math.max(1, (b?.bottom ?? a.bottom) - a.top));
+    }
+    if (!editor.view.hasFocus()) {return null;}
+    const sel = editor.state.selection;
+    if (sel.empty || '$anchorCell' in sel || !editor.state.doc.textBetween(sel.from, sel.to, ' ').trim()) {return null;}
+    // Code is not prose: no bubble inside a code block (the hotkey still works).
+    if (sel.$from.parent.type.spec.code && sel.$from.sameParent(sel.$to)) {return null;}
+    try {
+      const startCoords = editor.view.coordsAtPos(sel.from);
+      const box = posToDOMRect(editor.view, sel.from, sel.to);
+      return new DOMRect(startCoords.left, box.top, Math.max(1, box.right - startCoords.left), box.height);
+    } catch { return null; }
+  }
+
+  let aiPointerDown = false;
+  const aiBubble = aiRewrite ? createAiRewriteBubble({
+    availability: aiRewriteAvailability,
+    selectionRect: aiBubbleSelectionRect,
+    run: (variant) => { startAiRewrite(variant); },
+  }) : null;
+  if (aiBubble) {
+    disposers.push(() => aiBubble.destroy());
+    editor.on('selectionUpdate', () => aiBubble.schedule());
+    editor.on('focus', () => aiBubble.schedule());
+    editor.on('blur', () => aiBubble.schedule());
+    const onDown = (): void => { aiPointerDown = true; aiBubble.hide(); };
+    listen(editorContainer, 'mousedown', onDown);
+    listen(sourceContainer, 'mousedown', onDown);
+    listen(document, 'mouseup', () => {
+      if (!aiPointerDown) {return;}
+      aiPointerDown = false;
+      aiBubble.schedule();
+    });
+    listen(root, 'scroll', () => aiBubble.schedule(), true);
+  }
 
   // Wikilink autocomplete: lazily ask the host for the workspace file list the
   // first time the `[[` popup opens with an empty candidate cache.
@@ -4951,10 +5089,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         keymap.of([
           // Without a host-owned shortcut the core handles Mod-/ itself.
           ...(hostOwnsShortcuts ? [] : [{ key: 'Mod-/', run: () => { toggleSourceMode(); return true; } }]),
+          // Same for the AI rewrite (VS Code binds it as mikedown.ai.rewrite).
+          ...(hostOwnsShortcuts || !aiHost ? [] : [{ key: 'Mod-Alt-k', run: () => startAiRewrite() }]),
           ...defaultKeymap.filter(b => b.key !== 'Mod-/' && b.mac !== 'Mod-/'),
           ...historyKeymap,
         ]),
         ...cmFindReplaceExtension,
+        ...(aiHost ? cmAiRewriteHighlight : []),
         lineNumbers(),
         highlightActiveLine(),
         cmMarkdown({ base: markdownLanguage }),
@@ -4978,6 +5119,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
             const sel = update.state.selection.main;
             postStats({ selection: sel.empty ? null : update.state.sliceDoc(sel.from, sel.to) });
           }
+          if (update.selectionSet || update.focusChanged) {aiBubble?.schedule();}
         }),
       ],
     });
@@ -4986,6 +5128,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   function switchToSource(): void {
     if (sourceMode) {return;}
+    aiRewrite?.close();
+    aiBubble?.hide();
 
     // Serialize TipTap content (re-attach frontmatter for complete markdown).
     // When the document is pristine (no PM edits since last load/save), prefer
@@ -5093,6 +5237,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   function switchToWysiwyg(): void {
     if (!sourceMode || !cmView) {return;}
+    aiRewrite?.close();
+    aiBubble?.hide();
 
     const md = cmView.state.doc.toString();
 
@@ -5623,6 +5769,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // The host's "Open AI settings" (VS Code: mikedown.openAiSettings, the AI status bar item).
       case 'openAiSettings':
         if (aiHost) {showSettingsModal('ai');}
+        break;
+      // Rewrite the selection with AI (VS Code: mikedown.ai.rewrite). Opens the choices.
+      case 'aiRewrite':
+        startAiRewrite();
         break;
       // M11 — Copy as rich text: write HTML + plain text to clipboard.
       case 'copyAsRichText':

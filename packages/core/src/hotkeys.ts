@@ -34,4 +34,6 @@ export const MIKEDOWN_HOTKEYS: MikedownHotkey[] = [
   { command: 'mikedown.toggleSourceMode', label: 'Toggle Source Mode', win: 'ctrl+/', mac: 'cmd+/' },
   { command: 'mikedown.undo', label: 'Undo', win: 'ctrl+z', mac: 'cmd+z' },
   { command: 'mikedown.redo', label: 'Redo', win: 'ctrl+shift+z', mac: 'cmd+shift+z' },
+  // Not Cmd+Shift+K (the plan's pick): that is Toggle Inline Code.
+  { command: 'mikedown.ai.rewrite', label: 'Rewrite Selection with AI', win: 'ctrl+alt+k', mac: 'cmd+alt+k' },
 ];
