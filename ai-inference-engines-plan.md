@@ -36,6 +36,7 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | 🟡 Partial | 20 | real-webview smoke moved to T4 | shared fixtures |
 | M5 Proof feature: selection rewrite with preview popover | Opus | ✅ Done | 28 | feature id `rewrite` |
 | M6 npm consumers: wrappers, demo stub host, docs | Sonnet | ✅ Done | 14 | website demo |
+| M4b Key file fallback (oMLX `~/.omlx/settings.json`), VS Code + Desktop | Sonnet | 🔄 In Progress | — | added at Mike's request |
 | T4 Hands-on: end to end on Mike's machines | Sonnet | ⬜ Not Started | — | user sign-off |
 | M7 Release prep: CHANGELOG, README, versions | Haiku | ⬜ Not Started | — | ships dark |
 
@@ -654,5 +655,7 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 16:45** - T3 partial (`6a6479c`, ~20 min), cherry-picked as `ba71468`. New `command_layer.rs` drives every `ai_*` command on Tauri's mock runtime against the loopback server (streaming, cancel mid-stream, window isolation, route and cloud gates); keychain wrapper tested on a mock `keyring` credential builder; Playwright `ai.spec.ts` (AI tab with engine and empty, `listEngines`, streamed completion, abort). Verified on branch: `cargo test` 176 + 26 + 7, Desktop e2e 55 passed, Desktop unit 559. **Not run:** the real-webview smoke (`src/smoke/harness.ts` AI group typechecks but never executed) because the installed `/Applications/MikeDown.app` was running and the single-instance plugin swallowed the dev launch. Moved to T4: quit MikeDown, run the README smoke command, then `npm run smoke:compare`. No bugs found.
 
 **2026-10-25 17:00** - M5 done (`ea80385`, 28 min), cherry-picked as `8d21d58`; orchestrator dropped M5's duplicate `onAiEngines` subscription in `src/webview/editor-main.ts` (core already subscribes since `8b8f210`). Hotkey is `Mod-Alt-K` (Mod-Shift-K is Inline Code); Desktop binds it host side in `menu/shortcuts.ts`. Consent "Not now" applies to that request only; retry once on `unreachable` before the first token overlays the engine as failed so fallback works on the first attempt. Prompt builder not yet exported from `@mikedown/core/ai`. Verified on branch: lint 0 errors, `npm run test:unit` 2021, `npm run test:edge` 22, `npm run test:packages` 79, `npm run test:wrappers` ok, `npm run build:site` ok, Desktop typecheck, unit 559, e2e 55. All build milestones merged; T4 next (needs Mike).
+
+**2026-10-25 17:10** - Added M4b at Mike's request: generic `apiKeyFile { path, jsonPath }` engine field, set by the oMLX preset to `~/.omlx/settings.json` / `auth.api_key`; lookup order secret, env, file in both VS Code and Desktop, home-directory-only, 64 KB cap. Reason: Dock/Spotlight launches don't see `OMLX_API_KEY`. Dispatched on Sonnet in worktree `../mikedown-ai-keyfile`; T4 waits for it.
 
 [Return to Top](#ai-inference-engines-plan)
