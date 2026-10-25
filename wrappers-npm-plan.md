@@ -46,7 +46,7 @@
 | [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ✅ Complete | 7 | link check + hands-on |
 | [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ✅ Complete | 6 | Mike runs publish and deploy |
 | [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | ✅ Complete | 20 | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
-| [T4 — Final verification](#t4--final-verification) | Sonnet | 🔄 Awaiting Mike hands-on | — | registry smoke + production URLs |
+| [T4 — Final verification](#t4--final-verification) | Sonnet | ✅ Complete | 7 | registry smoke + production URLs; hands-on by browser 2026-10-24 |
 
 **Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
 
@@ -546,7 +546,7 @@ On each demo page:
 - [x] `npm run test:consumers -- --from-registry` (installs `@mikedown/*@0.2.0` from npm instead of tarballs): every target green.
 - [x] LymeStarter and the Quantico assistant app build and test green on the package (legacy app unchanged, still on its vendored copy).
 - [x] MikeDown full run: `test:unit`, `test:edge`, `test:integration`, `test:packages`, `test:wrappers`, `test:desktop`.
-- [ ] **Hands-on (Mike, 5 minutes):** open `https://www.iadev.net/mikedown/`, `https://www.iadev.net/mikedown/vscode/`, `https://www.iadev.net/mikedown/developers/` and two demo pages; follow the nav between them; type in a demo editor; click a Marketplace and an npm link. Then `https://www.npmjs.com/package/@mikedown/react` shows its README. Orchestrator pauses for sign-off.
+- [x] **Hands-on (Mike, 5 minutes):** open `https://www.iadev.net/mikedown/`, `https://www.iadev.net/mikedown/vscode/`, `https://www.iadev.net/mikedown/developers/` and two demo pages; follow the nav between them; type in a demo editor; click a Marketplace and an npm link. Then `https://www.npmjs.com/package/@mikedown/react` shows its README. Orchestrator pauses for sign-off.
 - [ ] Update `RESUME.md`; archive this plan's processed summaries.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 21:05** - T4 hands-on done in Chrome at Mike's request: all 12 internal links on the Desktop, VS Code and Developers pages return OK; GitHub, Marketplace (`interapp.mikedown-editor`) and npm links resolve; typed into the React, Vue, Angular and web component demos and each markdown panel synced, Light theme toggle works, no console errors on the Angular page; npmjs.com shows the README for all five packages at 0.2.0. T4 complete. RESUME.md updated; processed summaries stay in `.orchestrator/` until T1 closes the plan. Still with Mike: Marketplace upload of the 2.15.0 vsix then T1, and "Require 2FA, disallow tokens" on the five packages (the npm settings page needs his security key).
 
 **2026-10-24 20:35** - T4 automated items done (`a4e883f`, 7 min): `test:consumers -- --from-registry` added and green against the published 0.2.0 family (`angular-latest` skipped, Node 22.20); LymeStarter and Quantico assistant `ng build` and `ng test` green on the package, legacy app builds on its vendored copy; LymeStarter demo route checked in a browser at 1280 px light and dark, typing updates `form.value` (API stubbed for the screenshots). `test:unit`, `test:edge`, `test:packages`, `test:wrappers`, `test:desktop` green in the worktree; `test:integration` 47 passing in the main tree. Production pages 200, `latest.json` 0.3.0, all five at 0.2.0 on npm, jsDelivr bundle 200; npmjs.com returns 403 to curl (bot check), registry 200. Hands-on waits on Mike.
 
