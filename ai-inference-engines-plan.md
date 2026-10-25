@@ -35,7 +35,7 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | ✅ Done | 18 | reqwest + keyring |
 | T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | 🔄 In Progress | — | shared fixtures |
 | M5 Proof feature: selection rewrite with preview popover | Opus | 🔄 In Progress | — | feature id `rewrite` |
-| M6 npm consumers: wrappers, demo stub host, docs | Sonnet | 🔄 In Progress | — | website demo |
+| M6 npm consumers: wrappers, demo stub host, docs | Sonnet | ✅ Done | 14 | website demo |
 | T4 Hands-on: end to end on Mike's machines | Sonnet | ⬜ Not Started | — | user sign-off |
 | M7 Release prep: CHANGELOG, README, versions | Haiku | ⬜ Not Started | — | ships dark |
 
@@ -537,11 +537,11 @@ Host to webview:
 
 > Workers must complete ALL items in this list.
 
-- [ ] `bindMikeDownValue` and the React, Vue, Angular and web component wrappers pass `host.ai` through untouched; the web component accepts an `ai` property (not attribute).
-- [ ] `packages/core/README.md` and `website/developers/`: a "Bring your own AI" section with a tier-1 example (`complete` proxied to a backend) and a tier-2 example (an in-browser registry calling Ollama in dev), the consent note, and the statement that core ships no provider SDK.
-- [ ] Website demo: a stub `ai` host that streams canned text so the rewrite popover and the AI tab are visible on the developers hub without a server; clearly labelled as a stub.
-- [ ] `test/packages/package-shape.test.ts`: `@mikedown/core/ai` export present, types resolve, no network dependency added to core's `dependencies`.
-- [ ] `npm run test:packages` and `npm run test:wrappers` green.
+- [x] `bindMikeDownValue` and the React, Vue, Angular and web component wrappers pass `host.ai` through untouched; the web component accepts an `ai` property (not attribute).
+- [x] `packages/core/README.md` and `website/developers/`: a "Bring your own AI" section with a tier-1 example (`complete` proxied to a backend) and a tier-2 example (an in-browser registry calling Ollama in dev), the consent note, and the statement that core ships no provider SDK.
+- [x] Website demo: a stub `ai` host that streams canned text so the rewrite popover and the AI tab are visible on the developers hub without a server; clearly labelled as a stub.
+- [x] `test/packages/package-shape.test.ts`: `@mikedown/core/ai` export present, types resolve, no network dependency added to core's `dependencies`.
+- [x] `npm run test:packages` and `npm run test:wrappers` green.
 
 [Return to Top](#ai-inference-engines-plan)
 
@@ -648,5 +648,7 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 16:20** - M3 done (`0612550`, 22 min), cherry-picked onto `ai-engines` as `bb803db`. Verified on branch: build:core, compile, both `tsc --noEmit`, lint 0 errors, `npm run test:unit` 1911 passed, `npm run test:packages` 75, Desktop typecheck and 559 unit. New handle API `setAiServed` and `setAiEngineStatuses`; `openAiSettings` is a `MikeDownCommand`. Chip hidden while AI is off with no engines (ships dark). Push decision: no contract change; core re-calls `listEngines` on every `settings.ai` change and hosts may push via `handle.setAiEngineStatuses` (M5 wires `VsCodeHost.onAiEngines` to it). Group B dispatched: T3, M5, M6 (T2 already running).
 
 **2026-10-25 16:30** - T2 done (`294e283`, ~25 min), cherry-picked as `f2d9b83`; M3 follow-up `7556187` (Cancel drops keys of never-saved engines via a new optional section hook `onDiscarded`; core subscribes to `host.onAiEngines` when present) cherry-picked as `8b8f210`. Verified on branch: `npm run test:unit` 1988 passed, `npm run test:packages` 75, lint 0 errors, `npm run test:ai-live` 13 skipped without the env var, `MIKEDOWN_AI_LIVE=1 npm run test:ai-live` 7 passed / 6 skipped (oMLX probe, auth, discovery, 20-token completion, cancel pass; LM Studio probe and discovery pass, completion and cancel skipped because no chat model was loaded; Ollama skipped, not running, OPEN-7 stands). No source bugs found.
+
+**2026-10-25 16:40** - M6 done (`1ccdb23`, 14 min), cherry-picked as `4f82fa7`. Fixed a real React bug (`stableHost` dropped non-function host entries, so `host.ai` never reached core). Web component `ai` property, Angular `[ai]` input, "Bring your own AI" docs in core README and on the hub (`#byo-ai`), tier-2 stub host in every demo. Verified on branch: `npm run test:unit` 1989, `npm run test:packages` 79, `npm run test:wrappers` (web component 49, React 24, Vue 12, Angular 26), `npm run build:site` ok. Demo note mentions Rewrite, which appears once M5 merges.
 
 [Return to Top](#ai-inference-engines-plan)
