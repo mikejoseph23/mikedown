@@ -17,7 +17,7 @@ npm run release:core        # alias for release:npm -- --only core
 npm run build:core          # build packages/core dist (tsup + CSS + dictionaries)
 npm run test:packages       # build every public package, then test/packages/package-shape.test.ts (test:core-package is an alias)
 npm run test:wrappers       # every wrapper's own test script (web-component, react, vue, angular)
-npm run test:consumers      # scaffold real consumer apps (Vite, Next, Nuxt, Angular...) and build them against the packed packages; --only <target> for one
+npm run test:consumers      # scaffold real consumer apps (Vite, Next, Nuxt, Angular...) and build them against the packed packages; --only <target> for one; `-- --from-registry` tests the published packages from npm instead
 npm run dev:site            # website/ dev server (Vite, port 5180, base /mikedown/)
 npm run build:site          # build website/ (Vite pages, then the Angular demo)
 npm run lint                # eslint on src/**/*.ts

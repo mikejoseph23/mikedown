@@ -5,6 +5,7 @@
 //   npm run test:consumers -- --only wc-vite,vue-vite
 //   npm run test:consumers -- --list               print target names
 //   npm run test:consumers -- --fresh              delete the cached apps first
+//   npm run test:consumers -- --from-registry      install the published @mikedown/*@<core version> from npm instead of tarballs
 //
 // Scaffolded apps (and their node_modules) are cached in $MIKEDOWN_SMOKE_DIR
 // (default: <os tmpdir>/mikedown-consumer-smoke), so re-runs skip `ng new` and the big
@@ -33,6 +34,9 @@ const valueOf = (n) => {
   const i = argv.indexOf(n);
   return i === -1 ? null : argv[i + 1];
 };
+
+const FROM_REGISTRY = flag('--from-registry');
+const REGISTRY_VERSION = FROM_REGISTRY ? JSON.parse(readFileSync(join(ROOT, 'packages/core/package.json'), 'utf8')).version : null;
 
 // ---------------------------------------------------------------- helpers
 
@@ -374,7 +378,7 @@ async function runTarget(name, target, tarballs) {
     // Swap in the freshly packed tarballs.
     rmSync(join(dir, 'node_modules/@mikedown'), { recursive: true, force: true });
     for (const c of target.cleanBefore || []) rmSync(join(dir, c), { recursive: true, force: true });
-    const spec = target.packs.map((p) => `file:${tarballs[p].path}`);
+    const spec = target.packs.map((p) => (FROM_REGISTRY ? `@mikedown/${p}@${REGISTRY_VERSION}` : `file:${tarballs[p].path}`));
     const extra = [];
     if (target.deps?.mermaid || target.mermaid === 'install') extra.push('mermaid');
     log('  installing tarballs ...');
@@ -434,7 +438,8 @@ for (const n of selected) {
 
 log(`work dir: ${WORK}`);
 const needed = [...new Set(selected.flatMap((n) => TARGETS[n].packs))];
-const tarballs = packAll(needed);
+const tarballs = FROM_REGISTRY ? {} : packAll(needed);
+if (FROM_REGISTRY) log(`registry mode: @mikedown/*@${REGISTRY_VERSION}`);
 
 const results = [];
 for (const n of selected) {
