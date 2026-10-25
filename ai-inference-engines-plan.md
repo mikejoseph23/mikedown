@@ -31,11 +31,11 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | T1 Unit tests: schema, router, locality, SSE parser | Sonnet | ✅ Done | 8 | vitest, pure |
 | M2 VS Code host: adapters, secrets, settings, protocol | Opus | ✅ Done | 16 | `src/ai/` |
 | T2 Host tests: adapters with mocked fetch, live opt-in run | Sonnet | 🔄 In Progress | — | `MIKEDOWN_AI_LIVE=1` |
-| M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | 🔄 In Progress | — | core, all hosts |
+| M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | ✅ Done | 22 | core, all hosts |
 | M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | ✅ Done | 18 | reqwest + keyring |
-| T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | ⬜ Not Started | — | shared fixtures |
-| M5 Proof feature: selection rewrite with preview popover | Opus | ⬜ Not Started | — | feature id `rewrite` |
-| M6 npm consumers: wrappers, demo stub host, docs | Sonnet | ⬜ Not Started | — | website demo |
+| T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | 🔄 In Progress | — | shared fixtures |
+| M5 Proof feature: selection rewrite with preview popover | Opus | 🔄 In Progress | — | feature id `rewrite` |
+| M6 npm consumers: wrappers, demo stub host, docs | Sonnet | 🔄 In Progress | — | website demo |
 | T4 Hands-on: end to end on Mike's machines | Sonnet | ⬜ Not Started | — | user sign-off |
 | M7 Release prep: CHANGELOG, README, versions | Haiku | ⬜ Not Started | — | ships dark |
 
@@ -459,18 +459,18 @@ Host to webview:
 
 > Workers must complete ALL items in this list. Apply genuine front-end design craft: this tab must sit flush with the existing Settings modal (same row rhythm, same controls), with the engine list reading like VS Code's Extensions list or Apple System Settings' network services (name, kind glyph, local/cloud pill, status dot, default star), not a generic admin table. Subtle transitions on probe results, inline validation, an inviting empty state. Never mutate `editor.view.dom`; this is modal UI, outside the editor.
 
-- [ ] New core tab `ai` (`tabLabel: 'AI'`, after `spelling`) built by `packages/core/src/ai-settings.ts` when `host.ai` exists; the tab shows only the master switch and feature toggles for tier-1 hosts.
-- [ ] Master switch row with a one-line explainer; `allowCloud` row with a warning line that it never applies without per-workspace consent.
-- [ ] Engines list: rows with name, kind, local/cloud pill, status dot (never probed, ok with latency, failed with tooltip), enabled toggle, default star, Edit, Delete (confirm; tells the host to drop the secret), Add engine with the preset picker.
-- [ ] Engine editor (inline expanding panel, not a second modal): name, kind, base URL (preset prefilled), locality (auto/local/cloud with the detected value shown), API key (write-only, "Stored" placeholder, Clear) plus `apiKeyEnv`, enabled, discovery mode, **Test connection** button with inline result, **Discover models** button.
-- [ ] Models table inside the editor: id, label, enabled, capability chips (chat, vision, json, tools, fim, embed) each clickable to toggle with `capabilitiesSource` flipping to `user`, context tokens (editable), loaded state when known, `missing` rows greyed, "Add model manually" row, per-model `requestOverrides` JSON (collapsed by default, validated).
-- [ ] Routing section: default engine+model pickers (only usable pairs listed, with a reason when a pair is excluded), fallback mode, and a task table: one row per task from the taxonomy with "Default" or an engine+model picker filtered by the task's required capabilities. Unknown tasks saved in settings are shown too, so a newer version's routes survive.
-- [ ] Features section: one row per registry entry (toggle, default task shown, optional task override), `planned` features greyed with "coming later".
-- [ ] Validation: a cloud engine with no key and no env var shows a warning; a task routed to a model lacking a required capability shows a warning and the row's fallback; duplicate names allowed, duplicate ids impossible.
-- [ ] Save flows through the normal `saveSettings` patch (`ai.*` keys) except secrets, which go through `host.ai.setSecret` immediately with a "Stored" confirmation.
-- [ ] Sidebar footer indicator chip (`outlineSidebar.ts` footer) with the states in the Indicator section; click opens the AI tab.
-- [ ] Keyboard and screen reader: every control labelled, probe results announced via a live region.
-- [ ] Styles in `packages/core/src/styles/ai.css`, added to the CSS list in `markdownEditorProvider.ts#getWebviewContent`, the core `styles.css` build and the Desktop/website bundles.
+- [x] New core tab `ai` (`tabLabel: 'AI'`, after `spelling`) built by `packages/core/src/ai-settings.ts` when `host.ai` exists; the tab shows only the master switch and feature toggles for tier-1 hosts.
+- [x] Master switch row with a one-line explainer; `allowCloud` row with a warning line that it never applies without per-workspace consent.
+- [x] Engines list: rows with name, kind, local/cloud pill, status dot (never probed, ok with latency, failed with tooltip), enabled toggle, default star, Edit, Delete (confirm; tells the host to drop the secret), Add engine with the preset picker.
+- [x] Engine editor (inline expanding panel, not a second modal): name, kind, base URL (preset prefilled), locality (auto/local/cloud with the detected value shown), API key (write-only, "Stored" placeholder, Clear) plus `apiKeyEnv`, enabled, discovery mode, **Test connection** button with inline result, **Discover models** button.
+- [x] Models table inside the editor: id, label, enabled, capability chips (chat, vision, json, tools, fim, embed) each clickable to toggle with `capabilitiesSource` flipping to `user`, context tokens (editable), loaded state when known, `missing` rows greyed, "Add model manually" row, per-model `requestOverrides` JSON (collapsed by default, validated).
+- [x] Routing section: default engine+model pickers (only usable pairs listed, with a reason when a pair is excluded), fallback mode, and a task table: one row per task from the taxonomy with "Default" or an engine+model picker filtered by the task's required capabilities. Unknown tasks saved in settings are shown too, so a newer version's routes survive.
+- [x] Features section: one row per registry entry (toggle, default task shown, optional task override), `planned` features greyed with "coming later".
+- [x] Validation: a cloud engine with no key and no env var shows a warning; a task routed to a model lacking a required capability shows a warning and the row's fallback; duplicate names allowed, duplicate ids impossible.
+- [x] Save flows through the normal `saveSettings` patch (`ai.*` keys) except secrets, which go through `host.ai.setSecret` immediately with a "Stored" confirmation.
+- [x] Sidebar footer indicator chip (`outlineSidebar.ts` footer) with the states in the Indicator section; click opens the AI tab.
+- [x] Keyboard and screen reader: every control labelled, probe results announced via a live region.
+- [x] Styles in `packages/core/src/styles/ai.css`, added to the CSS list in `markdownEditorProvider.ts#getWebviewContent`, the core `styles.css` build and the Desktop/website bundles.
 
 [Return to Top](#ai-inference-engines-plan)
 
@@ -644,5 +644,7 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 16:05** - M2 done (`ce8db45`, 16 min), fast-forwarded into `ai-engines`; main-tree check: `npm run compile` ok, `npm run test:unit` 1867 passed. `engines`/`localNetworks` are `scope: machine`; a workspace can turn `allowCloud` off but not on. Contract additions: non-image wire messages carry a `requestId`; `VsCodeHost.onAiEngines` push listener (non-contract, decide before M5); "Not now" consent is not stored. M5 should re-resolve and retry once after an `unreachable` before the first token so fallback works on the first attempt. Discovery writes merged models to settings itself (relayed to M3).
 
 **2026-10-25 16:15** - M4 done (`f000f82`, 18 min), cherry-picked onto `ai-engines` as `900766b`. Verified on branch: `npm run test:unit` 1892 passed, Desktop typecheck clean and unit 559 passed, `cargo test` 166 + 26 + 7 passed. `ai.localNetworks` also app-wide (with engines and `allowCloud`) so a folder file cannot relabel a public host as local. Host lives in `src/host/aiHost.ts`, exposed as `TauriHost.ai`. No `embed`/`transcribe` on Desktop yet. **M7 blocker:** Desktop dist-mode `vite build` fails until core with `./ai` is published and the Desktop core pin is bumped.
+
+**2026-10-25 16:20** - M3 done (`0612550`, 22 min), cherry-picked onto `ai-engines` as `bb803db`. Verified on branch: build:core, compile, both `tsc --noEmit`, lint 0 errors, `npm run test:unit` 1911 passed, `npm run test:packages` 75, Desktop typecheck and 559 unit. New handle API `setAiServed` and `setAiEngineStatuses`; `openAiSettings` is a `MikeDownCommand`. Chip hidden while AI is off with no engines (ships dark). Push decision: no contract change; core re-calls `listEngines` on every `settings.ai` change and hosts may push via `handle.setAiEngineStatuses` (M5 wires `VsCodeHost.onAiEngines` to it). Group B dispatched: T3, M5, M6 (T2 already running).
 
 [Return to Top](#ai-inference-engines-plan)
