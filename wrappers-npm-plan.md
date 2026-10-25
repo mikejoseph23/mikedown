@@ -45,7 +45,7 @@
 | [M14 — READMEs](#m14--readmes) | Sonnet | ✅ Complete | 3 | Root (Marketplace listing) + per package |
 | [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ✅ Complete | 7 | link check + hands-on |
 | [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ✅ Complete | 6 | Mike runs publish and deploy |
-| [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | 🔄 In Progress | — | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
+| [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | ✅ Complete | 20 | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
 | [T4 — Final verification](#t4--final-verification) | Sonnet | ⬜ Not Started | — | registry smoke + production URLs |
 
 **Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
@@ -528,10 +528,10 @@ On each demo page:
 
 **Worker completion requirement:** complete ALL items below; note any you think should be dropped, but attempt them.
 
-- [ ] LymeStarter (`develop`): `lymestack-optional/mikedown/` keeps only LymeStack glue (theme SCSS token mapping, demo page, README) and imports the component from `@mikedown/angular` with `darkSelector="html[data-mode=dark]"` and Roboto settings. Check `lymetools adopt` and the scaffold strip still work (see its `CLAUDE.md`). `ng build`, `ng test --watch=false` green. Commit.
-- [ ] Quantico Creek assistant app: replace `src/app/shared/mikedown/` with the package; `ng build` green. Commit.
-- [ ] Quantico Creek legacy app (Angular 14): out of scope, stays vendored. Optionally add a comment there noting the package exists for Angular 17+. Commit if changed.
-- [ ] Add `@mikedown/angular` to the LymeStarter docs that list optional components.
+- [x] LymeStarter (`develop`): `lymestack-optional/mikedown/` keeps only LymeStack glue (theme SCSS token mapping, demo page, README) and imports the component from `@mikedown/angular` with `darkSelector="html[data-mode=dark]"` and Roboto settings. Check `lymetools adopt` and the scaffold strip still work (see its `CLAUDE.md`). `ng build`, `ng test --watch=false` green. Commit.
+- [x] Quantico Creek assistant app: replace `src/app/shared/mikedown/` with the package; `ng build` green. Commit.
+- [x] Quantico Creek legacy app (Angular 14): out of scope, stays vendored. Optionally add a comment there noting the package exists for Angular 17+. Commit if changed.
+- [x] Add `@mikedown/angular` to the LymeStarter docs that list optional components.
 
 [Return to Top](#mikedown-npm-packages-framework-wrappers-and-website--planning-document)
 
@@ -605,6 +605,8 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 ---
 
 ## Progress Log / Notes
+
+**2026-10-24 20:20** - M16 done (20 min), pushed: LymeStarter `7f85ca3` on `develop` (optional `mikedown/` folder keeps only theme SCSS, new `_mikedown-field.scss`, demo and README; vendored component, host and spec removed; `@mikedown/angular`/`@mikedown/core` `^0.2.0`; ownership manifest lists the package; `docs/architecture.md` updated; `ng build` green, `ng test` 549/549, down from 558 with the vendored spec gone; adopt into a scratch app works and the scaffold strip leaves no mikedown traces). Quantico Creek `d9b7cb6` (assistant app on the package, `ng build` green, `ng test` 36/36) and `b027710` (legacy wrapper comment pointing at the package for Angular 17+) on `master`. Not checked in a browser (T4). Unrelated: `lymetools scaffold app` reports a template error about a missing `about` route in `app.routes.ts`, the same on the commit before.
 
 **2026-10-24 20:35** - M15: `npm view` shows 0.2.0 for core, web-component, react, vue and angular; the jsDelivr standalone bundle `@mikedown/web-component@0.2.0` returns 200. Tagged `npm-v0.2.0` (`7fd982f`) and pushed.
 
