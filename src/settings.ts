@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { parseHeadingNumbering, type HeadingNumbering } from '@mikedown/core/shared/headingNumbering';
 import type { ImagePasteSettings } from '@mikedown/core/shared/imagePaste';
+import { DEFAULT_LOCAL_NETWORKS, parseAiSettings, type AiSettings } from '@mikedown/core/ai';
 
 export type { ImagePasteSettings };
 
@@ -34,6 +35,8 @@ export interface MikeDownSettings {
   spellCheck: SpellCheckSettings;
   support: SupportSettings;
   slashCommands: SlashCommandsSettings;
+  /** `mikedown.ai.*`, parsed. Never holds a secret (keys live in SecretStorage). */
+  ai: AiSettings;
 }
 
 export interface TagSettings {
@@ -150,7 +153,77 @@ export function getSettings(): MikeDownSettings {
       dateFormat: config.get<'iso' | 'long'>('slashCommands.dateFormat', 'iso') === 'long' ? 'long' : 'iso',
       timeZone: config.get<string>('slashCommands.timeZone', 'local').trim() || 'local',
     },
+    ai: readAiSettings(config),
   };
+}
+
+/** What `WorkspaceConfiguration.inspect` returns, reduced to the scopes MikeDown reads. */
+export interface InspectedValue<T = unknown> {
+  defaultValue?: T;
+  globalValue?: T;
+  workspaceValue?: T;
+  workspaceFolderValue?: T;
+}
+
+/**
+ * The raw `mikedown.ai` object, with the scope rules applied (OPEN-3):
+ *
+ * - `engines` and `localNetworks` come from user settings only, so a
+ *   repository can neither add an endpoint nor make a cloud host count as
+ *   local. package.json scopes them `machine`; this is the second fence.
+ * - `allowCloud` can be turned off by a workspace but never on.
+ * - `enabled`, `routing` and `features` follow the normal precedence.
+ *
+ * Exported for unit testing.
+ */
+export function effectiveAiRaw(inspect: (key: string) => InspectedValue | undefined): Record<string, unknown> {
+  const effective = (key: string): unknown => {
+    const i = inspect(key);
+    return i?.workspaceFolderValue ?? i?.workspaceValue ?? i?.globalValue ?? i?.defaultValue;
+  };
+  const cloud = inspect('allowCloud');
+  const workspaceCloud = cloud?.workspaceFolderValue ?? cloud?.workspaceValue;
+  return {
+    enabled: effective('enabled'),
+    allowCloud: cloud?.globalValue === true && workspaceCloud !== false,
+    engines: inspect('engines')?.globalValue ?? [],
+    routing: effective('routing'),
+    features: effective('features'),
+    localNetworks: inspect('localNetworks')?.globalValue ?? [...DEFAULT_LOCAL_NETWORKS],
+  };
+}
+
+/**
+ * Deterministic id for an engine saved without one (hand-written in
+ * settings.json): its name plus its position, so every parse gives the same
+ * id until the engine service writes it back. Exported for unit testing.
+ */
+export function stableEngineIdGenerator(): (name: string) => string {
+  let n = 0;
+  return (name: string) => {
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'engine';
+    let h = 0x811c9dc5;
+    for (const ch of `${name}#${n++}`) {
+      h ^= ch.charCodeAt(0);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return `${slug}-${h.toString(36)}`;
+  };
+}
+
+const seenAiWarnings = new Set<string>();
+
+function readAiSettings(config: vscode.WorkspaceConfiguration): AiSettings {
+  const raw = effectiveAiRaw((key) => config.inspect(`ai.${key}`));
+  return parseAiSettings(raw, {
+    generateId: stableEngineIdGenerator(),
+    // getSettings runs on every broadcast; say each problem once.
+    onWarning: (m) => {
+      if (seenAiWarnings.has(m)) {return;}
+      seenAiWarnings.add(m);
+      console.warn(`MikeDown AI settings: ${m}`);
+    },
+  });
 }
 
 function cleanWords(raw: unknown): string[] {

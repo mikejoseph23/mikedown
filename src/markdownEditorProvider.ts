@@ -31,6 +31,10 @@ const {
   sha1Hex: (data) => crypto.createHash('sha1').update(data).digest('hex'),
 });
 import { SupportAction } from './supportPromptEligibility';
+import type { AiEngineService } from './ai/engineService';
+import type { AiStatusBar } from './ai/statusBar';
+import { handleAiMessage, isAiWebviewMessage } from './ai/webviewBridge';
+import { saveAiSettingsPatch } from './ai/vscodeAi';
 
 /**
  * MikeDown custom text editor provider.
@@ -67,6 +71,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static onDocOpen: (() => void) | undefined = undefined;
   /** T2 test seam — see `dispatchTestMessage`'s doc comment. */
   public static instance: MarkdownEditorProvider | undefined = undefined;
+  /** AI engines, adapters and the cloud gate (src/ai/engineService.ts); set on activate. */
+  public static aiService: AiEngineService | undefined = undefined;
+  /** The `AI: …` status bar item (src/ai/statusBar.ts); set on activate. */
+  public static aiStatusBar: AiStatusBar | undefined = undefined;
+
+  /** Push fresh engine statuses to every open panel (after a settings or status change). */
+  public static async broadcastAiEngines(): Promise<void> {
+    const service = MarkdownEditorProvider.aiService;
+    if (!service || MarkdownEditorProvider.openPanels.size === 0) {return;}
+    const engines = await service.listEngines().catch(() => []);
+    for (const panel of MarkdownEditorProvider.openPanels.keys()) {
+      void panel.webview.postMessage({ type: 'aiEngines', engines });
+    }
+  }
 
   /**
    * Broadcast the current backlink list to every open MikeDown panel. Called
@@ -343,6 +361,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     if (typeof settings.slashCommandsTimeZone === 'string') {
       updateSetting(config, 'slashCommands.timeZone', settings.slashCommandsTimeZone);
     }
+    // AI tab: `ai.*` keys from serializeAiSettings (never a secret).
+    if (Object.keys(settings).some(k => k.startsWith('ai.'))) {
+      void saveAiSettingsPatch(settings);
+    }
     // The in-menu "Turn off slash commands" footer row saves with
     // source: 'slashMenu' — show a dedicated toast with Open Settings /
     // Undo instead of (not in addition to) the generic save toast.
@@ -462,6 +484,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
       return; // Skip full WYSIWYG editor setup
     }
+    MarkdownEditorProvider.aiStatusBar?.setEditorActive(true);
     webviewPanel.onDidChangeViewState(e => {
       if (e.webviewPanel.active) {
         MarkdownEditorProvider.activePanel = webviewPanel;
@@ -475,9 +498,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (cached !== undefined) {sb.showDocument(cached);}
           else {sb.hide();}
         }
+        MarkdownEditorProvider.aiStatusBar?.setEditorActive(true);
       } else if (MarkdownEditorProvider.activePanel === webviewPanel) {
         MarkdownEditorProvider.activePanel = undefined;
         MarkdownEditorProvider.activeDocument = undefined;
+        MarkdownEditorProvider.aiStatusBar?.setEditorActive(false);
       }
     });
 
@@ -627,6 +652,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       imageWatcherDeleteSub.dispose();
       imageWatcherCreateSub.dispose();
       imageWatcher.dispose();
+      // Abort this panel's AI request, if one is streaming.
+      MarkdownEditorProvider.aiService?.disposePanel(webviewPanel);
       // M3 — Clear active panel reference when this panel is closed.
       MarkdownEditorProvider.openPanels.delete(webviewPanel);
       MarkdownEditorProvider.lastDocTextByPanel.delete(webviewPanel);
@@ -634,6 +661,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         MarkdownEditorProvider.activePanel = undefined;
         MarkdownEditorProvider.activeDocument = undefined;
         MarkdownEditorProvider.statusBar?.hide();
+        MarkdownEditorProvider.aiStatusBar?.setEditorActive(false);
       }
       // Drop per-doc orphan-cleanup state once no panel still has the doc open.
       let stillOpen = false;
@@ -661,6 +689,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
     // Handle messages from the webview
     webviewPanel.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
+      // AI protocol (aiComplete, aiCancel, aiListEngines...): src/ai/webviewBridge.ts.
+      if (isAiWebviewMessage(message)) {
+        const service = MarkdownEditorProvider.aiService;
+        if (service) {
+          void handleAiMessage(service, webviewPanel, message, msg => void webviewPanel.webview.postMessage(msg), {
+            onServed: result => MarkdownEditorProvider.aiStatusBar?.showServed(result, getSettings().ai),
+          });
+        }
+        return;
+      }
       switch (message.type) {
         case 'edit': {
           // M3 — Support appeal engagement signals: count this edit toward
@@ -1400,6 +1438,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       // approved entry point labels, so the webview hardcodes none of them.
       supportShowSidebarLink: settings.support.showSidebarLink,
       supportEntryCopy: ENTRY_COPY,
+      // Parsed mikedown.ai.* (engines, routing, features); API keys never travel here.
+      ai: settings.ai,
     });
   }
 

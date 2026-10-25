@@ -10,6 +10,9 @@ import { BacklinkProvider } from './backlinkProvider';
 import { TagProvider } from './tagProvider';
 import { MarkdownOutlineSymbolProvider } from './outlineProvider';
 import { maybeOfferDefaultEditorPrompt, setAsDefaultEditorCommand } from './defaultEditorPrompt';
+import { getSettings } from './settings';
+import { AiStatusBar } from './ai/statusBar';
+import { createVsCodeAiService, writeBackEngineIds } from './ai/vscodeAi';
 
 /**
  * One-shot migration: rename `mikedown.outline.*` settings + globalState key
@@ -329,6 +332,8 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
+  registerAi(context);
+
   // Support appeal — "A note from Mike" card, shown in the webview after a
   // save that follows a meaningful editing session (no more startup toast,
   // Q2 resolved). Persisted state, eligibility, and side effects live in
@@ -404,6 +409,63 @@ export function activate(context: vscode.ExtensionContext) {
         MarkdownEditorProvider.activePanel?.webview.postMessage(message),
     },
   };
+}
+
+/**
+ * AI layer: the engine service (adapters, secrets, cloud gate), the
+ * "MikeDown AI" output channel, the `AI: …` status bar item and the two AI
+ * commands. Everything stays inert while `mikedown.ai.enabled` is false,
+ * apart from the AI tab, Test connection and Discover models.
+ */
+function registerAi(context: vscode.ExtensionContext): void {
+  const output = vscode.window.createOutputChannel('MikeDown AI');
+  const service = createVsCodeAiService(context, output);
+  const statusBar = new AiStatusBar();
+  statusBar.setEnabled(getSettings().ai.enabled);
+  context.subscriptions.push(output, statusBar, { dispose: () => service.dispose() });
+  MarkdownEditorProvider.aiService = service;
+  MarkdownEditorProvider.aiStatusBar = statusBar;
+
+  // Probe results, discoveries and stored keys change what the AI tab shows;
+  // coalesce bursts (Test all engines) into one push.
+  let broadcastTimer: NodeJS.Timeout | undefined;
+  const scheduleBroadcast = (): void => {
+    if (broadcastTimer) {clearTimeout(broadcastTimer);}
+    broadcastTimer = setTimeout(() => { void MarkdownEditorProvider.broadcastAiEngines(); }, 100);
+  };
+  context.subscriptions.push(service.onStatusesChanged(scheduleBroadcast));
+
+  void writeBackEngineIds().catch(() => {});
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (!e.affectsConfiguration('mikedown.ai')) {return;}
+      statusBar.setEnabled(getSettings().ai.enabled);
+      void writeBackEngineIds()
+        .catch(() => false)
+        // Deletes the keys of engines that are gone, then pushes statuses.
+        .then(() => service.settingsChanged())
+        .catch(() => {});
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mikedown.openAiSettings', () => {
+      const panel = MarkdownEditorProvider.activePanel ?? MarkdownEditorProvider.findVisiblePanel();
+      if (panel) {
+        panel.reveal(undefined, false);
+        void panel.webview.postMessage({ type: 'command', command: 'openAiSettings' });
+      } else {
+        void vscode.window.showInformationMessage('Open a markdown file in MikeDown to change its AI settings (toolbar gear, AI tab).');
+      }
+    }),
+    vscode.commands.registerCommand('mikedown.ai.testAllEngines', async () => {
+      output.show(true);
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Window, title: 'MikeDown: testing AI engines' },
+        () => service.testAllEngines()
+      );
+    })
+  );
 }
 
 /**

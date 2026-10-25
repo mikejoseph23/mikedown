@@ -18,6 +18,7 @@ function mockConfig(values: Record<string, unknown>): void {
   vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
     get: (key: string, defaultValue: unknown) =>
       key in values ? values[key] : defaultValue,
+    inspect: () => undefined,
   } as any);
 }
 

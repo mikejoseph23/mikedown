@@ -111,6 +111,35 @@
  *         broadcast carries `supportShowSidebarLink` and `supportEntryCopy`
  *         (ENTRY_COPY in src/supportCopy.ts) back; the link toggles live.
  *
+ * AI (host.ai, tier 2; host side in src/ai/webviewBridge.ts). Off unless
+ * `mikedown.ai.enabled`; the `settings` broadcast carries the parsed
+ * `ai` settings (no secrets) and `saveSettings` takes `ai.*` patch keys.
+ *   Webview → Extension:
+ *     { type: 'aiComplete', request }  — AiCompletionRequest with image bytes
+ *         as base64 (toWireCompletionRequest); streamed back as aiToken, then
+ *         aiDone or aiError, all keyed by request.requestId.
+ *     { type: 'aiCancel', requestId }  — abort that request (the panel's one
+ *         in-flight request; a new aiComplete also aborts the previous one).
+ *     { type: 'aiListEngines' }        — answered by aiEngines.
+ *     { type: 'aiTestEngine' | 'aiDiscoverModels', requestId, engineId }
+ *         — answered by aiEngineStatus; a discovery also merges the models
+ *         into the saved engine (mikedown.ai.engines).
+ *     { type: 'aiSetSecret', requestId, engineId, apiKey: string | null }
+ *         — store or delete the key in SecretStorage; answered by aiEngineStatus.
+ *     { type: 'aiRequestCloudConsent', requestId, engineId } — host modal;
+ *         answered by aiConsent.
+ *   Extension → Webview:
+ *     { type: 'aiToken', requestId, delta }
+ *     { type: 'aiDone', requestId, result: AiCompletionResult }
+ *     { type: 'aiError', requestId, code: AiErrorCode, message } — also the
+ *         failure reply to a test/discover/setSecret request.
+ *     { type: 'aiEngines', engines: AiEngineStatus[] } — the listEngines reply,
+ *         also pushed after a settings change, probe or discovery.
+ *     { type: 'aiEngineStatus', requestId, status: AiEngineStatus }
+ *     { type: 'aiConsent', requestId, engineId, granted }
+ *     { type: 'command', command: 'openAiSettings' } — mikedown.openAiSettings
+ *         (and the AI status bar item): open the Settings modal on the AI tab.
+ *
  * Also handled here (pushes from the extension host):
  *   { type: 'theme', fontFamily, headingFontFamily, fontSize } — folded into updateSettings
  *   { type: 'saved', content }        — new pristine baseline after a save
@@ -124,7 +153,8 @@
  *   { type: 'sidebarState', pref, width, position, sectionPrefs }, { type: 'diffStatus', hasChanges }
  * Replies routed to VsCodeHost promises: pastedImageResult, pickedImageResult,
  * resizeImageResult, linkSuggestions, fileHeadings, wikilinksResolved,
- * brokenLinks, diffData, tags (tags and linkSuggestions also arrive as pushes).
+ * brokenLinks, diffData, tags (tags and linkSuggestions also arrive as pushes),
+ * and the ai* replies above (aiEngines also arrives as a push).
  */
 
 import { createMikeDownEditor } from '../../packages/core/src/index';
@@ -234,6 +264,7 @@ function settingsBroadcastToCore(msg: any): Partial<MikeDownSettings> {
   copy('normalizationStyle', msg.normalizationStyle);
   copy('imagePathMappings', msg.imagePastePathMappings);
   copy('docDir', msg.docDirFs);
+  copy('ai', msg.ai);
   host.setImagePaths(msg.imagePastePathMappings, msg.docDirFs);
   const sc = msg.spellCheck;
   if (sc && typeof sc === 'object') {

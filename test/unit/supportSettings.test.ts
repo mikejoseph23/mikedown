@@ -20,7 +20,7 @@ describe('getSettings — support.showSidebarLink', () => {
 
   it('defaults to true when nothing is configured', () => {
     const get = vi.fn((_key: string, fallback: unknown) => fallback);
-    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({ get } as any);
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({ get, inspect: () => undefined } as any);
 
     const settings = getSettings();
 
@@ -30,7 +30,7 @@ describe('getSettings — support.showSidebarLink', () => {
 
   it('reads an explicit false through', () => {
     const get = vi.fn((key: string, fallback: unknown) => (key === 'support.showSidebarLink' ? false : fallback));
-    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({ get } as any);
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({ get, inspect: () => undefined } as any);
 
     const settings = getSettings();
 

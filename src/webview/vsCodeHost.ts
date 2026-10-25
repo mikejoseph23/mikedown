@@ -23,6 +23,15 @@ import type {
   WikilinkResolution,
 } from '../../packages/core/src/host';
 import type { MikeDownSettingsPatch } from '../../packages/core/src/types';
+import type {
+  AiCompletionRequest,
+  AiCompletionResult,
+  AiEngineStatus,
+  AiError,
+  MikeDownAiHost,
+} from '../../packages/core/src/ai/types';
+import { makeAiError, toAiError } from '../../packages/core/src/ai/errors';
+import { toWireCompletionRequest } from '../../packages/core/src/ai/wire';
 import { resolveSrcForEditor, type ImagePathPrefix } from '../../packages/core/src/shared/imageDisplayPath';
 
 export interface VsCodeApi {
@@ -32,6 +41,13 @@ export interface VsCodeApi {
 }
 
 type Resolver<T> = { resolve: (value: T) => void; reject: (err: Error) => void };
+
+/** A pending `ai*` request. Rejections are plain `AiError` objects, per the `ai` host contract. */
+type AiWaiter = {
+  resolve: (value: any) => void;
+  reject: (err: AiError) => void;
+  onToken?: (delta: string) => void;
+};
 
 function bytesToBase64(bytes: Uint8Array): string {
   // Chunked so a large image doesn't blow the call stack through apply().
@@ -59,6 +75,9 @@ export class VsCodeHost implements MikeDownHost {
   private checkLinkWaiters: Array<Resolver<string[]>> = [];
   private tagWaiters: Array<Resolver<TagCount[]>> = [];
   private diffWaiters: Array<Resolver<DiffBaseline>> = [];
+  private readonly aiWaiters = new Map<string, AiWaiter>();
+  private aiEngineWaiters: Array<(engines: AiEngineStatus[]) => void> = [];
+  private readonly aiEnginesListeners = new Set<(engines: AiEngineStatus[]) => void>();
 
   private imagePathMappings: ImagePathPrefix[] = [];
   private docDir = '';
@@ -243,6 +262,110 @@ export class VsCodeHost implements MikeDownHost {
     sectionCollapsed: (section, collapsed) => this.post({ type: 'sidebarSectionCollapsed', section, collapsed }),
   };
 
+  // ── AI (tier 2: the extension host runs the engines) ──────────────────────
+
+  /** A request whose reply is keyed by `requestId` (aiEngineStatus, aiConsent, aiError). */
+  private aiRequest<T>(msg: Record<string, unknown>): Promise<T> {
+    const requestId = nextRequestId('ai');
+    return new Promise<T>((resolve, reject) => {
+      this.aiWaiters.set(requestId, { resolve, reject });
+      this.post({ ...msg, requestId });
+    });
+  }
+
+  /**
+   * Engine statuses the host pushes on its own (after a settings change, a
+   * probe, a discovery). Not part of `MikeDownAiHost`; the editor can listen
+   * here to refresh the AI tab without asking.
+   */
+  onAiEngines(listener: (engines: AiEngineStatus[]) => void): () => void {
+    this.aiEnginesListeners.add(listener);
+    return () => this.aiEnginesListeners.delete(listener);
+  }
+
+  readonly ai: MikeDownAiHost = {
+    complete: (req: AiCompletionRequest, onToken: (delta: string) => void, signal: AbortSignal): Promise<AiCompletionResult> => {
+      const requestId = req.requestId;
+      if (signal.aborted) {return Promise.reject(makeAiError('cancelled'));}
+      return new Promise<AiCompletionResult>((resolve, reject) => {
+        const onAbort = (): void => {
+          if (!this.aiWaiters.has(requestId)) {return;}
+          this.aiWaiters.delete(requestId);
+          this.post({ type: 'aiCancel', requestId });
+          reject(makeAiError('cancelled'));
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        const done = (): void => signal.removeEventListener('abort', onAbort);
+        this.aiWaiters.set(requestId, {
+          resolve: (result: AiCompletionResult) => { done(); resolve(result); },
+          reject: (err) => { done(); reject(err); },
+          onToken,
+        });
+        try {
+          this.post({ type: 'aiComplete', request: toWireCompletionRequest(req) });
+        } catch (err) {
+          this.aiWaiters.delete(requestId);
+          done();
+          reject(toAiError(err));
+        }
+      });
+    },
+    listEngines: (): Promise<AiEngineStatus[]> =>
+      new Promise((resolve) => {
+        this.aiEngineWaiters.push(resolve);
+        this.post({ type: 'aiListEngines' });
+      }),
+    testEngine: (engineId: string) => this.aiRequest<AiEngineStatus>({ type: 'aiTestEngine', engineId }),
+    discoverModels: (engineId: string) => this.aiRequest<AiEngineStatus>({ type: 'aiDiscoverModels', engineId }),
+    setSecret: (engineId: string, apiKey: string | null) =>
+      this.aiRequest<AiEngineStatus>({ type: 'aiSetSecret', engineId, apiKey }).then(() => undefined),
+    requestCloudConsent: (engineId: string) => this.aiRequest<boolean>({ type: 'aiRequestCloudConsent', engineId }),
+  };
+
+  private handleAiReply(message: any): boolean {
+    switch (message?.type) {
+      case 'aiToken':
+        this.aiWaiters.get(message.requestId)?.onToken?.(String(message.delta ?? ''));
+        return true;
+      case 'aiDone': {
+        const waiter = this.aiWaiters.get(message.requestId);
+        this.aiWaiters.delete(message.requestId);
+        waiter?.resolve(message.result);
+        return true;
+      }
+      case 'aiError': {
+        const waiter = this.aiWaiters.get(message.requestId);
+        this.aiWaiters.delete(message.requestId);
+        waiter?.reject(toAiError({ code: message.code, message: message.message ?? '' }));
+        return true;
+      }
+      case 'aiEngineStatus': {
+        const waiter = this.aiWaiters.get(message.requestId);
+        this.aiWaiters.delete(message.requestId);
+        waiter?.resolve(message.status);
+        return true;
+      }
+      case 'aiConsent': {
+        const waiter = this.aiWaiters.get(message.requestId);
+        this.aiWaiters.delete(message.requestId);
+        waiter?.resolve(!!message.granted);
+        return true;
+      }
+      case 'aiEngines': {
+        // The reply to listEngines and also a push: every waiter gets the
+        // list, and so does every listener.
+        const engines: AiEngineStatus[] = Array.isArray(message.engines) ? message.engines : [];
+        const waiters = this.aiEngineWaiters;
+        this.aiEngineWaiters = [];
+        waiters.forEach(w => w(engines));
+        this.aiEnginesListeners.forEach(l => l(engines));
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
+
   // ── Replies from the extension host ───────────────────────────────────────
 
   /**
@@ -251,6 +374,7 @@ export class VsCodeHost implements MikeDownHost {
    * it as a push.
    */
   handleReply(message: any): boolean {
+    if (this.handleAiReply(message)) {return true;}
     switch (message?.type) {
       case 'pastedImageResult': {
         const waiter = this.pastes.get(message.requestId);

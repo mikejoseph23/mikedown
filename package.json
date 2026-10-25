@@ -148,6 +148,14 @@
         "title": "MikeDown: Support MikeDown"
       },
       {
+        "command": "mikedown.openAiSettings",
+        "title": "MikeDown: Open AI Settings"
+      },
+      {
+        "command": "mikedown.ai.testAllEngines",
+        "title": "MikeDown: Test All AI Engines"
+      },
+      {
         "command": "mikedown.dev.resetSupportPrompt",
         "title": "MikeDown (Dev): Reset Support Prompt State"
       }
@@ -647,6 +655,210 @@
           "type": "string",
           "default": "local",
           "description": "Time zone used by the /date and /datetime slash commands: \"local\", \"UTC\", or an IANA zone name like America/New_York."
+        },
+        "mikedown.ai.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Master switch for MikeDown's AI features. Off by default; nothing is sent anywhere while it is off. Edit these in the MikeDown Settings modal (toolbar gear, AI tab)."
+        },
+        "mikedown.ai.allowCloud": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Allow AI engines whose address is not local (cloud APIs). Even when on, MikeDown asks once per workspace before it sends text to a cloud engine. A workspace can turn this off but not on. Edit it in the MikeDown Settings modal (toolbar gear, AI tab)."
+        },
+        "mikedown.ai.engines": {
+          "type": "array",
+          "default": [],
+          "scope": "machine",
+          "markdownDescription": "The AI engines MikeDown can use (oMLX, LM Studio, Ollama, OpenAI-compatible servers, Anthropic, OpenAI) and the models each one serves. User settings only, so a repository cannot add an endpoint. API keys are never stored here: they live in VS Code's secret storage, or come from the environment variable named in `apiKeyEnv`. Edit engines in the MikeDown Settings modal (toolbar gear, AI tab).",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "kind",
+              "baseUrl"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Stable id, generated once. Do not change it: routes and the stored API key refer to it."
+              },
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "openai-compatible",
+                  "lmstudio",
+                  "ollama",
+                  "anthropic",
+                  "openai"
+                ]
+              },
+              "baseUrl": {
+                "type": "string",
+                "description": "For example http://127.0.0.1:8000/v1 or https://api.anthropic.com."
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              },
+              "locality": {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "local",
+                  "cloud"
+                ],
+                "default": "auto"
+              },
+              "apiKeyEnv": {
+                "type": "string",
+                "description": "Environment variable to read the API key from when none is stored, for example OMLX_API_KEY."
+              },
+              "discovery": {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "manual"
+                ],
+                "default": "auto"
+              },
+              "models": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "capabilities": {
+                      "type": "object"
+                    },
+                    "capabilitiesSource": {
+                      "type": "string",
+                      "enum": [
+                        "endpoint",
+                        "heuristic",
+                        "user"
+                      ]
+                    },
+                    "requestOverrides": {
+                      "type": "object",
+                      "description": "Merged into the request body last, for example { \"reasoning_effort\": \"low\" }."
+                    },
+                    "missing": {
+                      "type": "boolean"
+                    },
+                    "manual": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "mikedown.ai.routing": {
+          "type": "object",
+          "default": {
+            "default": null,
+            "fallback": "anyLocal",
+            "tasks": {}
+          },
+          "markdownDescription": "Which engine and model serve each AI task, and what happens when that one is unavailable. Edit these in the MikeDown Settings modal (toolbar gear, AI tab).",
+          "properties": {
+            "default": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "engineId": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "engineId",
+                    "modelId"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "fallback": {
+              "type": "string",
+              "enum": [
+                "none",
+                "default",
+                "anyLocal",
+                "any"
+              ],
+              "default": "anyLocal"
+            },
+            "tasks": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "engineId": {
+                    "type": "string"
+                  },
+                  "modelId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "engineId",
+                  "modelId"
+                ]
+              }
+            }
+          }
+        },
+        "mikedown.ai.features": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "Per-feature switches and task overrides, keyed by feature id, for example { \"rewrite\": { \"enabled\": true } }. Edit these in the MikeDown Settings modal (toolbar gear, AI tab).",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "task": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "mikedown.ai.localNetworks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
+          ],
+          "scope": "machine",
+          "markdownDescription": "IPv4 ranges (CIDR) and host name suffixes that count as local, besides loopback, link-local, `.local`, `.lan` and `.home.arpa`. Add a WireGuard range such as `10.0.98.0/24` or `.ts.net` here. User settings only. Edit these in the MikeDown Settings modal (toolbar gear, AI tab)."
         }
       }
     }
