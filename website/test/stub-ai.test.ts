@@ -14,10 +14,28 @@ describe('stub ai host', () => {
     expect(route).toMatchObject({ engineId: 'demo-stub', modelId: 'canned-text', isLocal: true, needsConsent: false });
   });
 
-  it('lists one healthy engine named as a stub', async () => {
-    const [engine] = await stubAiHost.listEngines!();
+  it('lists a healthy engine named as a stub and a cloud engine nobody has probed yet', async () => {
+    const [engine, cloud] = await stubAiHost.listEngines!();
     expect(engine).toMatchObject({ engineId: 'demo-stub', ok: true, models: [{ id: 'canned-text' }] });
     expect(stubAiSettings.engines[0].name).toMatch(/stub/i);
+    expect(cloud).toMatchObject({ engineId: 'demo-cloud', ok: null, isLocal: false, hasKey: false, models: [] });
+    expect(stubAiSettings.engines.map((e) => e.id)).toEqual(['demo-stub', 'demo-cloud']);
+  });
+
+  it('fetches a provider-shaped model list for a cloud engine, and remembers only that a key was stored', async () => {
+    await stubAiHost.setSecret!('demo-cloud', 'sk-demo');
+    const status = await stubAiHost.discoverModels!('demo-cloud');
+    expect(status).toMatchObject({ engineId: 'demo-cloud', ok: true, isLocal: false, hasKey: true });
+    expect(status.models.length).toBeGreaterThanOrEqual(10);
+    expect(status.models.map((m) => m.id)).toContain('claude-sonnet-5-5');
+    expect(JSON.stringify(status)).not.toContain('sk-demo');
+    // A card added on the page gets an id like `openai-ab12`, and a list of its own provider's shape.
+    const openai = await stubAiHost.discoverModels!('openai-ab12');
+    expect(openai.models.map((m) => m.id)).toContain('gpt-5.5');
+    // Any other engine still gets the one canned model.
+    expect((await stubAiHost.discoverModels!('lm-studio-1')).models.map((m) => m.id)).toEqual(['canned-text']);
+    await stubAiHost.setSecret!('demo-cloud', null);
+    expect((await stubAiHost.testEngine!('demo-cloud')).hasKey).toBe(false);
   });
 
   it('streams the canned text word by word', async () => {
