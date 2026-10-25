@@ -181,6 +181,14 @@ test('the Settings modal AI tab lists the saved engine; the AI Engines page test
   await expect.poll(() => ipc.calls.some((c) => c.cmd === 'ai_test_engine')).toBe(true);
   await expect(enginesPage.locator('[data-state="ok"]').filter({ hasText: '12 ms' }).first()).toBeVisible();
 
+  // The page is modal: Tab and Shift+Tab never leave it.
+  for (const key of ['Tab', 'Shift+Tab']) {
+    for (let i = 0; i < 30; i++) {
+      await page.keyboard.press(key);
+      expect(await enginesPage.evaluate((n) => n.contains(document.activeElement))).toBe(true);
+    }
+  }
+
   // Escape is Back: nothing changed, so the page closes and the modal is still there.
   await page.keyboard.press('Escape');
   await expect(enginesPage).toHaveCount(0);
@@ -200,6 +208,49 @@ test('the AI tab shows the empty state when no engine is saved', async ({ page, 
   // The page opens on the quick-start cards.
   const enginesPage = page.getByRole('dialog', { name: 'AI Engines' });
   await expect(enginesPage.getByRole('button', { name: 'Add oMLX' })).toBeVisible();
+});
+
+test('a pasted cloud key is stored first, then the models are fetched into a collapsed form', async ({ page, ipc }) => {
+  writeEngineSettings(ipc, engine.base);
+  wireAi(page, ipc, engine);
+  ipc.custom.ai_set_secret = () => null;
+  ipc.custom.ai_discover_models = (args: { id: string }) => ({
+    info: { engineId: args.id, ok: true, isLocal: false, hasKey: true },
+    models: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'].map((id) => ({
+      id,
+      capabilities: { chat: true, stream: true, vision: false, json: true, tools: true, fim: false, embed: false, contextTokens: null },
+      source: 'endpoint',
+    })),
+  });
+  ipc.launchFiles = [ipc.write('a.md', '# A\n\nText.\n')];
+  await page.goto('/');
+  await expect(page.locator('#editor .ProseMirror')).toContainText('Text.');
+  await page.locator('#editor .ProseMirror').first().click();
+  await page.keyboard.press('ControlOrMeta+,');
+  const modal = page.locator('.settings-modal');
+  await modal.getByRole('tab', { name: 'AI', exact: true }).click();
+  await modal.getByRole('button', { name: 'Manage engines…' }).click();
+
+  const enginesPage = page.getByRole('dialog', { name: 'AI Engines' });
+  await enginesPage.getByRole('button', { name: 'Add engine' }).click();
+  await enginesPage.getByRole('button', { name: 'Add Anthropic' }).click();
+  // The new cloud engine opens on its key field; typing is pasting, one settle later it is stored and fetched.
+  await expect(enginesPage.getByLabel('API key for Anthropic')).toBeFocused();
+  await page.keyboard.type('sk-test-key');
+  // (Opening the oMLX form already asked its server once, as it was never probed; this is the new engine's.)
+  const fetchedNew = () => ipc.calls.findIndex((c) => c.cmd === 'ai_discover_models' && (c.args as { id: string }).id !== 'e1');
+  await expect.poll(fetchedNew, { timeout: 15000 }).toBeGreaterThanOrEqual(0);
+  const stored = ipc.calls.findIndex((c) => c.cmd === 'ai_set_secret');
+  expect(stored).toBeGreaterThanOrEqual(0);
+  expect(stored).toBeLessThan(fetchedNew());
+  expect(ipc.calls[stored].args).toMatchObject({ apiKey: 'sk-test-key' });
+
+  const picker = enginesPage.getByRole('listbox', { name: 'Models' });
+  await expect(picker.getByRole('option', { name: /claude-sonnet-5-5/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(picker.getByRole('option', { name: /claude-opus-5-5/ })).toHaveAttribute('aria-selected', 'false');
+  // Express only: the full models table waits behind Advanced.
+  await expect(enginesPage.getByRole('button', { name: 'Advanced' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(enginesPage.getByRole('button', { name: 'Add model' })).toHaveCount(0);
 });
 
 /** The same host module the app builds (`createAiHost` over `aiApi`), driven from the page. */

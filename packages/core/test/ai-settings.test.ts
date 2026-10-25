@@ -445,6 +445,127 @@ describe('AI Engines page in the editor', () => {
   });
 });
 
+describe('models table under Advanced (the M3 controls, moved)', () => {
+  const edit = (input: HTMLInputElement | HTMLTextAreaElement, value: string, type = 'input') => {
+    input.value = value;
+    input.dispatchEvent(new Event(type, { bubbles: true }));
+  };
+  const fk = (key: string) => document.querySelector<HTMLElement>(`[data-fk="${key}"]`)!;
+
+  /** The page on oMLX with Advanced open, and a Host that records what Done saves. */
+  function openAdvanced(extra: Record<string, unknown> = {}) {
+    const saveSettings = vi.fn();
+    class Host extends NoopHost { ai = tier2(); saveSettings = saveSettings; }
+    const handle = mount(new Host(), settings(extra));
+    handle.command('openAiSettings', { page: true });
+    click(fk('eng:omlx:advanced'));
+    const savedModels = () => {
+      click(byText('.ai-page-done', 'Done'));
+      const engines = saveSettings.mock.calls[0][0]['ai.engines'] as Array<{ id: string; models: Array<Record<string, any>> }>;
+      return engines.find((e) => e.id === 'omlx')!.models;
+    };
+    return { saveSettings, savedModels };
+  }
+
+  it('a capability chip toggles, marks the row edited, and saves as a user edit', () => {
+    const { savedModels } = openAdvanced();
+    const chip = fk('model:omlx:qwen3.8-flash:chip-vision');
+    expect(chip.getAttribute('aria-pressed')).toBe('false');
+    click(chip);
+    expect(fk('model:omlx:qwen3.8-flash:chip-vision').getAttribute('aria-pressed')).toBe('true');
+    expect(document.querySelector('.ai-model .ai-source')?.textContent).toBe('edited');
+    expect(savedModels()[0]).toMatchObject({ capabilitiesSource: 'user', capabilities: { vision: true } });
+  });
+
+  it('the context size takes 32k, and refuses nonsense without changing the model', () => {
+    const { savedModels } = openAdvanced();
+    const ctx = fk('model:omlx:qwen3.8-flash:context') as HTMLInputElement;
+    expect(ctx.value).toBe('262144');
+    edit(ctx, 'lots', 'change');
+    expect(fk('model:omlx:qwen3.8-flash:context').getAttribute('aria-invalid')).toBe('true');
+    edit(fk('model:omlx:qwen3.8-flash:context') as HTMLInputElement, '32k', 'change');
+    expect(savedModels()[0].capabilities.contextTokens).toBe(32768);
+  });
+
+  it('the request overrides editor validates JSON, saves it, and the Thinking column reads it', () => {
+    const { savedModels } = openAdvanced();
+    click(fk('model:omlx:qwen3.8-flash:overrides'));
+    expect(fk('model:omlx:qwen3.8-flash:overrides').getAttribute('aria-expanded')).toBe('true');
+    const area = () => fk('model:omlx:qwen3.8-flash:overrides-text') as HTMLTextAreaElement;
+    edit(area(), '{ oops');
+    expect(area().getAttribute('aria-invalid')).toBe('true');
+    expect(document.querySelector('.ai-overrides .ai-field-error')?.textContent).not.toBe('');
+    edit(area(), '{ "reasoning_effort": "low", "temperature": 0.3 }');
+    expect(area().hasAttribute('aria-invalid')).toBe(false);
+    expect(savedModels()[0].requestOverrides).toEqual({ reasoning_effort: 'low', temperature: 0.3 });
+  });
+
+  it('shows the Thinking level written by the overrides editor, in the table and in Express', () => {
+    openAdvanced();
+    click(fk('model:omlx:qwen3.8-flash:overrides'));
+    edit(fk('model:omlx:qwen3.8-flash:overrides-text') as HTMLTextAreaElement, '{ "reasoning_effort": "high" }');
+    // Express and the table show the same level on the next render.
+    click(fk('eng:omlx:advanced'));
+    click(fk('eng:omlx:advanced'));
+    expect((fk('model:omlx:qwen3.8-flash:thinking') as HTMLSelectElement).value).toBe('high');
+    expect((fk('eng:omlx:thinking') as HTMLSelectElement).value).toBe('high');
+  });
+
+  it('adds a model by hand, refuses a duplicate, and removes it again (with its routes)', () => {
+    const { saveSettings } = openAdvanced();
+    const input = () => fk('eng:omlx:add-model') as HTMLInputElement;
+    edit(input(), 'minimax-m3');
+    click(fk('eng:omlx:add-model-btn'));
+    expect(document.querySelector('[data-fk="model:omlx:minimax-m3:enabled"]')).not.toBeNull();
+    expect(document.body.textContent).toContain('added by hand');
+    expect(document.activeElement).toBe(input());
+
+    edit(input(), 'minimax-m3');
+    click(fk('eng:omlx:add-model-btn'));
+    expect(input().getAttribute('aria-invalid')).toBe('true');
+    expect(document.querySelector('.ai-model-add + .ai-field-error')?.textContent).toContain('already in the list');
+
+    click(fk('model:omlx:minimax-m3:remove'));
+    expect(document.querySelector('[data-fk="model:omlx:minimax-m3:enabled"]')).toBeNull();
+    // Back where it started: nothing to save.
+    click(byText('.ai-page-done', 'Done'));
+    expect(saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('removing the default route\'s model clears that route', () => {
+    const base = settings();
+    const withGone = { ...base, engines: base.engines.map((e) => (e.id === 'omlx' ? { ...e, models: e.models.map((m) => ({ ...m, missing: true })) } : e)) } as AiSettings;
+    const saveSettings = vi.fn();
+    class Host extends NoopHost { ai = tier2(); saveSettings = saveSettings; }
+    const handle = mount(new Host(), withGone);
+    handle.command('openAiSettings', { page: true });
+    click(fk('eng:omlx:advanced'));
+    expect(document.querySelector('[data-fk="model:omlx:qwen3.8-flash:enabled"]')!.closest('.ai-model')!.classList.contains('is-missing')).toBe(true);
+    expect(document.querySelector('.ai-model .ai-tag--missing')?.textContent).toBe('not listed');
+    click(fk('model:omlx:qwen3.8-flash:remove'));
+    click(byText('.ai-page-done', 'Done'));
+    expect(saveSettings.mock.calls[0][0]['ai.routing'].default).toBeNull();
+  });
+
+  it('a display name is kept next to the id, and clearing it brings the id back', () => {
+    const { savedModels } = openAdvanced();
+    const label = () => fk('model:omlx:qwen3.8-flash:label') as HTMLInputElement;
+    expect(label().value).toBe('Qwen Flash');
+    edit(label(), 'Qwen, fast');
+    expect(savedModels()[0].label).toBe('Qwen, fast');
+  });
+
+  it('turning a model off in the table takes it out of the Default model list', () => {
+    openAdvanced();
+    const options = () => Array.from((fk('eng:omlx:default-model') as HTMLSelectElement).options).map((o) => o.value);
+    expect(options()).toEqual(['qwen3.8-flash']);
+    const check = fk('model:omlx:qwen3.8-flash:enabled') as HTMLInputElement;
+    check.checked = false;
+    check.dispatchEvent(new Event('change', { bubbles: true }));
+    expect((fk('eng:omlx:default-model') as HTMLSelectElement).disabled).toBe(true);
+  });
+});
+
 describe('AI tab lifecycle', () => {
   it('statuses pushed while the tab is open update the engine dots', () => {
     class Host extends NoopHost { ai = tier2(); }
