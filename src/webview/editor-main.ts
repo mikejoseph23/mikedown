@@ -218,10 +218,6 @@ if (mikedownRoot) {
   new MutationObserver(mirrorTheme).observe(mikedownRoot, { attributes: true, attributeFilter: ['data-mikedown-theme'] });
 }
 
-// Engine statuses the host pushes (after a probe, a discovery, a failed
-// request) go straight to the router and the AI chip.
-host.onAiEngines((engines) => handle.setAiEngineStatuses(engines));
-
 // Test-only hook: gives the webview test harness (test/harness/webviewHarness.ts)
 // direct access to the live TipTap editor/PM view so it can drive real
 // transactions and keydown events rather than only posting host messages.
