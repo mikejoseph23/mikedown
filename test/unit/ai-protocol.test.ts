@@ -161,3 +161,163 @@ describe('status bar label', () => {
     expect(servedLabel({ served: { engineName: 'Anthropic', modelId: 'claude-sonnet-5-5', isLocal: false } }).text).toBe('$(cloud) AI: cloud · Anthropic · claude-sonnet-5-5');
   });
 });
+
+describe('VsCodeHost ai group, correlation', () => {
+  const second = { ...request, requestId: 'req-2' };
+
+  it('two completions in flight each get only their own tokens and result', async () => {
+    const { host, ai } = setup();
+    const t1: string[] = [];
+    const t2: string[] = [];
+    const p1 = ai.complete(request, (d) => t1.push(d), new AbortController().signal);
+    const p2 = ai.complete(second, (d) => t2.push(d), new AbortController().signal);
+    host.handleReply({ type: 'aiToken', requestId: 'req-2', delta: 'B1' });
+    host.handleReply({ type: 'aiToken', requestId: 'req-1', delta: 'A1' });
+    host.handleReply({ type: 'aiToken', requestId: 'req-2', delta: 'B2' });
+    host.handleReply({ type: 'aiToken', requestId: 'req-1', delta: 'A2' });
+    host.handleReply({ type: 'aiDone', requestId: 'req-2', result: { text: 'B1B2', served } });
+    host.handleReply({ type: 'aiError', requestId: 'req-1', code: 'rateLimited', message: 'slow down' });
+    await expect(p2).resolves.toMatchObject({ text: 'B1B2' });
+    await expect(p1).rejects.toEqual({ code: 'rateLimited', message: 'slow down' });
+    expect(t1).toEqual(['A1', 'A2']);
+    expect(t2).toEqual(['B1', 'B2']);
+  });
+
+  it('aiDone for an unknown requestId changes nothing', async () => {
+    const { host, ai } = setup();
+    const pending = ai.complete(request, () => {}, new AbortController().signal);
+    host.handleReply({ type: 'aiDone', requestId: 'someone-else', result: { text: 'x', served } });
+    host.handleReply({ type: 'aiError', requestId: 'someone-else', code: 'auth', message: 'no' });
+    host.handleReply({ type: 'aiDone', requestId: 'req-1', result: { text: 'mine', served } });
+    await expect(pending).resolves.toMatchObject({ text: 'mine' });
+  });
+
+  it('a reply after aiDone is ignored (the waiter is gone)', async () => {
+    const { host, ai } = setup();
+    const tokens: string[] = [];
+    const pending = ai.complete(request, (d) => tokens.push(d), new AbortController().signal);
+    host.handleReply({ type: 'aiDone', requestId: 'req-1', result: { text: 'ok', served } });
+    await pending;
+    host.handleReply({ type: 'aiToken', requestId: 'req-1', delta: 'late' });
+    host.handleReply({ type: 'aiError', requestId: 'req-1', code: 'unknown', message: 'late' });
+    expect(tokens).toEqual([]);
+  });
+
+  it('aiError keeps unknown codes as unknown and defaults a missing message', async () => {
+    const { host, ai } = setup();
+    const pending = ai.complete(request, () => {}, new AbortController().signal);
+    host.handleReply({ type: 'aiError', requestId: 'req-1', code: 'not-a-real-code' });
+    await expect(pending).rejects.toMatchObject({ code: 'unknown' });
+  });
+
+  it('every ai reply type is claimed by handleReply', () => {
+    const { host } = setup();
+    for (const type of ['aiToken', 'aiDone', 'aiError', 'aiEngineStatus', 'aiConsent', 'aiEngines']) {
+      expect(host.handleReply({ type, requestId: 'none', engines: [] })).toBe(true);
+    }
+  });
+});
+
+describe('VsCodeHost ai group, cancellation', () => {
+  it('an already-aborted signal rejects cancelled without posting anything', async () => {
+    const { posted, ai } = setup();
+    const controller = new AbortController();
+    controller.abort();
+    await expect(ai.complete(request, () => {}, controller.signal)).rejects.toMatchObject({ code: 'cancelled' });
+    expect(posted).toEqual([]);
+  });
+
+  it('aborting one request cancels only that one', async () => {
+    const { host, posted, ai } = setup();
+    const a = new AbortController();
+    const t2: string[] = [];
+    const p1 = ai.complete(request, () => {}, a.signal);
+    const p2 = ai.complete({ ...request, requestId: 'req-2' }, (d) => t2.push(d), new AbortController().signal);
+    a.abort();
+    await expect(p1).rejects.toMatchObject({ code: 'cancelled' });
+    expect(posted.filter((m) => m.type === 'aiCancel')).toEqual([{ type: 'aiCancel', requestId: 'req-1' }]);
+    host.handleReply({ type: 'aiToken', requestId: 'req-2', delta: 'still here' });
+    host.handleReply({ type: 'aiDone', requestId: 'req-2', result: { text: 'still here', served } });
+    await expect(p2).resolves.toMatchObject({ text: 'still here' });
+    expect(t2).toEqual(['still here']);
+  });
+
+  it('aborting after the answer arrived posts nothing', async () => {
+    const { host, posted, ai } = setup();
+    const controller = new AbortController();
+    const pending = ai.complete(request, () => {}, controller.signal);
+    host.handleReply({ type: 'aiDone', requestId: 'req-1', result: { text: 'ok', served } });
+    await pending;
+    controller.abort();
+    expect(posted.filter((m) => m.type === 'aiCancel')).toEqual([]);
+  });
+
+  it('a throwing postMessage rejects the request instead of hanging it', async () => {
+    const host = new VsCodeHost({ postMessage: () => { throw new Error('webview disposed'); }, getState: () => undefined, setState: () => undefined });
+    await expect(host.ai.complete(request, () => {}, new AbortController().signal)).rejects.toMatchObject({ code: 'unknown' });
+  });
+});
+
+describe('host bridge, errors and ordering', () => {
+  const wire = { ...request, messages: [{ role: 'user', content: 'Hi' }] };
+
+  it('tokens are posted in the order the service produced them, before aiDone', async () => {
+    const posted: any[] = [];
+    const service = {
+      complete: async (_p: object, _r: unknown, onToken: (d: string) => void) => {
+        for (const d of ['1', '2', '3']) {onToken(d);}
+        return { text: '123', served, finishReason: 'stop' };
+      },
+    } as unknown as AiEngineService;
+    await handleAiMessage(service, {}, { type: 'aiComplete', request: wire }, (m) => posted.push(m));
+    expect(posted.map((m) => (m.type === 'aiToken' ? m.delta : m.type))).toEqual(['1', '2', '3', 'aiDone']);
+    expect(posted.every((m) => m.requestId === 'req-1')).toBe(true);
+  });
+
+  it('a cancelled completion answers aiError cancelled', async () => {
+    const posted: any[] = [];
+    const service = { complete: async () => { throw { code: 'cancelled', message: 'Cancelled.' }; } } as unknown as AiEngineService;
+    await handleAiMessage(service, {}, { type: 'aiComplete', request: wire }, (m) => posted.push(m));
+    expect(posted).toEqual([{ type: 'aiError', requestId: 'req-1', code: 'cancelled', message: 'Cancelled.' }]);
+  });
+
+  it('a plain Error from the service becomes aiError unknown', async () => {
+    const posted: any[] = [];
+    const service = { complete: async () => { throw new Error('boom'); } } as unknown as AiEngineService;
+    await handleAiMessage(service, {}, { type: 'aiComplete', request: wire }, (m) => posted.push(m));
+    expect(posted).toEqual([{ type: 'aiError', requestId: 'req-1', code: 'unknown', message: expect.stringContaining('boom') }]);
+  });
+
+  it('a failing test, discover or setSecret request answers aiError with the same requestId; a failing consent answers denied', async () => {
+    const posted: any[] = [];
+    const fail = async () => { throw { code: 'unknown', message: 'That engine is no longer in the AI settings.' }; };
+    const service = { testEngine: fail, discoverModels: fail, setSecret: fail, requestCloudConsent: fail } as unknown as AiEngineService;
+    const post = (m: unknown) => posted.push(m);
+    await handleAiMessage(service, {}, { type: 'aiTestEngine', requestId: 't', engineId: 'x' }, post);
+    await handleAiMessage(service, {}, { type: 'aiDiscoverModels', requestId: 'd', engineId: 'x' }, post);
+    await handleAiMessage(service, {}, { type: 'aiSetSecret', requestId: 's', engineId: 'x', apiKey: 'k' }, post);
+    await handleAiMessage(service, {}, { type: 'aiRequestCloudConsent', requestId: 'c', engineId: 'x' }, post);
+    expect(posted).toEqual([
+      { type: 'aiError', requestId: 't', code: 'unknown', message: 'That engine is no longer in the AI settings.' },
+      { type: 'aiError', requestId: 'd', code: 'unknown', message: 'That engine is no longer in the AI settings.' },
+      { type: 'aiError', requestId: 's', code: 'unknown', message: 'That engine is no longer in the AI settings.' },
+      { type: 'aiConsent', requestId: 'c', engineId: 'x', granted: false },
+    ]);
+  });
+
+  it('a malformed aiComplete answers aiError instead of calling the service', async () => {
+    const posted: any[] = [];
+    const complete = vi.fn();
+    const service = { complete } as unknown as AiEngineService;
+    await handleAiMessage(service, {}, { type: 'aiComplete', request: { requestId: 'bad' } }, (m) => posted.push(m));
+    expect(complete).not.toHaveBeenCalled();
+    expect(posted).toMatchObject([{ type: 'aiError', requestId: 'bad', code: 'unknown' }]);
+  });
+
+  it('the API key never travels back in a reply', async () => {
+    const posted: any[] = [];
+    const service = { setSecret: async (id: string) => ({ engineId: id, hasKey: true }) } as unknown as AiEngineService;
+    await handleAiMessage(service, {}, { type: 'aiSetSecret', requestId: 's', engineId: 'claude', apiKey: 'sk-ant-secret' }, (m) => posted.push(m));
+    expect(JSON.stringify(posted)).not.toContain('sk-ant-secret');
+  });
+});
