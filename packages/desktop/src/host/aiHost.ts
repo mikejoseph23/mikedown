@@ -9,7 +9,8 @@
  * - `listEngines` / `testEngine` / `discoverModels` combine what Rust knows
  *   (reachability, key presence, locality) with the saved engines in settings,
  *   which own the model list. Discovery merges the endpoint's models into the
- *   saved engine with core's heuristics and persists the result.
+ *   saved engine with core's heuristics (new cloud models start off) and
+ *   persists the result.
  * - `setSecret` and `requestCloudConsent` are plain commands; the key goes in
  *   and never comes back.
  */
@@ -130,7 +131,8 @@ export function createAiHost(deps: AiHostDeps): MikeDownAiHost {
         const failure = toAiError(err);
         return { ...statusFor(engine, settings), ok: false, error: failure.message };
       }
-      const models = mergeDiscoveredModels(engine.models, result.models, engine.kind);
+      // Cloud engines add new models off (OPEN-12); the user picks the ones they want.
+      const models = mergeDiscoveredModels(engine.models, result.models, engine.kind, { addEnabled: engineLocality(engine, settings.localNetworks) === 'local' });
       const merged: AiEngineConfig = { ...engine, models };
       await deps.saveEngines(settings.engines.map((e) => (e.id === engineId ? merged : e)));
       const loaded = new Set(result.models.filter((m) => m.loaded).map((m) => m.id));

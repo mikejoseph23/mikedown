@@ -255,7 +255,7 @@ export class AiEngineService {
     this.changed();
   }
 
-  /** Discover models and merge them into the saved engine (new ones added, gone ones marked missing, user edits kept). */
+  /** Discover models and merge them into the saved engine (new ones added, off on cloud engines; gone ones marked missing; user edits kept). */
   async discoverModels(engineId: string): Promise<AiEngineStatus> {
     const settings = this.deps.readSettings();
     const engine = this.engine(settings, engineId);
@@ -268,7 +268,7 @@ export class AiEngineService {
     try {
       const apiKey = await this.deps.secrets.resolve(engine);
       const discovered = await adapter.listModels(engine, apiKey, new AbortController().signal);
-      const models = mergeDiscoveredModels(engine.models, discovered, engine.kind);
+      const models = mergeDiscoveredModels(engine.models, discovered, engine.kind, { addEnabled: engineLocality(engine, settings.localNetworks) === 'local' });
       const next: AiEngineConfig = { ...engine, models };
       const engines = settings.engines.map((e) => (e.id === engine.id ? next : e));
       this.loaded.set(engine.id, new Map(discovered.filter((d) => d.loaded !== undefined).map((d) => [d.id, d.loaded!])));

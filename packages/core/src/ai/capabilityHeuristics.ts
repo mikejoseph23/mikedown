@@ -182,9 +182,17 @@ export function completeCapabilities(partial: Partial<AiModelCapabilities>, mode
  *   `missing` is cleared;
  * - saved but not listed: marked `missing: true` (greyed, not deleted), except
  *   manual entries, which are left alone;
- * - listed but new: appended, enabled, in discovery order.
+ * - listed but new: appended in discovery order, enabled unless
+ *   `opts.addEnabled` is false. Cloud engines pass false (OPEN-12): a
+ *   300-model list must not flood the routing pickers, so the user picks.
  */
-export function mergeDiscoveredModels(existing: readonly AiModelConfig[], discovered: readonly AiDiscoveredModel[], kind?: AiEngineKind): AiModelConfig[] {
+export function mergeDiscoveredModels(
+  existing: readonly AiModelConfig[],
+  discovered: readonly AiDiscoveredModel[],
+  kind?: AiEngineKind,
+  opts: { addEnabled?: boolean } = {},
+): AiModelConfig[] {
+  const addEnabled = opts.addEnabled ?? true;
   const found = new Map<string, AiDiscoveredModel>();
   for (const d of discovered) {
     if (!found.has(d.id)) {found.set(d.id, d);}
@@ -210,7 +218,7 @@ export function mergeDiscoveredModels(existing: readonly AiModelConfig[], discov
     if (known.has(d.id)) {continue;}
     const added: AiModelConfig = {
       id: d.id,
-      enabled: true,
+      enabled: addEnabled,
       capabilities: completeCapabilities(d.capabilities, d.id, kind),
       capabilitiesSource: d.source,
     };

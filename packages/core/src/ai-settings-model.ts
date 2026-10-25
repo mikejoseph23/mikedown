@@ -21,8 +21,10 @@ import {
   localityMismatch,
   mergeDiscoveredModels,
   missingCapabilities,
+  presetForEngine,
   resolveRoute,
   serializeAiSettings,
+  withThinkingLevel,
 } from './ai';
 import type {
   AiCapabilityFlag,
@@ -32,14 +34,18 @@ import type {
   AiEngineKind,
   AiEnginePreset,
   AiEngineStatus,
+  AiErrorCode,
   AiLocality,
   AiModelCapabilities,
   AiModelConfig,
+  AiPopularRule,
+  AiPresetFamily,
   AiRoute,
   AiRouteResolution,
   AiServedBy,
   AiSettings,
   AiSettingsPatch,
+  AiThinkingLevel,
   MikeDownAiHost,
 } from './ai';
 
@@ -143,11 +149,11 @@ export function engineFromPreset(preset: AiEnginePreset, existingIds: Iterable<s
   return engine;
 }
 
-/** Group presets for the Add engine menu by where they run. */
+/** Group presets for the quick-start cards by family (where they run). */
 export function groupPresets(presets: readonly AiEnginePreset[]): { local: AiEnginePreset[]; cloud: AiEnginePreset[] } {
   const local: AiEnginePreset[] = [];
   const cloud: AiEnginePreset[] = [];
-  for (const p of presets) {(detectLocality(p.baseUrl) === 'local' ? local : cloud).push(p);}
+  for (const p of presets) {(p.family === 'local' ? local : cloud).push(p);}
   return { local, cloud };
 }
 
@@ -578,4 +584,389 @@ export function aiIndicatorState(input: AiIndicatorInput): AiIndicatorState | nu
     fallback: r.viaFallback,
     warn,
   };
+}
+
+// ── Express engine form ─────────────────────────────────────────────────────
+
+/** What the Express form needs to know about an engine's preset, real or inferred. */
+export interface EngineFormPreset {
+  /** Preset id, or `custom` for an engine no preset fits. */
+  id: string;
+  /** Preset name ("LM Studio"), used in failure copy. */
+  name: string;
+  family: AiPresetFamily;
+  needsKey: boolean;
+  keyHint: string;
+  popular: readonly AiPopularRule[];
+}
+
+/**
+ * The preset behind a saved engine (see `presetForEngine`), or a stand-in
+ * whose family follows the engine's locality: a hand-made engine on a cloud
+ * address gets the cloud form.
+ */
+export function enginePreset(engine: AiEngineConfig, localNetworks: readonly string[]): EngineFormPreset {
+  const p = presetForEngine(engine);
+  if (p) {return { id: p.id, name: p.name, family: p.family, needsKey: p.needsKey, keyHint: p.keyHint, popular: p.popular ?? [] };}
+  const family: AiPresetFamily = engineLocality(engine, localNetworks) === 'local' ? 'local' : 'cloud';
+  return {
+    id: 'custom',
+    name: engineDisplayName(engine),
+    family,
+    needsKey: family === 'cloud',
+    keyHint: family === 'cloud' ? 'The API key from the provider’s console.' : 'Leave blank if the server has no auth.',
+    popular: [],
+  };
+}
+
+export type ExpressField = 'name' | 'key' | 'baseUrl' | 'models' | 'defaultModel' | 'thinking' | 'enabled';
+export type AdvancedField = 'kind' | 'baseUrl' | 'locality' | 'key' | 'keyEnv' | 'keyFile' | 'discovery' | 'modelsTable';
+
+/**
+ * Which fields the Express form shows for a preset (design call 1), in
+ * order, and which sit under Advanced. Cloud: the key, never the URL. Local:
+ * the URL, and the key only when the server expects one (or for Custom);
+ * otherwise the key moves under Advanced, so nothing is lost.
+ */
+export function expressFields(preset: Pick<EngineFormPreset, 'id' | 'family' | 'needsKey'>): { express: ExpressField[]; advanced: AdvancedField[] } {
+  if (preset.family === 'cloud') {
+    return {
+      express: ['name', 'key', 'models', 'defaultModel', 'thinking', 'enabled'],
+      advanced: ['kind', 'baseUrl', 'locality', 'keyEnv', 'keyFile', 'discovery', 'modelsTable'],
+    };
+  }
+  const keyExpress = preset.needsKey || preset.id === 'custom';
+  return {
+    express: keyExpress
+      ? ['name', 'baseUrl', 'key', 'models', 'defaultModel', 'thinking', 'enabled']
+      : ['name', 'baseUrl', 'models', 'defaultModel', 'thinking', 'enabled'],
+    advanced: keyExpress
+      ? ['kind', 'locality', 'keyEnv', 'keyFile', 'discovery', 'modelsTable']
+      : ['kind', 'locality', 'key', 'keyEnv', 'keyFile', 'discovery', 'modelsTable'],
+  };
+}
+
+export interface ModelPickerOption {
+  id: string;
+  /** Display name (label or id). */
+  name: string;
+  /** The label differs from the id (the row shows both). */
+  hasLabel: boolean;
+  enabled: boolean;
+  loaded: boolean;
+  missing: boolean;
+  manual: boolean;
+}
+
+/**
+ * The models picker's rows: filtered by id or label (case-insensitive),
+ * loaded models first on LM Studio, models the server no longer lists last;
+ * otherwise in the engine's order.
+ */
+export function modelPickerOptions(engine: AiEngineConfig, status: AiEngineStatus | undefined, filter = ''): ModelPickerOption[] {
+  const loaded = new Map((status?.models ?? []).map((m) => [m.id, !!m.loaded]));
+  const needle = filter.trim().toLowerCase();
+  const rows = engine.models
+    .map((m, index): ModelPickerOption & { index: number } => ({
+      id: m.id,
+      name: modelDisplayName(m),
+      hasLabel: !!m.label?.trim() && m.label.trim() !== m.id,
+      enabled: m.enabled,
+      loaded: loaded.get(m.id) ?? false,
+      missing: !!(m.missing || status?.models.find((s) => s.id === m.id)?.missing),
+      manual: !!m.manual,
+      index,
+    }))
+    .filter((o) => !needle || o.id.toLowerCase().includes(needle) || o.name.toLowerCase().includes(needle));
+  const rank = (o: ModelPickerOption) => (o.missing ? 2 : engine.kind === 'lmstudio' && o.loaded ? 0 : 1);
+  rows.sort((a, b) => rank(a) - rank(b) || a.index - b.index);
+  return rows.map(({ index: _index, ...o }) => o);
+}
+
+/** "312 models, 2 picked". Missing models are not counted. */
+export function modelCountLine(engine: AiEngineConfig): string {
+  const listed = engine.models.filter((m) => !m.missing);
+  const picked = listed.filter((m) => m.enabled).length;
+  if (listed.length === 0) {return 'No models yet';}
+  return `${listed.length} ${listed.length === 1 ? 'model' : 'models'}, ${picked} picked`;
+}
+
+/**
+ * Merge a discovery with OPEN-12's enabled rule: on a local engine new
+ * models arrive enabled; on a cloud engine they arrive off unless `picked`
+ * names them. Models already in the engine keep their own `enabled`.
+ */
+export function applyDiscoveryForFamily(
+  engine: AiEngineConfig,
+  status: AiEngineStatus,
+  family: AiPresetFamily,
+  picked: Iterable<string> = [],
+): AiEngineConfig {
+  const merged = mergeDiscoveryStatus(engine, status);
+  if (family === 'local') {return merged;}
+  const before = new Set(engine.models.map((m) => m.id));
+  const pick = new Set(picked);
+  return {
+    ...merged,
+    models: merged.models.map((m) => (before.has(m.id) ? m : { ...m, enabled: pick.has(m.id) })),
+  };
+}
+
+/** Numbers in an id, split into a version (short numbers) and a date stamp (6+ digits). */
+function versionOf(id: string): { version: number[]; date: number } {
+  const version: number[] = [];
+  let date = 0;
+  for (const n of id.match(/\d+/g) ?? []) {
+    if (n.length >= 6) {date = Math.max(date, Number(n));} else {version.push(Number(n));}
+  }
+  return { version, date };
+}
+
+/** Negative when `a` should rank first: a `prefer` match (a `-latest` alias), then the newer version. */
+function compareNewest(a: string, b: string, prefer?: RegExp): number {
+  if (prefer) {
+    const pa = prefer.test(a) ? 0 : 1;
+    const pb = prefer.test(b) ? 0 : 1;
+    if (pa !== pb) {return pa - pb;}
+  }
+  const va = versionOf(a);
+  const vb = versionOf(b);
+  for (let i = 0; i < Math.max(va.version.length, vb.version.length); i++) {
+    const d = (vb.version[i] ?? 0) - (va.version[i] ?? 0);
+    if (d !== 0) {return d;}
+  }
+  // An undated alias outranks its dated snapshots; among snapshots, the latest date.
+  if (va.date !== vb.date) {return va.date === 0 ? -1 : vb.date === 0 ? 1 : vb.date - va.date;}
+  return a.length - b.length || a.localeCompare(b);
+}
+
+/**
+ * The Popular group: for each of the preset's rules, the newest listed model
+ * that matches, in rule order. No hardcoded ids: whatever the endpoint lists
+ * today decides.
+ */
+export function popularModels<M extends Pick<AiModelConfig, 'id'> & { missing?: boolean }>(
+  preset: Pick<EngineFormPreset, 'popular'> | Pick<AiEnginePreset, 'popular'>,
+  models: readonly M[],
+): M[] {
+  const out: M[] = [];
+  for (const rule of preset.popular ?? []) {
+    const hits = models.filter((m) => !m.missing && rule.match.test(m.id) && !(rule.exclude?.test(m.id)) && !out.includes(m));
+    if (hits.length === 0) {continue;}
+    out.push(hits.slice().sort((a, b) => compareNewest(a.id, b.id, rule.prefer))[0]);
+  }
+  return out;
+}
+
+/**
+ * The model to pick after a cloud engine's first fetch: the first Popular
+ * model that can chat, else the only chat model when there is just one.
+ * Null when there is nothing sensible to guess.
+ */
+export function autoPickDefault(
+  preset: Pick<EngineFormPreset, 'popular'> | Pick<AiEnginePreset, 'popular'>,
+  models: readonly AiModelConfig[],
+): string | null {
+  const chat = (m: AiModelConfig) => !m.missing && m.capabilities.chat;
+  const popular = popularModels(preset, models).find(chat);
+  if (popular) {return popular.id;}
+  const chatModels = models.filter(chat);
+  return chatModels.length === 1 ? chatModels[0].id : null;
+}
+
+/**
+ * The engine's Default model: the default route's model when this is the
+ * default engine, else its first enabled model that is still listed (which
+ * is what the star picks). Null when nothing is enabled.
+ */
+export function engineDefaultModelId(settings: AiSettings, engineId: string): string | null {
+  const engine = settings.engines.find((e) => e.id === engineId);
+  if (!engine) {return null;}
+  const def = settings.routing.default;
+  if (def?.engineId === engineId && engine.models.some((m) => m.id === def.modelId)) {return def.modelId;}
+  return engine.models.find((m) => m.enabled && !m.missing)?.id ?? null;
+}
+
+/**
+ * Make a model the engine's Default model: it is enabled and moved first
+ * (so the star and a routing row pick it, no new settings key), and it
+ * becomes the default route when this is the default engine or no default
+ * route exists yet.
+ */
+export function setEngineDefaultModel(settings: AiSettings, engineId: string, modelId: string): AiSettings {
+  const engine = settings.engines.find((e) => e.id === engineId);
+  const model = engine?.models.find((m) => m.id === modelId);
+  if (!engine || !model) {return settings;}
+  const models = [{ ...model, enabled: true }, ...engine.models.filter((m) => m.id !== modelId)];
+  const next = withEngine(settings, { ...engine, models });
+  const def = settings.routing.default;
+  if (!def || def.engineId === engineId) {
+    return { ...next, routing: { ...next.routing, default: { ...(def ?? {}), engineId, modelId } } };
+  }
+  return next;
+}
+
+/**
+ * Turn one model on or off in the picker. Picking a chat model while no
+ * default route exists makes it the default (key = done, without a trip to
+ * the star); turning off the default route's model moves the route to the
+ * engine's next enabled model (or clears it).
+ */
+export function setModelPicked(settings: AiSettings, engineId: string, modelId: string, enabled: boolean): AiSettings {
+  const engine = settings.engines.find((e) => e.id === engineId);
+  const model = engine?.models.find((m) => m.id === modelId);
+  if (!engine || !model) {return settings;}
+  const next = withEngine(settings, withModel(engine, { ...model, enabled }));
+  const def = next.routing.default;
+  if (enabled && !def && model.capabilities.chat && engine.enabled) {
+    return { ...next, routing: { ...next.routing, default: { engineId, modelId } } };
+  }
+  if (enabled || def?.engineId !== engineId || def.modelId !== modelId) {return next;}
+  const replacement = next.engines.find((e) => e.id === engineId)?.models.find((m) => m.enabled && !m.missing);
+  return { ...next, routing: { ...next.routing, default: replacement ? { ...def, modelId: replacement.id } : null } };
+}
+
+/** Set (or with null, clear) a model's thinking level inside its `requestOverrides`. */
+export function setModelThinking(model: AiModelConfig, kind: string, level: AiThinkingLevel | null, local: boolean): AiModelConfig {
+  const next: AiModelConfig = { ...model };
+  const overrides = withThinkingLevel(kind, model.requestOverrides, level, { local });
+  if (overrides) {next.requestOverrides = overrides;} else {delete next.requestOverrides;}
+  return next;
+}
+
+// ── Auto-fetch ──────────────────────────────────────────────────────────────
+
+/** What can set off a model fetch in the Express form. */
+export type AutoFetchEvent = 'open' | 'key' | 'url' | 'manual' | 'retry' | 'save';
+
+/** A snapshot of the form fields that matter for fetching, plus the event that changed them. */
+export interface AutoFetchState {
+  event: AutoFetchEvent;
+  family: AiPresetFamily;
+  /** What is in the key field (not the stored key, which the form never sees). */
+  key: string;
+  baseUrl: string;
+  discovery: 'auto' | 'manual';
+  /** The host has never probed or discovered this engine. */
+  neverProbed?: boolean;
+  /** The URL or key the last fetch ran for, so a blur without a change does not fetch again. */
+  fetchedFor?: string;
+}
+
+export interface AutoFetchDecision {
+  fetch: boolean;
+  /** Wait this long first (a settling key); 0 runs now. */
+  delayMs: number;
+  /** Store the key field through `setSecret` before discovering (discovery reads the stored key). */
+  storeKey: boolean;
+  /** Drop a scheduled or running fetch (a newer trigger, or the key was emptied). */
+  cancelPending: boolean;
+  /** Value to remember as `fetchedFor` once the fetch runs. */
+  fingerprint: string;
+}
+
+/** How long the key field must settle before it is stored and models are fetched (design call 3). */
+export const AUTO_FETCH_KEY_DELAY_MS = 600;
+
+/** What a fetch ran for: the key field on a cloud engine, the URL on a local one. */
+export function fetchFingerprint(family: AiPresetFamily, key: string, baseUrl: string): string {
+  return family === 'cloud' ? `key:${key.trim()}` : `url:${baseUrl.trim()}`;
+}
+
+const NO_FETCH = (cancelPending: boolean, fingerprint = ''): AutoFetchDecision => ({ fetch: false, delayMs: 0, storeKey: false, cancelPending, fingerprint });
+
+/**
+ * When the Express form fetches models (design call 3), as plain data so
+ * tests need no timers. Cloud: 600 ms after the key field settles on a new,
+ * non-empty value, storing the key first. Local: when the URL changes (on
+ * change or blur) to a new valid address, and when the form opens for an
+ * engine the host never probed. Manual and Retry always run (the user
+ * asked). A plain save never fetches; `discovery: manual` never auto-fetches.
+ */
+export function autoFetchDecision(prev: AutoFetchState | null, next: AutoFetchState): AutoFetchDecision {
+  const urlOk = !baseUrlProblem(next.baseUrl);
+  const key = next.key.trim();
+  const cloudFingerprint = fetchFingerprint('cloud', key, next.baseUrl);
+  const localFingerprint = fetchFingerprint('local', key, next.baseUrl);
+  const fingerprint = next.family === 'cloud' ? cloudFingerprint : localFingerprint;
+  if (next.event === 'save') {return NO_FETCH(false);}
+  if (next.event === 'manual' || next.event === 'retry') {
+    if (!urlOk || next.discovery === 'manual') {return NO_FETCH(false);}
+    return { fetch: true, delayMs: 0, storeKey: next.family === 'cloud' ? !!key : false, cancelPending: true, fingerprint };
+  }
+  if (next.discovery === 'manual' || !urlOk) {return NO_FETCH(next.event === 'key' && !key);}
+  if (next.family === 'cloud') {
+    if (next.event !== 'key') {return NO_FETCH(false);}
+    if (!key) {return NO_FETCH(true);}
+    const already = (next.fetchedFor ?? prev?.fetchedFor) === cloudFingerprint;
+    if (already || (prev && prev.key.trim() === key && prev.event === 'key')) {return NO_FETCH(false, cloudFingerprint);}
+    return { fetch: true, delayMs: AUTO_FETCH_KEY_DELAY_MS, storeKey: true, cancelPending: true, fingerprint: cloudFingerprint };
+  }
+  if (next.event === 'open') {
+    return next.neverProbed
+      ? { fetch: true, delayMs: 0, storeKey: false, cancelPending: true, fingerprint: localFingerprint }
+      : NO_FETCH(false, localFingerprint);
+  }
+  if (next.event === 'url') {
+    if ((next.fetchedFor ?? prev?.fetchedFor) === localFingerprint) {return NO_FETCH(false, localFingerprint);}
+    return { fetch: true, delayMs: 0, storeKey: false, cancelPending: true, fingerprint: localFingerprint };
+  }
+  // A key typed into a local engine's field is stored, but the URL drives fetching.
+  return NO_FETCH(false);
+}
+
+// ── Fetch failures ──────────────────────────────────────────────────────────
+
+export interface DiscoveryProblem {
+  kind: 'unreachable' | 'auth' | 'empty' | 'other';
+  text: string;
+  /** Put focus back here (the key field after a rejected key). */
+  focus?: 'key';
+  /** Offer Retry. */
+  retry: boolean;
+}
+
+const AUTH_TEXT = /\bHTTP 40[13]\b|unauthori[sz]ed|forbidden|invalid[^.]*\bkey|incorrect[^.]*\bkey|api key|authentication/i;
+const UNREACHABLE_TEXT = /could not reach|no answer|timed out|ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|fetch failed|connection refused|network/i;
+
+/** The host's error code when it gave one, else read from the message (statuses carry text only). */
+export function discoveryErrorCode(code: AiErrorCode | undefined, message: string | undefined): AiErrorCode {
+  if (code && code !== 'unknown') {return code;}
+  const text = message ?? '';
+  if (AUTH_TEXT.test(text)) {return 'auth';}
+  if (UNREACHABLE_TEXT.test(text)) {return 'unreachable';}
+  return 'unknown';
+}
+
+/**
+ * The inline message under Models after a fetch (design call 4), or null
+ * when it went fine. Every failure still lets the user type a model id.
+ */
+export function discoveryProblem(input: {
+  family: AiPresetFamily;
+  presetName: string;
+  baseUrl: string;
+  ok: boolean;
+  code?: AiErrorCode;
+  message?: string;
+  /** Models the server listed (missing ones excluded). */
+  listed: number;
+}): DiscoveryProblem | null {
+  if (input.ok) {
+    return input.listed === 0
+      ? { kind: 'empty', text: 'Server is up but no models are loaded.', retry: true }
+      : null;
+  }
+  const code = discoveryErrorCode(input.code, input.message);
+  if (code === 'auth') {
+    return { kind: 'auth', text: `Key rejected by ${shortUrl(input.baseUrl)}.`, focus: 'key', retry: true };
+  }
+  if (code === 'unreachable' && input.family === 'local') {
+    const name = input.presetName.startsWith('Custom') ? 'the server' : input.presetName;
+    return { kind: 'unreachable', text: `Nothing answered at ${input.baseUrl.trim()}. Is ${name} running?`, retry: true };
+  }
+  if (code === 'unreachable') {
+    return { kind: 'unreachable', text: `Could not reach ${shortUrl(input.baseUrl)}.`, retry: true };
+  }
+  return { kind: 'other', text: input.message ? `Could not fetch models: ${input.message}` : 'Could not fetch models.', retry: true };
 }

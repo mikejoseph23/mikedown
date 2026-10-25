@@ -18,3 +18,4 @@ export * from './requests';
 export * from './wire';
 export * from './errors';
 export * from './presets';
+export * from './thinking';
