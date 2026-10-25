@@ -37,6 +37,9 @@ const AUTOLINK_EMAIL =
  */
 const HTML_OPENER = /^<(?:[A-Za-z][A-Za-z0-9-]*[\s/>]|\/[A-Za-z][A-Za-z0-9-]*[\s>]|!--|![A-Za-z]|!\[CDATA\[|\?)/;
 
+/** `[ ]` / `[x]` not followed by `(` or `[`, so it can't become a link. */
+const TABLE_CHECKBOX = /^\[[ xX]\](?![([])/;
+
 /** Named / decimal / hex character reference, e.g. `&amp;` `&#60;` `&#x3C;`. */
 const ENTITY = /^&(?:#[0-9]{1,7}|#[xX][0-9A-Fa-f]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});/;
 
@@ -79,6 +82,16 @@ export function escapeMarkdownText(line: string, opts: MarkdownEscapeOptions = {
       case '\\':
       case '~':
       case '[':
+        // A table-cell `[ ]` / `[x]` is a checkbox (tablecheckbox.ts). Keep it
+        // bare so toggling one doesn't save `\[x\]`; not when `(` or `[`
+        // follows, where it would start a link.
+        if (opts.inTable && TABLE_CHECKBOX.test(line.slice(i))) {
+          out += line.slice(i, i + 3);
+          i += 2;
+          break;
+        }
+        out += '\\' + ch;
+        break;
       case ']':
         out += '\\' + ch;
         break;

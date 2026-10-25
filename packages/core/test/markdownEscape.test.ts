@@ -82,6 +82,12 @@ describe('escapeMarkdownText', () => {
     expect(escapeMarkdownText('a | b', { inTable: true })).toBe('a \\| b');
   });
 
+  it('keeps table-cell checkboxes bare but still escapes link-like brackets', () => {
+    expect(escapeMarkdownText('[ ] todo [x] done [X]', { inTable: true })).toBe('[ ] todo [x] done [X]');
+    expect(escapeMarkdownText('[x](url) [x][ref] [ab]', { inTable: true })).toBe('\\[x\\](url) \\[x\\]\\[ref\\] \\[ab\\]');
+    expect(escapeMarkdownText('[x] outside a table')).toBe('\\[x\\] outside a table');
+  });
+
   it('treats every line after the first as a line start', () => {
     expect(escapeMarkdownRun('ok\n- item')).toBe('ok\n\\- item');
     expect(escapeMarkdownRun('- a\n- b', { startOfLine: true })).toBe('\\- a\n\\- b');

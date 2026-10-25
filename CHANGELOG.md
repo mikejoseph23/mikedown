@@ -6,6 +6,7 @@ All notable changes to MikeDown Editor are documented here.
 
 ### Fixed
 
+- Checkboxes in table cells save as `[ ]` / `[x]` again. Toggling one (or any edit in the document) used to write them as `\[x\]`, which other Markdown renderers show with the backslashes.
 - Completed task text is easier to read: it uses the muted text color instead of fading, so it keeps at least 4.5:1 contrast in light and dark themes while still looking done (struck through and dimmed).
 - Task checkboxes are named after their item for screen readers (checkboxes in table cells read "Task done"), and each one now has a 24 by 24px click and touch target. The box looks the same size as before.
 - Toolbar buttons that show text (the "Aa"/"H1" text format menu and the font size readout) now have screen reader names that start with that text, so voice control users can say what they see. Toolbar icons are hidden from assistive technology.
