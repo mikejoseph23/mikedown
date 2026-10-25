@@ -32,7 +32,7 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | M2 VS Code host: adapters, secrets, settings, protocol | Opus | ✅ Done | 16 | `src/ai/` |
 | T2 Host tests: adapters with mocked fetch, live opt-in run | Sonnet | 🔄 In Progress | — | `MIKEDOWN_AI_LIVE=1` |
 | M3 Settings UI: AI tab, engine editor, routing, indicator | Opus | 🔄 In Progress | — | core, all hosts |
-| M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | 🔄 In Progress | — | reqwest + keyring |
+| M4 Desktop: Rust `ai_*` commands, keyring, TauriHost `ai` | Sonnet | ✅ Done | 18 | reqwest + keyring |
 | T3 Desktop tests: cargo fixtures, Tauri smoke | Sonnet | ⬜ Not Started | — | shared fixtures |
 | M5 Proof feature: selection rewrite with preview popover | Opus | ⬜ Not Started | — | feature id `rewrite` |
 | M6 npm consumers: wrappers, demo stub host, docs | Sonnet | ⬜ Not Started | — | website demo |
@@ -482,15 +482,15 @@ Host to webview:
 
 > Workers must complete ALL items in this list. Follow the shape of `src/commands/fs.rs` and the updater commands; keys never reach the webview.
 
-- [ ] `Cargo.toml`: `reqwest` (features `json`, `stream`, `rustls-tls`), `futures-util`, `keyring`, `tokio` features as needed.
-- [ ] `src-tauri/src/commands/ai.rs`: `ai_complete(request) -> request_id` streaming `ai-token:<id>`, `ai-done:<id>`, `ai-error:<id>` events to the calling window; `ai_cancel(id)`; `ai_list_engines`; `ai_test_engine(id)`; `ai_discover_models(id)`; `ai_set_secret(id, key)`; `ai_request_cloud_consent(id)` using the dialog plugin; registered in `lib.rs`.
-- [ ] `src-tauri/src/commands/ai/providers/{openai_compatible,lmstudio,ollama,anthropic,openai}.rs` behind a `ProviderAdapter` trait mirroring the TS interface; SSE parsing and request building ported from core's pure modules.
-- [ ] Secrets via `keyring` (service `net.iadev.mikedown`, account engine id); `apiKeyEnv` fallback with a note that Dock launches have a sparse environment.
-- [ ] Consent store per folder in the existing folder settings file (`ai.consent.<engineId>`), app-wide `allowCloud`.
-- [ ] `packages/desktop/src/settings/schema.ts`: `ai.*` keys in `DESKTOP_KEY_DEFAULTS`; `engines` app-wide only (OPEN-4).
-- [ ] `packages/desktop/src/host/tauriHost.ts`: implement `MikeDownAiHost` (tier 2) with `invoke` plus event listeners keyed by request id, unlisten on done/error/cancel.
-- [ ] Capabilities file: no new permissions needed for app commands; document in `default.json`'s description that AI network calls go through `commands/ai.rs` only.
-- [ ] Multi-window: in-flight requests are per window; closing a window cancels its requests.
+- [x] `Cargo.toml`: `reqwest` (features `json`, `stream`, `rustls-tls`), `futures-util`, `keyring`, `tokio` features as needed.
+- [x] `src-tauri/src/commands/ai.rs`: `ai_complete(request) -> request_id` streaming `ai-token:<id>`, `ai-done:<id>`, `ai-error:<id>` events to the calling window; `ai_cancel(id)`; `ai_list_engines`; `ai_test_engine(id)`; `ai_discover_models(id)`; `ai_set_secret(id, key)`; `ai_request_cloud_consent(id)` using the dialog plugin; registered in `lib.rs`.
+- [x] `src-tauri/src/commands/ai/providers/{openai_compatible,lmstudio,ollama,anthropic,openai}.rs` behind a `ProviderAdapter` trait mirroring the TS interface; SSE parsing and request building ported from core's pure modules.
+- [x] Secrets via `keyring` (service `net.iadev.mikedown`, account engine id); `apiKeyEnv` fallback with a note that Dock launches have a sparse environment.
+- [x] Consent store per folder in the existing folder settings file (`ai.consent.<engineId>`), app-wide `allowCloud`.
+- [x] `packages/desktop/src/settings/schema.ts`: `ai.*` keys in `DESKTOP_KEY_DEFAULTS`; `engines` app-wide only (OPEN-4).
+- [x] `packages/desktop/src/host/tauriHost.ts`: implement `MikeDownAiHost` (tier 2) with `invoke` plus event listeners keyed by request id, unlisten on done/error/cancel.
+- [x] Capabilities file: no new permissions needed for app commands; document in `default.json`'s description that AI network calls go through `commands/ai.rs` only.
+- [x] Multi-window: in-flight requests are per window; closing a window cancels its requests.
 
 [Return to Top](#ai-inference-engines-plan)
 
@@ -642,5 +642,7 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 15:45** - T1 done (`ea462de`, 8 min). Six new test files, 213 tests, no source bugs found. Commands: `npm run test:unit` 1823 passed (verified on branch), `npm run test:packages` 75 passed. Group A (M2, M3, M4) dispatched in parallel, each in its own worktree off the branch.
 
 **2026-10-25 16:05** - M2 done (`ce8db45`, 16 min), fast-forwarded into `ai-engines`; main-tree check: `npm run compile` ok, `npm run test:unit` 1867 passed. `engines`/`localNetworks` are `scope: machine`; a workspace can turn `allowCloud` off but not on. Contract additions: non-image wire messages carry a `requestId`; `VsCodeHost.onAiEngines` push listener (non-contract, decide before M5); "Not now" consent is not stored. M5 should re-resolve and retry once after an `unreachable` before the first token so fallback works on the first attempt. Discovery writes merged models to settings itself (relayed to M3).
+
+**2026-10-25 16:15** - M4 done (`f000f82`, 18 min), cherry-picked onto `ai-engines` as `900766b`. Verified on branch: `npm run test:unit` 1892 passed, Desktop typecheck clean and unit 559 passed, `cargo test` 166 + 26 + 7 passed. `ai.localNetworks` also app-wide (with engines and `allowCloud`) so a folder file cannot relabel a public host as local. Host lives in `src/host/aiHost.ts`, exposed as `TauriHost.ai`. No `embed`/`transcribe` on Desktop yet. **M7 blocker:** Desktop dist-mode `vite build` fails until core with `./ai` is published and the Desktop core pin is bumped.
 
 [Return to Top](#ai-inference-engines-plan)
