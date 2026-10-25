@@ -61,7 +61,7 @@ export function buildMenuSpec(isMac: boolean, opts: MenuSpecOptions = {}): MenuN
       i('openContainingFolder'), i('reveal'), sep,
       { kind: 'submenu', label: 'Export', items: [i('exportHtml'), i('exportPdf')] },
       i('print'), sep,
-      ...(isMac ? [] : [i('openSettings'), sep]),
+      ...(isMac ? [] : [i('openSettings'), i('openAiSettings'), sep]),
       i('closeTab'), i('closeWindow'),
       ...(isMac ? [] : [sep, i('quit')]),
     ],
@@ -133,7 +133,7 @@ export function buildMenuSpec(isMac: boolean, opts: MenuSpecOptions = {}): MenuN
     label: 'MikeDown',
     items: [
       pre('about'), sep,
-      i('openSettings'), sep,
+      i('openSettings'), i('openAiSettings'), sep,
       pre('services'), sep,
       pre('hide'), pre('hideOthers'), pre('showAll'), sep,
       i('quit'),

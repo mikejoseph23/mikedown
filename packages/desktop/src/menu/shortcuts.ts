@@ -37,7 +37,7 @@ import type { MikeDownCommand } from '@mikedown/core';
 
 /** Commands `main.ts` runs itself (everything that is not an editor command). */
 export const APP_COMMANDS = [
-  'save', 'saveAs', 'saveAll', 'open', 'toggleSource', 'openSettings', 'openContainingFolder', 'openFolder',
+  'save', 'saveAs', 'saveAll', 'open', 'toggleSource', 'openSettings', 'openAiSettings', 'openContainingFolder', 'openFolder',
   'toggleSidebar', 'focusSidebar', 'toggleOutline', 'newDocument', 'closeTab', 'nextTab', 'prevTab', 'splitRight', 'splitDown',
   'newWindow', 'print', 'searchFolder',
   // M8
@@ -110,6 +110,8 @@ export const COMMANDS: readonly ShortcutRow[] = [
   // macOS uses the native About panel (a predefined item); Windows lists About under Help.
   { command: 'about', label: 'About MikeDown', platform: 'other' },
   { command: 'openSettings', accelerator: 'CmdOrCtrl+,', label: 'Settings…', when: 'always' },
+  // Desktop's AI host always has an engine registry (tier 2), so this is never hidden.
+  { command: 'openAiSettings', label: 'AI Engines…', when: 'always' },
   { command: 'quit', accelerator: 'CmdOrCtrl+Q', label: 'Quit MikeDown', keys: 'os', platform: 'mac' },
   { command: 'quit', accelerator: 'Alt+F4', label: 'Exit', keys: 'os', platform: 'other' },
   { command: 'newDocument', accelerator: 'CmdOrCtrl+N', label: 'New File' },

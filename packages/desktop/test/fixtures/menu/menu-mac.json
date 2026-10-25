@@ -17,6 +17,11 @@
         "accelerator": "CmdOrCtrl+,"
       },
       {
+        "kind": "item",
+        "id": "openAiSettings",
+        "label": "AI Engines…"
+      },
+      {
         "kind": "separator"
       },
       {

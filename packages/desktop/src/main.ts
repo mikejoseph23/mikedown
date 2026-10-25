@@ -1100,6 +1100,11 @@ const actions: Record<AppCommand, () => void> = {
     if (handle) {handle.command('openSettings');}
     else {dialogs.toast('Open or create a document to change settings.');}
   },
+  openAiSettings: () => {
+    const handle = panes.activeHandle();
+    if (handle) {handle.command('openAiSettings', { page: true });}
+    else {dialogs.toast('Open or create a document to manage AI engines.');}
+  },
   openContainingFolder: () => controller.openContainingFolder(),
   openFolder: () => { void openFolderViaDialog(); },
   toggleSidebar: () => sidebar.toggle(),

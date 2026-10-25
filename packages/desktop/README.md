@@ -70,7 +70,7 @@ Rust edits rebuild and relaunch the window.
   file, the same path a double-click or `open -a MikeDown file.md` takes.
 - App shortcuts live in one table, `src/menu/shortcuts.ts`
   (`hostOwnsShortcuts: true`): `Cmd+S` save, `Cmd+Shift+S` Save As, `Cmd+O`
-  open, `Cmd+/` source mode, `Cmd+,` Settings, `Cmd+Shift+O` Open Containing
+  open, `Cmd+/` source mode, `Cmd+,` Settings (the item after it, AI Engines…, has no chord and opens the AI Engines page), `Cmd+Shift+O` Open Containing
   Folder, `Cmd+Alt+O` Open Folder, `Cmd+B` toggle the folder sidebar (only
   when focus is outside the editor, where `Cmd+B` stays Bold), `Cmd+Shift+E`
   show the sidebar and focus the tree, `Cmd+Shift+F` search the opened folder

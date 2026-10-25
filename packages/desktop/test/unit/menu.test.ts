@@ -111,9 +111,14 @@ describe('command table', () => {
     const sub = (spec: MenuNode[], label: string) => spec.find((n) => n.kind === 'submenu' && n.label === label) as Extract<MenuNode, { kind: 'submenu' }>;
     expect(mac.map((n) => (n.kind === 'submenu' ? n.label : ''))).toEqual(['MikeDown', 'File', 'Edit', 'Format', 'View', 'Window', 'Help']);
     expect(win.map((n) => (n.kind === 'submenu' ? n.label : ''))).toEqual(['File', 'Edit', 'Format', 'View', 'Window', 'Help']);
-    expect(menuIds(sub(mac, 'MikeDown').items)).toEqual(['openSettings', 'quit']);
+    expect(menuIds(sub(mac, 'MikeDown').items)).toEqual(['openSettings', 'openAiSettings', 'quit']);
     expect(menuIds(sub(mac, 'File').items)).not.toContain('openSettings');
     expect(menuIds(sub(win, 'File').items)).toContain('openSettings');
+    const winFile = menuIds(sub(win, 'File').items);
+    expect(winFile.indexOf('openAiSettings')).toBe(winFile.indexOf('openSettings') + 1);
+    expect(menuIds(sub(mac, 'MikeDown').items).indexOf('openAiSettings')).toBe(1);
+    expect(rowFor('openAiSettings', true)).toMatchObject({ label: 'AI Engines…', when: 'always' });
+    expect(rowFor('openAiSettings', true)?.accelerator).toBeUndefined();
     expect(menuIds(sub(win, 'File').items).at(-1)).toBe('quit');
     expect(menuIds(sub(win, 'Help').items)).toContain('about');
     const quit = (spec: MenuNode[]) => JSON.stringify(spec).match(/"id":"quit","label":"([^"]+)","accelerator":"([^"]+)"/)?.slice(1);
@@ -174,7 +179,7 @@ describe('when clauses', () => {
     for (const id of ['save', 'saveAs', 'closeTab', 'toggleBold', 'heading1', 'print', 'exportHtml', 'reveal', 'searchFolder', 'splitRight']) {
       expect(state[id], id).toBe(false);
     }
-    for (const id of ['openSettings', 'open', 'openFolder', 'newDocument', 'newWindow', 'welcome', 'quit']) {
+    for (const id of ['openSettings', 'openAiSettings', 'open', 'openFolder', 'newDocument', 'newWindow', 'welcome', 'quit']) {
       expect(state[id], id).toBe(true);
     }
   });
