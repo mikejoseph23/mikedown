@@ -44,8 +44,8 @@
 | [M13 — VS Code page refresh and cross-links](#m13--vs-code-page-refresh-and-cross-links) | Opus | ✅ Complete | 14 | UI design |
 | [M14 — READMEs](#m14--readmes) | Sonnet | ✅ Complete | 3 | Root (Marketplace listing) + per package |
 | [T3 — Website and docs verification](#t3--website-and-docs-verification) | Sonnet | ✅ Complete | 7 | link check + hands-on |
-| [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | 🔄 Awaiting Mike publish | 6 | Mike runs publish and deploy |
-| [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | ⬜ Not Started | — | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
+| [M15 — Publish the 0.2.0 family and the site](#m15--publish-the-020-family-and-the-site) | Sonnet | ✅ Complete | 6 | Mike runs publish and deploy |
+| [M16 — Downstream onto `@mikedown/angular`](#m16--downstream-onto-mikedownangular) | Sonnet | 🔄 In Progress | — | LymeStarter + Quantico assistant onto the package; legacy stays vendored |
 | [T4 — Final verification](#t4--final-verification) | Sonnet | ⬜ Not Started | — | registry smoke + production URLs |
 
 **Model Assignment Guidelines:** Haiku for mechanical/boilerplate; Sonnet for well-defined feature work; Opus for architecture, ambiguous decisions, and all front-end UI design work.
@@ -606,7 +606,7 @@ When a milestone comes back with items skipped or half done, the orchestrator wr
 
 ## Progress Log / Notes
 
-**2026-10-24 20:35** - M15: `npm view` shows 0.2.0 for core, web-component, react, vue and angular; the jsDelivr standalone bundle `@mikedown/web-component@0.2.0` returns 200. Tag `npm-v0.2.0` waits on Mike.
+**2026-10-24 20:35** - M15: `npm view` shows 0.2.0 for core, web-component, react, vue and angular; the jsDelivr standalone bundle `@mikedown/web-component@0.2.0` returns 200. Tagged `npm-v0.2.0` (`7fd982f`) and pushed.
 
 **2026-10-24 20:20** - M15: Mike published the 0.2.0 family (all five "published"; core live as `latest`, the four wrappers still 404 on the registry at 20:20, first publish of new names). Site deployed (Mike asked): `0.3.0-site.1` verify failed on one file, because Cloudflare email obfuscation rewrote `web-component@0.2.0` in the CDN snippet; fixed in `be3e303` (tag around the `@` in highlighted samples), `0.3.0-site.2` verified 195 files identical, `latest.json` still 0.3.0. All seven production pages 200.
 
