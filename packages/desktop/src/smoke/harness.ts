@@ -13,6 +13,7 @@
  * the appearance flip can be scripted from outside).
  */
 import { invoke } from '@tauri-apps/api/core';
+import { aiApi } from '../host/aiApi';
 import type { MikeDownEditorHandle } from '@mikedown/core';
 
 export interface SmokeCheck {
@@ -188,6 +189,45 @@ export async function runSmoke(handle: MikeDownEditorHandle, fixture: string): P
   await sleep(100);
   check('openSettings opens the modal', opened);
   check('Escape closes the modal', !handle.isModalOpen());
+
+  // ── AI (commands/ai.rs round-trips and the Settings AI tab) ───────────────
+  // The webview has no mock engine to talk to, so the completion check goes
+  // through the Rust route lookup and gate with an engine that does not exist;
+  // the streamed completion and cancel are covered by `cargo test` and the
+  // Playwright `ai.spec.ts`.
+  let engineCount: number | null = null;
+  try {
+    const engines = await aiApi.listEngines();
+    engineCount = Array.isArray(engines) ? engines.length : null;
+    check('ai_list_engines round-trips', engineCount !== null, `${engineCount ?? '?'} engine(s) in settings`);
+  } catch (e) {
+    check('ai_list_engines round-trips', false, String(e));
+  }
+  try {
+    const channel = await aiApi.complete({
+      requestId: 'smoke-ai-1', feature: 'smoke', task: 'smoke',
+      route: { engineId: 'smoke-no-such-engine', modelId: 'none' },
+      messages: [{ role: 'user', content: 'hi' }],
+    } as Parameters<typeof aiApi.complete>[0]);
+    check('ai_complete refuses an unknown engine with modelNotFound', false, `started channel ${channel}`);
+  } catch (e) {
+    const code = (e as { code?: string } | null)?.code;
+    check('ai_complete refuses an unknown engine with modelNotFound', code === 'modelNotFound', `code=${code ?? String(e)}`);
+  }
+  check('ai_cancel on a finished request is false, not an error', (await aiApi.cancel('smoke-ai-1').catch(() => null)) === false);
+  handle.command('openSettings');
+  await sleep(100);
+  const aiTab = Array.from(document.querySelectorAll<HTMLElement>('.settings-modal .settings-tab')).find((t) => t.textContent?.trim() === 'AI');
+  aiTab?.click();
+  await sleep(100);
+  const aiPanel = document.querySelector<HTMLElement>('.settings-modal .settings-panel--ai');
+  const aiRendered = !!aiPanel && aiPanel.getBoundingClientRect().height > 0 && /Engines/.test(aiPanel.textContent ?? '');
+  const aiRows = aiPanel?.querySelectorAll('.ai-engines [role="listitem"], .ai-engines > *').length ?? 0;
+  check('Settings modal AI tab renders', aiRendered, aiTab ? `${aiRows} engine row(s)` : 'no AI tab (host.ai missing)');
+  check('AI tab lists a configured engine', engineCount === null ? false : engineCount > 0 ? aiRows > 0 : null,
+    engineCount ? `${aiRows} row(s) for ${engineCount} engine(s)` : 'no engine configured on this machine; add one and re-run');
+  keydown(document.activeElement ?? document.body, 'Escape');
+  await sleep(100);
 
   // ── Source mode ─────────────────────────────────────────────────────────────
   const beforeSource = handle.getMarkdown();

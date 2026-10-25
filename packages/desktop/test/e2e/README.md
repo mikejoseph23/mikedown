@@ -54,6 +54,7 @@ a WebDriver spec can sit next to this one; the spec itself only needs
   toggle. `fixtures.ts` mirrors `settings_read` / `settings_write` against
   `ipc.appData` and the folder's `.mikedown/`.
 
+- `ai.spec.ts`: the Settings modal AI tab with a saved engine (and the empty state), and `host.ai` (`aiHost.ts` over `aiApi.ts`) round-tripping `listEngines`, a streamed completion and an abort mid-stream. The `ai_*` commands are answered by the spec: `ai_complete` makes a real HTTP call to a loopback engine that replays `test/ai-fixtures/sse/` and emits the `ai-token` / `ai-done` / `ai-error` events. The Rust command layer is covered by `cargo test` (`commands/ai/tests/command_layer.rs`).
 - `versions.spec.ts` (M6): three saves with changes and one without leave
   exactly three snapshots in chronological order; the version browser lists
   them, Compare opens the diff viewer, Restore dirties the buffer without a

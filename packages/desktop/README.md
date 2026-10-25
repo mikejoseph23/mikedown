@@ -167,7 +167,7 @@ Two consumers compare the OS webview against the jsdom reference:
    built with `VITE_MIKEDOWN_SMOKE=1`. It round-trips the fixture, checks the
    rendered DOM (tables, task items, callouts, KaTeX, Mermaid SVG, footnotes,
    images), types, toggles bold, inserts a table, runs `/date`, opens and
-   closes Settings, toggles source mode, pastes plain text through a synthetic
+   closes Settings, checks the AI group (`ai_list_engines`, a refused `ai_complete`, the Settings AI tab renders), toggles source mode, pastes plain text through a synthetic
    `ClipboardEvent`, fires Cmd/Ctrl+wheel zoom, swaps themes, then listens
    30 s for an OS appearance flip. The report goes to the Rust `smoke_report`
    command: stdout always, plus `<MIKEDOWN_SMOKE_DIR>/<name>.json` when set.

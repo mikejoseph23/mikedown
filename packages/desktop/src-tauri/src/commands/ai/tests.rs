@@ -20,6 +20,8 @@ use super::providers::{self, Cancel, ProviderAdapter};
 use super::secrets::MemoryStore;
 use super::*;
 
+mod command_layer;
+
 fn temp_dir(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("mikedown-ai-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

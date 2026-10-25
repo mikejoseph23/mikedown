@@ -148,4 +148,118 @@ mod tests {
         assert_eq!(key.as_deref(), Some("env"));
         assert_eq!(problem.as_deref(), Some("keychain locked"));
     }
+
+    /// The real `KeychainStore` wrapper on the `keyring` crate's mock
+    /// credentials (no OS keychain). The crate's stock mock keeps a secret
+    /// inside each `Entry` only, and the wrapper makes a fresh `Entry` per
+    /// call, so this builder hands every (service, account) the same mock
+    /// credential, the way a real keychain would.
+    mod keychain {
+        use super::*;
+        use keyring::credential::{Credential, CredentialApi, CredentialBuilderApi};
+        use keyring::mock::MockCredential;
+        use std::any::Any;
+        use std::sync::{Arc, Once, OnceLock};
+
+        type Shared = Mutex<HashMap<(String, String), Arc<MockCredential>>>;
+
+        fn shared() -> &'static Shared {
+            static SHARED: OnceLock<Shared> = OnceLock::new();
+            SHARED.get_or_init(Default::default)
+        }
+
+        struct Handle(Arc<MockCredential>);
+
+        impl CredentialApi for Handle {
+            fn set_secret(&self, secret: &[u8]) -> keyring::Result<()> {
+                self.0.set_secret(secret)
+            }
+            fn get_secret(&self) -> keyring::Result<Vec<u8>> {
+                self.0.get_secret()
+            }
+            fn delete_credential(&self) -> keyring::Result<()> {
+                self.0.delete_credential()
+            }
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+        }
+
+        struct Builder;
+
+        impl CredentialBuilderApi for Builder {
+            fn build(&self, _target: Option<&str>, service: &str, user: &str) -> keyring::Result<Box<Credential>> {
+                let mut all = shared().lock().unwrap();
+                let credential = all.entry((service.to_string(), user.to_string())).or_default().clone();
+                Ok(Box::new(Handle(credential)))
+            }
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+        }
+
+        /// Replace the default builder once per test process. No other test in
+        /// this crate creates a keyring entry (they use `MemoryStore`).
+        fn install() {
+            static ONCE: Once = Once::new();
+            ONCE.call_once(|| keyring::set_default_credential_builder(Box::new(Builder)));
+        }
+
+        /// Make the next call on (service, account) fail the way a locked
+        /// keychain does.
+        fn fail_next(account: &str, error: keyring::Error) {
+            let all = shared().lock().unwrap();
+            let credential = all.get(&(KEYCHAIN_SERVICE.to_string(), account.to_string())).expect("entry was created");
+            credential.inner.lock().unwrap().borrow_mut().error = Some(error);
+        }
+
+        #[test]
+        fn keys_round_trip_under_the_mikedown_service_and_the_engine_id() {
+            install();
+            let store = KeychainStore;
+            assert_eq!(store.get("kc-omlx").unwrap(), None, "no entry is none, not an error");
+            store.set("kc-omlx", "sk-1").unwrap();
+            assert_eq!(store.get("kc-omlx").unwrap().as_deref(), Some("sk-1"));
+            store.set("kc-omlx", "sk-2").unwrap();
+            assert_eq!(store.get("kc-omlx").unwrap().as_deref(), Some("sk-2"), "set replaces");
+            assert_eq!(store.get("kc-other").unwrap(), None, "accounts are separate");
+
+            let all = shared().lock().unwrap();
+            assert!(all.contains_key(&("net.iadev.mikedown".to_string(), "kc-omlx".to_string())));
+        }
+
+        #[test]
+        fn deleting_removes_the_key_and_a_missing_key_is_not_an_error() {
+            install();
+            let store = KeychainStore;
+            store.set("kc-del", "k").unwrap();
+            store.delete("kc-del").unwrap();
+            assert_eq!(store.get("kc-del").unwrap(), None);
+            store.delete("kc-del").unwrap();
+            store.delete("kc-never-set").unwrap();
+        }
+
+        #[test]
+        fn keychain_failures_surface_as_messages_and_resolve_key_falls_back_to_the_environment() {
+            install();
+            let store = KeychainStore;
+            store.set("kc-locked", "stored").unwrap();
+
+            fail_next("kc-locked", keyring::Error::NoStorageAccess("keychain locked".into()));
+            let err = store.get("kc-locked").unwrap_err();
+            assert!(err.contains("keychain locked"), "{err}");
+            fail_next("kc-locked", keyring::Error::PlatformFailure("denied".into()));
+            assert!(store.set("kc-locked", "new").is_err());
+            fail_next("kc-locked", keyring::Error::PlatformFailure("denied".into()));
+            assert!(store.delete("kc-locked").is_err());
+            assert_eq!(store.get("kc-locked").unwrap().as_deref(), Some("stored"), "a failed set or delete changes nothing");
+
+            fail_next("kc-locked", keyring::Error::NoStorageAccess("keychain locked".into()));
+            let (key, problem) = resolve_key(&store, "kc-locked", Some("K"), &env_with("K", "from-env"));
+            assert_eq!(key.as_deref(), Some("from-env"));
+            assert!(problem.unwrap().contains("keychain locked"));
+            let (key, problem) = resolve_key(&store, "kc-locked", Some("K"), &env_with("K", "from-env"));
+            assert_eq!((key.as_deref(), problem), (Some("stored"), None), "the stored key wins once the keychain answers");
+        }
+    }
 }
