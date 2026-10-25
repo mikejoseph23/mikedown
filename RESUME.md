@@ -2,115 +2,123 @@
 
 ## Project Overview
 
-MikeDown is a WYSIWYG markdown editor (TipTap/ProseMirror) in an npm workspace with three thin consumers of one editor core. The core is `packages/core` (`@mikedown/core`, framework-agnostic: `createMikeDownEditor(container, { host })` plus the `MikeDownHost` adapter). The consumers are:
+MikeDown is a WYSIWYG markdown editor (TipTap/ProseMirror) in an npm workspace. One editor core, `packages/core` (`@mikedown/core`), is shipped through several consumers:
 
 - the VS Code extension (`src/`, thin shell `src/webview/editor-main.ts`);
-- the Angular wrapper `<lyme-markdown-editor>` (LymeStarter opt-in folder, copied by hand into Quantico Creek);
-- **MikeDown Desktop**, a Tauri 2 app at `packages/desktop/` (macOS and Windows) for non-developers.
+- **MikeDown Desktop**, a Tauri 2 app at `packages/desktop/` (macOS, Windows, Linux preview);
+- the npm family `@mikedown/core`, `web-component`, `react`, `vue`, `angular` (all public on npm, lockstep versions, independent of the extension's 2.x);
+- downstream apps LymeStarter (`develop`) and Quantico Creek (`master`), now on the published packages.
 
-Desktop contains no editor logic. Document versioning lives only in desktop, never in core or the extension. See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside a PM transaction; the three-place settings rule; the `tiptap-markdown` ES alias).
+Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside a PM transaction; the three-place settings rule; the `tiptap-markdown` ES alias) and the release steps.
 
 ## Current Status
 
-**MikeDown Desktop 0.2.0 is live at `https://www.iadev.net/mikedown/`, and a Mac 0.1.0 install updated itself to 0.2.0 from production. Most of what's left is Mike's hands-on work and the key backup.**
+**Everything is published and deployed. What's left is Mike's hands-on work and one Marketplace upload.**
 
-- All desktop milestones M0–M11 and T1–T3 are complete in code. Real-window GUI checks are still pending across most of them.
-- T4 (release candidate hands-on) is open. It runs together with the auto-update plan's T2 via `desktop-auto-update-handson.md`, which is uncommitted at the root and owned by the paused auto-update orchestrator session. Leave it alone.
-- **Updater key backup is NOT confirmed** (auto-update plan U5). Losing `~/.tauri/mikedown.key` (password in Keychain `mikedown-updater-key`, key id `C5386105C2C03AF7`) strands every install.
-- Windows 0.1.0 → 0.2.0 self-update is untested (DevBox1 has 0.1.0).
-- Two plan-log commits are unpushed: `d24b4d5` and `6bdf006`. Push only on Mike's say-so.
-- The VS Code extension is still at 2.14.2. `## [Unreleased]` in `CHANGELOG.md` holds the toolbar zoom control (feature), the condensed-toolbar tooltip clipping fix (`838d1cc`), the callout duplication fix (`f1befc5`), plus the core save-race fix (`96e93cd`, typing within 500 ms of a save was lost), which is **not yet in the changelog**; add it before release. Recommended: release **2.15.0 from `main`**.
-- `@mikedown/core` 0.1.0 is on npm and Desktop pins it. The pin gate also requires `packages/core` to be at the pinned version, so a release needs the pin and core's version aligned (core is at 0.2.0-rc.0 now).
-
-## What's Done
-
-- **2026-10-23/24 Desktop:** M0 scaffold and WebKit/WebView2 smoke, M1 imagePaste into core shared, M2 TauriHost and lone-file window, M3 tree/watcher/Trash, M4 tabs/panes/hot exit/session restore, M5 settings, M6 versioning and diff, M7 folder search, M8 welcome/recents/menus, M9 HTML/PDF export, M10 updater/signing/pipeline/download page, and M11 a11y/encoding polish.
-- Auto-update plan U1–U4 and T1: Sparkle-style update window, 4 h checks, per-platform manifests, staging harness green on both OSes.
-- Released 0.1.0 (pre-auto-update UX) and 0.2.0 (tag `desktop-v0.2.0`). Mac self-update was proven in production.
-- **2026-10-23 core/extension:** toolbar zoom control `[−] 15 [+]` (`53f442e`, `00f5910`), condensed toolbar `overflow: visible` tooltip fix (`838d1cc`), core save-race fix.
-- **2026-10-22:** core extraction and Angular wrapper (M0–M9, M11, T1–T4 of `angular-core-extraction-plan.md`).
+- **npm:** all five `@mikedown/*` packages are at 0.2.0 on `latest` (tag `npm-v0.2.0`; core 0.1.0 is tagged `core-v0.1.0`).
+- **Website** `https://www.iadev.net/mikedown/`: Desktop download page, `/vscode/`, and `/developers/` with a live demo per wrapper. It's deployed as site release `0.3.0-site.2` through LymeDeploy; the next site release is `--site-n 3`.
+- **Desktop 0.3.0** is live (document sidebar, serializer fixes, Linux AppImage preview). Self-update is proven on macOS and Windows, and the updater key is backed up. Desktop still pins core `0.1.0` exactly.
+- **VS Code 2.15.0** is built (`mikedown-editor-2.15.0.vsix` in the repo root, untracked; tag `v2.15.0`) but **not uploaded to the Marketplace yet**.
+- **Core accessibility fixes** (contrast, checkbox names, toolbar names, More ⋯ overflow menu, table toolbar on focus) are under `CHANGELOG.md` `[Unreleased]`. They're in npm 0.2.0 but not in the 2.15.0 vsix.
+- CI (`.github/workflows/ci.yml`) is green, and everything is pushed.
 
 ## What's Next
 
-1. **Mike:** back up the updater key and its password. Then fill in the placeholders in `packages/desktop/deploy/key-runbook.md` and tick U5 in `desktop-auto-update-plan.md`.
-2. **Mike, on DevBox1 over RDP:** in 0.1.0, run Help > Check for Updates. Expect a quiet NSIS install with no UAC prompt that reopens on 0.2.0. Log the result in `desktop-app-plan.md`.
-3. **Mike:** run `desktop-auto-update-handson.md`, which covers desktop T4 and the pending GUI checks. Then resume that session with `/iadev:orchestrator desktop-auto-update-plan.md`.
-4. **Pending decisions from Mike:**
-   - Windows-only disable of Tauri OS file drops, because `dragDropEnabled` breaks in-page HTML5 drag on WebView2.
-   - Add the core serializer quirks to `BACKLOG.md`: trailing newline dropped after edits, hard-break/task-list/bare-fence quirks, caret position after Cmd+/.
-5. **Core publish, then extension 2.15.0:** `npm publish -w packages/core --tag rc --access public`, then `npm run vsix`, `npm run release:core`, upload the `.vsix`, commit `Release X.Y.Z` and tag. LymeStarter and Quantico Creek already install core from the registry.
-6. **Optional:** set up LymeDeploy and a Cloudflare purge token so desktop releases skip RDP (steps in the header of `packages/desktop/deploy/lymedeploy/deploy.yaml`).
-7. **Older open items:**
-   - M8 hands-on (Quantico KB image paste).
-   - M10 scope call (bot protection).
-   - Merge LymeStarter `develop` into `main`.
-   - Follow-ups:
-     - source mode ignores the zoom font size, and the zoom buttons stay enabled there;
-     - trailing-button tooltips truncate in narrow panes;
-     - Tab-focusing an off-screen toolbar button scrolls the root sideways;
-     - the follow-up list in `angular-core-extraction-plan.md`.
+1. **Mike:** upload the 2.15.0 vsix to the Marketplace, then do the T1 hands-on in `wrappers-npm-plan.md`:
+   - the Extensions panel shows 2.15.0;
+   - edit and save a `.md` file in `test/workspace/`;
+   - the zoom `[−] 15 [+]` control works;
+   - a `> [!NOTE]` callout isn't duplicated after Cmd+/.
+
+   Then close the plan: archive `.orchestrator/wrappers-npm-plan/processed/` into `docs/_archive/`, and remove the plan's entry from `.orchestrator/active-sessions.json`.
+2. **Mike:** on npmjs.com, set each `@mikedown/*` package to "Require two-factor authentication and disallow tokens". The settings page needs his security key.
+3. **Favicon:** a favicon for the website was dispatched at the end of 2026-10-24. If it landed, deploy it as site release 3 (`packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n 3`, with Mike's OK).
+4. **Mike:** run the Desktop T4 checklist (`packages/desktop/docs/manual-test-checklist.md`, 82 checks) on both OSes, then log it in `desktop-app-plan.md`.
+5. **Re-encrypt the updater key** with a new password (same key, so installs keep working). The current password was shown in chat on 2026-10-24. Then update the Keychain item `mikedown-updater-key` and the LastPass "MikeDown Note".
+6. **Bitbucket is near its 1 GB workspace cap.** The plan is to move `~/git/rando` to private GitHub; it's queued in `~/Desktop/RESUME.md`.
+7. **Follow-ups:**
+   - **Extension:** the next release ships the `[Unreleased]` accessibility fixes.
+   - **Desktop:**
+     - the desktop-app session moves the core pin off `0.1.0`;
+     - the release notes link may open two tabs;
+     - the corner "is available" notice persists while the window is open;
+     - the last heading isn't highlighted on outline click;
+     - dead `#editor` CSS rules;
+     - check whether core settings leak between panes.
+   - **LymeStarter:** `lymetools scaffold app` reports a missing `about` route (this predates the wrappers work).
+   - **LymeDeploy:** the PMO-PROD-VM agent has been offline for about 40 h.
+   - **Repo cleanup:** prune `.claude/worktrees/` (old desktop and linux-appimage agent worktrees).
+   - **Tests:** a flaky unit test failed once during T1 and was never identified.
 
 ## Planning Docs
 
-- `desktop-app-plan.md`: **active.** Desktop tracker M0–M11 and T1–T4, Decisions, and 6 open questions still on plan defaults. Progress Log is newest first.
-- `desktop-auto-update-plan.md`: **active.** U1–U4 and T1 done; T2 and U5 await Mike.
-- `desktop-auto-update-handson.md`: Mike's hands-on checklist. Uncommitted and owned by the other session.
-- `angular-core-extraction-plan.md`: only M10 is open; M7 and M8 have pending items.
-- `core-extraction-decisions.md`: approved M0 decisions for the extraction.
-- `slash-commands-planning.md`: complete (2.11.0), ready to archive into `docs/`.
-- `manual-test-script.md`, `hands-on-remaining.md`: older extension hands-on checklists.
-- `PLANNING.md`: original build plan (reserved).
+- `wrappers-npm-plan.md`: **active.** Everything is complete except T1 (Mike); M10 Svelte is deferred.
+- `wrappers-decisions.md`: approved M0 decisions (versioning, peers, Angular floor 17, ARIA).
+- `desktop-app-plan.md`: only Mike's T4 hands-on is left.
+- `desktop-auto-update-plan.md`: complete (U5 key backup and T2 signed off 2026-10-24).
+- `desktop-auto-update-handson.md`: uncommitted and owned by another session. Leave it alone.
+- `angular-core-extraction-plan.md`: only M10 (Quantico Creek API) is open.
+- Others:
+  - `core-extraction-decisions.md`;
+  - `slash-commands-planning.md` (complete);
+  - `manual-test-script.md`;
+  - `hands-on-remaining.md`;
+  - `PLANNING.md` (reserved).
 
 ## Servers
 
-- **Desktop dev:** `npm run dev:desktop` (`tauri dev`). Cargo must be on the PATH: `export PATH="$HOME/.cargo/bin:$PATH"`.
-- **Core demo:** `npm run demo:core`, then open `/demo/` (the root path 404s; Vite moves to the next free port above 5199).
-- **Production downloads:**
-  - Public URLs: `https://www.iadev.net/mikedown/` and the manifest `latest.json`.
-  - Server: IIS site `Interapp`, virtual directory `/mikedown` → `C:\WebApps\Downloads\mikedown` on iadev-prod. RDP is Mike-only, and the site is behind Cloudflare.
-- **Windows build:** BEAST (`192.168.50.39`), Scheduled Task `MikeDownRemoteBuild`, Trusted Signing. It clones from GitHub, so the build commit must be pushed first. Test box: DevBox1 (`192.168.50.42`).
-- **Quantico Creek and LymeStarter:** see `angular-core-extraction-plan.md`. Quantico API runs on :5117 and the SPA on :4200. LymeStarter runs on :4200 and :5218.
+- **Desktop dev:** `npm run dev:desktop`. Needs `export PATH="$HOME/.cargo/bin:$PATH"`.
+- **Site:** `npm run dev:site` (port 5180), or `npm run build:site && npm run preview -w website` (`http://localhost:5180/mikedown/`).
+- **Core demo:** `npm run demo:core`, then open `/demo/`.
+- **Production:**
+  - IIS on iadev-prod, folder `C:\WebApps\Downloads\mikedown`.
+  - Published by LymeDeploy project `mikedown-downloads` through `packages/desktop/deploy/pack-for-lymedeploy.sh` (`--site` for site-only releases).
+  - Cloudflare doesn't cache `/mikedown/`, so no purge is needed.
+- **Windows build:** BEAST (`192.168.50.39`), Scheduled Task `MikeDownRemoteBuild`. It clones from GitHub, so push first. Test box: DevBox1 (`192.168.50.42`).
+- **Linux build:** Docker linux/amd64 (`packages/desktop/deploy/linux/`). `release.sh` builds it by default; `--no-linux` skips it.
 
 ## Key File Paths
 
-- `packages/core/src/` holds the editor (`editor.ts`, `host.ts`, `wheelZoom.ts`, `styles/theme.css`); core tests are in `packages/core/test/`.
-- `packages/desktop/`:
-  - `src/`: app chrome (tree, tabs, menu, settings, versions, search, updater UI).
-  - `src-tauri/`: Rust (`versions.rs`, `menu.rs`, search, updater, backups/sessions).
-  - `docs/webview-notes.md`
-  - `deploy/`:
-    - `release.sh`, `verify-published.sh`, `build-mac.sh`, `make-dmg.sh`, `remote-build-windows.sh`
-    - `release-notes/`, `key-runbook.md`, `lymedeploy/deploy.yaml`
-    - `dist/<v>/upload/` holds the files to copy to the server (gitignored).
-- `src/` and `src/webview/` are the VS Code host and its thin shell.
-- `.orchestrator/desktop-app-plan/` holds orchestrator state, processed worker summaries and artifacts.
-- `~/git/lymescribe/deploy/` and `docs/` are the reference signing and updater pipeline.
+- `packages/core/`: the editor. Tests are in `packages/core/test/`; `src/binding.ts` holds `bindMikeDownValue`, which every wrapper uses.
+- `packages/web-component`, `react`, `vue`: the wrappers, in the root workspace. `packages/angular` is outside the root workspace, has its own lockfile, and publishes from `dist/`.
+- `website/`: the site (`shared/` shell, `mikedown-desktop/`, `vscode/`, `developers/`, `developers-angular/`). After editing `shared/`, run `npm run sync:shell -w website`.
+- `scripts/version-npm.mjs`, `scripts/release-npm.mjs`: npm family versioning and publishing (see `CLAUDE.md`, Releasing).
+- `packages/desktop/deploy/`:
+  - `release.sh`, `pack-for-lymedeploy.sh`, `key-runbook.md`, `release-notes/`;
+  - `lib/release-lib.js` (core pin gates), `stage-site.js`, `verify-site.js`.
+- `.orchestrator/wrappers-npm-plan/`: orchestrator state, prompts and processed summaries.
 
 ## Recent Git Log
 
-- `6bdf006` Record the first production self-update (macOS) in the desktop plan
-- `d24b4d5` Record the 0.2.0 release in the desktop plan
-- `1c9ade2` MikeDown Desktop 0.2.0
-- `ccedc63` Release notes for MikeDown Desktop 0.2.0
-- `6b12f2b` Record the manual 0.1.0 publish in the desktop plan
-- `554a89d` Note auto-update merge and combined hands-on pass in the desktop plan
-- `37d04ae` Desktop auto-update plan: T2 staged for Mike's hands-on pass
+- `9cd086d` Record T4 hands-on completion in the wrappers plan
+- `8a1dd77` Record T4 automated verification in the wrappers plan
+- `a4e883f` Add a --from-registry mode to the consumer smoke test
+- `be3e303` Keep Cloudflare from rewriting pinned package URLs in code samples as emails
+- `7fd982f` npm packages 0.2.0
+- `8bbafc7` Move toolbar buttons that don't fit into a More menu
 
 ## Any Other Notes
 
 - **Desktop release flow:**
-  1. `release.sh <x.y.z> --notes-file release-notes/<v>.md --yes`. It stops with exit 10 until the bump commit is on origin; push with Mike's OK, then re-run with `--no-bump`.
-  2. Mike copies `dist/<v>/upload/` over RDP and purges Cloudflare (the manifests get overwritten).
-  3. Run `verify-published.sh <v>`, then tag `desktop-v<v>`.
-- Mac release builds are slow on purpose: a universal build compiles twice, with LTO and `codegen-units = 1`, and then waits on notarization. Keep those settings.
-- 1.0 criteria:
+  1. `release.sh <v> --notes-file release-notes/<v>.md --yes`. It exits 10 until the bump commit is pushed; push with Mike's OK, then re-run with `--no-bump`.
+  2. `pack-for-lymedeploy.sh --version <v>`.
+  3. Tag `desktop-v<v>`.
+- **Mac release builds are slow on purpose.** A universal build compiles twice with LTO and `codegen-units = 1`, then waits on notarization. Keep those settings.
+- **1.0 criteria:**
   - both hands-on passes signed off;
-  - a real update in the wild;
+  - a real update in the wild (done);
   - a few weeks of daily use with no data loss;
-  - the key backed up;
+  - the key backed up (done);
   - recommendable without caveats.
-- `/Applications` isn't writable by Mike's day account, so Mac updates prompt for `macadmin`. Windows is a per-user NSIS install with no admin prompt.
-- `.claude/worktrees/` holds about 10 finished agent worktrees and branches from the desktop orchestrator. They're safe to prune once their work is confirmed on `main`; check with the orchestrator first.
-- Orchestrator workers run as Agent-tool subagents (Mike prefers them over clipboard prompts). Only the orchestrator ticks plan checkboxes.
-- After `npm run compile`, Cmd+R the dev host. Bare `vitest run` picks up the integration files, so use `npm run test:unit`, `test:edge` or `test:integration`.
-- Spell check defaults **off**. Don't ask mzenker-PSS for a review a third time.
+- **npm publishes are Mike's** (user `interapp`, 2FA through a security key). Brand-new package names can take 20+ minutes to appear on the registry.
+- **Cloudflare Email Obfuscation** rewrites `name@1.2.3` text in served HTML. Code samples are protected by `website/developers/common/samples.js`; hand-written HTML is not.
+- **IIS MIME types:** `.woff2`, `.svg`, `.mjs` and `.webmanifest` are unconfirmed on iadev-prod. Never add a `mimeMap` for a type that's already mapped machine-wide, because that returns 500 for the whole folder.
+- **Running tests:**
+  - `test:integration` fails in worktrees (the IPC socket path is too long), so run it in the main tree.
+  - A fresh tree needs `npm run build:core` before `test:unit`.
+  - Bare `vitest run` picks up the integration files. Use `npm run test:unit`, `test:edge` or `test:integration`.
+  - Local Node 22.20 is too old for Angular CLI 22, so the `angular-latest` consumer target is skipped.
+- **Dev host:** after `npm run compile`, press Cmd+R in the dev host.
+- **Mac updates:** `/Applications` isn't writable by Mike's day account, so they prompt for `macadmin`. Windows is a per-user NSIS install with no admin prompt.
+- **Orchestrator:** workers are Agent-tool subagents, and only the orchestrator ticks plan checkboxes.
+- **Spell check** defaults **off**. Don't ask mzenker-PSS for a review a third time.
