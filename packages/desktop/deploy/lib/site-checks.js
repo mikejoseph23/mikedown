@@ -38,8 +38,8 @@ export function checkSitePackage({ files }) {
     if (top && !SITE_TOP_DIRS.includes(top)) {
       problems.push(`${name}: top-level folder '${top}' is not a site folder (${SITE_TOP_DIRS.join(', ')})`);
     }
-    if (!top && name !== 'index.html' && !/^[A-Za-z0-9._-]+\.png$/.test(name)) {
-      problems.push(`${name}: only index.html and the desktop page's screenshots may sit at the top level`);
+    if (!top && name !== 'index.html' && name !== 'favicon.ico' && !/^[A-Za-z0-9._-]+\.png$/.test(name)) {
+      problems.push(`${name}: only index.html, favicon.ico and the .png screenshots and icons may sit at the top level`);
     }
     const dot = base.lastIndexOf('.');
     if (dot > 0) {exts.add(base.slice(dot + 1).toLowerCase());}

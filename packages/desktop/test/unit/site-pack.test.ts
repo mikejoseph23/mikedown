@@ -9,6 +9,8 @@ const b = (s = 'x') => Buffer.from(s);
 const good = () => ({
   'index.html': b('<html><img src="shot.png"></html>'),
   'shot.png': b(),
+  'favicon.ico': b(),
+  'apple-touch-icon.png': b(),
   'vscode/index.html': b(),
   'developers/index.html': b(),
   'developers/angular/index.html': b(),
