@@ -20,7 +20,8 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
 - **Desktop 0.3.0** is live (document sidebar, serializer fixes, Linux AppImage preview). Self-update is proven on macOS and Windows, and the updater key is backed up. Desktop still pins core `0.1.0` exactly.
 - **VS Code 2.15.0** is built (`mikedown-editor-2.15.0.vsix` in the repo root, untracked; tag `v2.15.0`) but **not uploaded to the Marketplace yet**.
 - **Core accessibility fixes** (contrast, checkbox names, toolbar names, More ⋯ overflow menu, table toolbar on focus) are under `CHANGELOG.md` `[Unreleased]`. They're in npm 0.2.0 but not in the 2.15.0 vsix.
-- CI (`.github/workflows/ci.yml`) is green, and everything is pushed.
+- **Table checkbox save fix** (`39be7b4`, 2026-10-25, **unpushed**): toggling a `[ ]`/`[x]` in a table cell used to save `\\[x\\]` in every host. Fixed in `packages/core/src/markdownEscape.ts` and tested (`packages/core/test/tablecheckbox.test.ts`). Rendering already worked in web and desktop. It goes out with the next release (npm core, then the Desktop pin bump, then the extension).
+- CI (`.github/workflows/ci.yml`) is green. Everything before `39be7b4` is pushed.
 
 ## What's Next
 
@@ -37,7 +38,7 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
 5. **Re-encrypt the updater key** with a new password (same key, so installs keep working). The current password was shown in chat on 2026-10-24. Then update the Keychain item `mikedown-updater-key` and the LastPass "MikeDown Note".
 6. **Bitbucket is near its 1 GB workspace cap.** The plan is to move `~/git/rando` to private GitHub; it's queued in `~/Desktop/RESUME.md`.
 7. **Follow-ups:**
-   - **Extension:** the next release ships the `[Unreleased]` accessibility fixes.
+   - **Extension:** the next release ships the `[Unreleased]` accessibility fixes and the table checkbox save fix.
    - **Desktop:**
      - the desktop-app session moves the core pin off `0.1.0`;
      - the release notes link may open two tabs;
@@ -90,6 +91,8 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
 
 ## Recent Git Log
 
+- `39be7b4` Keep table-cell checkboxes unescaped when serializing (unpushed)
+- `95deb11` Add a favicon and apple-touch-icon to every site page
 - `9cd086d` Record T4 hands-on completion in the wrappers plan
 - `8a1dd77` Record T4 automated verification in the wrappers plan
 - `a4e883f` Add a --from-registry mode to the consumer smoke test
@@ -118,6 +121,7 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
   - A fresh tree needs `npm run build:core` before `test:unit`.
   - Bare `vitest run` picks up the integration files. Use `npm run test:unit`, `test:edge` or `test:integration`.
   - Local Node 22.20 is too old for Angular CLI 22, so the `angular-latest` consumer target is skipped.
+- **Opening a file in Desktop dev:** run `npm run dev -- -- -- <path>` in `packages/desktop` (three `--`). With two, tauri's cargo flags reach the app, and it tries to open a file called `always`. Close any installed MikeDown first, or single-instance hands the file to it.
 - **Dev host:** after `npm run compile`, press Cmd+R in the dev host.
 - **Mac updates:** `/Applications` isn't writable by Mike's day account, so they prompt for `macadmin`. Windows is a per-user NSIS install with no admin prompt.
 - **Orchestrator:** workers are Agent-tool subagents, and only the orchestrator ticks plan checkboxes.
