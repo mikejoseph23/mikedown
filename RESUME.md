@@ -16,7 +16,7 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
 **Everything is published and deployed. What's left is Mike's hands-on work and one Marketplace upload.**
 
 - **npm:** all five `@mikedown/*` packages are at 0.2.0 on `latest` (tag `npm-v0.2.0`; core 0.1.0 is tagged `core-v0.1.0`).
-- **Website** `https://www.iadev.net/mikedown/`: Desktop download page, `/vscode/`, and `/developers/` with a live demo per wrapper. It's deployed as site release `0.3.0-site.2` through LymeDeploy; the next site release is `--site-n 3`.
+- **Website** `https://www.iadev.net/mikedown/`: Desktop download page, `/vscode/`, and `/developers/` with a live demo per wrapper. It's deployed through LymeDeploy, now at site release `0.3.0-site.3`.
 - **Desktop 0.3.0** is live (document sidebar, serializer fixes, Linux AppImage preview). Self-update is proven on macOS and Windows, and the updater key is backed up. Desktop still pins core `0.1.0` exactly.
 - **VS Code 2.15.0** is built (`mikedown-editor-2.15.0.vsix` in the repo root, untracked; tag `v2.15.0`) but **not uploaded to the Marketplace yet**.
 - **Core accessibility fixes** (contrast, checkbox names, toolbar names, More ⋯ overflow menu, table toolbar on focus) are under `CHANGELOG.md` `[Unreleased]`. They're in npm 0.2.0 but not in the 2.15.0 vsix.
@@ -32,7 +32,7 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
 
    Then close the plan: archive `.orchestrator/wrappers-npm-plan/processed/` into `docs/_archive/`, and remove the plan's entry from `.orchestrator/active-sessions.json`.
 2. **Mike:** on npmjs.com, set each `@mikedown/*` package to "Require two-factor authentication and disallow tokens". The settings page needs his security key.
-3. **Favicon:** committed (`95deb11`) and not deployed yet. Deploy it as site release 3 (`packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n 3`, with Mike's OK), then check that `/mikedown/favicon.ico` returns 200.
+3. **Favicon:** done and live (site release `0.3.0-site.3`, 2026-10-24). The next site release is `--site-n 4`.
 4. **Mike:** run the Desktop T4 checklist (`packages/desktop/docs/manual-test-checklist.md`, 82 checks) on both OSes, then log it in `desktop-app-plan.md`.
 5. **Re-encrypt the updater key** with a new password (same key, so installs keep working). The current password was shown in chat on 2026-10-24. Then update the Keychain item `mikedown-updater-key` and the LastPass "MikeDown Note".
 6. **Bitbucket is near its 1 GB workspace cap.** The plan is to move `~/git/rando` to private GitHub; it's queued in `~/Desktop/RESUME.md`.
