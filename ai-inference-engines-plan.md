@@ -37,7 +37,10 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | M5 Proof feature: selection rewrite with preview popover | Opus | ✅ Done | 28 | feature id `rewrite` |
 | M6 npm consumers: wrappers, demo stub host, docs | Sonnet | ✅ Done | 14 | website demo |
 | M4b Key file fallback (oMLX `~/.omlx/settings.json`), VS Code + Desktop | Sonnet | ✅ Done | 15 | added at Mike's request |
-| T4 Hands-on: end to end on Mike's machines | Sonnet | ⬜ Not Started | — | user sign-off |
+| M3b Express engine form: quick-start cards, auto-fetched models, Advanced fold | Opus | ⬜ Not Started | — | T4 finding: too complex, too cramped |
+| M3c AI Engines page (full window) and the AI tab as a summary | Opus | ⬜ Not Started | — | OPEN-11 |
+| T3b Settings redesign tests and three screenshots | Sonnet | ⬜ Not Started | — | jsdom + website stub host |
+| T4 Hands-on: end to end on Mike's machines | Sonnet | ⏸️ Blocked | — | blocked on M3b, M3c, T3b; first pass found the settings UI unusable |
 | M7 Release prep: CHANGELOG, README, versions | Haiku | ⬜ Not Started | — | ships dark |
 
 ## Table of Contents
@@ -61,6 +64,10 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 - [M2 VS Code host](#m2-vs-code-host)
 - [T2 Host tests](#t2-host-tests)
 - [M3 Settings UI](#m3-settings-ui)
+- [Settings redesign (after the first T4 pass)](#settings-redesign-after-the-first-t4-pass)
+  - [M3b Express engine form](#m3b-express-engine-form)
+  - [M3c AI Engines page and summary tab](#m3c-ai-engines-page-and-summary-tab)
+  - [T3b Settings redesign tests](#t3b-settings-redesign-tests)
 - [M4 Desktop](#m4-desktop)
 - [T3 Desktop tests](#t3-desktop-tests)
 - [M5 Proof feature: selection rewrite](#m5-proof-feature-selection-rewrite)
@@ -89,6 +96,9 @@ Each has a recommendation so a worker can proceed if Mike has not overridden it.
 | OPEN-8 | Release channel for the extension. | Ship dark in a normal 2.x release (`mikedown.ai.enabled` false, nothing visible but the AI tab). No pre-release channel. | M7 |
 | OPEN-9 | Rewrite variants in the proof feature. | Shorter, Longer, Fix flow, Custom prompt. The rest of idea 2 (simpler, formal, casual) and ideas 12, 19, 20 come in the follow-up plan. | M5 |
 | OPEN-10 | Context length for models the endpoint cannot describe (oMLX `/v1/models` is bare). | Heuristic from the model id, then user edit. Default 8k when unknown. | M1 |
+| OPEN-11 | Where the full-size AI Engines page lives: an overlay rendered by core inside the editor's DOM, or a real VS Code editor tab (its own webview) and a Desktop window? | **Overlay now, built as a standalone mountable component** (`mountAiEnginesPage(container, ctx)`). One implementation serves VS Code, Desktop and npm consumers, reuses the draft/save/secret flow the modal already has, and needs no second webview, HTML shell, CSS list or `postMessage` channel for settings and secrets. A VS Code tab would also lose the editor's `retainContextWhenHidden` state and need its own `getWebviewContent`. The mountable shape keeps the tab/window option open: hosting it elsewhere is a new shell, not a rewrite. Revisit if Mike wants engines editable with no document open. | M3c |
+| OPEN-12 | Cloud discovery enables every model it finds (today's merge rule), which makes a 300-model OpenRouter list unusable in the routing pickers. | Local kinds keep "discovered = enabled". Cloud kinds (`locality` cloud after detection) add discovered models **disabled**; the Express picker enables the ones chosen, a typed id is added enabled. Uses the existing `enabled` flag, no schema change. | M3b |
+| OPEN-13 | Worktree `/Users/michaeljosephwork/git/mikedown-ai-express` (branch `ai-engines-express`), started for this work and stopped. | Checked 2026-10-25: clean tree, no stash, no commits ahead of `ai-engines` (both at `23e53e2`). Nothing to keep and nothing to reset; reuse it for M3b as is, or `git worktree remove` it and let the orchestrator create a fresh one. | M3b |
 
 [Return to Top](#ai-inference-engines-plan)
 
@@ -477,6 +487,84 @@ Host to webview:
 
 ---
 
+## Settings redesign (after the first T4 pass)
+
+Mike's first hands-on pass (T4, 2026-10-25) stopped at the AI tab: engines, models, capabilities, keys, routing and feature toggles all sit in one small modal tab (`packages/core/src/ai-settings.ts`, ~1500 LOC; `ai-settings-model.ts`; `ai/presets.ts`; `styles/ai.css`). Too much to read, too little room. Three milestones fix that before T4 resumes; T4 is blocked on all three.
+
+**Direction (Mike, with LymeBooks as the reference):** the LymeBooks AI server drawer (`~/git/lymebooks/ng-app/src/app/lymebooks/settings/ai/servers/ai-server-form.component.html`, `ai-provider-presets.component.*`, `ai-server-form.model.ts`) gets the shape right: quick-start provider cards with one-line captions ("API key from console.anthropic.com"), a "two ways to connect" explainer (a cloud key, or your own server), a short main form, Models with **Fetch models** into a pick-or-type input, and everything else behind an **Advanced** toggle. No hardcoded model ids anywhere (they go stale; the endpoint is the source of truth). Workers read those four files before designing.
+
+**Design calls (apply unless Mike overrides):**
+
+1. **Express vs Advanced, per preset kind.** Presets gain `family: 'local' | 'cloud'` (local: oMLX, LM Studio, Ollama, llama.cpp, vLLM, Custom; cloud: Anthropic, OpenAI, OpenRouter, Groq, Gemini, Mistral, DeepSeek). Express shows only what differs per user:
+
+   | | Cloud preset | Local preset |
+   |---|---|---|
+   | Express | Name (prefilled), **API key** (paste, caption with where to get it, "Stored" state), **Models** (auto-fetched, searchable pick list, pick-or-type), **Default model** (from the picked models), Enabled | Name, **Base URL** (prefilled, the one thing that changes per machine), API key only when the preset `needsKey` or is Custom ("leave blank if the server has no auth"; oMLX shows "found in ~/.omlx/settings.json" when the key file resolves), **Models** (auto-fetched, all enabled, searchable when more than 8), **Default model**, Enabled |
+   | Advanced (collapsed, `aria-expanded`) | Base URL, Locality, Key from variable (`apiKeyEnv`), Key file (`apiKeyFile`), Discovery mode, the full models table from M3 (capability chips, context tokens, `requestOverrides`, missing rows, Add model manually) | Locality, Key from variable, Key file, Discovery mode, the full models table |
+
+   "Default model" writes `routing.default` when this engine is the default engine (the star) and is otherwise the model pre-selected when the engine is picked in a routing row; no new settings key. Per-task routing and feature toggles are **not** in the engine form at all (see M3c).
+2. **Add-engine flow.** The "Add engine" dropdown menu becomes a quick-start card grid in two groups, "Run on this machine" and "Cloud API key", each card with a kind glyph, name and caption; the same grid is the empty state. Picking a card opens the Express form for a new engine with focus on the first empty required field (key for cloud, URL for local). Cancel on a never-saved engine drops its key (`onDiscarded`, already shipped).
+3. **Auto-fetch trigger.** Cloud: 600 ms after the key input settles (and the key is non-empty), `setSecret` then `discoverModels`; the key is stored first because discovery runs host side against the stored secret. Local: on Base URL blur or change, and when the Express form opens for an engine that was never probed. One discovery in flight per engine; a new trigger cancels the old one. **Fetch models** stays as a manual button with a spinner. Discovery never runs on a plain save.
+4. **Failure states (inline, under Models, `role="status"`).** `unreachable` local: "Nothing answered at `<url>`. Is LM Studio running?" with Retry. `auth` cloud: "Key rejected by `<host>`", focus returns to the key field. Empty list: "Server is up but no models are loaded." `cloudBlocked` never applies to fetch (it is the user clicking). In every failure the pick-or-type input still accepts a typed id, which is saved as a manual model with heuristic capabilities.
+5. **Where routing and feature toggles live.** Feature toggles stay on the AI tab (summary). Routing (default engine+model, fallback mode, task table) becomes its own section of the AI Engines page, reached from the page's left list and from "Change…" next to the default route on the summary tab. The engine form never shows routing.
+6. **Accessibility and focus.** The page is `role="dialog" aria-modal="true" aria-labelledby`, traps Tab, closes on Escape, and restores focus to the control that opened it (gear, chip, status bar command lands on the first list item). The Advanced toggle is a button with `aria-expanded` and `aria-controls`; the models picker is a combobox (`role="combobox"`, `aria-expanded`, listbox with `aria-activedescendant`, Up/Down/Enter/Escape); fetch and test results are announced through the existing live region. All existing M3 keyboard rules carry over.
+7. **No settings schema change.** Everything above uses existing keys (`enabled`, `routing.default`, `discovery`, `capabilitiesSource`). The one addition is `family` on presets, which is core data, not a setting. OPEN-12 is the only behavior change in how settings are written.
+8. **Proof.** jsdom tests for every rule above (T3b), plus three screenshots because the look is the deliverable; hands-on verification moves into T4, which already opens the app.
+
+### M3b Express engine form
+
+**Recommended model: Opus** (front-end UI design work)
+
+> Workers must complete ALL items in this list. If an item seems out of scope, note it in your summary for the orchestrator, but attempt it unless truly blocked. Read the four LymeBooks files named above and `ai-settings.ts` before designing. Design craft matters: the Express form should read like a macOS "Add Account" sheet (Mail, Internet Accounts), not a settings dump. Calm spacing, one column, short captions, the Advanced fold a quiet disclosure. Never mutate `editor.view.dom`; this is modal UI. Keep the full models table and every M3 capability intact under Advanced; nothing is removed, only folded.
+
+- [ ] `packages/core/src/ai/presets.ts`: add `family: 'local' | 'cloud'` and `keyHint` (e.g. "API key from console.anthropic.com", "API key from openrouter.ai/keys", "Google AI Studio") per preset; no model ids. Export `AI_PRESET_FAMILIES` with the two group labels and the "two ways to connect" copy.
+- [ ] `ai-settings-model.ts`: pure helpers `expressFields(preset)` (which fields are Express for a kind), `modelPickerOptions(engine, status, filter)` (filter, loaded-first on LM Studio, `missing` last), `applyDiscoveryForFamily` implementing OPEN-12 (local: enabled; cloud: disabled unless already enabled or picked), and `autoFetchDecision(prev, next)` (the debounce and "never probed" rules as pure data so tests need no timers).
+- [ ] Add-engine: replace the dropdown menu with the quick-start card grid (two groups, glyph, name, caption, `aria-label="Add <name>"`); the empty state is the same grid under a one-line explainer. Picking opens the new engine's Express form with focus placed per design call 2.
+- [ ] Express form per design call 1: Name, key (cloud, or local `needsKey`/Custom), Base URL (local), Models, Default model, Enabled. Key caption from `keyHint`; "Stored" state and Clear as today; the oMLX key-file caption when the host reports `hasKey` from the file.
+- [ ] Models picker: combobox with a filter input (shown when more than 8 models), checkbox rows (enable/disable), count line ("312 models, 2 picked"), pick-or-type (a typed id not in the list is added as a manual model), loaded badge on LM Studio, `missing` rows greyed. Default model is a select over the enabled models.
+- [ ] Auto-fetch per design call 3 with one in-flight discovery per engine, cancellation on a new trigger, spinner on the Models label, and the manual **Fetch models** button.
+- [ ] Failure states per design call 4; Retry re-runs the same trigger.
+- [ ] Advanced fold: a `button[aria-expanded][aria-controls]` revealing Base URL (cloud), Locality, Key from variable, Key file, Discovery mode and the existing full models table (capability chips, context tokens, `requestOverrides`, Add model manually). Remembered per engine while the modal is open; collapsed by default on open.
+- [ ] Remove routing and feature rows from the engine form if any crept in; the engine row list (name, pill, dot, enabled, star, Edit, Delete) stays as it is until M3c moves it.
+- [ ] Styles in `styles/ai.css`: card grid, Express form rhythm, combobox, Advanced fold; both themes; no new CSS file.
+- [ ] Update `packages/core/test/ai-settings.test.ts` where the Add-engine menu or field order changed (keep every existing assertion that still applies; T3b adds the new ones). `npm run lint`, `npm run test:unit`, `npm run test:packages` green.
+
+[Return to Top](#ai-inference-engines-plan)
+
+### M3c AI Engines page and summary tab
+
+**Recommended model: Opus** (front-end UI design work and the overlay/focus architecture)
+
+> Workers must complete ALL items in this list. If an item seems out of scope, note it in your summary for the orchestrator, but attempt it unless truly blocked. Follow OPEN-11 (overlay, mountable component) unless Mike has flipped it. The page should feel like VS Code's Settings editor or Apple System Settings' Network pane: a quiet list on the left, one engine's form on the right, routing as a list entry of its own, a header with Back and Done. Never mutate `editor.view.dom`. Depends on M3b (it hosts the Express form).
+
+- [ ] `packages/core/src/ai-engines-page.ts`: `mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettingsSectionContext, opts: { initial?: { engineId?: string; section?: 'engines' | 'routing' }; onDone(patch): void; onCancel(): void }): { dispose(): void; focus(): void }`. Standalone: no reference to the modal, the editor or `document.body` beyond its container, so it can later mount in a VS Code editor tab or a Desktop window. Reuses the draft, validation, save-patch and secret flows from `ai-settings.ts` by extracting them into shared functions (no duplicated state logic).
+- [ ] Layout: header (Back, title "AI Engines", Done); two panes: left list (engine rows with name, kind glyph, local/cloud pill, status dot, enabled; then a "Routing" entry; then "Add engine" opening the M3b card grid in the right pane), right pane the M3b Express form for the selected engine, or the routing section. Single column under 720 px: list first, selecting pushes the detail with Back returning to the list.
+- [ ] Routing section: default engine+model, fallback mode and the task table from M3, moved here unchanged in behavior.
+- [ ] Overlay host in `packages/core/src/editor.ts`: `showAiEnginesPage(opts)` renders the page full-window inside the editor root (above the modal when opened from it), `role="dialog" aria-modal="true"`, focus trap, Escape = Back, focus restored to the opener on close. Done applies the patch through the normal `saveSettings` path and closes; Back/Escape with unsaved changes asks "Discard changes?" and runs `onDiscarded` for never-saved engines' keys.
+- [ ] AI tab becomes a summary: master switch, Allow cloud, default route line ("oMLX (Mac Studio) · Qwen 3.8 Flash Next", with "Change…" opening the page on routing), feature toggles (unchanged), compact engine list (name, pill, dot, enabled toggle only) and a **Manage engines…** button opening the page. Tier-1 hosts keep the switch and feature toggles only, no engine list and no button.
+- [ ] Entry points: `openAiSettings` command (`mikedown.openAiSettings`, the VS Code status bar item, Desktop menu) opens the page directly; the sidebar chip keeps opening the AI tab, except `AI: no route`, which opens the page. `MikeDownCommand` `openAiSettings` gains an optional `{ page?: boolean }` arg; document the change in the protocol comment at the top of `packages/core/src/editor-main.ts`.
+- [ ] Desktop and website: nothing host side; verify the overlay renders inside the Desktop window and the developers-hub demos (stub host) at `npm run dev:site`, and that the Playwright `ai.spec.ts` selectors still resolve (update them if the tab moved controls).
+- [ ] Styles in `styles/ai.css`: page shell, panes, narrow layout, header; both themes; respects `--mikedown-font-*` tokens.
+- [ ] `npm run lint`, `npm run test:unit`, `npm run test:packages`, Desktop typecheck and e2e green; existing `ai-settings.test.ts` updated for the moved controls, nothing deleted without a replacement in T3b.
+
+[Return to Top](#ai-inference-engines-plan)
+
+### T3b Settings redesign tests
+
+**Recommended model: Sonnet** · **Mode: vitest jsdom unit tests (automated) plus screenshot review of three images (the look is the deliverable). No hands-on here; behavioral checks are folded into T4.**
+
+> Workers must complete ALL items, including running the suite green. A worker who cannot legitimately reach a screenshot state skips that file and reports it; a manufactured screenshot poisons the sign-off.
+
+- [ ] `packages/core/test/ai-express-form.test.ts`: Express field set per preset family (cloud shows key and no URL; local shows URL and key only for `needsKey`/Custom); Advanced collapsed by default with `aria-expanded="false"` and reveals the full models table; auto-fetch fires once per settled key input (fake timers), not on every keystroke, and stores the key through `setSecret` before `discoverModels`; a second paste cancels the first discovery; local auto-fetch on URL blur and on first open of a never-probed engine; no discovery on a plain save; each failure state's copy and the Retry path; typed model id becomes a manual model; OPEN-12 enabled-state rule for cloud vs local; Default model select limited to enabled models and writing `routing.default` only for the default engine; combobox keyboard navigation and filter; quick-start cards grouped and labelled; `onDiscarded` still drops a never-saved engine's key.
+- [ ] `packages/core/test/ai-engines-page.test.ts`: `mountAiEnginesPage` renders into an arbitrary container with no document-level side effects and `dispose` leaves it clean; dialog semantics, focus trap and focus restore; Escape = Back; dirty Back asks, clean Back closes; Done emits only the changed `ai.*` keys; routing section round-trips; narrow layout class under 720 px and the push/Back navigation; summary tab shows the default route and status dots, "Manage engines…" opens the page, "Change…" lands on routing; `openAiSettings` opens the page and the chip opens the tab (page when no route); tier-1 host sees no engine list or button.
+- [ ] Update `packages/core/test/ai-settings.test.ts` and `packages/desktop` Playwright `ai.spec.ts` for moved controls; keep the M3 assertions that still hold.
+- [ ] Run `npm run lint`, `npm run test:unit`, `npm run test:packages`, Desktop e2e (`packages/desktop`, `npm run test:e2e`) green; record counts in the Progress Log.
+- [ ] Screenshots, from the developers hub stub host (`npm run dev:site` in `/Users/michaeljosephwork/git/mikedown-ai-engines`, open `http://localhost:5180/mikedown/developers/`, any demo, gear, AI tab; no server needed), light theme, written to `.orchestrator/ai-settings-redesign/screenshots/`: `ai-summary-tab.png` (the AI tab with two stub engines and a default route), `ai-engines-page-cloud-express.png` (the page with a cloud engine selected, models fetched, Advanced collapsed), `ai-engines-page-narrow.png` (the same page at 640 px wide, detail pane pushed). The orchestrator lists the three absolute paths when handing off to Mike.
+
+[Return to Top](#ai-inference-engines-plan)
+
+---
+
 ## M4 Desktop
 
 **Recommended model: Sonnet**
@@ -554,16 +642,20 @@ Host to webview:
 
 > The orchestrator pauses for Mike's sign-off at the end of this milestone. Every item says where to look.
 
+**Blocked on M3b, M3c and T3b.** The first pass (2026-10-25) stopped at the AI tab; the items below assume the redesigned summary tab and AI Engines page. Engine setup now goes through "Manage engines…" (or the status bar item), the quick-start cards and the Express form.
+
 Automated first:
 
 - [ ] `npm run lint`, `npm run test:unit`, `npm run test:edge`, `npm run test:packages`, `cargo test` in `packages/desktop/src-tauri`, all green.
 
 Hands-on, VS Code (`npm run dev` in `/Users/michaeljosephwork/git/mikedown`, opens the dev host on `test/workspace`; open `test/workspace/sample.md` with MikeDown, toolbar gear, AI tab):
 
-- [ ] Fresh state: AI tab shows the master switch off, no engines, inviting empty state. Turn on. Sidebar footer shows `AI: no route`.
-- [ ] Add engine via the oMLX preset, `apiKeyEnv` `OMLX_API_KEY` (dev host must be launched from a shell where it is set); Test connection shows ok with latency; Discover models lists the loaded MLX models with heuristic capability chips; set Qwen 3.8 Flash Next as default.
-- [ ] Add LM Studio preset; discover; the vision chip is set from `/api/v0/models` for Gemma 4 26B-A4B; route task `vision` to it. Route `structure` to MiniMax M3 on oMLX.
-- [ ] Add Anthropic with a real key pasted into the key field; after save the field shows "Stored"; `grep -r sk-ant ~/Library/Application\ Support/Code/User/settings.json` finds nothing. Route `notes` to it. Leave `allowCloud` off; the engine row shows "blocked by Allow cloud".
+- [ ] Fresh state: AI tab shows the master switch off, no engines, "Manage engines…" opens the page on the quick-start cards (two groups, captions). Turn on. Sidebar footer shows `AI: no route`; clicking it opens the page.
+- [ ] Pick the oMLX card: Express form shows Name, Base URL, key with the "found in ~/.omlx/settings.json" caption (no key typed); models fetch on their own as the form opens (spinner on Models, then the loaded MLX models, all enabled); pick Qwen 3.8 Flash Next as Default model and star the engine. Open Advanced: capability chips, context tokens and overrides are all still there.
+- [ ] Pick the LM Studio card; models fetch on URL blur; Gemma 4 26B-A4B shows the vision chip under Advanced (from `/api/v0/models`). Routing entry in the left list: route `vision` to it and `structure` to MiniMax M3 on oMLX. Resize the window below 720 px: single column, Back returns to the list.
+- [ ] Pick the Anthropic card: paste a real key, wait, the models list fills without clicking anything, search "sonnet", tick one; after Done the key field shows "Stored"; `grep -r sk-ant ~/Library/Application\ Support/Code/User/settings.json` finds nothing. Route `notes` to it. Leave `allowCloud` off; the summary tab's engine row shows "blocked by Allow cloud".
+- [ ] Paste a wrong key into a new OpenAI engine: "Key rejected" under Models, focus back in the key field, a typed model id is still accepted; Cancel drops the engine and its key.
+- [ ] Escape from the page with unsaved changes asks first; Done returns to the summary tab with the default route line filled in. Judge the look while here (spacing, Advanced fold, list rhythm); findings go into the Progress Log.
 - [ ] Select two sentences in `sample.md`, bubble menu, Rewrite, Shorter: tokens stream, header badge says `local · oMLX (Mac Studio) · Qwen 3.8 Flash Next`; Accept replaces in place; one `Cmd+Z` restores the original.
 - [ ] Retry while a stream is running cancels the first (output channel "MikeDown AI" shows `cancelled` then a new line).
 - [ ] Stop the oMLX server, rewrite again: with `fallback: anyLocal` the badge shows LM Studio and "(fallback)"; with `fallback: none` the menu item is disabled with a reason tooltip.
@@ -622,7 +714,8 @@ Each is its own planning document; all run on the layer this plan builds and eac
 - **Sequential blocker:** M1 (contracts) must land before anything else; T1 right after it.
 - **Group A (after T1):** M2 VS Code host, M4 Desktop, M3 Settings UI can run in parallel. M3 only needs the host interface; it can develop against a stub `ai` host in the website demo folder. M2 and M4 touch disjoint trees (`src/` vs `packages/desktop/`). M2 and M4 both port the same pure modules; they share `test/ai-fixtures/`, which M1 owns, so neither edits fixtures without telling the other.
 - **Group B (after Group A):** T2 and T3 in parallel; M5 can start once M2 and M3 are in (it needs a real streaming host and the indicator), M6 once M1 and M3 are in.
-- **Then:** T4, M7.
+- **Settings redesign (added 2026-10-25):** M3b first (one worker, Opus; owns `packages/core/src/ai-settings.ts`, `ai-settings-model.ts`, `ai/presets.ts`, `styles/ai.css`). M3c after M3b lands (it hosts the Express form; owns `ai-engines-page.ts`, `editor.ts` overlay host, `types.ts` command arg, the Desktop e2e spec). T3b after M3c. Not parallel: all three touch `ai-settings.ts` and `ai.css`.
+- **Then:** T4 (blocked on T3b), M7.
 
 Workers in Group A list each other's directories in their prompts to avoid conflicts: M2 owns `src/`, `package.json#contributes.configuration`, `test/unit/ai-*`; M3 owns `packages/core/src/ai-settings.ts`, `outlineSidebar.ts` footer, `packages/core/src/styles/ai.css`; M4 owns `packages/desktop/`.
 
@@ -657,6 +750,8 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 17:00** - M5 done (`ea80385`, 28 min), cherry-picked as `8d21d58`; orchestrator dropped M5's duplicate `onAiEngines` subscription in `src/webview/editor-main.ts` (core already subscribes since `8b8f210`). Hotkey is `Mod-Alt-K` (Mod-Shift-K is Inline Code); Desktop binds it host side in `menu/shortcuts.ts`. Consent "Not now" applies to that request only; retry once on `unreachable` before the first token overlays the engine as failed so fallback works on the first attempt. Prompt builder not yet exported from `@mikedown/core/ai`. Verified on branch: lint 0 errors, `npm run test:unit` 2021, `npm run test:edge` 22, `npm run test:packages` 79, `npm run test:wrappers` ok, `npm run build:site` ok, Desktop typecheck, unit 559, e2e 55. All build milestones merged; T4 next (needs Mike).
 
 **2026-10-25 17:10** - Added M4b at Mike's request: generic `apiKeyFile { path, jsonPath }` engine field, set by the oMLX preset to `~/.omlx/settings.json` / `auth.api_key`; lookup order secret, env, file in both VS Code and Desktop, home-directory-only, 64 KB cap. Reason: Dock/Spotlight launches don't see `OMLX_API_KEY`. Dispatched on Sonnet in worktree `../mikedown-ai-keyfile`; T4 waits for it.
+
+**2026-10-25 18:10** - Settings redesign added after Mike's first T4 pass found the AI tab too complex and too cramped. New milestones M3b (Express engine form, quick-start cards, auto-fetched models, Advanced fold), M3c (full-window AI Engines page as a mountable overlay, AI tab reduced to a summary) and T3b (jsdom tests plus three screenshots); T4 marked blocked and its setup items rewritten for the new flow. Open decisions OPEN-11 (overlay vs real VS Code tab/Desktop window; recommended overlay), OPEN-12 (cloud discovery adds models disabled until picked), OPEN-13 (worktree `mikedown-ai-express` is clean at `23e53e2`, nothing to keep). No schema change. No code written.
 
 **2026-10-25 17:25** - M4b done (`b29d7f5`, ~15 min), cherry-picked as `85bffcb`. `apiKeyFile` in core types/schema/presets, VS Code `src/ai/secrets.ts`, Desktop `secrets.rs`, "Key file" row in the AI tab. Verified on branch: lint 0 errors, `npm run test:unit` 2036, `npm run test:packages` 79, Desktop unit 559, `cargo test` 185 + 26 + 7, `env -u OMLX_API_KEY MIKEDOWN_AI_LIVE=1 npm run test:ai-live` key-file test passes against the real oMLX. T4 hands-on started by Mike.
 
