@@ -13,7 +13,9 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
 
 ## Current Status
 
-**Everything is published and deployed. What's left is Mike's hands-on work and one Marketplace upload.**
+**Everything shipped is published and deployed. New: experimental AI engines are built and signed off on the local `develop` branch (kept out of `main` for polish). Left: polish/more AI features, Mike's hands-on work, one Marketplace upload.**
+
+- **AI inference engines (`develop`, local only, unpushed):** `develop` = `main` + 37 commits (tip `4019204`). Configurable engines (oMLX, LM Studio, Ollama, OpenAI-compatible, Anthropic, OpenAI; any combination), model capabilities, per-task routing with fallback, cloud consent gate, Express engine form + full-window AI Engines page, selection rewrite (`Cmd+Option+K`) as the proof feature, across VS Code, Desktop and the npm wrappers. Off by default. T4 hands-on signed off 2026-10-25 for VS Code and Desktop. All AI worktrees and branches removed. The main folder stays checked out on `main` because three other orchestrator sessions are registered there.
 
 - **npm:** all five `@mikedown/*` packages are at 0.2.0 on `latest` (tag `npm-v0.2.0`; core 0.1.0 is tagged `core-v0.1.0`).
 - **Website** `https://www.iadev.net/mikedown/`: Desktop download page, `/vscode/`, and `/developers/` with a live demo per wrapper. It's deployed through LymeDeploy, now at site release `0.3.0-site.3`.
@@ -21,10 +23,16 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
 - **VS Code 2.15.0** is built (`mikedown-editor-2.15.0.vsix` in the repo root, untracked; tag `v2.15.0`) but **not uploaded to the Marketplace yet**.
 - **Core accessibility fixes** (contrast, checkbox names, toolbar names, More ⋯ overflow menu, table toolbar on focus) are under `CHANGELOG.md` `[Unreleased]`. They're in npm 0.2.0 but not in the 2.15.0 vsix.
 - **Table checkbox save fix** (`39be7b4`, 2026-10-25, **unpushed**): toggling a `[ ]`/`[x]` in a table cell used to save `\\[x\\]` in every host. Fixed in `packages/core/src/markdownEscape.ts` and tested (`packages/core/test/tablecheckbox.test.ts`). Rendering already worked in web and desktop. It goes out with the next release (npm core, then the Desktop pin bump, then the extension).
-- CI (`.github/workflows/ci.yml`) is green. Everything before `39be7b4` is pushed.
+- CI (`.github/workflows/ci.yml`) is green. `main` has 4 unpushed commits (`39be7b4`, `f70bda1`, `67c638c`, `ba176bd`); `develop` has never been pushed.
 
 ## What's Next
 
+0. **AI features (on `develop`):** live plan is `ai-inference-engines-plan.md` **on `develop`** (the copy on `main` is stale). Everything through T4 is done; open:
+   - polish: style "Manage engines…" on the AI summary tab as a button (it reads as plain text); fix AI tab copy "per workspace" (Desktop consent is per folder);
+   - M7 release prep (Haiku): CHANGELOG, README, `website/vscode/` AI section, CLAUDE.md architecture lines, version bumps, dry runs. Gated: Desktop dist `vite build` fails until a core version with `./ai` is published and the Desktop core pin (0.1.0) is bumped;
+   - M7 loose ends: repo-writable Desktop consent file `.mikedown/settings.json` needs a docs line; Ollama adapter is fixture-tested only; rewrite prompt helpers and `mountAiEnginesPage` aren't exported from core; Anthropic `max_tokens` 4096 may truncate at High thinking; oMLX key caption can't tell key file from stored key (needs `keySource`); lint warnings 1066 → 1102 not investigated;
+   - more AI features: see the plan's Follow-up plans list and `ai-copilot-brainstorm.md` (top 5: rewrite, ghost text, chat with this doc, tag/summary/title suggestions, image alt text);
+   - when ready: decide when `develop` merges to `main`; switch the main folder to `develop` once the other sessions finish (`git switch develop`).
 1. **Mike:** upload the 2.15.0 vsix to the Marketplace, then do the T1 hands-on in `wrappers-npm-plan.md`:
    - the Extensions panel shows 2.15.0;
    - edit and save a `.md` file in `test/workspace/`;
@@ -50,9 +58,12 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
    - **LymeDeploy:** the PMO-PROD-VM agent has been offline for about 40 h.
    - **Repo cleanup:** prune `.claude/worktrees/` (old desktop and linux-appimage agent worktrees).
    - **Tests:** a flaky unit test failed once during T1 and was never identified.
+   - **Toolbar:** Firefox-style customizable toolbar is in `BACKLOG.md` (Nice-to-have).
 
 ## Planning Docs
 
+- `ai-inference-engines-plan.md`: **active, live copy on `develop`.** M1 to M6, M3b/c/d, M4b, T1 to T4 done; M7 and polish open.
+- `ai-copilot-brainstorm.md`: 20 AI feature ideas, architecture constraints, top 5 picks.
 - `wrappers-npm-plan.md`: **active.** Everything is complete except T1 (Mike); M10 Svelte is deferred.
 - `wrappers-decisions.md`: approved M0 decisions (versioning, peers, Angular floor 17, ARIA).
 - `desktop-app-plan.md`: only Mike's T4 hands-on is left.
@@ -87,18 +98,24 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
 - `packages/desktop/deploy/`:
   - `release.sh`, `pack-for-lymedeploy.sh`, `key-runbook.md`, `release-notes/`;
   - `lib/release-lib.js` (core pin gates), `stage-site.js`, `verify-site.js`.
-- `.orchestrator/wrappers-npm-plan/`: orchestrator state, prompts and processed summaries.
+- `.orchestrator/wrappers-npm-plan/`, `.orchestrator/ai-inference-engines-plan/`: orchestrator state, prompts and processed summaries (gitignored).
+- AI (on `develop`): `packages/core/src/ai/` (contracts, router, presets, thinking), `packages/core/src/ai-settings*.ts`, `ai-engine-form.ts`, `ai-engines-page.ts`, `ai-rewrite.ts`, `ai-request.ts`; `src/ai/` (VS Code host adapters, SecretStorage); `packages/desktop/src-tauri/src/commands/ai.rs` + `commands/ai/`; `packages/desktop/src/host/aiHost.ts`; `test/ai-fixtures/`, `test/live/ai-live.test.ts` (`MIKEDOWN_AI_LIVE=1 npm run test:ai-live`).
 
 ## Recent Git Log
 
+`main`:
+
+- `ba176bd` Add AI copilot brainstorm and inference engines plan (unpushed)
+- `67c638c` Expand the customizable toolbar backlog item with drag, add/remove and separators (unpushed)
+- `f70bda1` Update RESUME for the table checkbox save fix (unpushed)
 - `39be7b4` Keep table-cell checkboxes unescaped when serializing (unpushed)
 - `95deb11` Add a favicon and apple-touch-icon to every site page
-- `9cd086d` Record T4 hands-on completion in the wrappers plan
-- `8a1dd77` Record T4 automated verification in the wrappers plan
-- `a4e883f` Add a --from-registry mode to the consumer smoke test
-- `be3e303` Keep Cloudflare from rewriting pinned package URLs in code samples as emails
-- `7fd982f` npm packages 0.2.0
-- `8bbafc7` Move toolbar buttons that don't fit into a More menu
+
+`develop` (local only):
+
+- `4019204` Record T4 sign-off in the AI engines plan
+- `3536b57` Give the demo stub host a cloud engine with a provider-shaped model list
+- `1e554fb` Test the Express engine form, the AI Engines page and the summary tab
 
 ## Any Other Notes
 
@@ -125,4 +142,5 @@ Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (neve
 - **Dev host:** after `npm run compile`, press Cmd+R in the dev host.
 - **Mac updates:** `/Applications` isn't writable by Mike's day account, so they prompt for `macadmin`. Windows is a per-user NSIS install with no admin prompt.
 - **Orchestrator:** workers are Agent-tool subagents, and only the orchestrator ticks plan checkboxes.
+- **AI dev:** oMLX `http://127.0.0.1:8000/v1` (key in `OMLX_API_KEY` and `~/.omlx/settings.json`; never print it), LM Studio `:1234`, Ollama not running. Test from `develop` (`npm run dev`), not `main`. Never run machine-wide `pkill`; kill by PID.
 - **Spell check** defaults **off**. Don't ask mzenker-PSS for a review a third time.
