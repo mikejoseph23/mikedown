@@ -41,7 +41,7 @@ This plan builds on `ai-copilot-brainstorm.md` (architecture constraints 1 to 10
 | M3c AI Engines page (full window) and the AI tab as a summary | Opus | ✅ Done | 39 | OPEN-11 (overlay) |
 | M3d Desktop "AI Engines…" menu item | Sonnet | ✅ Done | 6 | gap found by M3c; Desktop had no AI menu entry |
 | T3b Settings redesign tests and three screenshots | Sonnet | ✅ Done | 24 | jsdom + website stub host |
-| T4 Hands-on: end to end on Mike's machines | Sonnet | 🔄 In Progress | — | unblocked 2026-10-25 20:25; Mike's pass |
+| T4 Hands-on: end to end on Mike's machines | Sonnet | ✅ Complete | — | signed off by Mike 2026-10-25 (VS Code and Desktop) |
 | M7 Release prep: CHANGELOG, README, versions | Haiku | ⬜ Not Started | — | ships dark |
 
 ## Table of Contents
@@ -653,26 +653,26 @@ Automated first:
 
 Hands-on, VS Code (`npm run dev` in `/Users/michaeljosephwork/git/mikedown-ai-engines`, not the main checkout, which runs `main`; opens the dev host on `test/workspace`; open `test/workspace/sample.md` with MikeDown, toolbar gear, AI tab):
 
-- [ ] Fresh state: AI tab shows the master switch off, no engines, "Manage engines…" opens the page on the quick-start cards (two groups, captions). Turn on. Sidebar footer shows `AI: no route`; clicking it opens the page.
-- [ ] Pick the oMLX card: Express form shows Name, Base URL, key with the "found in ~/.omlx/settings.json" caption (no key typed); models fetch on their own as the form opens (spinner on Models, then the loaded MLX models, all enabled); pick Qwen 3.8 Flash Next as Default model and star the engine. Open Advanced: capability chips, context tokens and overrides are all still there.
-- [ ] Pick the LM Studio card; models fetch on URL blur; Gemma 4 26B-A4B shows the vision chip under Advanced (from `/api/v0/models`). Routing entry in the left list: route `vision` to it and `structure` to MiniMax M3 on oMLX. Resize the window below 720 px: single column, Back returns to the list.
-- [ ] Pick the Anthropic card: paste a real key, wait, the models list fills without clicking anything, search "sonnet", tick one; after Done the key field shows "Stored"; `grep -r sk-ant ~/Library/Application\ Support/Code/User/settings.json` finds nothing. Route `notes` to it. Leave `allowCloud` off; the summary tab's engine row shows "blocked by Allow cloud".
-- [ ] Paste a wrong key into a new OpenAI engine: "Key rejected" under Models, focus back in the key field, a typed model id is still accepted; Cancel drops the engine and its key.
-- [ ] Escape from the page with unsaved changes asks first; Done returns to the summary tab with the default route line filled in. Judge the look while here (spacing, Advanced fold, list rhythm); findings go into the Progress Log.
-- [ ] Select two sentences in `sample.md`, bubble menu, Rewrite, Shorter: tokens stream, header badge says `local · oMLX (Mac Studio) · Qwen 3.8 Flash Next`; Accept replaces in place; one `Cmd+Z` restores the original.
-- [ ] Retry while a stream is running cancels the first (output channel "MikeDown AI" shows `cancelled` then a new line).
-- [ ] Stop the oMLX server, rewrite again: with `fallback: anyLocal` the badge shows LM Studio and "(fallback)"; with `fallback: none` the menu item is disabled with a reason tooltip.
-- [ ] Turn on `allowCloud`, route `rewrite` temporarily to Anthropic, rewrite: the consent modal names the engine and URL; "Not now" cancels with `consentDenied`; a second attempt with "Allow for this workspace" streams from Claude and the badge says `cloud · Anthropic`. Reload the window: no second prompt.
-- [ ] Source mode (`Cmd+/`): rewrite on a CodeMirror selection replaces in one undo step.
-- [ ] Delete the Anthropic engine; confirm; the secret is gone (re-adding with the same name shows no "Stored").
+- [x] Fresh state: AI tab shows the master switch off, no engines, "Manage engines…" opens the page on the quick-start cards (two groups, captions). Turn on. Sidebar footer shows `AI: no route`; clicking it opens the page.
+- [x] Pick the oMLX card: Express form shows Name, Base URL, key with the "found in ~/.omlx/settings.json" caption (no key typed); models fetch on their own as the form opens (spinner on Models, then the loaded MLX models, all enabled); pick Qwen 3.8 Flash Next as Default model and star the engine. Open Advanced: capability chips, context tokens and overrides are all still there.
+- [x] Pick the LM Studio card; models fetch on URL blur; Gemma 4 26B-A4B shows the vision chip under Advanced (from `/api/v0/models`). Routing entry in the left list: route `vision` to it and `structure` to MiniMax M3 on oMLX. Resize the window below 720 px: single column, Back returns to the list.
+- [x] Pick the Anthropic card: paste a real key, wait, the models list fills without clicking anything, search "sonnet", tick one; after Done the key field shows "Stored"; `grep -r sk-ant ~/Library/Application\ Support/Code/User/settings.json` finds nothing. Route `notes` to it. Leave `allowCloud` off; the summary tab's engine row shows "blocked by Allow cloud".
+- [x] Paste a wrong key into a new OpenAI engine: "Key rejected" under Models, focus back in the key field, a typed model id is still accepted; Cancel drops the engine and its key.
+- [x] Escape from the page with unsaved changes asks first; Done returns to the summary tab with the default route line filled in. Judge the look while here (spacing, Advanced fold, list rhythm); findings go into the Progress Log.
+- [x] Select two sentences in `sample.md`, bubble menu, Rewrite, Shorter: tokens stream, header badge says `local · oMLX (Mac Studio) · Qwen 3.8 Flash Next`; Accept replaces in place; one `Cmd+Z` restores the original.
+- [x] Retry while a stream is running cancels the first (output channel "MikeDown AI" shows `cancelled` then a new line).
+- [x] Stop the oMLX server, rewrite again: with `fallback: anyLocal` the badge shows LM Studio and "(fallback)"; with `fallback: none` the menu item is disabled with a reason tooltip.
+- [x] Turn on `allowCloud`, route `rewrite` temporarily to Anthropic, rewrite: the consent modal names the engine and URL; "Not now" cancels with `consentDenied`; a second attempt with "Allow for this workspace" streams from Claude and the badge says `cloud · Anthropic`. Reload the window: no second prompt.
+- [x] Source mode (`Cmd+/`): rewrite on a CodeMirror selection replaces in one undo step.
+- [x] Delete the Anthropic engine; confirm; the secret is gone (re-adding with the same name shows no "Stored").
 
 Hands-on, Desktop (quit /Applications/MikeDown.app first, then `npm run tauri dev` in `/Users/michaeljosephwork/git/mikedown-ai-engines/packages/desktop`, open the same folder; Settings… or the new AI Engines… menu item):
 
-- [ ] Same engines configured in the Desktop AI tab (app-wide); Test connection and Discover work; the key lands in Keychain Access under `net.iadev.mikedown`.
-- [ ] Rewrite streams in a Desktop window; closing the window mid-stream leaves no stuck request (Activity Monitor network idle, next window works).
-- [ ] Consent on Desktop is per folder: a second opened folder asks again.
+- [x] Same engines configured in the Desktop AI tab (app-wide); Test connection and Discover work; the key lands in Keychain Access under `net.iadev.mikedown`.
+- [x] Rewrite streams in a Desktop window; closing the window mid-stream leaves no stuck request (Activity Monitor network idle, next window works).
+- [x] Consent on Desktop is per folder: a second opened folder asks again.
 
-- [ ] Orchestrator pauses for Mike's sign-off; findings go into the Progress Log and either get fixed here or listed under Follow-up plans.
+- [x] Orchestrator pauses for Mike's sign-off; findings go into the Progress Log and either get fixed here or listed under Follow-up plans.
 
 [Return to Top](#ai-inference-engines-plan)
 
@@ -754,6 +754,8 @@ Orchestrator context: with three parallel workers in Group A the orchestrator sh
 **2026-10-25 17:00** - M5 done (`ea80385`, 28 min), cherry-picked as `8d21d58`; orchestrator dropped M5's duplicate `onAiEngines` subscription in `src/webview/editor-main.ts` (core already subscribes since `8b8f210`). Hotkey is `Mod-Alt-K` (Mod-Shift-K is Inline Code); Desktop binds it host side in `menu/shortcuts.ts`. Consent "Not now" applies to that request only; retry once on `unreachable` before the first token overlays the engine as failed so fallback works on the first attempt. Prompt builder not yet exported from `@mikedown/core/ai`. Verified on branch: lint 0 errors, `npm run test:unit` 2021, `npm run test:edge` 22, `npm run test:packages` 79, `npm run test:wrappers` ok, `npm run build:site` ok, Desktop typecheck, unit 559, e2e 55. All build milestones merged; T4 next (needs Mike).
 
 **2026-10-25 17:10** - Added M4b at Mike's request: generic `apiKeyFile { path, jsonPath }` engine field, set by the oMLX preset to `~/.omlx/settings.json` / `auth.api_key`; lookup order secret, env, file in both VS Code and Desktop, home-directory-only, 64 KB cap. Reason: Dock/Spotlight launches don't see `OMLX_API_KEY`. Dispatched on Sonnet in worktree `../mikedown-ai-keyfile`; T4 waits for it.
+
+**2026-10-25 22:30** - T4 signed off. Mike ran the VS Code dev host from the worktree ("It all seemed to work") and the Desktop `tauri dev` build ("worked"). Sign-off was given for each half as a whole, not item by item; boxes checked on that basis. No findings, so no fix workers. Desktop dev processes stopped by PID. Still open before M7: whether "Manage engines…" on the summary tab should look like a button. Next: M7 (gated on publishing core with `./ai` for the Desktop dist build).
 
 **2026-10-25 20:25** - T3b done (`e236b7f` + `85305c8`, ~24 min), cherry-picked as `1e554fb` + `3536b57`. New `ai-express-form.test.ts` (62), `ai-engines-page.test.ts` 4 to 31, `ai-settings.test.ts` 30 to 38 (no M3 assertion lost), `ai.spec.ts` +1 (Tab trap; key stored before discovery). Demo stub host now seeds a second (Anthropic) engine and returns a dozen provider-shaped ids on cloud discovery, so every website demo shows two engines. No product bugs found; noted: a page disposed during first-open discovery still issues that one call (result dropped), and a hand-made engine's unreachable copy names the engine rather than "the server". Screenshots in `.orchestrator/ai-inference-engines-plan/screenshots/` (summary tab, cloud Express, narrow 640 px), driven with real clicks against the stub host. Orchestrator look: the summary tab's "Manage engines…" reads as plain text rather than a button; the AI tab still says "per workspace" (M7 loose end). Verified on branch: lint 0 errors / 1102 warnings, unit 2164 (+2 todo), edge 22, packages 79, wrappers 49/24/12/26, build:site ok, Desktop typecheck ok, unit 559, e2e 56, `cargo test` 185 + 26 + 7. T4 unblocked; launch commands fixed to the worktree.
 
