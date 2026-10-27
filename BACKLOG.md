@@ -10,7 +10,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 ## Nice-to-have
 
 - **Definition lists** — `term\n: definition` (pandoc / PHP Markdown Extra).
-- **Table of contents** — auto-generated `[[toc]]` block.
+- ~~**Table of contents** — auto-generated `[[toc]]` block.~~ ✅ Done, unreleased (90ab0f5). Uses `<!-- toc -->` / `<!-- tocstop -->` markers around a link list (GitHub-portable) instead of `[[toc]]`.
 - **Custom containers** — `:::note ... :::` style (VuePress / MkDocs).
 - **Image captions** — render alt text or title as a `<figcaption>` under images.
 - **Spell check toggle** for the editing surface.
