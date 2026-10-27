@@ -45,6 +45,7 @@ import { initSlashCommandActions } from './slashcommands-actions';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import { MathInline, MathBlock, setMathRenderingEnabled } from './math';
 import { FootnoteRef, FootnoteDef } from './footnote';
+import { TableOfContents, syncTableOfContents } from './toc-node';
 import { createOutlineSidebar, type OutlineSidebar } from './outlineSidebar';
 import {
   parseFrontmatter,
@@ -286,6 +287,7 @@ const toolbarIcons = {
   image: toolbarSvg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="5.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/><polyline points="14 10.5 10.5 7 6 11.5 4.5 10 2 12.5"/>'),
   table: toolbarSvg('<rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="2" y1="6" x2="14" y2="6"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="6" y1="2" x2="6" y2="14"/><line x1="10" y1="2" x2="10" y2="14"/>'),
   hr: toolbarSvg('<line x1="2" y1="8" x2="14" y2="8"/><circle cx="5" cy="8" r="0.5" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="0.5" fill="currentColor" stroke="none"/><circle cx="11" cy="8" r="0.5" fill="currentColor" stroke="none"/>'),
+  toc: toolbarSvg('<line x1="2" y1="4" x2="14" y2="4"/><line x1="5" y1="8" x2="14" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/><circle cx="2.5" cy="8" r="0.6" fill="currentColor" stroke="none"/><circle cx="5.5" cy="12" r="0.6" fill="currentColor" stroke="none"/>'),
   undo: toolbarSvg('<polyline points="4 7 2 5 4 3"/><path d="M2 5h8a4 4 0 0 1 0 8H7"/>'),
   redo: toolbarSvg('<polyline points="12 7 14 5 12 3"/><path d="M14 5H6a4 4 0 0 0 0 8h3"/>'),
   source: toolbarSvg('<polyline points="5 4 2 8 5 12"/><polyline points="11 4 14 8 11 12"/><line x1="9" y1="3" x2="7" y2="13"/>'),
@@ -2501,6 +2503,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         { type: 'action', id: 'image', label: 'Image', icon: icons.image, action: () => showImageInsertDialog(editor) },
         { type: 'action', id: 'table', label: 'Table', icon: icons.table, isActive: () => editor.isActive('table'), action: () => showTableGridPicker(editor, anchor) },
         { type: 'action', id: 'hr', label: 'Horizontal Rule', icon: icons.hr, action: () => editor.chain().focus().setHorizontalRule().run() },
+        { type: 'action', id: 'toc', label: 'Table of Contents', icon: icons.toc, action: () => editor.chain().focus().insertTableOfContents().run() },
       ]);
     });
 
@@ -3140,6 +3143,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // `[^1]` references and `[^1]: text` definitions, kept in place on save.
       FootnoteRef,
       FootnoteDef,
+
+      // ── Table of contents ─────────────────────────────────────────────────────
+      // `<!-- toc -->` … `<!-- tocstop -->` around a list of heading links,
+      // kept current as headings change (see the TOC sync below).
+      TableOfContents.configure({ onNavigate: (anchor) => scrollToAnchor(anchor) }),
 
       // ── Task Lists (M2c) ──────────────────────────────────────────────────────
       // "- [ ] " and "- [x] " input rules convert to checkable task list items.
@@ -4448,6 +4456,27 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // Leaving a heading lets its number catch up.
   editor.on('selectionUpdate', () => {
     if (numbersStale && !renumberTimer) {renumberTimer = setTimeout(renumberLive, 400);}
+  });
+
+  // ── Table of contents sync (#11) ──────────────────────────────────────────
+  // A TOC block follows the headings: after edits settle, rewrite any TOC
+  // whose list no longer matches. Same rules as renumbering: never on load
+  // (that would dirty a file nobody touched), and outside the undo history,
+  // so Cmd+Z undoes the user's edit and the TOC follows it again.
+  const TOC_SYNC_META = 'mikedownTocSync';
+  let tocSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+  editor.on('update', ({ transaction }) => {
+    if (isLoading || transaction.getMeta(TOC_SYNC_META)) {return;}
+    if (tocSyncTimer) {clearTimeout(tocSyncTimer);}
+    tocSyncTimer = setTimeout(() => {
+      tocSyncTimer = null;
+      if (isLoading || sourceMode || editor.isDestroyed) {return;}
+      const tr = syncTableOfContents(editor.state);
+      if (!tr) {return;}
+      tr.setMeta(TOC_SYNC_META, true).setMeta('addToHistory', false);
+      editor.view.dispatch(tr);
+    }, 300);
   });
 
   documentIsNumbered = () => isNumbered(topLevelHeadings().map((h) => h.info), currentHeadingNumbering);
@@ -6123,6 +6152,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     clearTimeout(liveTagsTimer ?? undefined);
     clearTimeout(headingIdleTimer ?? undefined);
     clearTimeout(renumberTimer ?? undefined);
+    clearTimeout(tocSyncTimer ?? undefined);
     clearTimeout(mermaidThemeTimer ?? undefined);
     window.clearTimeout(toastTimer);
     while (disposers.length) {
