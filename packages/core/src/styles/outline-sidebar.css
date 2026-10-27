@@ -155,6 +155,8 @@
 
 /* ─── Header buttons: position toggle + pin (Outline header only) ────────── */
 
+:is(.mikedown-root, .mikedown-portal) .outline-fold-all,
+:is(.mikedown-root, .mikedown-portal) .outline-unfold-all,
 :is(.mikedown-root, .mikedown-portal) .outline-position-toggle,
 :is(.mikedown-root, .mikedown-portal) .outline-pin {
   width: 22px;
@@ -172,6 +174,8 @@
   transition: background-color 0.12s ease, opacity 0.12s ease, color 0.12s ease;
 }
 
+:is(.mikedown-root, .mikedown-portal) .outline-fold-all:hover,
+:is(.mikedown-root, .mikedown-portal) .outline-unfold-all:hover,
 :is(.mikedown-root, .mikedown-portal) .outline-position-toggle:hover,
 :is(.mikedown-root, .mikedown-portal) .outline-pin:hover {
   opacity: 1;
@@ -234,12 +238,55 @@
   opacity: 1;
 }
 
-:is(.mikedown-root, .mikedown-portal) .outline-item.level-1 { padding-left: 10px; }
-:is(.mikedown-root, .mikedown-portal) .outline-item.level-2 { padding-left: 22px; }
-:is(.mikedown-root, .mikedown-portal) .outline-item.level-3 { padding-left: 34px; }
-:is(.mikedown-root, .mikedown-portal) .outline-item.level-4 { padding-left: 46px; }
-:is(.mikedown-root, .mikedown-portal) .outline-item.level-5 { padding-left: 58px; }
-:is(.mikedown-root, .mikedown-portal) .outline-item.level-6 { padding-left: 70px; }
+:is(.mikedown-root, .mikedown-portal) .outline-item.level-1 { padding-left: 24px; }
+:is(.mikedown-root, .mikedown-portal) .outline-item.level-2 { padding-left: 36px; }
+:is(.mikedown-root, .mikedown-portal) .outline-item.level-3 { padding-left: 48px; }
+:is(.mikedown-root, .mikedown-portal) .outline-item.level-4 { padding-left: 60px; }
+:is(.mikedown-root, .mikedown-portal) .outline-item.level-5 { padding-left: 72px; }
+:is(.mikedown-root, .mikedown-portal) .outline-item.level-6 { padding-left: 84px; }
+
+/* Fold chevron: sits in the 14px gutter just before the heading text. */
+:is(.mikedown-root, .mikedown-portal) .outline-row {
+  position: relative;
+}
+
+:is(.mikedown-root, .mikedown-portal) .outline-fold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 14px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  color: var(--mikedown-text, #d4d4d4);
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+:is(.mikedown-root, .mikedown-portal) .outline-fold-icon {
+  display: inline-block;
+  transition: transform 120ms ease-out;
+}
+
+:is(.mikedown-root, .mikedown-portal) .outline-fold:hover {
+  opacity: 1;
+  background-color: var(--mikedown-hover, rgba(127, 127, 127, 0.18));
+}
+
+:is(.mikedown-root, .mikedown-portal) .outline-row.folded .outline-fold-icon {
+  transform: rotate(-90deg);
+}
+
+:is(.mikedown-root, .mikedown-portal) .outline-row.level-1 .outline-fold { left: 10px; }
+:is(.mikedown-root, .mikedown-portal) .outline-row.level-2 .outline-fold { left: 22px; }
+:is(.mikedown-root, .mikedown-portal) .outline-row.level-3 .outline-fold { left: 34px; }
+:is(.mikedown-root, .mikedown-portal) .outline-row.level-4 .outline-fold { left: 46px; }
+:is(.mikedown-root, .mikedown-portal) .outline-row.level-5 .outline-fold { left: 58px; }
+:is(.mikedown-root, .mikedown-portal) .outline-row.level-6 .outline-fold { left: 70px; }
 
 /* ─── Backlink items ─────────────────────────────────────────────────────── */
 

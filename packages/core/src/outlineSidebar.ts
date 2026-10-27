@@ -13,6 +13,7 @@
 import { countWords, readingMinutes } from './shared/wordCount';
 import { formatRelativeTime } from './relativeTime';
 import type { BacklinkItem, MikeDownSidebarPrefs } from './host';
+import { hasDescendants, hiddenByFolds, nearestVisibleIndex } from './outlineFold';
 
 export type OutlineVisibilityPref = 'always' | 'never';
 export type OutlinePosition = 'left' | 'right';
@@ -83,6 +84,10 @@ const PIN_SVG_ON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="curren
 const SIDEBAR_ARROW_LEFT  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>';
 const SIDEBAR_ARROW_RIGHT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>';
 
+// Outline Fold all / Unfold all: chevrons pointing in / out.
+const FOLD_ALL_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/></svg>';
+const UNFOLD_ALL_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>';
+
 // Discovery-toggle icon — outline rect + a filled pane on the side the sidebar
 // lives on. Mirrors VS Code's own layout-sidebar codicons.
 const SIDEBAR_ICON_LEFT  = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1"/><rect x="3" y="4" width="3" height="8" fill="currentColor" stroke="none"/></svg>';
@@ -139,6 +144,9 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
   let anchorFnRef: (text: string) => string = (t) => t;
   let activeAnchor = '';
   let lastHeadingsKey = '';
+  // Outline headings the user folded, by anchor, so re-renders on edits keep
+  // them. Pruned on rebuild to headings that still have descendants.
+  const foldedAnchors = new Set<string>();
 
   let sidebarEl: HTMLElement | null = null;
   let scrollContainerEl: HTMLElement | null = null;
@@ -359,10 +367,34 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     // master header). Position toggle flips left↔right; pin toggles between
     // 'always' (pinned open) and 'remember' (per-document) visibility.
     if (withPin) {
+      const foldAll = document.createElement('button');
+      foldAll.type = 'button';
+      foldAll.className = 'outline-fold-all';
+      foldAll.style.marginLeft = 'auto';
+      foldAll.title = 'Fold all';
+      foldAll.setAttribute('aria-label', 'Fold all outline headings');
+      foldAll.innerHTML = FOLD_ALL_SVG;
+      foldAll.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        setAllFolded(true);
+      });
+      header.appendChild(foldAll);
+
+      const unfoldAll = document.createElement('button');
+      unfoldAll.type = 'button';
+      unfoldAll.className = 'outline-unfold-all';
+      unfoldAll.title = 'Unfold all';
+      unfoldAll.setAttribute('aria-label', 'Unfold all outline headings');
+      unfoldAll.innerHTML = UNFOLD_ALL_SVG;
+      unfoldAll.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        setAllFolded(false);
+      });
+      header.appendChild(unfoldAll);
+
       const posBtn = document.createElement('button');
       posBtn.type = 'button';
       posBtn.className = 'outline-position-toggle';
-      posBtn.style.marginLeft = 'auto';
       header.appendChild(posBtn);
       positionToggleEl = posBtn;
       posBtn.addEventListener('click', (ev) => {
@@ -407,6 +439,8 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
       toggle();
     });
     header.addEventListener('keydown', (ev) => {
+      // Enter/Space on a header button activates that button, not the section.
+      if ((ev.target as HTMLElement).closest('button')) {return;}
       if (ev.key === 'Enter' || ev.key === ' ') {
         ev.preventDefault();
         toggle();
@@ -759,17 +793,77 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
       outlineListEl.appendChild(empty);
       return;
     }
-    for (const h of headings) {
+    const foldable = hasDescendants(headings.map(h => h.level));
+    const keep = new Set(headings.filter((_, i) => foldable[i]).map(h => h.anchor));
+    for (const anchor of [...foldedAnchors]) {
+      if (!keep.has(anchor)) {foldedAnchors.delete(anchor);}
+    }
+    headings.forEach((h, i) => {
+      const level = Math.max(1, Math.min(6, h.level));
+      const row = document.createElement('div');
+      row.className = `outline-row level-${level}`;
+      row.dataset.anchor = h.anchor;
+      row.dataset.level = String(h.level);
+      if (foldable[i]) {
+        const fold = document.createElement('button');
+        fold.type = 'button';
+        fold.className = 'outline-fold';
+        fold.innerHTML = '<span class="outline-fold-icon" aria-hidden="true">▾</span>';
+        fold.addEventListener('click', () => toggleFold(h.anchor));
+        row.appendChild(fold);
+      }
       const item = document.createElement('button');
       item.type = 'button';
-      item.className = `outline-item level-${Math.max(1, Math.min(6, h.level))}`;
+      item.className = `outline-item level-${level}`;
       item.dataset.anchor = h.anchor;
       item.title = h.text;
       item.textContent = h.text;
       item.addEventListener('click', () => scrollEditorToAnchor(h.anchor));
-      outlineListEl.appendChild(item);
-    }
+      row.appendChild(item);
+      outlineListEl!.appendChild(row);
+    });
+    applyFolds();
     updateActiveFromCursor();
+  }
+
+  // ── Folding ────────────────────────────────────────────────────────────────
+
+  function outlineRows(): HTMLElement[] {
+    return outlineListEl ? [...outlineListEl.querySelectorAll<HTMLElement>('.outline-row')] : [];
+  }
+
+  function toggleFold(anchor: string): void {
+    if (foldedAnchors.has(anchor)) {foldedAnchors.delete(anchor);}
+    else {foldedAnchors.add(anchor);}
+    applyFolds();
+    highlightActive();
+  }
+
+  function setAllFolded(fold: boolean): void {
+    foldedAnchors.clear();
+    if (fold) {
+      outlineRows().forEach((row) => {
+        if (row.querySelector('.outline-fold')) {foldedAnchors.add(row.dataset.anchor || '');}
+      });
+    }
+    applyFolds();
+    highlightActive();
+  }
+
+  function applyFolds(): void {
+    const rows = outlineRows();
+    const folded = rows.map(row => foldedAnchors.has(row.dataset.anchor || ''));
+    const hidden = hiddenByFolds(rows.map(row => Number(row.dataset.level)), folded);
+    rows.forEach((row, i) => {
+      row.hidden = hidden[i];
+      row.classList.toggle('folded', folded[i]);
+      const fold = row.querySelector<HTMLButtonElement>('.outline-fold');
+      if (!fold) {return;}
+      const text = row.querySelector('.outline-item')?.textContent || '';
+      fold.setAttribute('aria-expanded', folded[i] ? 'false' : 'true');
+      fold.setAttribute('aria-label', `${folded[i] ? 'Unfold' : 'Fold'} ${text}`);
+      fold.title = folded[i] ? 'Unfold' : 'Fold';
+    });
   }
 
   // ── Active-item tracking ───────────────────────────────────────────────────
@@ -796,12 +890,17 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
 
   function highlightActive(): void {
     if (!outlineListEl) {return;}
-    const items = outlineListEl.querySelectorAll<HTMLElement>('.outline-item');
+    // A heading inside a folded section lights up its nearest visible ancestor.
+    const rows = outlineRows();
+    const index = nearestVisibleIndex(
+      rows.map(row => row.hidden),
+      rows.findIndex(row => row.dataset.anchor === activeAnchor),
+    );
     let activeEl: HTMLElement | null = null;
-    items.forEach((el) => {
-      const on = el.dataset.anchor === activeAnchor;
-      el.classList.toggle('active', on);
-      if (on) {activeEl = el;}
+    rows.forEach((row, i) => {
+      const el = row.querySelector<HTMLElement>('.outline-item');
+      el?.classList.toggle('active', i === index);
+      if (i === index) {activeEl = row;} // the row, so offsetTop isn't relative to it
     });
     if (activeEl) {scrollActiveIntoView(activeEl);}
   }
