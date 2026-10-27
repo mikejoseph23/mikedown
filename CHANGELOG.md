@@ -4,6 +4,10 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Sidebar outline headings fold: click the chevron beside a heading to hide or show its subheadings, or use Fold all / Unfold all in the Outline header. Folds survive edits; a heading inside a folded section highlights its nearest visible parent.
+
 ### Fixed
 
 - Checkboxes in table cells save as `[ ]` / `[x]` again. Toggling one (or any edit in the document) used to write them as `\[x\]`, which other Markdown renderers show with the backslashes.
