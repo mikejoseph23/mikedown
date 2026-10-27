@@ -1,6 +1,6 @@
 /**
  * M3/M4/M6: wires every registry `id` (quote/lists/callouts/divider,
- * code/mermaid, table, link/wikilink/emoji/image/properties/date/datetime)
+ * code/mermaid, table, toc, link/wikilink/emoji/image/properties/date/datetime)
  * to a real action. Headings and Paragraph are handled directly in
  * `slashcommands.ts` (M2).
  *
@@ -136,6 +136,8 @@ function handleSlashAction(
       return actionFootnote(editor, view, range);
     case 'inline-math':
       return actionMathInline(view, range);
+    case 'toc':
+      return applyBlock(view, range, () => editor.chain().focus().insertTableOfContents().run());
     case 'table':
       return actionTable(editor, view, range);
 

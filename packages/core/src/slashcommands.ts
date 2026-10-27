@@ -242,6 +242,7 @@ const ICONS: Record<string, string> = {
     '<rect x="5.5" y="1.5" width="5" height="3.5" rx="0.8"/><rect x="1.5" y="11" width="5" height="3.5" rx="0.8"/><rect x="9.5" y="11" width="5" height="3.5" rx="0.8"/><path d="M8 5v3M4 11V8h8v3"/>'
   ),
   math: svg('<path d="M13 3.5H4.5L9 8l-4.5 4.5H13"/>'),
+  toc: svg('<line x1="2" y1="4" x2="14" y2="4"/><line x1="5" y1="8" x2="14" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/><circle cx="2.5" cy="8" r="0.6" fill="currentColor" stroke="none"/><circle cx="5.5" cy="12" r="0.6" fill="currentColor" stroke="none"/>'),
   table: svg(
     '<rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="2" y1="6" x2="14" y2="6"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="6" y1="2" x2="6" y2="14"/><line x1="10" y1="2" x2="10" y2="14"/>'
   ),

@@ -2177,6 +2177,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       'mermaid.css',
       'math.css',
       'footnotes.css',
+      'toc.css',
       'links.css',
       'findreplace.css',
       'contextmenu.css',

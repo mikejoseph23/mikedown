@@ -158,6 +158,14 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     icon: 'note',
   },
   {
+    id: 'toc',
+    title: 'Table of Contents',
+    description: 'Linked list of the headings, kept up to date',
+    aliases: ['contents', 'outline'],
+    group: 'insert',
+    icon: 'toc',
+  },
+  {
     id: 'table',
     title: 'Table',
     description: 'Insert a table with a size picker',
