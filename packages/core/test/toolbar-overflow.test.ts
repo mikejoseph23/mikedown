@@ -33,10 +33,14 @@ function fakeRow(toolbar: HTMLElement, width: number): void {
 function makeToolbar(spec: string[]): HTMLElement {
   const toolbar = document.createElement('div');
   for (const item of spec) {
-    const el = item === '|' ? document.createElement('div') : document.createElement('button');
+    const el = item === '|' || item === '~' ? document.createElement('div') : document.createElement('button');
     if (item === '|') {
       el.className = 'toolbar-separator';
       el.dataset.w = '7';
+    } else if (item === '~') {
+      // A flexible spacer squeezed to nothing by a full row.
+      el.className = 'toolbar-spacer';
+      el.dataset.w = '0';
     } else {
       el.dataset.action = item;
       el.dataset.w = '30';
@@ -52,7 +56,7 @@ function makeToolbar(spec: string[]): HTMLElement {
 }
 
 const overflowed = (toolbar: HTMLElement) =>
-  (Array.from(toolbar.querySelectorAll<HTMLElement>('.toolbar-overflowed'))).map((el) => el.dataset.action ?? '|');
+  (Array.from(toolbar.querySelectorAll<HTMLElement>('.toolbar-overflowed'))).map((el) => el.dataset.action ?? (el.classList.contains('toolbar-spacer') ? '~' : '|'));
 
 let toolbarEl: HTMLElement | null = null;
 let handle: MikeDownEditorHandle | null = null;
@@ -141,6 +145,120 @@ describe('layoutToolbarOverflow with a group', () => {
   });
 });
 
+describe('layoutToolbarOverflow with a group, more cases', () => {
+  function zoomToolbar(spec: string[]): HTMLElement {
+    const toolbar = makeToolbar(spec);
+    const group = document.createElement('div');
+    group.className = 'toolbar-group';
+    group.dataset.action = 'zoom';
+    group.dataset.w = '60';
+    for (const id of ['zoomOut', 'zoomReset', 'zoomIn']) {
+      const b = document.createElement('button');
+      b.dataset.action = id;
+      group.appendChild(b);
+    }
+    toolbar.insertBefore(group, toolbar.querySelector('.toolbar-more'));
+    return toolbar;
+  }
+
+  it('keeps the group in the row when it fits, with More hidden', () => {
+    toolbarEl = zoomToolbar(['format', '|', 'theme']);
+    fakeRow(toolbarEl, 1000);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toEqual([]);
+    expect(toolbarEl.querySelector<HTMLElement>('.toolbar-more')!.hidden).toBe(true);
+  });
+
+  it('restores the group when the toolbar widens again', () => {
+    toolbarEl = zoomToolbar(['format', '|', 'theme']);
+    fakeRow(toolbarEl, 80);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toContain('zoom');
+    fakeRow(toolbarEl, 1000);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toEqual([]);
+  });
+
+  it('drops the separator left dangling before an overflowed group', () => {
+    toolbarEl = zoomToolbar(['format', 'theme', '|']);
+    // The group sits after the trailing separator here, so it overflows first and the separator is trimmed.
+    fakeRow(toolbarEl, 100);
+    layoutToolbarOverflow(toolbarEl);
+    const out = overflowed(toolbarEl);
+    expect(out).toContain('zoom');
+    expect(out).toContain('|');
+    expect(toolbarEl.querySelectorAll('.toolbar-group button.toolbar-overflowed')).toHaveLength(0);
+  });
+
+  it('counts a group as listable, so More shows even with no loose button overflowed', () => {
+    toolbarEl = zoomToolbar(['format']);
+    fakeRow(toolbarEl, 70);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toEqual(['zoom']);
+    expect(toolbarEl.querySelector<HTMLElement>('.toolbar-more')!.hidden).toBe(false);
+  });
+});
+
+describe('layoutToolbarOverflow with a flexible spacer', () => {
+  it('leaves a spacer in the row while everything fits', () => {
+    toolbarEl = makeToolbar(['format', 'link', '~', 'undo', 'settings']);
+    fakeRow(toolbarEl, 1000);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toEqual([]);
+    expect(toolbarEl.querySelector<HTMLElement>('.toolbar-more')!.hidden).toBe(true);
+  });
+
+  it('overflows a squeezed spacer like a separator once the buttons after it spill', () => {
+    toolbarEl = makeToolbar(['format', 'link', '~', 'undo', 'settings']);
+    // format 30 + link 30 + spacer 0 = 60, plus More 30 = 90: undo and settings spill, then the trailing spacer is trimmed.
+    fakeRow(toolbarEl, 95);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toEqual(['~', 'undo', 'settings']);
+    expect(toolbarEl.querySelector<HTMLElement>('.toolbar-more')!.hidden).toBe(false);
+  });
+
+  it('never lets a spacer be the last visible thing before More', () => {
+    toolbarEl = makeToolbar(['format', 'link', 'undo', '~', 'settings']);
+    fakeRow(toolbarEl, 100);
+    layoutToolbarOverflow(toolbarEl);
+    const visible = (Array.from(toolbarEl.children) as HTMLElement[]).filter((el) => !el.classList.contains('toolbar-overflowed') && !el.hidden);
+    const beforeMore = visible[visible.length - 2];
+    expect(beforeMore.classList.contains('toolbar-spacer')).toBe(false);
+  });
+
+  it('trims trailing spacers and separators together', () => {
+    toolbarEl = makeToolbar(['format', 'link', '|', '~', 'undo', 'settings']);
+    // undo and settings spill; the separator and spacer they leave at the end of the row go with them.
+    fakeRow(toolbarEl, 100);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toEqual(['|', '~', 'undo', 'settings']);
+  });
+
+  it('restores the spacer when the toolbar widens', () => {
+    toolbarEl = makeToolbar(['format', 'link', '~', 'undo', 'settings']);
+    fakeRow(toolbarEl, 95);
+    layoutToolbarOverflow(toolbarEl);
+    fakeRow(toolbarEl, 1000);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toEqual([]);
+  });
+
+  it('does not show More when only spacers and separators moved', () => {
+    toolbarEl = makeToolbar(['format', '|', '~']);
+    fakeRow(toolbarEl, 20);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toEqual(['|', '~']);
+    expect(toolbarEl.querySelector<HTMLElement>('.toolbar-more')!.hidden).toBe(true);
+  });
+
+  it('never overflows a spacer in the first slot', () => {
+    toolbarEl = makeToolbar(['~', 'link', 'undo']);
+    fakeRow(toolbarEl, 20);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).not.toContain('~');
+  });
+});
+
 describe('More menu', () => {
   it('lists the overflowed buttons and runs them', () => {
     host = document.createElement('div');
@@ -171,5 +289,57 @@ describe('More menu', () => {
     expect(after).not.toBe(before);
     expect(document.getElementById('toolbar-dropdown')).toBeNull();
     expect(changed).toBe(0);
+  });
+
+  /** Open the More menu with `overflow` marked overflowed and return its entry ids and labels. */
+  function openMore(overflow: (toolbar: HTMLElement) => HTMLElement[]) {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    handle = createMikeDownEditor(host, { host: { onChange() {} }, initialMarkdown: 'Hello\n' });
+    const toolbar = host.querySelector<HTMLElement>('.mikedown-toolbar')!;
+    const more = toolbar.querySelector<HTMLButtonElement>('button.toolbar-more')!;
+    overflow(toolbar).forEach((el) => el.classList.add('toolbar-overflowed'));
+    more.hidden = false;
+    more.click();
+    const menu = document.getElementById('toolbar-dropdown')!;
+    return {
+      toolbar,
+      ids: Array.from(menu.querySelectorAll<HTMLElement>('[data-tdd-id]')).map((el) => el.dataset.tddId),
+      separators: menu.querySelectorAll('.tdd-separator, [role="separator"]').length,
+    };
+  }
+
+  it('expands the zoom group into its three buttons, in order, and lists no wrapper', () => {
+    const { ids } = openMore((t) => [t.querySelector<HTMLElement>('.toolbar-group[data-action="zoom"]')!]);
+    expect(ids).toEqual(['more-zoomOut', 'more-zoomReset', 'more-zoomIn']);
+  });
+
+  it('skips a hidden button inside an overflowed group', () => {
+    const { ids } = openMore((t) => {
+      t.querySelector<HTMLElement>('[data-action="zoomReset"]')!.style.display = 'none';
+      return [t.querySelector<HTMLElement>('.toolbar-group[data-action="zoom"]')!];
+    });
+    expect(ids).toEqual(['more-zoomOut', 'more-zoomIn']);
+  });
+
+  it('never lists a flexible spacer, and keeps the group beside it', () => {
+    const { ids } = openMore((t) => {
+      const spacer = document.createElement('div');
+      spacer.className = 'toolbar-spacer';
+      const group = t.querySelector<HTMLElement>('.toolbar-group[data-action="zoom"]')!;
+      t.insertBefore(spacer, group);
+      return [spacer, group];
+    });
+    expect(ids).toEqual(['more-zoomOut', 'more-zoomReset', 'more-zoomIn']);
+  });
+
+  it('puts a separator between a loose button and an expanded group, and none at the ends', () => {
+    const { ids, separators } = openMore((t) => [
+      t.querySelector<HTMLElement>('[data-action="selectAll"]')!,
+      ...Array.from(t.querySelectorAll<HTMLElement>(':scope > .toolbar-separator')).filter((s) => s.nextElementSibling?.classList.contains('toolbar-group')),
+      t.querySelector<HTMLElement>('.toolbar-group[data-action="zoom"]')!,
+    ]);
+    expect(ids).toEqual(['more-selectAll', 'more-zoomOut', 'more-zoomReset', 'more-zoomIn']);
+    expect(separators).toBe(1);
   });
 });
