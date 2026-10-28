@@ -52,6 +52,23 @@ export function kindGlyphHtml(kind: string, extra = ''): string {
   return `<span class="ai-glyph ${extra}" data-kind="${known ? kind : 'unknown'}" aria-hidden="true">${inner}</span>`;
 }
 
+// ── Experimental marking ────────────────────────────────────────────────────
+
+/** Shown on the AI tab, the AI Engines page and the toolbar's first-run panel. */
+export const AI_EXPERIMENTAL_DISCLAIMER =
+  'AI features are experimental and may change or be removed. AI output can be wrong, so review it before you keep it. ' +
+  'With a cloud engine, the selected text is sent to that provider; local engines keep it on your machine.';
+
+/** The "Experimental" pill beside an AI title. */
+export function experimentalBadge(): HTMLSpanElement {
+  return el('span', 'ai-experimental-badge', 'Experimental');
+}
+
+/** The disclaimer as a quiet paragraph. */
+export function experimentalDisclaimer(className = ''): HTMLParagraphElement {
+  return el('p', `ai-disclaimer${className ? ` ${className}` : ''}`, AI_EXPERIMENTAL_DISCLAIMER);
+}
+
 // ── Small DOM helpers ───────────────────────────────────────────────────────
 
 let uid = 0;

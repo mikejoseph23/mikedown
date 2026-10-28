@@ -36,6 +36,7 @@ export const DESKTOP_KEY_DEFAULTS = {
   'ai.features': {} as Record<string, unknown>,
   // RFC 1918, the same default as core's DEFAULT_LOCAL_NETWORKS.
   'ai.localNetworks': ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'] as unknown[],
+  'ai.showToolbarButton': true,
   fileAssociationsOffered: false,
 } as const;
 

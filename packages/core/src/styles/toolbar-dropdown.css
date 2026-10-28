@@ -76,6 +76,13 @@
   text-overflow: ellipsis;
 }
 
+/* A muted note after the label (e.g. why the item is disabled). */
+:is(.mikedown-root, .mikedown-portal) .tdd-item-hint {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--mikedown-text-muted);
+}
+
 /* Active indicator — small dot on the left */
 :is(.mikedown-root, .mikedown-portal) .tdd-item-active-indicator {
   display: none;

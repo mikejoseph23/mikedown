@@ -152,6 +152,8 @@ export interface AiSettings {
   features: AiFeatureSettings;
   /** CIDR ranges (and `.suffix` host names) that count as local. Default RFC 1918. */
   localNetworks: string[];
+  /** The AI button on the toolbar (hosts with AI support only). Default true. */
+  showToolbarButton: boolean;
 }
 
 // ── Host group ──────────────────────────────────────────────────────────────

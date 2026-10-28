@@ -16,6 +16,8 @@ export interface ToolbarDropdownItem {
   isActive?: () => boolean;
   /** Greyed out and inert while this returns true (read when the menu opens). */
   isDisabled?: () => boolean;
+  /** A short muted note after the label (why the item is disabled, say). */
+  hint?: string;
   action: () => void;
 }
 
@@ -173,6 +175,14 @@ function buildActionItem(item: ToolbarDropdownItem): HTMLElement {
   label.className = 'tdd-item-label';
   label.textContent = item.label;
   el.appendChild(label);
+
+  if (item.hint) {
+    const hint = document.createElement('span');
+    hint.className = 'tdd-item-hint';
+    hint.textContent = item.hint;
+    el.appendChild(hint);
+    el.title = item.hint;
+  }
 
   // Active state
   if (item.isActive) {

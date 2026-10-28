@@ -162,7 +162,7 @@ test('the Settings modal AI tab lists the saved engine; the AI Engines page test
   await page.keyboard.press('ControlOrMeta+,');
   const modal = page.locator('.settings-modal');
   await expect(modal).toBeVisible();
-  await modal.getByRole('tab', { name: 'AI', exact: true }).click();
+  await modal.getByRole('tab', { name: 'AI Experimental', exact: true }).click();
 
   const engines = modal.getByRole('list', { name: 'Engines' });
   await expect(engines).toBeVisible();
@@ -202,7 +202,7 @@ test('the AI tab shows the empty state when no engine is saved', async ({ page, 
   await page.locator('#editor .ProseMirror').first().click();
   await page.keyboard.press('ControlOrMeta+,');
   const modal = page.locator('.settings-modal');
-  await modal.getByRole('tab', { name: 'AI', exact: true }).click();
+  await modal.getByRole('tab', { name: 'AI Experimental', exact: true }).click();
   await expect(modal.getByText('No engines yet')).toBeVisible();
   await modal.getByRole('button', { name: 'Add engine…' }).click();
   // The page opens on the quick-start cards.
@@ -228,7 +228,7 @@ test('a pasted cloud key is stored first, then the models are fetched into a col
   await page.locator('#editor .ProseMirror').first().click();
   await page.keyboard.press('ControlOrMeta+,');
   const modal = page.locator('.settings-modal');
-  await modal.getByRole('tab', { name: 'AI', exact: true }).click();
+  await modal.getByRole('tab', { name: 'AI Experimental', exact: true }).click();
   await modal.getByRole('button', { name: 'Manage engines…' }).click();
 
   const enginesPage = page.getByRole('dialog', { name: 'AI Engines' });

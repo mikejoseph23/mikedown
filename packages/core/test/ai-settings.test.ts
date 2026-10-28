@@ -18,6 +18,7 @@ import {
   toggleModelCapability,
   uniqueEngineId,
 } from '../src/ai-settings-model';
+import { AI_EXPERIMENTAL_DISCLAIMER } from '../src/ai-settings-dom';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
 stubLayoutMeasurement();
@@ -207,7 +208,7 @@ describe('AI tab in the Settings modal', () => {
     class Tier1 extends NoopHost { ai = { complete: vi.fn() } as unknown as MikeDownAiHost; }
     const handle = mount(new Tier1());
     handle.command('openAiSettings');
-    expect(document.querySelector('.settings-tab[aria-selected="true"]')?.textContent).toBe('AI');
+    expect(document.querySelector<HTMLElement>('.settings-tab[aria-selected="true"]')?.dataset.tabId).toBe('ai');
     const panel = document.querySelector('.settings-panel--ai')!;
     expect(panel.textContent).toContain('Enable AI features');
     expect(panel.textContent).toContain('Rewrite selection');
@@ -216,14 +217,17 @@ describe('AI tab in the Settings modal', () => {
     expect(panel.querySelector('.ai-engines, .ai-empty')).toBeNull();
   });
 
-  it('a tier-2 host gets engines, routing and the AI tab right after Spelling', () => {
+  it('a tier-2 host gets engines, routing and the AI tab last, marked Experimental', () => {
     class Tier2 extends NoopHost { ai = tier2(); }
     const el = document.createElement('div');
     document.body.appendChild(el);
     const handle = createMikeDownEditor(el, { host: new Tier2(), spellcheckDictionaryUrl: '/dict', settings: { ai: settings() } });
     mounted.push({ handle, el });
     handle.command('openAiSettings');
-    expect(tabLabels().slice(3, 5)).toEqual(['Spelling', 'AI']);
+    const tabs = Array.from(document.querySelectorAll<HTMLElement>('.settings-tab'));
+    expect(tabs.map((t) => t.dataset.tabId)).toEqual(['appearance', 'behavior', 'markdown', 'spelling', 'hotkeys', 'ai']);
+    expect(tabs.at(-1)?.querySelector('.ai-experimental-badge')?.textContent).toBe('Experimental');
+    expect(document.querySelector('.settings-panel--ai .ai-experimental-intro')?.textContent).toContain(AI_EXPERIMENTAL_DISCLAIMER);
     const names = Array.from(document.querySelectorAll('.ai-engine-name')).map((n) => n.textContent);
     expect(names).toEqual(['oMLX', 'LM Studio', 'Anthropic']);
     expect(document.querySelector('.ai-pill--blocked')?.textContent).toBe('blocked by Allow cloud');
@@ -319,7 +323,7 @@ describe('AI Engines page in the editor', () => {
     class Tier1 extends NoopHost { ai = { complete: vi.fn() } as unknown as MikeDownAiHost; }
     const t1 = mount(new Tier1());
     t1.command('openAiSettings', { page: true });
-    expect(document.querySelector('.settings-tab[aria-selected="true"]')?.textContent).toBe('AI');
+    expect(document.querySelector<HTMLElement>('.settings-tab[aria-selected="true"]')?.dataset.tabId).toBe('ai');
   });
 
   it('deleting an engine asks first, then drops its key on Done', async () => {
@@ -605,7 +609,7 @@ describe('AI indicator chip', () => {
     expect(chip.textContent).toBe('AI: cloud · Anthropic · claude-sonnet-5-5 (fallback)');
     expect(chip.dataset.tone).toBe('cloud');
     chip.click();
-    expect(document.querySelector('.settings-tab[aria-selected="true"]')?.textContent).toBe('AI');
+    expect(document.querySelector<HTMLElement>('.settings-tab[aria-selected="true"]')?.dataset.tabId).toBe('ai');
   });
 
   it('opens the page on routing when nothing can be routed', () => {

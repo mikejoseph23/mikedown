@@ -1500,3 +1500,95 @@
   border-color: color-mix(in srgb, var(--mikedown-info, #1e70d6) 35%, transparent);
 }
 :is(.mikedown-root, .mikedown-portal) .sidebar-ai-chip.is-warn .sidebar-ai-glyph { color: var(--mikedown-warning, #b26a00); }
+
+/* ── Experimental marking (ai-settings-dom.ts) ───────────────────────────── */
+
+/* The pill beside an AI title: the Settings nav item, the AI tab, the page, the first-run panel. */
+:is(.mikedown-root, .mikedown-portal) .ai-experimental-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  /* Body text on an amber tint: amber text this small fails contrast. */
+  color: var(--settings-fg, var(--mikedown-text-ui, var(--mikedown-text)));
+  background: color-mix(in srgb, var(--mikedown-warning, #b26a00) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mikedown-warning, #b26a00) 55%, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .settings-tab .ai-experimental-badge { margin-left: 2px; }
+:is(.mikedown-root, .mikedown-portal) .settings-tab[aria-selected="true"] .ai-experimental-badge {
+  color: inherit;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  border-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-experimental-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-experimental-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-disclaimer {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--settings-muted, var(--mikedown-text-muted));
+}
+
+/* Top of the AI tab. */
+:is(.mikedown-root, .mikedown-portal) .ai-experimental-intro {
+  padding: 2px 2px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--settings-divider, var(--mikedown-border));
+}
+
+/* AI Engines page: the badge beside the title, the disclaimer under the header. */
+:is(.mikedown-root, .mikedown-portal) .ai-page-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-page-disclaimer {
+  margin: 0;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--mikedown-divider, var(--settings-divider));
+  flex-shrink: 0;
+}
+
+/* ── Toolbar first-run panel (ai-toolbar.ts) ─────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .ai-first-run {
+  --settings-fg: var(--mikedown-text-ui, var(--mikedown-text, #d4d4d4));
+  --settings-muted: var(--mikedown-text-muted, rgba(128, 128, 128, 0.9));
+  --settings-hover-bg: var(--mikedown-hover, rgba(128, 128, 128, 0.15));
+  --settings-control-border: var(--mikedown-input-border, rgba(128, 128, 128, 0.35));
+  --settings-focus: var(--mikedown-focus-ring, #007fd4);
+  position: fixed;
+  z-index: 1001;
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  box-sizing: border-box;
+  padding: 14px 16px;
+  background: var(--mikedown-surface-raised);
+  color: var(--settings-fg);
+  border: 1px solid var(--mikedown-border);
+  border-radius: var(--mikedown-radius, 6px);
+  box-shadow: 0 6px 20px var(--mikedown-shadow, rgba(0, 0, 0, 0.25));
+  font-size: 13px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-first-run .ai-disclaimer { margin-top: 8px; }
+:is(.mikedown-root, .mikedown-portal) .ai-first-run-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}

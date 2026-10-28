@@ -24,7 +24,7 @@ import { engineDisplayName, engineKindLabel, routeLabel, taskRouteNote } from '.
 import { createAiSettingsSession } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
 import type { AiEnginesPageSection } from './ai-engines-page';
-import { button, el, keepFocus, kindGlyphHtml, localityPills, nextId, note, statusBadge, switchInput } from './ai-settings-dom';
+import { button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, statusBadge, switchInput } from './ai-settings-dom';
 import type { MikeDownSettingsSectionBuild, MikeDownSettingsSectionContext } from './types';
 
 /** The tab asks its host to open the AI Engines page over the modal. */
@@ -61,8 +61,14 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
     liveTimer = window.setTimeout(() => { live.textContent = text; }, 40);
   }
 
-  // ── Master switch and Allow cloud ─────────────────────────────────────────
+  // ── Experimental notice, master switch and Allow cloud ────────────────────
   const rows: HTMLElement[] = [];
+
+  const intro = el('div', 'ai-experimental-intro');
+  const introHead = el('div', 'ai-experimental-head');
+  introHead.append(el('span', 'ai-experimental-title', 'AI features'), experimentalBadge());
+  intro.append(introHead, experimentalDisclaimer());
+  rows.push(intro);
 
   const masterField = ctx.makeCheckboxRow(
     'Enable AI features',
@@ -78,13 +84,24 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   });
   rows.push(masterField.row);
 
+  const toolbarField = ctx.makeCheckboxRow(
+    'Show AI button on the toolbar',
+    'Opens the AI actions. While AI is off, it offers to turn AI on and set it up.',
+    session.draft.showToolbarButton,
+  );
+  toolbarField.input.dataset.fk = 'ai-toolbar-button';
+  toolbarField.input.addEventListener('change', () => {
+    session.draft = { ...session.draft, showToolbarButton: toolbarField.input.checked };
+  });
+  rows.push(toolbarField.row);
+
   const cloudField = ctx.makeCheckboxRow(
     'Allow cloud engines',
     'Lets tasks use engines outside this network, such as Anthropic or OpenAI. Local engines never need it.',
     session.draft.allowCloud,
   );
   cloudField.input.dataset.fk = 'ai-allow-cloud';
-  cloudField.row.append(note('info', 'Even when allowed, each cloud engine asks once per workspace before its first request.', 'ai-row-note'));
+  cloudField.row.append(note('info', 'Even when allowed, each cloud engine asks for your OK before its first request in each workspace or folder.', 'ai-row-note'));
   cloudField.input.addEventListener('change', () => {
     session.draft = { ...session.draft, allowCloud: cloudField.input.checked };
     renderEngines();
@@ -126,7 +143,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
         for (const engine of draft.engines) {list.append(buildEngineItem(engine));}
         enginesBody.append(list, buildRouteLine());
       }
-      const manage = button('settings-btn ai-manage-btn', draft.engines.length === 0 ? 'Add engine…' : 'Manage engines…', { fk: 'manage-engines' });
+      const manage = button('settings-btn settings-btn--secondary ai-manage-btn', draft.engines.length === 0 ? 'Add engine…' : 'Manage engines…', { fk: 'manage-engines' });
       manage.addEventListener('click', () => openPage());
       const actions = el('div', 'ai-summary-actions');
       actions.append(manage);

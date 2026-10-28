@@ -102,6 +102,11 @@ import { withSavedAiKeys } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
 import { makeCheckboxRow, makeGroup, makeRow, makeSelectRow, settingsSectionContext } from './settings-rows';
 import { aiHostTier, aiIndicatorState } from './ai-settings-model';
+import { experimentalBadge } from './ai-settings-dom';
+import {
+  AI_TURN_ON_PATCH, aiSetupTarget, aiToolbarButtonMode, aiToolbarMenuEntries,
+  hideAiFirstRunPanel, isAiFirstRunPanelOpen, showAiFirstRunPanel,
+} from './ai-toolbar';
 import { aiFeatureAvailability, runAiCompletion, type AiFeatureAvailability } from './ai-request';
 import {
   AiRewriteHighlight, cmAiRewriteHighlight, createAiRewriteBubble, createAiRewritePopover,
@@ -305,6 +310,8 @@ const toolbarIcons = {
   zoomIn: toolbarSvg('<circle cx="7" cy="7" r="4.5"/><line x1="10.2" y1="10.2" x2="14" y2="14"/><line x1="5" y1="7" x2="9" y2="7"/><line x1="7" y1="5" x2="7" y2="9"/>'),
   zoomOut: toolbarSvg('<circle cx="7" cy="7" r="4.5"/><line x1="10.2" y1="10.2" x2="14" y2="14"/><line x1="5" y1="7" x2="9" y2="7"/>'),
   more: toolbarSvg('<circle cx="3.5" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor" stroke="none"/>'),
+  ai: toolbarSvg('<path d="M7 2.5l1.25 3.25L11.5 7 8.25 8.25 7 11.5 5.75 8.25 2.5 7l3.25-1.25z"/><path d="M12.5 10v3.5M10.75 11.75h3.5"/>', 1.5),
+  rewrite: toolbarSvg('<path d="M10.5 2.5l3 3L6 13H3v-3z"/><path d="M9 4l3 3"/>', 1.5),
   emoji: toolbarSvg('<circle cx="8" cy="8" r="6"/><circle cx="6" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="10" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><path d="M5.5 9.5c.7 1.2 1.7 1.8 2.5 1.8s1.8-.6 2.5-1.8"/>'),
 };
 
@@ -1643,17 +1650,18 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // values join the saveSettings patch.
     const sectionCtx: MikeDownSettingsSectionContext = settingsSectionContext(() => closeSettingsModal());
     // The AI tab is core's own section, built only for a host with an `ai`
-    // group. Listed after the host's sections so it lands right after Spelling.
+    // group. Listed after the host's sections and placed last in the nav,
+    // below any host tab (About, App).
     const aiSections: MikeDownSettingsSection[] = aiHost ? [{
       tab: 'ai',
       tabLabel: 'AI',
-      afterTab: spellcheckAvailable ? 'spelling' : 'markdown',
       panelClassName: 'settings-panel--ai',
       build: (ctx) => buildAiSettingsSection(ctx, {
         ...aiSessionOptions(aiHost),
         onSaved: (saved) => {
           currentAiSettings = saved;
           renderAiIndicator();
+          refreshAiToolbarButton();
           scheduleAiStatusRefresh();
         },
         // "Manage engines…" and "Change…" open the page over the modal.
@@ -1807,7 +1815,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       ],
     };
 
-    const tabDefs: Array<{ id: SettingsTabId; label: string }> = [
+    const tabDefs: Array<{ id: SettingsTabId; label: string; experimental?: boolean }> = [
       { id: 'appearance', label: 'Appearance' },
       { id: 'behavior', label: 'Behavior' },
       { id: 'markdown', label: 'Markdown' },
@@ -1822,6 +1830,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       const def = { id: section.tab, label: section.tabLabel ?? section.tab };
       if (at >= 0) {tabDefs.splice(at + 1, 0, def);} else {tabDefs.push(def);}
     }
+    // AI goes at the very bottom, marked Experimental.
+    const aiTabAt = tabDefs.findIndex((t) => t.id === 'ai');
+    if (aiTabAt >= 0) {tabDefs.push({ ...tabDefs.splice(aiTabAt, 1)[0], experimental: true });}
 
     // Lay out each tab: host 'start' rows, core rows with any 'after' rows
     // spliced in, then host 'end' rows.
@@ -1880,6 +1891,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       btn.setAttribute('role', 'tab');
       btn.dataset.tabId = tab.id;
       btn.textContent = tab.label;
+      // The space keeps the accessible name "AI Experimental".
+      if (tab.experimental) {btn.append(' ', experimentalBadge());}
       btn.className = 'settings-tab';
       btn.addEventListener('click', () => { setActiveTab(tab.id); btn.focus(); });
       btn.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -2019,6 +2032,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     currentAiSettings = parseAiSettings(raw, { onWarning: () => { /* the host already warned */ } });
     for (const waiter of [...aiSettingsWaiters]) {waiter(currentAiSettings);}
     renderAiIndicator();
+    refreshAiToolbarButton();
     scheduleAiStatusRefresh();
   }
 
@@ -2189,6 +2203,79 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (readOnly) {return { state: 'hidden' };}
     return aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, 'rewrite');
   }
+
+  // ── Toolbar AI button ──────────────────────────────────────────────────────
+  // Only for a host with AI support; ai.showToolbarButton hides it. AI off:
+  // the first-run panel. AI on: a menu of AI actions and Manage engines….
+
+  /** Match the button to the current settings; true when its visibility changed. */
+  function applyAiToolbarMode(btn: HTMLButtonElement): boolean {
+    const mode = aiToolbarButtonMode(!!aiHost, currentAiSettings);
+    btn.setAttribute('aria-haspopup', mode === 'firstRun' ? 'dialog' : 'menu');
+    const display = mode === 'hidden' ? 'none' : '';
+    if (btn.style.display === display) {return false;}
+    btn.style.display = display;
+    return true;
+  }
+
+  /** Show or hide the button for the current settings, and reflow the toolbar. */
+  function refreshAiToolbarButton(): void {
+    const btn = shell.toolbar?.querySelector<HTMLButtonElement>('button[data-action="ai"]');
+    if (!btn || !applyAiToolbarMode(btn)) {return;}
+    if (btn.style.display === 'none') {hideAiFirstRunPanel();}
+    if (shell.toolbar) {layoutToolbarOverflow(shell.toolbar);}
+  }
+
+  /** "Turn on and set up": AI on through the normal save path, then setup. */
+  function turnOnAiAndSetUp(): void {
+    const ai = aiHost;
+    if (!ai || destroyed) {return;}
+    host.saveSettings?.({ ...AI_TURN_ON_PATCH });
+    currentAiSettings = { ...currentAiSettings, enabled: true };
+    renderAiIndicator();
+    refreshAiToolbarButton();
+    scheduleAiStatusRefresh();
+    const target = aiSetupTarget(aiHostTier(ai), currentAiSettings);
+    if (target.kind === 'page') {
+      showAiEnginesPage(target.engineId ? { initial: { engineId: target.engineId } } : {});
+    } else {
+      showSettingsModal('ai');
+    }
+  }
+
+  /** Whether the editor (or source view) has a non-empty selection. */
+  function hasTextSelection(): boolean {
+    if (sourceMode) {return !!cmView && !cmView.state.selection.main.empty;}
+    return !editor.state.selection.empty;
+  }
+
+  /** The AI button's click, anchored to `anchor` (the More button when it overflowed). */
+  function openAiToolbar(anchor: HTMLElement): void {
+    const ai = aiHost;
+    if (!ai) {return;}
+    if (isAiFirstRunPanelOpen()) { hideAiFirstRunPanel(); return; }
+    if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
+    const mode = aiToolbarButtonMode(true, currentAiSettings);
+    if (mode === 'firstRun') {
+      showAiFirstRunPanel({ anchor, onTurnOn: turnOnAiAndSetUp });
+      return;
+    }
+    const availability = aiRewriteAvailability();
+    const rewrite = readOnly ? null
+      : availability.state === 'hidden' ? { enabled: false as const, hint: 'Off in AI settings' }
+        : availability.state === 'disabled' ? { enabled: false as const, hint: 'No engine available' }
+          : !hasTextSelection() ? { enabled: false as const, hint: 'Select text first' }
+            : { enabled: true as const };
+    const tier2 = aiHostTier(ai) === 2;
+    showToolbarDropdown(anchor, aiToolbarMenuEntries({
+      rewrite,
+      canManageEngines: tier2,
+      icons: { rewrite: toolbarIcons.rewrite, manage: toolbarIcons.gear },
+      onRewrite: () => { startAiRewrite(); },
+      onManage: () => { if (tier2) {showAiEnginesPage();} else {showSettingsModal('ai');} },
+    }));
+  }
+  disposers.push(() => hideAiFirstRunPanel());
   // This editor's own sidebar (null when features.sidebar is off).
   let outlineSidebar: OutlineSidebar | null = null;
 
@@ -2760,6 +2847,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     overflowOpeners.set(emojiBtn, openEmoji);
     emojiBtn.addEventListener('click', () => openEmoji(emojiBtn));
 
+    // ── AI (hosts with AI support; see refreshAiToolbarButton) ──────────────
+    const aiBtn = makeBtn('ai', 'AI Actions', icons.ai);
+    // Keep the editor's selection: Rewrite selection acts on it.
+    aiBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    overflowOpeners.set(aiBtn, (anchor) => openAiToolbar(anchor));
+    aiBtn.addEventListener('click', () => openAiToolbar(aiBtn));
+    applyAiToolbarMode(aiBtn);
+
     // ── More (⋯): holds whatever doesn't fit (layoutToolbarOverflow) ────────
     const moreBtn = makeBtn('more', 'More', icons.more);
     moreBtn.classList.add('toolbar-more');
@@ -2802,6 +2897,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     toolbar.appendChild(insertBtn);
     toolbar.appendChild(emojiBtn);
     toolbar.appendChild(headingNumbersBtn);
+    // Never in the DOM for a host without AI support.
+    if (aiHost) {toolbar.appendChild(aiBtn);}
     toolbar.appendChild(makeSeparator());
     toolbar.appendChild(undoBtn);
     toolbar.appendChild(redoBtn);

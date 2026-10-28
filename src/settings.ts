@@ -174,7 +174,8 @@ export interface InspectedValue<T = unknown> {
  *   repository can neither add an endpoint nor make a cloud host count as
  *   local. package.json scopes them `machine`; this is the second fence.
  * - `allowCloud` can be turned off by a workspace but never on.
- * - `enabled`, `routing` and `features` follow the normal precedence.
+ * - `enabled`, `routing`, `features` and `showToolbarButton` follow the
+ *   normal precedence.
  *
  * Exported for unit testing.
  */
@@ -192,6 +193,7 @@ export function effectiveAiRaw(inspect: (key: string) => InspectedValue | undefi
     routing: effective('routing'),
     features: effective('features'),
     localNetworks: inspect('localNetworks')?.globalValue ?? [...DEFAULT_LOCAL_NETWORKS],
+    showToolbarButton: effective('showToolbarButton'),
   };
 }
 

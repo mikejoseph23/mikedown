@@ -39,7 +39,7 @@ import type { EngineFormRefresh } from './ai-engine-form';
 import { createRoutingSection } from './ai-routing-section';
 import { createAiSettingsSession } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
-import { ICONS, button, el, keepFocus, kindGlyphHtml, localityPills, nextId, note, statusBadge, switchInput } from './ai-settings-dom';
+import { ICONS, button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, statusBadge, switchInput } from './ai-settings-dom';
 import type { MikeDownSettingsSectionContext } from './types';
 
 export type AiEnginesPageSection = 'engines' | 'routing';
@@ -103,7 +103,10 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   title.id = titleId;
   const doneBtn = button('settings-btn settings-btn--primary ai-page-done', 'Done', { fk: 'page:done' });
   doneBtn.addEventListener('click', () => done());
-  header.append(backBtn, title, doneBtn);
+  const titleLine = el('div', 'ai-page-title-line');
+  titleLine.append(title, experimentalBadge());
+  header.append(backBtn, titleLine, doneBtn);
+  const disclaimer = experimentalDisclaimer('ai-page-disclaimer');
 
   const body = el('div', 'ai-page-body');
   const nav = el('nav', 'ai-page-nav');
@@ -126,7 +129,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   }
 
   const confirmHost = el('div', 'ai-page-confirm-host');
-  root.append(header, body, confirmHost, live);
+  root.append(header, disclaimer, body, confirmHost, live);
 
   // ── The engine form and routing ───────────────────────────────────────────
 

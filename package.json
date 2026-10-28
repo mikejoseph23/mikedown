@@ -688,6 +688,11 @@
           "default": false,
           "description": "Master switch for MikeDown's AI features. Off by default; nothing is sent anywhere while it is off. Edit these in the MikeDown Settings modal (toolbar gear, AI tab)."
         },
+        "mikedown.ai.showToolbarButton": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the AI button on the MikeDown toolbar. While AI is off, it offers to turn AI on and set up an engine. Edit it in the MikeDown Settings modal (toolbar gear, AI tab)."
+        },
         "mikedown.ai.allowCloud": {
           "type": "boolean",
           "default": false,

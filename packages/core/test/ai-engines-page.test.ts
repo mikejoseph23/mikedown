@@ -544,7 +544,7 @@ describe('entry points', () => {
   it('openAiSettings opens the tab, or the page with { page: true }; the first list entry has focus', () => {
     const handle = mountEditor(tier2(), settings());
     handle.command('openAiSettings');
-    expect(document.querySelector('.settings-tab[aria-selected="true"]')?.textContent).toBe('AI');
+    expect(document.querySelector<HTMLElement>('.settings-tab[aria-selected="true"]')?.dataset.tabId).toBe('ai');
     expect(frame()).toBeNull();
     (document.querySelector('.settings-modal .settings-close, .settings-modal [aria-label="Close"]') as HTMLElement | null)?.click();
     document.querySelector('#mikedown-settings-overlay')?.remove();
@@ -559,7 +559,7 @@ describe('entry points', () => {
     const withRoute = mountEditor(tier2(), settings());
     const chip = document.querySelector<HTMLButtonElement>('[data-testid="sidebar-ai-chip"]')!;
     chip.click();
-    expect(document.querySelector('.settings-tab[aria-selected="true"]')?.textContent).toBe('AI');
+    expect(document.querySelector<HTMLElement>('.settings-tab[aria-selected="true"]')?.dataset.tabId).toBe('ai');
     expect(frame()).toBeNull();
     withRoute.destroy();
     mounted.pop()!.el.remove();
@@ -604,6 +604,6 @@ describe('a tier 1 host', () => {
     mounted.push({ handle, el });
     handle.command('openAiSettings', { page: true });
     expect(frame()).toBeNull();
-    expect(document.querySelector('.settings-tab[aria-selected="true"]')?.textContent).toBe('AI');
+    expect(document.querySelector<HTMLElement>('.settings-tab[aria-selected="true"]')?.dataset.tabId).toBe('ai');
   });
 });

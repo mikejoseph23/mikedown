@@ -15,7 +15,7 @@ const quiet = () => {};
 const engine = (over: Record<string, unknown> = {}) => ({ name: 'oMLX', baseUrl: 'http://127.0.0.1:8000/v1', ...over });
 
 describe('defaults', () => {
-  it('has AI off, cloud blocked, anyLocal fallback and RFC 1918 local networks', () => {
+  it('has AI off, cloud blocked, anyLocal fallback, RFC 1918 local networks and the toolbar button on', () => {
     const s = defaultAiSettings();
     expect(s).toEqual({
       enabled: false,
@@ -24,6 +24,7 @@ describe('defaults', () => {
       routing: { default: null, fallback: 'anyLocal', tasks: {} },
       features: {},
       localNetworks: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'],
+      showToolbarButton: true,
     });
     expect(Object.keys(s).sort()).toEqual([...AI_SETTINGS_KEYS].sort());
   });
