@@ -50,6 +50,9 @@
   --mikedown-line-highlight: var(--vscode-editor-lineHighlightBackground);
   --mikedown-selection: var(--vscode-editor-selectionBackground, #264f78);
   --mikedown-focus-ring: var(--vscode-focusBorder, #007fd4);
+  /* Toolbar edit mode: focus ring and picked-up outline (focusBorder is the
+     theme's contrast-checked focus colour; the button background is not). */
+  --mikedown-toolbar-edit-focus: var(--vscode-focusBorder, #007fd4);
 
   --mikedown-accent: var(--vscode-button-background, #0e639c);
   --mikedown-accent-hover: var(--vscode-button-hoverBackground);

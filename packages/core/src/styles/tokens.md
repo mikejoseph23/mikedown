@@ -46,6 +46,7 @@ The "Also replaces" column lists the other VS Code variables the core CSS used f
 | `--mikedown-line-highlight` | Source-mode active line | `--vscode-editor-lineHighlightBackground` (no fallback) | — | `rgba(55, 53, 47, 0.035)` | `rgba(255, 255, 255, 0.04)` |
 | `--mikedown-selection` | Text selection | `--vscode-editor-selectionBackground` (fallback `#264f78`) | — | `rgba(63, 81, 181, 0.18)` | `rgba(121, 134, 203, 0.38)` |
 | `--mikedown-focus-ring` | Focus outline and focused input border | `--vscode-focusBorder` (fallback `#007fd4`) | — | `rgba(63, 81, 181, 0.55)` | `rgba(140, 158, 255, 0.6)` |
+| `--mikedown-toolbar-edit-focus` | Focus ring and picked-up outline in toolbar edit mode (needs 3:1 against the toolbar) | `--vscode-focusBorder` (fallback `#007fd4`) | — | unset: `--mikedown-accent` | unset: `--mikedown-accent` |
 | `--mikedown-accent` | Primary button | `--vscode-button-background` (fallback `#0e639c`) | — | `#3f51b5` | `#5c6bc0` |
 | `--mikedown-accent-hover` | Primary button hover | `--vscode-button-hoverBackground` (no fallback) | — | `#3546a0` | `#6f7dd0` |
 | `--mikedown-accent-text` | Text on accent | `--vscode-button-foreground` (fallback `#ffffff`) | — | `#ffffff` | `#ffffff` |

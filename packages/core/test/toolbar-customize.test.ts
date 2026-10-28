@@ -1,13 +1,15 @@
 /**
  * Toolbar edit mode (Customize Toolbar…): entry points, the edit-mode state,
  * the tray, Done, the Settings modal's discard confirm, deferred incoming
- * layouts, destroy while editing, and pointer drag over faked geometry.
+ * layouts, destroy while editing, pointer drag over faked geometry, and the
+ * keyboard editor (roving focus, pick up / move / drop, remove, add, live
+ * announcements, focus on entry and exit).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMikeDownEditor, NoopHost, TOOLBAR_ITEM_IDS, type MikeDownEditorHandle, type MikeDownHost } from '../src/index';
 import { hideToolbarDropdown } from '../src/toolbar-dropdown';
 import { hideContextMenu } from '../src/contextmenu';
-import { toolbarDropSlot, type ToolbarSlotRect } from '../src/toolbar-customize';
+import { TOOLBAR_EDIT_INSTRUCTIONS, toolbarDropSlot, toolbarGridNeighbor, type ToolbarSlotRect } from '../src/toolbar-customize';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
 stubLayoutMeasurement();
@@ -121,7 +123,12 @@ describe('edit mode state', () => {
     expect(toolbar.querySelector<HTMLElement>('button[data-action="more"]')!.hidden).toBe(false);
     const buttons = Array.from(toolbar.querySelectorAll('button'));
     expect(buttons.length).toBeGreaterThan(5);
-    expect(buttons.every((b) => b.getAttribute('aria-disabled') === 'true')).toBe(true);
+    // Movable items are toggle buttons (pick up / drop); fixed ones and the
+    // buttons inside a group are aria-disabled.
+    const stop = (b: HTMLButtonElement) => b.parentElement === toolbar;
+    const fixed = (b: HTMLButtonElement) => b.classList.contains('toolbar-item-fixed');
+    expect(buttons.filter((b) => !stop(b) || fixed(b)).every((b) => b.getAttribute('aria-disabled') === 'true')).toBe(true);
+    expect(buttons.filter((b) => stop(b) && !fixed(b)).every((b) => b.getAttribute('aria-pressed') === 'false' && !b.hasAttribute('aria-disabled'))).toBe(true);
     expect(toolbar.querySelector('[data-action="textFormat"]')!.classList.contains('toolbar-item-fixed')).toBe(true);
     expect(toolbar.querySelector('[data-action="undo"]')!.classList.contains('toolbar-item-movable')).toBe(true);
     // The tray sits right after the toolbar, inside the root, outside the editor container.
@@ -441,5 +448,374 @@ describe('toolbarDropSlot', () => {
 
   it('returns null for an empty toolbar', () => {
     expect(toolbarDropSlot([], 0, 0, 0, 0)).toBeNull();
+  });
+});
+
+// ── Keyboard (M5, D11) ──────────────────────────────────────────────────────
+
+/** Press `key` on whatever has focus (keydown bubbles to the editor's handlers). */
+function press(key: string): void {
+  const target = document.activeElement ?? document.body;
+  target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+}
+function pressN(key: string, n: number): void { for (let i = 0; i < n; i++) {press(key);} }
+
+/** What has focus, as a toolbar token, `tray:<token>`, or a description. */
+function focused(toolbar: HTMLElement): string {
+  const a = document.activeElement as HTMLElement | null;
+  if (!a || a === document.body) {return 'body';}
+  if (a.parentElement === toolbar) {return order(toolbar)[Array.from(toolbar.children).indexOf(a)];}
+  if (a.classList.contains('toolbar-tray-item')) {return `tray:${a.dataset.token}`;}
+  return a.className || a.tagName;
+}
+
+const spoken = (el: HTMLElement) => (tray(el)?.querySelector('.toolbar-tray-status')?.textContent ?? '').trim();
+const stops = (toolbar: HTMLElement) => (Array.from(toolbar.children) as HTMLElement[]).filter((c) => c.getAttribute('tabindex') === '0');
+const savedItems = (saveSettings: ReturnType<typeof vi.fn>) =>
+  (saveSettings.mock.calls[0][0] as { toolbarLayout: { items: string[] } | null }).toolbarLayout?.items;
+
+/** Focus the toolbar item `token` with the arrow keys, from wherever focus is in the toolbar. */
+function arrowTo(toolbar: HTMLElement, token: string): void {
+  press('Home');
+  pressN('ArrowRight', order(toolbar).indexOf(token));
+  expect(focused(toolbar)).toBe(token);
+}
+
+function enterViaSettings(toolbar: HTMLElement, handle: MikeDownEditorHandle): void {
+  handle.command('openSettings');
+  document.querySelector<HTMLElement>('.settings-tab[data-tab-id="toolbar"]')!.click();
+  Array.from(document.querySelectorAll<HTMLButtonElement>('.settings-modal .settings-btn'))
+    .find((b) => b.textContent === 'Customize Toolbar…')!.click();
+  expect(toolbar.classList.contains('toolbar-editing')).toBe(true);
+}
+
+describe('keyboard: focus', () => {
+  it('focuses the first movable item on entry, with one tab stop in the toolbar and one in the tray', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    expect(focused(toolbar)).toBe('listBlock');
+    expect(stops(toolbar)).toEqual([toolbar.children[1]]);
+    const tiles = Array.from(tray(el)!.querySelectorAll<HTMLElement>('.toolbar-tray-item'));
+    expect(tiles.map((t) => t.getAttribute('tabindex'))).toEqual(['0', '-1']);
+  });
+
+  it('arrow keys move along the toolbar, into the tray and back', () => {
+    const { toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    press('ArrowRight');
+    expect(focused(toolbar)).toBe('link');
+    expect(stops(toolbar)).toEqual([toolbar.children[2]]);
+    press('ArrowLeft');
+    press('ArrowLeft');
+    expect(focused(toolbar)).toBe('textFormat');
+    press('ArrowLeft'); // no wrap
+    expect(focused(toolbar)).toBe('textFormat');
+    press('End');
+    expect(focused(toolbar)).toBe('more');
+    press('ArrowRight'); // past the end of the toolbar: the tray
+    expect(focused(toolbar)).toBe('tray:|');
+    press('ArrowRight');
+    expect(focused(toolbar)).toBe('tray:~');
+    press('ArrowRight'); // no wrap
+    expect(focused(toolbar)).toBe('tray:~');
+    press('ArrowUp'); // one row of tiles: up goes back to the toolbar's stop
+    expect(focused(toolbar)).toBe('more');
+    press('ArrowDown'); // and down returns to the tray's stop
+    expect(focused(toolbar)).toBe('tray:~');
+    press('Home');
+    press('ArrowLeft');
+    expect(focused(toolbar)).toBe('more');
+  });
+
+  it('gives separators and spacers a name and a stop in edit mode, and restores everything on Done', () => {
+    const layout = { version: 1, items: ['textFormat', 'undo', '~', 'redo', '|', 'link', 'settings', 'more'], seen: [...TOOLBAR_ITEM_IDS] };
+    const { el, toolbar } = mount(new NoopHost(), { settings: { toolbarLayout: layout } });
+    const sep = () => toolbar.querySelector<HTMLElement>('.toolbar-separator')!;
+    const spacer = () => toolbar.querySelector<HTMLElement>('.toolbar-spacer')!;
+    enterViaContextMenu(toolbar);
+    expect(sep().getAttribute('role')).toBe('button');
+    expect(sep().getAttribute('aria-label')).toBe('Separator');
+    expect(spacer().getAttribute('aria-label')).toBe('Flexible Space');
+    expect(spacer().hasAttribute('aria-hidden')).toBe(false);
+    arrowTo(toolbar, '~');
+    expect(document.activeElement).toBe(spacer());
+
+    trayButton(el, 'toolbar-tray-done').click();
+    expect(sep().getAttribute('role')).toBe('separator');
+    expect(sep().hasAttribute('tabindex')).toBe(false);
+    expect(sep().hasAttribute('aria-label')).toBe(false);
+    expect(spacer().getAttribute('aria-hidden')).toBe('true');
+    expect(spacer().hasAttribute('role')).toBe(false);
+    const buttons = Array.from(toolbar.querySelectorAll('button'));
+    expect(buttons.every((b) => b.getAttribute('tabindex') === '0')).toBe(true);
+    expect(toolbar.querySelectorAll('[aria-pressed], [aria-disabled], .toolbar-item-grabbed')).toHaveLength(0);
+  });
+
+  it('turns the Zoom group into one named stop, its buttons hidden, and back', () => {
+    const { el, toolbar } = mount();
+    const zoom = toolbar.querySelector<HTMLElement>('[data-action="zoom"]')!;
+    enterViaContextMenu(toolbar);
+    expect(zoom.getAttribute('role')).toBe('button');
+    expect(zoom.getAttribute('aria-label')).toBe('Zoom');
+    expect(Array.from(zoom.querySelectorAll('button')).every((b) => b.getAttribute('aria-hidden') === 'true' && b.getAttribute('tabindex') === '-1')).toBe(true);
+    trayButton(el, 'toolbar-tray-done').click();
+    expect(zoom.getAttribute('role')).toBe('group');
+    expect(zoom.hasAttribute('tabindex')).toBe(false);
+    expect(Array.from(zoom.querySelectorAll('button')).every((b) => !b.hasAttribute('aria-hidden') && b.getAttribute('tabindex') === '0')).toBe(true);
+  });
+
+  it('Done gives focus back to the first toolbar item when the opener is gone (Settings modal)', () => {
+    const { toolbar, handle } = mount();
+    enterViaSettings(toolbar, handle);
+    expect(focused(toolbar)).toBe('listBlock');
+    press('Escape');
+    expect(toolbar.classList.contains('toolbar-editing')).toBe(false);
+    expect(document.activeElement).toBe(toolbar.querySelector('button[data-action="textFormat"]'));
+  });
+
+  it('Done leaves focus alone when the user had moved into the document', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    const pm = el.querySelector<HTMLElement>('.ProseMirror')!;
+    pm.focus();
+    trayButton(el, 'toolbar-tray-done').click();
+    expect(document.activeElement).toBe(pm);
+  });
+
+  it('announces how the keyboard works once, shortly after entry', async () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    expect(spoken(el)).toBe('');
+    await new Promise((r) => setTimeout(r, 200));
+    expect(spoken(el)).toBe(TOOLBAR_EDIT_INSTRUCTIONS);
+    expect(tray(el)!.querySelector('.toolbar-tray-status')!.getAttribute('aria-live')).toBe('polite');
+  });
+});
+
+describe('keyboard: pick up, move, drop', () => {
+  it('Space picks an item up, arrows move it a slot at a time, Enter drops it', () => {
+    const { host, saveSettings } = saving();
+    const { el, toolbar } = mount(host);
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'undo');
+    const undo = toolbar.querySelector<HTMLElement>('button[data-action="undo"]')!;
+    const total = order(toolbar).length;
+
+    press(' ');
+    expect(undo.getAttribute('aria-pressed')).toBe('true');
+    expect(undo.classList.contains('toolbar-item-grabbed')).toBe(true);
+    expect(spoken(el)).toContain(`Picked up Undo, position 7 of ${total}.`);
+
+    press('ArrowRight');
+    expect(order(toolbar).slice(5, 9)).toEqual(['|', 'redo', 'undo', '|']);
+    expect(spoken(el)).toBe(`Moved Undo to position 8 of ${total}.`);
+    expect(document.activeElement).toBe(undo);
+    expect(undo.getAttribute('aria-pressed')).toBe('true');
+
+    press('ArrowRight');
+    press('ArrowRight');
+    expect(order(toolbar).slice(5, 11)).toEqual(['|', 'redo', '|', 'sourceToggle', 'undo', '|']);
+    expect(spoken(el)).toBe(`Moved Undo to position 10 of ${total}.`);
+
+    press('Enter');
+    expect(undo.getAttribute('aria-pressed')).toBe('false');
+    expect(undo.classList.contains('toolbar-item-grabbed')).toBe(false);
+    expect(spoken(el)).toBe(`Dropped Undo at position 10 of ${total}.`);
+    press('ArrowRight'); // dropped: arrows move focus again
+    expect(focused(toolbar)).toBe('|');
+
+    trayButton(el, 'toolbar-tray-done').click();
+    expect(saveSettings).toHaveBeenCalledTimes(1);
+    expect(savedItems(saveSettings)).toEqual(['textFormat', 'listBlock', 'link', 'insert', 'emoji', 'headingNumbers', 'ai', '|', 'redo', '|', 'sourceToggle', 'undo', '|', 'share', 'selectAll', '|', 'zoom', '|', 'themeToggle', 'settings', 'more']);
+  });
+
+  it('Home and End move a picked-up item to the first and last movable slot', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'undo');
+    press('Enter');
+    press('Home');
+    expect(order(toolbar).slice(0, 3)).toEqual(['textFormat', 'undo', 'listBlock']);
+    press('End');
+    expect(order(toolbar).slice(-3)).toEqual(['settings', 'undo', 'more']);
+    press('ArrowRight');
+    expect(spoken(el)).toBe('Undo is already last.');
+    expect(order(toolbar).slice(-3)).toEqual(['settings', 'undo', 'more']);
+  });
+
+  it('Escape with an item picked up puts it back and stays in edit mode; the next Escape is Done', () => {
+    const { host, saveSettings } = saving();
+    const { el, toolbar } = mount(host);
+    enterViaContextMenu(toolbar);
+    const before = order(toolbar);
+    arrowTo(toolbar, 'undo');
+    press(' ');
+    pressN('ArrowLeft', 3);
+    expect(order(toolbar)).not.toEqual(before);
+    press('Escape');
+    expect(order(toolbar)).toEqual(before);
+    expect(toolbar.classList.contains('toolbar-editing')).toBe(true);
+    expect(focused(toolbar)).toBe('undo');
+    expect(toolbar.querySelector('button[data-action="undo"]')!.getAttribute('aria-pressed')).toBe('false');
+    expect(spoken(el)).toBe(`Move cancelled. Undo is back at position 7 of ${before.length}.`);
+    press('Escape');
+    expect(toolbar.classList.contains('toolbar-editing')).toBe(false);
+    expect(saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('Tab away from a picked-up item drops it where it is', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'redo');
+    press(' ');
+    press('ArrowLeft');
+    trayButton(el, 'toolbar-tray-done').focus(); // where Tab goes
+    expect(toolbar.querySelector('.toolbar-item-grabbed')).toBeNull();
+    expect(order(toolbar).slice(5, 8)).toEqual(['|', 'redo', 'undo']);
+    expect(spoken(el)).toMatch(/^Dropped Redo at position 7 of/);
+  });
+
+  it('a separator skips over another separator instead of merging with it', () => {
+    const layout = { version: 1, items: ['textFormat', 'undo', '|', 'redo', '|', 'link', 'settings', 'more'], seen: [...TOOLBAR_ITEM_IDS] };
+    const { toolbar } = mount(new NoopHost(), { settings: { toolbarLayout: layout } });
+    enterViaContextMenu(toolbar);
+    press('Home');
+    pressN('ArrowRight', 2);
+    expect(focused(toolbar)).toBe('|');
+    press(' ');
+    press('ArrowRight');
+    expect(order(toolbar)).toEqual(['textFormat', 'undo', 'redo', '|', 'link', '|', 'settings', 'more']);
+  });
+
+  it('Text Format, Settings and More are focusable but say they cannot be moved', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    const before = order(toolbar);
+    press('Home');
+    expect(focused(toolbar)).toBe('textFormat');
+    expect(toolbar.children[0].getAttribute('aria-disabled')).toBe('true');
+    press(' ');
+    expect(spoken(el)).toBe('Text Format cannot be moved.');
+    expect(toolbar.querySelector('.toolbar-item-grabbed')).toBeNull();
+    press('Delete');
+    expect(spoken(el)).toBe('Text Format cannot be moved.');
+    press('End');
+    press('Backspace');
+    expect(spoken(el)).toBe('More cannot be moved.');
+    press('ArrowLeft');
+    press('Enter');
+    expect(spoken(el)).toBe('Settings cannot be moved.');
+    expect(order(toolbar)).toEqual(before);
+  });
+});
+
+describe('keyboard: remove and add', () => {
+  it('Delete sends an item to the tray and focuses the item after it', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'emoji');
+    press('Delete');
+    expect(order(toolbar)).not.toContain('emoji');
+    expect(trayTokens(el)).toEqual(['emoji', '|', '~']);
+    expect(spoken(el)).toBe('Removed Insert Emoji.');
+    expect(focused(toolbar)).toBe('|');
+    press('Backspace'); // the separator goes too; focus moves on to Undo
+    expect(focused(toolbar)).toBe('undo');
+    expect(spoken(el)).toBe('Removed Separator.');
+  });
+
+  it('Enter on a tray tile adds it after the last focused toolbar item, and focus stays in the tray', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'link');
+    press('ArrowDown');
+    expect(focused(toolbar)).toBe('tray:|');
+    press('Enter');
+    expect(order(toolbar).slice(1, 5)).toEqual(['listBlock', 'link', '|', 'insert']);
+    expect(spoken(el)).toBe(`Added Separator at position 4 of ${order(toolbar).length}.`);
+    expect(focused(toolbar)).toBe('tray:|');
+    press('ArrowRight');
+    press(' '); // a second add goes after the first
+    expect(order(toolbar).slice(1, 6)).toEqual(['listBlock', 'link', '|', '~', 'insert']);
+    expect(focused(toolbar)).toBe('tray:~');
+    // The toolbar's stop follows the last addition.
+    press('ArrowUp');
+    expect(focused(toolbar)).toBe('~');
+  });
+
+  it('says so instead of merging a separator into its neighbour', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    const before = order(toolbar);
+    arrowTo(toolbar, 'redo'); // followed by a separator
+    press('ArrowDown');
+    press('Enter');
+    expect(order(toolbar)).toEqual(before);
+    expect(spoken(el)).toBe('There is already a Separator there.');
+  });
+
+  it('a click on a tray tile adds it too, but not a keyboard-synthesized click', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'emoji');
+    press('Delete');
+    arrowTo(toolbar, 'redo');
+    const emojiTile = tray(el)!.querySelector<HTMLElement>('.toolbar-tray-item[data-token="emoji"]')!;
+    emojiTile.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    expect(order(toolbar).slice(5, 8)).toEqual(['undo', 'redo', 'emoji']);
+    expect(trayTokens(el)).toEqual(['|', '~']);
+    // Enter/Space already add on keydown; the click a browser synthesizes after (detail 0) adds nothing.
+    tray(el)!.querySelector<HTMLElement>('.toolbar-tray-item[data-token="~"]')!.click();
+    expect(order(toolbar)).not.toContain('~');
+  });
+
+  it('the review flow: from Settings, move Undo three right, remove Emoji, add a Separator, Escape', () => {
+    const { host, saveSettings } = saving();
+    const { el, toolbar, handle } = mount(host);
+    handle.setMarkdown('Hello world\n');
+    handle.setViewState({ cursor: 4 });
+    enterViaSettings(toolbar, handle);
+
+    pressN('ArrowRight', 5);
+    expect(focused(toolbar)).toBe('undo');
+    press(' ');
+    pressN('ArrowRight', 3);
+    press(' ');
+    press('Home');
+    pressN('ArrowRight', 4);
+    expect(focused(toolbar)).toBe('emoji');
+    press('Delete');
+    pressN('ArrowLeft', 2);
+    expect(focused(toolbar)).toBe('link');
+    press('ArrowDown');
+    press('ArrowRight');
+    expect(focused(toolbar)).toBe('tray:|');
+    press('Enter');
+    press('Escape');
+
+    expect(toolbar.classList.contains('toolbar-editing')).toBe(false);
+    expect(tray(el)).toBeNull();
+    expect(saveSettings).toHaveBeenCalledTimes(1);
+    expect(savedItems(saveSettings)).toEqual(['textFormat', 'listBlock', 'link', '|', 'insert', 'headingNumbers', 'ai', '|', 'redo', '|', 'sourceToggle', 'undo', '|', 'share', 'selectAll', '|', 'zoom', '|', 'themeToggle', 'settings', 'more']);
+    expect(el.querySelector('.ProseMirror')!.contains(document.activeElement)).toBe(false);
+    expect(handle.getViewState().cursor).toBe(4);
+  });
+});
+
+describe('toolbarGridNeighbor', () => {
+  const tile = (left: number, top: number): ToolbarSlotRect => ({ left, right: left + 80, top, bottom: top + 60 });
+  // Two rows: 0 1 2 / 3 4
+  const rects = [tile(0, 0), tile(90, 0), tile(180, 0), tile(0, 70), tile(90, 70)];
+
+  it('moves to the nearest tile in the row above or below', () => {
+    expect(toolbarGridNeighbor(rects, 1, 'down')).toBe(4);
+    expect(toolbarGridNeighbor(rects, 2, 'down')).toBe(4);
+    expect(toolbarGridNeighbor(rects, 3, 'up')).toBe(0);
+  });
+
+  it('returns null past the first or last row', () => {
+    expect(toolbarGridNeighbor(rects, 0, 'up')).toBeNull();
+    expect(toolbarGridNeighbor(rects, 4, 'down')).toBeNull();
+    expect(toolbarGridNeighbor([], 0, 'down')).toBeNull();
   });
 });

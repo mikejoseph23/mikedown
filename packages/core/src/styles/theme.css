@@ -274,6 +274,37 @@
 :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing .toolbar-item-dragging {
   opacity: 0.35;
 }
+/* Keyboard (D11). The ring and the picked-up state use the accent, solid,
+   which keeps 3:1 against the toolbar in both built-in themes (the default
+   focus ring is translucent); the VS Code theme maps the ring to focusBorder. */
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing > :focus {
+  outline: none;
+}
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing > :focus-visible,
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing > .toolbar-item-grabbed {
+  outline: 2px solid var(--mikedown-toolbar-edit-focus, var(--mikedown-accent, #3f51b5));
+  outline-offset: 1px;
+}
+/* Picked up with Space: tinted, lifted, a little larger. */
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing > .toolbar-item-grabbed {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--mikedown-radius-sm, 4px);
+  background: color-mix(in srgb, var(--mikedown-accent, #3f51b5) 18%, var(--mikedown-surface-toolbar, transparent));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.12);
+  translate: 0 -1px;
+  scale: 1.02;
+  transition: translate 120ms ease, scale 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing > .toolbar-item-grabbed,
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing > .toolbar-item-grabbed button {
+  cursor: grabbing;
+}
+/* No hover tooltip on the item being moved by keyboard. */
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing > .toolbar-item-grabbed[data-tip]::after {
+  display: none;
+}
+
 /* A separator is 1px wide: give it a grab area in edit mode. */
 :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing .toolbar-separator {
   width: 11px;
@@ -376,7 +407,7 @@
 :is(.mikedown-root, .mikedown-portal) .toolbar-tray-item:focus-visible,
 :is(.mikedown-root, .mikedown-portal) .toolbar-tray-reset:focus-visible,
 :is(.mikedown-root, .mikedown-portal) .toolbar-tray-done:focus-visible {
-  outline: 2px solid var(--mikedown-focus-ring, #007fd4);
+  outline: 2px solid var(--mikedown-toolbar-edit-focus, var(--mikedown-accent, #3f51b5));
   outline-offset: 1px;
 }
 :is(.mikedown-root, .mikedown-portal) .toolbar-tray-item.toolbar-item-dragging {
@@ -430,7 +461,7 @@
 :is(.mikedown-root, .mikedown-portal) .toolbar-tray-done:hover {
   background: var(--mikedown-accent-hover, #1177bb);
 }
-/* Screen reader only: the tray's live region (announcements come with the keyboard editor). */
+/* Screen reader only: the tray's live region (keyboard moves, adds and removals). */
 :is(.mikedown-root, .mikedown-portal) .toolbar-tray-status {
   position: absolute;
   width: 1px;
@@ -532,6 +563,11 @@
     animation: none;
   }
   :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar-ghost { scale: 1; }
+  :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing > .toolbar-item-grabbed {
+    translate: none;
+    scale: none;
+    transition: none;
+  }
   :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing .toolbar-item-movable,
   :is(.mikedown-root, .mikedown-portal) .toolbar-tray-item,
   :is(.mikedown-root, .mikedown-portal) .toolbar-tray-done,
@@ -543,4 +579,8 @@
 @media (forced-colors: active) {
   :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar-drop-line { background: Highlight; }
   :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar-tray.is-drop-target { outline: 2px dashed Highlight; }
+  :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing > :focus-visible,
+  :is(.mikedown-root, .mikedown-portal) .toolbar-tray-item:focus-visible { outline-color: Highlight; }
+  /* Tints vanish in forced colors: a thicker double ring marks the picked-up item. */
+  :is(.mikedown-root, .mikedown-portal) .mikedown-toolbar.toolbar-editing > .toolbar-item-grabbed { outline: 4px double Highlight; }
 }
