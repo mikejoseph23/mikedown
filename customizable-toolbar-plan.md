@@ -31,10 +31,10 @@
 | [M2 — Layout model: schema, normalize, migrate, apply](#m2--layout-model-schema-normalize-migrate-apply) | Sonnet | ✅ Done | 6 | `152d838`; AC3 corrected to D15 (`settings` appended) |
 | [T1 — Registry and layout model tests](#t1--registry-and-layout-model-tests) | Sonnet | ✅ Done | 4 | `02cc9ae`, `c5b41e7`; 126 toolbar tests |
 | [M3 — Settings plumbing: core, VS Code, Desktop, wrappers, Toolbar section](#m3--settings-plumbing-core-vs-code-desktop-wrappers-toolbar-section) | Sonnet | ✅ Done | 7 | `8988bc9`; OQ1 own tab, OQ6 reuse `APP_WIDE_KEYS` |
-| [M4 — Edit mode UI: handles, palette tray, drag, spacers](#m4--edit-mode-ui-handles-palette-tray-drag-spacers) | Opus | ⏸ Waiting on OQ2 | — | Front-end design work |
+| [M4 — Edit mode UI: handles, palette tray, drag, spacers](#m4--edit-mode-ui-handles-palette-tray-drag-spacers) | Opus | 🔄 In Progress | — | Front-end design work; OQ2 answered |
 | [M5 — Keyboard and accessibility for edit mode](#m5--keyboard-and-accessibility-for-edit-mode) | Opus | ⬜ Not Started | — | Interaction design |
 | [T2 — Edit mode, overflow and host tests](#t2--edit-mode-overflow-and-host-tests) | Sonnet | ⬜ Not Started | — | jsdom keyboard flows, fakeRow overflow |
-| [M6 — Docs, website, CHANGELOG](#m6--docs-website-changelog) | Haiku | 🔄 In Progress | — | Can start after M3 |
+| [M6 — Docs, website, CHANGELOG](#m6--docs-website-changelog) | Haiku | ✅ Done | 3 | `f56ec53`; `[Unreleased]` CHANGELOG heading |
 | [T3 — Hands-on checklist (VS Code, Desktop, React demo)](#t3--hands-on-checklist-vs-code-desktop-react-demo) | Human (Mike) | ⬜ Not Started | — | Drag is the one thing jsdom can't prove |
 
 ---
@@ -299,12 +299,12 @@ Decisions Mike made (D1 to D4) and the ones made while writing this plan (D5 onw
 
 **Tasks**
 
-- [ ] `CHANGELOG.md`: an `Added` entry under the next unreleased extension version describing Customize Toolbar (how to open it, drag and keyboard, separators and spacers, Reset to Default, the `mikedown.toolbarLayout` setting and that Settings Sync carries it).
-- [ ] `README.md`: a "Customizable toolbar" paragraph in the toolbar section (line ~88), no screenshot required (leave a TODO comment for Mike to add one later if he wants).
-- [ ] `website/vscode/index.html`: a short feature blurb beside the existing toolbar mentions (line ~249 area); `website/developers/` wrapper docs: `settings.toolbarLayout`, `features.customizeToolbar`, exported ids/types, and the "app decides persistence" note.
-- [ ] `packages/core/README.md` and each wrapper README: the same paragraph if M3 did not already add it; `packages/desktop` docs/CHANGELOG if the desktop keeps one.
-- [ ] `package.json` setting description reviewed for clarity (it shows in the VS Code settings UI).
-- [ ] Commit.
+- [x] `CHANGELOG.md`: an `Added` entry under the next unreleased extension version describing Customize Toolbar (how to open it, drag and keyboard, separators and spacers, Reset to Default, the `mikedown.toolbarLayout` setting and that Settings Sync carries it).
+- [x] `README.md`: a "Customizable toolbar" paragraph in the toolbar section (line ~88), no screenshot required (leave a TODO comment for Mike to add one later if he wants).
+- [x] `website/vscode/index.html`: a short feature blurb beside the existing toolbar mentions (line ~249 area); `website/developers/` wrapper docs: `settings.toolbarLayout`, `features.customizeToolbar`, exported ids/types, and the "app decides persistence" note.
+- [x] `packages/core/README.md` and each wrapper README: the same paragraph if M3 did not already add it; `packages/desktop` docs/CHANGELOG if the desktop keeps one.
+- [x] `package.json` setting description reviewed for clarity (it shows in the VS Code settings UI).
+- [x] Commit.
 
 **Acceptance criteria**
 
@@ -345,7 +345,7 @@ Decisions Mike made (D1 to D4) and the ones made while writing this plan (D5 onw
 ## Open Questions
 
 - **OQ1 — Toolbar section placement in the Settings modal:** *(M3: own `toolbar` tab after Appearance; easier to find and leaves room for M4/M6 hints.)* its own `toolbar` tab or a group at the bottom of Appearance? Two rows feel thin for a tab; a tab is easier to find. M3 worker decides and records it; Mike can overrule in T3.
-- **OQ2 — Should the Settings modal's Customize… button close the modal with "discard" semantics?** Unsaved changes on other tabs would be lost; alternatively save first, then enter edit mode. Plan assumes discard with a confirm only when the modal is dirty (reuse any existing dirty check).
+- **OQ2 — Should the Settings modal's Customize… button close the modal with "discard" semantics?** *(Mike, 2026-10-28: confirm, then discard. A dirty modal asks "Discard unsaved changes?" first; a clean one enters edit mode directly.)* Unsaved changes on other tabs would be lost; alternatively save first, then enter edit mode. Plan assumes discard with a confirm only when the modal is dirty (reuse any existing dirty check).
 - **OQ3 — `fontPicker` button:** `makeBtn('fontPicker', ...)` exists at line ~2678 but is not in the assemble block. Is it meant to be a registry item (available from the palette, not in the default layout)? If yes it becomes the first "optional" item users can add, which is a nice showcase.
 - **OQ4 — Removing `mikedown.ai.showToolbarButton` later:** D13 keeps it. Once layouts ship, the setting is redundant for users who customize. Retire in a later release or keep as the host-level kill switch?
 - **OQ5 — Hide the whole toolbar?** Firefox allows an empty toolbar; here Text Format, Settings and More are pinned so the minimum is three items. Is a "hide toolbar" toggle wanted (it already exists for embeds via `features.toolbar`)? Not planned.
@@ -410,5 +410,7 @@ When a milestone leaves items skipped or partial, the orchestrator writes a gap-
 **2026-10-28 19:10** - T1 done (`02cc9ae` registry now imports ids from `toolbar-ids.ts`; `c5b41e7` tests; fast-forwarded, 4 min). Toolbar tests: layout 85, registry 20, overflow 21. No bugs found in M1/M2 source. Main tree: lint 0 errors, `test:unit` 2351 pass, `test:edge` 22. Dispatched M3 (Sonnet, worktree). OQ2 asked of Mike ahead of M4.
 
 **2026-10-28 19:22** - M3 done (`8988bc9`, cherry-picked onto `develop` after another session's `83a16a9`, 7 min). `toolbarLayout` setting and `features.customizeToolbar` wired through core, VS Code (application scope, Global writes, `null` removes), Desktop (global-only via `APP_WIDE_KEYS`) and wrappers (no code change needed; README paragraph added to core and all four wrappers). Toolbar tab in Settings with a no-op Customize stub and Reset to Default. M4 hooks: `enterToolbarEditMode()` stub, `toolbarEdit.isToolbarEditing`, `toolbarEdit.pendingToolbarLayout`. Fixed a Desktop bug: a folder-scope Save never wrote an `APP_WIDE_KEYS` core key because `store.ts#save` set the baseline before the global re-save. `ai-settings.test.ts` tab-order list updated for the new tab. Angular note: Reset stores `toolbarLayout: null` in localStorage, which overrides an app's `[settings]` preset (Reset means product default, not app preset). Main tree: lint 0 errors, `test:unit` 2374, `test:edge` 22, `test:packages` 79, desktop unit 567, `test:integration` 47 passing. Dispatched M6 (Haiku, worktree); M4 waits on Mike's OQ2 answer.
+
+**2026-10-28 19:30** - M6 done (`f56ec53`, fast-forwarded, 3 min): `[Unreleased]` Added entry in CHANGELOG, README "Customizable Toolbar" section with a screenshot TODO, VS Code site blurb, developers hub section (setting, feature flag, exports, persistence note), clearer `mikedown.toolbarLayout` description. Core/wrapper READMEs already had M3's paragraph. `npm run build:site` green in the main tree. Mike answered OQ2: confirm, then discard. Dispatched M4 (Opus, worktree).
 
 [Return to Top](#customizable-toolbar-firefox-style--planning-document)
