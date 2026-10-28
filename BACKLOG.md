@@ -13,6 +13,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 - ~~**Table of contents** — auto-generated `[[toc]]` block.~~ ✅ Done, unreleased (90ab0f5). Uses `<!-- toc -->` / `<!-- tocstop -->` markers around a link list (GitHub-portable) instead of `[[toc]]`.
 - **Custom containers** — `:::note ... :::` style (VuePress / MkDocs).
 - **Image captions** — render alt text or title as a `<figcaption>` under images.
+- **PDF export bookmarks** (#11). Exported PDFs should carry a bookmark outline from the headings. Export goes through Chromium print today, which doesn't reliably emit an outline, so this likely means post-processing the PDF or generating it ourselves.
 - **Spell check toggle** for the editing surface.
 - **PlantUML / D2 diagram** support (less common than Mermaid).
 - **Customizable toolbar (Firefox-style).** The toolbar is getting crowded; let users add, remove and rearrange buttons and groups by drag and drop from a palette of available items, and insert separators (and maybe flexible spacers), like Firefox's Customize Toolbar (e.g. drop Select All, move Zoom next to Font Theme). Store the layout as a `mikedown.toolbarLayout` setting (three places, per the Settings rule) and add a Toolbar section to the in-editor Settings modal with a **Reset to Default** button. Prerequisite: turn `buildCondensedToolbar`'s hand-written `appendChild` sequence into a registry of button definitions keyed by id. Hosts' `features` flags (source mode, share) still hide buttons regardless of layout.
