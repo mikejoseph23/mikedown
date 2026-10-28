@@ -15,36 +15,12 @@
  * item is absent, the separators around it collapse like any other duplicate.
  */
 
-/** Every toolbar item id. Each is also the `data-action` of its element (a group's wrapper carries it too). */
-export const TOOLBAR_ITEM_IDS = [
-  'textFormat', 'listBlock', 'link', 'insert', 'emoji', 'headingNumbers', 'ai',
-  'undo', 'redo', 'sourceToggle', 'share', 'selectAll', 'zoom',
-  'themeToggle', 'settings', 'more',
-] as const;
-
-export type ToolbarItemId = (typeof TOOLBAR_ITEM_IDS)[number];
-
-/** A separator in a layout. */
-export const TOOLBAR_SEPARATOR = '|';
-/** A flexible spacer in a layout. */
-export const TOOLBAR_SPACER = '~';
-
-/** One slot in a layout: an item id, `'|'` (separator) or `'~'` (flexible spacer). */
-export type ToolbarLayoutToken = ToolbarItemId | typeof TOOLBAR_SEPARATOR | typeof TOOLBAR_SPACER;
-
-/**
- * The default layout. Rendering it reproduces the toolbar MikeDown has always
- * had: the separators around the optional Source and Share buttons fall out of
- * duplicate and trailing trimming when those buttons are unavailable.
- */
-export const DEFAULT_TOOLBAR_ITEMS: readonly ToolbarLayoutToken[] = [
-  'textFormat', 'listBlock', 'link', 'insert', 'emoji', 'headingNumbers', 'ai',
-  '|', 'undo', 'redo',
-  '|', 'sourceToggle',
-  '|', 'share', 'selectAll',
-  '|', 'zoom',
-  '|', 'themeToggle', 'settings', 'more',
-];
+import {
+  TOOLBAR_SEPARATOR,
+  TOOLBAR_SPACER,
+  type ToolbarItemId,
+  type ToolbarLayoutToken,
+} from './toolbar-ids';
 
 /** What `render` gets. */
 export interface ToolbarRenderContext {
