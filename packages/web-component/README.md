@@ -113,6 +113,8 @@ Every attribute has a matching property; setting either updates the other.
 
 Methods: `focus()`, `checkValidity()`, `reportValidity()`.
 
+**Toolbar layout.** Users can reorder, remove and add toolbar buttons in the editor (Settings, then Toolbar). The result is one JSON value, `settings.toolbarLayout` (`{ version, items, seen }`, typed `ToolbarLayout`). Pass it in `settings` to preset or restore a layout, and store the value your `host.saveSettings` receives; `null` means Reset to Default, and an absent or invalid value shows the default toolbar. Set `features.customizeToolbar: false` to hide the customize controls; a `toolbarLayout` you pass still applies. `ToolbarLayout`, `ToolbarItemId`, `TOOLBAR_ITEM_IDS`, `DEFAULT_TOOLBAR_LAYOUT` and `normalizeToolbarLayout` are exported from `@mikedown/core`.
+
 Function-valued options (`host`) and objects (`settings`) are properties only:
 
 ```js

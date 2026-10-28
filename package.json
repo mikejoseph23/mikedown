@@ -496,6 +496,36 @@
           "default": "off",
           "description": "Adds a toolbar button that writes section numbers into heading text (## 1.2 Setup) and keeps them updated as you edit. The numbers are part of the markdown, so they show in every renderer."
         },
+        "mikedown.toolbarLayout": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "default": null,
+          "scope": "application",
+          "properties": {
+            "version": {
+              "type": "number",
+              "description": "Schema version of the layout. Currently 1."
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Toolbar item ids in order. \"|\" is a separator and \"~\" is a flexible spacer."
+            },
+            "seen": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Toolbar item ids this layout has already been reconciled against. New buttons added by an update that are not listed here are inserted automatically."
+            }
+          },
+          "additionalProperties": true,
+          "markdownDescription": "Your customized toolbar layout. Don't edit this by hand: in the editor, open Settings > Toolbar > Customize Toolbar (or right-click the toolbar) to drag buttons around, and use Reset to Default to clear it. Stored in your user settings, so Settings Sync carries it to your other machines."
+        },
         "mikedown.tocStyle": {
           "type": "string",
           "enum": [

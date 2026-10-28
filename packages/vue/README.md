@@ -80,6 +80,8 @@ If the server render complains about the stylesheet import, add `@mikedown/core`
 | `darkSelector` | `string` | CSS selector for `theme="auto"`, such as `html.dark`. |
 | `id`, `aria-label`, `aria-labelledby` | `string` | Go to the editable surface, not the wrapper. A `<label for="id">` names it. |
 
+**Toolbar layout.** Users can reorder, remove and add toolbar buttons in the editor (Settings, then Toolbar). The result is one JSON value, `settings.toolbarLayout` (`{ version, items, seen }`, typed `ToolbarLayout`). Pass it in `settings` to preset or restore a layout, and store the value your `host.saveSettings` receives; `null` means Reset to Default, and an absent or invalid value shows the default toolbar. Set `features.customizeToolbar: false` to hide the customize controls; a `toolbarLayout` you pass still applies. `ToolbarLayout`, `ToolbarItemId`, `TOOLBAR_ITEM_IDS`, `DEFAULT_TOOLBAR_LAYOUT` and `normalizeToolbarLayout` are exported from `@mikedown/core`.
+
 ## Events and expose
 
 - `update:modelValue(markdown)`: debounced while typing (150 ms), immediate on blur.

@@ -27,6 +27,8 @@
  *       setSlashCommandsConfig() and update the empty-doc placeholder text.
  *   { type: 'tags', tags: Array<{ tag, count }> } — workspace tag index (sidebar
  *       Tags section + `#` autocomplete); pushed on ready and on index changes.
+ *   The `settings` broadcast also carries `toolbarLayout` (mikedown.toolbarLayout,
+ *   `null` = default layout); `saveSettings` takes `toolbarLayout: null` to clear it.
  *
  * Webview → Extension messages:
  *   { type: 'ready' }                    — webview is ready to receive content
@@ -271,6 +273,8 @@ function settingsBroadcastToCore(msg: any): Partial<MikeDownSettings> {
   copy('imagePathMappings', msg.imagePastePathMappings);
   copy('docDir', msg.docDirFs);
   copy('ai', msg.ai);
+  // null is meaningful (default layout), so it bypasses `copy`.
+  if (msg.toolbarLayout !== undefined) {patch.toolbarLayout = msg.toolbarLayout as MikeDownSettings['toolbarLayout'];}
   host.setImagePaths(msg.imagePastePathMappings, msg.docDirFs);
   const sc = msg.spellCheck;
   if (sc && typeof sc === 'object') {

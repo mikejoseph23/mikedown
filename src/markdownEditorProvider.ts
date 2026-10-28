@@ -364,6 +364,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     if (typeof settings.slashCommandsTimeZone === 'string') {
       updateSetting(config, 'slashCommands.timeZone', settings.slashCommandsTimeZone);
     }
+    // Toolbar layout: null (Reset to Default) removes the user setting. Always
+    // Global; the setting is application scoped, so a workspace copy is ignored.
+    if (settings.toolbarLayout === null) {
+      updateSetting(config, 'toolbarLayout', undefined);
+    } else if (settings.toolbarLayout && typeof settings.toolbarLayout === 'object' && !Array.isArray(settings.toolbarLayout)) {
+      updateSetting(config, 'toolbarLayout', settings.toolbarLayout);
+    }
     // AI tab: `ai.*` keys from serializeAiSettings (never a secret).
     if (Object.keys(settings).some(k => k.startsWith('ai.'))) {
       void saveAiSettingsPatch(settings);
@@ -1444,6 +1451,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       supportEntryCopy: ENTRY_COPY,
       // Parsed mikedown.ai.* (engines, routing, features); API keys never travel here.
       ai: settings.ai,
+      // mikedown.toolbarLayout; null means the default layout.
+      toolbarLayout: settings.toolbarLayout,
     });
   }
 

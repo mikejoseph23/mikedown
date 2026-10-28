@@ -246,7 +246,6 @@ export function createSettingsManager(deps: SettingsManagerDeps): SettingsManage
           changes[key] = value;
         }
       }
-      knownCore = { ...knownCore, ...coreIn };
 
       // Engines, the cloud switch and local networks are app-wide (OPEN-4): a
       // "Save for this folder" save puts them in the global file instead.
@@ -262,6 +261,8 @@ export function createSettingsManager(deps: SettingsManagerDeps): SettingsManage
           await manager.save(appWide, { silent: true, force: true });
         }
       }
+      // After the app-wide re-save above, which diffs core keys against the previous baseline.
+      knownCore = { ...knownCore, ...coreIn };
 
       if (Object.keys(changes).length === 0) {
         if (!opts?.silent) {deps.notify('Settings saved.');}
@@ -287,7 +288,9 @@ export function createSettingsManager(deps: SettingsManagerDeps): SettingsManage
         return;
       }
       if (Object.keys(toWrite).length === 0) {return;}
-      const next = { ...fresh.values, ...toWrite };
+      const next: SettingsRecord = { ...fresh.values, ...toWrite };
+      // `toolbarLayout: null` is Reset to Default: drop the key instead of storing null.
+      if (next.toolbarLayout === null) {delete next.toolbarLayout;}
       const text = `${JSON.stringify(next, null, 2)}\n`;
       try {
         await api.write(scope, scope === 'folder' ? folder : null, text);

@@ -75,7 +75,8 @@ import { locateInSource, findInDoc } from './revealText';
 import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks, type LinkSuggestion } from './linkautocomplete';
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates, type ToolbarDropdownEntry } from './toolbar-dropdown';
 import { layoutToolbarOverflow } from './toolbar-overflow';
-import { DEFAULT_TOOLBAR_ITEMS, type ToolbarLayoutToken } from './toolbar-ids';
+import { DEFAULT_TOOLBAR_ITEMS, TOOLBAR_ITEM_IDS, type ToolbarLayoutToken } from './toolbar-ids';
+import { resolveToolbarLayout } from './toolbar-layout';
 import { renderToolbar, resolveToolbarTokens, type ToolbarItemDef } from './toolbar-registry';
 import { showLanguagePicker } from './languagepicker';
 import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
@@ -1078,6 +1079,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (aiPage?.fromModal) {closeAiEnginesPage();}
     const discard = discardSettings;
     discardSettings = null;
+    refreshToolbarSettingsRows = null;
     settingsOverlay?.remove();
     discard?.();
   }
@@ -1675,6 +1677,36 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         }),
       }),
     }] : [];
+    // ── Toolbar tab: Customize… and Reset to Default (hidden when the host
+    // turns customizing off). Reset applies at once and is not part of the
+    // modal's draft, like the font-pair revert.
+    const toolbarRows: HTMLElement[] = [];
+    if (features.customizeToolbar) {
+      const customizeRow = makeRow('Customize Toolbar', 'Drag buttons to reorder them, remove the ones you do not use and add separators and spacers.', 'inline');
+      const customizeToolbarBtn = document.createElement('button');
+      customizeToolbarBtn.type = 'button';
+      customizeToolbarBtn.className = 'settings-btn';
+      customizeToolbarBtn.textContent = 'Customize Toolbar…';
+      customizeToolbarBtn.addEventListener('click', () => enterToolbarEditMode());
+      customizeRow.appendChild(customizeToolbarBtn);
+
+      const resetRow = makeRow('Reset Toolbar', 'Go back to the default toolbar layout.', 'inline');
+      const resetToolbarBtn = document.createElement('button');
+      resetToolbarBtn.type = 'button';
+      resetToolbarBtn.className = 'settings-btn';
+      resetToolbarBtn.textContent = 'Reset to Default';
+      resetToolbarBtn.addEventListener('click', () => {
+        host.saveSettings?.({ toolbarLayout: null });
+        applyToolbarLayout(null);
+      });
+      resetRow.appendChild(resetToolbarBtn);
+
+      const syncToolbarRows = (): void => { resetToolbarBtn.disabled = toolbarResolved.isDefault; };
+      syncToolbarRows();
+      refreshToolbarSettingsRows = syncToolbarRows;
+      toolbarRows.push(customizeRow, resetRow);
+    }
+
     const builtSections = [...(options.extraSettingsSections ?? []), ...aiSections].map((section) => ({
       section,
       build: section.build(sectionCtx),
@@ -1809,6 +1841,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         { key: 'normalizationStyle.listMarker', row: listMarkerField.row },
         { key: 'normalizationStyle.headingStyle', row: headingStyleField.row },
       ],
+      toolbar: toolbarRows.map((row, i) => ({ key: i === 0 ? 'toolbarCustomize' : 'toolbarReset', row })),
       spelling: [
         { key: 'spellCheckEnabled', row: spellEnabledField.row },
         { key: 'spellCheckLanguage', row: spellLanguageField.row },
@@ -1819,6 +1852,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     const tabDefs: Array<{ id: SettingsTabId; label: string; experimental?: boolean }> = [
       { id: 'appearance', label: 'Appearance' },
+      ...(toolbarRows.length ? [{ id: 'toolbar', label: 'Toolbar' }] : []),
       { id: 'behavior', label: 'Behavior' },
       { id: 'markdown', label: 'Markdown' },
       ...(spellcheckAvailable ? [{ id: 'spelling', label: 'Spelling' }] : []),
@@ -1959,6 +1993,19 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
   let currentHeadingNumbering: HeadingNumbering = 'off';
 
+  // The stored toolbar layout (`settings.toolbarLayout`) and what it resolves
+  // to: the tokens the toolbar renders and whether it is the default layout.
+  let toolbarResolved = resolveToolbarLayout(options.settings?.toolbarLayout, TOOLBAR_ITEM_IDS, DEFAULT_TOOLBAR_ITEMS);
+  // Toolbar edit mode state, per instance. The edit mode sets `isToolbarEditing`
+  // while it runs; an incoming `toolbarLayout` is then held in
+  // `pendingToolbarLayout` instead of applied (D8) and dropped when editing ends.
+  const toolbarEdit: { isToolbarEditing: boolean; pendingToolbarLayout: { value: unknown } | null } = {
+    isToolbarEditing: false,
+    pendingToolbarLayout: null,
+  };
+  // Set by the open Settings modal so its Toolbar rows follow layout changes.
+  let refreshToolbarSettingsRows: (() => void) | null = null;
+
   // The toolbar's item definitions and the layout tokens they render from
   // (see toolbar-registry.ts); set when buildCondensedToolbar runs.
   let toolbarRegistry: { defs: ToolbarItemDef[]; tokens: readonly ToolbarLayoutToken[]; rendered: string } | null = null;
@@ -1979,6 +2026,36 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       registry.rendered = renderToolbar(toolbar, registry.defs, registry.tokens).join(' ');
     }
     layoutToolbarOverflow(toolbar);
+  }
+
+  /**
+   * Apply a `toolbarLayout` setting: `null`, absent or invalid means the
+   * default layout. Re-renders the toolbar when the visible items changed
+   * (open dropdowns closed first), then re-flows the overflow. While this
+   * instance is in edit mode the value is held back for when editing ends.
+   */
+  function applyToolbarLayout(value: unknown): void {
+    if (toolbarEdit.isToolbarEditing) {
+      toolbarEdit.pendingToolbarLayout = { value };
+      return;
+    }
+    toolbarResolved = resolveToolbarLayout(value, TOOLBAR_ITEM_IDS, DEFAULT_TOOLBAR_ITEMS);
+    const registry = toolbarRegistry;
+    if (registry) {
+      if (registry.tokens.join(' ') !== toolbarResolved.tokens.join(' ')) {hideToolbarDropdown();}
+      registry.tokens = toolbarResolved.tokens;
+      refreshToolbarAvailability();
+    }
+    refreshToolbarSettingsRows?.();
+  }
+
+  /**
+   * Turn the live toolbar into the drag-and-drop editor. Placeholder: the
+   * Settings modal's "Customize Toolbar…" button calls it; the edit mode UI
+   * replaces this body.
+   */
+  function enterToolbarEditMode(): void {
+    // Intentionally empty.
   }
 
   // Heading numbering (#6). Wired up next to the heading-rename detector in
@@ -3055,7 +3132,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       undoDef, redoDef, sourceToggleDef, shareDef, selectAllDef, zoomDef,
       themeToggleDef, settingsDef, moreDef,
     ];
-    const tokens = DEFAULT_TOOLBAR_ITEMS;
+    const tokens = toolbarResolved.tokens;
     toolbarRegistry = { defs, tokens, rendered: renderToolbar(toolbar, defs, tokens).join(' ') };
     refreshZoomControl();
 
@@ -6235,6 +6312,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       docDirFsPath = patch.docDir;
     }
     if (patch.ai !== undefined && aiHost) {applyAiSettings(patch.ai);}
+    if (patch.toolbarLayout !== undefined) {applyToolbarLayout(patch.toolbarLayout);}
     const spellKeys: Array<keyof MikeDownSettings> = [
       'spellCheckEnabled', 'spellCheckLanguage', 'spellCheckIgnoreCodeBlocks', 'spellCheckUserWords', 'spellCheckExternalWords',
     ];

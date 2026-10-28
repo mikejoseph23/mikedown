@@ -225,7 +225,7 @@ describe('AI tab in the Settings modal', () => {
     mounted.push({ handle, el });
     handle.command('openAiSettings');
     const tabs = Array.from(document.querySelectorAll<HTMLElement>('.settings-tab'));
-    expect(tabs.map((t) => t.dataset.tabId)).toEqual(['appearance', 'behavior', 'markdown', 'spelling', 'hotkeys', 'ai']);
+    expect(tabs.map((t) => t.dataset.tabId)).toEqual(['appearance', 'toolbar', 'behavior', 'markdown', 'spelling', 'hotkeys', 'ai']);
     expect(tabs.at(-1)?.querySelector('.ai-experimental-badge')?.textContent).toBe('Experimental');
     expect(document.querySelector('.settings-panel--ai .ai-experimental-intro')?.textContent).toContain(AI_EXPERIMENTAL_DISCLAIMER);
     const names = Array.from(document.querySelectorAll('.ai-engine-name')).map((n) => n.textContent);

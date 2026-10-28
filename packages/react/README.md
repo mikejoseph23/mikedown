@@ -72,6 +72,8 @@ The editor fills its container, so give the component a height through `style` o
 | `onBlur` | Focus left the editor and its toolbar (like a native input's blur). |
 | `debounceMs`, `spellcheckDictionaryUrl` | Read at mount. |
 
+**Toolbar layout.** Users can reorder, remove and add toolbar buttons in the editor (Settings, then Toolbar). The result is one JSON value, `settings.toolbarLayout` (`{ version, items, seen }`, typed `ToolbarLayout`). Pass it in `settings` to preset or restore a layout, and store the value your `host.saveSettings` receives; `null` means Reset to Default, and an absent or invalid value shows the default toolbar. Set `features.customizeToolbar: false` to hide the customize controls; a `toolbarLayout` you pass still applies. `ToolbarLayout`, `ToolbarItemId`, `TOOLBAR_ITEM_IDS`, `DEFAULT_TOOLBAR_LAYOUT` and `normalizeToolbarLayout` are exported from `@mikedown/core`.
+
 The ref is a `MikeDownEditorHandle` (`getMarkdown`, `setMarkdown`, `focus`, `command`, `tiptap`, ...):
 
 ```tsx

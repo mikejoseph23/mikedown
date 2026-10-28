@@ -38,6 +38,12 @@ export interface MikeDownSettings {
   slashCommands: SlashCommandsSettings;
   /** `mikedown.ai.*`, parsed. Never holds a secret (keys live in SecretStorage). */
   ai: AiSettings;
+  /**
+   * `mikedown.toolbarLayout`: the raw layout object, or null for the default.
+   * Not validated here; the core normalizes it (a newer layout survives an
+   * older extension).
+   */
+  toolbarLayout: Record<string, unknown> | null;
 }
 
 export interface TagSettings {
@@ -156,7 +162,13 @@ export function getSettings(): MikeDownSettings {
       timeZone: config.get<string>('slashCommands.timeZone', 'local').trim() || 'local',
     },
     ai: readAiSettings(config),
+    toolbarLayout: readToolbarLayout(config.get<unknown>('toolbarLayout', null)),
   };
+}
+
+/** The stored toolbar layout when it is a plain object, otherwise null (default layout). Exported for unit testing. */
+export function readToolbarLayout(raw: unknown): Record<string, unknown> | null {
+  return raw !== null && typeof raw === 'object' && !Array.isArray(raw) ? { ...(raw as Record<string, unknown>) } : null;
 }
 
 /** What `WorkspaceConfiguration.inspect` returns, reduced to the scopes MikeDown reads. */

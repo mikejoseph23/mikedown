@@ -398,3 +398,82 @@ describe('settings manager: other windows', () => {
     expect(b.store.get().versioning.keep).toBe(25);
   });
 });
+
+describe('settings: toolbarLayout (global file only)', () => {
+  const LAYOUT = { version: 1, items: ['textFormat', 'undo', 'redo', 'settings', 'more'], seen: ['textFormat', 'undo', 'redo', 'settings', 'more'] };
+  const OTHER = { version: 1, items: ['textFormat', 'more'], seen: ['textFormat', 'more'] };
+
+  it('is loaded from the global file and applied to the editors', async () => {
+    const world = createWorld();
+    world.files.set(GLOBAL, JSON.stringify({ toolbarLayout: LAYOUT }));
+    const win = createWindow(world);
+    await win.manager.load();
+    expect(win.applied.at(-1)).toMatchObject({ toolbarLayout: LAYOUT });
+    expect(win.manager.coreSettings().toolbarLayout).toEqual(LAYOUT);
+  });
+
+  it('defaults to null (the default layout) when no file sets it', async () => {
+    const win = createWindow(createWorld());
+    await win.manager.load();
+    expect(win.applied.at(-1)).toMatchObject({ toolbarLayout: null });
+  });
+
+  it('drops a folder copy with a banner reason and keeps the global layout', async () => {
+    const world = createWorld();
+    world.files.set(GLOBAL, JSON.stringify({ toolbarLayout: LAYOUT }));
+    world.files.set(folderFile('/notes'), JSON.stringify({ toolbarLayout: OTHER, fontSize: 20 }));
+    const win = createWindow(world, { folder: '/notes' });
+    await win.manager.load();
+    expect(win.applied.at(-1)).toMatchObject({ toolbarLayout: LAYOUT, fontSize: 20 });
+    const reasons = win.lastBanner().map((b) => b.message);
+    expect(reasons).toHaveLength(1);
+    expect(reasons[0]).toContain('toolbarLayout');
+  });
+
+  it('validateFolderOverride reports the key', () => {
+    const { value, problems } = validateFolderOverride({ toolbarLayout: OTHER, 'versioning.keep': 5 }, '/notes', path);
+    expect(value).toEqual({ 'versioning.keep': 5 });
+    expect(problems.map((p) => p.key)).toEqual(['toolbarLayout']);
+  });
+
+  it('a Save for this folder puts the layout in the global file, not the folder file', async () => {
+    const world = createWorld();
+    const win = createWindow(world, { folder: '/notes' });
+    await win.manager.load();
+    await win.manager.save({ toolbarLayout: LAYOUT, [SAVE_FOR_FOLDER_KEY]: true });
+    expect(JSON.parse(world.files.get(GLOBAL) as string)).toEqual({ toolbarLayout: LAYOUT });
+    expect(world.files.has(folderFile('/notes'))).toBe(false);
+    expect(win.applied.at(-1)).toMatchObject({ toolbarLayout: LAYOUT });
+  });
+
+  it('saving null removes the key and puts the editors back on the default layout', async () => {
+    const world = createWorld();
+    world.files.set(GLOBAL, JSON.stringify({ toolbarLayout: LAYOUT, fontSize: 18 }));
+    const win = createWindow(world);
+    await win.manager.load();
+    await win.manager.save({ toolbarLayout: null });
+    const stored = JSON.parse(world.files.get(GLOBAL) as string);
+    expect('toolbarLayout' in stored).toBe(false);
+    expect(stored.fontSize).toBe(18);
+    expect(win.applied.at(-1)).toMatchObject({ toolbarLayout: null });
+  });
+
+  it('saving null when nothing is stored writes nothing', async () => {
+    const world = createWorld();
+    const win = createWindow(world);
+    await win.manager.load();
+    await win.manager.save({ toolbarLayout: null });
+    expect(world.writes).toEqual([]);
+  });
+
+  it('a layout saved in one window is picked up by the other', async () => {
+    const world = createWorld();
+    const a = createWindow(world, { label: 'a' });
+    const b = createWindow(world, { label: 'b' });
+    await a.manager.load();
+    await b.manager.load();
+    await b.manager.listen();
+    await a.manager.save({ toolbarLayout: LAYOUT });
+    await vi.waitFor(() => expect(b.applied.at(-1)).toMatchObject({ toolbarLayout: LAYOUT }));
+  });
+});

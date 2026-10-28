@@ -106,6 +106,9 @@ export const DESKTOP_CORE_SETTING_DEFAULTS: Partial<MikeDownSettings> = {
   // current one (M3). Only folder windows have `createWikilink`, so a lone
   // file is unaffected.
   wikilinkCreateOnClick: true,
+  // No stored toolbar layout means the default one. Explicit so a removed
+  // `toolbarLayout` key resets the toolbar of an editor that had a custom one.
+  toolbarLayout: null,
 };
 
 export interface DesktopSettingsStore {

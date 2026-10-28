@@ -5,6 +5,7 @@
 
 import type { Editor } from '@tiptap/core';
 import type { AiEngineStatus, AiServedBy, AiSettings } from './ai/types';
+import type { ToolbarLayout } from './toolbar-layout';
 import type { BacklinkItem, ImageInsertResult, LinkSuggestion, MikeDownHost, TagCount } from './host';
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -78,6 +79,16 @@ export interface MikeDownSettings {
   imagePathMappings?: ImagePathMapping[];
   /** On-disk folder of the current document (pairs with imagePathMappings). */
   docDir?: string;
+
+  // ── Toolbar ──────────────────────────────────────────────────────────────
+  /**
+   * The customized toolbar layout: one self-contained, versioned blob
+   * (`{ version, items, seen }`, see `ToolbarLayout`). `null`, absent or an
+   * invalid value means the default layout. Saved through
+   * `host.saveSettings({ toolbarLayout })`; `null` clears a stored layout
+   * (Reset to Default). Hand-edited values are normalized on read.
+   */
+  toolbarLayout?: ToolbarLayout | null;
 }
 
 /**
@@ -116,6 +127,12 @@ export interface MikeDownFeatures {
   frontmatter: boolean;
   /** AI features and the AI settings tab. Default on, but inert unless `host.ai` is set. */
   ai: boolean;
+  /**
+   * "Customize Toolbar" entry points and the Toolbar section in Settings.
+   * Default on. Off keeps the toolbar fixed for the user; a `toolbarLayout`
+   * setting still applies.
+   */
+  customizeToolbar: boolean;
 }
 
 export const DEFAULT_FEATURES: MikeDownFeatures = {
@@ -130,6 +147,7 @@ export const DEFAULT_FEATURES: MikeDownFeatures = {
   findReplace: true,
   frontmatter: true,
   ai: true,
+  customizeToolbar: true,
 };
 
 // ── Settings modal extension ──────────────────────────────────────────────────

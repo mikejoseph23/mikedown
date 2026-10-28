@@ -47,8 +47,12 @@ export const DESKTOP_KEY_DEFAULTS = {
  * dropped of them on load (with a reason in the banner) and a "Save for this
  * folder" save writes them to the global file instead. The Rust side reads
  * only the global file for the same keys (`commands/ai.rs`).
+ *
+ * `toolbarLayout` (a core key, D19 of the customizable toolbar plan) rides the
+ * same mechanism: the toolbar is a personal preference, so a folder copy is
+ * dropped and a folder-scoped save lands in the global file.
  */
-export const APP_WIDE_KEYS: readonly DesktopKey[] = ['ai.engines', 'ai.allowCloud', 'ai.localNetworks'];
+export const APP_WIDE_KEYS: readonly string[] = ['ai.engines', 'ai.allowCloud', 'ai.localNetworks', 'toolbarLayout'];
 
 export type DesktopKey = keyof typeof DESKTOP_KEY_DEFAULTS;
 export type SettingsRecord = Record<string, unknown>;
@@ -169,7 +173,9 @@ export function validateFolderOverride(
     if ((APP_WIDE_KEYS as readonly string[]).includes(key)) {
       problems.push({
         key,
-        reason: `${key} in this folder's settings file was ignored: AI engines, the cloud switch and local networks can only be set in your own settings, not per folder.`,
+        reason: key === 'toolbarLayout'
+          ? "toolbarLayout in this folder's settings file was ignored: the toolbar layout is a personal setting and can only be set in your own settings, not per folder."
+          : `${key} in this folder's settings file was ignored: AI engines, the cloud switch and local networks can only be set in your own settings, not per folder.`,
       });
       continue;
     }

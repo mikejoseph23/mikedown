@@ -64,5 +64,10 @@ export type {
   MikeDownSettingsSectionContext,
 } from './types';
 
+export { TOOLBAR_ITEM_IDS } from './toolbar-ids';
+export type { ToolbarItemId, ToolbarLayoutToken } from './toolbar-ids';
+export { DEFAULT_TOOLBAR_LAYOUT, normalizeToolbarLayout } from './toolbar-layout';
+export type { ToolbarLayout } from './toolbar-layout';
+
 export { bindMikeDownValue } from './binding';
 export type { MikeDownBinding, MikeDownBindingOptions, BindingTheme } from './binding';

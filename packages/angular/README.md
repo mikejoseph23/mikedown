@@ -155,6 +155,8 @@ The editor's settings are merged in this order, later wins:
 2. The `settings` input, e.g. `[settings]="{ fontFamily: 'Roboto, sans-serif', headingFontFamily: 'Roboto, sans-serif' }"`.
 3. Choices the user saved from the editor's own Settings dialog, kept in `localStorage` under `mikedown.settings` (per user, per browser).
 
+**Toolbar layout.** Users can reorder, remove and add toolbar buttons in the editor (Settings, then Toolbar). The result is one JSON value, `settings.toolbarLayout` (`{ version, items, seen }`, typed `ToolbarLayout`). Pass it in `settings` to preset or restore a layout, and store the value your `host.saveSettings` receives; `null` means Reset to Default, and an absent or invalid value shows the default toolbar. Set `features.customizeToolbar: false` to hide the customize controls; a `toolbarLayout` you pass still applies. `ToolbarLayout`, `ToolbarItemId`, `TOOLBAR_ITEM_IDS`, `DEFAULT_TOOLBAR_LAYOUT` and `normalizeToolbarLayout` are exported from `@mikedown/core`.
+
 ## Styling
 
 Colours inside the editor come from core's `--mikedown-*` tokens (see core's README, Theming). The frame around it reads `--mikedown-field-*` variables, with neutral fallbacks, so you can map them to your design system in global styles:
