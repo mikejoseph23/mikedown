@@ -291,11 +291,14 @@ describe('More menu', () => {
     expect(changed).toBe(0);
   });
 
-  /** Open the More menu with `overflow` marked overflowed and return its entry ids and labels. */
-  function openMore(overflow: (toolbar: HTMLElement) => HTMLElement[]) {
+  /**
+   * Open the More menu with `overflow` marked overflowed and return its entry ids and labels.
+   * Customize Toolbar is off unless `customize` is set, so the menu lists only the overflow.
+   */
+  function openMore(overflow: (toolbar: HTMLElement) => HTMLElement[], customize = false) {
     host = document.createElement('div');
     document.body.appendChild(host);
-    handle = createMikeDownEditor(host, { host: { onChange() {} }, initialMarkdown: 'Hello\n' });
+    handle = createMikeDownEditor(host, { host: { onChange() {} }, initialMarkdown: 'Hello\n', features: { customizeToolbar: customize } });
     const toolbar = host.querySelector<HTMLElement>('.mikedown-toolbar')!;
     const more = toolbar.querySelector<HTMLButtonElement>('button.toolbar-more')!;
     overflow(toolbar).forEach((el) => el.classList.add('toolbar-overflowed'));
@@ -308,6 +311,12 @@ describe('More menu', () => {
       separators: menu.querySelectorAll('.tdd-separator, [role="separator"]').length,
     };
   }
+
+  it('ends with Customize Toolbar after a separator when customizing is on', () => {
+    const { ids, separators } = openMore((t) => [t.querySelector<HTMLElement>('.toolbar-group[data-action="zoom"]')!], true);
+    expect(ids).toEqual(['more-zoomOut', 'more-zoomReset', 'more-zoomIn', 'more-customizeToolbar']);
+    expect(separators).toBe(1);
+  });
 
   it('expands the zoom group into its three buttons, in order, and lists no wrapper', () => {
     const { ids } = openMore((t) => [t.querySelector<HTMLElement>('.toolbar-group[data-action="zoom"]')!]);

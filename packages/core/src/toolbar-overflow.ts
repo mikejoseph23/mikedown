@@ -13,6 +13,10 @@
  * overflow like any child but are never listed, and are trimmed when they
  * would end the visible row.
  *
+ * While the toolbar is being customized (`.toolbar-editing`, see
+ * toolbar-customize.ts) overflow is suspended: the toolbar wraps, nothing is
+ * overflowed and More is shown as the fixed end of the row.
+ *
  * Only toolbar chrome is touched here, never the ProseMirror DOM.
  */
 
@@ -42,6 +46,10 @@ export function layoutToolbarOverflow(toolbar: HTMLElement): void {
   const items = (Array.from(toolbar.children) as HTMLElement[]).filter((el) => el !== more);
 
   items.forEach((el) => el.classList.remove(OVERFLOWED));
+  if (toolbar.classList.contains('toolbar-editing')) {
+    more.hidden = false;
+    return;
+  }
   more.hidden = true;
   if (rowFits(toolbar)) {return;}
 

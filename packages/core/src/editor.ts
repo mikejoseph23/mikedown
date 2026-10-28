@@ -78,6 +78,7 @@ import { layoutToolbarOverflow } from './toolbar-overflow';
 import { DEFAULT_TOOLBAR_ITEMS, TOOLBAR_ITEM_IDS, type ToolbarLayoutToken } from './toolbar-ids';
 import { resolveToolbarLayout } from './toolbar-layout';
 import { renderToolbar, resolveToolbarTokens, type ToolbarItemDef } from './toolbar-registry';
+import { enterToolbarEditMode as startToolbarEditMode, type ToolbarEditSession } from './toolbar-customize';
 import { showLanguagePicker } from './languagepicker';
 import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
 import { resolveImageRenderSrc } from './imageSrcPolicy';
@@ -1681,13 +1682,20 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // turns customizing off). Reset applies at once and is not part of the
     // modal's draft, like the font-pair revert.
     const toolbarRows: HTMLElement[] = [];
+    // Set once the modal is built: true when any field differs from when it opened.
+    let isModalDirty: () => boolean = () => false;
     if (features.customizeToolbar) {
       const customizeRow = makeRow('Customize Toolbar', 'Drag buttons to reorder them, remove the ones you do not use and add separators and spacers.', 'inline');
       const customizeToolbarBtn = document.createElement('button');
       customizeToolbarBtn.type = 'button';
       customizeToolbarBtn.className = 'settings-btn';
       customizeToolbarBtn.textContent = 'Customize Toolbar…';
-      customizeToolbarBtn.addEventListener('click', () => enterToolbarEditMode());
+      // Edit mode works on the live toolbar, so the modal closes first. Unsaved
+      // changes in it are discarded, after a confirm (OQ2).
+      customizeToolbarBtn.addEventListener('click', () => {
+        const proceed = (): void => { closeSettingsModal(); enterToolbarEditMode(); };
+        if (isModalDirty()) {confirmDiscardChanges(customizeToolbarBtn, proceed);} else {proceed();}
+      });
       customizeRow.appendChild(customizeToolbarBtn);
 
       const resetRow = makeRow('Reset Toolbar', 'Go back to the default toolbar layout.', 'inline');
@@ -1722,7 +1730,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const saveBtn = document.createElement('button');
     saveBtn.textContent = host.saveSettings ? 'Save to Settings' : 'Apply';
     saveBtn.className = 'settings-btn settings-btn--primary';
-    saveBtn.addEventListener('click', () => {
+    /** The settings the modal's fields hold now: what Save sends, and what the dirty check compares. */
+    function collectModalSettings(): Partial<MikeDownSettings> & { normalizationStyle: NormalizationStyleSettings } {
       const normalizationStyle: NormalizationStyleSettings = {
         boldMarker: boldMarkerField.select.value as '**' | '__',
         italicMarker: italicMarkerField.select.value as '*' | '_',
@@ -1733,7 +1742,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       for (const { build } of builtSections) {
         Object.assign(extraValues, build.collect?.() ?? {});
       }
-      host.saveSettings?.({
+      return {
         fontSize: parseInt(fontSizeInput.value, 10),
         ctrlWheelZoom: ctrlWheelZoomField.input.checked,
         fontFamily: selectedBody,
@@ -1759,7 +1768,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         spellCheckUserWords: [...spellWords],
         // Host sections
         ...extraValues,
-      });
+      };
+    }
+    saveBtn.addEventListener('click', () => {
+      const patch = collectModalSettings();
+      const { normalizationStyle } = patch;
+      host.saveSettings?.(patch);
       // Mirror into local state so subsequent reads don't wait on the broadcast.
       currentCtrlWheelZoom = ctrlWheelZoomField.input.checked;
       currentRenderMermaidDiagrams = mermaidField.input.checked;
@@ -1967,6 +1981,60 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     overlay.appendChild(modal);
     getPortal().appendChild(overlay);
 
+    // Dirty check for "Customize Toolbar…": compare with the values at open.
+    const pristineSettings = JSON.stringify(collectModalSettings());
+    isModalDirty = () => JSON.stringify(collectModalSettings()) !== pristineSettings;
+
+    /** A small in-modal confirm: "Discard unsaved changes?" Discard runs `proceed`; Keep Editing stays. */
+    function confirmDiscardChanges(returnFocus: HTMLElement, proceed: () => void): void {
+      modal.querySelector('.settings-confirm-backdrop')?.remove();
+      const backdrop = document.createElement('div');
+      backdrop.className = 'settings-confirm-backdrop';
+      const box = document.createElement('div');
+      box.className = 'settings-confirm';
+      box.setAttribute('role', 'alertdialog');
+      box.setAttribute('aria-modal', 'true');
+      const boxTitle = document.createElement('div');
+      boxTitle.className = 'settings-confirm-title';
+      boxTitle.id = `settings-confirm-title-${Math.random().toString(36).slice(2, 8)}`;
+      boxTitle.textContent = 'Discard unsaved changes?';
+      const boxText = document.createElement('div');
+      boxText.className = 'settings-confirm-text';
+      boxText.id = `${boxTitle.id}-text`;
+      boxText.textContent = 'Customizing the toolbar closes Settings. Changes you have not saved will be lost.';
+      box.setAttribute('aria-labelledby', boxTitle.id);
+      box.setAttribute('aria-describedby', boxText.id);
+      const actions = document.createElement('div');
+      actions.className = 'settings-confirm-actions';
+      const keepBtn = document.createElement('button');
+      keepBtn.type = 'button';
+      keepBtn.className = 'settings-btn settings-btn--secondary';
+      keepBtn.textContent = 'Keep Editing';
+      const discardBtn = document.createElement('button');
+      discardBtn.type = 'button';
+      discardBtn.className = 'settings-btn settings-btn--primary';
+      discardBtn.textContent = 'Discard';
+      actions.append(keepBtn, discardBtn);
+      box.append(boxTitle, boxText, actions);
+      backdrop.appendChild(box);
+      const dismiss = (): void => { backdrop.remove(); returnFocus.focus(); };
+      keepBtn.addEventListener('click', dismiss);
+      discardBtn.addEventListener('click', () => { backdrop.remove(); proceed(); });
+      backdrop.addEventListener('click', (e) => { if (e.target === backdrop) {dismiss();} });
+      box.addEventListener('keydown', (e: KeyboardEvent) => {
+        // Escape closes the confirm, not the whole modal.
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); dismiss(); return; }
+        if (e.key === 'Tab') {
+          // Keep focus on the two buttons.
+          const next = document.activeElement === keepBtn ? discardBtn : keepBtn;
+          e.preventDefault();
+          next.focus();
+        }
+      });
+      modal.appendChild(backdrop);
+      keepBtn.focus();
+    }
+
     // Close on backdrop click or Escape
     discardSettings = () => {
       for (const { build } of builtSections) {
@@ -2021,6 +2089,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const registry = toolbarRegistry;
     if (!toolbar || !registry) {return;}
     for (const def of registry.defs) {def.update?.();}
+    // While customizing, the edit session renders from its working layout.
+    if (toolbarEditSession) { toolbarEditSession.refresh(); return; }
     const next = resolveToolbarTokens(registry.defs, registry.tokens).join(' ');
     if (next !== registry.rendered) {
       registry.rendered = renderToolbar(toolbar, registry.defs, registry.tokens).join(' ');
@@ -2049,13 +2119,60 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     refreshToolbarSettingsRows?.();
   }
 
+  /** This instance's toolbar edit session (Customize Toolbar…), if one is running. */
+  let toolbarEditSession: ToolbarEditSession | null = null;
+  // destroy() while customizing: drop the tray and its listeners, save nothing.
+  disposers.push(() => {
+    const session = toolbarEditSession;
+    toolbarEditSession = null;
+    toolbarEdit.isToolbarEditing = false;
+    session?.dispose();
+  });
+
   /**
-   * Turn the live toolbar into the drag-and-drop editor. Placeholder: the
-   * Settings modal's "Customize Toolbar…" button calls it; the edit mode UI
-   * replaces this body.
+   * Turn the live toolbar into the drag-and-drop editor (toolbar-customize.ts).
+   * Entry points: the Settings modal's Toolbar tab, the last entry of More ⋯
+   * and the toolbar's right-click menu; all absent when
+   * `features.customizeToolbar` is false. `opener` is where focus goes back on
+   * Done. Done saves once (only when the layout changed) and applies the new
+   * layout; without changes, a `toolbarLayout` that arrived while editing is
+   * applied instead (D8).
    */
-  function enterToolbarEditMode(): void {
-    // Intentionally empty.
+  function enterToolbarEditMode(opener: HTMLElement | null = null): void {
+    const toolbar = shell.toolbar;
+    const registry = toolbarRegistry;
+    if (!features.customizeToolbar || !toolbar || !registry || toolbarEditSession || destroyed) {return;}
+    hideToolbarDropdown();
+    hideContextMenu();
+    hideEmojiPicker();
+    toolbarEdit.isToolbarEditing = true;
+    toolbarEdit.pendingToolbarLayout = null;
+    const startedFrom = toolbarResolved;
+    toolbarEditSession = startToolbarEditMode({
+      root,
+      toolbar,
+      defs: registry.defs,
+      layout: startedFrom.layout,
+      opener,
+      onRender: (rendered, items) => {
+        registry.tokens = items as ToolbarLayoutToken[];
+        registry.rendered = rendered.join(' ');
+      },
+      save: (value) => { host.saveSettings?.({ toolbarLayout: value }); },
+      onExit: ({ changed, value }) => {
+        toolbarEditSession = null;
+        toolbarEdit.isToolbarEditing = false;
+        const pending = toolbarEdit.pendingToolbarLayout;
+        toolbarEdit.pendingToolbarLayout = null;
+        if (changed) {
+          applyToolbarLayout(value);
+        } else if (pending) {
+          applyToolbarLayout(pending.value);
+        } else {
+          applyToolbarLayout(startedFrom.isDefault ? null : startedFrom.layout);
+        }
+      },
+    });
   }
 
   // Heading numbering (#6). Wired up next to the heading-rename detector in
@@ -3120,6 +3237,16 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
             }
           }
           while (entries.length && entries[entries.length - 1].type === 'separator') {entries.pop();}
+          if (features.customizeToolbar) {
+            if (entries.length) {entries.push({ type: 'separator' });}
+            entries.push({
+              type: 'action',
+              id: 'more-customizeToolbar',
+              label: 'Customize Toolbar…',
+              icon: '<span aria-hidden="true"></span>',
+              action: () => enterToolbarEditMode(moreBtn),
+            });
+          }
           if (entries.length) {showToolbarDropdown(moreBtn, entries);}
         });
         return moreBtn;
@@ -3141,6 +3268,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (typeof ResizeObserver !== 'undefined') {
       let frame = 0;
       const ro = new ResizeObserver(() => {
+        // Customizing suspends overflow: the toolbar wraps instead (D9).
+        if (toolbarEdit.isToolbarEditing) {return;}
         cancelAnimationFrame(frame);
         frame = requestAnimationFrame(() => layoutToolbarOverflow(toolbar));
       });
@@ -3148,6 +3277,18 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       disposers.push(() => { cancelAnimationFrame(frame); ro.disconnect(); });
     }
     layoutToolbarOverflow(toolbar);
+
+    // Right-click anywhere on the toolbar: a one-item menu into edit mode (D5).
+    if (features.customizeToolbar) {
+      listen(toolbar, 'contextmenu', (e: MouseEvent) => {
+        e.preventDefault();
+        if (toolbarEdit.isToolbarEditing) {return;}
+        hideToolbarDropdown();
+        showContextMenu(editor, e.clientX, e.clientY, [
+          { label: 'Customize Toolbar…', action: () => enterToolbarEditMode(toolbar) },
+        ]);
+      });
+    }
 
     // ── Update dynamic label on selection changes ──────────────────────────
     (toolbar as any).__condensedUpdate = () => {

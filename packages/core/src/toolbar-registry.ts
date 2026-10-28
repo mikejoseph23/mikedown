@@ -55,6 +55,33 @@ const isDivider = (t: ToolbarLayoutToken): t is typeof TOOLBAR_SEPARATOR | typeo
   t === TOOLBAR_SEPARATOR || t === TOOLBAR_SPACER;
 
 /**
+ * The indices into `tokens` of the entries that will actually render: unknown
+ * and unavailable ids dropped, runs of the same divider collapsed to the
+ * first, trailing dividers trimmed. The toolbar editor uses the indices to map
+ * a rendered child back to its slot in the layout.
+ */
+export function resolveToolbarTokenIndices(
+  defs: readonly ToolbarItemDef[],
+  tokens: readonly ToolbarLayoutToken[],
+): number[] {
+  const byId = new Map(defs.map((d) => [d.id, d] as const));
+  const out: number[] = [];
+  tokens.forEach((token, i) => {
+    if (isDivider(token)) {
+      if (!out.length || tokens[out[out.length - 1]] === token) {return;}
+      out.push(i);
+      return;
+    }
+    const def = byId.get(token);
+    if (!def) {return;}
+    if (def.available && !def.available()) {return;}
+    out.push(i);
+  });
+  while (out.length && isDivider(tokens[out[out.length - 1]])) {out.pop();}
+  return out;
+}
+
+/**
  * The tokens that will actually render: unknown and unavailable ids dropped,
  * runs of the same divider collapsed to one, leading and trailing dividers
  * trimmed.
@@ -63,21 +90,7 @@ export function resolveToolbarTokens(
   defs: readonly ToolbarItemDef[],
   tokens: readonly ToolbarLayoutToken[],
 ): ToolbarLayoutToken[] {
-  const byId = new Map(defs.map((d) => [d.id, d] as const));
-  const out: ToolbarLayoutToken[] = [];
-  for (const token of tokens) {
-    if (isDivider(token)) {
-      if (!out.length || out[out.length - 1] === token) {continue;}
-      out.push(token);
-      continue;
-    }
-    const def = byId.get(token);
-    if (!def) {continue;}
-    if (def.available && !def.available()) {continue;}
-    out.push(token);
-  }
-  while (out.length && isDivider(out[out.length - 1])) {out.pop();}
-  return out;
+  return resolveToolbarTokenIndices(defs, tokens).map((i) => tokens[i]);
 }
 
 const rendered = new WeakMap<ToolbarItemDef, HTMLElement>();
@@ -97,6 +110,20 @@ function makeSpacer(): HTMLElement {
 }
 
 /**
+ * The element for `def`, rendered on first use and reused afterwards (so its
+ * listeners survive re-renders). The toolbar editor also reads it for an
+ * item that is not on the toolbar, to show its icon in the palette.
+ */
+export function renderToolbarItem(def: ToolbarItemDef, toolbar: HTMLElement): HTMLElement {
+  let el = rendered.get(def);
+  if (!el) {
+    el = def.render({ toolbar });
+    rendered.set(def, el);
+  }
+  return el;
+}
+
+/**
  * Replace the toolbar's children with the rendered tokens.
  * Returns the tokens that rendered (see `resolveToolbarTokens`), so a caller
  * can tell whether a later pass would change anything.
@@ -111,13 +138,7 @@ export function renderToolbar(
   const nodes = resolved.map((token) => {
     if (token === TOOLBAR_SEPARATOR) {return makeSeparator();}
     if (token === TOOLBAR_SPACER) {return makeSpacer();}
-    const def = byId.get(token)!;
-    let el = rendered.get(def);
-    if (!el) {
-      el = def.render({ toolbar });
-      rendered.set(def, el);
-    }
-    return el;
+    return renderToolbarItem(byId.get(token)!, toolbar);
   });
   toolbar.replaceChildren(...nodes);
   return resolved;

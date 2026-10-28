@@ -593,3 +593,38 @@
   :is(.mikedown-root, .mikedown-portal) .settings-content { padding: 14px 16px; }
   :is(.mikedown-root, .mikedown-portal) .settings-footer { padding: 10px 16px; }
 }
+
+/* In-modal confirm ("Discard unsaved changes?" before Customize Toolbar…). */
+:is(.mikedown-root, .mikedown-portal) .settings-modal { position: relative; }
+:is(.mikedown-root, .mikedown-portal) .settings-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.28);
+}
+:is(.mikedown-root, .mikedown-portal) .settings-confirm {
+  width: min(360px, 100%);
+  padding: 16px 18px 14px;
+  background: var(--mikedown-surface-raised, #252526);
+  border: 1px solid var(--settings-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+:is(.mikedown-root, .mikedown-portal) .settings-confirm-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+:is(.mikedown-root, .mikedown-portal) .settings-confirm-text {
+  color: var(--settings-muted);
+  margin-bottom: 14px;
+}
+:is(.mikedown-root, .mikedown-portal) .settings-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
