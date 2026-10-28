@@ -32,8 +32,8 @@
 | [T1 — Registry and layout model tests](#t1--registry-and-layout-model-tests) | Sonnet | ✅ Done | 4 | `02cc9ae`, `c5b41e7`; 126 toolbar tests |
 | [M3 — Settings plumbing: core, VS Code, Desktop, wrappers, Toolbar section](#m3--settings-plumbing-core-vs-code-desktop-wrappers-toolbar-section) | Sonnet | ✅ Done | 7 | `8988bc9`; OQ1 own tab, OQ6 reuse `APP_WIDE_KEYS` |
 | [M4 — Edit mode UI: handles, palette tray, drag, spacers](#m4--edit-mode-ui-handles-palette-tray-drag-spacers) | Opus | ✅ Done | 17 | `0c24296`, `1d6b7fd`; D15 amended (separator next to spacer kept) |
-| [M5 — Keyboard and accessibility for edit mode](#m5--keyboard-and-accessibility-for-edit-mode) | Opus | 🔄 In Progress | — | Interaction design |
-| [T2 — Edit mode, overflow and host tests](#t2--edit-mode-overflow-and-host-tests) | Sonnet | ⬜ Not Started | — | jsdom keyboard flows, fakeRow overflow |
+| [M5 — Keyboard and accessibility for edit mode](#m5--keyboard-and-accessibility-for-edit-mode) | Opus | ✅ Done | 27 | `ba9cd29`; tray click adds; movable items not `aria-disabled` |
+| [T2 — Edit mode, overflow and host tests](#t2--edit-mode-overflow-and-host-tests) | Sonnet | 🔄 In Progress | — | jsdom keyboard flows, fakeRow overflow |
 | [M6 — Docs, website, CHANGELOG](#m6--docs-website-changelog) | Haiku | ✅ Done | 3 | `f56ec53`; `[Unreleased]` CHANGELOG heading |
 | [T3 — Hands-on checklist (VS Code, Desktop, React demo)](#t3--hands-on-checklist-vs-code-desktop-react-demo) | Human (Mike) | ⬜ Not Started | — | Drag is the one thing jsdom can't prove |
 
@@ -260,13 +260,13 @@ Decisions Mike made (D1 to D4) and the ones made while writing this plan (D5 onw
 
 **Tasks**
 
-- [ ] Implement D11 in `toolbar-customize.ts`: roving `tabindex` over toolbar items then tray items; Arrow navigation; Space/Enter grab and drop (`aria-pressed`, `.toolbar-item-grabbed` style); Left/Right move while grabbed (Up/Down in the tray grid); Escape cancels a grab (restores the slot) or, with nothing grabbed, acts as Done; Delete/Backspace removes a focused movable item to the tray and moves focus to the next item; Enter/Space on a tray item inserts it after the last focused toolbar item (before `more` when none).
-- [ ] Pinned items (`textFormat`, `settings`, `more`) are focusable but announce "cannot be moved" on grab attempts.
-- [ ] `aria-live="polite"` status region inside the tray announcing every move/add/remove with position of total ("Moved Undo to position 7 of 12"), plus a one-time instruction on entry ("Customizing the toolbar. Use arrow keys to choose an item, Space to pick it up and move it, Delete to remove it, Escape or Done to finish.").
-- [ ] Focus management: entering edit mode focuses the first movable item; Done/Escape returns focus to the element that opened edit mode (Settings modal button is gone by then, so fall back to the toolbar's first item or More ⋯); focus never lands in the ProseMirror document as a side effect.
-- [ ] Keep the normal-mode toolbar a11y intact (`editor-a11y.test.ts` green): `role="toolbar"`, button names, hidden icons.
-- [ ] Visible focus ring and grabbed state meet 3:1 contrast in both themes; `prefers-reduced-motion` disables the lift animation.
-- [ ] `npm run lint`, `npm run test:unit` green. Commit.
+- [x] Implement D11 in `toolbar-customize.ts`: roving `tabindex` over toolbar items then tray items; Arrow navigation; Space/Enter grab and drop (`aria-pressed`, `.toolbar-item-grabbed` style); Left/Right move while grabbed (Up/Down in the tray grid); Escape cancels a grab (restores the slot) or, with nothing grabbed, acts as Done; Delete/Backspace removes a focused movable item to the tray and moves focus to the next item; Enter/Space on a tray item inserts it after the last focused toolbar item (before `more` when none).
+- [x] Pinned items (`textFormat`, `settings`, `more`) are focusable but announce "cannot be moved" on grab attempts.
+- [x] `aria-live="polite"` status region inside the tray announcing every move/add/remove with position of total ("Moved Undo to position 7 of 12"), plus a one-time instruction on entry ("Customizing the toolbar. Use arrow keys to choose an item, Space to pick it up and move it, Delete to remove it, Escape or Done to finish.").
+- [x] Focus management: entering edit mode focuses the first movable item; Done/Escape returns focus to the element that opened edit mode (Settings modal button is gone by then, so fall back to the toolbar's first item or More ⋯); focus never lands in the ProseMirror document as a side effect.
+- [x] Keep the normal-mode toolbar a11y intact (`editor-a11y.test.ts` green): `role="toolbar"`, button names, hidden icons.
+- [x] Visible focus ring and grabbed state meet 3:1 contrast in both themes; `prefers-reduced-motion` disables the lift animation.
+- [x] `npm run lint`, `npm run test:unit` green. Commit.
 
 **Acceptance criteria**
 
@@ -414,5 +414,7 @@ When a milestone leaves items skipped or partial, the orchestrator writes a gap-
 **2026-10-28 19:30** - M6 done (`f56ec53`, fast-forwarded, 3 min): `[Unreleased]` Added entry in CHANGELOG, README "Customizable Toolbar" section with a screenshot TODO, VS Code site blurb, developers hub section (setting, feature flag, exports, persistence note), clearer `mikedown.toolbarLayout` description. Core/wrapper READMEs already had M3's paragraph. `npm run build:site` green in the main tree. Mike answered OQ2: confirm, then discard. Dispatched M4 (Opus, worktree).
 
 **2026-10-28 19:52** - M4 done (`0c24296`, `1d6b7fd`, fast-forwarded, 17 min). `toolbar-customize.ts`: edit session (working layout, tray with unused items + Separator + Flexible Spacer + Reset + Done, ghost and insertion line, pure `toolbarDropSlot` hit-test), pointer-event drag, three entry points, OQ2 confirm-then-discard in the Settings modal, per-instance session disposed on `destroy()`. Decisions accepted: (1) D15 amended so a separator next to a spacer survives normalize (otherwise the M4 acceptance step "spacer between Redo and Source" is lost on reload; two layout tests updated); (2) Done with no change saves nothing and applies a deferred incoming layout (T2 wording updated); (3) `settings` is not draggable, per the M4 task list. Worker smoke-tested in the React demo in Chrome at 555px (right-click entry, drag to tray, spacer, Undo to far left, Done; no console errors); VS Code visual check left for T3. Main tree: lint 0 errors, `test:unit` 2402, `test:edge` 22, `test:integration` 47 passing. Dispatched M5 (Opus, worktree).
+
+**2026-10-28 20:10** - M5 done (`2bad634` cherry-picked as `ba9cd29` after another session's `f8565a1`, 27 min). D11 keyboard model, "cannot be moved" for fixed items, live-region announcements and entry instruction, focus return to the opener with fallback, 3:1 focus ring via a new `--mikedown-toolbar-edit-focus` token (VS Code maps it to `focusBorder`), reduced motion. Decisions accepted: movable items are toggle buttons (`aria-pressed`) instead of `aria-disabled` (VoiceOver would read them as dimmed; M4 assertion updated); keyboard steps never merge dividers and adding a divider beside the same kind is refused with an announcement; clicking a tray tile adds it; focus stays in the tray after an add; Reset moves focus to Done. Worker verified the keyboard flow in Chrome on the developers demo. Main tree: lint 0 errors, `test:unit` 2422, `test:edge` 22, `test:integration` 47 passing. Dispatched T2 (Sonnet, worktree).
 
 [Return to Top](#customizable-toolbar-firefox-style--planning-document)
