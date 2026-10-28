@@ -84,6 +84,19 @@ All nine recommendations were accepted by Mike as given.
 | D8 | Test strategy | **One hands-on pass at the end, both hosts, against oMLX**, about ten behaviours. Automated: vitest on prompt builders, lenient JSON, structure post-check, popover and chips in jsdom, fixtures per task; the live opt-in run gets one case per new task. No screenshots. |
 | D9 | `summarize` 32k context gate | **Drop the gate, truncate with notice.** `summarize` requires `chat` only. Core budgets the document to the model's known context minus output; when it does not fit, it sends whole sections from the top and labels the result "summary of the first N% of the document". Chunk-then-merge is a follow-up. |
 
+Open questions resolved 2026-10-28 (OQ1 to OQ8, by the orchestrator on Mike's tie-breakers: intuitive UX first, clean architecture second):
+
+| # | Decision | Outcome |
+|---|---|---|
+| D10 | Remembered picker choices (OQ1) | **`localStorage` in `ai-prefs.ts`**, same pattern as `emojipicker.ts` recents (try/catch, `mikedown.ai.*` keys, silent on failure). `host.sidebarPrefs` is a round-trip API for one feature and would need host code on three hosts for a convenience; not worth it. Session thinking level is memory only. Follow-up 5 stays as the escape hatch. |
+| D11 | Summary callout type (OQ2) | **`[!NOTE]` with a bold first line `**Summary**`.** `CALLOUT_KINDS` is the GFM five; a custom kind would not round-trip on GitHub. Outline inserts a plain nested list, no callout. |
+| D12 | `/title` with both H1 and `title:` (OQ3) | **Set `title:` only, leave the H1.** Properties is what tools and the sidebar read; renaming the H1 would also break anchors (`headingRename.ts` only detects renames, the link fix lives in editor wiring). The candidates list shows a one-line hint naming what the click will change ("Sets title: in Properties" or "Replaces the H1" or "Inserts an H1"). "Also rename heading" stays Follow-up 4. |
+| D13 | Whole-document translate loses selection and scroll (OQ4) | **Accept for v1.** After Accept, the cursor goes to the start of the body and the editor scrolls to the top (one `scrollIntoView` in the same transaction). |
+| D14 | AI toolbar menu has no submenus (OQ5) | **No submenu work.** "Rewrite selection…" keeps opening the popover's grouped choose phase; "Summarize document…" and "Suggest titles…" are flat entries. `toolbar-dropdown.ts` stays untouched (toolbar plan territory). |
+| D15 | Slash entries when the feature is disabled (OQ6) | **Hide the `ai` slash group whenever availability is not `available`.** `slashcommands.ts` has no disabled-entry rendering (`setSlashDisableHandler` is the "Turn off slash commands" row, unrelated), and a greyed slash row is a poor place for a router reason. The reason surfaces where it already has a home: the AI toolbar menu entries (`{ enabled: false; hint }`) and the Properties Suggest tooltip. No new slash menu feature in this plan. |
+| D16 | Repair retry cost (OQ7) | **One retry, JSON tasks only** (`title`, `frontmatter`); never for `summarize` or rewrite variants. While it runs the popover footer or chips row reads "Fixing the answer format…"; the retry is abortable like the first request. |
+| D17 | Language list (OQ8) | **Fixed list of twelve**, in this order: English, Spanish, French, German, Portuguese, Italian, Dutch, Japanese, Chinese (Simplified), Korean, Arabic, Hindi, then "Other…" (free text, stored as typed). Up to three recent choices float to the top, deduplicated from the list below. |
+
 [Return to Top](#ai-writing-features-plan)
 
 ---
@@ -98,8 +111,8 @@ All nine recommendations were accepted by Mike as given.
 | Lenient JSON parsing and repair prompt | new `packages/core/src/ai/json.ts` | Pure. Shared by `/title` and Properties. |
 | Document budgeting (fit markdown to a context window by whole sections, report coverage) | new `packages/core/src/ai/documentBudget.ts` | Pure. Uses heading boundaries; frontmatter and title always included. |
 | Popover (choose phase groups, read-only mode, insert mode, candidates list, thinking control) | `packages/core/src/ai-rewrite.ts` | Keeps `AiRewriteTarget`; adds an insertion target and an `explain` output mode. Styles in `styles/ai.css`. |
-| Remembered picker choices (language, audience, session thinking level) | new `packages/core/src/ai-prefs.ts` | `localStorage` behind try/catch, keyed `mikedown.ai.*`; never a `mikedown.*` setting (D3). |
-| Entry points | `ai-rewrite.ts` (bubble), `contextmenu.ts` (`aiRewrite` hook grows to grouped items), `ai-toolbar.ts` (`aiToolbarMenuEntries` gains Summarize, Suggest titles, Explain), `slashcommands-registry.ts` + `slashcommands-actions.ts` (`summary`, `outline`, `title`) | Slash entries hidden when the feature is unavailable (same mechanism as `image` and `properties`). |
+| Remembered picker choices (language, audience, session thinking level) | new `packages/core/src/ai-prefs.ts` | `localStorage` behind try/catch, keyed `mikedown.ai.*`, modelled on `emojipicker.ts` recents (D10); never a `mikedown.*` setting (D3). Thinking level is memory only. |
+| Entry points | `ai-rewrite.ts` (bubble), `contextmenu.ts` (`aiRewrite` hook grows to grouped items), `ai-toolbar.ts` (`aiToolbarMenuEntries` gains Summarize, Suggest titles, Explain), `slashcommands-registry.ts` + `slashcommands-actions.ts` (`summary`, `outline`, `title`) | Slash entries hidden whenever the feature is not `available` (D15; `setSlashHiddenCommands`, same mechanism as `image`). The router's reason shows in the AI toolbar menu hints instead. |
 | Properties Suggest | `packages/core/src/outlineSidebar.ts` (header button, chips row), wiring in `editor.ts` beside `onPropertiesChange` | Applies through `applyFrontmatterEdit`, which already re-renders block and sidebar in lockstep. |
 | Per-request thinking level on the wire | `ai/types.ts` (`AiCompletionRequest.requestOverrides?`), VS Code `src/ai/engineService.ts`, Desktop `packages/desktop/src-tauri/src/commands/ai.rs` + `src/host/aiHost.ts`, website stub host | Merged over the model's `requestOverrides` host side. |
 | Host commands | `src/extension.ts`, `package.json#contributes.commands` + menus, `packages/desktop/src/menu/shortcuts.ts`, core `types.ts` command union | `aiExplain`, `aiTranslate`, `aiSummarize`, `aiSuggestTitle`, `aiSuggestProperties`. |
@@ -174,12 +187,12 @@ Every mode streams into the preview only; nothing streams into the document (bra
 > Workers must complete ALL items in this list. The grouped menu and pickers should feel like Apple Notes' Writing Tools: short labels, a thin separator per group, the remembered choice shown as the default. Decorations only; one transaction on Accept; every new request aborts the last one.
 
 - [ ] `ai-rewrite.ts` choose phase and bubble submenu render `AI_REWRITE_VARIANTS` grouped by `group`, with group headings or separators (Length, Tone, Audience, Translate, Explain, then Custom prompt…). Keyboard navigation and `aria-*` as today.
-- [ ] Second-level pickers (D3): `readingLevel` opens the audience list; `translate` opens the language list (recent first, then a fixed short list of ~12 languages, then "Other…" free text) plus a "Whole document" toggle. Choice remembered through `ai-prefs.ts` (`localStorage`, try/catch, never required). Esc returns to the first level.
+- [ ] Second-level pickers (D3): `readingLevel` opens the audience list; `translate` opens the language list (D17: up to three recents first, deduplicated, then English, Spanish, French, German, Portuguese, Italian, Dutch, Japanese, Chinese (Simplified), Korean, Arabic, Hindi, then "Other…" free text stored as typed) plus a "Whole document" toggle. Choice remembered through `ai-prefs.ts` (D10: `localStorage` behind try/catch like `emojipicker.ts` recents, never required). Esc returns to the first level.
 - [ ] `contextmenu.ts`: the `aiRewrite` hook returns the grouped structure; render it as one submenu with separators (the existing submenu renderer), pickers open the popover in choose phase pre-focused on the picker rather than nesting a third menu level.
 - [ ] Explain (`readOnly` mode, D2): footer shows Insert below, Retry, Copy; Insert below inserts a blockquote after the target's block in one transaction (rich mode) or after the selection's line in source mode; the selection highlight stays until close. Title reads "Explain".
-- [ ] Translate whole document (`replaceDocument` mode): target built from the whole body (frontmatter stripped and restored by the existing `extractFrontmatter`/`restoreFrontmatter` path); Accept replaces the document content in one transaction with `closeHistory` so one undo restores it; side-by-side view off (too long), new text only with a coverage note when the document was truncated by the context budget (M4's `documentBudget`; until M4 lands, send the whole body and rely on `contextOverflow`).
+- [ ] Translate whole document (`replaceDocument` mode): target built from the whole body (frontmatter stripped and restored by the existing `extractFrontmatter`/`restoreFrontmatter` path); Accept replaces the document content in one transaction with `closeHistory` so one undo restores it; the same transaction puts the cursor at the start of the body and scrolls to the top (D13); side-by-side view off (too long), new text only with a coverage note when the document was truncated by the context budget (M4's `documentBudget`; until M4 lands, send the whole body and rely on `contextOverflow`).
 - [ ] Structure warning: after the stream ends, run `checkMarkdownStructure` for `translate`, `simpler`, `formal`, `casual`, `expand`; show mismatches as a small warning line above the footer ("Check: 1 link missing in the result"). Accept stays enabled.
-- [ ] `editor.ts`: `startAiRewrite(variant?, params?)` accepts the parameters; command union in `types.ts` gains `aiExplain` and `aiTranslate` (open the popover on that variant). Touch nothing in `buildCondensedToolbar` or the toolbar registry; the AI toolbar menu entry keeps opening the choose phase.
+- [ ] `editor.ts`: `startAiRewrite(variant?, params?)` accepts the parameters; command union in `types.ts` gains `aiExplain` and `aiTranslate` (open the popover on that variant). Touch nothing in `buildCondensedToolbar`, `toolbar-dropdown.ts` or the toolbar registry; the AI toolbar menu entry keeps opening the choose phase, no submenus (D14).
 - [ ] Source mode: all variants work on the CodeMirror selection through the existing `sourceRewriteTarget`; Explain's Insert below and whole-document translate have CM equivalents (one CM transaction each).
 - [ ] `styles/ai.css`: group headings, picker list, warning line, read-only footer. Respect the VS Code theme variables already used.
 - [ ] `npm run lint`, `npm run test:unit` green. Commit.
@@ -188,7 +201,7 @@ Every mode streams into the preview only; nothing streams into the document (bra
 
 - Each variant is reachable from the bubble, the context menu and the AI menu's "Rewrite selection…" in three clicks or fewer; the remembered language and audience are preselected on the next use.
 - Explain never changes the document unless Insert below is clicked; then one `Cmd+Z` removes the inserted blockquote.
-- Whole-document translate on a document with frontmatter keeps the YAML byte-identical and restores everything with one undo.
+- Whole-document translate on a document with frontmatter keeps the YAML byte-identical, leaves the cursor at the start of the body, and restores everything with one undo.
 - No `editor.view.dom` writes; the existing `ai-rewrite.test.ts` suite still passes.
 
 [Return to Top](#ai-writing-features-plan)
@@ -235,7 +248,7 @@ Every mode streams into the preview only; nothing streams into the document (bra
 
 - [ ] `ai/json.ts`: `parseLenientJson<T>(raw): { ok: true; value: unknown } | { ok: false; error: string }` as specified in Architecture; `jsonRepairMessages(previousRaw, error)` builds the one-shot repair turn; `JSON_SHAPE_HINT(example)` helper for prompts.
 - [ ] `ai/documentBudget.ts`: `budgetDocument(markdown, { contextTokens, outputTokens, reserveTokens }): { text, coverage: number, truncated: boolean, sectionsIncluded, sectionsTotal }`. Splits on ATX headings, always keeps frontmatter and the first block, adds whole sections from the top until the budget (chars ÷ 3.5) is spent. Also `headingsOutline(markdown)` (levels and texts only) for `/title` and Properties.
-- [ ] `ai/prompts/summary.ts`: `buildSummaryMessages({ document, kind: 'tldr' | 'outline', coverage })` with a system prompt that returns markdown only: TL;DR as 3 to 6 bullets (or one paragraph for short documents), Outline as a nested list of proposed or actual headings. `summaryMaxTokens(kind, inputChars)`. `finalizeSummary(raw, kind)` reuses `rewriteVisibleText` and wraps TL;DR in a `[!NOTE]`-style callout titled **Summary** (see OQ2 for the callout type) and appends "Covers the first N% of the document." when truncated.
+- [ ] `ai/prompts/summary.ts`: `buildSummaryMessages({ document, kind: 'tldr' | 'outline', coverage })` with a system prompt that returns markdown only: TL;DR as 3 to 6 bullets (or one paragraph for short documents), Outline as a nested list of proposed or actual headings. `summaryMaxTokens(kind, inputChars)`. `finalizeSummary(raw, kind)` reuses `rewriteVisibleText` and wraps TL;DR in a `[!NOTE]` callout whose first line is **Summary** (D11; Outline stays a plain nested list) and appends "Covers the first N% of the document." when truncated.
 - [ ] `ai/prompts/title.ts`: `buildTitleMessages({ document, outline, existingTitle?, count: 3 })` asking for `{ "titles": ["…", "…", "…"] }`; `parseTitles(raw)` through `parseLenientJson`, dedupes, trims to 120 chars, drops ones equal to the existing title.
 - [ ] `ai/prompts/properties.ts`: `buildPropertiesMessages({ document, outline, existing: FrontmatterEntry[], vocabulary: string[] })` asking for `{ "title": "…", "description": "…", "tags": ["…"] }`, with the vocabulary listed as "prefer these existing tags"; `parsePropertySuggestions(raw, existing, vocabulary)` normalises tags through `tagSyntax` helpers, marks each tag `known: boolean`, drops tags already present, caps at 8 tags and a 200-char description.
 - [ ] Tasks and features: `summarize.requires = { chat: true }` and `structure.requires = { chat: true }` with a new optional `prefers?: AiCapabilityRequirements` (`structure.prefers = { json: true }`, `summarize.prefers = { contextTokens: SUMMARIZE_MIN_CONTEXT_TOKENS }`); `router.ts` orders fallback candidates so preferred ones come first and never rejects on `prefers`. Features: `summary` and `frontmatter` → `status: 'available'`; add `title` (available, task `structure`, `requires: { chat: true }`). Update the AI tab copy if it lists statuses.
@@ -257,12 +270,12 @@ Every mode streams into the preview only; nothing streams into the document (bra
 
 > Workers must complete ALL items in this list. `/summary` should feel like Notion's "Summarize": the popover appears at the cursor line, streams, and a single Insert puts a tidy block in place. Decorations only; the inserted block is one transaction that also removes `/query`.
 
-- [ ] `slashcommands-registry.ts`: new group `'ai'` with `summary` (aliases `tldr`, `summarize`), `outline`, and `title` (aliases `titles`, `heading`); icon key `ai`. `slashcommands.ts` renders the group last, labelled "AI", and the entries are hidden through `setSlashHiddenCommands` when the feature's availability is `hidden`, disabled with the router's reason when `disabled` (reuse the disable handler used for `properties` if one exists, else add a hidden-only path and record it).
+- [ ] `slashcommands-registry.ts`: new group `'ai'` with `summary` (aliases `tldr`, `summarize`), `outline`, and `title` (aliases `titles`, `heading`); icon key `ai`. `slashcommands.ts` renders the group last, labelled "AI"; the entries are hidden through `setSlashHiddenCommands` whenever the feature's availability is not `available` (D15: hidden and disabled both hide; the router's reason lives in the AI toolbar menu hints, not in the slash menu). No disabled-entry rendering is added to `slashcommands.ts`.
 - [ ] `slashcommands-actions.ts`: `summary`/`outline` open the popover in `insert` mode anchored at the cursor block (new `cursorInsertTarget(editor)` in `ai-rewrite.ts`: `accept(markdown)` parses markdown and inserts at the block boundary, removing `/query` in the same transaction, picker-pattern cancel semantics). `title` opens `choose` mode.
 - [ ] Popover `insert` mode: title "Summary" or "Outline", footer Insert, Retry, Copy; a small toggle TL;DR ⇄ Outline in the header re-runs. Coverage note shown when `truncated`.
-- [ ] Popover `choose` mode for `/title`: three candidates as a list (keyboard navigable), Retry regenerates; clicking one: if the document has a frontmatter `title:` set it through `applyFrontmatterEdit`; else if an H1 exists replace its text in one transaction; else insert an H1 at the top. `/query` removal joins the same undo step where ProseMirror is involved (follow the `properties` action's undo-depth pattern for the frontmatter case).
-- [ ] AI toolbar menu (`ai-toolbar.ts`, pure): entries "Summarize document…", "Suggest titles…" after "Rewrite selection" and before the separator, each `{ enabled } | { enabled: false; hint }` like `rewrite`; `editor.ts#openAiToolbar` passes the availabilities and callbacks (small, non-toolbar-registry change; see sequencing).
-- [ ] Both commands use `documentBudget` with the routed model's `contextTokens`; `summary` feature uses `summarize`, `title` uses `structure`; JSON contract from M4 with one repair retry; `badOutput` error shows "Try again" and "Open AI settings".
+- [ ] Popover `choose` mode for `/title`: three candidates as a list (keyboard navigable), Retry regenerates; clicking one: if the document has a frontmatter `title:` set it through `applyFrontmatterEdit` and leave any H1 alone (D12); else if an H1 exists replace its text in one transaction; else insert an H1 at the top. A one-line hint under the list names the effect before the click ("Sets title: in Properties", "Replaces the H1", "Inserts an H1"). `/query` removal joins the same undo step where ProseMirror is involved (follow the `properties` action's undo-depth pattern for the frontmatter case).
+- [ ] AI toolbar menu (`ai-toolbar.ts`, pure): flat entries "Summarize document…", "Suggest titles…" after "Rewrite selection" and before the separator, each `{ enabled } | { enabled: false; hint }` like `rewrite` (D14: no submenus; D15: this hint is where the router's reason shows when the slash group is hidden); `editor.ts#openAiToolbar` passes the availabilities and callbacks (small, non-toolbar-registry change; see sequencing).
+- [ ] Both commands use `documentBudget` with the routed model's `contextTokens`; `summary` feature uses `summarize`, `title` uses `structure`. JSON contract from M4 applies to `/title` only: one repair retry, abortable, footer reads "Fixing the answer format…" while it runs (D16); `/summary` never retries. `badOutput` error shows "Try again" and "Open AI settings".
 - [ ] Source mode: `/summary` and `/title` are available from the AI menu only (slash menu is rich-text today); insert at the CM cursor line, one CM transaction.
 - [ ] Commands `aiSummarize`, `aiSuggestTitle` in the `types.ts` union and `editor.ts` switch.
 - [ ] `npm run lint`, `npm run test:unit` green. Commit.
@@ -270,8 +283,8 @@ Every mode streams into the preview only; nothing streams into the document (bra
 **Acceptance criteria**
 
 - Typing `/sum` offers Summary; Enter opens the popover at the cursor; Insert produces one block and one undo removes it and restores `/summary`.
-- `/title` on a document with frontmatter writes `title:` and the Properties sidebar updates; on a document without frontmatter the H1 changes; one undo reverts either.
-- With AI off the `ai` slash group is absent; with AI on and no route the entries are disabled with the router's reason.
+- `/title` on a document with frontmatter writes `title:` and the Properties sidebar updates, the H1 (if any) is untouched; on a document without frontmatter the H1 changes; one undo reverts either.
+- With AI off, or AI on and no route, the `ai` slash group is absent; in the no-route case the AI menu's "Summarize document…" and "Suggest titles…" are disabled with the router's reason.
 
 [Return to Top](#ai-writing-features-plan)
 
@@ -283,7 +296,7 @@ Every mode streams into the preview only; nothing streams into the document (bra
 
 - [ ] `outlineSidebar.ts`: a Suggest button (sparkle icon, `aria-label="Suggest properties with AI"`) at the right of the Properties header, shown only when the `frontmatter` feature availability is not `hidden`, disabled with the router's reason tooltip when `disabled`. Options gain `onSuggestProperties?: () => void` and the handle gains `applyPropertySuggestions(s: PropertySuggestions | null, state: 'idle' | 'running' | 'error', message?)`.
 - [ ] Chips row under the Properties list: while running, a thin progress line and the engine badge text; on result, chips for title, description and each tag with a dismiss (×) each and "Dismiss all"; on error, the `aiErrorCopy` line with "Try again".
-- [ ] `editor.ts` wiring beside `onPropertiesChange`: runs `runAiCompletion` with `buildPropertiesMessages` (document through `documentBudget`, outline from `headingsOutline`, vocabulary from the last `setTags` payload, existing entries from `frontmatterContent`); parses with `parsePropertySuggestions`; one repair retry; result into the sidebar. Aborts on a new run, on document switch and on dispose.
+- [ ] `editor.ts` wiring beside `onPropertiesChange`: runs `runAiCompletion` with `buildPropertiesMessages` (document through `documentBudget`, outline from `headingsOutline`, vocabulary from the last `setTags` payload, existing entries from `frontmatterContent`); parses with `parsePropertySuggestions`; one repair retry, abortable, chips row reads "Fixing the answer format…" while it runs (D16); result into the sidebar. Aborts on a new run, on document switch and on dispose.
 - [ ] Applying a chip calls `applyFrontmatterEdit` with the merged entries (tags appended to the existing `tags` list or array form, title/description set or replaced). If the document has no frontmatter, the first applied chip creates it (reuse `insertEmptyFrontmatter` then edit, as one logical step; the `properties` slash action shows the undo pattern). Each click is one undo step; the chip disappears once applied.
 - [ ] Source mode: the sidebar is read-only for properties there today; Suggest is disabled with "Switch to rich text to apply suggestions" (or applies by editing the YAML text in one CM transaction if the existing code already supports it; record which).
 - [ ] `styles/sidebar.css` (or where tag pills live): suggested chip styles, light and dark.
@@ -305,7 +318,7 @@ Every mode streams into the preview only; nothing streams into the document (bra
 - [ ] `packages/core/test/ai-document-budget.test.ts`: fits, truncates on section boundaries, never splits a fence, coverage math, frontmatter always kept, `headingsOutline` shape.
 - [ ] `packages/core/test/ai-summary-title-properties.test.ts`: prompt builders include the shape hint and the vocabulary; `parseTitles` dedupe and cap; `parsePropertySuggestions` normalises `#Tag` and `tag`, marks known/new, drops existing.
 - [ ] `packages/core/test/ai-router.test.ts` (extend): `structure` usable without `json`; `prefers` ordering; `summarize` usable at 8k.
-- [ ] `packages/core/test/slashcommands*.test.ts` (extend): `ai` group present only when provided, hidden/disabled states, `/sum` ranking.
+- [ ] `packages/core/test/slashcommands*.test.ts` (extend): `ai` group present only when provided, hidden for both `hidden` and `disabled` availability (D15), `/sum` ranking.
 - [ ] `packages/core/test/ai-rewrite.test.ts` (extend) or new `ai-insert-modes.test.ts`: `insert` mode inserts one block and removes `/query` in one undo; `choose` mode sets `title:` vs H1 correctly.
 - [ ] `packages/core/test/outlineSidebar*.test.ts` (extend): Suggest button visibility, chips render, apply calls `onPropertiesChange` with merged entries, dismiss.
 - [ ] `test/live/ai-live.test.ts`: one `structure` call asking for `{"titles": [...]}` on a fixture and asserting `parseTitles` yields at least one; one short `summarize` call; skipped unless live.
@@ -346,7 +359,7 @@ Checklist, in each host:
 - [ ] `/summary` in an empty paragraph: TL;DR streams; toggle to Outline; Insert; undo restores `/summary`.
 - [ ] `/title` on a document with `title:` in frontmatter: three candidates, pick one, Properties sidebar updates; undo.
 - [ ] Properties → Suggest: chips appear; a known workspace tag has no "new" mark; apply one tag and the description; undo each.
-- [ ] Turn AI off in Settings: bubble items, `ai` slash group, Suggest button and the AI menu entries disappear; turn it on with no usable route: entries disabled with a reason.
+- [ ] Turn AI off in Settings: bubble items, `ai` slash group, Suggest button and the AI menu entries disappear; turn it on with no usable route: the `ai` slash group stays hidden, the AI menu entries and the Suggest button are disabled with a reason (D15).
 - [ ] Source mode: Formal and Translate on a CM selection; Explain's Insert below; AI menu Summarize inserts at the cursor line.
 
 Sign-off: Mike records the result (pass, or the list of failures) in the Progress Log; failures become gap-fill prompts.
@@ -357,18 +370,18 @@ Sign-off: Mike records the result (pass, or the list of failures) in the Progres
 
 ## Open Questions
 
-Each has a recommendation so a worker can proceed if Mike has not overridden it.
+All resolved on 2026-10-28; the decisions are D10 to D17 above and are already folded into the milestones. The numbering stays so references keep working.
 
-| # | Question | Recommendation | Blocks |
-|---|---|---|---|
-| OQ1 | Where the remembered picker choices live. Core has no host state API (`host.ts` exposes none; `editor.ts` does not use `localStorage`). | `localStorage` in `ai-prefs.ts` behind try/catch; VS Code webviews keep it per extension origin, Desktop per app. If it proves unreliable in a host, move to a `host.getState/setState` pair in a later plan. | M2, M3 |
-| OQ2 | Callout type for the inserted summary. `callout-node.ts` supports the GFM set only (NOTE, TIP, IMPORTANT, WARNING, CAUTION). | `[!NOTE]` with a bold first line **Summary**. Do not add a custom callout type for this plan. | M4, M5 |
-| OQ3 | `/title` when both an H1 and a frontmatter `title:` exist. | Set `title:` (the Properties value is what tools read) and leave the H1; offer "Also rename heading" as a second click only if trivial, else record as a follow-up. | M5 |
-| OQ4 | Whole-document translation replaces the entire body in one transaction, which also drops selection and scroll position. | Accept it for v1; restore the cursor to the start of the body after Accept. | M2 |
-| OQ5 | `toolbar-dropdown.ts` has no submenu support, so the AI toolbar menu cannot show grouped variants inline. | Keep "Rewrite selection…" opening the popover's grouped choose phase. Do not add submenus to the dropdown (that is toolbar code the other plan owns). | M2, M5 |
-| OQ6 | Slash menu entries that are disabled (AI on, no route) vs hidden. | Hidden when `hidden`; when `disabled`, show greyed with the reason if `slashcommands.ts` already supports disabled entries (there is a `setSlashDisableHandler`), else hide and note it. | M5 |
-| OQ7 | Repair retry cost on slow local models (a second full round trip). | One retry, only for JSON-shaped tasks (`title`, `frontmatter`), never for summary or rewrite. Show "Fixing the answer format…" in the popover or chips row while it runs. | M4, M5, M6 |
-| OQ8 | Language list contents and order. | English, Spanish, French, German, Portuguese, Italian, Dutch, Japanese, Chinese (Simplified), Korean, Arabic, Hindi, then Other…; recent choices float to the top. | M2 |
+| # | Question | Resolution |
+|---|---|---|
+| OQ1 | Where the remembered picker choices live. Core has no host state API (`host.ts` exposes only `sidebarPrefs`; `editor.ts` does not use `localStorage`). | Resolved → D10 |
+| OQ2 | Callout type for the inserted summary. `callout-node.ts` supports the GFM set only (NOTE, TIP, IMPORTANT, WARNING, CAUTION). | Resolved → D11 |
+| OQ3 | `/title` when both an H1 and a frontmatter `title:` exist. | Resolved → D12 |
+| OQ4 | Whole-document translation replaces the entire body in one transaction, which also drops selection and scroll position. | Resolved → D13 |
+| OQ5 | `toolbar-dropdown.ts` has no submenu support, so the AI toolbar menu cannot show grouped variants inline. | Resolved → D14 |
+| OQ6 | Slash menu entries that are disabled (AI on, no route) vs hidden. | Resolved → D15 (`setSlashDisableHandler` turned out to be the "Turn off slash commands" row, not disabled-entry support) |
+| OQ7 | Repair retry cost on slow local models (a second full round trip). | Resolved → D16 |
+| OQ8 | Language list contents and order. | Resolved → D17 |
 
 [Return to Top](#ai-writing-features-plan)
 
@@ -379,10 +392,11 @@ Each has a recommendation so a worker can proceed if Mike has not overridden it.
 1. **Per-task model benchmark (Mike, 2026-10-28).** A "Benchmark" action on the AI Engines page that runs a fixed case per task (`rewrite`, `summarize`, `structure`, `vision`, `notes`…) against every enabled local model, records latency to first token, tokens per second and total time, shows the outputs side by side for a one-click quality rating (good / ok / bad), and stores results per model and task so the routing pickers can show "fastest good model" hints. Motivation: a light model (Gemma) can be the best OCR or vision model and still lose to Qwen on meeting notes; today that is discovered by hand. This plan prepares for it: every prompt builder is pure and parameterised, and `test/ai-fixtures/` gains inputs per task that the benchmark can reuse as its cases. Own plan: `ai-model-benchmark-plan.md`.
 2. **Chunk-then-merge summaries** for documents beyond the context window (replaces the coverage note from D9).
 3. **Reading grade in the status bar** (pure code extension of `wordCount`, idea 19's first half) linking to the Audience picker.
-4. **"Also rename heading" from `/title`** through `headingRename.ts` so links stay valid (OQ3).
-5. **Host state API** (`getState/setState`) if `localStorage` proves unreliable for remembered choices (OQ1).
+4. **"Also rename heading" from `/title`** through `headingRename.ts` so links stay valid (D12).
+5. **Host state API** (`getState/setState`) if `localStorage` proves unreliable for remembered choices (D10).
 6. **Meeting notes to action items** (`/actions`, idea 13), **paste cleanup** (16) and **Mermaid/table generation** (9): the rest of the engines plan's follow-up 4, each one prompt module plus a popover mode on the machinery built here.
 7. Ghost text, chat with this document, alt text, grammar and consistency review, workspace RAG, dictation: unchanged, their own plans.
+8. **Disabled slash entries.** If a later plan gives `slashcommands.ts` a greyed-with-reason row, the `ai` group should use it instead of hiding when `disabled` (D15).
 
 [Return to Top](#ai-writing-features-plan)
 
@@ -420,5 +434,7 @@ When a milestone comes back incomplete, the follow-up prompt follows the origina
 ## Progress Log / Notes
 
 **2026-10-28 19:30** - Plan written after a nine-question interview (D1 to D9, all recommendations accepted). Grounded in `ai-inference-engines-plan.md` (follow-ups 1, 4, 11), `ai-copilot-brainstorm.md` (ideas 2, 4, 7, 12, 14, 19, 20 and constraints 4, 5, 7, 8), `packages/core/src/ai/` (tasks, features, router, thinking, prompts/rewrite), `ai-rewrite.ts` (targets, popover deps, bubble), `ai-request.ts`, `ai-toolbar.ts`, `slashcommands-registry.ts`/`-actions.ts`, `outlineSidebar.ts` (Properties, `applyTags`), `test/live/ai-live.test.ts`, and `customizable-toolbar-plan.md` (M1 landed, M3 pending). Mike added the per-task model benchmark idea mid-planning; recorded as Follow-up 1 with this plan's fixtures made reusable for it.
+
+**2026-10-28 (later)** - OQ1 to OQ8 resolved as D10 to D17 and folded into M2, M4, M5, M6, T2 and T3. Code checks behind them: `emojipicker.ts` already keeps recents in `localStorage` with try/catch (D10 follows it); `CALLOUT_KINDS` is the GFM five (D11); `headingRename.ts` is detection only, so renaming the H1 from `/title` stays Follow-up 4 (D12); `toolbar-dropdown.ts` has actions, separators and mini-rows but no submenus (D14); `setSlashDisableHandler` is the "Turn off slash commands" row, so the slash menu has no disabled-entry rendering and the `ai` group hides instead (D15, Follow-up 8). Nothing left open for Mike.
 
 [Return to Top](#ai-writing-features-plan)
