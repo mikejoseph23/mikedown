@@ -126,6 +126,19 @@
   align-self: stretch;
 }
 
+/* A group of buttons that moves and overflows as one (the zoom control).
+   Laid out like the toolbar itself, so it looks the same as loose buttons. */
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar .toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+/* A flexible spacer: shrinks to nothing before any button has to overflow. */
+:is(.mikedown-root, .mikedown-portal) .mikedown-toolbar .toolbar-spacer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 /* High contrast / forced-colors mode */
 @media (forced-colors: active) {
   :is(.mikedown-root, .mikedown-portal) .ProseMirror a { color: LinkText; }

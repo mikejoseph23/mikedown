@@ -7,10 +7,20 @@
  * The More menu lists the overflowed buttons (built in editor.ts). The first
  * child (the text format menu) never overflows.
  *
+ * A `.toolbar-group` (several buttons that move as one, like the zoom control)
+ * counts as one child: it overflows whole, and the More menu lists the
+ * buttons inside it. Separators and flexible spacers (`.toolbar-spacer`)
+ * overflow like any child but are never listed, and are trimmed when they
+ * would end the visible row.
+ *
  * Only toolbar chrome is touched here, never the ProseMirror DOM.
  */
 
 const OVERFLOWED = 'toolbar-overflowed';
+
+function isDivider(el: HTMLElement): boolean {
+  return el.classList.contains('toolbar-separator') || el.classList.contains('toolbar-spacer');
+}
 
 function isLaidOut(el: HTMLElement): boolean {
   return !el.hidden && !el.classList.contains(OVERFLOWED) && el.style.display !== 'none';
@@ -45,12 +55,12 @@ export function layoutToolbarOverflow(toolbar: HTMLElement): void {
   for (let i = items.length - 1; i >= 1; i--) {
     const el = items[i];
     if (!isLaidOut(el)) {continue;}
-    if (!el.classList.contains('toolbar-separator')) {break;}
+    if (!isDivider(el)) {break;}
     el.classList.add(OVERFLOWED);
   }
 
-  // Nothing listable moved (only separators or buttons the host hides).
+  // Nothing listable moved (only separators, spacers or buttons the host hides).
   const listed = items.some((el) => el.classList.contains(OVERFLOWED)
-    && el.tagName === 'BUTTON' && el.style.display !== 'none');
+    && (el.tagName === 'BUTTON' || el.classList.contains('toolbar-group')) && el.style.display !== 'none');
   if (!listed) {more.hidden = true;}
 }

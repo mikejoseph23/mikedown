@@ -103,6 +103,44 @@ describe('layoutToolbarOverflow', () => {
   });
 });
 
+describe('layoutToolbarOverflow with a group', () => {
+  /** format, a group of two buttons (data-w 60, one child), theme, More. */
+  function groupToolbar(): HTMLElement {
+    const toolbar = makeToolbar(['format', 'theme']);
+    const group = document.createElement('div');
+    group.className = 'toolbar-group';
+    group.dataset.action = 'zoom';
+    group.dataset.w = '60';
+    for (const id of ['zoomOut', 'zoomIn']) {
+      const b = document.createElement('button');
+      b.dataset.action = id;
+      group.appendChild(b);
+    }
+    toolbar.insertBefore(group, toolbar.children[1]);
+    return toolbar;
+  }
+
+  it('overflows the group as one child, never its buttons one by one', () => {
+    toolbarEl = groupToolbar();
+    // format 30 + group 60 + theme 30 = 120; at 100 theme goes, then the group (More takes theme's room).
+    fakeRow(toolbarEl, 100);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toEqual(['zoom', 'theme']);
+    expect(toolbarEl.querySelectorAll('.toolbar-group button.toolbar-overflowed')).toHaveLength(0);
+    expect(toolbarEl.querySelector<HTMLElement>('.toolbar-more')!.hidden).toBe(false);
+  });
+
+  it('shows More when only a group overflowed', () => {
+    toolbarEl = groupToolbar();
+    toolbarEl.querySelector('[data-action="theme"]')!.remove();
+    // format 30 + group 60 = 90 does not fit in 80; the group moves and More takes 30.
+    fakeRow(toolbarEl, 80);
+    layoutToolbarOverflow(toolbarEl);
+    expect(overflowed(toolbarEl)).toEqual(['zoom']);
+    expect(toolbarEl.querySelector<HTMLElement>('.toolbar-more')!.hidden).toBe(false);
+  });
+});
+
 describe('More menu', () => {
   it('lists the overflowed buttons and runs them', () => {
     host = document.createElement('div');

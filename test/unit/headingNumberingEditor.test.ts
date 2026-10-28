@@ -27,8 +27,10 @@ afterEach(() => {
 describe('heading numbering (webview)', () => {
   it('hides the toolbar button while the setting is off', async () => {
     await boot('# A', 'off');
-    expect(button().style.display).toBe('none');
+    // Unavailable toolbar items are left out of the DOM.
+    expect(button()).toBeNull();
     harness!.send({ type: 'settings', headingNumbering: 'fromH2' });
+    expect(button()).not.toBeNull();
     expect(button().style.display).toBe('');
   });
 

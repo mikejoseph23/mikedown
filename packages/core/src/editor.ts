@@ -75,6 +75,7 @@ import { locateInSource, findInDoc } from './revealText';
 import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks, type LinkSuggestion } from './linkautocomplete';
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates, type ToolbarDropdownEntry } from './toolbar-dropdown';
 import { layoutToolbarOverflow } from './toolbar-overflow';
+import { DEFAULT_TOOLBAR_ITEMS, renderToolbar, resolveToolbarTokens, type ToolbarItemDef, type ToolbarLayoutToken } from './toolbar-registry';
 import { showLanguagePicker } from './languagepicker';
 import { showEmojiPicker, hideEmojiPicker, isEmojiPickerOpen } from './emojipicker';
 import { resolveImageRenderSrc } from './imageSrcPolicy';
@@ -1957,6 +1958,28 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   let currentMarkdownNormalization: 'preserve' | 'normalize' = 'preserve';
   let currentHeadingNumbering: HeadingNumbering = 'off';
 
+  // The toolbar's item definitions and the layout tokens they render from
+  // (see toolbar-registry.ts); set when buildCondensedToolbar runs.
+  let toolbarRegistry: { defs: ToolbarItemDef[]; tokens: readonly ToolbarLayoutToken[]; rendered: string } | null = null;
+
+  /**
+   * Re-sync the toolbar with whatever decides which items exist: the host,
+   * feature flags and settings (heading numbering, the AI button). Items that
+   * are unavailable are not in the DOM; the toolbar is rendered again only
+   * when the set of items changed, and the overflow is re-flowed either way.
+   */
+  function refreshToolbarAvailability(): void {
+    const toolbar = shell.toolbar;
+    const registry = toolbarRegistry;
+    if (!toolbar || !registry) {return;}
+    for (const def of registry.defs) {def.update?.();}
+    const next = resolveToolbarTokens(registry.defs, registry.tokens).join(' ');
+    if (next !== registry.rendered) {
+      registry.rendered = renderToolbar(toolbar, registry.defs, registry.tokens).join(' ');
+    }
+    layoutToolbarOverflow(toolbar);
+  }
+
   // Heading numbering (#6). Wired up next to the heading-rename detector in
   // initEditor, which shares its rename tracking; these are the entry points
   // the toolbar button uses before and after that wiring runs.
@@ -1972,9 +1995,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
    */
   function applyHeadingNumbering(mode: HeadingNumbering): void {
     currentHeadingNumbering = mode;
-    const btn = shell.toolbar?.querySelector<HTMLButtonElement>('button[data-action="headingNumbers"]');
-    if (btn) {btn.style.display = mode === 'off' ? 'none' : '';}
-    if (shell.toolbar) {layoutToolbarOverflow(shell.toolbar);}
+    refreshToolbarAvailability();
   }
 
   /** Apply `mikedown.tocStyle`: what inserting a table of contents creates. */
@@ -2208,22 +2229,16 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // Only for a host with AI support; ai.showToolbarButton hides it. AI off:
   // the first-run panel. AI on: a menu of AI actions and Manage engines….
 
-  /** Match the button to the current settings; true when its visibility changed. */
-  function applyAiToolbarMode(btn: HTMLButtonElement): boolean {
-    const mode = aiToolbarButtonMode(!!aiHost, currentAiSettings);
-    btn.setAttribute('aria-haspopup', mode === 'firstRun' ? 'dialog' : 'menu');
-    const display = mode === 'hidden' ? 'none' : '';
-    if (btn.style.display === display) {return false;}
-    btn.style.display = display;
-    return true;
+  /** Match the button's popup type to the current settings (first-run panel or menu). */
+  function syncAiToolbarPopup(btn: HTMLButtonElement): void {
+    const popup = aiToolbarButtonMode(!!aiHost, currentAiSettings) === 'firstRun' ? 'dialog' : 'menu';
+    if (btn.getAttribute('aria-haspopup') !== popup) {btn.setAttribute('aria-haspopup', popup);}
   }
 
   /** Show or hide the button for the current settings, and reflow the toolbar. */
   function refreshAiToolbarButton(): void {
-    const btn = shell.toolbar?.querySelector<HTMLButtonElement>('button[data-action="ai"]');
-    if (!btn || !applyAiToolbarMode(btn)) {return;}
-    if (btn.style.display === 'none') {hideAiFirstRunPanel();}
-    if (shell.toolbar) {layoutToolbarOverflow(shell.toolbar);}
+    if (aiToolbarButtonMode(!!aiHost, currentAiSettings) === 'hidden') {hideAiFirstRunPanel();}
+    refreshToolbarAvailability();
   }
 
   /** "Turn on and set up": AI on through the normal save path, then setup. */
@@ -2531,13 +2546,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       return btn;
     }
 
-    function makeSeparator(): HTMLDivElement {
-      const sep = document.createElement('div');
-      sep.className = 'toolbar-separator';
-      sep.setAttribute('role', 'separator');
-      return sep;
-    }
-
     // How a button runs from the More menu when it has overflowed: dropdown
     // triggers and the emoji picker open against the More button (their own
     // button is hidden), everything else is a plain click.
@@ -2552,127 +2560,290 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       });
     }
 
-    // ── Text Format dropdown (Aa ▾) ─────────────────────────────────────────
-    const textFormatBtn = makeDropdownTrigger('textFormat', 'Text Format', getBlockLabel());
-    // The accessible name includes the visible label ("Aa", "H1"; WCAG 2.5.3).
-    textFormatBtn.setAttribute('aria-label', `${getBlockLabel()} Text Format`);
-    wireDropdown(textFormatBtn, (anchor) => {
-      showToolbarDropdown(anchor, [
-        { type: 'action', id: 'h1', label: 'Heading 1', icon: '<span style="font-weight:700;font-size:14px">H1</span>', isActive: () => editor.isActive('heading', { level: 1 }), action: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
-        { type: 'action', id: 'h2', label: 'Heading 2', icon: '<span style="font-weight:600;font-size:13px">H2</span>', isActive: () => editor.isActive('heading', { level: 2 }), action: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
-        { type: 'action', id: 'h3', label: 'Heading 3', icon: '<span style="font-weight:500;font-size:12px">H3</span>', isActive: () => editor.isActive('heading', { level: 3 }), action: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
-        { type: 'action', id: 'h4', label: 'Heading 4', icon: '<span style="font-weight:500;font-size:11px">H4</span>', isActive: () => editor.isActive('heading', { level: 4 }), action: () => editor.chain().focus().toggleHeading({ level: 4 }).run() },
-        { type: 'action', id: 'h5', label: 'Heading 5', icon: '<span style="font-weight:500;font-size:11px">H5</span>', isActive: () => editor.isActive('heading', { level: 5 }), action: () => editor.chain().focus().toggleHeading({ level: 5 }).run() },
-        { type: 'action', id: 'h6', label: 'Heading 6', icon: '<span style="font-weight:500;font-size:11px">H6</span>', isActive: () => editor.isActive('heading', { level: 6 }), action: () => editor.chain().focus().toggleHeading({ level: 6 }).run() },
-        { type: 'action', id: 'paragraph', label: 'Paragraph', action: () => editor.chain().focus().setParagraph().run(), isActive: () => !editor.isActive('heading') && !editor.isActive('codeBlock') },
-        { type: 'separator' },
-        { type: 'mini-row', items: [
-          { id: 'bold', icon: icons.bold, title: 'Bold', isActive: () => editor.isActive('bold'), action: () => editor.chain().focus().toggleBold().run() },
-          { id: 'italic', icon: icons.italic, title: 'Italic', isActive: () => editor.isActive('italic'), action: () => editor.chain().focus().toggleItalic().run() },
-          { id: 'strike', icon: icons.strike, title: 'Strikethrough', isActive: () => editor.isActive('strike'), action: () => editor.chain().focus().toggleStrike().run() },
-          { id: 'highlight', icon: icons.highlight, title: 'Highlight', isActive: () => editor.isActive('highlight'), action: () => editor.chain().focus().toggleHighlight().run() },
-          { id: 'code', icon: icons.code, title: 'Inline Code', isActive: () => editor.isActive('code'), action: () => editor.chain().focus().toggleCode().run() },
-        ]},
-      ]);
-    });
+    // Elements the selection-change refresh touches (set when an item renders).
+    const refs: { textFormat?: HTMLButtonElement; listBlock?: HTMLButtonElement; link?: HTMLButtonElement; headingNumbers?: HTMLButtonElement; ai?: HTMLButtonElement } = {};
 
-    // ── List & Block dropdown (≡ ▾) ─────────────────────────────────────────
-    const listBlockBtn = makeDropdownTrigger('listBlock', 'Lists & Blocks', icons.ul);
-    wireDropdown(listBlockBtn, (anchor) => {
-      showToolbarDropdown(anchor, [
-        { type: 'action', id: 'bulletList', label: 'Bullet List', icon: icons.ul, isActive: () => editor.isActive('bulletList'), action: () => editor.chain().focus().toggleBulletList().run() },
-        { type: 'action', id: 'orderedList', label: 'Ordered List', icon: icons.ol, isActive: () => editor.isActive('orderedList'), action: () => editor.chain().focus().toggleOrderedList().run() },
-        { type: 'action', id: 'taskList', label: 'Task List', icon: icons.task, isActive: () => editor.isActive('taskList'), action: () => editor.chain().focus().toggleTaskList().run() },
-        { type: 'separator' },
-        { type: 'action', id: 'blockquote', label: 'Blockquote', icon: icons.quote, isActive: () => editor.isActive('blockquote'), action: () => editor.chain().focus().toggleBlockquote().run() },
-        { type: 'action', id: 'codeBlock', label: 'Code Block', icon: icons.codeBlock, isActive: () => editor.isActive('codeBlock'), action: () => editor.chain().focus().toggleCodeBlock().run() },
-        { type: 'separator' },
-        // Five GitHub-style callouts — one click each, kind picked via the
-        // mini-row of badge-style buttons so the user doesn't have to remember
-        // the marker syntax.
-        { type: 'action', id: 'callout', label: 'Callout', icon: icons.callout, isActive: () => editor.isActive('callout'), action: () => editor.chain().focus().toggleCallout('note').run() },
-        { type: 'mini-row', items: CALLOUT_KINDS.map((kind) => ({
-          id: `callout-${kind}`,
-          icon: calloutBadgeIcon(kind),
-          title: calloutKindLabel(kind),
-          isActive: () => editor.isActive('callout', { kind }),
-          action: () => editor.chain().focus().toggleCallout(kind).run(),
-        })) },
-      ]);
-    });
+    const textFormatDef: ToolbarItemDef = {
+      id: 'textFormat', label: 'Text Format', kind: 'dropdown',
+      pinned: 'first', removable: false,
+      render: () => {
+        // ── Text Format dropdown (Aa ▾) ─────────────────────────────────────────
+        const textFormatBtn = makeDropdownTrigger('textFormat', 'Text Format', getBlockLabel());
+        // The accessible name includes the visible label ("Aa", "H1"; WCAG 2.5.3).
+        textFormatBtn.setAttribute('aria-label', `${getBlockLabel()} Text Format`);
+        wireDropdown(textFormatBtn, (anchor) => {
+          showToolbarDropdown(anchor, [
+            { type: 'action', id: 'h1', label: 'Heading 1', icon: '<span style="font-weight:700;font-size:14px">H1</span>', isActive: () => editor.isActive('heading', { level: 1 }), action: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
+            { type: 'action', id: 'h2', label: 'Heading 2', icon: '<span style="font-weight:600;font-size:13px">H2</span>', isActive: () => editor.isActive('heading', { level: 2 }), action: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
+            { type: 'action', id: 'h3', label: 'Heading 3', icon: '<span style="font-weight:500;font-size:12px">H3</span>', isActive: () => editor.isActive('heading', { level: 3 }), action: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
+            { type: 'action', id: 'h4', label: 'Heading 4', icon: '<span style="font-weight:500;font-size:11px">H4</span>', isActive: () => editor.isActive('heading', { level: 4 }), action: () => editor.chain().focus().toggleHeading({ level: 4 }).run() },
+            { type: 'action', id: 'h5', label: 'Heading 5', icon: '<span style="font-weight:500;font-size:11px">H5</span>', isActive: () => editor.isActive('heading', { level: 5 }), action: () => editor.chain().focus().toggleHeading({ level: 5 }).run() },
+            { type: 'action', id: 'h6', label: 'Heading 6', icon: '<span style="font-weight:500;font-size:11px">H6</span>', isActive: () => editor.isActive('heading', { level: 6 }), action: () => editor.chain().focus().toggleHeading({ level: 6 }).run() },
+            { type: 'action', id: 'paragraph', label: 'Paragraph', action: () => editor.chain().focus().setParagraph().run(), isActive: () => !editor.isActive('heading') && !editor.isActive('codeBlock') },
+            { type: 'separator' },
+            { type: 'mini-row', items: [
+              { id: 'bold', icon: icons.bold, title: 'Bold', isActive: () => editor.isActive('bold'), action: () => editor.chain().focus().toggleBold().run() },
+              { id: 'italic', icon: icons.italic, title: 'Italic', isActive: () => editor.isActive('italic'), action: () => editor.chain().focus().toggleItalic().run() },
+              { id: 'strike', icon: icons.strike, title: 'Strikethrough', isActive: () => editor.isActive('strike'), action: () => editor.chain().focus().toggleStrike().run() },
+              { id: 'highlight', icon: icons.highlight, title: 'Highlight', isActive: () => editor.isActive('highlight'), action: () => editor.chain().focus().toggleHighlight().run() },
+              { id: 'code', icon: icons.code, title: 'Inline Code', isActive: () => editor.isActive('code'), action: () => editor.chain().focus().toggleCode().run() },
+            ]},
+          ]);
+        });
+        refs.textFormat = textFormatBtn;
+        return textFormatBtn;
+      },
+      update: () => {
+        const btn = refs.textFormat;
+        if (!btn) {return;}
+        // Update the text format button label to reflect current block type
+        const labelEl = btn.querySelector('.condensed-btn-label');
+        const blockLabel = getBlockLabel();
+        if (labelEl && labelEl.innerHTML !== blockLabel) {labelEl.innerHTML = blockLabel;}
+        btn.setAttribute('aria-label', `${blockLabel} Text Format`);
+        btn.classList.toggle('active', isTextFormatActive());
+      },
+    };
 
-    // ── Link (direct action) ────────────────────────────────────────────────
-    const linkBtn = makeBtn('link', 'Insert Link (Cmd+K)', icons.link);
-    linkBtn.addEventListener('click', () => showLinkDialog(editor));
+    const listBlockDef: ToolbarItemDef = {
+      id: 'listBlock', label: 'Lists & Blocks', kind: 'dropdown',
+      removable: true,
+      render: () => {
+        // ── List & Block dropdown (≡ ▾) ─────────────────────────────────────────
+        const listBlockBtn = makeDropdownTrigger('listBlock', 'Lists & Blocks', icons.ul);
+        wireDropdown(listBlockBtn, (anchor) => {
+          showToolbarDropdown(anchor, [
+            { type: 'action', id: 'bulletList', label: 'Bullet List', icon: icons.ul, isActive: () => editor.isActive('bulletList'), action: () => editor.chain().focus().toggleBulletList().run() },
+            { type: 'action', id: 'orderedList', label: 'Ordered List', icon: icons.ol, isActive: () => editor.isActive('orderedList'), action: () => editor.chain().focus().toggleOrderedList().run() },
+            { type: 'action', id: 'taskList', label: 'Task List', icon: icons.task, isActive: () => editor.isActive('taskList'), action: () => editor.chain().focus().toggleTaskList().run() },
+            { type: 'separator' },
+            { type: 'action', id: 'blockquote', label: 'Blockquote', icon: icons.quote, isActive: () => editor.isActive('blockquote'), action: () => editor.chain().focus().toggleBlockquote().run() },
+            { type: 'action', id: 'codeBlock', label: 'Code Block', icon: icons.codeBlock, isActive: () => editor.isActive('codeBlock'), action: () => editor.chain().focus().toggleCodeBlock().run() },
+            { type: 'separator' },
+            // Five GitHub-style callouts — one click each, kind picked via the
+            // mini-row of badge-style buttons so the user doesn't have to remember
+            // the marker syntax.
+            { type: 'action', id: 'callout', label: 'Callout', icon: icons.callout, isActive: () => editor.isActive('callout'), action: () => editor.chain().focus().toggleCallout('note').run() },
+            { type: 'mini-row', items: CALLOUT_KINDS.map((kind) => ({
+              id: `callout-${kind}`,
+              icon: calloutBadgeIcon(kind),
+              title: calloutKindLabel(kind),
+              isActive: () => editor.isActive('callout', { kind }),
+              action: () => editor.chain().focus().toggleCallout(kind).run(),
+            })) },
+          ]);
+        });
+        refs.listBlock = listBlockBtn;
+        return listBlockBtn;
+      },
+      update: () => {
+        refs.listBlock?.classList.toggle('active', isBlockActive());
+      },
+    };
 
-    // ── Insert dropdown (Image, Table, HR) ──────────────────────────────────
-    const insertBtn = makeDropdownTrigger('insert', 'Insert', icons.image);
-    wireDropdown(insertBtn, (anchor) => {
-      showToolbarDropdown(anchor, [
-        { type: 'action', id: 'image', label: 'Image', icon: icons.image, action: () => showImageInsertDialog(editor) },
-        { type: 'action', id: 'table', label: 'Table', icon: icons.table, isActive: () => editor.isActive('table'), action: () => showTableGridPicker(editor, anchor) },
-        { type: 'action', id: 'hr', label: 'Horizontal Rule', icon: icons.hr, action: () => editor.chain().focus().setHorizontalRule().run() },
-        { type: 'action', id: 'toc', label: 'Table of Contents', icon: icons.toc, action: () => editor.chain().focus().insertTableOfContents().run() },
-      ]);
-    });
+    const linkDef: ToolbarItemDef = {
+      id: 'link', label: 'Insert Link', kind: 'button',
+      removable: true,
+      render: () => {
+        // ── Link (direct action) ────────────────────────────────────────────────
+        const linkBtn = makeBtn('link', 'Insert Link (Cmd+K)', icons.link);
+        linkBtn.addEventListener('click', () => showLinkDialog(editor));
+        refs.link = linkBtn;
+        return linkBtn;
+      },
+      update: () => {
+        refs.link?.classList.toggle('active', editor.isActive('link'));
+      },
+    };
 
-    // ── Direct action buttons ───────────────────────────────────────────────
-    const undoBtn = makeBtn('undo', 'Undo (Cmd+Z)', icons.undo);
-    undoBtn.addEventListener('click', () => doUndo(editor));
+    const insertDef: ToolbarItemDef = {
+      id: 'insert', label: 'Insert', kind: 'dropdown',
+      removable: true,
+      render: () => {
+        // ── Insert dropdown (Image, Table, HR) ──────────────────────────────────
+        const insertBtn = makeDropdownTrigger('insert', 'Insert', icons.image);
+        wireDropdown(insertBtn, (anchor) => {
+          showToolbarDropdown(anchor, [
+            { type: 'action', id: 'image', label: 'Image', icon: icons.image, action: () => showImageInsertDialog(editor) },
+            { type: 'action', id: 'table', label: 'Table', icon: icons.table, isActive: () => editor.isActive('table'), action: () => showTableGridPicker(editor, anchor) },
+            { type: 'action', id: 'hr', label: 'Horizontal Rule', icon: icons.hr, action: () => editor.chain().focus().setHorizontalRule().run() },
+            { type: 'action', id: 'toc', label: 'Table of Contents', icon: icons.toc, action: () => editor.chain().focus().insertTableOfContents().run() },
+          ]);
+        });
+        return insertBtn;
+      },
+    };
 
-    const redoBtn = makeBtn('redo', 'Redo (Cmd+Shift+Z)', icons.redo);
-    redoBtn.addEventListener('click', () => doRedo(editor));
+    const emojiDef: ToolbarItemDef = {
+      id: 'emoji', label: 'Insert Emoji', kind: 'button',
+      removable: true,
+      render: () => {
+        const emojiBtn = makeBtn('emoji', 'Insert Emoji (Cmd+;)', icons.emoji);
+        emojiBtn.addEventListener('mousedown', (e) => e.preventDefault());
+        const openEmoji = (anchor: HTMLElement) => {
+          if (isEmojiPickerOpen()) { hideEmojiPicker(); return; }
+          showEmojiPicker(editor, { anchorRect: anchor.getBoundingClientRect() });
+        };
+        overflowOpeners.set(emojiBtn, openEmoji);
+        emojiBtn.addEventListener('click', () => openEmoji(emojiBtn));
+        return emojiBtn;
+      },
+    };
 
-    const sourceBtn = makeBtn('sourceToggle', 'Toggle Source Mode (Cmd+/)', icons.source);
-    // The core toggles locally (the old host round-trip was a pure echo).
-    sourceBtn.addEventListener('click', () => toggleSourceMode());
+    // ── Number headings (only while mikedown.headingNumbering is on) ─────────
+    const headingNumbersDef: ToolbarItemDef = {
+      id: 'headingNumbers', label: 'Number Headings', kind: 'button', removable: true,
+      available: () => currentHeadingNumbering !== 'off',
+      render: () => {
+        const headingNumbersBtn = makeBtn('headingNumbers', 'Number Headings', icons.headingNumbers);
+        headingNumbersBtn.addEventListener('mousedown', (e) => e.preventDefault());
+        headingNumbersBtn.addEventListener('click', () => toggleHeadingNumbers());
+        refs.headingNumbers = headingNumbersBtn;
+        return headingNumbersBtn;
+      },
+      update: () => {
+        refs.headingNumbers?.classList.toggle('active', currentHeadingNumbering !== 'off' && documentIsNumbered());
+      },
+    };
 
-    // ── Share dropdown (View in Browser, Print / Export as PDF) ─────────────
-    const shareBtn = makeDropdownTrigger('share', 'Share', icons.share);
-    wireDropdown(shareBtn, (anchor) => {
-      // Only the outputs the host can handle.
-      showToolbarDropdown(anchor, [
-        ...(host.viewInBrowser ? [{ type: 'action' as const, id: 'viewInBrowser', label: 'View in Browser', icon: icons.browser, action: () => {
-          host.viewInBrowser?.(getHtml());
-        }}] : []),
-        ...(host.printDocument ? [{ type: 'action' as const, id: 'print', label: 'Print / Export as PDF', icon: icons.print, action: () => {
-          host.printDocument?.(getHtml());
-        }}] : []),
-      ]);
-    });
+    // ── AI (hosts with AI support; see refreshAiToolbarButton) ──────────────
+    const aiDef: ToolbarItemDef = {
+      id: 'ai', label: 'AI Actions', kind: 'button', removable: true,
+      // Never there for a host without AI support; ai.showToolbarButton hides it.
+      available: () => !!aiHost && aiToolbarButtonMode(!!aiHost, currentAiSettings) !== 'hidden',
+      render: () => {
+        const aiBtn = makeBtn('ai', 'AI Actions', icons.ai);
+        // Keep the editor's selection: Rewrite selection acts on it.
+        aiBtn.addEventListener('mousedown', (e) => e.preventDefault());
+        overflowOpeners.set(aiBtn, (anchor) => openAiToolbar(anchor));
+        aiBtn.addEventListener('click', () => openAiToolbar(aiBtn));
+        syncAiToolbarPopup(aiBtn);
+        refs.ai = aiBtn;
+        return aiBtn;
+      },
+      update: () => { if (refs.ai) {syncAiToolbarPopup(refs.ai);} },
+    };
 
-    // Select All toolbar button — calls the same TextSelection helper the
-    // Cmd+A keydown handler uses. Added as a keyboard-free way to trigger
-    // select-all: if this button works but Cmd+A still fails, we know the
-    // failure is in keystroke routing (VS Code eating the event, or PM's
-    // Mod-a keymap still running behind our back), not in the select-all
-    // command itself.
-    const selectAllBtn = makeBtn('selectAll', 'Select All', icons.selectAll);
-    // Stop mousedown from stealing focus out of the editor — otherwise the
-    // click lands on the button, the editor blurs, and focus handling gets
-    // messy afterwards.
-    selectAllBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    selectAllBtn.addEventListener('click', () => {
-      selectAllDocument(editor);
-    });
+    const undoDef: ToolbarItemDef = {
+      id: 'undo', label: 'Undo', kind: 'button',
+      removable: true,
+      render: () => {
+        const undoBtn = makeBtn('undo', 'Undo (Cmd+Z)', icons.undo);
+        undoBtn.addEventListener('click', () => doUndo(editor));
+        return undoBtn;
+      },
+    };
+
+    const redoDef: ToolbarItemDef = {
+      id: 'redo', label: 'Redo', kind: 'button',
+      removable: true,
+      render: () => {
+        const redoBtn = makeBtn('redo', 'Redo (Cmd+Shift+Z)', icons.redo);
+        redoBtn.addEventListener('click', () => doRedo(editor));
+        return redoBtn;
+      },
+    };
+
+    const sourceToggleDef: ToolbarItemDef = {
+      id: 'sourceToggle', label: 'Toggle Source Mode', kind: 'button',
+      removable: true,
+      available: () => features.sourceMode,
+      render: () => {
+        const sourceBtn = makeBtn('sourceToggle', 'Toggle Source Mode (Cmd+/)', icons.source);
+        // The core toggles locally (the old host round-trip was a pure echo).
+        sourceBtn.addEventListener('click', () => toggleSourceMode());
+        return sourceBtn;
+      },
+    };
+
+    const shareDef: ToolbarItemDef = {
+      id: 'share', label: 'Share', kind: 'dropdown',
+      removable: true,
+      available: () => !!(host.viewInBrowser || host.printDocument),
+      render: () => {
+        // ── Share dropdown (View in Browser, Print / Export as PDF) ─────────────
+        const shareBtn = makeDropdownTrigger('share', 'Share', icons.share);
+        wireDropdown(shareBtn, (anchor) => {
+          // Only the outputs the host can handle.
+          showToolbarDropdown(anchor, [
+            ...(host.viewInBrowser ? [{ type: 'action' as const, id: 'viewInBrowser', label: 'View in Browser', icon: icons.browser, action: () => {
+              host.viewInBrowser?.(getHtml());
+            }}] : []),
+            ...(host.printDocument ? [{ type: 'action' as const, id: 'print', label: 'Print / Export as PDF', icon: icons.print, action: () => {
+              host.printDocument?.(getHtml());
+            }}] : []),
+          ]);
+        });
+        return shareBtn;
+      },
+    };
+
+    const selectAllDef: ToolbarItemDef = {
+      id: 'selectAll', label: 'Select All', kind: 'button',
+      removable: true,
+      render: () => {
+        // Select All toolbar button — calls the same TextSelection helper the
+        // Cmd+A keydown handler uses. Added as a keyboard-free way to trigger
+        // select-all: if this button works but Cmd+A still fails, we know the
+        // failure is in keystroke routing (VS Code eating the event, or PM's
+        // Mod-a keymap still running behind our back), not in the select-all
+        // command itself.
+        const selectAllBtn = makeBtn('selectAll', 'Select All', icons.selectAll);
+        // Stop mousedown from stealing focus out of the editor — otherwise the
+        // click lands on the button, the editor blurs, and focus handling gets
+        // messy afterwards.
+        selectAllBtn.addEventListener('mousedown', (e) => e.preventDefault());
+        selectAllBtn.addEventListener('click', () => {
+          selectAllDocument(editor);
+        });
+        return selectAllBtn;
+      },
+    };
 
     // ── Zoom control (− size +) — same controller as Ctrl/Cmd + wheel ───────
-    const zoomOutBtn = makeBtn('zoomOut', 'Zoom Out', icons.zoomOut);
-    zoomOutBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    zoomOutBtn.addEventListener('click', () => fontZoom.stepBy(-1));
-    const zoomResetBtn = makeBtn('zoomReset', 'Reset Zoom', '');
-    zoomResetBtn.classList.add('toolbar-zoom-size');
-    zoomResetBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    zoomResetBtn.addEventListener('click', () => fontZoom.reset());
-    const zoomInBtn = makeBtn('zoomIn', 'Zoom In', icons.zoomIn);
-    zoomInBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    zoomInBtn.addEventListener('click', () => fontZoom.stepBy(1));
+    // One item: a wrapper holding the three buttons, so it moves and overflows as one.
+    const zoomDef: ToolbarItemDef = {
+      id: 'zoom', label: 'Zoom', kind: 'group', removable: true,
+      render: () => {
+        const zoomOutBtn = makeBtn('zoomOut', 'Zoom Out', icons.zoomOut);
+        zoomOutBtn.addEventListener('mousedown', (e) => e.preventDefault());
+        zoomOutBtn.addEventListener('click', () => fontZoom.stepBy(-1));
+        const zoomResetBtn = makeBtn('zoomReset', 'Reset Zoom', '');
+        zoomResetBtn.classList.add('toolbar-zoom-size');
+        zoomResetBtn.addEventListener('mousedown', (e) => e.preventDefault());
+        zoomResetBtn.addEventListener('click', () => fontZoom.reset());
+        const zoomInBtn = makeBtn('zoomIn', 'Zoom In', icons.zoomIn);
+        zoomInBtn.addEventListener('mousedown', (e) => e.preventDefault());
+        zoomInBtn.addEventListener('click', () => fontZoom.stepBy(1));
+        const group = document.createElement('div');
+        group.className = 'toolbar-group';
+        group.dataset.action = 'zoom';
+        group.setAttribute('role', 'group');
+        group.setAttribute('aria-label', 'Zoom');
+        group.append(zoomOutBtn, zoomResetBtn, zoomInBtn);
+        return group;
+      },
+    };
 
-    const themeBtn = makeBtn('themeToggle', 'Toggle Light/Dark Mode', icons.sun);
-    themeBtn.addEventListener('click', () => toggleTheme());
+    const themeToggleDef: ToolbarItemDef = {
+      id: 'themeToggle', label: 'Toggle Light/Dark Mode', kind: 'button',
+      removable: true,
+      render: () => {
+        const themeBtn = makeBtn('themeToggle', 'Toggle Light/Dark Mode', icons.sun);
+        themeBtn.addEventListener('click', () => toggleTheme());
+        return themeBtn;
+      },
+    };
 
-    const settingsBtn = makeBtn('settings', 'Settings', icons.gear);
-    settingsBtn.addEventListener('click', () => showSettingsModal());
+    const settingsDef: ToolbarItemDef = {
+      id: 'settings', label: 'Settings', kind: 'button',
+      removable: false,
+      render: () => {
+        const settingsBtn = makeBtn('settings', 'Settings', icons.gear);
+        settingsBtn.addEventListener('click', () => showSettingsModal());
+        return settingsBtn;
+      },
+    };
 
     // ── Font quick-switcher button ──────────────────────────────────────────
     const fontIcon = toolbarSvg('<text x="3" y="12" font-size="11" font-weight="700" fill="currentColor" stroke="none" font-family="serif">A</text><text x="10" y="12" font-size="8" fill="currentColor" stroke="none" font-family="sans-serif">a</text>', 0);
@@ -2832,93 +3003,60 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
     });
 
-    // ── Emoji picker (top-level, separate from Insert) ──────────────────────
-    const headingNumbersBtn = makeBtn('headingNumbers', 'Number Headings', icons.headingNumbers);
-    headingNumbersBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    headingNumbersBtn.addEventListener('click', () => toggleHeadingNumbers());
-    headingNumbersBtn.style.display = currentHeadingNumbering === 'off' ? 'none' : '';
-
-    const emojiBtn = makeBtn('emoji', 'Insert Emoji (Cmd+;)', icons.emoji);
-    emojiBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    const openEmoji = (anchor: HTMLElement) => {
-      if (isEmojiPickerOpen()) { hideEmojiPicker(); return; }
-      showEmojiPicker(editor, { anchorRect: anchor.getBoundingClientRect() });
-    };
-    overflowOpeners.set(emojiBtn, openEmoji);
-    emojiBtn.addEventListener('click', () => openEmoji(emojiBtn));
-
-    // ── AI (hosts with AI support; see refreshAiToolbarButton) ──────────────
-    const aiBtn = makeBtn('ai', 'AI Actions', icons.ai);
-    // Keep the editor's selection: Rewrite selection acts on it.
-    aiBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    overflowOpeners.set(aiBtn, (anchor) => openAiToolbar(anchor));
-    aiBtn.addEventListener('click', () => openAiToolbar(aiBtn));
-    applyAiToolbarMode(aiBtn);
-
     // ── More (⋯): holds whatever doesn't fit (layoutToolbarOverflow) ────────
-    const moreBtn = makeBtn('more', 'More', icons.more);
-    moreBtn.classList.add('toolbar-more');
-    moreBtn.setAttribute('aria-haspopup', 'menu');
-    moreBtn.hidden = true;
-    // Keep the editor's selection: the overflowed commands act on it.
-    moreBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    moreBtn.addEventListener('click', () => {
-      if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
-      const entries: ToolbarDropdownEntry[] = [];
-      for (const el of Array.from(toolbar.children) as HTMLElement[]) {
-        if (!el.classList.contains('toolbar-overflowed')) {continue;}
-        if (el.classList.contains('toolbar-separator')) {
-          if (entries.length && entries[entries.length - 1].type !== 'separator') {entries.push({ type: 'separator' });}
-          continue;
-        }
-        if (!(el instanceof HTMLButtonElement) || el.style.display === 'none') {continue;}
-        const btn = el;
-        const svg = btn.querySelector('svg');
-        const opener = overflowOpeners.get(btn);
-        entries.push({
-          type: 'action',
-          id: `more-${btn.dataset.action ?? ''}`,
-          label: btn.dataset.menuLabel ?? btn.dataset.tip ?? btn.getAttribute('aria-label') ?? '',
-          // An empty icon slot keeps text-only entries (the size readout) aligned.
-          icon: svg ? svg.outerHTML : '<span aria-hidden="true"></span>',
-          isActive: () => btn.classList.contains('active'),
-          isDisabled: () => btn.disabled,
-          action: () => { if (opener) {opener(moreBtn);} else {btn.click();} },
+    const moreDef: ToolbarItemDef = {
+      id: 'more', label: 'More', kind: 'button', pinned: 'last', removable: false,
+      render: () => {
+        const moreBtn = makeBtn('more', 'More', icons.more);
+        moreBtn.classList.add('toolbar-more');
+        moreBtn.setAttribute('aria-haspopup', 'menu');
+        moreBtn.hidden = true;
+        // Keep the editor's selection: the overflowed commands act on it.
+        moreBtn.addEventListener('mousedown', (e) => e.preventDefault());
+        moreBtn.addEventListener('click', () => {
+          if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
+          const entries: ToolbarDropdownEntry[] = [];
+          for (const el of Array.from(toolbar.children) as HTMLElement[]) {
+            if (!el.classList.contains('toolbar-overflowed')) {continue;}
+            if (el.classList.contains('toolbar-separator')) {
+              if (entries.length && entries[entries.length - 1].type !== 'separator') {entries.push({ type: 'separator' });}
+              continue;
+            }
+            // A group overflows as one child; the menu lists the buttons inside it.
+            const buttons = el instanceof HTMLButtonElement ? [el]
+              : el.classList.contains('toolbar-group') ? Array.from(el.querySelectorAll('button')) : [];
+            for (const btn of buttons) {
+              if (btn.style.display === 'none') {continue;}
+              const svg = btn.querySelector('svg');
+              const opener = overflowOpeners.get(btn);
+              entries.push({
+                type: 'action',
+                id: `more-${btn.dataset.action ?? ''}`,
+                label: btn.dataset.menuLabel ?? btn.dataset.tip ?? btn.getAttribute('aria-label') ?? '',
+                // An empty icon slot keeps text-only entries (the size readout) aligned.
+                icon: svg ? svg.outerHTML : '<span aria-hidden="true"></span>',
+                isActive: () => btn.classList.contains('active'),
+                isDisabled: () => btn.disabled,
+                action: () => { if (opener) {opener(moreBtn);} else {btn.click();} },
+              });
+            }
+          }
+          while (entries.length && entries[entries.length - 1].type === 'separator') {entries.pop();}
+          if (entries.length) {showToolbarDropdown(moreBtn, entries);}
         });
-      }
-      while (entries.length && entries[entries.length - 1].type === 'separator') {entries.pop();}
-      if (entries.length) {showToolbarDropdown(moreBtn, entries);}
-    });
+        return moreBtn;
+      },
+    };
 
     // ── Assemble ────────────────────────────────────────────────────────────
-    toolbar.appendChild(textFormatBtn);
-    toolbar.appendChild(listBlockBtn);
-    toolbar.appendChild(linkBtn);
-    toolbar.appendChild(insertBtn);
-    toolbar.appendChild(emojiBtn);
-    toolbar.appendChild(headingNumbersBtn);
-    // Never in the DOM for a host without AI support.
-    if (aiHost) {toolbar.appendChild(aiBtn);}
-    toolbar.appendChild(makeSeparator());
-    toolbar.appendChild(undoBtn);
-    toolbar.appendChild(redoBtn);
-    toolbar.appendChild(makeSeparator());
-    if (features.sourceMode) {
-      toolbar.appendChild(sourceBtn);
-      toolbar.appendChild(makeSeparator());
-    }
-    // Share holds host outputs only; hidden when the host has none.
-    if (host.viewInBrowser || host.printDocument) {toolbar.appendChild(shareBtn);}
-    toolbar.appendChild(selectAllBtn);
-    toolbar.appendChild(makeSeparator());
-    toolbar.appendChild(zoomOutBtn);
-    toolbar.appendChild(zoomResetBtn);
-    toolbar.appendChild(zoomInBtn);
+    const defs: ToolbarItemDef[] = [
+      textFormatDef, listBlockDef, linkDef, insertDef, emojiDef, headingNumbersDef, aiDef,
+      undoDef, redoDef, sourceToggleDef, shareDef, selectAllDef, zoomDef,
+      themeToggleDef, settingsDef, moreDef,
+    ];
+    const tokens = DEFAULT_TOOLBAR_ITEMS;
+    toolbarRegistry = { defs, tokens, rendered: renderToolbar(toolbar, defs, tokens).join(' ') };
     refreshZoomControl();
-    toolbar.appendChild(makeSeparator());
-    toolbar.appendChild(themeBtn);
-    toolbar.appendChild(settingsBtn);
-    toolbar.appendChild(moreBtn);
 
     // Keep the toolbar on one row at any width: buttons that don't fit move,
     // from the right, into the More menu. Rerun whenever the toolbar resizes.
@@ -2935,17 +3073,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     // ── Update dynamic label on selection changes ──────────────────────────
     (toolbar as any).__condensedUpdate = () => {
-      // Update the text format button label to reflect current block type
-      const labelEl = textFormatBtn.querySelector('.condensed-btn-label');
-      const blockLabel = getBlockLabel();
-      if (labelEl && labelEl.innerHTML !== blockLabel) {labelEl.innerHTML = blockLabel;}
-      textFormatBtn.setAttribute('aria-label', `${blockLabel} Text Format`);
-
-      // Highlight dropdown triggers when their children are active
-      textFormatBtn.classList.toggle('active', isTextFormatActive());
-      listBlockBtn.classList.toggle('active', isBlockActive());
-      linkBtn.classList.toggle('active', editor.isActive('link'));
-      headingNumbersBtn.classList.toggle('active', currentHeadingNumbering !== 'off' && documentIsNumbered());
+      for (const def of defs) {def.update?.();}
 
       // Update dropdown active states if one is open
       updateDropdownActiveStates();
