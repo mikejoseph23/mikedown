@@ -29,8 +29,8 @@
 |---|---|---|---|---|
 | [M1 — Toolbar registry refactor (no visible change)](#m1--toolbar-registry-refactor-no-visible-change) | Sonnet | ✅ Done | 7 | `cc70ad0`, `f2f4ba2`; unavailable items DOM-absent |
 | [M2 — Layout model: schema, normalize, migrate, apply](#m2--layout-model-schema-normalize-migrate-apply) | Sonnet | ✅ Done | 6 | `152d838`; AC3 corrected to D15 (`settings` appended) |
-| [T1 — Registry and layout model tests](#t1--registry-and-layout-model-tests) | Sonnet | 🔄 In Progress | — | unit + jsdom |
-| [M3 — Settings plumbing: core, VS Code, Desktop, wrappers, Toolbar section](#m3--settings-plumbing-core-vs-code-desktop-wrappers-toolbar-section) | Sonnet | ⬜ Not Started | — | Settings rule: three places |
+| [T1 — Registry and layout model tests](#t1--registry-and-layout-model-tests) | Sonnet | ✅ Done | 4 | `02cc9ae`, `c5b41e7`; 126 toolbar tests |
+| [M3 — Settings plumbing: core, VS Code, Desktop, wrappers, Toolbar section](#m3--settings-plumbing-core-vs-code-desktop-wrappers-toolbar-section) | Sonnet | 🔄 In Progress | — | Settings rule: three places |
 | [M4 — Edit mode UI: handles, palette tray, drag, spacers](#m4--edit-mode-ui-handles-palette-tray-drag-spacers) | Opus | ⬜ Not Started | — | Front-end design work |
 | [M5 — Keyboard and accessibility for edit mode](#m5--keyboard-and-accessibility-for-edit-mode) | Opus | ⬜ Not Started | — | Interaction design |
 | [T2 — Edit mode, overflow and host tests](#t2--edit-mode-overflow-and-host-tests) | Sonnet | ⬜ Not Started | — | jsdom keyboard flows, fakeRow overflow |
@@ -193,10 +193,10 @@ Decisions Mike made (D1 to D4) and the ones made while writing this plan (D5 onw
 
 **Tasks**
 
-- [ ] `packages/core/test/toolbar-layout.test.ts`: every D15 rule as its own `it`; `reconcileSeen` cases: new id with a present neighbor, new id whose neighbor was removed, user-removed id stays removed, `seen` empty (legacy) treats all current ids as unseen only for ids not in `items`; move/remove/insert helpers incl. pinned refusals; higher `version` preserved; JSON string input; garbage input.
-- [ ] Extend `toolbar-registry.test.ts` (from M1): `renderToolbar` with a custom token list (reordered, with `~`, with an unknown id), unavailable items absent, `refreshToolbarAvailability()` after `updateSettings({ headingNumbering: 'off' })` and after an AI `showToolbarButton` flip; zoom group renders three inner buttons with unchanged ids.
-- [ ] `toolbar-overflow.test.ts`: `.toolbar-group` counted as one child and expanded in More; spacer (`data-w="0"`) overflowed like a separator and never listed.
-- [ ] Run `npm run test:unit` and `npm run lint` green. Commit.
+- [x] `packages/core/test/toolbar-layout.test.ts`: every D15 rule as its own `it`; `reconcileSeen` cases: new id with a present neighbor, new id whose neighbor was removed, user-removed id stays removed, `seen` empty (legacy) treats all current ids as unseen only for ids not in `items`; move/remove/insert helpers incl. pinned refusals; higher `version` preserved; JSON string input; garbage input.
+- [x] Extend `toolbar-registry.test.ts` (from M1): `renderToolbar` with a custom token list (reordered, with `~`, with an unknown id), unavailable items absent, `refreshToolbarAvailability()` after `updateSettings({ headingNumbering: 'off' })` and after an AI `showToolbarButton` flip; zoom group renders three inner buttons with unchanged ids.
+- [x] `toolbar-overflow.test.ts`: `.toolbar-group` counted as one child and expanded in More; spacer (`data-w="0"`) overflowed like a separator and never listed.
+- [x] Run `npm run test:unit` and `npm run lint` green. Commit.
 
 **Acceptance criteria**
 
@@ -406,5 +406,7 @@ When a milestone leaves items skipped or partial, the orchestrator writes a gap-
 **2026-10-28 18:55** - M2 done (`152d838`, fast-forwarded onto `develop`, 6 min). `toolbar-ids.ts` (ids, default items, pinned/removable traits) and `toolbar-layout.ts` (parse, normalize, reconcileSeen, resolve, serialize, index-based move/remove/insert helpers that return the same object when refused) plus 28 tests. Corrected M2 acceptance criterion 3 to match D15 (missing `settings` is appended). Worktree was created off stale `98b5e8c`; the worker reset it to `39863d6`. The one `test:unit` failure in the worktree (`standaloneHtml.test.ts`, missing `packages/core/dist/styles.css`) is a fresh-worktree artifact.
 
 **2026-10-28 19:05** - M1 done (`cc70ad0` baseline test, `f2f4ba2` registry refactor; cherry-picked onto `develop`, 7 min). Unavailable items are left out of the DOM (not `display:none`) so separators collapse correctly; `test/unit/headingNumberingEditor.test.ts` was changed to expect an absent button. Zoom is a `.toolbar-group`; spacers overflow like separators; More expands groups. `buildToolbar` left in place (not trivial). Ids still inline in `toolbar-registry.ts`. Main tree: lint 0 errors, `test:unit` 2266 pass, `test:edge` 22, `test:integration` 47 passing. Dispatched T1 (Sonnet, worktree), which also switches `toolbar-registry.ts` to import from `toolbar-ids.ts`.
+
+**2026-10-28 19:10** - T1 done (`02cc9ae` registry now imports ids from `toolbar-ids.ts`; `c5b41e7` tests; fast-forwarded, 4 min). Toolbar tests: layout 85, registry 20, overflow 21. No bugs found in M1/M2 source. Main tree: lint 0 errors, `test:unit` 2351 pass, `test:edge` 22. Dispatched M3 (Sonnet, worktree). OQ2 asked of Mike ahead of M4.
 
 [Return to Top](#customizable-toolbar-firefox-style--planning-document)
