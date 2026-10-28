@@ -234,3 +234,72 @@ describe('insert respects mikedown.tocStyle', () => {
     expect(other.tiptap.storage.markdown.getMarkdown()).not.toContain('<!-- toc -->');
   });
 });
+
+describe('[toc] + Enter', () => {
+  /** Type like a user: each char goes through `handleTextInput` so input rules fire. */
+  function type(handle: MikeDownEditorHandle, text: string) {
+    const { view } = handle.tiptap;
+    for (const ch of text) {
+      const { from, to } = view.state.selection;
+      const handled = view.someProp('handleTextInput', (f: any) => f(view, from, to, ch, () => view.state.tr.insertText(ch, from, to)));
+      if (!handled) {view.dispatch(view.state.tr.insertText(ch, from, to));}
+    }
+  }
+  const enter = (handle: MikeDownEditorHandle) =>
+    handle.tiptap.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  const blocks = (handle: MikeDownEditorHandle) => handle.tiptap.getJSON().content!.map(n => n.type);
+
+  function start(settings?: { tocStyle: 'list' | 'placeholder' }) {
+    const m = mount('# A\n\nlast\n', settings);
+    m.handle.tiptap.commands.focus('end');
+    enter(m.handle);
+    return m;
+  }
+
+  for (const text of ['[toc]', '[[toc]]', '[TOC]']) {
+    it(`turns ${text} into a TOC, cursor in a paragraph after it`, () => {
+      const { handle } = start();
+      type(handle, text);
+      enter(handle);
+      expect(blocks(handle)).toEqual(['heading', 'paragraph', 'tableOfContents', 'paragraph']);
+      expect(handle.tiptap.state.selection.$from.parent.type.name).toBe('paragraph');
+      expect(handle.tiptap.state.selection.$from.index(0)).toBe(3);
+      expect(handle.tiptap.storage.markdown.getMarkdown()).toContain('<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->');
+      expect(JSON.stringify(handle.tiptap.getJSON())).not.toContain('wikilink');
+    });
+  }
+
+  it('leaves [toc] mid-sentence, [toc](x) and inline code as text', () => {
+    for (const text of ['see [toc]', '[toc](x)']) {
+      const { handle } = start();
+      type(handle, text);
+      enter(handle);
+      expect(blocks(handle)).not.toContain('tableOfContents');
+    }
+    // Only the whole-paragraph case escapes the wikilink rule.
+    const wiki = start().handle;
+    type(wiki, 'see [[toc]]');
+    expect(JSON.stringify(wiki.tiptap.getJSON())).toContain('wikilink');
+    const { handle } = start();
+    handle.tiptap.chain().insertContent({ type: 'text', text: '[toc]', marks: [{ type: 'code' }] }).run();
+    enter(handle);
+    expect(blocks(handle)).not.toContain('tableOfContents');
+  });
+
+  it('uses the placeholder style when set', () => {
+    const { handle } = start({ tocStyle: 'placeholder' });
+    type(handle, '[toc]');
+    enter(handle);
+    expect(blocks(handle)).toContain('tableOfContents');
+    expect(handle.tiptap.storage.markdown.getMarkdown()).toBe('# A\n\nlast\n\n[toc]');
+  });
+
+  it('one undo brings the typed text back', () => {
+    const { handle } = start();
+    type(handle, '[toc]');
+    enter(handle);
+    handle.tiptap.commands.undo();
+    expect(blocks(handle)).toEqual(['heading', 'paragraph', 'paragraph']);
+    expect(handle.tiptap.getText()).toContain('[toc]');
+  });
+});
