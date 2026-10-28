@@ -2,40 +2,28 @@
 
 Ideas and feature requests for future versions. Not a roadmap — just a parking lot. Pull from here when planning a release.
 
-## High-value features
+## Features
 
-- ~~**Mermaid diagrams** — render ```` ```mermaid ```` fenced blocks (flowcharts, sequence, gantt, etc.). Also GitHub-rendered.~~ ✅ Shipped — diagrams render live; click to edit source. Toggle: `mikedown.renderMermaidDiagrams`.
-- ~~**Footnotes** — `[^1]` reference syntax (CommonMark extension, not strictly GFM).~~ ✅ Done, unreleased (293cc2e). Inline `^[text]` form not supported.
-
-## Nice-to-have
-
+- **Customizable toolbar (Firefox-style).** The toolbar is getting crowded; let users add, remove and rearrange buttons and groups by drag and drop from a palette of available items, and insert separators (and maybe flexible spacers), like Firefox's Customize Toolbar (e.g. drop Select All, move Zoom next to Font Theme). Store the layout as a `mikedown.toolbarLayout` setting (three places, per the Settings rule) and add a Toolbar section to the in-editor Settings modal with a **Reset to Default** button. Prerequisite: turn `buildCondensedToolbar`'s hand-written `appendChild` sequence into a registry of button definitions keyed by id. Hosts' `features` flags (source mode, share) still hide buttons regardless of layout.
 - **Definition lists** — `term\n: definition` (pandoc / PHP Markdown Extra).
-- ~~**Table of contents** — auto-generated `[[toc]]` block.~~ ✅ Done, unreleased (90ab0f5). Uses `<!-- toc -->` / `<!-- tocstop -->` markers around a link list (GitHub-portable) instead of `[[toc]]`.
 - **Custom containers** — `:::note ... :::` style (VuePress / MkDocs).
 - **Image captions** — render alt text or title as a `<figcaption>` under images.
 - **PDF export bookmarks** (#11). Exported PDFs should carry a bookmark outline from the headings. Export goes through Chromium print today, which doesn't reliably emit an outline, so this likely means post-processing the PDF or generating it ourselves.
-- **Spell check toggle** for the editing surface.
+- **Inline footnotes** — the `^[text]` form (reference footnotes shipped in 2.14.0).
 - **PlantUML / D2 diagram** support (less common than Mermaid).
-- **Customizable toolbar (Firefox-style).** The toolbar is getting crowded; let users add, remove and rearrange buttons and groups by drag and drop from a palette of available items, and insert separators (and maybe flexible spacers), like Firefox's Customize Toolbar (e.g. drop Select All, move Zoom next to Font Theme). Store the layout as a `mikedown.toolbarLayout` setting (three places, per the Settings rule) and add a Toolbar section to the in-editor Settings modal with a **Reset to Default** button. Prerequisite: turn `buildCondensedToolbar`'s hand-written `appendChild` sequence into a registry of button definitions keyed by id. Hosts' `features` flags (source mode, share) still hide buttons regardless of layout.
 
 ## Polish
 
-- Word count / reading time in status bar — _scaffolding exists in `src/statusBar.ts` but isn't wired to the webview yet._ ✅ Shipped in 1.8.0.
-- **Buy Me A Coffee link in Settings → About tab.** Needs a final BMAC URL. The About panel in `src/webview/editor-main.ts#buildAboutPanel` already has GitHub / changelog / issue links — add a BMAC link there once the URL exists.
+- **Buy Me A Coffee link in Settings → About tab.** Needs a final BMAC URL. The About tab (`src/webview/vsCodeSettingsSections.ts`, copy in `src/supportCopy.ts`) already has GitHub / changelog / issue links — add a BMAC link there once the URL exists.
 - **Support card photo avatar.** Replace the "M" initial in the "A note from Mike" support card's avatar slot with a small photo of Mike. Needs an image asset shipped in the bundle (webview `localResourceRoots`, `asWebviewUri`) and a CSP check that `img-src` allows `${webview.cspSource}`. No card redesign needed — the slot is already built for it (`avatar: { kind: 'image', src, alt }` in `src/webview/supportCard.ts`). _From the review appeal follow-ups, 2026-09-26._
-- **Review appeal: 30/60 day measurement check-in.** Re-run `npx vsce show interapp.mikedown-editor` and record installs, rating, and review count here. Baseline at 2.11.0 release (2026-09-26): 392 installs, 5 reviews, 5.00 rating.
-  - [ ] 30 days after the 2.11.0 release (2026-10-26)
+- **Review appeal: 30/60 day measurement check-in.** Re-run `npx @vscode/vsce show interapp.mikedown-editor` and record installs, rating, and review count here. Baseline at 2.11.0 release (2026-09-26): 391 installs, 5 reviews, 5.00 rating, 982 lifetime downloads.
+  - [x] 30 days (checked 2026-10-28): 448 installs, 6 reviews, 5.00 rating.
   - [ ] 60 days after the 2.11.0 release (2026-11-25)
-
-  _Baseline (2026-09-26, pre-release): 391 installs, 5.00 average rating, 5 reviews, 982 lifetime downloads._
-
-- ~~**Floating promises** — 84 `@typescript-eslint/no-floating-promises` findings.~~ ✅ Done, 0 remaining (86f22b7): settings writes go through `updateSetting` (reports failures), `handleExternalChange` has a `.catch`, fire-and-forget `postMessage` / toasts are marked `void`. Still open: ~945 webview type-safety warnings (`no-unsafe-*`, `no-explicit-any`) downgraded from errors in 2.11.0.
+- **Webview type-safety warnings.** ~945 `no-unsafe-*` / `no-explicit-any` warnings, downgraded from errors in 2.11.0.
 
 ## Core extraction follow-ups
 
-- **M8 / M9** of `angular-core-extraction-plan.md`: Quantico Creek image upload API (M8, optional) and the remaining M9 work.
-- **Patch release 2.14.3** for the callout body duplication fix (f1befc5, in `[Unreleased]`).
-- ~~**React wrapper** around `@mikedown/core`.~~ ✅ Done: `@mikedown/react` (npm packages and wrappers plan).
+- **M8 hands-on** of `angular-core-extraction-plan.md`: Quantico Creek image upload is code-complete, hands-on pass pending.
 - **Publish dictionaries separately** (e.g. `@mikedown/dictionaries`) instead of copying them into core `dist`.
 - **Content width setting is not persisted by VS Code** (setting round-trip gap in the host).
 - **Shared module singletons across two editors**: the portal mirrors the last-focused editor and the Mermaid theme init is global, and turning `math` off in one editor's `features` turns KaTeX off for every editor on the page.
@@ -46,27 +34,13 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 Deferred in `wrappers-decisions.md` (M0 of `wrappers-npm-plan.md`).
 
 - **Provenance via npm trusted publishing.** Publish from GitHub Actions with OIDC (`id-token: write`, npm CLI 11.5.1+, 11.21+ to move dist-tags) so every package gets a provenance statement. Builds on the M1 `ci.yml`; local publishes cannot attest.
-- **Blazor wrapper.** The web component already works in Razor pages; a typed Blazor component with `@bind-Value` would be the wrapper.
-- **Solid and Preact wrappers.** Covered for now by the web component (Solid) and `preact/compat` with `@mikedown/react`.
-- **Typedoc API reference** for core and the wrappers, generated from the `.d.ts` and linked from the Developers hub. Deferred in `wrappers-decisions.md`.
-- **Svelte wrapper** (M10, deferred). The web component covers Svelte.
-- **`@mikedown/core/styles-base.css`** (no KaTeX `@import`), only needed if `katex` ever goes back to an optional peer.
 - **Trim the CDN bundle's code languages.** lowlight `common` instead of `all` cuts the standalone bundle from about 757 to 511 kB gzipped. Needs a core `codeLanguages` option so the language picker lists the same set.
+- **Typedoc API reference** for core and the wrappers, generated from the `.d.ts` and linked from the Developers hub.
+- **Blazor wrapper.** The web component already works in Razor pages; a typed Blazor component with `@bind-Value` would be the wrapper.
+- **Svelte wrapper** (M10, deferred). The web component covers Svelte.
+- **Solid and Preact wrappers.** Covered for now by the web component (Solid) and `preact/compat` with `@mikedown/react`.
+- **`@mikedown/core/styles-base.css`** (no KaTeX `@import`), only needed if `katex` ever goes back to an optional peer.
 
-## Product ideas
+## Release history
 
-- **Standalone desktop app for writers** — a side-car product built on the MikeDown editor core, for writers who don't live in VS Code. The market is crowded, so do market research before committing; could be a good addition to the portfolio if it's refined enough. Key differentiator idea: built-in version control with two modes:
-  - **Simple mode** (non-technical writers): versions are saved automatically or with one click, shown as a friendly timeline ("Yesterday, 4:12 PM — 312 words added"), with a readable side-by-side view of what changed and one-click restore. No branches, hashes, or git words.
-  - **Advanced mode** (people who know git): real commits, messages, diffs, history, and optionally branches and remotes.
-  - Both modes use the same storage underneath (git, or a JSON version file where git isn't available), so a writer can switch to advanced mode later without losing history.
-
-## Recently shipped
-
-- **Tags** — inline `#tag` (nested `#project/active`) plus frontmatter `tags:`, merged into one workspace index. Cmd/Ctrl+click a tag → QuickPick of tagged docs; `#` autocomplete mid-line; sidebar Tags section with counts; `mikedown.tags.enabled` toggle. ✅ Done, unreleased.
-- **Math / LaTeX rendering** via KaTeX: inline and display, click to edit, input rules, slash commands, `mikedown.renderMath` toggle. ✅ Done, unreleased.
-- **Backlinks jump to the link.** Clicking a backlink scrolls the opened doc to the exact link (occurrence-aware) and flashes it. ✅ Shipped in 2.6.2.
-- **Consolidate toolbar utility buttons.** Folded View in Browser + Print/PDF into a single Share dropdown; removed the inert Diff toggle (palette command still works); Select All stays standalone as a diagnostic. ✅ Shipped (post-2.5.1).
-- **Mark / highlight** — `==highlighted==` syntax; toolbar button + Cmd+Shift+H + right-click; round-trips cleanly. ✅ Shipped in 2.3.0.
-- **Emoji shortcodes** — `:smile:` → 😄 with inline autocomplete and a searchable picker (toolbar button, Cmd+;, right-click → Insert Emoji…) including recents and category sections. ✅ Shipped in 2.3.0.
-- **Callouts / admonitions** — GitHub-style `> [!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]` rendered as styled panels; toolbar + right-click insert with kind picker; round-trips to canonical GFM. ✅ Shipped in 2.1.0.
-- **Document outline sidebar** — in-editor pane with cursor + scroll tracking, click-to-jump, drag-resize, three-way visibility preference. ✅ Shipped in 2.0.0.
+See [CHANGELOG.md](CHANGELOG.md).
