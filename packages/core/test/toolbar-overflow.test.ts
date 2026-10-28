@@ -2,10 +2,11 @@
  * The toolbar stays on one row at any width: buttons that don't fit move,
  * from the right, into the More (⋯) menu.
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { layoutToolbarOverflow } from '../src/toolbar-overflow';
 import { createMikeDownEditor, type MikeDownEditorHandle } from '../src/index';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
+import { fakeToolbarGeometry } from './toolbar-geometry';
 
 stubLayoutMeasurement();
 
@@ -68,6 +69,7 @@ afterEach(() => {
   host?.remove();
   handle = null;
   host = null;
+  vi.restoreAllMocks();
 });
 
 describe('layoutToolbarOverflow', () => {
@@ -350,5 +352,86 @@ describe('More menu', () => {
     ]);
     expect(ids).toEqual(['more-selectAll', 'more-zoomOut', 'more-zoomReset', 'more-zoomIn']);
     expect(separators).toBe(1);
+  });
+});
+
+describe('a custom layout with a flexible spacer in a real editor', () => {
+  const seen = ['textFormat', 'listBlock', 'insert', 'link', 'emoji', 'headingNumbers', 'ai', 'undo', 'redo', 'sourceToggle', 'share', 'selectAll', 'zoom', 'themeToggle', 'settings', 'more'];
+
+  function mountWith(items: string[], width: { value: number }) {
+    fakeToolbarGeometry(() => width.value);
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    handle = createMikeDownEditor(host, {
+      host: { onChange() {} },
+      initialMarkdown: 'Hello\n',
+      settings: { toolbarLayout: { version: 1, items, seen } },
+    });
+    const toolbar = host.querySelector<HTMLElement>('.mikedown-toolbar')!;
+    const ids = () => (Array.from(toolbar.children) as HTMLElement[]).map((c) => c.classList.contains('toolbar-spacer') ? '~' : c.classList.contains('toolbar-separator') ? '|' : c.dataset.action ?? '?');
+    const hidden = () => (Array.from(toolbar.children) as HTMLElement[]).filter((c) => c.classList.contains('toolbar-overflowed')).map((c) => ids()[Array.from(toolbar.children).indexOf(c)]);
+    return { toolbar, ids, hidden, spacer: toolbar.querySelector<HTMLElement>('.toolbar-spacer')! };
+  }
+
+  const ITEMS = ['textFormat', 'link', '~', 'undo', 'redo', 'settings', 'more'];
+
+  it('lets the spacer take the free room and leaves every button in the row', () => {
+    const width = { value: 1000 };
+    const { toolbar, spacer, hidden } = mountWith(ITEMS, width);
+    layoutToolbarOverflow(toolbar);
+    expect(hidden()).toEqual([]);
+    expect(spacer.getBoundingClientRect().width).toBe(1000 - 5 * 30);
+    expect(toolbar.querySelector<HTMLElement>('.toolbar-more')!.hidden).toBe(true);
+  });
+
+  it('squeezes the spacer to 0 before any button overflows', () => {
+    const width = { value: 150 }; // exactly the five buttons (More is hidden while they fit)
+    const { toolbar, spacer, hidden } = mountWith(ITEMS, width);
+    layoutToolbarOverflow(toolbar);
+    expect(spacer.getBoundingClientRect().width).toBe(0);
+    expect(hidden()).toEqual([]);
+    expect(toolbar.querySelector<HTMLElement>('.toolbar-more')!.hidden).toBe(true);
+  });
+
+  it('then overflows buttons from the right, keeps the spacer in the row and never lists it in More', () => {
+    const width = { value: 120 };
+    const { toolbar, spacer, hidden } = mountWith(ITEMS, width);
+    layoutToolbarOverflow(toolbar);
+    expect(hidden()).toEqual(['redo', 'settings']);
+    expect(spacer.classList.contains('toolbar-overflowed')).toBe(false);
+    expect(spacer.getBoundingClientRect().width).toBe(0);
+    const more = toolbar.querySelector<HTMLButtonElement>('button.toolbar-more')!;
+    expect(more.hidden).toBe(false);
+    more.click();
+    const labels = Array.from(document.querySelectorAll('#toolbar-dropdown .tdd-item-label')).map((n) => n.textContent ?? '');
+    expect(labels.slice(0, 2).join(' ')).toMatch(/Redo.*Settings/);
+    expect(labels.some((l) => /spacer|flexible/i.test(l))).toBe(false);
+  });
+
+  it('restores the buttons and the spacer when the toolbar widens again', () => {
+    const width = { value: 120 };
+    const { toolbar, spacer, hidden } = mountWith(ITEMS, width);
+    layoutToolbarOverflow(toolbar);
+    expect(hidden().length).toBeGreaterThan(0);
+    width.value = 1000;
+    layoutToolbarOverflow(toolbar);
+    expect(hidden()).toEqual([]);
+    expect(spacer.getBoundingClientRect().width).toBe(1000 - 5 * 30);
+  });
+
+  it('keeps Text Format first when the layout puts a spacer right after it, even on a tiny toolbar', () => {
+    const width = { value: 40 };
+    const { toolbar, ids, hidden } = mountWith(['textFormat', '~', 'link', 'undo', 'settings', 'more'], width);
+    layoutToolbarOverflow(toolbar);
+    expect(ids()[0]).toBe('textFormat');
+    expect(hidden()).not.toContain('textFormat');
+    expect(hidden()).toContain('settings');
+  });
+
+  it('puts Text Format first and trims a leading spacer when the stored layout starts with one', () => {
+    const width = { value: 1000 };
+    const { ids } = mountWith(['~', 'link', 'textFormat', 'settings', 'more'], width);
+    // Text Format moves to the front, then the leading spacer is trimmed (D15).
+    expect(ids().slice(0, 3)).toEqual(['textFormat', 'link', 'settings']);
   });
 });

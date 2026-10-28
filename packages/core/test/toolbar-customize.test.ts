@@ -6,11 +6,12 @@
  * announcements, focus on entry and exit).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createMikeDownEditor, NoopHost, TOOLBAR_ITEM_IDS, type MikeDownEditorHandle, type MikeDownHost } from '../src/index';
+import { createMikeDownEditor, DEFAULT_TOOLBAR_LAYOUT, NoopHost, TOOLBAR_ITEM_IDS, type MikeDownEditorHandle, type MikeDownHost } from '../src/index';
 import { hideToolbarDropdown } from '../src/toolbar-dropdown';
 import { hideContextMenu } from '../src/contextmenu';
 import { TOOLBAR_EDIT_INSTRUCTIONS, toolbarDropSlot, toolbarGridNeighbor, type ToolbarSlotRect } from '../src/toolbar-customize';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
+import { fakeToolbarGeometry } from './toolbar-geometry';
 
 stubLayoutMeasurement();
 
@@ -34,6 +35,7 @@ afterEach(() => {
     el.remove();
   }
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 const saving = () => {
@@ -817,5 +819,332 @@ describe('toolbarGridNeighbor', () => {
     expect(toolbarGridNeighbor(rects, 0, 'up')).toBeNull();
     expect(toolbarGridNeighbor(rects, 4, 'down')).toBeNull();
     expect(toolbarGridNeighbor([], 0, 'down')).toBeNull();
+  });
+});
+
+// ── T2: gaps found against D7, D8, D9, D11 and D16 ───────────────────────────
+
+const tick = (ms = 40) => new Promise<void>((r) => setTimeout(r, ms));
+const savedLayout = (saveSettings: ReturnType<typeof vi.fn>, call = 0) =>
+  (saveSettings.mock.calls[call][0] as { toolbarLayout: { version: number; items: string[]; seen: string[] } | null }).toolbarLayout;
+
+describe('Done: what is saved (D7)', () => {
+  it('saves the whole serialized layout exactly once, and a second Escape saves nothing more', () => {
+    const { host, saveSettings } = saving();
+    const { toolbar } = mount(host);
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'undo');
+    press(' ');
+    press('ArrowRight');
+    press('Enter');
+    expect(saveSettings).not.toHaveBeenCalled(); // edits apply live, nothing is saved until Done
+    press('Escape');
+    expect(saveSettings).toHaveBeenCalledTimes(1);
+    const layout = savedLayout(saveSettings)!;
+    expect(layout.version).toBe(1);
+    expect(layout.items.slice(7, 10)).toEqual(['|', 'redo', 'undo']);
+    expect(layout.seen).toEqual(expect.arrayContaining([...TOOLBAR_ITEM_IDS]));
+    press('Escape');
+    expect(saveSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('moving an item and putting it back is no change: nothing saved, and a deferred layout applies', () => {
+    const { host, saveSettings } = saving();
+    const { toolbar, handle } = mount(host);
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'undo');
+    press(' ');
+    press('ArrowRight');
+    press('ArrowLeft');
+    press(' ');
+    handle.updateSettings({ toolbarLayout: custom });
+    press('Escape');
+    expect(saveSettings).not.toHaveBeenCalled();
+    expect(order(toolbar)).toEqual(custom.items);
+  });
+
+  it('saves null when keyboard edits end on the default layout', () => {
+    const baseline = order(mount().toolbar);
+    const withoutEmoji = { version: 1, items: DEFAULT_TOOLBAR_LAYOUT.items.filter((t) => t !== 'emoji'), seen: [...TOOLBAR_ITEM_IDS] };
+    const { host, saveSettings } = saving();
+    const { toolbar } = mount(host, { settings: { toolbarLayout: withoutEmoji } });
+    enterViaContextMenu(toolbar);
+    expect(order(toolbar)).not.toContain('emoji');
+    arrowTo(toolbar, 'insert');
+    press('ArrowDown');
+    expect(focused(toolbar)).toBe('tray:emoji');
+    press('Enter');
+    expect(order(toolbar)).toEqual(baseline);
+    press('Escape');
+    expect(saveSettings).toHaveBeenCalledTimes(1);
+    expect(saveSettings).toHaveBeenCalledWith({ toolbarLayout: null });
+  });
+});
+
+describe('Deferred layouts while editing (D8)', () => {
+  it('holds an incoming layout back: no re-render, the tray and working layout stay as they were', () => {
+    const { el, toolbar, handle } = mount();
+    enterViaContextMenu(toolbar);
+    const before = order(toolbar);
+    const tokens = trayTokens(el);
+    handle.updateSettings({ toolbarLayout: custom });
+    expect(order(toolbar)).toEqual(before);
+    expect(trayTokens(el)).toEqual(tokens);
+    expect(toolbar.classList.contains('toolbar-editing')).toBe(true);
+  });
+
+  it('applies a deferred null as the default layout after an unchanged Done', () => {
+    const baseline = order(mount().toolbar);
+    const { toolbar, handle } = mount(new NoopHost(), { settings: { toolbarLayout: custom } });
+    enterViaContextMenu(toolbar);
+    handle.updateSettings({ toolbarLayout: null });
+    expect(order(toolbar)).toEqual(custom.items);
+    press('Escape');
+    expect(order(toolbar)).toEqual(baseline);
+  });
+
+  it('applies the last of several deferred layouts', () => {
+    const second = { ...custom, items: ['textFormat', 'redo', 'settings', 'more'] };
+    const { toolbar, handle } = mount();
+    enterViaContextMenu(toolbar);
+    handle.updateSettings({ toolbarLayout: custom });
+    handle.updateSettings({ toolbarLayout: second });
+    press('Escape');
+    expect(order(toolbar)).toEqual(second.items);
+  });
+
+  it('drops a deferred layout once the user has changed something, for good', () => {
+    const { host, saveSettings } = saving();
+    const { toolbar, handle } = mount(host);
+    enterViaContextMenu(toolbar);
+    handle.updateSettings({ toolbarLayout: custom });
+    arrowTo(toolbar, 'undo');
+    press('Delete');
+    press('Escape');
+    const mine = order(toolbar);
+    expect(mine).not.toContain('undo');
+    expect(mine).not.toEqual(custom.items);
+    expect(saveSettings).toHaveBeenCalledTimes(1);
+    // A later, unchanged session must not bring the dropped layout back.
+    enterViaContextMenu(toolbar);
+    press('Escape');
+    expect(order(toolbar)).toEqual(mine);
+    expect(saveSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies updates immediately again once editing is over', () => {
+    const { toolbar, handle } = mount();
+    enterViaContextMenu(toolbar);
+    press('Escape');
+    handle.updateSettings({ toolbarLayout: custom });
+    expect(order(toolbar)).toEqual(custom.items);
+  });
+});
+
+describe('Overflow while editing (D9)', () => {
+  /** A narrow toolbar (some buttons overflow) with a captured ResizeObserver callback. */
+  function narrow(extra: Record<string, unknown> = {}) {
+    const width = { value: 120 };
+    fakeToolbarGeometry(() => width.value);
+    const callbacks: Array<() => void> = [];
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private cb: (entries: unknown[], observer: unknown) => void) {}
+      // Everything that observes the toolbar (the editor's overflow, the tray's positioning) is fired.
+      observe(target: Element) { if (target.classList.contains('mikedown-toolbar')) { callbacks.push(() => this.cb([], this)); } }
+      unobserve() {}
+      disconnect() {}
+    });
+    const m = mount(new NoopHost(), extra);
+    const overflowed = () => m.toolbar.querySelectorAll('.toolbar-overflowed').length;
+    const more = m.toolbar.querySelector<HTMLButtonElement>('button.toolbar-more')!;
+    return { ...m, width, resize: () => callbacks.forEach((fire) => fire()), overflowed, more };
+  }
+
+  const enterViaMore = (more: HTMLElement) => {
+    more.click();
+    Array.from(document.querySelectorAll<HTMLElement>('#toolbar-dropdown .tdd-item'))
+      .find((n) => n.textContent?.includes('Customize Toolbar'))!
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  };
+
+  it('clears every overflowed item on entry, ignores resizes while editing, and re-flows on Done', async () => {
+    const { el, toolbar, width, resize, overflowed, more } = narrow();
+    expect(overflowed()).toBeGreaterThan(0);
+    expect(more.hidden).toBe(false);
+
+    enterViaContextMenu(toolbar);
+    expect(overflowed()).toBe(0);
+    expect(more.hidden).toBe(false);
+
+    width.value = 60;
+    resize();
+    await tick();
+    expect(overflowed()).toBe(0);
+    expect(toolbar.classList.contains('toolbar-editing')).toBe(true);
+
+    trayButton(el, 'toolbar-tray-done').click();
+    expect(overflowed()).toBeGreaterThan(0);
+    expect(more.hidden).toBe(false);
+    expect(toolbar.firstElementChild!.classList.contains('toolbar-overflowed')).toBe(false);
+  });
+
+  it('a resize after Done is handled again', async () => {
+    const { toolbar, width, resize, overflowed } = narrow();
+    enterViaContextMenu(toolbar);
+    press('Escape');
+    expect(overflowed()).toBeGreaterThan(0);
+    width.value = 5000;
+    resize();
+    await tick();
+    expect(overflowed()).toBe(0);
+  });
+
+  it('Done from the More ⋯ entry puts focus back on More while it is still shown', () => {
+    const { toolbar, more } = narrow();
+    enterViaMore(more);
+    expect(toolbar.classList.contains('toolbar-editing')).toBe(true);
+    press('Escape');
+    expect(more.hidden).toBe(false);
+    expect(document.activeElement).toBe(more);
+  });
+
+  it('falls back to the first toolbar button when More is hidden again after Done', () => {
+    const { toolbar, more, width } = narrow();
+    enterViaMore(more);
+    width.value = 5000;
+    press('Escape');
+    expect(more.hidden).toBe(true);
+    expect(document.activeElement).toBe(toolbar.querySelector('button[data-action="textFormat"]'));
+  });
+});
+
+describe('keyboard: loose ends (D11)', () => {
+  it('Delete on a picked-up item drops it and sends it to the tray', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'undo');
+    press(' ');
+    press('ArrowRight');
+    press('Delete');
+    expect(toolbar.querySelector('.toolbar-item-grabbed')).toBeNull();
+    expect(order(toolbar)).not.toContain('undo');
+    expect(trayTokens(el)).toEqual(['undo', '|', '~']);
+    expect(spoken(el)).toBe('Removed Undo.');
+  });
+
+  it('adding while Settings was the last focused item lands before More', () => {
+    const { toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'settings');
+    press('ArrowDown');
+    press('Enter');
+    expect(order(toolbar).slice(-4)).toEqual(['themeToggle', 'settings', '|', 'more']);
+  });
+
+  it('Reset to Default moves focus to Done and announces it', () => {
+    const { el, toolbar } = mount(new NoopHost(), { settings: { toolbarLayout: custom } });
+    enterViaContextMenu(toolbar);
+    trayButton(el, 'toolbar-tray-reset').focus();
+    trayButton(el, 'toolbar-tray-reset').click();
+    expect(document.activeElement).toBe(trayButton(el, 'toolbar-tray-done'));
+    expect(spoken(el)).toBe('Toolbar reset to the default layout.');
+  });
+
+  it('a host setting that changes which items exist re-renders the edit mode without ending it', () => {
+    const { el, toolbar, handle } = mount();
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'undo');
+    press(' ');
+    handle.updateSettings({ headingNumbering: 'fromH2' } as never);
+    expect(order(toolbar)).toContain('headingNumbers');
+    expect(toolbar.classList.contains('toolbar-editing')).toBe(true);
+    expect(tray(el)).not.toBeNull();
+    press('Escape'); // the pick-up is cancelled first, edit mode stays
+    expect(toolbar.classList.contains('toolbar-editing')).toBe(true);
+  });
+});
+
+describe('two editors on one page (D16)', () => {
+  /** Two editors whose hosts share one store; a save is broadcast to both, as VS Code does. */
+  function pair(settings: Record<string, unknown> = {}) {
+    const handles: MikeDownEditorHandle[] = [];
+    const saves: unknown[] = [];
+    const hostOf = (): MikeDownHost => ({
+      onChange() {},
+      saveSettings: (patch: { toolbarLayout?: unknown }) => {
+        saves.push(patch.toolbarLayout);
+        handles.forEach((h) => h.updateSettings({ toolbarLayout: patch.toolbarLayout } as never));
+      },
+    });
+    const a = mount(hostOf(), { settings });
+    const b = mount(hostOf(), { settings });
+    handles.push(a.handle, b.handle);
+    const broadcast = (value: unknown) => handles.forEach((h) => h.updateSettings({ toolbarLayout: value } as never));
+    return { a, b, saves, broadcast };
+  }
+
+  it("keyboard edits in one leave the other's toolbar and tray alone until the host broadcasts Done", () => {
+    const { a, b, saves } = pair();
+    const untouched = order(b.toolbar);
+    enterViaContextMenu(a.toolbar);
+    arrowTo(a.toolbar, 'undo');
+    press(' ');
+    pressN('ArrowRight', 2);
+    press(' ');
+    expect(order(a.toolbar)).not.toEqual(untouched);
+    expect(order(b.toolbar)).toEqual(untouched);
+    expect(tray(b.el)).toBeNull();
+    expect(saves).toHaveLength(0);
+
+    press('Escape');
+    expect(saves).toHaveLength(1);
+    expect(order(b.toolbar)).toEqual(order(a.toolbar));
+    expect(order(b.toolbar)).not.toEqual(untouched);
+    expect(a.toolbar.classList.contains('toolbar-editing')).toBe(false);
+  });
+
+  it('a broadcast from elsewhere re-renders the idle editor at once and the editing one after Done', () => {
+    const { a, b, broadcast } = pair();
+    enterViaContextMenu(a.toolbar);
+    const mineBefore = order(a.toolbar);
+    broadcast(custom);
+    expect(order(b.toolbar)).toEqual(custom.items);
+    expect(order(a.toolbar)).toEqual(mineBefore);
+    press('Escape');
+    expect(order(a.toolbar)).toEqual(custom.items);
+  });
+
+  it("Escape pressed in the other editor does not end this one's edit mode", () => {
+    const { a, b } = pair();
+    enterViaContextMenu(a.toolbar);
+    const bButton = b.toolbar.querySelector<HTMLElement>('button[data-action="undo"]')!;
+    bButton.focus();
+    bButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(a.toolbar.classList.contains('toolbar-editing')).toBe(true);
+    expect(tray(a.el)).not.toBeNull();
+  });
+
+  it('both can be in edit mode at once, and Done in one leaves the other editing', () => {
+    const { a, b, saves } = pair();
+    enterViaContextMenu(a.toolbar);
+    enterViaContextMenu(b.toolbar);
+    expect(tray(a.el)).not.toBeNull();
+    expect(tray(b.el)).not.toBeNull();
+    trayButton(a.el, 'toolbar-tray-done').click();
+    expect(tray(a.el)).toBeNull();
+    expect(tray(b.el)).not.toBeNull();
+    expect(b.toolbar.classList.contains('toolbar-editing')).toBe(true);
+    trayButton(b.el, 'toolbar-tray-done').click();
+    expect(saves).toHaveLength(0);
+  });
+
+  it('destroying the editor that is customizing leaves the other one working', () => {
+    const { a, b } = pair();
+    enterViaContextMenu(a.toolbar);
+    a.handle.destroy();
+    b.handle.updateSettings({ toolbarLayout: custom } as never);
+    expect(order(b.toolbar)).toEqual(custom.items);
+    enterViaContextMenu(b.toolbar);
+    expect(tray(b.el)).not.toBeNull();
   });
 });

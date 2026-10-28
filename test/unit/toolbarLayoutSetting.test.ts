@@ -35,6 +35,18 @@ describe('getSettings().toolbarLayout', () => {
     mockConfig({ toolbarLayout: layout });
     expect(getSettings().toolbarLayout).toEqual(layout);
   });
+
+  it('keeps an explicit null as null (the default layout)', () => {
+    mockConfig({ toolbarLayout: null });
+    expect(getSettings().toolbarLayout).toBeNull();
+  });
+
+  it('turns a hand-edited non-object value into null instead of passing it on', () => {
+    for (const bad of ['compact', 7, true, ['textFormat', 'more']]) {
+      mockConfig({ toolbarLayout: bad });
+      expect(getSettings().toolbarLayout).toBeNull();
+    }
+  });
 });
 
 describe('readToolbarLayout', () => {
