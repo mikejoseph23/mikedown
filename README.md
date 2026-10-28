@@ -65,7 +65,7 @@ Found a bug or have an idea? [Open an issue](https://github.com/mikejoseph23/mik
 
 ### In-Editor Sidebar
 
-Click the layout-pane icon in the corner of any MikeDown tab to reveal a per-document sidebar containing **Properties** (from YAML frontmatter), **Outline** (every heading, with the active section following your cursor and scroll position — click any heading to jump there), **Backlinks**, and a metadata footer with modified time, word count, and reading time. Pin the sidebar open with the pin button in its header (filled blue pill = pinned), flip it left↔right with the arrow next to the pin, and drag the inner edge to resize. Defaults are controlled via `mikedown.sidebar.visibility` / `.position` / `.width`, with a "Apply to open documents" button in the Settings modal to push new defaults onto every open tab.
+Click the layout-pane icon in the corner of any MikeDown tab to reveal a per-document sidebar containing **Properties** (from YAML frontmatter), **Outline** (every heading, with the active section following your cursor and scroll position — click any heading to jump there, or fold its subheadings with the chevron; Fold all / Unfold all sit in the Outline header), **Backlinks**, and a metadata footer with modified time, word count, and reading time. Pin the sidebar open with the pin button in its header (filled blue pill = pinned), flip it left↔right with the arrow next to the pin, and drag the inner edge to resize. Defaults are controlled via `mikedown.sidebar.visibility` / `.position` / `.width`, with a "Apply to open documents" button in the Settings modal to push new defaults onto every open tab.
 
 ### True WYSIWYG Editing
 
@@ -130,6 +130,10 @@ GitHub-style alert blocks render as styled, icon-prefixed panels. Five kinds are
 ```
 
 Insert one from the toolbar **Lists & Blocks** dropdown (or right-click → **Callout**) — the five kinds are exposed as a row of color-coded badges so you don't have to remember the marker syntax. Toggling between kinds is one click, and saving writes the canonical `> [!KIND]` GFM source back to disk.
+
+### Table of Contents
+
+Type `/toc`, choose **Insert > Table of Contents**, or type `[toc]` on its own line and press Enter. MikeDown adds a linked list of your headings between `<!-- toc -->` markers, so it renders on GitHub too, and keeps it up to date as you add, rename or remove headings. Prefer a `[toc]` placeholder line instead? Set `mikedown.tocStyle` to `placeholder`.
 
 ### Link Navigation and Autocomplete
 
