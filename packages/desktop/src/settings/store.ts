@@ -47,6 +47,7 @@ export const CORE_KEY_DEFAULTS: Partial<MikeDownSettings> = {
   tagsEnabled: true,
   linkClickBehavior: 'openNewTab',
   headingNumbering: 'off',
+  tocStyle: 'list',
   slashCommandsEnabled: true,
   slashCommandsDateFormat: 'iso',
   slashCommandsTimeZone: 'local',

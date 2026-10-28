@@ -5,8 +5,10 @@ import { Plugin } from '@tiptap/pm/state';
 import {
   TOC_START_RE,
   TOC_END_RE,
+  TOC_PLACEHOLDER_RE,
   DEFAULT_TOC_OPEN,
   DEFAULT_TOC_CLOSE,
+  DEFAULT_TOC_PLACEHOLDER,
   buildTocEntries,
   isTocBody,
   parseTocBody,
@@ -14,6 +16,7 @@ import {
   tocBodyMatches,
   type TocEntry,
   type TocHeading,
+  type TocStyle,
 } from './toc';
 
 // Table of contents block: `<!-- toc -->` … `<!-- tocstop -->` around a nested
@@ -24,6 +27,11 @@ import {
 // Serializing writes those strings back untouched, so a file round-trips byte
 // for byte; `syncTableOfContents` rewrites the body only when the headings no
 // longer match what it lists.
+//
+// A placeholder TOC (`[toc]` / `[[toc]]` alone on a line) is the same node with
+// `placeholder` holding that line as written. It serializes as the line alone;
+// its `body` is generated for display only, so keeping it current never
+// changes the saved markdown.
 //
 // Same HTML bridge as footnote.ts / math.ts: a markdown-it block rule emits
 // `<nav data-mikedown-toc>` which parseHTML picks up. The parser runs with
@@ -67,9 +75,38 @@ function configureMarkdownIt(md: any): void {
     { alt: ['paragraph', 'reference', 'blockquote', 'list'] },
   );
 
+  // `[toc]` / `[[toc]]` as a whole top-level paragraph. No `alt`, so it can't
+  // interrupt a paragraph: inside running text it stays text. Running before
+  // the paragraph rule also keeps `[[toc]]` from becoming a wikilink.
+  md.block.ruler.before('table', 'mikedown_toc_placeholder', (state: any, startLine: number, endLine: number, silent: boolean) => {
+    if (state.level > 0 || state.sCount[startLine] - state.blkIndent >= 4) {return false;}
+    const line = state.src.slice(state.bMarks[startLine] + state.tShift[startLine], state.eMarks[startLine]).trim();
+    if (!TOC_PLACEHOLDER_RE.test(line)) {return false;}
+    const next = startLine + 1;
+    if (next < endLine && !state.isEmpty(next)) {
+      // A following line continues the paragraph unless it starts a block
+      // of its own (heading, list, fence...), the same test markdown-it's
+      // paragraph rule makes.
+      const terminators = state.md.block.ruler.getRules('paragraph');
+      const oldParent = state.parentType;
+      state.parentType = 'paragraph';
+      const ends = terminators.some((rule: any) => rule(state, next, endLine, true));
+      state.parentType = oldParent;
+      if (!ends) {return false;}
+    }
+    if (silent) {return true;}
+    const tok = state.push('mikedown_toc', 'nav', 0);
+    tok.block = true;
+    tok.map = [startLine, next];
+    tok.meta = { placeholder: line };
+    state.line = next;
+    return true;
+  });
+
   const attr = (s: string): string => (md.utils.escapeHtml(s) as string).replace(/\n/g, '&#10;');
   md.renderer.rules.mikedown_toc = (tokens: any[], idx: number) => {
-    const { open, close, body } = tokens[idx].meta;
+    const { open, close, body, placeholder } = tokens[idx].meta;
+    if (placeholder) {return `<nav ${TOC_ATTR} data-placeholder="${attr(placeholder)}" data-body=""></nav>\n`;}
     return `<nav ${TOC_ATTR} data-open="${attr(open)}" data-close="${attr(close)}" data-body="${attr(body)}"></nav>\n`;
   };
 }
@@ -90,6 +127,12 @@ export function tocEntriesFor(doc: PmNode): TocEntry[] {
 }
 
 /**
+ * Set on a TOC transaction that only regenerated placeholder TOCs: the saved
+ * markdown is unchanged, so the editor doesn't report it as an edit.
+ */
+export const TOC_DISPLAY_ONLY_META = 'mikedownTocDisplayOnly';
+
+/**
  * A transaction that brings every TOC in the document up to date with its
  * headings, or null when they already match (nothing to dispatch, so an
  * unchanged document is never dirtied).
@@ -104,11 +147,32 @@ export function syncTableOfContents(state: EditorState): Transaction | null {
   const entries = tocEntriesFor(state.doc);
   const body = renderTocBody(entries);
   const tr = state.tr;
+  let displayOnly = true;
   for (const { pos, node } of tocs as Array<{ pos: number; node: PmNode }>) {
-    if (tocBodyMatches(node.attrs.body as string, entries)) {continue;}
+    // A just-parsed placeholder has no body yet (''): always fill it.
+    const unfilled = node.attrs.placeholder && !node.attrs.body;
+    if (!unfilled && tocBodyMatches(node.attrs.body as string, entries)) {continue;}
+    if (!node.attrs.placeholder) {displayOnly = false;}
     tr.setNodeMarkup(pos, undefined, { ...node.attrs, body });
   }
-  return tr.docChanged ? tr : null;
+  if (!tr.docChanged) {return null;}
+  if (displayOnly) {tr.setMeta(TOC_DISPLAY_ONLY_META, true);}
+  return tr;
+}
+
+/**
+ * Fill placeholder TOCs that were just parsed (body still ''), in the same
+ * dispatch, so a freshly loaded or pasted `[toc]` never shows up empty.
+ * Only top-level blocks are checked, where the parser puts placeholders.
+ */
+function fillNewPlaceholders(state: EditorState): Transaction | null {
+  let unfilled = false;
+  state.doc.forEach((node) => {
+    if (node.type.name === 'tableOfContents' && node.attrs.placeholder && !node.attrs.body) {unfilled = true;}
+  });
+  if (!unfilled) {return null;}
+  const tr = syncTableOfContents(state);
+  return tr?.getMeta(TOC_DISPLAY_ONLY_META) ? tr.setMeta('addToHistory', false) : null;
 }
 
 /** Nested `<ul>` for `entries`; a jump of more than one level gets empty items. */
@@ -148,8 +212,12 @@ export interface TableOfContentsOptions {
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     tableOfContents: {
-      /** Insert a table of contents for the current headings at the cursor. */
-      insertTableOfContents: () => ReturnType;
+      /**
+       * Insert a table of contents for the current headings at the cursor,
+       * in `style` (default: the extension's `style` storage, set from
+       * `mikedown.tocStyle`).
+       */
+      insertTableOfContents: (style?: TocStyle) => ReturnType;
     };
   }
 }
@@ -175,6 +243,13 @@ export const TableOfContents = Node.create<TableOfContentsOptions>({
       open: fromData('open', DEFAULT_TOC_OPEN),
       close: fromData('close', DEFAULT_TOC_CLOSE),
       body: fromData('body', '\n'),
+      // The placeholder line as written (`[toc]`, `[[TOC]]`...), '' for a list TOC.
+      placeholder: {
+        default: '',
+        parseHTML: (el: HTMLElement) => el.getAttribute('data-placeholder') ?? '',
+        renderHTML: (attrs: Record<string, unknown>) =>
+          attrs.placeholder ? { 'data-placeholder': attrs.placeholder } : {},
+      },
     };
   },
 
@@ -200,9 +275,12 @@ export const TableOfContents = Node.create<TableOfContentsOptions>({
   addCommands() {
     return {
       insertTableOfContents:
-        () =>
-        ({ state, commands }) =>
-          commands.insertContent({ type: this.name, attrs: { body: renderTocBody(tocEntriesFor(state.doc)) } }),
+        (style) =>
+        ({ state, commands }) => {
+          const body = renderTocBody(tocEntriesFor(state.doc));
+          const placeholder = (style ?? this.storage.style) === 'placeholder' ? DEFAULT_TOC_PLACEHOLDER : '';
+          return commands.insertContent({ type: this.name, attrs: { body, placeholder } });
+        },
     };
   },
 
@@ -214,6 +292,8 @@ export const TableOfContents = Node.create<TableOfContentsOptions>({
     };
     return [
       new Plugin({
+        appendTransaction: (trs, _old, state) =>
+          trs.some((tr) => tr.docChanged) ? fillNewPlaceholders(state) : null,
         props: {
           // A plain click on an entry jumps to its heading. (Cmd/Ctrl+click
           // goes through the editor's normal link handling first.)
@@ -238,9 +318,12 @@ export const TableOfContents = Node.create<TableOfContentsOptions>({
 
   addStorage() {
     return {
+      /** What `insertTableOfContents()` creates; the editor sets it from `mikedown.tocStyle`. */
+      style: 'list' as TocStyle,
       markdown: {
         serialize(state: any, node: PmNode) {
-          state.text(`${node.attrs.open}\n${node.attrs.body}${node.attrs.close}`, false);
+          const { open, body, close, placeholder } = node.attrs;
+          state.text(placeholder || `${open}\n${body}${close}`, false);
           state.closeBlock(node);
         },
         parse: {

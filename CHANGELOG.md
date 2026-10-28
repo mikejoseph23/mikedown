@@ -6,7 +6,7 @@ All notable changes to MikeDown Editor are documented here.
 
 ### Added
 
-- Table of contents: Insert > Table of Contents (or `/toc`) adds a linked list of the document's headings, saved between `<!-- toc -->` and `<!-- tocstop -->` markers so it works on GitHub too. It updates itself as headings are added, renamed or removed, and TOCs written by markdown-toc and similar tools are picked up as is.
+- Table of contents: Insert > Table of Contents (or `/toc`) adds a linked list of the document's headings, saved between `<!-- toc -->` and `<!-- tocstop -->` markers so it works on GitHub too. It updates itself as headings are added, renamed or removed, and TOCs written by markdown-toc and similar tools are picked up as is. A TOC left stale by edits in another editor is refreshed when the file opens. A `[toc]` or `[[toc]]` line also shows as a live TOC and is saved as that line; the new `mikedown.tocStyle` setting picks which style Insert creates.
 - Sidebar outline headings fold: click the chevron beside a heading to hide or show its subheadings, or use Fold all / Unfold all in the Outline header. Folds survive edits; a heading inside a folded section highlights its nearest visible parent.
 
 ### Fixed

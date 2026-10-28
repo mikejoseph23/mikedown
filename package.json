@@ -474,6 +474,19 @@
           "default": "off",
           "description": "Adds a toolbar button that writes section numbers into heading text (## 1.2 Setup) and keeps them updated as you edit. The numbers are part of the markdown, so they show in every renderer."
         },
+        "mikedown.tocStyle": {
+          "type": "string",
+          "enum": [
+            "list",
+            "placeholder"
+          ],
+          "enumDescriptions": [
+            "A nested list of heading links between <!-- toc --> and <!-- tocstop --> markers, so the table of contents works on GitHub and in any renderer",
+            "A single [toc] line, which GitLab, Typora and many static site tools expand when they render; MikeDown shows it as a live table of contents"
+          ],
+          "default": "list",
+          "description": "What Insert > Table of Contents (and /toc) adds. Existing tables of contents keep their style, and both styles are always recognized when a file is opened."
+        },
         "mikedown.normalizationStyle.boldMarker": {
           "type": "string",
           "enum": [

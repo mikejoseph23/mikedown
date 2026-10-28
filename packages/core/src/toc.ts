@@ -11,6 +11,10 @@
 //
 //   <!-- tocstop -->
 //
+// The other style is a placeholder line, `[toc]` (or `[[toc]]`), that GitLab,
+// Typora and many static site tools expand on render. MikeDown shows it as the
+// same live TOC but saves only the line.
+//
 // No DOM, ProseMirror or `vscode` imports: `toc-node.ts` feeds this the
 // document's headings and writes the result back in a transaction.
 
@@ -23,6 +27,17 @@ export const TOC_END_RE = /^<!--\s*(?:tocstop|\/toc|END doctoc\b[^>]*?)\s*-->$/i
 
 export const DEFAULT_TOC_OPEN = '<!-- toc -->';
 export const DEFAULT_TOC_CLOSE = '<!-- tocstop -->';
+
+/** A placeholder TOC line: `[toc]` or `[[toc]]`, any case. */
+export const TOC_PLACEHOLDER_RE = /^(?:\[toc\]|\[\[toc\]\])$/i;
+export const DEFAULT_TOC_PLACEHOLDER = '[toc]';
+
+/** `mikedown.tocStyle`: what Insert > Table of Contents creates. */
+export type TocStyle = 'list' | 'placeholder';
+
+export function parseTocStyle(value: unknown): TocStyle {
+  return value === 'placeholder' ? 'placeholder' : 'list';
+}
 
 /** A bullet or ordered list item line, the only content a TOC region may hold. */
 const LIST_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+/;
