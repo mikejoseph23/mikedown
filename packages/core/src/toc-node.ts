@@ -1,7 +1,8 @@
 import { Node } from '@tiptap/core';
 import type { Node as PmNode, DOMOutputSpec } from '@tiptap/pm/model';
 import type { EditorState, Transaction } from '@tiptap/pm/state';
-import { Plugin } from '@tiptap/pm/state';
+import { Plugin, TextSelection } from '@tiptap/pm/state';
+import { closeHistory } from '@tiptap/pm/history';
 import {
   TOC_START_RE,
   TOC_END_RE,
@@ -175,6 +176,23 @@ function fillNewPlaceholders(state: EditorState): Transaction | null {
   return tr?.getMeta(TOC_DISPLAY_ONLY_META) ? tr.setMeta('addToHistory', false) : null;
 }
 
+/**
+ * Whether the cursor sits at the end of a top-level paragraph whose whole text
+ * is `[toc]` / `[[toc]]` (plain text: no inline code, links or other nodes).
+ * Shared with the wikilink input rule, which leaves this one case alone.
+ */
+export function isTocPlaceholderParagraph(state: EditorState, extraText = ''): boolean {
+  const { selection } = state;
+  const { $from } = selection;
+  if (!selection.empty || $from.depth !== 1 || $from.parent.type.name !== 'paragraph') {return false;}
+  if ($from.parentOffset !== $from.parent.content.size) {return false;}
+  let plain = true;
+  $from.parent.forEach((child) => {
+    if (!child.isText || child.marks.length) {plain = false;}
+  });
+  return plain && TOC_PLACEHOLDER_RE.test(($from.parent.textContent + extraText).trim());
+}
+
 /** Nested `<ul>` for `entries`; a jump of more than one level gets empty items. */
 function listSpec(entries: TocEntry[]): DOMOutputSpec {
   const root: any[] = ['ul', {}];
@@ -281,6 +299,28 @@ export const TableOfContents = Node.create<TableOfContentsOptions>({
           const placeholder = (style ?? this.storage.style) === 'placeholder' ? DEFAULT_TOC_PLACEHOLDER : '';
           return commands.insertContent({ type: this.name, attrs: { body, placeholder } });
         },
+    };
+  },
+
+  // Typing `[toc]` (or `[[toc]]`) alone on a line and pressing Enter swaps the
+  // paragraph for a TOC in the current style. Its own history step, so one
+  // Cmd+Z brings the typed text back.
+  addKeyboardShortcuts() {
+    return {
+      Enter: ({ editor }) => {
+        const { state } = editor;
+        if (!editor.isEditable || !isTocPlaceholderParagraph(state)) {return false;}
+        const { $from } = state.selection;
+        const start = $from.before();
+        const end = $from.after();
+        const body = renderTocBody(tocEntriesFor(state.doc));
+        const placeholder = this.storage.style === 'placeholder' ? DEFAULT_TOC_PLACEHOLDER : '';
+        const toc = this.type.create({ body, placeholder });
+        const tr = closeHistory(state.tr).replaceWith(start, end, [toc, state.schema.nodes.paragraph.create()]);
+        tr.setSelection(TextSelection.create(tr.doc, start + toc.nodeSize + 1)).scrollIntoView();
+        editor.view.dispatch(tr);
+        return true;
+      },
     };
   },
 

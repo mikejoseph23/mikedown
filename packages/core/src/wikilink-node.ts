@@ -1,4 +1,5 @@
 import { Node, mergeAttributes, InputRule } from '@tiptap/core';
+import { isTocPlaceholderParagraph } from './toc-node';
 
 
 // Obsidian-style `[[wikilink]]` support.
@@ -125,6 +126,9 @@ export const Wikilink = Node.create({
         handler: ({ state, range, match }) => {
           const target = (match[1] || '').trim();
           if (!target) {return;}
+          // `[[toc]]` alone on a line stays text: Enter turns it into a table
+          // of contents (toc-node.ts).
+          if (isTocPlaceholderParagraph(state, match[0].slice(range.to - range.from))) {return null;}
           const attrs = {
             target,
             anchor: match[2] != null ? match[2].trim() : null,
