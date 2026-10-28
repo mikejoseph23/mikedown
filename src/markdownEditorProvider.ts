@@ -318,6 +318,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     ) {
       updateSetting(config, 'headingNumbering', settings.headingNumbering);
     }
+    if (settings.tocStyle === 'list' || settings.tocStyle === 'placeholder') {
+      updateSetting(config, 'tocStyle', settings.tocStyle);
+    }
     if (settings.normalizationStyle && typeof settings.normalizationStyle === 'object') {
       const ns = settings.normalizationStyle;
       if (ns.boldMarker === '**' || ns.boldMarker === '__') {
@@ -1424,6 +1427,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       markdownNormalization: settings.markdownNormalization,
       headingRenameUpdateLinks: settings.headingRename.updateLinks,
       headingNumbering: settings.headingNumbering,
+      tocStyle: settings.tocStyle,
       normalizationStyle: settings.normalizationStyle,
       imagePaste: settings.imagePaste,
       imageResize: settings.imageResize,

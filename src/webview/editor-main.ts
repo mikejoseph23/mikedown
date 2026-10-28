@@ -256,6 +256,7 @@ function settingsBroadcastToCore(msg: any): Partial<MikeDownSettings> {
   copy('linkClickBehavior', msg.linkClickBehavior || undefined);
   copy('headingRenameUpdateLinks', msg.headingRenameUpdateLinks || undefined);
   copy('headingNumbering', msg.headingNumbering);
+  copy('tocStyle', msg.tocStyle);
   copy('slashCommandsEnabled', msg.slashCommandsEnabled);
   copy('slashCommandsDateFormat', msg.slashCommandsDateFormat);
   copy('slashCommandsTimeZone', msg.slashCommandsTimeZone);

@@ -45,7 +45,8 @@ import { initSlashCommandActions } from './slashcommands-actions';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import { MathInline, MathBlock, setMathRenderingEnabled } from './math';
 import { FootnoteRef, FootnoteDef } from './footnote';
-import { TableOfContents, syncTableOfContents } from './toc-node';
+import { TableOfContents, syncTableOfContents, TOC_DISPLAY_ONLY_META } from './toc-node';
+import { parseTocStyle, type TocStyle } from './toc';
 import { createOutlineSidebar, type OutlineSidebar } from './outlineSidebar';
 import {
   parseFrontmatter,
@@ -1328,6 +1329,15 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         + (host.openTag ? ' Cmd/Ctrl+click a tag to find other documents that use it.' : ''),
       currentTagsEnabled,
     );
+    const tocStyleField = makeSelectRow<TocStyle>(
+      'Table of contents style',
+      'What Insert > Table of Contents (and /toc) adds. Existing tables of contents keep their style.',
+      currentTocStyle,
+      [
+        { value: 'list', label: 'Linked list (shows on GitHub)' },
+        { value: 'placeholder', label: '[toc] placeholder line' },
+      ],
+    );
     const linkClickField = makeSelectRow<'navigateCurrentTab' | 'openNewTab' | 'showContextMenu'>(
       'Link click behavior',
       'What happens when you Cmd/Ctrl+click a link in the editor.',
@@ -1691,6 +1701,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         renderMermaidDiagrams: mermaidField.input.checked,
         renderMath: mathField.input.checked,
         tagsEnabled: tagsField.input.checked,
+        tocStyle: tocStyleField.select.value as TocStyle,
         linkClickBehavior: linkClickField.select.value as MikeDownSettings['linkClickBehavior'],
         headingNumbering: headingNumberingField.select.value as MikeDownSettings['headingNumbering'],
         slashCommandsEnabled: slashCommandsEnabledField.input.checked,
@@ -1713,6 +1724,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       currentRenderMath = mathField.input.checked;
       setMathRenderingEnabled(features.math && currentRenderMath);
       currentTagsEnabled = tagsField.input.checked;
+      applyTocStyle(parseTocStyle(tocStyleField.select.value));
       currentLinkClickBehavior = linkClickField.select.value as typeof currentLinkClickBehavior;
       applyHeadingNumbering(parseHeadingNumbering(headingNumberingField.select.value));
       currentSlashCommandsEnabled = slashCommandsEnabledField.input.checked;
@@ -1780,6 +1792,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         ...(features.mermaid ? [{ key: 'renderMermaidDiagrams', row: mermaidField.row }] : []),
         ...(features.math ? [{ key: 'renderMath', row: mathField.row }] : []),
         { key: 'tagsEnabled', row: tagsField.row },
+        { key: 'tocStyle', row: tocStyleField.row },
         { key: 'markdownNormalization', row: normalizationField.row },
         { key: 'normalizationStyle.boldMarker', row: boldMarkerField.row },
         { key: 'normalizationStyle.italicMarker', row: italicMarkerField.row },
@@ -1935,6 +1948,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // initEditor, which shares its rename tracking; these are the entry points
   // the toolbar button uses before and after that wiring runs.
   let toggleHeadingNumbers: () => void = () => {};
+  // Table of contents (#11): wired next to the TOC sync in initEditor.
+  let refreshTocAfterLoad: () => void = () => {};
+  let currentTocStyle: TocStyle = 'list';
   let documentIsNumbered: () => boolean = () => false;
 
   /**
@@ -1946,6 +1962,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const btn = shell.toolbar?.querySelector<HTMLButtonElement>('button[data-action="headingNumbers"]');
     if (btn) {btn.style.display = mode === 'off' ? 'none' : '';}
     if (shell.toolbar) {layoutToolbarOverflow(shell.toolbar);}
+  }
+
+  /** Apply `mikedown.tocStyle`: what inserting a table of contents creates. */
+  function applyTocStyle(style: TocStyle): void {
+    currentTocStyle = style;
+    (editor.storage as unknown as Record<string, { style: TocStyle }>).tableOfContents.style = style;
   }
 
   // Sidebar footer link (the VS Code support appeal). Null hides it.
@@ -3498,10 +3520,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       },
     },
 
-    onUpdate: ({ editor: updatedEditor }) => {
+    onUpdate: ({ editor: updatedEditor, transaction }) => {
       // Guard: do not send an edit event while we are loading content from the
       // extension host — that would incorrectly mark the document as modified.
-      if (isLoading) {
+      // Same for a placeholder TOC refresh: the saved markdown didn't change.
+      if (isLoading || transaction.getMeta(TOC_DISPLAY_ONLY_META)) {
         return;
       }
 
@@ -4460,23 +4483,42 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   // ── Table of contents sync (#11) ──────────────────────────────────────────
   // A TOC block follows the headings: after edits settle, rewrite any TOC
-  // whose list no longer matches. Same rules as renumbering: never on load
-  // (that would dirty a file nobody touched), and outside the undo history,
-  // so Cmd+Z undoes the user's edit and the TOC follows it again.
+  // whose list no longer matches. Outside the undo history, so Cmd+Z undoes
+  // the user's edit and the TOC follows it again. A load also runs it once
+  // (refreshTocAfterLoad), for headings edited in another editor: an
+  // up-to-date TOC is a no-op, a stale one is rewritten and dirties the file.
   const TOC_SYNC_META = 'mikedownTocSync';
   let tocSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  let tocLoadRefreshPending = false;
+
+  const runTocSync = (): void => {
+    tocSyncTimer = null;
+    if (isLoading || sourceMode || editor.isDestroyed || !editor.isEditable) {return;}
+    const fromLoad = tocLoadRefreshPending;
+    tocLoadRefreshPending = false;
+    const tr = syncTableOfContents(editor.state);
+    if (!tr) {return;}
+    // The refresh isn't undoable, so after an on-open rewrite the loaded undo
+    // depth no longer means "matches the file" (that would send the stale
+    // original back as pristine).
+    if (fromLoad && !tr.getMeta(TOC_DISPLAY_ONLY_META)) {lastSavedUndoDepth = null;}
+    tr.setMeta(TOC_SYNC_META, true).setMeta('addToHistory', false);
+    editor.view.dispatch(tr);
+  };
+
+  const scheduleTocSync = (delay: number): void => {
+    if (tocSyncTimer) {clearTimeout(tocSyncTimer);}
+    tocSyncTimer = setTimeout(runTocSync, delay);
+  };
+
+  refreshTocAfterLoad = () => {
+    tocLoadRefreshPending = true;
+    scheduleTocSync(0);
+  };
 
   editor.on('update', ({ transaction }) => {
     if (isLoading || transaction.getMeta(TOC_SYNC_META)) {return;}
-    if (tocSyncTimer) {clearTimeout(tocSyncTimer);}
-    tocSyncTimer = setTimeout(() => {
-      tocSyncTimer = null;
-      if (isLoading || sourceMode || editor.isDestroyed) {return;}
-      const tr = syncTableOfContents(editor.state);
-      if (!tr) {return;}
-      tr.setMeta(TOC_SYNC_META, true).setMeta('addToHistory', false);
-      editor.view.dispatch(tr);
-    }, 300);
+    scheduleTocSync(300);
   });
 
   documentIsNumbered = () => isNumbered(topLevelHeadings().map((h) => h.info), currentHeadingNumbering);
@@ -5345,6 +5387,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // text, so there depth 0 stays the pristine mark.
       lastSavedUndoDepth = wasPristine ? 0 : null;
       isLoading = false;
+      refreshTocAfterLoad();
     } else if (!sourceUnchanged) {
       // Source was edited but parses to what the rich view already holds —
       // the baseline tracks the current markdown verbatim (trailing-newline etc).
@@ -5656,6 +5699,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     isDirty = false;
     isLoading = false;
+    // Headings may have changed in another editor since the TOC was written.
+    refreshTocAfterLoad();
 
     // Mirror external updates into CodeMirror when source mode is active.
     if (sourceMode && cmView) {
@@ -5896,6 +5941,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     }
     if (typeof patch.headingNumbering === 'string') {
       applyHeadingNumbering(parseHeadingNumbering(patch.headingNumbering));
+    }
+    if (typeof patch.tocStyle === 'string') {
+      applyTocStyle(parseTocStyle(patch.tocStyle));
     }
     if (
       typeof patch.slashCommandsEnabled === 'boolean'

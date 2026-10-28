@@ -22,6 +22,7 @@ export interface MikeDownSettings {
     updateLinks: 'ask' | 'always' | 'never';
   };
   headingNumbering: HeadingNumbering;
+  tocStyle: 'list' | 'placeholder';
   normalizationStyle: {
     boldMarker: '**' | '__';
     italicMarker: '*' | '_';
@@ -110,6 +111,7 @@ export function getSettings(): MikeDownSettings {
       updateLinks: config.get<'ask' | 'always' | 'never'>('headingRename.updateLinks', 'ask'),
     },
     headingNumbering: parseHeadingNumbering(config.get<string>('headingNumbering', 'off')),
+    tocStyle: config.get<string>('tocStyle', 'list') === 'placeholder' ? 'placeholder' : 'list',
     normalizationStyle: {
       boldMarker: config.get<'**' | '__'>('normalizationStyle.boldMarker', '**'),
       italicMarker: config.get<'*' | '_'>('normalizationStyle.italicMarker', '*'),

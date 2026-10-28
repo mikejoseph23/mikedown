@@ -47,6 +47,8 @@ export interface MikeDownSettings {
   renderMermaidDiagrams: boolean;
   renderMath: boolean;
   tagsEnabled: boolean;
+  /** What Insert > Table of Contents creates (existing TOCs keep their style). */
+  tocStyle: 'list' | 'placeholder';
   markdownNormalization: 'preserve' | 'normalize';
   normalizationStyle: NormalizationStyle;
   // Spelling

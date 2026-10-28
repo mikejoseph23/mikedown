@@ -277,6 +277,7 @@ MikeDown exposes the following settings under `mikedown.*` in VS Code's Settings
 | `mikedown.slashCommands.timeZone` | `local` | Time zone used by the `/date` and `/datetime` slash commands: `local`, `UTC`, or an IANA zone name |
 | `mikedown.renderMath` | `true` | Render `\$inline\$` and `\$\$display\$\$` LaTeX with KaTeX. When off, formulas show as raw source |
 | `mikedown.headingNumbering` | `off` | Show a toolbar button that writes section numbers (1, 1.1, 1.1.1) into heading text and keeps them updated: `off`, `fromH1`, or `fromH2` (Heading 1 is the title) |
+| `mikedown.tocStyle` | `list` | What Insert > Table of Contents adds: `list` (heading links between `<!-- toc -->` markers, works on GitHub) or `placeholder` (a single `[toc]` line). Both styles are always recognized |
 | `mikedown.tags.enabled` | `true` | Highlight `#tags`, offer tag autocomplete, and show the sidebar Tags section |
 | `mikedown.renderMermaidDiagrams` | `true` | Render ```` ```mermaid ```` code blocks as diagrams |
 | `mikedown.support.showSidebarLink` | `true` | Show a small Support MikeDown link in the in-editor sidebar footer |

@@ -22,14 +22,14 @@ afterEach(async () => {
   }
 });
 
-function mount(markdown: string) {
+function mount(markdown: string, settings?: Parameters<typeof createMikeDownEditor>[1]['settings']) {
   const changes: string[] = [];
   const host: MikeDownHost = Object.assign(new NoopHost(), {
-    onChange: (md: string) => { changes.push(md); },
+    onChange: (md: string, meta: { pristine: boolean }) => { changes.push(meta.pristine ? `pristine:${md}` : md); },
   });
   const el = document.createElement('div');
   document.body.appendChild(el);
-  const handle = createMikeDownEditor(el, { host, initialMarkdown: markdown });
+  const handle = createMikeDownEditor(el, { host, initialMarkdown: markdown, settings });
   mounted.push({ handle, el });
   return { handle, changes };
 }
@@ -121,12 +121,27 @@ describe('sync', () => {
     expect(syncTableOfContents(handle.tiptap.state)).toBeNull();
   });
 
-  it('does not touch a stale TOC on load', async () => {
-    const stale = '<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n# New\n';
-    const { handle, changes } = mount(stale);
+  it('leaves an up-to-date TOC alone on open: no edit, nothing dirty', async () => {
+    const { handle, changes } = mount(DOC);
     await new Promise(r => setTimeout(r, 400));
     expect(changes).toEqual([]);
-    expect(handle.tiptap.storage.markdown.getMarkdown() + '\n').toBe(stale);
+    expect(handle.tiptap.storage.markdown.getMarkdown() + '\n').toBe(DOC);
+  });
+
+  it('refreshes a stale TOC once on open, outside the undo history', async () => {
+    const stale = '<!-- toc -->\n\n- [Old](#old)\n\n<!-- tocstop -->\n\n# New\n';
+    const fresh = '<!-- toc -->\n\n- [New](#new)\n\n<!-- tocstop -->\n\n# New\n';
+    const { handle, changes } = mount(stale);
+    await new Promise(r => setTimeout(r, 400));
+    expect(changes).toEqual([fresh]); // not sent as pristine, so the file is dirtied
+    expect(handle.tiptap.can().undo()).toBe(false);
+  });
+
+  it('refreshes after the host replaces the content', async () => {
+    const { handle, changes } = mount(DOC);
+    handle.setMarkdown('<!-- toc -->\n- [A](#a)\n<!-- tocstop -->\n\n# B\n', { pristine: true });
+    await new Promise(r => setTimeout(r, 400));
+    expect(changes).toEqual(['<!-- toc -->\n\n- [B](#b)\n\n<!-- tocstop -->\n\n# B\n']);
   });
 
   it('follows a heading edit, outside the undo history', async () => {
@@ -151,5 +166,71 @@ describe('sync', () => {
     const { handle } = mount('Intro\n\n# A\n\n## B\n');
     handle.tiptap.chain().focus('start').insertTableOfContents().run();
     expect(handle.tiptap.storage.markdown.getMarkdown()).toContain('<!-- toc -->\n\n- [A](#a)\n  - [B](#b)\n\n<!-- tocstop -->');
+  });
+});
+
+describe('placeholder style', () => {
+  const tocNodes = (handle: MikeDownEditorHandle) =>
+    JSON.stringify(handle.tiptap.getJSON()).match(/"tableOfContents"/g)?.length ?? 0;
+
+  for (const line of ['[toc]', '[[toc]]', '[TOC]', '[[TOC]]']) {
+    it(`parses ${line} as a live TOC and saves it unchanged`, async () => {
+      const md = `${line}\n\n# A\n\n## B\n`;
+      const { handle, changes } = mount(md);
+      expect(tocNodes(handle)).toBe(1);
+      const links = [...handle.tiptap.view.dom.querySelectorAll('nav.mikedown-toc a')].map(a => a.getAttribute('href'));
+      expect(links).toEqual(['#a', '#b']);
+      expect(handle.tiptap.storage.markdown.getMarkdown() + '\n').toBe(md);
+      await new Promise(r => setTimeout(r, 400));
+      expect(changes).toEqual([]);
+    });
+  }
+
+  it('keeps [[toc]] out of the wikilink node', () => {
+    const { handle } = mount('[[toc]]\n\n# A\n');
+    expect(JSON.stringify(handle.tiptap.getJSON())).not.toContain('wikilink');
+  });
+
+  it('leaves [toc] inside a sentence, or with text on the next line, as text', () => {
+    const md = 'See [toc] here.\n\n[toc]\nmore text\n\n# A\n';
+    const { handle } = mount(md);
+    expect(tocNodes(handle)).toBe(0);
+    expect(handle.tiptap.getText()).toContain('See [toc] here.');
+    expect(handle.tiptap.getText()).toContain('[toc]\nmore text');
+  });
+
+  it('follows heading edits without reporting an edit of its own', async () => {
+    const { handle, changes } = mount('[toc]\n\n# A\n');
+    const { tiptap } = handle;
+    let end = -1;
+    tiptap.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'heading') {end = pos + node.nodeSize - 1;}
+    });
+    tiptap.chain().focus().setTextSelection(end).insertContent(' guide').run();
+    await new Promise(r => setTimeout(r, 400));
+    const links = [...tiptap.view.dom.querySelectorAll('nav.mikedown-toc a')].map(a => a.getAttribute('href'));
+    expect(links).toEqual(['#a-guide']);
+    expect(changes).toEqual(['[toc]\n\n# A guide\n']);
+  });
+});
+
+describe('insert respects mikedown.tocStyle', () => {
+  it('inserts a marker list by default', () => {
+    const { handle } = mount('Intro\n\n# A\n');
+    handle.tiptap.chain().focus('start').insertTableOfContents().run();
+    expect(handle.tiptap.storage.markdown.getMarkdown()).toContain('<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->');
+  });
+
+  it('inserts [toc] with the placeholder style, set at start or later', () => {
+    const { handle } = mount('Intro\n\n# A\n', { tocStyle: 'placeholder' });
+    handle.tiptap.chain().focus('start').insertTableOfContents().run();
+    expect(handle.tiptap.storage.markdown.getMarkdown()).toMatch(/^\[toc\]\n\nIntro|^Intro\n\n\[toc\]/);
+    expect(handle.tiptap.view.dom.querySelector('nav.mikedown-toc a')?.getAttribute('href')).toBe('#a');
+
+    const other = mount('Intro\n\n# A\n').handle;
+    other.updateSettings({ tocStyle: 'placeholder' });
+    other.tiptap.chain().focus('start').insertTableOfContents().run();
+    expect(other.tiptap.storage.markdown.getMarkdown()).toContain('[toc]');
+    expect(other.tiptap.storage.markdown.getMarkdown()).not.toContain('<!-- toc -->');
   });
 });
