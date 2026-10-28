@@ -2,6 +2,12 @@
 
 All notable changes to MikeDown Editor are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Customize Toolbar: rearrange the toolbar's buttons. Open Settings (the gear), go to the Toolbar tab and choose Customize Toolbar, or right-click the toolbar. Drag buttons into place, or use the keyboard: arrow keys move between buttons, Space picks one up and drops it, Delete removes it to the tray, and Escape or Done finishes. Separators and flexible spacers come from the tray, so you can group buttons or push the rest to the right. Changes save when you click Done. Reset to Default in the same tab brings back the standard toolbar. The layout is stored in the new `mikedown.toolbarLayout` setting, and Settings Sync carries it to your other machines.
+
 ## [2.16.0] - 2026-10-28
 
 ### Added

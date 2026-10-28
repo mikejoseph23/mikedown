@@ -524,7 +524,7 @@
             }
           },
           "additionalProperties": true,
-          "markdownDescription": "Your customized toolbar layout. Don't edit this by hand: in the editor, open Settings > Toolbar > Customize Toolbar (or right-click the toolbar) to drag buttons around, and use Reset to Default to clear it. Stored in your user settings, so Settings Sync carries it to your other machines."
+          "markdownDescription": "Your customized toolbar layout. To change it, open MikeDown's Settings (the gear in the editor toolbar), go to the Toolbar tab and choose Customize Toolbar, or right-click the toolbar. Changes save when you click Done. Reset to Default clears this value. Stored in your user settings, so Settings Sync carries it to your other machines."
         },
         "mikedown.tocStyle": {
           "type": "string",

@@ -279,6 +279,45 @@ createMikeDownEditor(el, { host: { onChange, ai, saveSettings /* persists the ai
       </div>
     </section>
 
+    <section class="section" id="toolbar-layout" aria-labelledby="toolbar-layout-title">
+      <div class="site-container">
+        <div class="section-head">
+          <h2 class="section-title" id="toolbar-layout-title">Toolbar layout</h2>
+          <p class="section-lede">Users can rearrange the toolbar in the editor (Settings, then Toolbar, then Customize Toolbar). The result is one JSON value, <code>settings.toolbarLayout</code>, shaped <code>{ version, items, seen }</code>. Preset it, store what <code>saveSettings</code> gives you, and the layout comes back on the next load.</p>
+        </div>
+
+        <figure class="code">
+          <figcaption class="code__bar"><span class="code__file">toolbar-layout.ts</span><button class="copy-button" type="button" data-copy-target="#code-toolbar-layout" aria-label="Copy the toolbar layout example">Copy</button></figcaption>
+          <pre class="code__body" tabindex="0" aria-label="the toolbar layout example"><code id="code-toolbar-layout" data-highlight="ts">import { createMikeDownEditor, type ToolbarLayout } from '@mikedown/core';
+
+const saved: ToolbarLayout | null = loadLayout(); // your storage, or null
+
+createMikeDownEditor(el, {
+  host: {
+    onChange,
+    // null means Reset to Default: clear what you stored
+    saveSettings: (patch) => {
+      if ('toolbarLayout' in patch) storeLayout(patch.toolbarLayout ?? null);
+    },
+  },
+  settings: { toolbarLayout: saved },
+  features: { customizeToolbar: false }, // optional: hide Customize and Reset, keep the layout
+});</code></pre>
+        </figure>
+
+        <div class="notes">
+          <div class="note">
+            <h3>Your storage decides</h3>
+            <p>The editor sends each change to <code>host.saveSettings</code> and keeps no copy of its own. If you do not store what it receives, the layout lasts for the session only.</p>
+          </div>
+          <div class="note">
+            <h3>Preset and lock</h3>
+            <p>Pass a layout in <code>settings.toolbarLayout</code> to set it. Set <code>features.customizeToolbar</code> to <code>false</code> to hide the Customize and Reset controls; a layout you pass still applies. Use <code>DEFAULT_TOOLBAR_LAYOUT</code>, <code>TOOLBAR_ITEM_IDS</code>, <code>ToolbarItemId</code> and <code>normalizeToolbarLayout</code> from <code>@mikedown/core</code> to build or check a layout.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="band" aria-labelledby="more-title">
       <div class="site-container band__inner">
         <div>

@@ -91,6 +91,12 @@ A condensed toolbar with dropdown menus for formatting, insert, and export actio
 
 ![Toolbar dropdown menu](assets/screenshots/toolbar-dropdown.jpg)
 
+### Customizable Toolbar
+
+Rearrange the toolbar to suit how you write. Open Settings (the gear), go to the Toolbar tab and choose Customize Toolbar, or right-click the toolbar. Drag buttons into place, or use the keyboard, then add separators and flexible spacers from the tray and click Done to save. Reset to Default in the same tab brings back the standard toolbar. The layout syncs with VS Code Settings Sync.
+
+<!-- TODO: add a screenshot of the toolbar in edit mode (Mike) -->
+
 ### Slash Commands *(new in 2.11)*
 
 Type `/` at the start of a line (or after whitespace) to open a menu of insertable blocks — headings (`/h1`–`/h6`), lists, callouts, tables, code blocks, links, images (via a file picker), properties, and date/time. An empty document shows a "Type / for commands…" placeholder, and the menu itself includes a "Turn off slash commands" option.
