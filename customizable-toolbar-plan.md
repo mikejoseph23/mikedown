@@ -27,8 +27,8 @@
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [M1 — Toolbar registry refactor (no visible change)](#m1--toolbar-registry-refactor-no-visible-change) | Sonnet | ⬜ Not Started | — | Waits for the AI toolbar button commit on `develop` |
-| [M2 — Layout model: schema, normalize, migrate, apply](#m2--layout-model-schema-normalize-migrate-apply) | Sonnet | ⬜ Not Started | — | Pure module, parallel with M1 |
+| [M1 — Toolbar registry refactor (no visible change)](#m1--toolbar-registry-refactor-no-visible-change) | Sonnet | 🔄 In Progress | — | Precondition met (`fdbde35`); worktree |
+| [M2 — Layout model: schema, normalize, migrate, apply](#m2--layout-model-schema-normalize-migrate-apply) | Sonnet | ✅ Done | 6 | `152d838`; AC3 corrected to D15 (`settings` appended) |
 | [T1 — Registry and layout model tests](#t1--registry-and-layout-model-tests) | Sonnet | ⬜ Not Started | — | unit + jsdom |
 | [M3 — Settings plumbing: core, VS Code, Desktop, wrappers, Toolbar section](#m3--settings-plumbing-core-vs-code-desktop-wrappers-toolbar-section) | Sonnet | ⬜ Not Started | — | Settings rule: three places |
 | [M4 — Edit mode UI: handles, palette tray, drag, spacers](#m4--edit-mode-ui-handles-palette-tray-drag-spacers) | Opus | ⬜ Not Started | — | Front-end design work |
@@ -170,20 +170,20 @@ Decisions Mike made (D1 to D4) and the ones made while writing this plan (D5 onw
 
 **Tasks**
 
-- [ ] Create `packages/core/src/toolbar-layout.ts` (pure, no DOM): `ToolbarLayout` type, `TOOLBAR_LAYOUT_VERSION = 1`, `DEFAULT_TOOLBAR_LAYOUT` built from `DEFAULT_TOOLBAR_ITEMS` (import ids/default order from `toolbar-registry.ts` types only, or from a tiny `toolbar-ids.ts` both import, so M1 and M2 don't conflict; agree on `toolbar-ids.ts` holding `TOOLBAR_ITEM_IDS`, `DEFAULT_TOOLBAR_ITEMS` and the pinned/removable table).
-- [ ] `parseToolbarLayout(value: unknown): ToolbarLayout | null` accepts an object or a JSON string; returns `null` for anything not shaped like a layout.
-- [ ] `normalizeToolbarLayout(layout, knownIds): ToolbarLayout` applies D15 (drop non-strings, dedupe keeping first, `textFormat` first, `settings` present, `more` last, collapse and trim `|`/`~`, preserve unknown ids in place).
-- [ ] `reconcileSeen(layout, defaultItems, knownIds): ToolbarLayout` inserts ids missing from `seen` next to their default-layout neighbor (previous present default neighbor, else next, else before `more`) and adds them to `seen`; never re-adds an id already in `seen`.
-- [ ] `resolveToolbarLayout(value: unknown, knownIds, defaultItems): { tokens: ToolbarLayoutToken[]; layout: ToolbarLayout; isDefault: boolean }` is the single entry the editor calls; `isDefault` when value was empty/invalid.
-- [ ] `layoutWithMove / layoutWithRemove / layoutWithInsert` pure helpers for the edit mode (M4/M5) so reorder logic is testable without DOM, including "pinned items cannot move or be removed" and "a separator/spacer can be inserted anywhere between pinned ends".
-- [ ] `serializeToolbarLayout(layout): ToolbarLayout` returns the value to save (unknown ids kept, `version` set, `seen` sorted by default order for stable diffs).
-- [ ] JSDoc on every export with the D15 rules. Commit.
+- [x] Create `packages/core/src/toolbar-layout.ts` (pure, no DOM): `ToolbarLayout` type, `TOOLBAR_LAYOUT_VERSION = 1`, `DEFAULT_TOOLBAR_LAYOUT` built from `DEFAULT_TOOLBAR_ITEMS` (import ids/default order from `toolbar-registry.ts` types only, or from a tiny `toolbar-ids.ts` both import, so M1 and M2 don't conflict; agree on `toolbar-ids.ts` holding `TOOLBAR_ITEM_IDS`, `DEFAULT_TOOLBAR_ITEMS` and the pinned/removable table).
+- [x] `parseToolbarLayout(value: unknown): ToolbarLayout | null` accepts an object or a JSON string; returns `null` for anything not shaped like a layout.
+- [x] `normalizeToolbarLayout(layout, knownIds): ToolbarLayout` applies D15 (drop non-strings, dedupe keeping first, `textFormat` first, `settings` present, `more` last, collapse and trim `|`/`~`, preserve unknown ids in place).
+- [x] `reconcileSeen(layout, defaultItems, knownIds): ToolbarLayout` inserts ids missing from `seen` next to their default-layout neighbor (previous present default neighbor, else next, else before `more`) and adds them to `seen`; never re-adds an id already in `seen`.
+- [x] `resolveToolbarLayout(value: unknown, knownIds, defaultItems): { tokens: ToolbarLayoutToken[]; layout: ToolbarLayout; isDefault: boolean }` is the single entry the editor calls; `isDefault` when value was empty/invalid.
+- [x] `layoutWithMove / layoutWithRemove / layoutWithInsert` pure helpers for the edit mode (M4/M5) so reorder logic is testable without DOM, including "pinned items cannot move or be removed" and "a separator/spacer can be inserted anywhere between pinned ends".
+- [x] `serializeToolbarLayout(layout): ToolbarLayout` returns the value to save (unknown ids kept, `version` set, `seen` sorted by default order for stable diffs).
+- [x] JSDoc on every export with the D15 rules. Commit.
 
 **Acceptance criteria**
 
 - `resolveToolbarLayout(undefined)` yields `DEFAULT_TOOLBAR_ITEMS` and `isDefault: true`.
 - The round trip default → serialize → resolve is identity.
-- A layout with `version: 7` and ids `["textFormat","hologram","more"]` resolves to `["textFormat","more"]` and serializes back with `hologram` in place.
+- A layout with `version: 7` and ids `["textFormat","hologram","more"]` resolves to `["textFormat","settings","more"]` (D15 appends `settings`) and serializes back as `["textFormat","hologram","settings","more"]`.
 
 [Return to Top](#customizable-toolbar-firefox-style--planning-document)
 
@@ -400,5 +400,9 @@ When a milestone leaves items skipped or partial, the orchestrator writes a gap-
 ## Progress Log / Notes
 
 **2026-10-28 18:45** - Plan written from Mike's backlog item and decisions D1 to D4; D5 to D20 made while planning (entry points incl. toolbar right-click since More ⋯ hides at wide widths; pointer-event drag because Tauri `dragDropEnabled` blocks HTML5 DnD on Windows; save on Done; edit mode wraps and suspends overflow; spacer overflows like a separator; `showToolbarButton` wins; `features.customizeToolbar`; Desktop global-only; test strategy). Grounded in `editor.ts#buildCondensedToolbar`, `toolbar-overflow.ts`, `types.ts`, `src/settings.ts`, Desktop `settings/schema.ts` and the existing `toolbar-overflow.test.ts` harness. M1 is gated on the parallel AI toolbar button commit.
+
+**2026-10-28 18:47** - Orchestrator started. M1 precondition met (`fdbde35`). Dispatched M1 and M2 (Sonnet, worktrees). Coordination: M2 owns `toolbar-ids.ts`; M1 inlines the ids in `toolbar-registry.ts` and T1 switches it to import from `toolbar-ids.ts`. Canonical ids are the 16 in the schema's `seen`; `fontPicker` stays out until OQ3 is answered.
+
+**2026-10-28 18:55** - M2 done (`152d838`, fast-forwarded onto `develop`, 6 min). `toolbar-ids.ts` (ids, default items, pinned/removable traits) and `toolbar-layout.ts` (parse, normalize, reconcileSeen, resolve, serialize, index-based move/remove/insert helpers that return the same object when refused) plus 28 tests. Corrected M2 acceptance criterion 3 to match D15 (missing `settings` is appended). Worktree was created off stale `98b5e8c`; the worker reset it to `39863d6`. The one `test:unit` failure in the worktree (`standaloneHtml.test.ts`, missing `packages/core/dist/styles.css`) is a fresh-worktree artifact.
 
 [Return to Top](#customizable-toolbar-firefox-style--planning-document)
