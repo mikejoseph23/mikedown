@@ -16,7 +16,9 @@
  * - Duplicate ids keep the first occurrence.
  * - `textFormat` is moved or inserted first; `more` is moved or appended last;
  *   `settings` is appended before `more` if missing.
- * - Runs of `'|'`/`'~'` collapse to one (the first of the run is kept).
+ * - Runs of the same divider collapse to one (`| |` is one separator, `~ ~` one
+ *   spacer). A separator next to a spacer is kept: a line followed by flexible
+ *   space is a deliberate arrangement, and the renderer shows both.
  * - Leading and trailing `'|'`/`'~'` are trimmed (of the list as written; a
  *   separator right after `textFormat` or right before `more` is a deliberate
  *   placement and is kept).
@@ -71,11 +73,11 @@ function isSpacing(token: string): boolean {
   return token === TOOLBAR_SEPARATOR || token === TOOLBAR_SPACER;
 }
 
-/** Keep the first of each run of separators/spacers, then trim both ends. */
+/** Collapse runs of the same separator/spacer to one, then trim both ends. */
 function collapseSpacing(items: readonly string[]): string[] {
   const out: string[] = [];
   for (const token of items) {
-    if (isSpacing(token) && out.length > 0 && isSpacing(out[out.length - 1])) { continue; }
+    if (isSpacing(token) && out.length > 0 && out[out.length - 1] === token) { continue; }
     out.push(token);
   }
   while (out.length > 0 && isSpacing(out[0])) { out.shift(); }
@@ -127,8 +129,8 @@ export function parseToolbarLayout(value: unknown): ToolbarLayout | null {
 /**
  * Apply the D15 rules so the toolbar always renders something sane: drop
  * non-strings, dedupe ids keeping the first, put `textFormat` first and `more`
- * last, append `settings` before `more` if missing, collapse runs of `'|'`/`'~'`
- * to one and trim leading/trailing ones. Unknown ids (not in `knownIds`) stay in
+ * last, append `settings` before `more` if missing, collapse runs of the same
+ * divider (`'|'` or `'~'`) to one and trim leading/trailing ones. Unknown ids (not in `knownIds`) stay in
  * place. `version` is preserved (a version above 1 is read the same way). `seen`
  * is reduced to unique strings. Idempotent.
  *

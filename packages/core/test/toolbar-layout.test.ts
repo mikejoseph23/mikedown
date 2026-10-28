@@ -94,8 +94,8 @@ describe('normalizeToolbarLayout', () => {
     expect(norm(['textFormat', 'link', 'more'])).toEqual(['textFormat', 'link', 'settings', 'more']);
   });
 
-  it('collapses runs of separators and spacers to one', () => {
-    expect(norm(['textFormat', 'link', '|', '|', '~', 'undo', '~', '~', 'settings', 'more'])).toEqual(['textFormat', 'link', '|', 'undo', '~', 'settings', 'more']);
+  it('collapses runs of the same divider to one', () => {
+    expect(norm(['textFormat', 'link', '|', '|', '~', 'undo', '~', '~', 'settings', 'more'])).toEqual(['textFormat', 'link', '|', '~', 'undo', '~', 'settings', 'more']);
   });
 
   it('trims leading and trailing separators and spacers', () => {
@@ -270,9 +270,10 @@ describe('D15 rules, one case each', () => {
     expect(norm(['textFormat', 'link', '~', '~', '~', 'undo', 'settings', 'more']).items).toEqual(['textFormat', 'link', '~', 'undo', 'settings', 'more']);
   });
 
-  it('collapses a mixed separator and spacer run to its first entry', () => {
-    expect(norm(['textFormat', 'link', '|', '~', 'undo', 'settings', 'more']).items).toEqual(['textFormat', 'link', '|', 'undo', 'settings', 'more']);
-    expect(norm(['textFormat', 'link', '~', '|', 'undo', 'settings', 'more']).items).toEqual(['textFormat', 'link', '~', 'undo', 'settings', 'more']);
+  it('keeps a separator next to a spacer (the renderer shows both)', () => {
+    expect(norm(['textFormat', 'link', '|', '~', 'undo', 'settings', 'more']).items).toEqual(['textFormat', 'link', '|', '~', 'undo', 'settings', 'more']);
+    expect(norm(['textFormat', 'link', '~', '|', 'undo', 'settings', 'more']).items).toEqual(['textFormat', 'link', '~', '|', 'undo', 'settings', 'more']);
+    expect(norm(['textFormat', 'link', '|', '~', '~', '|', '|', 'undo', 'settings', 'more']).items).toEqual(['textFormat', 'link', '|', '~', '|', 'undo', 'settings', 'more']);
   });
 
   it('trims leading dividers', () => {
