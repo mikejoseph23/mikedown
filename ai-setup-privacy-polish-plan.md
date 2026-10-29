@@ -23,7 +23,7 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [M1 Find running local servers, one-click local setup](#m1-find-running-local-servers-one-click-local-setup) | Opus | 🔄 In Progress | — | New host method on VS Code and Desktop, cards and first-run panel |
+| [M1 Find running local servers, one-click local setup](#m1-find-running-local-servers-one-click-local-setup) | Opus | ✅ Done | 14 | `7d9ea11`; one-click saves the engine quietly first, then one patch |
 | [M1b Setup wizard: recommend a path, cloud by default](#m1b-setup-wizard-recommend-a-path-cloud-by-default) | Opus | ⬜ Not Started | — | Running engine → hardware → cloud; subscription vs API key; `vscode.lm` as a new engine kind |
 | [M2 Cloud setup in one place](#m2-cloud-setup-in-one-place) | Opus | ⬜ Not Started | — | Allow cloud on the Engines page, key-first flow, env/file keys |
 | [T1 Setup tests](#t1-setup-tests) | Sonnet | ⬜ Not Started | — | Unit, host, cargo |
@@ -124,7 +124,7 @@ Listed here, not fixed (scope guard). Each has a home in a milestone.
 
 - [ ] B1 `src/ai/engineService.ts#status`: `keySource` leaves out `env`, so `ai-engine-form.ts#buildKey` (lines 456 to 503) says "Stored in the system's secure storage" for a key read from `apiKeyEnv`. → M2.
 - [ ] B2 `ai-settings-model.ts#autoFetchDecision`: a cloud engine with a key available from env or file never auto-fetches on open; only a typed key triggers it. → M2.
-- [ ] B3 `editor.ts#turnOnAiAndSetUp` persists `ai.enabled: true` before the Engines page opens; Cancel leaves AI on with no route. → M1.
+- [x] B3 `editor.ts#turnOnAiAndSetUp` persists `ai.enabled: true` before the Engines page opens; Cancel leaves AI on with no route. → M1.
 - [ ] B4 Consent is not voided when an engine's `baseUrl` or `kind` changes (`engineService.ts#settingsChanged` prunes consent only for removed engines; Desktop never prunes). → M4.
 - [ ] B5 Desktop: `ai.consent.<id>` keys of deleted engines stay in every folder's `.mikedown/settings.json`. → M4.
 - [ ] B6 `engineService.ts#requestCloudConsent` returns `false` when `allowCloud` is off (no error), while Desktop rejects with `cloudBlocked`; the webview shows "Not allowed in this workspace" on VS Code for what is really "Cloud engines are off". Reachable only when the webview's settings copy is stale. → M4.
@@ -185,27 +185,27 @@ Fixes F1, F2, F3, F11 and B3. Answers OQ6 with its recommendation unless Mike sa
 
 Core (pure, `packages/core/src/ai/`):
 
-- [ ] Add `AiLocalServerProbe = { presetId: string; baseUrl: string; ok: boolean; models?: number; latencyMs?: number }` to `types.ts`, and an optional host method `detectLocalServers?(candidates: { presetId: string; baseUrl: string }[], signal: AbortSignal): Promise<AiLocalServerProbe[]>` on `MikeDownAiHost`. Candidates come from `AI_ENGINE_PRESETS` where `family === 'local'` and `id !== 'custom'`. Document it next to `listEngines` in `types.ts`.
-- [ ] `presets.ts`: add `detectPath` per local preset where it differs from `/models` (LM Studio `/api/v0/models`, Ollama `/api/tags`), so the probe counts models without auth where possible. oMLX needs its key: the host resolves `apiKeyFile` for the preset the same way `secrets.ts#fileKey` does, so "oMLX running, 2 models" works out of the box.
-- [ ] `ai-settings-model.ts`: pure `rankLocalCandidates(probes, existingEngines)` returning the cards order: running servers first (most models first), then not running, and marking presets that already have an engine at that address as `alreadyAdded`.
+- [x] Add `AiLocalServerProbe = { presetId: string; baseUrl: string; ok: boolean; models?: number; latencyMs?: number }` to `types.ts`, and an optional host method `detectLocalServers?(candidates: { presetId: string; baseUrl: string }[], signal: AbortSignal): Promise<AiLocalServerProbe[]>` on `MikeDownAiHost`. Candidates come from `AI_ENGINE_PRESETS` where `family === 'local'` and `id !== 'custom'`. Document it next to `listEngines` in `types.ts`.
+- [x] `presets.ts`: add `detectPath` per local preset where it differs from `/models` (LM Studio `/api/v0/models`, Ollama `/api/tags`), so the probe counts models without auth where possible. oMLX needs its key: the host resolves `apiKeyFile` for the preset the same way `secrets.ts#fileKey` does, so "oMLX running, 2 models" works out of the box.
+- [x] `ai-settings-model.ts`: pure `rankLocalCandidates(probes, existingEngines)` returning the cards order: running servers first (most models first), then not running, and marking presets that already have an engine at that address as `alreadyAdded`.
 
 VS Code host (`src/ai/`):
 
-- [ ] `engineService.ts#detectLocalServers`: parallel GET with a 1.5 s cap each (`AUTO_PROBE_TIMEOUT_MS` style), results never cached longer than the page is open, one log line ("Detect local servers: LM Studio ok (3 models), Ollama no answer…"). Never runs unless the webview asks.
-- [ ] `webviewBridge.ts`: `aiDetectLocalServers { requestId, candidates }` → `aiEngineProbes { requestId, probes }`; add to `AI_WEBVIEW_MESSAGE_TYPES` and the protocol comment. `src/webview/editor-main.ts` host adapter gains `detectLocalServers`.
+- [x] `engineService.ts#detectLocalServers`: parallel GET with a 1.5 s cap each (`AUTO_PROBE_TIMEOUT_MS` style), results never cached longer than the page is open, one log line ("Detect local servers: LM Studio ok (3 models), Ollama no answer…"). Never runs unless the webview asks.
+- [x] `webviewBridge.ts`: `aiDetectLocalServers { requestId, candidates }` → `aiEngineProbes { requestId, probes }`; add to `AI_WEBVIEW_MESSAGE_TYPES` and the protocol comment. `src/webview/editor-main.ts` host adapter gains `detectLocalServers`.
 
 Desktop host:
 
-- [ ] `commands/ai.rs`: `ai_detect_local_servers(candidates)` with the same cap, resolving the oMLX key file through `secrets::resolve_key_with_file`; `aiApi.ts` and `aiHost.ts` expose it. Register the command in the capabilities file.
+- [x] `commands/ai.rs`: `ai_detect_local_servers(candidates)` with the same cap, resolving the oMLX key file through `secrets::resolve_key_with_file`; `aiApi.ts` and `aiHost.ts` expose it. Register the command in the capabilities file.
 
 UI (`packages/core/src/`):
 
-- [ ] Quick-start cards (`ai-engines-page.ts#buildPresetCards`): when the host has `detectLocalServers`, probe on open (and on a small "Look again" link), and give each local card a state: **Running · 3 models** (green dot, the card becomes the primary action), **Not running** (quiet), **Added** (links to the existing engine). Cards keep working without the probe (tier 2 hosts without the method, and tier 1).
-- [ ] First-run panel (`ai-toolbar.ts#showAiFirstRunPanel`): accept an optional `detect()` promise; while it runs show "Looking for local AI servers…" (no spinner larger than the text); when one is found, the primary button becomes **Use LM Studio** (adds the engine from the preset, fetches models, picks the first chat model as the default route, turns AI on, closes) and "Set up another way…" opens the Engines page as today. When none is found, the panel says "No local AI server found. Install LM Studio or Ollama, or use a cloud API key." and the primary button stays "Set up". Add one line of verbs under the title: "Rewrite, translate, explain, summarize, suggest titles and tags." Keep the Experimental badge and the disclaimer.
-- [ ] B3: `editor.ts#turnOnAiAndSetUp` no longer saves `ai.enabled` first. The Engines page gets a `turnOnWhenDone?: boolean` option; its Done includes `'ai.enabled': true` in the patch when the result has a usable default route, and the page title line says "AI turns on when you choose Done". Back/Cancel leaves AI off. The one-click path in the panel saves engines, routing and `enabled` in one `saveSettings` patch.
-- [ ] Tier-1 first-run copy (F11): "Turn on" instead of "Turn on and set up" when `aiHostTier(ai) === 1`.
-- [ ] Add the new strings to the existing a11y announcements (`announce`) and keep Tab order: card, card…, "Look again".
-- [ ] Update the module comments in `ai-toolbar.ts` and `ai-engines-page.ts`.
+- [x] Quick-start cards (`ai-engines-page.ts#buildPresetCards`): when the host has `detectLocalServers`, probe on open (and on a small "Look again" link), and give each local card a state: **Running · 3 models** (green dot, the card becomes the primary action), **Not running** (quiet), **Added** (links to the existing engine). Cards keep working without the probe (tier 2 hosts without the method, and tier 1).
+- [x] First-run panel (`ai-toolbar.ts#showAiFirstRunPanel`): accept an optional `detect()` promise; while it runs show "Looking for local AI servers…" (no spinner larger than the text); when one is found, the primary button becomes **Use LM Studio** (adds the engine from the preset, fetches models, picks the first chat model as the default route, turns AI on, closes) and "Set up another way…" opens the Engines page as today. When none is found, the panel says "No local AI server found. Install LM Studio or Ollama, or use a cloud API key." and the primary button stays "Set up". Add one line of verbs under the title: "Rewrite, translate, explain, summarize, suggest titles and tags." Keep the Experimental badge and the disclaimer.
+- [x] B3: `editor.ts#turnOnAiAndSetUp` no longer saves `ai.enabled` first. The Engines page gets a `turnOnWhenDone?: boolean` option; its Done includes `'ai.enabled': true` in the patch when the result has a usable default route, and the page title line says "AI turns on when you choose Done". Back/Cancel leaves AI off. The one-click path in the panel saves engines, routing and `enabled` in one `saveSettings` patch.
+- [x] Tier-1 first-run copy (F11): "Turn on" instead of "Turn on and set up" when `aiHostTier(ai) === 1`.
+- [x] Add the new strings to the existing a11y announcements (`announce`) and keep Tab order: card, card…, "Look again".
+- [x] Update the module comments in `ai-toolbar.ts` and `ai-engines-page.ts`.
 
 Worker notes: edits `editor.ts` (the turn-on path only). Run `npm run lint`, `npm run test:unit`, `npm run test:packages` before committing; add tests in T1, but keep existing tests green here (`test/unit/ai-toolbar*.test.ts`, `packages/core/test/ai-engines-page*.test.ts`).
 
@@ -527,6 +527,8 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 ---
 
 ## Progress Log / Notes
+
+**2026-10-29 06:46** - M1 done (`7d9ea11`, 14 min). Detection on both hosts (1.5 s cap, only on the panel and cards), Running / Not running / Added cards with Look again, one-click "Use LM Studio", B3 and F11 fixed. Lint clean, test:unit 2839, test:packages 83, Desktop vitest 569, cargo 233. Notes: one-click saves the engine quietly before fetching models (hosts need it), then one patch with engines, routing and `ai.enabled`; the oMLX key is sent only to oMLX's own address after a 401; oMLX and vLLM share `:8000` (a keyless vLLM shows Running on both cards). Follow-up for M6: CLAUDE.md says the protocol comment is in `packages/core/src/editor-main.ts`, it's `src/webview/editor-main.ts`. New tests are T1's.
 
 **2026-10-29 06:50** - Added T4: Mike's fresh-user onboarding walk (clean slate, OpenAI, Anthropic, DeepSeek keys, then local) after T3 and all automated tests, before the AI release.
 
