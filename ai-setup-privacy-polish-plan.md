@@ -440,7 +440,7 @@ Worker notes: this is the milestone that edits `editor.ts` the most (`openAiTool
 
 Automated first:
 
-- [ ] `npm run lint`, `npm run test:unit`, `npm run test:edge`, `npm run test:packages`, `cargo test` in `packages/desktop/src-tauri`, all green at the final `develop` sha (record it).
+- [x] `npm run lint`, `npm run test:unit`, `npm run test:edge`, `npm run test:packages`, `cargo test` in `packages/desktop/src-tauri`, all green at the final `develop` sha (record it).
 
 VS Code (`npm run dev` in `/Users/michaeljosephwork/git/mikedown`, dev host on `test/workspace`; open `test/workspace/sample.md` with MikeDown; the output channel is **MikeDown AI**). Start LM Studio with a chat model loaded and oMLX; keep Ollama off.
 
@@ -527,6 +527,8 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 ---
 
 ## Progress Log / Notes
+
+**2026-10-29 09:25** - T3 automated pass at `4f59b38`: lint 0 errors (1233 warnings, none new in kind), test:unit 3123 (+2 todo), test:edge 22, test:packages 83, Desktop typecheck clean + vitest 572, cargo 235+26+7, test:integration 47 passing. Hands-on part paused for Mike's walk-through and sign-off; T4 (clean-slate onboarding) after it. Open calls for Mike: Add detail tooltip wording; a Settings UI field for `mikedown.ai.localNetworks`; the worker choices logged under M1b-b and M5.
 
 **2026-10-29 09:15** - M6 done (`a52f662`, 7 min). README AI section (wizard, Copilot, cloud path, Privacy, consents, Tasks), Desktop README (app-data consent, Dock env note), `website/vscode/index.html`, CHANGELOG Unreleased (Setup / Privacy / Polish), pointer lines in the two older AI plans, contributor docs, three-place audit. Fixes found: `package.json`'s engine schema didn't allow `vscode-lm` and required `baseUrl` (a Copilot engine would have warned in `settings.json`); fixed. CLAUDE.md: path fixes (protocol comment in `src/webview/editor-main.ts`, `showSettingsModal` in `packages/core/src/editor.ts`) plus the new modules and host methods in its AI bullets (kept). Open for Mike: `mikedown.ai.localNetworks` has no field in the Settings UI (three-place rule gap, pre-existing); M6 corrected its description only.
 
