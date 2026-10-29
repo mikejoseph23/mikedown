@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../src/index';
-import { THINKING_DEFAULT_HEADROOM_TOKENS, THINKING_HEADROOM_TOKENS, THINKING_MAX_TOKENS_CAP, parseAiSettings, thinkingMaxTokens, thinkingOverrides } from '../src/ai';
+import { ANTHROPIC_DEFAULT_MAX_TOKENS, THINKING_DEFAULT_HEADROOM_TOKENS, THINKING_HEADROOM_TOKENS, THINKING_MAX_TOKENS_CAP, buildCompletionBody, parseAiSettings, thinkingMaxTokens, thinkingOverrides } from '../src/ai';
 import type { AiCompletionRequest, AiCompletionResult, AiSettings, AiThinkingLevel, MikeDownAiHost } from '../src/ai';
 import { runAiCompletion, thinkingRequestOverrides, type AiRunContext, type AiRunThinking } from '../src/ai-request';
 import { loadThinkingLevel, rememberThinkingLevel, thinkingLevelFor } from '../src/ai-prefs';
@@ -190,6 +190,14 @@ describe('reasoning headroom (T3 F2)', () => {
     expect(await sent(aiSettings(), 'high')).toBe(256 + THINKING_HEADROOM_TOKENS.high);
     expect(await sent(aiSettings('omlx', { reasoning_effort: 'low' }))).toBe(256 + THINKING_HEADROOM_TOKENS.low);
     expect(await sent(aiSettings('claude'), 'low')).toBe(256 + THINKING_HEADROOM_TOKENS.low);
+  });
+
+  it('the Anthropic body carries the headroom at High, so reasoning cannot eat a 4096 budget', async () => {
+    const { ai, calls } = host();
+    await runAiCompletion(ctx(ai, aiSettings('claude')), { ...run, maxTokens: 3000, thinking: 'high' }, {}, new AbortController().signal);
+    const body = buildCompletionBody('anthropic', { id: 'sonnet' }, calls[0]);
+    expect(body.max_tokens).toBe(3000 + THINKING_HEADROOM_TOKENS.high);
+    expect(body.max_tokens as number).toBeGreaterThan(ANTHROPIC_DEFAULT_MAX_TOKENS);
   });
 
   it('a tier-1 host and a request without maxTokens are unchanged', async () => {
