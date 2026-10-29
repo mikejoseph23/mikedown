@@ -1523,7 +1523,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       : job === 'titles' ? 'Suggest titles with AI'
         : variant === 'explain' && phase !== 'choose' ? 'Explain with AI' : 'Rewrite with AI');
     titleEl.textContent = headTitle();
-    if (variant === 'custom' && instruction && phase !== 'choose') {titleEl.title = instruction;} else {titleEl.removeAttribute('title');}
+    // The full title on hover: a long one is cut short with an ellipsis.
+    if (variant === 'custom' && instruction && phase !== 'choose') {titleEl.title = instruction;} else {titleEl.title = titleEl.textContent;}
     chooseEl.hidden = phase !== 'choose';
     menuEl.hidden = !!picker;
     formEl.hidden = !!picker;

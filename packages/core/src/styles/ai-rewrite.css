@@ -120,10 +120,13 @@
   padding: 6px 6px 6px 12px;
   border-bottom: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08));
 }
-:is(.mikedown-root, .mikedown-portal) .ai-rw-spark { display: inline-flex; color: var(--mikedown-accent, #3f51b5); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-spark { display: inline-flex; flex-shrink: 0; color: var(--mikedown-accent, #3f51b5); }
+/* A long title ("Translate · Spanish · Whole document") gives way first: it
+   ellipsizes before the badge does, and the thinking dial and Close never
+   shrink, so nothing is pushed past the edge. */
 :is(.mikedown-root, .mikedown-portal) .ai-rw-title {
-  flex-shrink: 0;
-  max-width: 50%;
+  flex: 0 1000 auto;
+  min-width: 6em;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -134,7 +137,9 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 45%;
   margin-left: auto;
   padding: 1px 8px 1px 6px;
   border: 1px solid transparent;
