@@ -23,16 +23,17 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [M1 Find running local servers, one-click local setup](#m1-find-running-local-servers-one-click-local-setup) | Opus | ⬜ Not Started | — | New host method on VS Code and Desktop, cards and first-run panel |
+| [M1 Find running local servers, one-click local setup](#m1-find-running-local-servers-one-click-local-setup) | Opus | 🔄 In Progress | — | New host method on VS Code and Desktop, cards and first-run panel |
 | [M1b Setup wizard: recommend a path, cloud by default](#m1b-setup-wizard-recommend-a-path-cloud-by-default) | Opus | ⬜ Not Started | — | Running engine → hardware → cloud; subscription vs API key; `vscode.lm` as a new engine kind |
 | [M2 Cloud setup in one place](#m2-cloud-setup-in-one-place) | Opus | ⬜ Not Started | — | Allow cloud on the Engines page, key-first flow, env/file keys |
 | [T1 Setup tests](#t1-setup-tests) | Sonnet | ⬜ Not Started | — | Unit, host, cargo |
-| [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links) | Opus | ⬜ Not Started | — | One copy module, used by every cloud surface |
+| [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links) | Opus | 🔄 In Progress | — | One copy module, used by every cloud surface |
 | [M4 Consent flow hardening](#m4-consent-flow-hardening) | Sonnet | ⬜ Not Started | — | VS Code and Desktop; needs OQ1 to OQ3 |
 | [T2 Privacy and consent tests](#t2-privacy-and-consent-tests) | Sonnet | ⬜ Not Started | — | Unit, host, cargo |
 | [M5 UI polish: surfaces, naming, states, keyboard](#m5-ui-polish-surfaces-naming-states-keyboard) | Opus | ⬜ Not Started | — | Context menu, toolbar menu, popover, sidebar, commands |
 | [M6 Docs, settings sync, release notes](#m6-docs-settings-sync-release-notes) | Sonnet | ⬜ Not Started | — | README, CHANGELOG, Desktop README, package.json descriptions |
 | [T3 Hands-on sign-off](#t3-hands-on-sign-off) | Sonnet | ⬜ Not Started | — | VS Code and Desktop, Mike signs off |
+| [T4 Fresh-user onboarding walk (Mike)](#t4-fresh-user-onboarding-walk-mike) | Mike | ⬜ Not Started | — | Clean slate, OpenAI, Anthropic, DeepSeek, then local; before the release |
 
 [Return to Top](#ai-setup-privacy-polish-plan)
 
@@ -58,6 +59,7 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 - [M5 UI polish: surfaces, naming, states, keyboard](#m5-ui-polish-surfaces-naming-states-keyboard)
 - [M6 Docs, settings sync, release notes](#m6-docs-settings-sync-release-notes)
 - [T3 Hands-on sign-off](#t3-hands-on-sign-off)
+- [T4 Fresh-user onboarding walk (Mike)](#t4-fresh-user-onboarding-walk-mike)
 - [Parallel Development Recommendations](#parallel-development-recommendations)
 - [Gap-Filling Prompts](#gap-filling-prompts)
 - [Progress Log / Notes](#progress-log--notes)
@@ -135,6 +137,8 @@ Listed here, not fixed (scope guard). Each has a home in a milestone.
 ## Open Questions for Mike
 
 Product calls. Workers proceed with the recommendation unless Mike answers otherwise here.
+
+**Decided 2026-10-29:** Mike accepted every recommendation, OQ1 to OQ13, including OQ12 (build the `vscode-lm` Copilot engine kind and surface it first in the VS Code wizard).
 
 | # | Question | Recommendation |
 |---|---|---|
@@ -465,6 +469,28 @@ Desktop (quit `/Applications/MikeDown.app`; `export PATH="$HOME/.cargo/bin:$PATH
 
 ---
 
+## T4 Fresh-user onboarding walk (Mike)
+
+**Who: Mike, hands-on.** Added 2026-10-29 at Mike's request. Runs after T3 and every automated suite, **before the AI release**. Mike experiences onboarding as a brand-new user, with nothing from his own setup preconfigured (no oMLX engine, no stored keys, no routing). The orchestrator prepares the clean slate and a walk checklist, then pauses for Mike.
+
+Clean-slate prep (orchestrator or a Sonnet worker, nothing destructive to Mike's real setup):
+
+- [ ] VS Code: a throwaway profile or `--user-data-dir` plus `--extensions-dir` so `mikedown.ai.*`, SecretStorage and `workspaceState` start empty; no `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` in the launching shell. Document the exact launch command.
+- [ ] Desktop: a fresh app-data directory (or a renamed copy of the real one, restored afterwards), no keychain entries under `net.iadev.mikedown`, no consent file.
+- [ ] oMLX: hide its key file (`~/.omlx/settings.json`) from detection for the cloud part, or stop oMLX, so the first run truly sees nothing local; restore afterwards. Record what was moved and how to put it back.
+
+Walk (Mike), on VS Code first, then Desktop:
+
+- [ ] Cloud 1: from "AI off", connect **OpenAI** with an API key through the wizard; Allow cloud, privacy card, consent, first rewrite.
+- [ ] Cloud 2: add **Anthropic** with a key; make it the default for one task.
+- [ ] Cloud 3: add **DeepSeek** with a key (preset `deepseek`).
+- [ ] Local: start LM Studio and/or oMLX (restore its key file), then go through the local path (detection, one-click, Advanced cards, Install links, model size hints).
+- [ ] Findings go into the Progress Log; fixes before the release, or a follow-up list Mike signs off.
+
+[Return to Top](#ai-setup-privacy-polish-plan)
+
+---
+
 ## Parallel Development Recommendations
 
 Sequential blockers: **M1 and M4 both edit `editor.ts`** (M1 the turn-on path, M4 the session options) and **M5 edits it most**; never two of those at once. M3 is pure copy plus host dialogs and can run beside M1. M2 depends on M3 only for the privacy card (it ships a placeholder disclosure until M3 lands) and on M1 for nothing.
@@ -476,7 +502,7 @@ Sequential blockers: **M1 and M4 both edit `editor.ts`** (M1 the turn-on path, M
 | B2 (after B) | M1b | Builds on M1's detection and M2's cloud group and form; alone on `ai-engines-page.ts`, `presets.ts` and the providers. Its `vscode-lm` adapter and `hardware.rs` could be split to a second worker (no shared files with the wizard UI) if time matters. |
 | C | T1 after M1, M2 and M1b; T2 after M3 and M4 | Tests can run in parallel with each other. |
 | D (after B2 and C) | M5 | Alone on `editor.ts`. |
-| E (after D) | M6, then T3 | M6 can start as soon as M5's strings are final. |
+| E (after D) | M6, then T3, then T4 | M6 can start as soon as M5's strings are final. T4 is Mike's clean-slate walk, last before the release. |
 
 Worktrees start from a stale commit: `git reset --hard <develop sha>` first, `npm run build:core` before `test:unit`; `test:integration` cannot run in a worktree. Workers commit only their own paths.
 
@@ -501,6 +527,10 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 ---
 
 ## Progress Log / Notes
+
+**2026-10-29 06:50** - Added T4: Mike's fresh-user onboarding walk (clean slate, OpenAI, Anthropic, DeepSeek keys, then local) after T3 and all automated tests, before the AI release.
+
+**2026-10-29 06:35** - Orchestrator started. Mike accepted all 13 open-question recommendations (OQ12 Copilot included). Group A dispatched: M1 (main tree) and M3 (worktree), both Opus.
 
 **2026-10-29 02:40** - Added M1b (setup wizard: path recommendation, cloud by default, local under Advanced, subscription vs API key note, `vscode-lm` engine kind) from Mike's request via team-lead, plus OQ11 to OQ13, T1 and T3 items and parallel group B2. Review facts recorded in M1b: no `vscode.lm` integration exists today (`src/ai/vscodeAi.ts` is wiring only) and neither host has hardware detection code.
 
