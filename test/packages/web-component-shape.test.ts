@@ -14,8 +14,8 @@ const dist = join(dir, 'dist');
 const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
 const standalonePath = join(dist, 'mikedown-editor.standalone.js');
 
-/** M0 budget: 850 kB gzipped for the standalone JS, CSS included. */
-const BUDGET = 850 * 1024;
+/** Budget: 900 kB gzipped for the standalone JS, CSS included. Raised from the M0 850 kB budget for the AI writing features. */
+const BUDGET = 900 * 1024;
 
 const built = existsSync(join(dist, 'index.js')) && existsSync(standalonePath);
 if (!built) {
