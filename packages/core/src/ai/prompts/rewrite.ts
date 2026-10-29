@@ -94,7 +94,7 @@ export const AI_REWRITE_VARIANTS: readonly AiRewriteVariantDefinition[] = [
   },
   {
     id: 'expand',
-    label: 'Expand',
+    label: 'Add detail',
     instruction: 'Expand it: develop each point with the reasoning, detail or an example that the surrounding text supports, so it reads as a fuller passage. Do not invent facts, numbers, names or links.',
     group: 'length',
     output: 'replace',

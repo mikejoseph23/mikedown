@@ -143,7 +143,7 @@ Type `/toc`, choose **Insert > Table of Contents**, or type `[toc]` on its own l
 
 ### AI Writing Help *(experimental, off by default)*
 
-Turn on **AI features** (`mikedown.ai.enabled`) and pick an engine in the AI tab of the Settings modal. Then rewrite the selection to be shorter, longer or expanded, simpler, more formal or more casual, at a chosen reading level, or translate it into another language (or the whole document). Explain a selection in plain words, summarize the document with `/summary` (a TL;DR callout or an outline), or get three title ideas with `/title`. The Properties panel can suggest tags, a title and a description. Each AI edit is one undo step, and a warning appears when a tone or translation rewrite could change the document's structure.
+Turn on **AI features** (`mikedown.ai.enabled`) and pick an engine in the AI tab of the Settings modal. Then rewrite the selection to be shorter, longer or with more detail, simpler, more formal or more casual, at a chosen reading level, or translate it into another language (or the whole document). Explain a selection in plain words, summarize the document with `/summary` (a TL;DR callout or an outline), or get three title ideas with `/title`. The Properties panel can suggest tags, a title and a description. Each AI edit is one undo step, and a warning appears when a tone or translation rewrite could change the document's structure.
 
 ### Link Navigation and Autocomplete
 

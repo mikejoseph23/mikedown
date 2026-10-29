@@ -302,18 +302,18 @@ export function buildTextMenu(editor: Editor, actions?: ContextMenuActions): Con
   ];
 }
 
-/** "Rewrite" (Length, Tone, Audience, Translate, Explain, Custom prompt…) for a non-empty selection when AI rewrite is offered. */
+/** "AI" (Length, Tone, Audience, Translate, Explain, Custom prompt…) for a non-empty selection when AI rewrite is offered. */
 function buildAiRewriteEntries(editor: Editor, actions?: ContextMenuActions): ContextMenuEntry[] {
   if (editor.state.selection.empty) {return [];}
   const rewrite = actions?.aiRewrite?.();
   if (!rewrite) {return [];}
   if (!rewrite.enabled) {
-    return [{ label: 'Rewrite', action: () => {}, disabled: true, title: rewrite.reason }, { separator: true }];
+    return [{ label: 'AI', action: () => {}, disabled: true, title: rewrite.reason }, { separator: true }];
   }
   return [
     {
       submenu: true,
-      label: 'Rewrite',
+      label: 'AI',
       items: rewrite.groups.flatMap((g, i): ContextMenuEntry[] => [
         ...(i > 0 ? [{ separator: true } as ContextMenuSeparator] : []),
         ...g.variants.map((v): ContextMenuItem => ({ label: v.label, action: () => rewrite.run(v.id) })),

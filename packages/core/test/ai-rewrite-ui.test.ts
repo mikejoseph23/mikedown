@@ -35,8 +35,9 @@ describe('grouped variants', () => {
     const groups = aiRewriteMenuGroups();
     expect(groups.map((g) => g.label)).toEqual(['Length', 'Tone', 'Audience', 'Translate', 'Explain', 'Custom']);
     expect(groups.flatMap((g) => g.variants.map((v) => v.id))).toEqual(AI_REWRITE_VARIANTS.map((v) => v.id));
-    // D1: Length is Shorter, Longer, Expand; Simpler sits under Tone.
+    // D1: Length is Shorter, Longer, Add detail (id expand); Simpler sits under Tone.
     expect(groups[0].variants.map((v) => v.id)).toEqual(['shorter', 'longer', 'expand']);
+    expect(groups[0].variants.map((v) => v.label)).toEqual(['Shorter', 'Longer', 'Add detail']);
     expect(groups[1].variants.map((v) => v.id)).toEqual(['simpler', 'fixFlow', 'formal', 'casual']);
   });
 

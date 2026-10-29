@@ -263,14 +263,14 @@ describe('aiFeatureAvailability', () => {
 });
 
 describe('context menu entry', () => {
-  it('adds a Rewrite submenu for a selection, greys it with the reason when disabled, and hides it otherwise', () => {
+  it('adds an AI submenu for a selection, greys it with the reason when disabled, and hides it otherwise', () => {
     const editor = { state: { selection: { empty: false } } } as never;
     const base: ContextMenuActions = { showLinkDialog() {}, showImageDialog() {}, showEmojiPicker() {}, showLanguagePicker() {}, openLink() {} };
     const run = vi.fn();
     const groups = aiRewriteMenuGroups();
     const on = buildTextMenu(editor, { ...base, aiRewrite: () => ({ enabled: true, groups, run }) });
     const sub = on[0] as ContextMenuSubmenu;
-    expect(sub.label).toBe('Rewrite');
+    expect(sub.label).toBe('AI');
     // Every variant once, in menu order, with a separator between groups.
     const items = sub.items.filter((i) => 'label' in i);
     expect(items.map((i) => ('label' in i ? i.label : ''))).toEqual(AI_REWRITE_VARIANTS.map((v) => v.label));
@@ -279,7 +279,7 @@ describe('context menu entry', () => {
     expect(run).toHaveBeenCalledWith('fixFlow');
 
     const off = buildTextMenu(editor, { ...base, aiRewrite: () => ({ enabled: false, reason: 'No engine.', groups: [], run }) });
-    expect(off[0]).toMatchObject({ label: 'Rewrite', disabled: true, title: 'No engine.' });
+    expect(off[0]).toMatchObject({ label: 'AI', disabled: true, title: 'No engine.' });
     expect(buildTextMenu(editor, { ...base, aiRewrite: () => null })[0]).toMatchObject({ label: 'Bold' });
     expect(buildTextMenu({ state: { selection: { empty: true } } } as never, { ...base, aiRewrite: () => ({ enabled: true, groups, run }) })[0]).toMatchObject({ label: 'Bold' });
   });
