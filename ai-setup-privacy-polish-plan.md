@@ -608,3 +608,4 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [ ] E3 Cloud cards don't show "Added" for an engine already added (OpenAI), unlike local cards' status.
 - [ ] E4 Adding a second cloud provider from the Engines page (full form) skips the subscription vs API key note and the Pricing link; show the same note as the wizard.
 - [x] E5 Not a bug: Mike clicked Use by default on Anthropic.
+- Note: Mike tested OpenAI and Anthropic live and chose not to test DeepSeek, Gemini, Groq, Mistral or OpenRouter (no new accounts); those rely on recorded fixtures and user reports.
