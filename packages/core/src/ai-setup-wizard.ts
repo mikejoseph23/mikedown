@@ -14,7 +14,7 @@
  *    detected servers (Install links for the ones not running, Look again)
  *    and the form, whose picker groups models by size. Copilot: the form, when
  *    the one-click path could not finish.
- * 3. **Done.** "AI is ready: <engine> · <model>, <local | cloud>", the privacy
+ * 3. **Done.** "Ready: <engine> · <model> · <Local | Cloud>", the privacy
  *    line for where the text goes, and Done.
  *
  * The page owns the session, the header (Back, the step dots, Skip) and Done;
@@ -47,7 +47,7 @@ import {
 import type { EngineFormController, EngineFormRefresh } from './ai-engine-form';
 import { AI_DETECT_LOOKING, AI_DETECT_NONE, canScanForSetup, lastSetupScan, plainSetupScan, scanForSetup, type AiSetupScan } from './ai-local-setup';
 import type { AiSettingsSession } from './ai-settings-session';
-import { ICONS, button, cloudAccessBox, el, hostLink, keepFocus, kindGlyphHtml, nextId, note } from './ai-settings-dom';
+import { ICONS, button, el, hostLink, keepFocus, kindGlyphHtml, nextId, note, privacyCard } from './ai-settings-dom';
 import type { MikeDownSettingsSectionContext } from './types';
 
 export type AiWizardStep = 'path' | 'cloud' | 'local' | 'copilot' | 'done';
@@ -385,7 +385,7 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
   // Step 1 ─────────────────────────────────────────────────────────────────
 
   function buildPath(): HTMLElement[] {
-    const out: HTMLElement[] = [heading('Set up AI', 'Choose how MikeDown reaches a model. You can change it later in AI Engines.')];
+    const out: HTMLElement[] = [heading('How should MikeDown reach a model?', 'You can change it later in AI Engines.')];
     if (!scan) {
       const wait = el('div', 'ai-wizard-scanning');
       wait.setAttribute('role', 'status');
@@ -445,7 +445,7 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
     return out;
   }
 
-  /** The cloud provider cards with Allow cloud and the privacy card (cloud-first step 1, and step 2). */
+  /** The cloud provider cards with the Allow cloud statement and the privacy card (cloud-first step 1, and step 2). */
   function buildCloudGroup(o: { title?: boolean } = {}): HTMLElement {
     const section = el('section', 'ai-wizard-group');
     const headingId = nextId('ai-wizard-group');
@@ -457,19 +457,22 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
       section.append(h, el('div', 'ai-cards-explainer', 'Paste a key from the provider. It bills your account for what you use.'));
       section.setAttribute('aria-labelledby', headingId);
     }
-    section.append(cloudAccessBox({
-      allowed: session.draft.allowCloud,
-      onChange: (on) => {
-        deps.setAllowCloud(on);
-        render();
-      },
-      presets: groups.cloud,
-      hostAsks: !!ai.requestCloudConsent,
-      open: cloudPrivacyOpen,
-      onToggle: (open) => { cloudPrivacyOpen = open; },
-      openLink: ctx.openLink,
-      fk: 'wiz:allow-cloud',
-    }));
+    // Picking a provider turns Allow cloud on (pick()), so it is a statement here, not a switch.
+    const access = el('div', 'ai-cloud-access ai-wizard-cloud-access');
+    access.append(
+      el('p', 'ai-wizard-cloud-line', ai.requestCloudConsent
+        ? 'Choosing a provider turns on cloud engines; MikeDown still asks before the first request in each workspace.'
+        : 'Choosing a provider turns on cloud engines.'),
+      privacyCard(groups.cloud, {
+        collapsed: 'What this means',
+        open: cloudPrivacyOpen,
+        onToggle: (open) => { cloudPrivacyOpen = open; },
+        openLink: ctx.openLink,
+        extra: aiConsentStepNote(!!ai.requestCloudConsent),
+        className: 'ai-cloud-access-privacy',
+      }),
+    );
+    section.append(access);
     const grid = el('div', 'ai-cards-grid');
     grid.setAttribute('role', 'group');
     grid.setAttribute('aria-label', 'Cloud providers');
@@ -658,7 +661,7 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
     const icon = el('span', 'ai-wizard-done-icon');
     icon.innerHTML = ICONS.check;
     icon.setAttribute('aria-hidden', 'true');
-    const head = heading(`AI is ready: ${engineDisplayName(engine)} · ${modelDisplayName(model)}, ${local ? 'local' : 'cloud'}`);
+    const head = heading(`Ready: ${engineDisplayName(engine)} · ${modelDisplayName(model)} · ${local ? 'Local' : 'Cloud'}`);
     head.prepend(icon);
     out.push(head);
 
@@ -694,12 +697,12 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
     out.push(privacy);
 
     const more = el('p', 'ai-wizard-quiet');
-    more.append(deps.turnsOn ? 'Choose Done to turn AI on. ' : 'Choose Done to save. ');
-    const fine = button('ai-link-btn', 'Fine-tune in AI Engines', { fk: 'wiz:open-engine' });
+    if (!deps.turnsOn) {more.append('Choose Done to save. ');}
+    const fine = button('ai-link-btn', 'Change settings in AI Engines', { fk: 'wiz:open-engine' });
     fine.addEventListener('click', () => deps.openEngine(engine.id));
     more.append(fine);
     out.push(more);
-    out.push(footer({ label: 'Done', fk: 'wiz:done', ready: true, onClick: () => deps.finish() }));
+    out.push(footer({ label: deps.turnsOn ? 'Turn on AI' : 'Done', fk: 'wiz:done', ready: true, onClick: () => deps.finish() }));
     return out;
   }
 

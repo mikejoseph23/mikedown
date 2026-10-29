@@ -134,11 +134,14 @@ describe('setup wizard: step 1 follows the recommendation', () => {
     expect(q(m.c, 'wiz:advanced')!.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('with nothing running, the cloud cards lead with Allow cloud and the privacy card', async () => {
+  it('with nothing running, the cloud cards lead with the cloud statement and the privacy card', async () => {
     const m = mount({ host: { detectLocalServers: servers(), hardwareInfo: async () => PC_8 } });
     await flush();
     expect(m.c.querySelector('.ai-wizard-options')).toBeNull();
-    expect(q(m.c, 'wiz:allow-cloud')).not.toBeNull();
+    expect(q(m.c, 'wiz:allow-cloud')).toBeNull();
+    expect(text(m.c.querySelector('.ai-wizard-cloud-line'))).toContain('Choosing a provider turns on cloud engines');
+    expect(m.c.querySelector<HTMLElement>('.ai-page-disclaimer')!.hidden).toBe(true);
+    expect(text(m.c.querySelector('.ai-wizard-title'))).not.toBe('Set up AI');
     expect(m.c.querySelector('.ai-wizard .ai-cloud-access-privacy')).not.toBeNull();
     expect(q(m.c, 'wiz:card:anthropic')).not.toBeNull();
     expect(q(m.c, 'wiz:card:openai')).not.toBeNull();
@@ -201,8 +204,9 @@ describe('setup wizard: GitHub Copilot', () => {
     click(q(m.c, 'wiz:use:copilot'));
     await flush();
     expect(stepLabel(m.c)).toBe('Step 3 of 3');
-    expect(title(m.c)).toBe('AI is ready: GitHub Copilot · copilot/gpt-4o, cloud');
+    expect(title(m.c)).toBe('Ready: GitHub Copilot · copilot/gpt-4o · Cloud');
     expect(text(m.c.querySelector('.ai-wizard-privacy'))).toContain('GitHub’s Copilot service');
+    expect(text(q(m.c, 'wiz:done'))).toBe('Turn on AI');
     click(q(m.c, 'wiz:done'));
     const [patch, saved] = m.onDone.mock.calls[0] as [Record<string, unknown>, AiSettings];
     expect(patch['ai.enabled']).toBe(true);
@@ -221,7 +225,7 @@ describe('setup wizard: step 2, cloud', () => {
     expect(stepLabel(m.c)).toBe('Step 2 of 3');
     expect(title(m.c)).toBe('Connect a cloud provider');
     // Choosing a cloud provider turns Allow cloud on in the draft (the consent step still asks per engine).
-    expect(q<HTMLInputElement>(m.c, 'wiz:allow-cloud')!.checked).toBe(true);
+    expect(q(m.c, 'wiz:allow-cloud')).toBeNull();
     expect(q(m.c, 'wiz:card:anthropic')!.getAttribute('aria-pressed')).toBe('true');
     const note = m.c.querySelector<HTMLElement>('.ai-wizard-subscription')!;
     expect(text(note.querySelector('.ai-wizard-subscription-text'))).toBe(AI_SUBSCRIPTION_NOTE);
@@ -259,7 +263,7 @@ describe('setup wizard: step 2, cloud', () => {
     expect(q(m.c, 'wiz:continue')!.getAttribute('aria-disabled')).toBeNull();
     click(q(m.c, 'wiz:continue'));
     expect(stepLabel(m.c)).toBe('Step 3 of 3');
-    expect(title(m.c)).toBe('AI is ready: Anthropic · claude-sonnet-5-5, cloud');
+    expect(title(m.c)).toBe('Ready: Anthropic · claude-sonnet-5-5 · Cloud');
     expect(q(m.c, 'page:skip')!.hidden).toBe(true);
 
     click(q(m.c, 'page:back'));
@@ -369,7 +373,7 @@ describe('setup wizard: step 2, local', () => {
     await flush();
     click(q(m.c, 'wiz:use:lmstudio'));
     await flush();
-    expect(title(m.c)).toBe('AI is ready: LM Studio · qwen3-8b, local');
+    expect(title(m.c)).toBe('Ready: LM Studio · qwen3-8b · Local');
     expect(text(m.c.querySelector('.ai-wizard-privacy'))).toBe('A local engine keeps everything on this machine or your network.');
     click(q(m.c, 'wiz:done'));
     const [patch] = m.onDone.mock.calls[0] as [Record<string, unknown>];
@@ -407,7 +411,7 @@ describe('setup wizard: Done and leaving', () => {
     expect(patch['ai.engines']).toBeDefined();
   });
 
-  it('Fine-tune in AI Engines leaves the wizard for the full page on the engine', async () => {
+  it('Change settings in AI Engines leaves the wizard for the full page on the engine', async () => {
     const m = mount({
       host: { detectLocalServers: servers({ ollama: 1 }) },
       discover: async (id) => listing(id, ['llama3.2:3b']),
@@ -419,6 +423,7 @@ describe('setup wizard: Done and leaving', () => {
     expect(m.c.querySelector('.ai-wizard')).toBeNull();
     expect(text(m.c.querySelector('.ai-page-title'))).toBe('AI Engines');
     expect(q(m.c, 'page:done')!.hidden).toBe(false);
+    expect(m.c.querySelector<HTMLElement>('.ai-page-disclaimer')!.hidden).toBe(false);
     expect(m.c.querySelector('.ai-nav-item.is-selected .ai-nav-name')?.textContent).toBe('Ollama');
     // Same session: Done still turns AI on with the route the wizard made.
     click(q(m.c, 'page:done'));

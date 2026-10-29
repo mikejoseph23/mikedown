@@ -39,7 +39,7 @@
  * engines yet, tier 2 only), the page shows the setup wizard
  * (`ai-setup-wizard.ts`) instead of the list and detail: the header says
  * "Set up AI" with the step dots and Skip, Back walks back through the
- * steps, and the wizard's Done is the page's Done. "Fine-tune in AI Engines"
+ * steps, and the wizard's Done is the page's Done. "Change settings in AI Engines"
  * leaves the wizard for the full page, in the same session.
  *
  * Modal UI only: nothing here touches the editor document or its DOM.
@@ -1012,6 +1012,8 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     });
     wizard = w;
     root.classList.add('ai-page--wizard');
+    // The toolbar panel already showed the experimental note, and step 1 has its own privacy disclosure.
+    disclaimer.hidden = true;
     body.hidden = true;
     root.insertBefore(w.element, body);
     wizardHeader(w.step());
@@ -1036,13 +1038,14 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     backBtn.setAttribute('aria-label', n === 1 ? 'Back' : 'Back to the previous step');
   }
 
-  /** "Fine-tune in AI Engines": the full page on the wizard's engine, same session. */
+  /** "Change settings in AI Engines": the full page on the wizard's engine, same session. */
   function leaveWizardFor(engineId: string): void {
     const w = wizard;
     if (!w) {return;}
     wizard = null;
     w.dispose();
     root.classList.remove('ai-page--wizard');
+    disclaimer.hidden = false;
     body.hidden = false;
     title.textContent = 'AI Engines';
     stepper.hidden = true;
