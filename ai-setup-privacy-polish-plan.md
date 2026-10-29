@@ -26,7 +26,7 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 | [M1 Find running local servers, one-click local setup](#m1-find-running-local-servers-one-click-local-setup) | Opus | ✅ Done | 14 | `7d9ea11`; one-click saves the engine quietly first, then one patch |
 | [M1b Setup wizard: recommend a path, cloud by default](#m1b-setup-wizard-recommend-a-path-cloud-by-default) | Opus | 🔄 In Progress | 17 (a) | M1b-a backend done `dbe2a23`; M1b-b wizard UI running |
 | [M2 Cloud setup in one place](#m2-cloud-setup-in-one-place) | Opus | ✅ Done | 45 | `a78eaf4`; OQ2 scope change done by M4 |
-| [T1 Setup tests](#t1-setup-tests) | Sonnet | 🔄 In Progress | — | Unit, host, cargo |
+| [T1 Setup tests](#t1-setup-tests) | Sonnet | ✅ Done | 14 | Unit, host, cargo |
 | [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links) | Opus | ✅ Done | 16 | `f5b48a7` (cherry-picked from worktree); openLink and panel wiring passed to M2/M4 |
 | [M4 Consent flow hardening](#m4-consent-flow-hardening) | Sonnet | ✅ Done | 15 | `e73e2c2` (cherry-picked from worktree) |
 | [T2 Privacy and consent tests](#t2-privacy-and-consent-tests) | Sonnet | ✅ Done | 6 | Unit, host, cargo |
@@ -278,17 +278,17 @@ Worker notes: no `editor.ts` edits expected. Touches `packages/core/src/ai/types
 
 **Recommended model: Sonnet** · **Mode: unit/integration (vitest, host tests, cargo). No screenshots, no hands-on (T3 covers the feel).**
 
-- [ ] `packages/core/test/ai-presets.test.ts`: every local preset has a `detectPath` or defaults to `/models`; every cloud preset has a `keyUrl` that parses as `https:`; `rankLocalCandidates` puts running first, most models first, marks `alreadyAdded`.
-- [ ] `packages/core/test/ai-settings-model.test.ts`: `autoFetchDecision` fetches on cloud `open` with `hasKey` and no models, not when models exist, not when `hasKey` is false; existing cases unchanged.
-- [ ] `packages/core/test/ai-engines-page.test.ts` (jsdom, fake host): cards render Running / Not running / Added from a fake `detectLocalServers`; the cloud group shows the Allow cloud row and the draft flips; adding a cloud engine while off shows "Turn on cloud engines"; Done without a usable route does not include `ai.enabled`, with one it does when `turnOnWhenDone` is set.
-- [ ] `packages/core/test/ai-toolbar.test.ts`: first-run panel with a detect promise: "Use LM Studio" primary when found, "Set up" when not, tier-1 wording.
-- [ ] `test/unit/ai-engineService.test.ts`: `detectLocalServers` caps at the timeout, logs one line, never caches; `status()` reports `keySource: 'env'`.
-- [ ] `test/unit/ai-webviewBridge.test.ts`: `aiDetectLocalServers` round trip and malformed input.
-- [ ] `packages/desktop/src-tauri`: `cargo test` cases for `ai_detect_local_servers` (fixture server, timeout) and `key_source` env reporting.
-- [ ] M1b, `packages/core/test/ai-setup.test.ts`: `recommendSetupPath` order (running local beats `vscode-lm` beats hardware beats cloud), the OQ11 threshold edges (16 GB Apple Silicon yes, 8 GB no, 32 GB x64 yes, NVIDIA 8 GB yes), `localHint` per memory band, `modelSizeHint` tags for `7b`, `30b`, `70b` ids and ids without a size; every cloud preset has `pricingUrl` and every local preset `installUrl` under `https:`; no string in `setup.ts` names a subscription as including API access.
+- [x] `packages/core/test/ai-presets.test.ts`: every local preset has a `detectPath` or defaults to `/models`; every cloud preset has a `keyUrl` that parses as `https:`; `rankLocalCandidates` puts running first, most models first, marks `alreadyAdded`.
+- [x] `packages/core/test/ai-settings-model.test.ts`: `autoFetchDecision` fetches on cloud `open` with `hasKey` and no models, not when models exist, not when `hasKey` is false; existing cases unchanged.
+- [x] `packages/core/test/ai-engines-page.test.ts` (jsdom, fake host): cards render Running / Not running / Added from a fake `detectLocalServers`; the cloud group shows the Allow cloud row and the draft flips; adding a cloud engine while off shows "Turn on cloud engines"; Done without a usable route does not include `ai.enabled`, with one it does when `turnOnWhenDone` is set.
+- [x] `packages/core/test/ai-toolbar.test.ts`: first-run panel with a detect promise: "Use LM Studio" primary when found, "Set up" when not, tier-1 wording.
+- [x] `test/unit/ai-engineService.test.ts`: `detectLocalServers` caps at the timeout, logs one line, never caches; `status()` reports `keySource: 'env'`.
+- [x] `test/unit/ai-webviewBridge.test.ts`: `aiDetectLocalServers` round trip and malformed input.
+- [x] `packages/desktop/src-tauri`: `cargo test` cases for `ai_detect_local_servers` (fixture server, timeout) and `key_source` env reporting.
+- [x] M1b, `packages/core/test/ai-setup.test.ts`: `recommendSetupPath` order (running local beats `vscode-lm` beats hardware beats cloud), the OQ11 threshold edges (16 GB Apple Silicon yes, 8 GB no, 32 GB x64 yes, NVIDIA 8 GB yes), `localHint` per memory band, `modelSizeHint` tags for `7b`, `30b`, `70b` ids and ids without a size; every cloud preset has `pricingUrl` and every local preset `installUrl` under `https:`; no string in `setup.ts` names a subscription as including API access.
 - [ ] M1b, `packages/core/test/ai-engines-page.test.ts`: the wizard section renders the running-engine card first when a probe answers, the cloud-first layout otherwise, local under Advanced with the hardware line, the subscription note above a cloud key field, step Back/Next, and Done only turns AI on with a usable route.
-- [ ] M1b, `test/unit/ai-hardware.test.ts`: VS Code `hardwareInfo` from faked `os` and `process` values; `test/unit/ai-vscodeLm.test.ts`: the adapter against a fake `vscode.lm` (list, stream, cancel, `NoPermissions` → `auth`); `cargo test`: `ai_hardware_info` with and without `nvidia-smi` on the PATH.
-- [ ] `npm run lint`, `npm run test:unit`, `npm run test:edge`, `npm run test:packages`, `cargo test` all green; record the run in the Progress Log.
+- [x] M1b, `test/unit/ai-hardware.test.ts`: VS Code `hardwareInfo` from faked `os` and `process` values; `test/unit/ai-vscodeLm.test.ts`: the adapter against a fake `vscode.lm` (list, stream, cancel, `NoPermissions` → `auth`); `cargo test`: `ai_hardware_info` with and without `nvidia-smi` on the PATH.
+- [x] `npm run lint`, `npm run test:unit`, `npm run test:edge`, `npm run test:packages`, `cargo test` all green; record the run in the Progress Log.
 
 [Return to Top](#ai-setup-privacy-polish-plan)
 
@@ -527,6 +527,8 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 ---
 
 ## Progress Log / Notes
+
+**2026-10-29 08:40** - T1 done (`405f787` in the worktree, cherry-picked to develop as `79fbfa3`, 14 min, tests only). New files: `ai-engines-page-setup`, `ai-toolbar-first-run`, `ai-local-setup`, `ai-presets` tests in core, `test/unit/ai-hardware`, `ai-webviewBridge`, extensions of `ai-setup`, `ai-vscodeLm`, `ai-engineService`, cargo `hardware.rs` / `command_layer.rs`. Extras: Discard after `lookUpKey`, the oMLX/vLLM `:8000` ranking, one-click cleanup on failure. Worktree: test:unit 3077, test:edge 22, test:packages 83, cargo 267, lint 0 errors. The wizard-section test box is M1b-b's. Bug found: on an 8 GB NVIDIA card the hint says "up to about 8B" while `modelSizeHint` tags 7b `tight` and 8b `too large` (`it.fails` in `ai-setup.test.ts`); sent to M1b-b to make hint and tags agree.
 
 **2026-10-29 08:25** - Dispatched M1b-b (wizard UI, Opus, main tree; also writes the wizard's own tests, the Copilot privacy card variant, `aiConsentStepNote` on the cloud group, `aiPendingBadgeTitle`, the Copilot consent wording and Desktop consent pruning on engine delete) and T1 (Sonnet, worktree; every T1 box except the wizard tests).
 
