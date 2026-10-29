@@ -563,3 +563,5 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 **2026-10-29 02:15** - Plan written after one review pass over the AI features on `develop` (`42a8983`). Findings: eleven setup friction points, eight privacy gaps, ten polish items, seven bugs (listed, not fixed). Six milestones, three test milestones, ten open questions for Mike. No code changed.
 
 [Return to Top](#ai-setup-privacy-polish-plan)
+
+**2026-10-29 12:00** - Mike kept the Add detail tooltip as "(facts and examples)" (already in `rewrite.ts`). `localNetworks` field added (`a7063b3`); Groq pricing link fixed (`2d40c90`). Remaining: T3 and T4 hands-on, push.
