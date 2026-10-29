@@ -421,4 +421,6 @@ When a milestone leaves items skipped or partial, the orchestrator writes a gap-
 
 **2026-10-28 20:30** - T3 signed off by Mike. Every milestone is complete. Still open for later: OQ3 (`fontPicker` as an optional palette item), OQ4 (retiring `mikedown.ai.showToolbarButton`), OQ5 (hide-toolbar toggle, not planned). Orchestrator session closed.
 
+**2026-10-28 20:35** - Session usage: \$25.23 total, 1h 24m wall (1h 3m API), 5564 lines added. By model: Opus \$18.09 (orchestrator plus M4 and M5), Sonnet \$7.08 (M1, M2, T1, M3, T2), Haiku \$0.05 (M6). Prompt cache 99% hits.
+
 [Return to Top](#customizable-toolbar-firefox-style--planning-document)
