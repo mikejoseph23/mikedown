@@ -242,6 +242,18 @@ describe('discovery', () => {
     expect(models).toEqual(fx.expected);
   });
 
+  it('LM Studio adds the sizes from /api/v1/models, and keeps the list when it is missing', async () => {
+    const fx = fixture('discovery/lmstudio-api-v0-models-loaded-later.json');
+    const v1 = fixture('discovery/lmstudio-api-v1-models-sizes.json');
+    const { fetch, calls } = fakeFetch((url) => json(url.endsWith('/api/v1/models') ? v1.response : fx.response));
+    const e = engine('lmstudio', 'http://127.0.0.1:1234/v1');
+    const models = await createAdapters({ fetch }).get('lmstudio')!.listModels(e, null, new AbortController().signal);
+    expect(calls.map((c) => c.url)).toEqual(['http://127.0.0.1:1234/api/v0/models', 'http://127.0.0.1:1234/api/v1/models']);
+    expect(Object.fromEntries(models.map((m) => [m.id, m.sizeBytes]))).toEqual(v1.expectedSizes);
+    const old = fakeFetch((url) => (url.endsWith('/api/v1/models') ? new Response('', { status: 404 }) : json(fx.response)));
+    expect(await createAdapters({ fetch: old.fetch }).get('lmstudio')!.listModels(e, null, new AbortController().signal)).toEqual(fx.expected);
+  });
+
   it('a local OpenAI-compatible server adds /models/status when it answers (oMLX loaded state)', async () => {
     const fx = fixture('discovery/omlx-models-status.json');
     const { fetch, calls } = fakeFetch((url) => json(url.endsWith('/models/status') ? fx.response : fx.listed));
@@ -310,7 +322,9 @@ describe('discovery capabilities', () => {
       return new Response('', { status: 404 });
     });
     const models = await createAdapters({ fetch }).get('ollama')!.listModels(engine('ollama', 'http://127.0.0.1:11434/v1'), null, new AbortController().signal);
-    expect(models.map(({ loaded: _loaded, ...m }) => m)).toEqual(show.expected);
+    expect(models.map(({ loaded: _loaded, sizeBytes: _size, ...m }) => m)).toEqual(show.expected);
+    // The sizes come from /api/tags.
+    expect(Object.fromEntries(models.map((m) => [m.id, m.sizeBytes]))).toEqual(tags.expectedSizes);
     // No /api/ps answer: loaded state stays unknown rather than false.
     expect(models.every((m) => m.loaded === undefined)).toBe(true);
     expect(calls.filter((c) => c.url.endsWith('/api/show'))).toHaveLength(3);

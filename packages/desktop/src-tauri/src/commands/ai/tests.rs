@@ -696,6 +696,22 @@ async fn lmstudio_discovery_uses_the_native_endpoint_then_falls_back() {
     assert_eq!(serde_json::to_value(&models).unwrap(), fixture["expected"]);
     assert_eq!(seen.lock().unwrap()[0].path, "/api/v0/models");
 
+    // A newer LM Studio adds the sizes from /api/v1/models.
+    let later = discovery_fixture("lmstudio-api-v0-models-loaded-later.json");
+    let sizes = discovery_fixture("lmstudio-api-v1-models-sizes.json");
+    let (v0, v1) = (later["response"].clone(), sizes["response"].clone());
+    let (base, seen) = serve(move |req| match req.path.as_str() {
+        "/api/v0/models" => Reply::Json(200, v0.clone()),
+        "/api/v1/models" => Reply::Json(200, v1.clone()),
+        _ => Reply::Json(404, json!({})),
+    })
+    .await;
+    let models = providers::list_models(&client, &engine("lmstudio", &format!("{base}/v1")), None, &cancel).await.unwrap();
+    let got: serde_json::Map<String, Value> = models.iter().filter_map(|m| m.size_bytes.map(|s| (m.id.clone(), json!(s)))).collect();
+    assert_eq!(Value::Object(got), sizes["expectedSizes"]);
+    let paths: Vec<String> = seen.lock().unwrap().iter().map(|r| r.path.clone()).collect();
+    assert_eq!(paths, vec!["/api/v0/models", "/api/v1/models"]);
+
     // An older LM Studio without /api/v0 still lists its models.
     let (base, _) = serve(|req| {
         if req.path == "/v1/models" { Reply::Json(200, json!({ "data": [{ "id": "old-model" }] })) } else { Reply::Json(404, json!({})) }
@@ -729,6 +745,9 @@ async fn ollama_discovery_runs_tags_then_show_per_model_and_marks_loaded() {
     for m in got.as_array_mut().unwrap() {
         let loaded = m.as_object_mut().unwrap().remove("loaded").unwrap();
         assert_eq!(loaded, json!(m["id"] == "gemma3:12b"));
+        // The sizes come from /api/tags.
+        let size = m.as_object_mut().unwrap().remove("sizeBytes").unwrap();
+        assert_eq!(size, tags["expectedSizes"][m["id"].as_str().unwrap()]);
     }
     assert_eq!(got, show["expected"]);
     assert_eq!(seen.lock().unwrap().iter().filter(|r| r.path == "/api/show").count(), 3);

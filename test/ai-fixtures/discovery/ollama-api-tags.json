@@ -58,5 +58,10 @@
     "gemma3:12b",
     "qwen2.5-coder:7b",
     "nomic-embed-text:latest"
-  ]
+  ],
+  "expectedSizes": {
+    "gemma3:12b": 8149190253,
+    "qwen2.5-coder:7b": 4683087332,
+    "nomic-embed-text:latest": 274302450
+  }
 }

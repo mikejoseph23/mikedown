@@ -1,5 +1,5 @@
 {
-  "description": "oMLX: the OpenAI GET /v1/models list, then GET /v1/models/status for loaded state and model types. The loaded MarkItDown converter can neither chat nor embed; the status also names a model the list does not (ignored).",
+  "description": "oMLX: the OpenAI GET /v1/models list, then GET /v1/models/status for loaded state and model types. The loaded MarkItDown converter can neither chat nor embed; the status also names a model the list does not (ignored). estimated_size becomes sizeBytes (MarkItDown reports 0: none).",
   "kind": "openai-compatible",
   "request": "GET http://127.0.0.1:8000/v1/models, then GET http://127.0.0.1:8000/v1/models/status",
   "listed": {
@@ -137,7 +137,8 @@
         "contextTokens": 1048576
       },
       "source": "endpoint",
-      "loaded": false
+      "loaded": false,
+      "sizeBytes": 175437251505
     },
     {
       "id": "GLM-5.3-4bit",
@@ -148,7 +149,8 @@
         "contextTokens": 1048576
       },
       "source": "endpoint",
-      "loaded": false
+      "loaded": false,
+      "sizeBytes": 439237387606
     },
     {
       "id": "Qwen3.8-27B-MLX-4bit",
@@ -159,7 +161,8 @@
         "contextTokens": 262144
       },
       "source": "endpoint",
-      "loaded": true
+      "loaded": true,
+      "sizeBytes": 16857268678
     },
     {
       "id": "gemma-4-26B-A4B-it-QAT-MLX-4bit",
@@ -170,7 +173,8 @@
         "contextTokens": 262144
       },
       "source": "endpoint",
-      "loaded": false
+      "loaded": false,
+      "sizeBytes": 16389280502
     },
     {
       "id": "whisper-large-v3-turbo",
@@ -183,7 +187,8 @@
         "embed": false
       },
       "source": "endpoint",
-      "loaded": false
+      "loaded": false,
+      "sizeBytes": 1694676492
     },
     {
       "id": "MarkItDown",

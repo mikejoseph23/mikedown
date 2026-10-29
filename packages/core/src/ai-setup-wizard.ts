@@ -26,7 +26,7 @@
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
-import { AI_CLOUD_PRIVACY, AI_ENGINE_PRESETS, AI_HOST_PRIVACY, aiConsentHost, aiConsentStepNote, hostOfUrl, isKnownEngineKind, modelSizeHint, presetForEngine } from './ai';
+import { AI_CLOUD_PRIVACY, AI_ENGINE_PRESETS, AI_HOST_PRIVACY, aiConsentHost, aiConsentStepNote, hostOfUrl, isKnownEngineKind, presetForEngine } from './ai';
 import type { AiEngineConfig, AiEnginePreset, AiProviderPolicy } from './ai';
 import {
   applyDiscoveryForFamily,
@@ -280,12 +280,19 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
       const engine = session.getEngine(id);
       if (!engine) {return;}
       const hardware = scan?.hardware ?? null;
-      const sizeOf = hardware ? (modelId: string) => modelSizeHint(modelId, hardware) : undefined;
-      session.draft = withEngine(session.draft, applyDiscoveryForFamily(engine, status, preset.family, [], sizeOf));
+      session.draft = withEngine(session.draft, applyDiscoveryForFamily(engine, status, preset.family, [], hardware));
       const fresh = session.getEngine(id)!;
       const modelId = preset.family === 'local'
         ? defaultRouteForEngine(session.draft, session.statusList(), id)?.modelId ?? null
         : firstChatModelId(fresh.models);
+      if (!modelId && preset.family === 'local' && fresh.models.some((m) => !m.missing && m.capabilities.chat)) {
+        // Chat models, but none loaded and none known to fit: the form asks for a pick (no error).
+        connecting = null;
+        go(fallback);
+        form.opened(id);
+        deps.announce(`${preset.name}: pick a model to start with.`);
+        return;
+      }
       if (!modelId) {
         throw new Error(preset.family === 'host' ? 'Copilot lists no chat model for this account yet.' : `${preset.name} has no chat model loaded or downloaded yet.`);
       }

@@ -239,16 +239,72 @@ function fitsBillions(hw: AiHardwareInfo): number {
 }
 
 /**
- * "fits", "tight" or "too large" for a model on this machine, from the
- * parameter count in its id (OQ11's bands, 4-bit). Undefined when the id has
- * no count or the hardware is unknown: no tag. A hint only; nothing is
- * blocked.
+ * "fits", "tight" or "too large" for a model on this machine: from the size
+ * the server reported when there is one (`modelSizeHintFromBytes`), else the
+ * parameter count in its id (OQ11's bands, 4-bit). Undefined when neither is
+ * known or the hardware is unknown: no tag. A hint only; nothing is blocked.
  */
-export function modelSizeHint(id: string, hardware: AiHardwareInfo | null): AiModelSizeTag | undefined {
+export function modelSizeHint(id: string, hardware: AiHardwareInfo | null, sizeBytes?: number): AiModelSizeTag | undefined {
   if (!hardware) {return undefined;}
+  if (typeof sizeBytes === 'number' && sizeBytes > 0) {return modelSizeHintFromBytes(sizeBytes, hardware);}
   const params = modelParamsBillions(id);
   if (params === null) {return undefined;}
   const fits = fitsBillions(hardware);
   if (params <= fits) {return 'fits';}
   return params <= fits * TIGHT_FACTOR ? 'tight' : 'too large';
+}
+
+// ── A new local engine's default model ───────────────────────────────────────
+
+/**
+ * Share of the model memory (`modelMemoryBytes`) a model's weights may take
+ * and still run comfortably: the rest is the context cache, the OS and the
+ * apps beside it. A server-reported size at or under it is "fits".
+ */
+export const AI_LOCAL_COMFORT_SHARE = 0.6;
+/** Up to this share a server-reported size is "tight"; above it, "too large". */
+const TIGHT_SHARE = 0.8;
+
+/**
+ * "fits", "tight" or "too large" from a size the server reported (bytes on
+ * disk or its load estimate), against this machine's model memory.
+ */
+export function modelSizeHintFromBytes(sizeBytes: number, hardware: AiHardwareInfo): AiModelSizeTag {
+  const memory = modelMemoryBytes(hardware);
+  if (sizeBytes <= memory * AI_LOCAL_COMFORT_SHARE) {return 'fits';}
+  return sizeBytes <= memory * TIGHT_SHARE ? 'tight' : 'too large';
+}
+
+/** One model as `localDefaultModel` weighs it. */
+export interface AiLocalModelChoice {
+  id: string;
+  /** Can chat (an `llm` or `vlm`; not embeddings, speech or a converter). */
+  chat: boolean;
+  missing?: boolean;
+  /** Loaded on the server right now. */
+  loaded?: boolean;
+  /** What the server reports it takes (oMLX `estimated_size`, LM Studio `size_bytes`, Ollama `size`). */
+  sizeBytes?: number;
+}
+
+/**
+ * The model a new local engine starts with: a chat model the server has
+ * loaded, else the largest chat model whose reported size comfortably fits
+ * this machine (`AI_LOCAL_COMFORT_SHARE` of its model memory). Null when
+ * none is loaded and the sizes or the memory are unknown, or nothing fits:
+ * the user picks, rather than a first request starting a huge load.
+ */
+export function localDefaultModel(models: readonly AiLocalModelChoice[], hardware: AiHardwareInfo | null): string | null {
+  const chat = models.filter((m) => m.chat && !m.missing);
+  const loaded = chat.find((m) => m.loaded);
+  if (loaded) {return loaded.id;}
+  if (!hardware) {return null;}
+  const budget = modelMemoryBytes(hardware) * AI_LOCAL_COMFORT_SHARE;
+  let best: AiLocalModelChoice | null = null;
+  for (const m of chat) {
+    const size = m.sizeBytes;
+    if (typeof size !== 'number' || !(size > 0) || size > budget) {continue;}
+    if (!best || size > best.sizeBytes!) {best = m;}
+  }
+  return best?.id ?? null;
 }

@@ -37,6 +37,13 @@ function listing(engineId: string, ids: string[], over: Partial<AiEngineStatus> 
   };
 }
 
+/** `listing` with `loadedId` loaded on the server (a one click then has its default). */
+function loadedListing(engineId: string, ids: string[], loadedId: string): AiEngineStatus {
+  const s = listing(engineId, ids);
+  s.models = s.models.map((m) => (m.id === loadedId ? { ...m, loaded: true } : m));
+  return s;
+}
+
 /** Every local candidate answers "not running", except the ones named (with their model counts). */
 function servers(running: Record<string, number> = {}) {
   return vi.fn(async (candidates: { presetId: string; baseUrl: string }[]): Promise<AiLocalServerProbe[]> =>
@@ -512,14 +519,32 @@ describe('setup wizard: step 2, local', () => {
       ['Size not in the name', ['mystery-model']],
     ]);
     expect(text(m.c.querySelector('[data-model-id="qwen3-8b"] .ai-tag--size'))).toBe('fits');
-    // A hint, not a gate: the large ones can be picked, and Continue works with the local default.
+    // Nothing loaded and no sizes from the server: no default is guessed, Continue waits for a pick.
+    expect(text(m.c.querySelector('.ai-pick-note'))).toBe('Pick a model to start with. No chat model is loaded in LM Studio, so none was chosen for you; the tags show how each suits this machine.');
+    expect(q(m.c, 'wiz:continue')!.getAttribute('aria-disabled')).toBe('true');
+    // A hint, not a gate: a large one can be picked, and Continue then works.
+    click(m.c.querySelector('[data-model-id="llama-3.3-70b"]'));
+    expect(m.c.querySelector('.ai-pick-note')).toBeNull();
     expect(q(m.c, 'wiz:continue')!.getAttribute('aria-disabled')).toBeNull();
+  });
+
+  it('a one click with nothing loaded and no sizes lands on the server\'s form to pick a model, not an error', async () => {
+    const m = mount({
+      host: { detectLocalServers: servers({ lmstudio: 2 }), hardwareInfo: async () => MAC_32 },
+      discover: async (id) => listing(id, ['glm-5.3', 'qwen3-8b']),
+    });
+    await flush();
+    click(q(m.c, 'wiz:use:lmstudio'));
+    await flush(8);
+    expect(m.c.querySelector('.ai-wizard-error')).toBeNull();
+    expect(m.c.querySelector('.ai-pick-note')).not.toBeNull();
+    expect(q(m.c, 'wiz:continue')!.getAttribute('aria-disabled')).toBe('true');
   });
 
   it('the running server\'s one click goes straight to Done, local', async () => {
     const m = mount({
       host: { detectLocalServers: servers({ lmstudio: 2 }), hardwareInfo: async () => MAC_32 },
-      discover: async (id) => listing(id, ['text-embed-nomic', 'qwen3-8b']),
+      discover: async (id) => loadedListing(id, ['text-embed-nomic', 'qwen3-8b'], 'qwen3-8b'),
     });
     await flush();
     click(q(m.c, 'wiz:use:lmstudio'));
@@ -551,7 +576,7 @@ describe('setup wizard: Done and leaving', () => {
     const m = mount({
       turnOnWhenDone: false,
       host: { detectLocalServers: servers({ ollama: 1 }) },
-      discover: async (id) => listing(id, ['llama3.2:3b']),
+      discover: async (id) => loadedListing(id, ['llama3.2:3b'], 'llama3.2:3b'),
     });
     await flush();
     click(q(m.c, 'wiz:use:ollama'));
@@ -565,7 +590,7 @@ describe('setup wizard: Done and leaving', () => {
   it('Change settings in AI Engines leaves the wizard for the full page on the engine', async () => {
     const m = mount({
       host: { detectLocalServers: servers({ ollama: 1 }) },
-      discover: async (id) => listing(id, ['llama3.2:3b']),
+      discover: async (id) => loadedListing(id, ['llama3.2:3b'], 'llama3.2:3b'),
     });
     await flush();
     click(q(m.c, 'wiz:use:ollama'));

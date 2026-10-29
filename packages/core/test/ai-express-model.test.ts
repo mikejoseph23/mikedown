@@ -9,12 +9,13 @@ import {
   parseAiSettings,
   parseLmStudioModels,
   presetForEngine,
+  withModelSizes,
   thinkingChoices,
   thinkingLevelFrom,
   thinkingOverrides,
   withThinkingLevel,
 } from '../src/ai';
-import type { AiEngineConfig, AiEngineStatus, AiModelCapabilities, AiModelConfig, AiModelSizeTag, AiSettings, AiThinkingLevel } from '../src/ai';
+import type { AiEngineConfig, AiEngineStatus, AiHardwareInfo, AiModelCapabilities, AiModelConfig, AiSettings, AiThinkingLevel } from '../src/ai';
 import {
   AUTO_FETCH_KEY_DELAY_MS,
   applyDiscoveryForFamily,
@@ -26,7 +27,6 @@ import {
   enginePreset,
   expressFields,
   groupPresets,
-  localDefaultModelId,
   modelCountLine,
   modelPickerOptions,
   popularModels,
@@ -246,24 +246,22 @@ describe('discovery and the enabled rule (OPEN-12)', () => {
     expect(next.models.filter((m) => m.enabled).map((m) => m.id)).toEqual(fx.expectedPicked);
   });
 
-  it('nothing loaded: the size hints choose, else the first chat model', () => {
-    const s = status('e1', [{ id: 'glm-5.3' }, { id: 'embed-1', chat: false }, { id: 'llama-70b' }, { id: 'qwen3-8b' }, { id: 'qwen3-14b' }, { id: 'phi-4-3b' }]);
-    const sizes: Record<string, AiModelSizeTag> = { 'llama-70b': 'too large', 'qwen3-8b': 'fits', 'qwen3-14b': 'fits', 'phi-4-3b': 'fits' };
-    const pick = applyDiscoveryForFamily(engine(), s, 'local', [], (id) => sizes[id]);
-    // The largest model that runs well, not the largest listed.
-    expect(pick.models[0].id).toBe('qwen3-14b');
-    expect(pick.models.filter((m) => m.enabled).map((m) => m.id)).toEqual(['qwen3-14b']);
-    // Unknown hardware: the first chat model.
-    expect(applyDiscoveryForFamily(engine(), s, 'local').models.filter((m) => m.enabled).map((m) => m.id)).toEqual(['glm-5.3']);
-  });
-
-  it('localDefaultModelId: loaded, then fits, then the smallest tight fit, then not too large', () => {
-    const ms = ['embed', 'big-70b', 'mid-32b', 'mid-24b', 'odd'].map((id) => model(id, { capabilities: { ...chat, chat: id !== 'embed' } }));
-    const sizes: Record<string, AiModelSizeTag> = { 'big-70b': 'too large', 'mid-32b': 'tight', 'mid-24b': 'tight' };
-    expect(localDefaultModelId(ms, new Set(['embed', 'odd']), (id) => sizes[id])).toBe('odd');
-    expect(localDefaultModelId(ms, new Set(), (id) => sizes[id])).toBe('mid-24b');
-    expect(localDefaultModelId(ms, new Set(), (id) => (id === 'odd' ? undefined : 'too large'))).toBe('odd');
-    expect(localDefaultModelId(ms.slice(0, 1), new Set(), () => undefined)).toBeNull();
+  it('nothing loaded: the largest model that fits by the reported sizes, else nothing picked', () => {
+    const fx = JSON.parse(readFileSync(join(FIXTURES, 'discovery/lmstudio-api-v0-models-loaded-later.json'), 'utf8'));
+    const sizes = JSON.parse(readFileSync(join(FIXTURES, 'discovery/lmstudio-api-v1-models-sizes.json'), 'utf8'));
+    const unloaded = parseLmStudioModels(fx.response).map((m) => ({ ...m, loaded: false }));
+    const s: AiEngineStatus = { engineId: 'e1', ok: true, isLocal: true, hasKey: false, models: withModelSizes(unloaded, new Map(Object.entries(sizes.expectedSizes))) };
+    const mac = (gb: number): AiHardwareInfo => ({ arch: 'arm64', platform: 'darwin', totalMemoryBytes: gb * 1024 ** 3, appleSilicon: true });
+    // 64 GB: qwen3.6-35b (35 GiB) fits in 60%, qwen3-coder-next (79 GiB) does not; not glm-5.3, the first listed.
+    const pick = applyDiscoveryForFamily(engine({ kind: 'lmstudio' }), s, 'local', [], mac(64));
+    expect(pick.models[0].id).toBe('qwen/qwen3.6-35b-a3b');
+    expect(pick.models.filter((m) => m.enabled).map((m) => m.id)).toEqual(['qwen/qwen3.6-35b-a3b']);
+    // Unknown hardware, or no sizes: nothing picked, the form asks.
+    expect(applyDiscoveryForFamily(engine({ kind: 'lmstudio' }), s, 'local').models.filter((m) => m.enabled)).toEqual([]);
+    const unsized: AiEngineStatus = { ...s, models: unloaded };
+    const none = applyDiscoveryForFamily(engine({ kind: 'lmstudio' }), unsized, 'local', [], mac(64));
+    expect(none.models.filter((m) => m.enabled)).toEqual([]);
+    expect(none.models[0].id).toBe('glm-5.3');
   });
 
   it('a local engine that already has a pick gets no default on top', () => {

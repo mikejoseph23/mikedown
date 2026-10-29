@@ -45,14 +45,15 @@ Feed `chunks` in order to `createCompletionStreamReader(kind)` (`push` each, the
 
 ## `discovery/`
 
-One endpoint response per file: `request` (method and URL, informational), `response` (the parsed JSON body) and `expected` (the `AiDiscoveredModel[]` the parser returns: `{ id, label?, capabilities (partial), source, loaded? }`).
+One endpoint response per file: `request` (method and URL, informational), `response` (the parsed JSON body) and `expected` (the `AiDiscoveredModel[]` the parser returns: `{ id, label?, capabilities (partial), source, loaded?, sizeBytes? }`).
 
 | File | Parser | Extra keys |
 | --- | --- | --- |
 | `lmstudio-api-v0-models.json` | `parseLmStudioModels` | includes one entry with no id (skipped) |
 | `lmstudio-api-v0-models-loaded-later.json` | `parseLmStudioModels` | the loaded model is not first; `expectedDefault` / `expectedPicked`: what a new local engine picks and ticks (`applyDiscoveryForFamily`, TypeScript only) |
+| `lmstudio-api-v1-models-sizes.json` | `parseModelSizes` | `expectedSizes` (id to bytes) instead of `expected`; the models of the file above, for a size-based default |
 | `omlx-models-status.json` | `withModelStatus(parseOpenAiModelList(listed), parseOmlxModelStatus(response))` | `listed` is the `/v1/models` body; `expectedDefault` / `expectedPicked` as above |
-| `ollama-api-tags.json` | `parseOllamaTags` | `expectedNames` instead of `expected` |
+| `ollama-api-tags.json` | `parseOllamaTags` | `expectedNames` instead of `expected`; `expectedSizes` from `parseModelSizes` |
 | `ollama-api-show.json` | `parseOllamaShow(name, body)` per name | `responses` keyed by model name instead of `response` |
 | `openai-v1-models-bare.json` | `parseOpenAiModelList` | `expectedHeuristics`: `detectCapabilities(id)` per id (full capabilities) |
 | `anthropic-v1-models.json` | `parseAnthropicModels` | `expectedNextPage`: `anthropicNextPage(response)` |

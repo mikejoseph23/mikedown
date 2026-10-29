@@ -61,7 +61,7 @@ export function parseLmStudioModels(body: unknown): AiDiscoveredModel[] {
  * oMLX `GET {base}/models/status` (beside its OpenAI `/models`): per model
  * `loaded` and `model_type` (`llm`, `vlm`, `embedding`, or a non-text type
  * such as `audio_stt` or `markitdown`, which can neither chat nor embed),
- * and `model_context_length`.
+ * `model_context_length` and `estimated_size` (bytes).
  */
 export function parseOmlxModelStatus(body: unknown): AiDiscoveredModel[] {
   const out: AiDiscoveredModel[] = [];
@@ -81,6 +81,8 @@ export function parseOmlxModelStatus(body: unknown): AiDiscoveredModel[] {
     if (ctx) {caps.contextTokens = ctx;}
     const model: AiDiscoveredModel = { id: m.id, capabilities: caps, source: Object.keys(caps).length > 0 ? 'endpoint' : 'heuristic' };
     if (typeof m.loaded === 'boolean') {model.loaded = m.loaded;}
+    const size = positiveInt(m.estimated_size);
+    if (size) {model.sizeBytes = size;}
     out.push(model);
   }
   return out;
@@ -99,7 +101,31 @@ export function withModelStatus(listed: readonly AiDiscoveredModel[], status: re
     const next: AiDiscoveredModel = { ...m, capabilities: { ...m.capabilities, ...s.capabilities } };
     if (s.source === 'endpoint') {next.source = 'endpoint';}
     if (s.loaded !== undefined) {next.loaded = s.loaded;}
+    if (s.sizeBytes !== undefined) {next.sizeBytes = s.sizeBytes;}
     return next;
+  });
+}
+
+/**
+ * Sizes in bytes by model id from a listing that has them: LM Studio
+ * `GET /api/v1/models` (`models[].key`, `size_bytes`; its `/api/v0` has
+ * none) and Ollama `GET /api/tags` (`models[].model` or `name`, `size`).
+ */
+export function parseModelSizes(body: unknown): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const m of dataArray(body, 'models')) {
+    const id = [m.key, m.model, m.name].find((v): v is string => typeof v === 'string' && v.length > 0);
+    const size = positiveInt(m.size_bytes) ?? positiveInt(m.size);
+    if (id && size) {out.set(id, size);}
+  }
+  return out;
+}
+
+/** `models` with the sizes `parseModelSizes` found added; the rest as they were. */
+export function withModelSizes(models: readonly AiDiscoveredModel[], sizes: ReadonlyMap<string, number>): AiDiscoveredModel[] {
+  return models.map((m) => {
+    const size = sizes.get(m.id);
+    return size ? { ...m, sizeBytes: size } : m;
   });
 }
 

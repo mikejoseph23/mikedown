@@ -148,6 +148,8 @@ export class AiEngineService {
   private readonly probing = new Map<string, Promise<ProbeEntry>>();
   /** `loaded` per model id, from the last discovery (LM Studio, Ollama report it). */
   private readonly loaded = new Map<string, Map<string, boolean>>();
+  /** Reported size in bytes per model id, from the last discovery (oMLX, LM Studio, Ollama report it). */
+  private readonly sizes = new Map<string, Map<string, number>>();
   private readonly inFlight = new Map<object, { requestId: string; controller: AbortController }>();
   private readonly consentPrompts = new Map<string, Promise<ConsentAnswer>>();
   /** "Allow once" grants not yet used, by engine id (the engine's fingerprint). The next completion takes it. */
@@ -191,6 +193,7 @@ export class AiEngineService {
   private async status(settings: AiSettings, engine: AiEngineConfig): Promise<AiEngineStatus> {
     const entry = this.cached(engine);
     const loaded = this.loaded.get(engine.id);
+    const sizes = this.sizes.get(engine.id);
     const key = await this.deps.secrets.resolveWithSource(engine);
     const status: AiEngineStatus = {
       engineId: engine.id,
@@ -203,6 +206,8 @@ export class AiEngineService {
         if (m.missing) {model.missing = true;}
         const isLoaded = loaded?.get(m.id);
         if (isLoaded !== undefined) {model.loaded = isLoaded;}
+        const size = sizes?.get(m.id);
+        if (size !== undefined) {model.sizeBytes = size;}
         return model;
       }),
     };
@@ -341,6 +346,7 @@ export class AiEngineService {
       const next: AiEngineConfig = { ...engine, models };
       const engines = settings.engines.map((e) => (e.id === engine.id ? next : e));
       this.loaded.set(engine.id, new Map(discovered.filter((d) => d.loaded !== undefined).map((d) => [d.id, d.loaded!])));
+      this.sizes.set(engine.id, new Map(discovered.filter((d) => d.sizeBytes !== undefined).map((d) => [d.id, d.sizeBytes!])));
       this.probes.set(engine.id, { ok: true, latencyMs: this.now() - started, at: this.now(), fingerprint: fingerprint(engine) });
       await this.deps.saveEngines(engines);
       this.deps.log(`Discover ${engineName(engine)}: ${discovered.length} model${discovered.length === 1 ? '' : 's'} listed, ${models.filter((m) => m.missing).length} missing.`);
@@ -699,6 +705,7 @@ export class AiEngineService {
     for (const id of removed) {
       this.probes.delete(id);
       this.loaded.delete(id);
+      this.sizes.delete(id);
       this.sessionDenied.delete(id);
       this.onceGrants.delete(id);
       await this.deps.consent.forget(id);

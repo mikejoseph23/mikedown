@@ -9,6 +9,7 @@ import {
   aiProviderPolicy,
   engineLocality,
   isLocalCapable,
+  localDefaultModel,
   modelParamsBillions,
   modelSizeHint,
   recommendSetupPath,
@@ -16,6 +17,7 @@ import {
   thinkingChoices,
   vscodeLmAvailability,
   type AiHardwareInfo,
+  type AiLocalModelChoice,
   type AiLocalServerProbe,
   type AiSettings,
 } from '../src/ai';
@@ -92,6 +94,58 @@ describe('modelSizeHint', () => {
     expect(modelSizeHint('llama-3.3-70b', mac(64))).toBe('fits');
     expect(modelSizeHint('gpt-4o', m32)).toBeUndefined();
     expect(modelSizeHint('qwen2.5-7b', null)).toBeUndefined();
+  });
+
+  it('a size the server reported wins over the count in the id', () => {
+    // 60% of 32 GB fits, up to 80% is tight, more is too large.
+    expect(modelSizeHint('qwen2.5-7b', mac(32), 25 * GB)).toBe('tight');
+    expect(modelSizeHint('gpt-4o', mac(32), 10 * GB)).toBe('fits');
+    expect(modelSizeHint('llama-3.3-70b', mac(32), 30 * GB)).toBe('too large');
+    expect(modelSizeHint('qwen2.5-7b', null, 1 * GB)).toBeUndefined();
+  });
+});
+
+describe('localDefaultModel: a new local engine\'s default', () => {
+  const m = (id: string, over: Partial<AiLocalModelChoice> = {}): AiLocalModelChoice => ({ id, chat: true, ...over });
+
+  it('a loaded chat model wins, whatever its size', () => {
+    const models = [m('small', { sizeBytes: 4 * GB }), m('huge', { loaded: true, sizeBytes: 400 * GB })];
+    expect(localDefaultModel(models, mac(32))).toBe('huge');
+    expect(localDefaultModel(models, null)).toBe('huge');
+  });
+
+  it('skips a loaded model that cannot chat (oMLX\'s MarkItDown converter, an embedder)', () => {
+    const models = [m('MarkItDown', { chat: false, loaded: true }), m('nomic-embed', { chat: false, loaded: true, sizeBytes: GB }), m('gemma', { sizeBytes: 8 * GB })];
+    expect(localDefaultModel(models, mac(32))).toBe('gemma');
+    expect(localDefaultModel(models, null)).toBeNull();
+  });
+
+  it('nothing loaded: the largest chat model that fits in 60% of memory', () => {
+    const models = [
+      m('glm', { sizeBytes: 439 * GB }),
+      m('deepseek', { sizeBytes: 175 * GB }),
+      m('embed', { chat: false, sizeBytes: 15 * GB }),
+      m('qwen-27b', { sizeBytes: 16 * GB }),
+      m('gemma-26b', { sizeBytes: 14 * GB }),
+      m('unsized'),
+      m('gone', { missing: true, sizeBytes: 18 * GB }),
+    ];
+    expect(localDefaultModel(models, mac(32))).toBe('qwen-27b');
+    expect(localDefaultModel(models, mac(24))).toBe('gemma-26b');
+    // An NVIDIA card's memory is what counts on a PC.
+    expect(localDefaultModel(models, pc(512, 24))).toBe('gemma-26b');
+    expect(localDefaultModel(models, mac(512))).toBe('deepseek');
+  });
+
+  it('nothing fits: no default', () => {
+    expect(localDefaultModel([m('glm', { sizeBytes: 439 * GB }), m('deepseek', { sizeBytes: 175 * GB })], mac(64))).toBeNull();
+  });
+
+  it('unknown sizes or unknown memory: no default, not the first model', () => {
+    const unsized = [m('glm-5.3'), m('qwen3-8b'), m('nemotron-nano-4b')];
+    expect(localDefaultModel(unsized, mac(64))).toBeNull();
+    expect(localDefaultModel([m('qwen-27b', { sizeBytes: 16 * GB })], null)).toBeNull();
+    expect(localDefaultModel([], mac(64))).toBeNull();
   });
 });
 

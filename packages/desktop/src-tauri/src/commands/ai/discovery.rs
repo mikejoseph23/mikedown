@@ -7,7 +7,7 @@
 //! Capability values the endpoint did not report stay unset; the webview
 //! fills them from core's id heuristics (`mergeDiscoveredModels`).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use serde_json::Value;
 
@@ -44,6 +44,7 @@ pub fn parse_openai_model_list(body: &Value) -> Vec<DiscoveredModel> {
             capabilities: PartialCapabilities::default(),
             source: DiscoverySource::Heuristic,
             loaded: None,
+            size_bytes: None,
         })
         .collect()
 }
@@ -86,6 +87,7 @@ pub fn parse_lmstudio_models(body: &Value) -> Vec<DiscoveredModel> {
             capabilities: caps,
             source: DiscoverySource::Endpoint,
             loaded: m.get("state").and_then(Value::as_str).map(|s| s == "loaded"),
+            size_bytes: None,
         });
     }
     out
@@ -93,7 +95,8 @@ pub fn parse_lmstudio_models(body: &Value) -> Vec<DiscoveredModel> {
 
 /// oMLX `GET {base}/models/status`: `loaded`, `model_type` (`llm`, `vlm`,
 /// `embedding`, or a non-text type such as `audio_stt` or `markitdown`,
-/// which can neither chat nor embed) and `model_context_length`.
+/// which can neither chat nor embed), `model_context_length` and
+/// `estimated_size` (bytes).
 pub fn parse_omlx_model_status(body: &Value) -> Vec<DiscoveredModel> {
     let mut out = Vec::new();
     for m in data_array(body, "models") {
@@ -129,6 +132,7 @@ pub fn parse_omlx_model_status(body: &Value) -> Vec<DiscoveredModel> {
             capabilities: caps,
             source,
             loaded: m.get("loaded").and_then(Value::as_bool),
+            size_bytes: positive_int(m.get("estimated_size")),
         });
     }
     out
@@ -156,6 +160,37 @@ pub fn with_model_status(listed: Vec<DiscoveredModel>, status: &[DiscoveredModel
             }
             if s.loaded.is_some() {
                 m.loaded = s.loaded;
+            }
+            if s.size_bytes.is_some() {
+                m.size_bytes = s.size_bytes;
+            }
+            m
+        })
+        .collect()
+}
+
+/// Sizes in bytes by model id from a listing that has them: LM Studio
+/// `GET /api/v1/models` (`models[].key`, `size_bytes`; its `/api/v0` has
+/// none) and Ollama `GET /api/tags` (`models[].model` or `name`, `size`).
+pub fn parse_model_sizes(body: &Value) -> HashMap<String, u64> {
+    let mut out = HashMap::new();
+    for m in data_array(body, "models") {
+        let id = ["key", "model", "name"].iter().find_map(|k| m.get(*k).and_then(Value::as_str).filter(|s| !s.is_empty()));
+        let size = positive_int(m.get("size_bytes")).or_else(|| positive_int(m.get("size")));
+        if let (Some(id), Some(size)) = (id, size) {
+            out.insert(id.to_string(), size);
+        }
+    }
+    out
+}
+
+/// `models` with the sizes `parse_model_sizes` found added; the rest as they were.
+pub fn with_model_sizes(models: Vec<DiscoveredModel>, sizes: &HashMap<String, u64>) -> Vec<DiscoveredModel> {
+    models
+        .into_iter()
+        .map(|mut m| {
+            if let Some(size) = sizes.get(&m.id) {
+                m.size_bytes = Some(*size);
             }
             m
         })
@@ -207,6 +242,7 @@ pub fn parse_ollama_show(name: &str, body: &Value) -> DiscoveredModel {
         capabilities: caps,
         source: if described { DiscoverySource::Endpoint } else { DiscoverySource::Heuristic },
         loaded: None,
+        size_bytes: None,
     }
 }
 
@@ -240,7 +276,7 @@ pub fn parse_anthropic_models(body: &Value) -> Vec<DiscoveredModel> {
             caps.json = Some(j);
         }
         let label = m.get("display_name").and_then(Value::as_str).filter(|s| !s.is_empty()).map(str::to_string);
-        out.push(DiscoveredModel { id: id.to_string(), label, capabilities: caps, source: DiscoverySource::Endpoint, loaded: None });
+        out.push(DiscoveredModel { id: id.to_string(), label, capabilities: caps, source: DiscoverySource::Endpoint, loaded: None, size_bytes: None });
     }
     out
 }
@@ -298,6 +334,10 @@ mod tests {
         let tags = fixture("ollama-api-tags.json");
         let names = parse_ollama_tags(&tags["response"]);
         assert_eq!(serde_json::to_value(&names).unwrap(), tags["expectedNames"]);
+        let sizes = parse_model_sizes(&tags["response"]);
+        for (name, size) in tags["expectedSizes"].as_object().unwrap() {
+            assert_eq!(sizes.get(name).copied(), size.as_u64(), "{name}");
+        }
 
         let show = fixture("ollama-api-show.json");
         let models: Vec<DiscoveredModel> =
@@ -315,6 +355,13 @@ mod tests {
         assert_eq!(anthropic_next_page(&f["response"]), f["expectedNextPage"].as_str().map(str::to_string));
         let paged = serde_json::json!({ "has_more": true, "last_id": "abc", "data": [] });
         assert_eq!(anthropic_next_page(&paged).as_deref(), Some("abc"));
+    }
+
+    #[test]
+    fn lmstudio_v1_models_give_the_sizes() {
+        let f = fixture("lmstudio-api-v1-models-sizes.json");
+        let sizes = parse_model_sizes(&f["response"]);
+        assert_eq!(serde_json::to_value(&sizes).unwrap(), f["expectedSizes"]);
     }
 
     #[test]

@@ -258,6 +258,10 @@ pub struct DiscoveredModel {
     pub source: DiscoverySource,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub loaded: Option<bool>,
+    /// Bytes the model takes, as the server reports it (oMLX `estimated_size`,
+    /// LM Studio `size_bytes`, Ollama `size`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size_bytes: Option<u64>,
 }
 
 /// What `probe` found out.

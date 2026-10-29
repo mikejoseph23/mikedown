@@ -15,6 +15,7 @@ import {
   parseAiSettings,
   parseAnthropicModels,
   parseLmStudioModels,
+  parseModelSizes,
   parseOllamaShow,
   parseOllamaTags,
   parseOmlxModelStatus,
@@ -62,6 +63,11 @@ describe('discovery fixtures', () => {
     expect(parseLmStudioModels(fx.response)).toEqual(fx.expected);
   });
 
+  it('LM Studio /api/v1/models gives the sizes /api/v0 lacks', () => {
+    const fx = load('discovery/lmstudio-api-v1-models-sizes.json');
+    expect(Object.fromEntries(parseModelSizes(fx.response))).toEqual(fx.expectedSizes);
+  });
+
   it('oMLX /v1/models plus /v1/models/status', () => {
     const fx = load('discovery/omlx-models-status.json');
     expect(withModelStatus(parseOpenAiModelList(fx.listed), parseOmlxModelStatus(fx.response))).toEqual(fx.expected);
@@ -72,6 +78,7 @@ describe('discovery fixtures', () => {
     const show = load('discovery/ollama-api-show.json');
     const names = parseOllamaTags(tags.response);
     expect(names).toEqual(tags.expectedNames);
+    expect(Object.fromEntries(parseModelSizes(tags.response))).toEqual(tags.expectedSizes);
     expect(names.map((n) => parseOllamaShow(n, show.responses[n]))).toEqual(show.expected);
   });
 

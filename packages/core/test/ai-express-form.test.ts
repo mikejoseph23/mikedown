@@ -539,7 +539,7 @@ describe('failure states', () => {
     const m = mountPage([omlx]);
     m.ai.discoverModels
       .mockResolvedValueOnce({ engineId: 'omlx', ok: false, isLocal: true, hasKey: false, error: 'connect ECONNREFUSED 127.0.0.1:8000', models: [] })
-      .mockResolvedValueOnce(listing('omlx', ['qwen']));
+      .mockResolvedValueOnce(listing('omlx', ['qwen'], { models: [{ id: 'qwen', capabilities: caps, source: 'endpoint', loaded: true }] }));
     click(q(m.c, 'eng:omlx:fetch'));
     await settle(0);
     expect(note(m.c)?.classList.contains('ai-fetch-note--unreachable')).toBe(true);
@@ -671,14 +671,36 @@ describe('OPEN-12: enabled state after a fetch', () => {
     expect(enabledIds(saved(m), 'claude')).toEqual(['claude-opus-5-5']);
   });
 
-  it('local: only the default and the loaded models arrive on', async () => {
-    const m = mountPage([omlx], { discover: async (id) => listing(id, ['qwen', 'gemma', 'llama']) });
+  it('local, nothing loaded and no sizes: nothing is guessed, the form asks for a pick', async () => {
+    const m = mountPage([omlx], { discover: async (id) => listing(id, ['glm-5.3', 'gemma', 'llama']) });
+    click(q(m.c, 'eng:omlx:fetch'));
+    await settle(0);
+    expect(enabledIds(saved(m), 'omlx')).toEqual([]);
+    expect(m.c.querySelector('.ai-pick-note')?.textContent).toBe('Pick a model to start with. No chat model is loaded in oMLX, so none was chosen for you.');
+    // Picking one clears it.
+    click(m.c.querySelector('[data-model-id="gemma"]'));
+    expect(m.c.querySelector('.ai-pick-note')).toBeNull();
+  });
+
+  it('local, nothing loaded: the largest model whose reported size fits this machine is the default', async () => {
+    const GB = 1024 ** 3;
+    const sized = (id: string) => {
+      const s = listing(id, ['glm-5.3', 'deepseek-v4-flash', 'qwen3.8-27b', 'gemma-4-26b']);
+      [439, 175, 16, 15].forEach((gb, i) => { s.models[i].sizeBytes = gb * GB; });
+      return s;
+    };
+    const hardwareInfo = async () => ({ arch: 'arm64', platform: 'darwin', totalMemoryBytes: 64 * GB, appleSilicon: true });
+    const m = mountPage([omlx], { discover: async (id) => sized(id), host: { hardwareInfo } });
+    await settle(0);
     click(q(m.c, 'eng:omlx:fetch'));
     await settle(0);
     const result = saved(m);
-    expect(enabledIds(result, 'omlx')).toEqual(['qwen']);
+    expect(enabledIds(result, 'omlx')).toEqual(['qwen3.8-27b']);
     // The first engine that can chat becomes the default route.
-    expect(result.routing.default).toEqual({ engineId: 'omlx', modelId: 'qwen' });
+    expect(result.routing.default).toEqual({ engineId: 'omlx', modelId: 'qwen3.8-27b' });
+    expect(m.c.querySelector('.ai-pick-note')).toBeNull();
+    // The reported size sets the tag, not the count in the id.
+    expect(m.c.querySelector('[data-model-id="deepseek-v4-flash"] .ai-tag--size')?.textContent).toBe('too large');
   });
 
   it('local: a loaded model further down the list is the default, not the first one', async () => {

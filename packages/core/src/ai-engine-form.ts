@@ -23,7 +23,7 @@
  */
 
 import { AI_ENGINE_KINDS, aiErrorCopy, aiProviderPolicy, isHostEngineKind, isKnownEngineKind, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
-import type { AiEngineConfig, AiEngineStatus, AiKeySource, AiLocalitySetting, AiModelConfig, AiModelSizeTag, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
+import type { AiEngineConfig, AiEngineStatus, AiHardwareInfo, AiKeySource, AiLocalitySetting, AiModelConfig, AiModelSizeTag, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
 import {
   AI_CAPABILITY_CHIPS,
   AI_ENGINE_KIND_LABELS,
@@ -103,10 +103,13 @@ export interface EngineFormDeps {
   /** A note to show right above the API key row (the setup wizard's subscription note), or null. */
   keyNote?(engine: AiEngineConfig, preset: EngineFormPreset): HTMLElement | null;
   /**
-   * How a local model's size suits this machine (`modelSizeHint`), when the
-   * host reported its hardware. The picker then groups local models by it.
+   * How a local model's size suits this machine (`modelSizeHint`, from the
+   * size the server reported when it did), when the host reported its
+   * hardware. The picker then groups local models by it.
    */
-  modelSize?(modelId: string): AiModelSizeTag | undefined;
+  modelSize?(modelId: string, sizeBytes?: number): AiModelSizeTag | undefined;
+  /** This machine, when the host reported it: a new local engine's default model must fit it. */
+  hardware?(): AiHardwareInfo | null;
 }
 
 export interface EngineFormController {
@@ -312,13 +315,14 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         st.problem = discoveryProblem({ family: preset.family, presetName: preset.name, baseUrl: current.baseUrl, ok: false, message: status.error, listed: 0 });
       } else {
         const hadPick = current.models.some((m) => m.enabled && !m.missing);
-        const sizeOf = preset.family === 'local' && deps.modelSize ? (modelId: string) => deps.modelSize?.(modelId) : undefined;
-        let draft = withEngine(deps.getDraft(), applyDiscoveryForFamily(current, status, preset.family, [], sizeOf));
+        const hardware = preset.family === 'local' ? deps.hardware?.() ?? null : null;
+        let draft = withEngine(deps.getDraft(), applyDiscoveryForFamily(current, status, preset.family, [], hardware));
         const merged = draft.engines.find((e) => e.id === id) ?? current;
         let picked: string | null = null;
         // OPEN-12: key = done. The first fetch with nothing picked picks the usual default
         // (Copilot's models arrive unpicked too, and have no Popular rules: the host's first;
-        // a local server's default is the one the merge put first, a loaded model when it says).
+        // a local server's default is the one the merge put first: loaded, or the largest that fits;
+        // none when it cannot tell, and the form asks for a pick).
         if (!hadPick) {
           picked = preset.family === 'local'
             ? merged.models.find((m) => m.enabled && !m.missing && m.capabilities.chat)?.id ?? null
@@ -674,6 +678,31 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
 
   // ── Models picker ─────────────────────────────────────────────────────────
 
+  /** A local engine's size tag per model (the server's reported size first), or null when the host gave no hardware. */
+  function sizeTagFor(engineId: string, preset: EngineFormPreset): ((modelId: string) => AiModelSizeTag | undefined) | null {
+    if (preset.family !== 'local' || !deps.modelSize) {return null;}
+    const bytes = new Map((deps.statuses.get(engineId)?.models ?? []).map((m) => [m.id, m.sizeBytes]));
+    return (modelId) => deps.modelSize?.(modelId, bytes.get(modelId));
+  }
+
+  /** "Pick a model" for a local engine that lists chat models but has none picked (in setup: none chosen). */
+  function localPickNote(engine: AiEngineConfig, preset: EngineFormPreset, setup: boolean): HTMLElement | null {
+    if (preset.family !== 'local') {return null;}
+    const chat = engine.models.filter((m) => !m.missing && m.capabilities.chat);
+    if (chat.length === 0) {return null;}
+    const chosenId = engineDefaultModelId(deps.getDraft(), engine.id);
+    const picked = setup
+      ? chat.some((m) => m.id === chosenId && m.enabled)
+      : chat.some((m) => m.enabled);
+    if (picked) {return null;}
+    const sizeOf = sizeTagFor(engine.id, preset);
+    const tagged = !!sizeOf && chat.some((m) => sizeOf(m.id) !== undefined);
+    const text = `Pick a model to start with. No chat model is loaded in ${engineDisplayName(engine)}, so none was chosen for you${tagged ? '; the tags show how each suits this machine' : ''}.`;
+    const line = note('info', text, 'ai-pick-note');
+    line.setAttribute('role', 'status');
+    return line;
+  }
+
   /**
    * `setup`: one model, which is the default (W16); cloud engines show the
    * Popular group with the rest behind "Show all models" (W15); nothing until
@@ -716,6 +745,10 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     }
     box.append(head);
 
+    // A local server with nothing loaded and no sizes to go by: no default was guessed, so say so.
+    const pickNote = localPickNote(engine, preset, setup);
+    if (pickNote && !st.running && !st.problem) {box.append(pickNote);}
+
     const listed = engine.models.filter((m) => !m.missing).length;
     const popularIds = preset.family === 'cloud' ? popularModels(preset, engine.models).map((m) => m.id) : [];
     // Setup: the chosen model is the Default model; Popular only, unless the choice is not in it.
@@ -729,7 +762,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         : !keyless && !st.running)
       : engine.models.length > FILTER_THRESHOLD || engine.models.length === 0 || typeOpen.has(id) || !!pickerFilter.get(id);
     // Local models by how they suit this machine, when the host said what it is (a hint, never a gate).
-    const sizeOf = preset.family === 'local' && deps.modelSize ? (modelId: string) => deps.modelSize?.(modelId) : null;
+    const sizeOf = sizeTagFor(id, preset);
 
     // Combobox: filter, pick or type (design call 6).
     let input: HTMLInputElement | null = null;
@@ -911,6 +944,10 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       count.textContent = countLine(current);
       renderList();
       list.scrollTop = scroll;
+      // The "Pick a model" line comes and goes with the pick.
+      const pickNote = localPickNote(current, preset, setup);
+      const shown = box.querySelector(':scope > .ai-pick-note');
+      if (shown && !pickNote) {shown.remove();} else if (!shown && pickNote) {head.after(pickNote);}
       const form = box.closest('.ai-form');
       const def = form?.querySelector('.ai-default-row');
       const fresh = buildDefaultModel(current);

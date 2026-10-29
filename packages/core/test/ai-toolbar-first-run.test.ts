@@ -217,7 +217,7 @@ describe('first-run panel in the editor, with a host that finds local servers', 
       for (const [k, v] of Object.entries(raw)) {settings[k.replace(/^ai\./, '')] = v;}
       handle.updateSettings({ ai: parseAiSettings(settings, { onWarning: () => {} }) });
     };
-    const discoverModels = vi.fn(opts.discover ?? (async (id: string): Promise<AiEngineStatus> => ({ engineId: id, ok: true, isLocal: true, hasKey: false, models: [{ id: 'gemma-3', capabilities: caps, source: 'endpoint' as const }] })));
+    const discoverModels = vi.fn(opts.discover ?? (async (id: string): Promise<AiEngineStatus> => ({ engineId: id, ok: true, isLocal: true, hasKey: false, models: [{ id: 'gemma-3', capabilities: caps, source: 'endpoint' as const, loaded: true }] })));
     const detectLocalServers = vi.fn(async () => (typeof opts.probes === 'function' ? opts.probes() : opts.probes ?? PROBES));
     const ai = { complete: vi.fn(), listEngines: vi.fn(async () => []), testEngine: vi.fn(), discoverModels, setSecret: vi.fn(async () => {}), detectLocalServers } as unknown as MikeDownAiHost;
     class Host extends NoopHost {

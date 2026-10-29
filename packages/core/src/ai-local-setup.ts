@@ -5,8 +5,9 @@
  * Detection asks the host (`host.ai.detectLocalServers`) whether the local
  * presets' default addresses answer, and only when the user opens setup;
  * nothing here runs in the background or caches a result. The one-click
- * setup adds the preset's engine, fetches its models, makes the first chat
- * model the default route and returns one patch with engines, routing and
+ * setup adds the preset's engine, fetches its models, makes its default
+ * model (`applyDiscoveryForFamily`: loaded, or the largest that fits) the
+ * default route and returns one patch with engines, routing and
  * `ai.enabled`, for the caller to save.
  *
  * The setup wizard's scan (`scanForSetup`) adds the hardware and VS Code's
@@ -74,8 +75,9 @@ export interface LocalSetupResult {
 }
 
 /**
- * "Use LM Studio": add the preset's engine, fetch its models, make its first
- * chat model the default route and turn AI on. The host needs to know the
+ * "Use LM Studio": add the preset's engine, fetch its models, make its
+ * default model the default route and turn AI on (none loaded and no size
+ * that fits: it fails and asks for a pick in Set up). The host needs to know the
  * engine before it can fetch, so the engine is saved (quietly) first, as Test
  * and fetching do on the Engines page; when anything fails it is taken back
  * and this rejects with an `Error` whose message can be shown as is.
@@ -103,10 +105,17 @@ export async function setUpLocalEngine(options: AiSettingsSessionOptions, preset
   if (status.ok === false) {return fail(`Could not fetch the models from ${preset.name}${status.error ? `: ${status.error}` : '.'}`);}
   session.statuses.set(engine.id, status);
   options.onStatuses(session.statusList());
-  session.draft = withEngine(session.draft, applyDiscoveryForFamily(engine, status, 'local'));
+  const hardware = await setupHardware(ai);
+  session.draft = withEngine(session.draft, applyDiscoveryForFamily(engine, status, 'local', [], hardware));
 
   const route = defaultRouteForEngine(session.draft, session.statusList(), engine.id);
-  if (!route) {return fail(`${preset.name} has no chat model loaded or downloaded yet.`);}
+  if (!route) {
+    // Chat models, but none loaded and none known to fit: no guess, the user picks one in Set up.
+    const canChat = session.getEngine(engine.id)?.models.some((m) => !m.missing && m.capabilities.chat);
+    return fail(canChat
+      ? `${preset.name} has no model loaded. Load one there, or choose Set up to pick one.`
+      : `${preset.name} has no chat model loaded or downloaded yet.`);
+  }
   session.draft = { ...session.draft, routing: { ...session.draft.routing, default: route } };
 
   const patch: AiSettingsPatch = { ...session.collect(), 'ai.enabled': true };

@@ -51,6 +51,7 @@ All notable changes to MikeDown Editor are documented here.
 
 - `==highlight==` is readable in dark VS Code themes when the editor theme is Auto: a translucent amber instead of bright yellow under pale text.
 - The sidebar Outline opens at the top of the document, with the first heading highlighted, instead of scrolled to the last heading.
+- AI (experimental): a newly added local engine (LM Studio, oMLX, Ollama) with no model loaded no longer defaults to the first model in its list, which could be a huge one. It picks the largest chat model whose size, as the server reports it, fits comfortably in this machine's memory (60%). When the sizes or the memory are unknown it picks nothing and asks you to pick a model, with size tags where it can.
 
 ## [2.16.0] - 2026-10-28
 

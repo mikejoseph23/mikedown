@@ -257,7 +257,8 @@ describe('Done when the page was opened by Set up (B3)', () => {
   });
 
   it('a card added and fetched during the session gives a route, so Done turns AI on with engines and routing', async () => {
-    const m = mountPage([], { turnOnWhenDone: true, discover: async (id) => listing(id, ['gemma-3']) });
+    const loaded = (id: string) => listing(id, [], { models: [{ id: 'gemma-3', capabilities: caps, source: 'endpoint', loaded: true }] });
+    const m = mountPage([], { turnOnWhenDone: true, discover: async (id) => loaded(id) });
     await settle();
     click(cardOf(m.c, 'lmstudio'));
     await settle();

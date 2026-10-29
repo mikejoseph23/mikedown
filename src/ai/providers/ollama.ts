@@ -3,6 +3,7 @@ import {
   engineEndpoints,
   parseOllamaRunning,
   parseOllamaShow,
+  parseModelSizes,
   parseOllamaTags,
   type AiDiscoveredModel,
   type AiEngineConfig,
@@ -13,7 +14,7 @@ import { mapLimit, requestJson, type AdapterOptions } from './http';
 
 /**
  * Ollama: OpenAI-compatible `/v1` for completions; native endpoints only for
- * metadata. Discovery is `GET /api/tags` for the names, `POST /api/show` per
+ * metadata. Discovery is `GET /api/tags` for the names and sizes, `POST /api/show` per
  * model for capabilities and context length, and `GET /api/ps` (optional)
  * for which models are loaded. Falls back to `/v1/models` when the native
  * API answers with an error.
@@ -25,8 +26,11 @@ async function listOllamaModels(ctx: AdapterContext, engine: AiEngineConfig, api
   const endpoints = engineEndpoints(engine);
   const headers = buildAuthHeaders(engine.kind, apiKey);
   let names: string[];
+  let sizes: Map<string, number>;
   try {
-    names = parseOllamaTags(await requestJson(ctx.fetch, endpoints.nativeModels!, { headers }, signal, ctx.discoveryTimeoutMs));
+    const tags = await requestJson(ctx.fetch, endpoints.nativeModels!, { headers }, signal, ctx.discoveryTimeoutMs);
+    names = parseOllamaTags(tags);
+    sizes = parseModelSizes(tags);
   } catch (err) {
     const code = (err as { code?: string }).code;
     if (code === 'unreachable' || code === 'cancelled') {throw err;}
@@ -49,6 +53,8 @@ async function listOllamaModels(ctx: AdapterContext, engine: AiEngineConfig, api
       model = { id: name, capabilities: {}, source: 'heuristic' };
     }
     if (running) {model.loaded = running.has(name);}
+    const size = sizes.get(name);
+    if (size) {model.sizeBytes = size;}
     return model;
   });
 }

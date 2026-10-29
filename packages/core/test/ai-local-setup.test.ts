@@ -12,7 +12,7 @@ import { bestLocalServer, detectLocalServers, setUpLocalEngine } from '../src/ai
 
 const caps = { chat: true, stream: true, vision: false, json: true, tools: true, fim: false, embed: false, contextTokens: null };
 const model = (id: string, over: Record<string, unknown> = {}) => ({ id, capabilities: { ...caps, ...over }, source: 'endpoint' as const });
-const status = (engineId: string, over: Partial<AiEngineStatus> = {}): AiEngineStatus => ({ engineId, ok: true, isLocal: true, hasKey: false, models: [model('gemma-3')], ...over });
+const status = (engineId: string, over: Partial<AiEngineStatus> = {}): AiEngineStatus => ({ engineId, ok: true, isLocal: true, hasKey: false, models: [{ ...model('gemma-3'), loaded: true }], ...over });
 
 afterEach(() => { vi.useRealTimers(); });
 
@@ -39,8 +39,8 @@ function setup(over: { discover?: (id: string) => Promise<AiEngineStatus>; exist
 }
 
 describe('setUpLocalEngine', () => {
-  it('adds the engine, fetches its models, routes to the first chat model and turns AI on, in one patch', async () => {
-    const t = setup({ discover: async (id) => status(id, { models: [model('nomic-embed', { chat: false, embed: true }), model('gemma-3'), model('qwen3')] }) });
+  it('adds the engine, fetches its models, routes to the loaded chat model and turns AI on, in one patch', async () => {
+    const t = setup({ discover: async (id) => status(id, { models: [model('nomic-embed', { chat: false, embed: true }), model('qwen3'), { ...model('gemma-3'), loaded: true }] }) });
     const result = await setUpLocalEngine(t.options, 'lmstudio');
 
     expect(result.route).toEqual({ engineId: result.engineId, modelId: 'gemma-3' });
@@ -87,6 +87,12 @@ describe('setUpLocalEngine', () => {
       const embeddingsOnly = setup({ discover: async (id) => status(id, { models: [model('nomic-embed', { chat: false, embed: true })] }) });
       await expect(setUpLocalEngine(embeddingsOnly.options, 'lmstudio')).rejects.toThrow(/no chat model/);
       expect(engineIds(embeddingsOnly)).toEqual([]);
+    });
+
+    it('nothing loaded and no sizes to go by: no guess, it asks for a pick in Set up', async () => {
+      const t = setup({ discover: async (id) => status(id, { models: [model('glm-5.3'), model('qwen3')] }) });
+      await expect(setUpLocalEngine(t.options, 'lmstudio')).rejects.toThrow('LM Studio has no model loaded. Load one there, or choose Set up to pick one.');
+      expect(engineIds(t)).toEqual([]);
     });
 
     it('keeps the engines that were there before', async () => {

@@ -243,6 +243,8 @@ export interface AiEngineStatusModel {
   missing?: boolean;
   /** Loaded in memory right now (LM Studio, Ollama report it). */
   loaded?: boolean;
+  /** What the server says the model takes, in bytes (oMLX, LM Studio, Ollama report it). */
+  sizeBytes?: number;
 }
 
 /** Where a host found an engine's key: its secret store, a variable, or a key file. */
@@ -460,6 +462,8 @@ export interface AiDiscoveredModel {
   /** `endpoint` when the server described the model, `heuristic` when only its id was listed. */
   source: 'endpoint' | 'heuristic';
   loaded?: boolean;
+  /** Bytes the model takes, as the server reports it (oMLX `estimated_size`, LM Studio `size_bytes`, Ollama `size`). */
+  sizeBytes?: number;
 }
 
 /**
