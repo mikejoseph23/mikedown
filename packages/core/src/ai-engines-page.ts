@@ -144,6 +144,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     statuses: session.statuses,
     onStatuses: () => opts.onStatuses(session.statusList()),
     hasKey: (id) => session.hasKey(id),
+    keySource: (id) => session.keySource(id),
     setKey,
     ensureSaved: (id) => session.ensureSaved(id),
     savesFirst: (id) => session.savesFirst(id),

@@ -226,6 +226,12 @@ export interface AiEngineStatus {
   ok: boolean | null;
   isLocal: boolean;
   hasKey: boolean;
+  /**
+   * Where the key came from, when `hasKey` and the host knows: its secret store
+   * or the engine's `apiKeyFile`. Absent for a variable, no key, or a host that
+   * does not say (the engine form then guesses from the engine's settings).
+   */
+  keySource?: 'file' | 'stored';
   latencyMs?: number;
   error?: string;
   models: AiEngineStatusModel[];

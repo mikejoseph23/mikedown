@@ -201,6 +201,31 @@ describe('Express fields per preset family', () => {
   });
 });
 
+describe('key source caption', () => {
+  const withFile = { ...omlx, apiKeyFile: { path: '~/.omlx/settings.json', jsonPath: 'auth.api_key' } };
+  const hasKey = (keySource?: 'file' | 'stored'): AiEngineStatus => ({ ...probed('omlx'), hasKey: true, ...(keySource ? { keySource } : {}) });
+  const caption = (m: Mounted) => m.c.querySelector('.ai-key-caption')?.textContent ?? '';
+  const placeholder = (m: Mounted) => q<HTMLInputElement>(m.c, 'eng:omlx:key')!.placeholder;
+
+  it('says the key came from the file when the host says so', () => {
+    const m = mountPage([withFile], { statuses: [hasKey('file')] });
+    expect(placeholder(m)).toBe('Found');
+    expect(caption(m)).toBe('Key found in ~/.omlx/settings.json. Paste a key to use another one.');
+  });
+
+  it('says Stored when the host says the key is stored, even for an engine with a key file', () => {
+    const m = mountPage([withFile], { statuses: [hasKey('stored')] });
+    expect(placeholder(m)).toBe('Stored');
+    expect(m.c.querySelector('.ai-key-state')?.textContent).toBe('Stored');
+  });
+
+  it('keeps guessing from the engine settings when the host does not say', () => {
+    const m = mountPage([withFile], { statuses: [hasKey()] });
+    expect(placeholder(m)).toBe('Found');
+    expect(caption(m)).toContain('(or stored here)');
+  });
+});
+
 describe('Advanced fold', () => {
   const engineWithModels = { ...claude, models: [modelRow('claude-sonnet-5-5'), modelRow('claude-haiku-5-5', { enabled: false })] };
 

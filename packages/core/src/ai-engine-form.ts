@@ -84,6 +84,8 @@ export interface EngineFormDeps {
   /** `statuses` changed; tell the editor's cache and the indicator. */
   onStatuses(): void;
   hasKey(engineId: string): boolean;
+  /** Where the key came from, when the host said; without it the form guesses from the engine's settings. */
+  keySource?(engineId: string): 'file' | 'stored' | undefined;
   /** Store (or with null, clear) a key through `host.ai.setSecret`. Resolves with an error message, or null when it worked. */
   setKey(engineId: string, value: string | null): Promise<string | null>;
   /** Make sure the host has this engine's connection fields before reaching it. */
@@ -451,7 +453,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     input.dataset.fk = `eng:${id}:key`;
     input.setAttribute('aria-label', `API key for ${engineDisplayName(engine)}`);
     input.value = keyText.get(id) ?? '';
-    const fromFile = has && !keyStored.has(id) && !!engine.apiKeyFile?.path;
+    const source = has ? deps.keySource?.(id) : undefined;
+    const fromFile = has && (source ? source === 'file' : !keyStored.has(id) && !!engine.apiKeyFile?.path);
     input.placeholder = fromFile ? 'Found' : has ? 'Stored' : 'Paste your key';
     const problem = fetchState(id).problem;
     if (problem?.kind === 'auth') {input.setAttribute('aria-invalid', 'true');}
@@ -494,7 +497,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       caption.append(note(result.level, result.text));
     } else if (fromFile) {
       caption.innerHTML = `<span class="ai-key-state">${ICONS.check}<span>Key found</span></span>`;
-      caption.append(` in ${engine.apiKeyFile?.path ?? 'the key file'} (or stored here). Paste a key to use another one.`);
+      caption.append(` in ${engine.apiKeyFile?.path ?? 'the key file'}${source ? '' : ' (or stored here)'}. Paste a key to use another one.`);
     } else if (has) {
       caption.innerHTML = `<span class="ai-key-state">${ICONS.check}<span>Stored</span></span>`;
       caption.append(' in the system’s secure storage. Paste a new key to replace it.');

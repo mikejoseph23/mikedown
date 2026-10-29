@@ -53,6 +53,8 @@ export interface AiSettingsSession {
   getEngine(id: string): AiEngineConfig | undefined;
   statusList(): AiEngineStatus[];
   hasKey(id: string): boolean;
+  /** Where the engine's key comes from, when the host said (a key stored here counts as stored). */
+  keySource(id: string): 'file' | 'stored' | undefined;
   /** Store or clear a key through `host.ai.setSecret`; resolves with an error message, or null when it worked. */
   setKey(id: string, value: string | null): Promise<string | null>;
   /** Make sure the host has this engine's connection fields before asking it to reach it. */
@@ -113,6 +115,10 @@ export function createAiSettingsSession(
     getEngine,
     statusList,
     hasKey: (id) => keyOverride.get(id) ?? statuses.get(id)?.hasKey ?? false,
+    keySource: (id) => {
+      const stored = keyOverride.get(id);
+      return stored === undefined ? statuses.get(id)?.keySource : stored ? 'stored' : undefined;
+    },
 
     async setKey(id, value) {
       if (!getEngine(id) || !ai.setSecret) {return 'This app cannot store keys.';}
