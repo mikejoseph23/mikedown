@@ -17,9 +17,11 @@ import {
   parseLmStudioModels,
   parseOllamaShow,
   parseOllamaTags,
+  parseOmlxModelStatus,
   parseOpenAiModelList,
   resolveRoute,
   serializeAiSettings,
+  withModelStatus,
 } from '@mikedown/core/ai';
 import type { AiCompletionRequest, AiEngineKind, AiEngineStatus } from '@mikedown/core/ai';
 
@@ -31,6 +33,8 @@ describe('SSE fixtures', () => {
     'openai-chat-stream.json',
     'openai-reasoning-length-stream.json',
     'openai-truncated-stream.json',
+    'openai-usage-stream.json',
+    'openai-no-usage-stream.json',
     'anthropic-messages-stream.json',
     'anthropic-error-stream.json',
   ]) {
@@ -42,6 +46,7 @@ describe('SSE fixtures', () => {
       expect(deltas).toEqual(fx.expected.deltas);
       const { deltas: _d, ...rest } = fx.expected;
       expect(outcome).toEqual(rest);
+      if (fx.outputChars !== undefined) {expect(reader.outputChars()).toBe(fx.outputChars);}
     });
   }
 });
@@ -50,6 +55,16 @@ describe('discovery fixtures', () => {
   it('LM Studio /api/v0/models', () => {
     const fx = load('discovery/lmstudio-api-v0-models.json');
     expect(parseLmStudioModels(fx.response)).toEqual(fx.expected);
+  });
+
+  it('LM Studio /api/v0/models with the loaded model further down', () => {
+    const fx = load('discovery/lmstudio-api-v0-models-loaded-later.json');
+    expect(parseLmStudioModels(fx.response)).toEqual(fx.expected);
+  });
+
+  it('oMLX /v1/models plus /v1/models/status', () => {
+    const fx = load('discovery/omlx-models-status.json');
+    expect(withModelStatus(parseOpenAiModelList(fx.listed), parseOmlxModelStatus(fx.response))).toEqual(fx.expected);
   });
 
   it('Ollama /api/tags then /api/show', () => {

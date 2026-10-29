@@ -41,7 +41,7 @@ pub type Cancel = watch::Receiver<bool>;
 pub const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 pub const DISCOVERY_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
-const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
+pub const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Error bodies are read up to this many bytes.
 const ERROR_BODY_LIMIT: usize = 8 * 1024;
 

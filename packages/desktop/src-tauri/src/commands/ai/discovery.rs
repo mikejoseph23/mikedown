@@ -91,6 +91,77 @@ pub fn parse_lmstudio_models(body: &Value) -> Vec<DiscoveredModel> {
     out
 }
 
+/// oMLX `GET {base}/models/status`: `loaded`, `model_type` (`llm`, `vlm`,
+/// `embedding`, or a non-text type such as `audio_stt` or `markitdown`,
+/// which can neither chat nor embed) and `model_context_length`.
+pub fn parse_omlx_model_status(body: &Value) -> Vec<DiscoveredModel> {
+    let mut out = Vec::new();
+    for m in data_array(body, "models") {
+        let Some(id) = str_id(m) else { continue };
+        let mut caps = PartialCapabilities::default();
+        match m.get("model_type").and_then(Value::as_str) {
+            Some("llm") => {
+                caps.chat = Some(true);
+                caps.vision = Some(false);
+                caps.embed = Some(false);
+            }
+            Some("vlm") => {
+                caps.chat = Some(true);
+                caps.vision = Some(true);
+                caps.embed = Some(false);
+            }
+            Some(other) => {
+                let embed = other == "embedding" || other == "embeddings";
+                caps.chat = Some(false);
+                caps.stream = Some(false);
+                caps.vision = Some(false);
+                caps.tools = Some(false);
+                caps.json = Some(false);
+                caps.embed = Some(embed);
+            }
+            None => {}
+        }
+        caps.context_tokens = positive_int(m.get("model_context_length"));
+        let source = if caps == PartialCapabilities::default() { DiscoverySource::Heuristic } else { DiscoverySource::Endpoint };
+        out.push(DiscoveredModel {
+            id: id.to_string(),
+            label: None,
+            capabilities: caps,
+            source,
+            loaded: m.get("loaded").and_then(Value::as_bool),
+        });
+    }
+    out
+}
+
+/// Fold a status listing (`parse_omlx_model_status`) into the models
+/// `/models` listed: the listing decides which models exist, the status adds
+/// what it knows about each (capabilities, loaded state).
+pub fn with_model_status(listed: Vec<DiscoveredModel>, status: &[DiscoveredModel]) -> Vec<DiscoveredModel> {
+    listed
+        .into_iter()
+        .map(|mut m| {
+            let Some(s) = status.iter().find(|s| s.id == m.id) else { return m };
+            let (c, sc) = (&mut m.capabilities, &s.capabilities);
+            c.chat = sc.chat.or(c.chat);
+            c.stream = sc.stream.or(c.stream);
+            c.vision = sc.vision.or(c.vision);
+            c.json = sc.json.or(c.json);
+            c.tools = sc.tools.or(c.tools);
+            c.fim = sc.fim.or(c.fim);
+            c.embed = sc.embed.or(c.embed);
+            c.context_tokens = sc.context_tokens.or(c.context_tokens);
+            if s.source == DiscoverySource::Endpoint {
+                m.source = DiscoverySource::Endpoint;
+            }
+            if s.loaded.is_some() {
+                m.loaded = s.loaded;
+            }
+            m
+        })
+        .collect()
+}
+
 /// Ollama `GET /api/tags` (and `/api/ps`): the model names.
 pub fn parse_ollama_tags(body: &Value) -> Vec<String> {
     data_array(body, "models")
@@ -207,6 +278,19 @@ mod tests {
     fn lmstudio_models_read_type_context_and_state() {
         let f = fixture("lmstudio-api-v0-models.json");
         assert_eq!(as_json(&parse_lmstudio_models(&f["response"])), f["expected"]);
+    }
+
+    #[test]
+    fn lmstudio_models_keep_the_loaded_state_of_a_later_model() {
+        let f = fixture("lmstudio-api-v0-models-loaded-later.json");
+        assert_eq!(as_json(&parse_lmstudio_models(&f["response"])), f["expected"]);
+    }
+
+    #[test]
+    fn omlx_status_adds_loaded_state_and_types_to_the_list() {
+        let f = fixture("omlx-models-status.json");
+        let models = with_model_status(parse_openai_model_list(&f["listed"]), &parse_omlx_model_status(&f["response"]));
+        assert_eq!(as_json(&models), f["expected"]);
     }
 
     #[test]

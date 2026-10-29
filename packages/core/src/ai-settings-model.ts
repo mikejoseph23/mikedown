@@ -25,6 +25,7 @@ import {
   localityMismatch,
   mergeDiscoveredModels,
   missingCapabilities,
+  modelParamsBillions,
   presetForEngine,
   resolveRoute,
   serializeAiSettings,
@@ -44,6 +45,7 @@ import type {
   AiLocality,
   AiModelCapabilities,
   AiModelConfig,
+  AiModelSizeTag,
   AiPopularRule,
   AiPresetFamily,
   AiRoute,
@@ -858,24 +860,59 @@ export function modelCountLine(engine: AiEngineConfig): string {
 }
 
 /**
- * Merge a discovery with OPEN-12's enabled rule: on a local engine new
- * models arrive enabled; on a cloud engine they arrive off unless `picked`
- * names them. Models already in the engine keep their own `enabled`.
+ * Merge a discovery with OPEN-12's enabled rule: new models arrive off unless
+ * `picked` names them. On a local engine the models the server has loaded
+ * (chat or embeddings) arrive on too, and an engine with nothing picked yet
+ * gets its default (`localDefaultModelId`, by `sizeOf` when the host knows
+ * this machine) picked and moved first, where the star and the default route
+ * look. Models already in the engine keep their own `enabled`.
  */
 export function applyDiscoveryForFamily(
   engine: AiEngineConfig,
   status: AiEngineStatus,
   family: AiPresetFamily,
   picked: Iterable<string> = [],
+  sizeOf?: (modelId: string) => AiModelSizeTag | undefined,
 ): AiEngineConfig {
   const merged = mergeDiscoveryStatus(engine, status);
-  if (family === 'local') {return merged;}
   const before = new Set(engine.models.map((m) => m.id));
   const pick = new Set(picked);
-  return {
-    ...merged,
-    models: merged.models.map((m) => (before.has(m.id) ? m : { ...m, enabled: pick.has(m.id) })),
-  };
+  const loaded = new Set(status.models.filter((m) => m.loaded && !m.missing).map((m) => m.id));
+  const arrivesOn = (m: AiModelConfig) =>
+    pick.has(m.id) || (family === 'local' && loaded.has(m.id) && (m.capabilities.chat || m.capabilities.embed));
+  let models = merged.models.map((m) => (before.has(m.id) ? m : { ...m, enabled: arrivesOn(m) }));
+  const hadPick = engine.models.some((m) => m.enabled && !m.missing);
+  if (family === 'local' && !hadPick) {
+    // Only from the new arrivals: a model the user turned off stays off.
+    const def = localDefaultModelId(models.filter((m) => !before.has(m.id)), loaded, sizeOf);
+    const chosen = models.find((m) => m.id === def);
+    if (chosen) {models = [{ ...chosen, enabled: true }, ...models.filter((m) => m !== chosen)];}
+  }
+  return { ...merged, models };
+}
+
+/**
+ * The model a local engine starts with: a chat model the server has loaded
+ * (LM Studio and oMLX say which), else the largest chat model that runs well
+ * on this machine by `sizeOf`, else the smallest tight fit, else the first
+ * chat model not known to be too large, else the first chat model. Null
+ * when none can chat.
+ */
+export function localDefaultModelId(
+  models: readonly AiModelConfig[],
+  loaded: ReadonlySet<string>,
+  sizeOf?: (modelId: string) => AiModelSizeTag | undefined,
+): string | null {
+  const chat = models.filter((m) => !m.missing && m.capabilities.chat);
+  const hit = chat.find((m) => loaded.has(m.id));
+  if (hit) {return hit.id;}
+  const params = (m: AiModelConfig) => modelParamsBillions(m.id) ?? 0;
+  const tagged = (tag: AiModelSizeTag) => (sizeOf ? chat.filter((m) => sizeOf(m.id) === tag) : []);
+  const fits = tagged('fits').sort((a, b) => params(b) - params(a))[0];
+  if (fits) {return fits.id;}
+  const tight = tagged('tight').sort((a, b) => params(a) - params(b))[0];
+  if (tight) {return tight.id;}
+  return (chat.find((m) => sizeOf?.(m.id) !== 'too large') ?? chat[0])?.id ?? null;
 }
 
 /** Numbers in an id, split into a version (short numbers) and a date stamp (6+ digits). */

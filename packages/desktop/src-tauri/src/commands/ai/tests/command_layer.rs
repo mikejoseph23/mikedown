@@ -351,7 +351,8 @@ async fn test_and_discover_report_status_and_remember_it_for_the_engine_list() {
     assert_eq!(ids, vec!["m1", "m2"]);
     assert_eq!(found.info.ok, Some(true));
     assert_eq!(ai_list_engines(app.clone(), h.state()).await.unwrap()[0].ok, Some(true));
-    assert!(seen.lock().unwrap().iter().all(|r| r.path == "/v1/models"));
+    // Discovery on a local server also asks for `/models/status` (oMLX's loaded state).
+    assert!(seen.lock().unwrap().iter().all(|r| r.path == "/v1/models" || r.path == "/v1/models/status"));
 
     assert_eq!(ai_test_engine(app.clone(), h.state(), "nope".into()).await.unwrap_err().code, ErrorCode::ModelNotFound);
     assert_eq!(ai_discover_models(app, h.state(), "nope".into()).await.unwrap_err().code, ErrorCode::ModelNotFound);

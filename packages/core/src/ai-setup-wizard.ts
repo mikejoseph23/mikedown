@@ -26,7 +26,7 @@
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
-import { AI_CLOUD_PRIVACY, AI_ENGINE_PRESETS, AI_HOST_PRIVACY, aiConsentHost, aiConsentStepNote, hostOfUrl, isKnownEngineKind, presetForEngine } from './ai';
+import { AI_CLOUD_PRIVACY, AI_ENGINE_PRESETS, AI_HOST_PRIVACY, aiConsentHost, aiConsentStepNote, hostOfUrl, isKnownEngineKind, modelSizeHint, presetForEngine } from './ai';
 import type { AiEngineConfig, AiEnginePreset, AiProviderPolicy } from './ai';
 import {
   applyDiscoveryForFamily,
@@ -279,7 +279,9 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
       if (!status || status.ok === false) {throw new Error(status?.error || `Could not fetch the models from ${preset.name}.`);}
       const engine = session.getEngine(id);
       if (!engine) {return;}
-      session.draft = withEngine(session.draft, applyDiscoveryForFamily(engine, status, preset.family));
+      const hardware = scan?.hardware ?? null;
+      const sizeOf = hardware ? (modelId: string) => modelSizeHint(modelId, hardware) : undefined;
+      session.draft = withEngine(session.draft, applyDiscoveryForFamily(engine, status, preset.family, [], sizeOf));
       const fresh = session.getEngine(id)!;
       const modelId = preset.family === 'local'
         ? defaultRouteForEngine(session.draft, session.statusList(), id)?.modelId ?? null
@@ -313,7 +315,7 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
     }
     const first = form.opened(id, { isNew: isNew && preset.family === 'cloud' });
     // A new cloud engine lands on its key; anything else keeps focus on the card.
-    if (isNew && preset.family === 'cloud') {deps.focusKey(first);}
+    if (isNew && preset.family === 'cloud' && first) {deps.focusKey(first);}
     deps.announce(preset.family === 'cloud' ? `${preset.name}: paste your API key.` : `${preset.name}: fetching its models.`);
   }
 

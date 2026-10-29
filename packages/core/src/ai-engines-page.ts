@@ -425,8 +425,8 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
         const input = root.querySelector<HTMLInputElement>(`[data-fk="${first}"]`);
         input?.select();
       }
-    } else if (narrow) {
-      // The list just went away: land on the pushed detail.
+    } else if (o.isNew || narrow) {
+      // A new local server (nothing to type) or the narrow list going away: land on the heading.
       focusDetailTitle();
     }
     detail.scrollTop = 0;

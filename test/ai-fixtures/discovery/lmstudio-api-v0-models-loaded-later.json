@@ -1,0 +1,152 @@
+{
+  "description": "LM Studio GET /api/v0/models as a hands-on walk saw it: the one loaded chat model is far down the list, after a large model that is not loaded. A new local engine picks the loaded model as its default and ticks only that.",
+  "kind": "lmstudio",
+  "request": "GET http://127.0.0.1:1234/api/v0/models",
+  "response": {
+    "object": "list",
+    "data": [
+      {
+        "id": "glm-5.3",
+        "object": "model",
+        "type": "llm",
+        "publisher": "zai-org",
+        "arch": "glm5",
+        "compatibility_type": "mlx",
+        "quantization": "4bit",
+        "state": "not-loaded",
+        "max_context_length": 1048576
+      },
+      {
+        "id": "minimax-m3",
+        "object": "model",
+        "type": "vlm",
+        "publisher": "minimax",
+        "arch": "minimax_m3",
+        "compatibility_type": "mlx",
+        "quantization": "4bit",
+        "state": "not-loaded",
+        "max_context_length": 1048576
+      },
+      {
+        "id": "qwen/qwen3.6-35b-a3b",
+        "object": "model",
+        "type": "vlm",
+        "publisher": "qwen",
+        "arch": "qwen3_5_moe",
+        "compatibility_type": "mlx",
+        "quantization": "8bit",
+        "state": "loaded",
+        "max_context_length": 262144,
+        "loaded_context_length": 32768
+      },
+      {
+        "id": "qwen/qwen3-coder-next",
+        "object": "model",
+        "type": "llm",
+        "publisher": "qwen",
+        "arch": "qwen3_next",
+        "compatibility_type": "mlx",
+        "quantization": "8bit",
+        "state": "not-loaded",
+        "max_context_length": 262144
+      },
+      {
+        "id": "nvidia/nemotron-3-nano-4b",
+        "object": "model",
+        "type": "llm",
+        "publisher": "nvidia",
+        "arch": "nemotron_h",
+        "compatibility_type": "gguf",
+        "quantization": "Q4_K_M",
+        "state": "not-loaded",
+        "max_context_length": 1048576
+      },
+      {
+        "id": "text-embedding-nomic-embed-text-v1.5",
+        "object": "model",
+        "type": "embeddings",
+        "publisher": "nomic-ai",
+        "arch": "nomic-bert",
+        "compatibility_type": "gguf",
+        "quantization": "Q4_K_M",
+        "state": "not-loaded",
+        "max_context_length": 2048
+      }
+    ]
+  },
+  "expected": [
+    {
+      "id": "glm-5.3",
+      "capabilities": {
+        "chat": true,
+        "vision": false,
+        "embed": false,
+        "contextTokens": 1048576
+      },
+      "source": "endpoint",
+      "loaded": false
+    },
+    {
+      "id": "minimax-m3",
+      "capabilities": {
+        "chat": true,
+        "vision": true,
+        "embed": false,
+        "contextTokens": 1048576
+      },
+      "source": "endpoint",
+      "loaded": false
+    },
+    {
+      "id": "qwen/qwen3.6-35b-a3b",
+      "capabilities": {
+        "chat": true,
+        "vision": true,
+        "embed": false,
+        "contextTokens": 262144
+      },
+      "source": "endpoint",
+      "loaded": true
+    },
+    {
+      "id": "qwen/qwen3-coder-next",
+      "capabilities": {
+        "chat": true,
+        "vision": false,
+        "embed": false,
+        "contextTokens": 262144
+      },
+      "source": "endpoint",
+      "loaded": false
+    },
+    {
+      "id": "nvidia/nemotron-3-nano-4b",
+      "capabilities": {
+        "chat": true,
+        "vision": false,
+        "embed": false,
+        "contextTokens": 1048576
+      },
+      "source": "endpoint",
+      "loaded": false
+    },
+    {
+      "id": "text-embedding-nomic-embed-text-v1.5",
+      "capabilities": {
+        "chat": false,
+        "stream": false,
+        "vision": false,
+        "tools": false,
+        "json": false,
+        "embed": true,
+        "contextTokens": 2048
+      },
+      "source": "endpoint",
+      "loaded": false
+    }
+  ],
+  "expectedDefault": "qwen/qwen3.6-35b-a3b",
+  "expectedPicked": [
+    "qwen/qwen3.6-35b-a3b"
+  ]
+}

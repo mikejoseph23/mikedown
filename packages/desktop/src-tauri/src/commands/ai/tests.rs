@@ -692,6 +692,32 @@ async fn ollama_discovery_runs_tags_then_show_per_model_and_marks_loaded() {
 }
 
 #[tokio::test]
+async fn local_openai_compatible_discovery_adds_the_models_status_when_it_answers() {
+    let fixture = discovery_fixture("omlx-models-status.json");
+    let (listed, status) = (fixture["listed"].clone(), fixture["response"].clone());
+    let (base, seen) = serve(move |req| match req.path.as_str() {
+        "/v1/models" => Reply::Json(200, listed.clone()),
+        "/v1/models/status" => Reply::Json(200, status.clone()),
+        _ => Reply::Json(404, json!({})),
+    })
+    .await;
+    let client = providers::build_client();
+    let (_tx, cancel) = never();
+    let models = providers::list_models(&client, &engine("openai-compatible", &format!("{base}/v1")), Some("k"), &cancel).await.unwrap();
+    assert_eq!(serde_json::to_value(&models).unwrap(), fixture["expected"]);
+    let paths: Vec<String> = seen.lock().unwrap().iter().map(|r| r.path.clone()).collect();
+    assert_eq!(paths, vec!["/v1/models", "/v1/models/status"]);
+
+    // A server without it (vLLM, llama.cpp) keeps the bare list.
+    let (base, _) = serve(|req| {
+        if req.path == "/v1/models" { Reply::Json(200, json!({ "data": [{ "id": "plain" }] })) } else { Reply::Json(404, json!({})) }
+    })
+    .await;
+    let models = providers::list_models(&client, &engine("openai-compatible", &format!("{base}/v1")), None, &cancel).await.unwrap();
+    assert_eq!(serde_json::to_value(&models).unwrap(), json!([{ "id": "plain", "capabilities": {}, "source": "heuristic" }]));
+}
+
+#[tokio::test]
 async fn anthropic_discovery_follows_pages() {
     let (base, seen) = serve(|req| {
         if req.path.contains("after_id=m1") {

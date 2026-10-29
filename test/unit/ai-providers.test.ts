@@ -65,6 +65,35 @@ describe('streaming completions', () => {
     expect(JSON.parse(String(calls[0].init?.body))).toMatchObject({ model: 'qwen', stream: true, reasoning_effort: 'low' });
   });
 
+  it('LM Studio is asked for usage in the stream, and the result carries it with the timing', async () => {
+    const fx = fixture('sse/openai-usage-stream.json');
+    const { fetch, calls } = fakeFetch(() => sseResponse(fx.chunks));
+    const e = engine('lmstudio', 'http://127.0.0.1:1234/v1');
+    const result = await createAdapters({ fetch }).get('lmstudio')!.complete(e, null, e.models[0], request, () => {}, new AbortController().signal);
+    expect(JSON.parse(String(calls[0].init?.body)).stream_options).toEqual({ include_usage: true });
+    expect(result.usage).toEqual(fx.expected.usage);
+    expect(result.timing).toMatchObject({ outputChars: fx.outputChars });
+    expect(result.timing!.firstTokenMs).toBeLessThanOrEqual(result.timing!.totalMs);
+  });
+
+  it('a cloud host that may reject stream_options is not sent it; a stream without usage still times', async () => {
+    const fx = fixture('sse/openai-no-usage-stream.json');
+    const { fetch, calls } = fakeFetch(() => sseResponse(fx.chunks));
+    const e = engine('openai-compatible', 'https://api.mistral.ai/v1');
+    const result = await createAdapters({ fetch }).get('openai-compatible')!.complete(e, 'k', e.models[0], request, () => {}, new AbortController().signal);
+    expect(JSON.parse(String(calls[0].init?.body))).not.toHaveProperty('stream_options');
+    expect(result.usage).toBeUndefined();
+    expect(result.timing?.outputChars).toBe(fx.outputChars);
+  });
+
+  it('LM Studio failing to load the model maps to modelLoadFailed with its message', async () => {
+    const body = '{"error":"Failed to load model \\"qwen3.8-flash-next-oq5e-mtp\\". Error: Failed to load model."}';
+    const { fetch } = fakeFetch(() => new Response(body, { status: 400 }));
+    const e = engine('lmstudio', 'http://127.0.0.1:1234/v1');
+    await expect(createAdapters({ fetch }).get('lmstudio')!.complete(e, null, e.models[0], request, () => {}, new AbortController().signal))
+      .rejects.toMatchObject({ code: 'modelLoadFailed', message: 'HTTP 400: Failed to load model "qwen3.8-flash-next-oq5e-mtp". Error: Failed to load model.' });
+  });
+
   it('anthropic streams Messages events with x-api-key and no temperature', async () => {
     const fx = fixture('sse/anthropic-messages-stream.json');
     const { fetch, calls } = fakeFetch(() => sseResponse(fx.chunks));
@@ -211,6 +240,26 @@ describe('discovery', () => {
     const models = await createAdapters({ fetch }).get('lmstudio')!.listModels(engine('lmstudio', 'http://127.0.0.1:1234/v1'), null, new AbortController().signal);
     expect(calls[0].url).toBe('http://127.0.0.1:1234/api/v0/models');
     expect(models).toEqual(fx.expected);
+  });
+
+  it('a local OpenAI-compatible server adds /models/status when it answers (oMLX loaded state)', async () => {
+    const fx = fixture('discovery/omlx-models-status.json');
+    const { fetch, calls } = fakeFetch((url) => json(url.endsWith('/models/status') ? fx.response : fx.listed));
+    const adapter = createAdapters({ fetch }).get('openai-compatible')!;
+    const models = await adapter.listModels(engine('openai-compatible', 'http://127.0.0.1:8000/v1'), 'k', new AbortController().signal);
+    expect(calls.map((c) => c.url)).toEqual(['http://127.0.0.1:8000/v1/models', 'http://127.0.0.1:8000/v1/models/status']);
+    expect(models).toEqual(fx.expected);
+
+    // A server without it (vLLM, llama.cpp) keeps the bare list.
+    const bare = fixture('discovery/openai-v1-models-bare.json');
+    const other = fakeFetch((url) => (url.endsWith('/models/status') ? new Response('', { status: 404 }) : json(bare.response)));
+    const plain = await createAdapters({ fetch: other.fetch }).get('openai-compatible')!.listModels(engine('openai-compatible', 'http://127.0.0.1:8000/v1'), null, new AbortController().signal);
+    expect(plain).toEqual(bare.expected);
+
+    // A cloud endpoint is never asked.
+    const cloud = fakeFetch(() => json(bare.response));
+    await createAdapters({ fetch: cloud.fetch }).get('openai-compatible')!.listModels(engine('openai-compatible', 'https://openrouter.ai/api/v1'), 'k', new AbortController().signal);
+    expect(cloud.calls.map((c) => c.url)).toEqual(['https://openrouter.ai/api/v1/models']);
   });
 
   it('LM Studio falls back to /v1/models when /api/v0 errors', async () => {

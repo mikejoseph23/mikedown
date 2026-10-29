@@ -1486,12 +1486,8 @@
   letter-spacing: -0.01em;
   color: var(--settings-fg);
 }
-:is(.mikedown-root, .mikedown-portal) .ai-detail-title:focus { outline: none; }
-:is(.mikedown-root, .mikedown-portal) .ai-detail-title:focus-visible {
-  outline: 1px solid var(--settings-focus);
-  outline-offset: 2px;
-  border-radius: 2px;
-}
+/* Only ever focused by the page (a new local server, the narrow layout's push), as the wizard's title. */
+:is(.mikedown-root, .mikedown-portal) .ai-detail-title:is(:focus, :focus-visible) { outline: none; }
 :is(.mikedown-root, .mikedown-portal) .ai-detail-sub {
   max-width: 560px;
   font-size: 12.5px;

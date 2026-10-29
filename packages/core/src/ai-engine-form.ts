@@ -123,9 +123,10 @@ export interface EngineFormController {
   /**
    * The form was just opened: fetch models when design call 3 says so, and
    * return the `data-fk` to focus (key for a new cloud engine, URL for a new
-   * local one, the name otherwise).
+   * Custom one, the name otherwise). Null for a new local server from a
+   * preset: focus the panel heading, not a field.
    */
-  opened(engineId: string, opts?: { isNew?: boolean }): string;
+  opened(engineId: string, opts?: { isNew?: boolean }): string | null;
   /** What the engine is busy with, for the row's status dot. */
   busy(engineId: string): 'test' | 'discover' | undefined;
   /** The engine was deleted: drop its timers and state. */
@@ -311,13 +312,17 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         st.problem = discoveryProblem({ family: preset.family, presetName: preset.name, baseUrl: current.baseUrl, ok: false, message: status.error, listed: 0 });
       } else {
         const hadPick = current.models.some((m) => m.enabled && !m.missing);
-        let draft = withEngine(deps.getDraft(), applyDiscoveryForFamily(current, status, preset.family));
+        const sizeOf = preset.family === 'local' && deps.modelSize ? (modelId: string) => deps.modelSize?.(modelId) : undefined;
+        let draft = withEngine(deps.getDraft(), applyDiscoveryForFamily(current, status, preset.family, [], sizeOf));
         const merged = draft.engines.find((e) => e.id === id) ?? current;
         let picked: string | null = null;
         // OPEN-12: key = done. The first fetch with nothing picked picks the usual default
-        // (Copilot's models arrive unpicked too, and have no Popular rules: the host's first).
-        if ((preset.family === 'cloud' || preset.family === 'host') && !hadPick) {
-          picked = autoPickDefault(preset, merged.models) ?? (preset.family === 'host' ? firstChatModelId(merged.models) : null);
+        // (Copilot's models arrive unpicked too, and have no Popular rules: the host's first;
+        // a local server's default is the one the merge put first, a loaded model when it says).
+        if (!hadPick) {
+          picked = preset.family === 'local'
+            ? merged.models.find((m) => m.enabled && !m.missing && m.capabilities.chat)?.id ?? null
+            : autoPickDefault(preset, merged.models) ?? (preset.family === 'host' ? firstChatModelId(merged.models) : null);
           if (picked) {
             draft = setEngineDefaultModel(draft, id, picked);
             formPicked.set(id, picked);
@@ -1556,9 +1561,11 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       trigger(id, 'open');
       if (opts.isNew && family === 'cloud') {void lookUpKey(id);}
       if (!opts.isNew) {return `eng:${id}:name`;}
-      // Design call 2: the first field a new engine needs.
+      // Design call 2: the first field a new engine needs. A known local server is
+      // already at its usual address, so nothing in the form (a stray key would wipe the URL).
       if (family === 'cloud' && ai.setSecret) {return `eng:${id}:key`;}
-      return family === 'local' ? `eng:${id}:url` : `eng:${id}:name`;
+      if (family !== 'local') {return `eng:${id}:name`;}
+      return presetOf(engine).id === 'custom' ? `eng:${id}:url` : null;
     },
     busy(id) {
       if (testing.has(id)) {return 'test';}

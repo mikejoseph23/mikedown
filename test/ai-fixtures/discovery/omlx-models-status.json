@@ -1,0 +1,211 @@
+{
+  "description": "oMLX: the OpenAI GET /v1/models list, then GET /v1/models/status for loaded state and model types. The loaded MarkItDown converter can neither chat nor embed; the status also names a model the list does not (ignored).",
+  "kind": "openai-compatible",
+  "request": "GET http://127.0.0.1:8000/v1/models, then GET http://127.0.0.1:8000/v1/models/status",
+  "listed": {
+    "object": "list",
+    "data": [
+      {
+        "id": "DeepSeek-V4-Flash-0731-MXFP4-MLX",
+        "object": "model",
+        "created": 1793282315,
+        "owned_by": "omlx",
+        "max_model_len": 1048576
+      },
+      {
+        "id": "GLM-5.3-4bit",
+        "object": "model",
+        "created": 1793282315,
+        "owned_by": "omlx",
+        "max_model_len": 1048576
+      },
+      {
+        "id": "Qwen3.8-27B-MLX-4bit",
+        "object": "model",
+        "created": 1793282315,
+        "owned_by": "omlx",
+        "max_model_len": 262144
+      },
+      {
+        "id": "gemma-4-26B-A4B-it-QAT-MLX-4bit",
+        "object": "model",
+        "created": 1793282315,
+        "owned_by": "omlx",
+        "max_model_len": 262144
+      },
+      {
+        "id": "whisper-large-v3-turbo",
+        "object": "model",
+        "created": 1793282315,
+        "owned_by": "omlx"
+      },
+      {
+        "id": "MarkItDown",
+        "object": "model",
+        "created": 1793282315,
+        "owned_by": "omlx"
+      },
+      {
+        "id": "unlisted-in-status",
+        "object": "model",
+        "created": 1793282315,
+        "owned_by": "omlx"
+      }
+    ]
+  },
+  "response": {
+    "model_count": 7,
+    "loaded_count": 2,
+    "current_model_memory": 16857268678,
+    "models": [
+      {
+        "id": "DeepSeek-V4-Flash-0731-MXFP4-MLX",
+        "loaded": false,
+        "is_loading": false,
+        "estimated_size": 175437251505,
+        "engine_type": "batched",
+        "model_type": "llm",
+        "config_model_type": "deepseek_v4",
+        "model_context_length": 1048576
+      },
+      {
+        "id": "GLM-5.3-4bit",
+        "loaded": false,
+        "is_loading": false,
+        "estimated_size": 439237387606,
+        "engine_type": "batched",
+        "model_type": "llm",
+        "config_model_type": "glm5",
+        "model_context_length": 1048576
+      },
+      {
+        "id": "Qwen3.8-27B-MLX-4bit",
+        "loaded": true,
+        "is_loading": false,
+        "estimated_size": 16857268678,
+        "engine_type": "batched",
+        "model_type": "vlm",
+        "config_model_type": "qwen3_5",
+        "model_context_length": 262144
+      },
+      {
+        "id": "gemma-4-26B-A4B-it-QAT-MLX-4bit",
+        "loaded": false,
+        "is_loading": false,
+        "estimated_size": 16389280502,
+        "engine_type": "batched",
+        "model_type": "vlm",
+        "config_model_type": "gemma4",
+        "model_context_length": 262144
+      },
+      {
+        "id": "whisper-large-v3-turbo",
+        "loaded": false,
+        "is_loading": false,
+        "estimated_size": 1694676492,
+        "engine_type": "stt",
+        "model_type": "audio_stt",
+        "model_context_length": null
+      },
+      {
+        "id": "MarkItDown",
+        "loaded": true,
+        "is_loading": false,
+        "estimated_size": 0,
+        "engine_type": "markitdown",
+        "model_type": "markitdown",
+        "model_context_length": null
+      },
+      {
+        "id": "only-in-status",
+        "loaded": true,
+        "model_type": "llm"
+      },
+      {
+        "loaded": true,
+        "model_type": "llm"
+      }
+    ]
+  },
+  "expected": [
+    {
+      "id": "DeepSeek-V4-Flash-0731-MXFP4-MLX",
+      "capabilities": {
+        "chat": true,
+        "vision": false,
+        "embed": false,
+        "contextTokens": 1048576
+      },
+      "source": "endpoint",
+      "loaded": false
+    },
+    {
+      "id": "GLM-5.3-4bit",
+      "capabilities": {
+        "chat": true,
+        "vision": false,
+        "embed": false,
+        "contextTokens": 1048576
+      },
+      "source": "endpoint",
+      "loaded": false
+    },
+    {
+      "id": "Qwen3.8-27B-MLX-4bit",
+      "capabilities": {
+        "chat": true,
+        "vision": true,
+        "embed": false,
+        "contextTokens": 262144
+      },
+      "source": "endpoint",
+      "loaded": true
+    },
+    {
+      "id": "gemma-4-26B-A4B-it-QAT-MLX-4bit",
+      "capabilities": {
+        "chat": true,
+        "vision": true,
+        "embed": false,
+        "contextTokens": 262144
+      },
+      "source": "endpoint",
+      "loaded": false
+    },
+    {
+      "id": "whisper-large-v3-turbo",
+      "capabilities": {
+        "chat": false,
+        "stream": false,
+        "vision": false,
+        "tools": false,
+        "json": false,
+        "embed": false
+      },
+      "source": "endpoint",
+      "loaded": false
+    },
+    {
+      "id": "MarkItDown",
+      "capabilities": {
+        "chat": false,
+        "stream": false,
+        "vision": false,
+        "tools": false,
+        "json": false,
+        "embed": false
+      },
+      "source": "endpoint",
+      "loaded": true
+    },
+    {
+      "id": "unlisted-in-status",
+      "capabilities": {},
+      "source": "heuristic"
+    }
+  ],
+  "expectedDefault": "Qwen3.8-27B-MLX-4bit",
+  "expectedPicked": [
+    "Qwen3.8-27B-MLX-4bit"
+  ]
+}

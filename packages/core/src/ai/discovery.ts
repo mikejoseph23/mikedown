@@ -57,6 +57,52 @@ export function parseLmStudioModels(body: unknown): AiDiscoveredModel[] {
   return out;
 }
 
+/**
+ * oMLX `GET {base}/models/status` (beside its OpenAI `/models`): per model
+ * `loaded` and `model_type` (`llm`, `vlm`, `embedding`, or a non-text type
+ * such as `audio_stt` or `markitdown`, which can neither chat nor embed),
+ * and `model_context_length`.
+ */
+export function parseOmlxModelStatus(body: unknown): AiDiscoveredModel[] {
+  const out: AiDiscoveredModel[] = [];
+  for (const m of dataArray(body, 'models')) {
+    if (typeof m.id !== 'string' || !m.id) {continue;}
+    const caps: Partial<AiModelCapabilities> = {};
+    if (m.model_type === 'llm') {
+      Object.assign(caps, { chat: true, vision: false, embed: false });
+    } else if (m.model_type === 'vlm') {
+      Object.assign(caps, { chat: true, vision: true, embed: false });
+    } else if (m.model_type === 'embedding' || m.model_type === 'embeddings') {
+      Object.assign(caps, { chat: false, stream: false, vision: false, tools: false, json: false, embed: true });
+    } else if (typeof m.model_type === 'string') {
+      Object.assign(caps, { chat: false, stream: false, vision: false, tools: false, json: false, embed: false });
+    }
+    const ctx = positiveInt(m.model_context_length);
+    if (ctx) {caps.contextTokens = ctx;}
+    const model: AiDiscoveredModel = { id: m.id, capabilities: caps, source: Object.keys(caps).length > 0 ? 'endpoint' : 'heuristic' };
+    if (typeof m.loaded === 'boolean') {model.loaded = m.loaded;}
+    out.push(model);
+  }
+  return out;
+}
+
+/**
+ * Fold a status listing (`parseOmlxModelStatus`) into the models `/models`
+ * listed: the listing decides which models exist, the status adds what it
+ * knows about each (capabilities, loaded state).
+ */
+export function withModelStatus(listed: readonly AiDiscoveredModel[], status: readonly AiDiscoveredModel[]): AiDiscoveredModel[] {
+  const byId = new Map(status.map((s) => [s.id, s]));
+  return listed.map((m) => {
+    const s = byId.get(m.id);
+    if (!s) {return m;}
+    const next: AiDiscoveredModel = { ...m, capabilities: { ...m.capabilities, ...s.capabilities } };
+    if (s.source === 'endpoint') {next.source = 'endpoint';}
+    if (s.loaded !== undefined) {next.loaded = s.loaded;}
+    return next;
+  });
+}
+
 /** Ollama `GET /api/tags`: the model names to ask `/api/show` about. */
 export function parseOllamaTags(body: unknown): string[] {
   return dataArray(body, 'models')

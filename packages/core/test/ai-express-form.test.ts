@@ -671,14 +671,29 @@ describe('OPEN-12: enabled state after a fetch', () => {
     expect(enabledIds(saved(m), 'claude')).toEqual(['claude-opus-5-5']);
   });
 
-  it('local: every discovered model arrives on', async () => {
+  it('local: only the default and the loaded models arrive on', async () => {
     const m = mountPage([omlx], { discover: async (id) => listing(id, ['qwen', 'gemma', 'llama']) });
     click(q(m.c, 'eng:omlx:fetch'));
     await settle(0);
     const result = saved(m);
-    expect(enabledIds(result, 'omlx')).toEqual(['qwen', 'gemma', 'llama']);
+    expect(enabledIds(result, 'omlx')).toEqual(['qwen']);
     // The first engine that can chat becomes the default route.
     expect(result.routing.default).toEqual({ engineId: 'omlx', modelId: 'qwen' });
+  });
+
+  it('local: a loaded model further down the list is the default, not the first one', async () => {
+    const loadedLater = (id: string) => {
+      const s = listing(id, ['glm-5.3', 'minimax-m3', 'qwen3.6-35b-a3b', 'gemma']);
+      s.models[2].loaded = true;
+      return s;
+    };
+    const m = mountPage([omlx], { discover: async (id) => loadedLater(id) });
+    click(q(m.c, 'eng:omlx:fetch'));
+    await settle(0);
+    const result = saved(m);
+    expect(enabledIds(result, 'omlx')).toEqual(['qwen3.6-35b-a3b']);
+    expect(result.routing.default).toEqual({ engineId: 'omlx', modelId: 'qwen3.6-35b-a3b' });
+    expect(m.c.querySelector('.ai-models-count')?.textContent).toBe('4 models, 1 picked');
   });
 });
 
@@ -994,7 +1009,7 @@ describe('quick-start cards', () => {
     expect(m.c.querySelector('.ai-detail-sub')?.textContent).toContain('Two ways to connect');
   });
 
-  it('picking a cloud card focuses its key; a local card focuses its address', () => {
+  it('picking a cloud card focuses its key; a local server card focuses the heading, not its address', () => {
     const m = mountPage([omlx]);
     click(q(m.c, 'nav:add'));
     click(m.c.querySelector('[aria-label="Add Anthropic"]'));
@@ -1002,9 +1017,19 @@ describe('quick-start cards', () => {
     expect(m.c.querySelector('.ai-detail-title')?.textContent).toBe('Anthropic');
     click(q(m.c, 'nav:add'));
     click(m.c.querySelector('[aria-label="Add LM Studio"]'));
-    const url = document.activeElement as HTMLInputElement;
-    expect(url.dataset.fk).toMatch(/^eng:lm-studio.*:url$/);
+    // A stray keystroke must not wipe the preset address.
+    expect(document.activeElement?.classList.contains('ai-detail-title')).toBe(true);
+    expect(document.activeElement?.textContent).toBe('LM Studio');
+    const url = m.c.querySelector<HTMLInputElement>('[data-fk^="eng:lm-studio"][data-fk$=":url"]')!;
     expect(url.value).toBe('http://127.0.0.1:1234/v1');
+  });
+
+  it('a new Custom engine still lands on its address, the first thing to type', () => {
+    const m = mountPage([omlx]);
+    click(q(m.c, 'nav:add'));
+    click(m.c.querySelector('[aria-label="Add Custom OpenAI-compatible"]'));
+    const url = document.activeElement as HTMLInputElement;
+    expect(url.dataset.fk).toMatch(/:url$/);
   });
 
   it('a new local engine fetches its models right away, from the preset address', async () => {

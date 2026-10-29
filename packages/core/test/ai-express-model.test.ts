@@ -1,17 +1,20 @@
 /** Express engine form (M3b): the pure helpers behind it. The DOM tests live in ai-express-form.test.ts (T3b). */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   AI_ENGINE_PRESETS,
   AI_PRESET_FAMILIES,
   mergeDiscoveredModels,
   parseAiSettings,
+  parseLmStudioModels,
   presetForEngine,
   thinkingChoices,
   thinkingLevelFrom,
   thinkingOverrides,
   withThinkingLevel,
 } from '../src/ai';
-import type { AiEngineConfig, AiEngineStatus, AiModelCapabilities, AiModelConfig, AiSettings, AiThinkingLevel } from '../src/ai';
+import type { AiEngineConfig, AiEngineStatus, AiModelCapabilities, AiModelConfig, AiModelSizeTag, AiSettings, AiThinkingLevel } from '../src/ai';
 import {
   AUTO_FETCH_KEY_DELAY_MS,
   applyDiscoveryForFamily,
@@ -23,6 +26,7 @@ import {
   enginePreset,
   expressFields,
   groupPresets,
+  localDefaultModelId,
   modelCountLine,
   modelPickerOptions,
   popularModels,
@@ -33,6 +37,7 @@ import {
 } from '../src/ai-settings-model';
 import type { AutoFetchState } from '../src/ai-settings-model';
 
+const FIXTURES = join(__dirname, '..', '..', '..', 'test', 'ai-fixtures');
 const preset = (id: string) => AI_ENGINE_PRESETS.find((p) => p.id === id)!;
 const chat: AiModelCapabilities = { chat: true, stream: true, vision: false, json: true, tools: true, fim: false, embed: false, contextTokens: null };
 const model = (id: string, over: Partial<AiModelConfig> = {}): AiModelConfig => ({ id, enabled: false, capabilities: chat, capabilitiesSource: 'endpoint', ...over });
@@ -213,15 +218,58 @@ describe('thinking level', () => {
 });
 
 describe('discovery and the enabled rule (OPEN-12)', () => {
-  it('local engines take new models enabled; cloud engines take them off unless picked', () => {
+  it('new models arrive off unless picked; on a local engine loaded ones arrive on', () => {
     const e = engine({ models: [model('kept', { enabled: true })] });
-    const s = status('e1', [{ id: 'kept' }, { id: 'new-a' }, { id: 'new-b' }]);
-    expect(applyDiscoveryForFamily(e, s, 'local').models.map((m) => [m.id, m.enabled])).toEqual([['kept', true], ['new-a', true], ['new-b', true]]);
+    const s = status('e1', [{ id: 'kept' }, { id: 'new-a' }, { id: 'new-b', loaded: true }]);
+    expect(applyDiscoveryForFamily(e, s, 'local').models.map((m) => [m.id, m.enabled])).toEqual([['kept', true], ['new-a', false], ['new-b', true]]);
     expect(applyDiscoveryForFamily(e, s, 'cloud').models.map((m) => [m.id, m.enabled])).toEqual([['kept', true], ['new-a', false], ['new-b', false]]);
     expect(applyDiscoveryForFamily(e, s, 'cloud', ['new-b']).models.map((m) => [m.id, m.enabled])).toEqual([['kept', true], ['new-a', false], ['new-b', true]]);
     // A model already there keeps its own choice, even when off.
     const off = engine({ models: [model('kept', { enabled: false })] });
-    expect(applyDiscoveryForFamily(off, s, 'local').models[0].enabled).toBe(false);
+    expect(applyDiscoveryForFamily(off, s, 'local').models.find((m) => m.id === 'kept')?.enabled).toBe(false);
+  });
+
+  it('a new local engine ticks only its default (moved first) and the loaded models', () => {
+    const fx = JSON.parse(readFileSync(join(FIXTURES, 'discovery/lmstudio-api-v0-models-loaded-later.json'), 'utf8'));
+    const s: AiEngineStatus = { engineId: 'e1', ok: true, isLocal: true, hasKey: false, models: parseLmStudioModels(fx.response) };
+    const next = applyDiscoveryForFamily(engine({ kind: 'lmstudio' }), s, 'local');
+    expect(next.models[0].id).toBe(fx.expectedDefault);
+    expect(next.models.filter((m) => m.enabled).map((m) => m.id)).toEqual(fx.expectedPicked);
+    expect(next.models).toHaveLength(fx.response.data.length);
+  });
+
+  it('oMLX: the loaded chat model is the default; a loaded converter is not ticked', () => {
+    const fx = JSON.parse(readFileSync(join(FIXTURES, 'discovery/omlx-models-status.json'), 'utf8'));
+    const s: AiEngineStatus = { engineId: 'e1', ok: true, isLocal: true, hasKey: false, models: fx.expected };
+    const next = applyDiscoveryForFamily(engine(), s, 'local');
+    expect(next.models[0].id).toBe(fx.expectedDefault);
+    expect(next.models.filter((m) => m.enabled).map((m) => m.id)).toEqual(fx.expectedPicked);
+  });
+
+  it('nothing loaded: the size hints choose, else the first chat model', () => {
+    const s = status('e1', [{ id: 'glm-5.3' }, { id: 'embed-1', chat: false }, { id: 'llama-70b' }, { id: 'qwen3-8b' }, { id: 'qwen3-14b' }, { id: 'phi-4-3b' }]);
+    const sizes: Record<string, AiModelSizeTag> = { 'llama-70b': 'too large', 'qwen3-8b': 'fits', 'qwen3-14b': 'fits', 'phi-4-3b': 'fits' };
+    const pick = applyDiscoveryForFamily(engine(), s, 'local', [], (id) => sizes[id]);
+    // The largest model that runs well, not the largest listed.
+    expect(pick.models[0].id).toBe('qwen3-14b');
+    expect(pick.models.filter((m) => m.enabled).map((m) => m.id)).toEqual(['qwen3-14b']);
+    // Unknown hardware: the first chat model.
+    expect(applyDiscoveryForFamily(engine(), s, 'local').models.filter((m) => m.enabled).map((m) => m.id)).toEqual(['glm-5.3']);
+  });
+
+  it('localDefaultModelId: loaded, then fits, then the smallest tight fit, then not too large', () => {
+    const ms = ['embed', 'big-70b', 'mid-32b', 'mid-24b', 'odd'].map((id) => model(id, { capabilities: { ...chat, chat: id !== 'embed' } }));
+    const sizes: Record<string, AiModelSizeTag> = { 'big-70b': 'too large', 'mid-32b': 'tight', 'mid-24b': 'tight' };
+    expect(localDefaultModelId(ms, new Set(['embed', 'odd']), (id) => sizes[id])).toBe('odd');
+    expect(localDefaultModelId(ms, new Set(), (id) => sizes[id])).toBe('mid-24b');
+    expect(localDefaultModelId(ms, new Set(), (id) => (id === 'odd' ? undefined : 'too large'))).toBe('odd');
+    expect(localDefaultModelId(ms.slice(0, 1), new Set(), () => undefined)).toBeNull();
+  });
+
+  it('a local engine that already has a pick gets no default on top', () => {
+    const e = engine({ models: [model('mine', { enabled: true })] });
+    const next = applyDiscoveryForFamily(e, status('e1', [{ id: 'mine' }, { id: 'other' }]), 'local');
+    expect(next.models.map((m) => [m.id, m.enabled])).toEqual([['mine', true], ['other', false]]);
   });
 
   it('the hosts merge with the same rule', () => {

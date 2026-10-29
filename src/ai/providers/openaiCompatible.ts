@@ -6,7 +6,9 @@ import {
   engineLocality,
   makeAiError,
   parseEmbeddingsResponse,
+  parseOmlxModelStatus,
   parseOpenAiModelList,
+  withModelStatus,
   withoutRequestParam,
   type AiCompletionRequest,
   type AiCompletionResult,
@@ -61,6 +63,24 @@ export async function listOpenAiModels(ctx: AdapterContext, engine: AiEngineConf
   const url = engineEndpoints(engine).models;
   const body = await requestJson(ctx.fetch, url, { headers: buildAuthHeaders(engine.kind, apiKey) }, signal, ctx.discoveryTimeoutMs);
   return parseOpenAiModelList(body);
+}
+
+/**
+ * `GET {base}/models`, plus on a local server `GET {base}/models/status`
+ * when it answers (oMLX: which models are loaded, and their types). The
+ * status is a bonus: any failure there keeps the bare list.
+ */
+export async function listOpenAiCompatibleModels(ctx: AdapterContext, engine: AiEngineConfig, apiKey: string | null, signal: AbortSignal): Promise<AiDiscoveredModel[]> {
+  const listed = await listOpenAiModels(ctx, engine, apiKey, signal);
+  if (engineLocality(engine) !== 'local' || listed.length === 0) {return listed;}
+  try {
+    const url = `${engineEndpoints(engine).models}/status`;
+    const body = await requestJson(ctx.fetch, url, { headers: buildAuthHeaders(engine.kind, apiKey) }, signal, ctx.probeTimeoutMs);
+    return withModelStatus(listed, parseOmlxModelStatus(body));
+  } catch (err) {
+    if ((err as { code?: string }).code === 'cancelled') {throw err;}
+    return listed;
+  }
 }
 
 /**
@@ -141,5 +161,5 @@ export function createChatCompletionsAdapter(parts: ChatCompletionsAdapterParts,
 }
 
 export function createOpenAiCompatibleAdapter(opts: AdapterOptions = {}): ProviderAdapter {
-  return createChatCompletionsAdapter({ kind: 'openai-compatible' }, opts);
+  return createChatCompletionsAdapter({ kind: 'openai-compatible', listModels: listOpenAiCompatibleModels }, opts);
 }
