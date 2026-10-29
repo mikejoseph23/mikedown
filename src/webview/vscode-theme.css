@@ -153,6 +153,12 @@ body[data-mikedown-theme="dark"] { --mikedown-scheme: dark; }
    data-mikedown-theme onto <body> (src/webview/editor-main.ts). */
 
 body[data-mikedown-theme="light"] {
+  /* Secondary buttons (Test connection, ...): the real theme's pair is made for
+     its own scheme, so a dark theme gave pale text on a light page. */
+  --vscode-button-secondaryBackground: #e5e5e5;
+  --vscode-button-secondaryForeground: #3b3b3b;
+  --vscode-button-secondaryHoverBackground: #cccccc;
+  --vscode-button-border: transparent;
   --vscode-editor-background: #ffffff;
   --vscode-editor-foreground: #1e1e1e;
   --vscode-foreground: #333333;
@@ -201,6 +207,10 @@ body[data-mikedown-theme="light"] {
 }
 
 body[data-mikedown-theme="dark"] {
+  --vscode-button-secondaryBackground: #3a3d41;
+  --vscode-button-secondaryForeground: #ffffff;
+  --vscode-button-secondaryHoverBackground: #45494e;
+  --vscode-button-border: transparent;
   /* Widget surfaces: the toolbar tooltips read these through
      --mikedown-surface-raised / --mikedown-border. */
   --vscode-editorWidget-background: #252526;

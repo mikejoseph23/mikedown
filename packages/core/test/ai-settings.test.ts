@@ -412,6 +412,25 @@ describe('AI Engines page in the editor', () => {
     await vi.waitFor(() => expect(document.querySelector('.ai-page .ai-live')?.textContent).toContain('oMLX: Connected in 42 ms'));
   });
 
+  it('Test connection is enabled and focused again once the test finishes', async () => {
+    const status: AiEngineStatus = { engineId: 'omlx', ok: true, isLocal: true, hasKey: false, latencyMs: 14, models: [] };
+    const ai = tier2({ testEngine: vi.fn(async () => status) });
+    class Host extends NoopHost { ai = ai; }
+    const handle = mount(new Host(), settings());
+    openPage(handle);
+    const before = byText('.settings-btn', 'Test connection') as HTMLButtonElement;
+    before.focus();
+    click(before);
+    const busy = document.querySelector<HTMLButtonElement>('[data-fk="eng:omlx:test"]')!;
+    expect(busy.getAttribute('aria-disabled')).toBe('true');
+    await vi.waitFor(() => expect(document.querySelector('.ai-result')?.textContent).toContain('Connected in 14 ms'));
+    const after = document.querySelector<HTMLButtonElement>('[data-fk="eng:omlx:test"]')!;
+    expect(after.textContent).toBe('Test connection');
+    expect(after.disabled).toBe(false);
+    expect(after.hasAttribute('aria-disabled')).toBe(false);
+    expect(document.activeElement).toBe(after);
+  });
+
   it('Back with unsaved changes asks; discarding drops a key stored for an engine the host never saw, keeps the rest', async () => {
     const ai = tier2();
     class Host extends NoopHost { ai = ai; saveSettings = vi.fn(); }
