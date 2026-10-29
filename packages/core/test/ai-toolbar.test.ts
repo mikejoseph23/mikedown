@@ -218,10 +218,10 @@ describe('AI menu (AI on)', () => {
     mount(new Host(), withEngine());
     aiButton()!.click();
     const items = Array.from(document.querySelectorAll<HTMLElement>('#toolbar-dropdown .tdd-item'));
-    expect(items.map((i) => i.querySelector('.tdd-item-label')?.textContent)).toEqual(['Rewrite selection', 'Manage engines…']);
+    expect(items.map((i) => i.querySelector('.tdd-item-label')?.textContent)).toEqual(['Rewrite selection', 'Summarize document…', 'Suggest titles…', 'Manage engines…']);
     expect(items[0].getAttribute('aria-disabled')).toBe('true');
     expect(items[0].querySelector('.tdd-item-hint')?.textContent).toBe('Select text first');
-    items[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    items[3].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(document.querySelector('#mikedown-ai-page-overlay')).not.toBeNull();
   });
 

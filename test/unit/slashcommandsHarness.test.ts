@@ -87,7 +87,8 @@ describe('slash menu — opening and filtering', () => {
     const h = await boot('');
     h.typeInWysiwyg('/');
     expect(menuEl()).not.toBeNull();
-    expect(menuCommandIds().length).toBe(SLASH_COMMANDS.length);
+    // The AI group is hidden without an AI host.
+    expect(menuCommandIds().length).toBe(SLASH_COMMANDS.filter((c) => c.group !== 'ai').length);
   });
 
   it('opens on "/" right after a space', async () => {

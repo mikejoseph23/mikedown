@@ -7,7 +7,7 @@
 // M6 (properties/date/datetime) map `id` to an action elsewhere, so this
 // registry stays pure data plus pure matching logic.
 
-export type SlashCommandGroup = 'basic' | 'lists' | 'callouts' | 'insert';
+export type SlashCommandGroup = 'basic' | 'lists' | 'callouts' | 'insert' | 'ai';
 
 export interface SlashCommand {
   /** Stable identifier. Also the primary matchable "name" for ranking. */
@@ -278,7 +278,41 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     group: 'insert',
     icon: 'clock',
   },
+  // AI (the `summary` and `title` features). Hidden by the editor whenever
+  // the feature is not available (`setSlashHiddenCommands`, see AI_SLASH_COMMANDS).
+  {
+    id: 'summary',
+    title: 'Summary',
+    description: 'AI: a TL;DR of the document at the cursor',
+    aliases: ['tldr', 'summarize'],
+    group: 'ai',
+    icon: 'ai',
+  },
+  {
+    id: 'outline',
+    title: 'Outline',
+    description: 'AI: an outline of the document at the cursor',
+    aliases: [],
+    group: 'ai',
+    icon: 'ai',
+  },
+  {
+    id: 'title',
+    title: 'Suggest titles',
+    description: 'AI: three titles to pick from',
+    // Not `heading`: an exact alias would outrank Heading 1 for `/heading`.
+    aliases: ['titles'],
+    keywords: ['heading'],
+    group: 'ai',
+    icon: 'ai',
+  },
 ];
+
+/** The AI slash commands by the AI feature that serves them. */
+export const AI_SLASH_COMMANDS: Readonly<Record<'summary' | 'title', readonly string[]>> = {
+  summary: ['summary', 'outline'],
+  title: ['title'],
+};
 
 /** Starter content for a freshly inserted `/mermaid` code block. */
 export const MERMAID_STARTER_DIAGRAM = `flowchart TD
@@ -296,8 +330,8 @@ export interface MatchContext {
  * Filters and ranks commands for a slash-menu query.
  *
  * Ranking tiers (each command appears in exactly one, the highest it
- * qualifies for): exact match on `id` or an alias, then prefix match on
- * `id`, then prefix match on an alias. Ties within a tier keep registry
+ * qualifies for): exact match on `id`, then exact match on an alias, then
+ * prefix match on `id`, then prefix match on an alias. Ties within a tier keep registry
  * order. Matching is case-insensitive. An empty query returns every
  * available command in registry order.
  *
@@ -318,7 +352,8 @@ export function matchCommands(
     return available.slice();
   }
 
-  const exact: SlashCommand[] = [];
+  const exactName: SlashCommand[] = [];
+  const exactAlias: SlashCommand[] = [];
   const namePrefix: SlashCommand[] = [];
   const aliasPrefix: SlashCommand[] = [];
 
@@ -326,8 +361,10 @@ export function matchCommands(
     const name = cmd.id.toLowerCase();
     const aliases = cmd.aliases.map((a) => a.toLowerCase());
 
-    if (name === q || aliases.includes(q)) {
-      exact.push(cmd);
+    if (name === q) {
+      exactName.push(cmd);
+    } else if (aliases.includes(q)) {
+      exactAlias.push(cmd);
     } else if (name.startsWith(q)) {
       namePrefix.push(cmd);
     } else if (aliases.some((a) => a.startsWith(q))) {
@@ -335,7 +372,7 @@ export function matchCommands(
     }
   }
 
-  return [...exact, ...namePrefix, ...aliasPrefix];
+  return [...exactName, ...exactAlias, ...namePrefix, ...aliasPrefix];
 }
 
 export interface SlashQueryMatch {

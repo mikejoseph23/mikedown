@@ -24,7 +24,20 @@
  *   transaction.
  * - `replaceDocument`: Translate with "Whole document". The target is the
  *   body without its frontmatter; Accept replaces the body in one
- *   transaction, puts the cursor at its start and scrolls to the top.
+ *   transaction, puts the cursor at its start and scrolls to the top. A body
+ *   too long for the model's context is cut by `budgetDocument`: the first
+ *   part is translated, the rest is kept as it is, and a note says so.
+ *
+ * Two document jobs (the `summary` and `title` features) open the same
+ * popover on a cursor target (`cursorInsertTarget`, `sourceCursorTarget`):
+ *
+ * - `insert` (`/summary`, `/outline`, "Summarize document…"): the summary
+ *   streams into the preview; Insert puts the block at the cursor's block
+ *   boundary in one transaction that also removes `/query`. TL;DR ⇄ Outline
+ *   in the header runs again.
+ * - `choose` (`/title`, "Suggest titles…"): three candidates; a click hands
+ *   the title to the caller's `apply` (frontmatter `title:`, the H1, or a
+ *   new H1). One JSON repair round trip when the reply does not parse.
  */
 
 import { Extension, elementFromString, posToDOMRect, type Editor } from '@tiptap/core';
@@ -35,8 +48,28 @@ import { closeHistory } from '@tiptap/pm/history';
 import { StateEffect, StateField } from '@codemirror/state';
 import { Decoration as CmDecoration, EditorView as CmEditorView } from '@codemirror/view';
 import { isolateHistory } from '@codemirror/commands';
-import { aiErrorCopy, thinkingChoices, toAiError } from './ai';
-import type { AiError, AiRouteOk, AiServedBy, AiThinkingLevel } from './ai';
+import {
+  CHARS_PER_TOKEN,
+  DEFAULT_CONTEXT_TOKENS,
+  aiErrorCopy,
+  budgetDocument,
+  buildSummaryMessages,
+  buildTitleMessages,
+  coveragePercent,
+  finalizeSummary,
+  headingsOutline,
+  jsonRepairMessages,
+  makeAiError,
+  parseTitles,
+  renderHeadingOutline,
+  summaryMaxTokens,
+  summaryVisibleText,
+  thinkingChoices,
+  titleMaxTokens,
+  toAiError,
+  type AiSummaryKind,
+} from './ai';
+import type { AiError, AiMessage, AiRouteOk, AiServedBy, AiThinkingLevel } from './ai';
 import {
   AI_AUDIENCES,
   AI_REWRITE_VARIANTS,
@@ -66,8 +99,11 @@ import {
 } from './ai-prefs';
 import { getPortal } from './portal';
 
-/** A target range; `id` tells one open target from the next. */
-interface Range { from: number; to: number; id: number }
+/**
+ * A target range; `id` tells one open target from the next. An `anchor` is
+ * a caret position (from === to) that follows edits and is never dropped.
+ */
+interface Range { from: number; to: number; id: number; anchor?: boolean }
 
 let nextTargetId = 0;
 
@@ -87,6 +123,10 @@ export const AiRewriteHighlight = Extension.create({
           const meta = tr.getMeta(aiRewriteHighlightKey) as { range: Range | null } | undefined;
           if (meta) {return meta.range;}
           if (!value || !tr.docChanged) {return value;}
+          if (value.anchor) {
+            const p = tr.mapping.map(value.from, -1);
+            return { ...value, from: p, to: p };
+          }
           const from = tr.mapping.map(value.from, 1);
           const to = tr.mapping.map(value.to, -1);
           return to > from ? { from, to, id: value.id } : null;
@@ -95,7 +135,7 @@ export const AiRewriteHighlight = Extension.create({
       props: {
         decorations(state) {
           const r = aiRewriteHighlightKey.getState(state);
-          if (!r) {return null;}
+          if (!r || r.to <= r.from) {return null;}
           return DecorationSet.create(state.doc, [Decoration.inline(r.from, r.to, { class: 'mikedown-ai-rewrite-target' })]);
         },
       },
@@ -112,11 +152,15 @@ const cmRewriteRange = StateField.define<Range | null>({
   update(value, tr) {
     for (const e of tr.effects) {if (e.is(setCmRewriteRange)) {return e.value;}}
     if (!value || !tr.docChanged) {return value;}
+    if (value.anchor) {
+      const p = tr.changes.mapPos(value.from, -1);
+      return { ...value, from: p, to: p };
+    }
     const from = tr.changes.mapPos(value.from, 1);
     const to = tr.changes.mapPos(value.to, -1);
     return to > from ? { from, to, id: value.id } : null;
   },
-  provide: (f) => CmEditorView.decorations.from(f, (r) => (r
+  provide: (f) => CmEditorView.decorations.from(f, (r) => (r && r.to > r.from
     ? CmDecoration.set([CmDecoration.mark({ class: 'mikedown-ai-rewrite-target' }).range(r.from, r.to)])
     : CmDecoration.none)),
 });
@@ -129,8 +173,11 @@ export const cmAiRewriteHighlight = [cmRewriteRange];
 /** What the popover rewrites: one selection, or the whole body, in one view. */
 export interface AiRewriteTarget {
   mode: 'rich' | 'source';
-  /** `document`: the whole body without its frontmatter (whole-document translate). */
-  scope: 'selection' | 'document';
+  /**
+   * `document`: the whole body without its frontmatter (whole-document
+   * translate). `cursor`: a caret or a `/query`, where a document job inserts.
+   */
+  scope: 'selection' | 'document' | 'cursor';
   /** The selection (or the body) as markdown. */
   text: string;
   before: string;
@@ -469,6 +516,290 @@ export function sourceDocumentTarget(view: CmEditorView, bodyStart: (markdown: s
   };
 }
 
+/** Where a document job inserts: the caret, or the `/query` it replaces. */
+export interface AiCursorTarget extends AiRewriteTarget {
+  /** The `/query` (from < to) or the caret (from === to), mapped through edits; null once gone. */
+  range(): { from: number; to: number } | null;
+}
+
+/**
+ * The rich-text caret, or a slash command's `/query`, as an insert target.
+ * The `/query` is marked while the popover is open and stays in the
+ * document until Accept, which removes it (with a mid-line trigger space)
+ * and inserts the blocks in one transaction: in place of the caret's
+ * top-level block when that is left an empty paragraph, else after it.
+ * Cancel leaves the document untouched.
+ */
+export function cursorInsertTarget(editor: Editor, slash?: { from: number; to: number }): AiCursorTarget | null {
+  if (editor.isDestroyed) {return null;}
+  const { state } = editor;
+  const id = ++nextTargetId;
+  const head = state.selection.head;
+  const initial: Range = slash && slash.to > slash.from
+    ? { from: slash.from, to: slash.to, id }
+    : { from: head, to: head, id, anchor: true };
+  editor.view.dispatch(state.tr.setMeta(aiRewriteHighlightKey, { range: initial }).setMeta('addToHistory', false));
+  const range = (): Range | null => {
+    if (editor.isDestroyed) {return null;}
+    const r = aiRewriteHighlightKey.getState(editor.state);
+    return r && r.id === id ? r : null;
+  };
+
+  return {
+    mode: 'rich',
+    scope: 'cursor',
+    text: '',
+    before: '',
+    after: '',
+    multiline: false,
+    alive: () => !!range(),
+    range() {
+      const r = range();
+      return r ? { from: r.from, to: r.to } : null;
+    },
+    rect() {
+      const r = range();
+      if (!r) {return null;}
+      try { return posToDOMRect(editor.view, r.from, r.to); } catch { return null; }
+    },
+    accept(markdown) {
+      const r = range();
+      if (!r || editor.isDestroyed) {return false;}
+      const content = parseBlocks(editor, markdown);
+      if (!content.size) {return false;}
+      const current = editor.state;
+      // One transaction, its own undo step: `/query` out, the blocks in.
+      const tr = closeHistory(current.tr);
+      let at = r.from;
+      if (r.to > r.from) {
+        const $q = current.doc.resolve(r.from);
+        if ($q.parentOffset > 0 && current.doc.textBetween(r.from - 1, r.from) === ' ') {at = r.from - 1;}
+        tr.delete(at, r.to);
+      }
+      tr.setMeta(aiRewriteHighlightKey, { range: null });
+      const $at = tr.doc.resolve(Math.min(at, tr.doc.content.size));
+      let from = $at.pos;
+      let to = $at.pos;
+      if ($at.depth > 0) {
+        const block = $at.node(1);
+        const empty = block.type.name === 'paragraph' && block.content.size === 0;
+        from = empty ? $at.before(1) : $at.after(1);
+        to = empty ? $at.after(1) : from;
+      }
+      tr.replaceWith(from, to, content);
+      const end = Math.min(from + content.size, tr.doc.content.size);
+      try { tr.setSelection(TextSelection.near(tr.doc.resolve(end), -1)); } catch { /* keep the mapped selection */ }
+      editor.view.dispatch(tr.scrollIntoView());
+      return true;
+    },
+    insertBelow: () => false,
+    release() {
+      if (!range()) {return;}
+      editor.view.dispatch(editor.state.tr.setMeta(aiRewriteHighlightKey, { range: null }).setMeta('addToHistory', false));
+    },
+    focus() {
+      if (!editor.isDestroyed) {editor.view.focus();}
+    },
+  };
+}
+
+/**
+ * The source-mode caret as an insert target. Accept puts the markdown at the
+ * caret's line in one CM transaction: in place of a blank line, else after
+ * the line, with blank lines around it. A caret inside the frontmatter
+ * inserts at the start of the body (`bodyStart`).
+ */
+export function sourceCursorTarget(view: CmEditorView, bodyStart?: (markdown: string) => number): AiCursorTarget {
+  const id = ++nextTargetId;
+  const head = view.state.selection.main.head;
+  view.dispatch({ effects: setCmRewriteRange.of({ from: head, to: head, id, anchor: true }) });
+  const range = (): Range | null => {
+    const r = view.state.field(cmRewriteRange, false);
+    return r && r.id === id ? r : null;
+  };
+
+  return {
+    mode: 'source',
+    scope: 'cursor',
+    text: '',
+    before: '',
+    after: '',
+    multiline: false,
+    alive: () => !!range() && view.dom.isConnected,
+    range() {
+      const r = range();
+      return r ? { from: r.from, to: r.to } : null;
+    },
+    rect() {
+      const r = range();
+      const c = r ? view.coordsAtPos(r.from) : null;
+      return c ? rectUnion(c, c) : null;
+    },
+    accept(markdown) {
+      const r = range();
+      const md = markdown.trim();
+      if (!r || !md) {return false;}
+      const doc = view.state.doc;
+      const start = bodyStart ? bodyStart(doc.toString()) : 0;
+      const line = doc.lineAt(Math.max(r.from, Math.min(start, doc.length)));
+      const prev = line.number > 1 ? doc.line(line.number - 1) : null;
+      const next = line.number < doc.lines ? doc.line(line.number + 1) : null;
+      const textAfter = !!next && !!next.text.trim();
+      let changes: { from: number; to?: number; insert: string };
+      let caret: number;
+      if (!line.text.trim()) {
+        const lead = prev && prev.text.trim() && line.from >= start ? '\n' : '';
+        changes = { from: line.from, to: line.to, insert: `${lead}${md}${textAfter ? '\n' : ''}` };
+        caret = line.from + lead.length + md.length;
+      } else {
+        changes = { from: line.to, insert: `\n\n${md}${textAfter ? '\n' : ''}` };
+        caret = line.to + 2 + md.length;
+      }
+      // One CM transaction, isolated in history so one undo removes it.
+      view.dispatch({
+        changes,
+        selection: { anchor: caret },
+        effects: setCmRewriteRange.of(null),
+        annotations: isolateHistory.of('full'),
+        userEvent: 'input.ai',
+        scrollIntoView: true,
+      });
+      return true;
+    },
+    insertBelow: () => false,
+    release() {
+      if (range()) {view.dispatch({ effects: setCmRewriteRange.of(null) });}
+    },
+    focus() {
+      view.focus();
+    },
+  };
+}
+
+// ── Titles ──────────────────────────────────────────────────────────────────
+
+/** What a picked title changes (D12): frontmatter `title:` wins, then the first H1, else a new H1. */
+export type AiTitleEffect = 'frontmatter' | 'h1' | 'insertH1';
+
+/** The one-line hint under the candidates, naming the effect before the click. */
+export const AI_TITLE_EFFECT_HINTS: Record<AiTitleEffect, string> = {
+  frontmatter: 'Sets title: in Properties',
+  h1: 'Replaces the H1',
+  insertH1: 'Inserts an H1',
+};
+
+/** True when the frontmatter YAML has a top-level `title:` key. */
+export function yamlHasTitle(yaml: string | null | undefined): boolean {
+  return /^title[ \t]*:/m.test(yaml ?? '');
+}
+
+/**
+ * The YAML with its top-level `title:` set to `title` (quoted when YAML
+ * needs it). Only the title entry changes, including any indented block
+ * scalar lines under it; every other line stays byte-identical. Without a
+ * `title:` key the YAML comes back unchanged.
+ */
+export function setYamlTitle(yaml: string, title: string): string {
+  const lines = yaml.split('\n');
+  const i = lines.findIndex((l) => /^title[ \t]*:/.test(l));
+  if (i < 0) {return yaml;}
+  let end = i + 1;
+  while (end < lines.length && /^[ \t]+\S/.test(lines[end])) {end++;}
+  lines.splice(i, end - i, `title: ${yamlScalar(title)}`);
+  return lines.join('\n');
+}
+
+function yamlScalar(s: string): string {
+  const plain = !/[:#[\]{},&*!|>'"%@`]/.test(s) && !/^\s|\s$/.test(s) && !/^(-?\d+(\.\d+)?|true|false|null|yes|no|on|off|~|-.*)$/i.test(s);
+  return plain && s ? s : `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * Set the title in rich text in one transaction (its own undo step), removing
+ * `remove` (a `/query`) in the same transaction: `h1` replaces the first
+ * H1's text, `insertH1` puts a new H1 at the top. The frontmatter case is the
+ * caller's (the YAML is not in the ProseMirror document).
+ */
+export function applyRichTitle(editor: Editor, effect: 'h1' | 'insertH1', title: string, remove?: { from: number; to: number } | null): boolean {
+  if (editor.isDestroyed || !title.trim()) {return false;}
+  const { schema } = editor.state;
+  const heading = schema.nodes.heading;
+  if (!heading) {return false;}
+  const tr = closeHistory(editor.state.tr);
+  if (remove && remove.to > remove.from) {tr.delete(remove.from, remove.to);}
+  tr.setMeta(aiRewriteHighlightKey, { range: null });
+  let h1: { pos: number; size: number } | null = null;
+  if (effect === 'h1') {
+    tr.doc.descendants((node, pos) => {
+      if (h1) {return false;}
+      if (node.type === heading && node.attrs.level === 1) {
+        h1 = { pos, size: node.content.size };
+        return false;
+      }
+      return !node.isTextblock;
+    });
+  }
+  const found = h1 as { pos: number; size: number } | null;
+  if (found) {
+    tr.replaceWith(found.pos + 1, found.pos + 1 + found.size, schema.text(title));
+  } else {
+    tr.insert(0, heading.create({ level: 1 }, schema.text(title)));
+  }
+  editor.view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+/** The first H1 line of `markdown` from `from` on (outside fenced code), or null. */
+function sourceH1Line(markdown: string, from: number): { from: number; to: number; prefix: string } | null {
+  let pos = from;
+  let fence: string | null = null;
+  while (pos <= markdown.length) {
+    const nl = markdown.indexOf('\n', pos);
+    const end = nl < 0 ? markdown.length : nl;
+    const line = markdown.slice(pos, end);
+    const f = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      if (f && f[1][0] === fence[0] && f[1].length >= fence.length && !line.trim().slice(f[1].length).trim()) {fence = null;}
+    } else if (f) {
+      fence = f[1];
+    } else {
+      const m = /^( {0,3}#[ \t]+)/.exec(line);
+      if (m) {return { from: pos, to: end, prefix: m[1] };}
+    }
+    if (nl < 0) {break;}
+    pos = nl + 1;
+  }
+  return null;
+}
+
+/**
+ * Set the title in source mode in one CM transaction: the frontmatter
+ * `title:` line, else the first H1's text, else a new H1 at the start of the
+ * body (`bodyStart`).
+ */
+export function applySourceTitle(view: CmEditorView, effect: AiTitleEffect, title: string, frontmatter: { yaml: string | null; bodyStart: number }): boolean {
+  if (!title.trim()) {return false;}
+  const full = view.state.doc.toString();
+  let change: { from: number; to: number; insert: string };
+  if (effect === 'frontmatter' && frontmatter.yaml !== null && yamlHasTitle(frontmatter.yaml)) {
+    // The YAML sits between the opening `---` line and the closing one.
+    const yamlFrom = full.indexOf('\n') + 1;
+    change = { from: yamlFrom, to: yamlFrom + frontmatter.yaml.length, insert: setYamlTitle(frontmatter.yaml, title) };
+  } else {
+    const h1 = effect === 'insertH1' ? null : sourceH1Line(full, frontmatter.bodyStart);
+    change = h1
+      ? { from: h1.from + h1.prefix.length, to: h1.to, insert: title }
+      : { from: frontmatter.bodyStart, to: frontmatter.bodyStart, insert: `# ${title}\n\n` };
+  }
+  view.dispatch({
+    changes: change,
+    effects: setCmRewriteRange.of(null),
+    annotations: isolateHistory.of('full'),
+    userEvent: 'input.ai',
+  });
+  return true;
+}
+
 // ── Icons ───────────────────────────────────────────────────────────────────
 
 const icon = (body: string, size = 14) => `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
@@ -588,7 +919,39 @@ export function structureWarningText(diff: StructureDiff): string {
  * take it answers `contextOverflow` or stops at the length limit.
  */
 function documentMaxTokens(text: string): number {
-  return Math.max(1024, Math.min(16384, Math.ceil((text.length / 3.5) * 1.6) + 256));
+  return Math.max(1024, Math.min(16384, Math.ceil((text.length / CHARS_PER_TOKEN) * 1.6) + 256));
+}
+
+/** Tokens kept for the system prompt, the instructions and slack around a budgeted document. */
+const DOCUMENT_RESERVE_TOKENS = 768;
+
+/**
+ * Fit a whole-document translation to the model's context. The answer is
+ * about as long as what is sent, so when the body does not fit beside its
+ * own `documentMaxTokens` the context is split: about 1 part sent to 1.6
+ * parts answer. Returns the part to send, the output budget and what is left.
+ */
+export function budgetTranslation(body: string, contextTokens: number): { text: string; rest: string; coverage: number; maxTokens: number } {
+  let maxTokens = documentMaxTokens(body);
+  let b = budgetDocument(body, { contextTokens, outputTokens: maxTokens, reserveTokens: DOCUMENT_RESERVE_TOKENS });
+  if (b.truncated) {
+    const room = Math.max(0, contextTokens - DOCUMENT_RESERVE_TOKENS);
+    maxTokens = Math.max(1024, Math.min(16384, Math.floor((room * 1.6) / 2.6)));
+    b = budgetDocument(body, { contextTokens, outputTokens: maxTokens, reserveTokens: DOCUMENT_RESERVE_TOKENS });
+    if (b.truncated) {maxTokens = Math.min(maxTokens, documentMaxTokens(b.text));}
+  }
+  return b.truncated
+    ? { text: b.text, rest: body.slice(b.text.length), coverage: b.coverage, maxTokens }
+    : { text: body, rest: '', coverage: 1, maxTokens };
+}
+
+/** The coverage line for a budgeted document job, or '' when all of it was sent. */
+export function coverageNoteText(job: 'summary' | 'titles' | 'translate', coverage: number): string {
+  if (coverage >= 1) {return '';}
+  const pct = coveragePercent(coverage);
+  if (job === 'translate') {return `Translates the first ${pct}% of the document; the rest did not fit the model's context and stays as it is.`;}
+  if (job === 'titles') {return `Based on the first ${pct}% of the document and all of its headings; the rest did not fit the model's context.`;}
+  return `Covers the first ${pct}% of the document; the rest did not fit the model's context.`;
 }
 
 // ── Popover ─────────────────────────────────────────────────────────────────
@@ -608,6 +971,31 @@ export interface AiRewritePopoverDeps {
   openSettings(): void;
   /** The whole body as a target (Translate's "Whole document"); absent hides the toggle. */
   documentTarget?(): AiRewriteTarget | null;
+  /**
+   * The routed model for `feature`, before sending: its context window (null
+   * when unknown, then `DEFAULT_CONTEXT_TOKENS`) and whether it has a JSON
+   * mode. Absent: the defaults.
+   */
+  routeInfo?(feature: string): { contextTokens: number | null; json: boolean };
+}
+
+/** `/summary` and `/outline`: what to summarise. */
+export interface AiSummaryJob {
+  /** The document body as markdown (frontmatter left out). */
+  markdown: string;
+  kind: AiSummaryKind;
+}
+
+/** `/title`: what to title, and what a pick does. */
+export interface AiTitleJob {
+  /** The document body as markdown (frontmatter left out). */
+  markdown: string;
+  /** The current title, so the model does not hand it back. */
+  existingTitle?: string;
+  /** What a pick changes; named in the hint under the list. */
+  effect: AiTitleEffect;
+  /** Set the picked title (one undo step). False when nothing changed. */
+  apply(title: string): boolean;
 }
 
 /** What to run when the popover opens; a parameterised variant without its parameter opens its picker. */
@@ -624,6 +1012,10 @@ export interface AiRewritePopover {
   open(target: AiRewriteTarget, choice?: AiRewriteChoice): void;
   /** Open on a target to say why rewrite cannot run (AI on, no usable route). */
   openUnavailable(target: AiRewriteTarget, reason: string): void;
+  /** `insert` mode: summarise the document and insert the block at the target. */
+  openSummary(target: AiRewriteTarget, job: AiSummaryJob): void;
+  /** `choose` mode: suggest three titles; a click applies one. */
+  openTitles(target: AiRewriteTarget, job: AiTitleJob): void;
   close(): void;
   isOpen(): boolean;
   destroy(): void;
@@ -631,7 +1023,12 @@ export interface AiRewritePopover {
 
 type Phase = 'choose' | 'running' | 'done' | 'error';
 type Picker = 'language' | 'audience';
-type OutputMode = 'replace' | 'readOnly' | 'replaceDocument';
+type OutputMode = 'replace' | 'readOnly' | 'replaceDocument' | 'insert' | 'choose';
+/** What the popover is running: a rewrite variant, a summary, or title suggestions. */
+type Job = 'rewrite' | 'summary' | 'titles';
+
+const SUMMARY_KIND_LABELS: Record<AiSummaryKind, string> = { tldr: 'TL;DR', outline: 'Outline' };
+const REPAIR_NOTE = 'Fixing the answer format…';
 
 /** True when `params` holds what `def` needs. */
 function hasParam(def: AiRewriteVariantDefinition | undefined, params: AiRewriteParams): boolean {
@@ -675,6 +1072,18 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   let unavailable = false;
   let note = '';
   let warning: { text: string; title: string } | null = null;
+  let job: Job = 'rewrite';
+  let summaryJob: AiSummaryJob | null = null;
+  let titleJob: AiTitleJob | null = null;
+  let titles: string[] = [];
+  /** Share of the document sent (summary, titles, whole-document translate); 1 when all of it fit. */
+  let coverage = 1;
+  /** What the rewrite was asked about: the selection, or the part of the body that fit. */
+  let sentText = '';
+  /** A whole-document translation cut to fit: the rest of the body, kept as it is on Accept. */
+  let untranslated = '';
+  /** The title job's JSON repair round trip is running (D16). */
+  let repairing = false;
   let side: 'below' | 'above' | null = null;
   let frame = 0;
   let copiedTimer: number | undefined;
@@ -703,6 +1112,11 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   let noteEl: HTMLElement;
   let hintEl: HTMLElement;
   let liveEl: HTMLElement;
+  let kindEl: HTMLElement;
+  let coverageEl: HTMLElement;
+  let titlesBoxEl: HTMLElement;
+  let titlesEl: HTMLElement;
+  let titleHintEl: HTMLElement;
 
   function abort(): void {
     runSeq += 1;
@@ -727,6 +1141,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   }
 
   function outputMode(): OutputMode {
+    if (job === 'summary') {return 'insert';}
+    if (job === 'titles') {return 'choose';}
     if (getAiRewriteVariant(variant)?.output === 'readOnly') {return 'readOnly';}
     return target?.scope === 'document' ? 'replaceDocument' : 'replace';
   }
@@ -751,7 +1167,18 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     closeBtn.innerHTML = CLOSE;
     closeBtn.setAttribute('aria-label', 'Cancel (Esc)');
     closeBtn.title = 'Cancel (Esc)';
-    head.append(spark, titleEl, thinkEl, badgeEl, closeBtn);
+    // TL;DR ⇄ Outline for a summary; picking the other one runs again.
+    kindEl = el('div', 'ai-rw-kind');
+    kindEl.setAttribute('role', 'group');
+    kindEl.setAttribute('aria-label', 'Summary kind');
+    kindEl.hidden = true;
+    for (const k of ['tldr', 'outline'] as const) {
+      const seg = button('ai-rw-kind-seg', SUMMARY_KIND_LABELS[k], () => pickKind(k));
+      seg.dataset.kind = k;
+      seg.title = k === 'tldr' ? 'A short TL;DR of the document (runs again)' : 'An outline of the document (runs again)';
+      kindEl.append(seg);
+    }
+    head.append(spark, titleEl, kindEl, thinkEl, badgeEl, closeBtn);
 
     // First level: one row per group (Length, Tone, Audience, Translate,
     // Explain), then the custom prompt. Second level: the picker.
@@ -802,14 +1229,24 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     newPaneEl.append(newLabelEl, newText);
     bodyEl.append(oldPane, newPaneEl);
 
+    // Title candidates, and what a pick changes.
+    titlesBoxEl = el('div', 'ai-rw-titles-box');
+    titlesEl = el('div', 'ai-rw-titles');
+    titlesEl.setAttribute('role', 'menu');
+    titlesEl.setAttribute('aria-label', 'Suggested titles');
+    titleHintEl = el('div', 'ai-rw-titles-hint');
+    titlesBoxEl.append(titlesEl, titleHintEl);
+
     errorEl = el('div', 'ai-rw-error');
     errorEl.setAttribute('role', 'alert');
+
+    coverageEl = el('div', 'ai-rw-coverage');
 
     warnEl = el('div', 'ai-rw-warn');
 
     footEl = el('div', 'ai-rw-foot');
     acceptBtn = button('ai-rw-btn ai-rw-btn--primary', 'Accept', () => accept());
-    retryBtn = button('ai-rw-btn', 'Retry', () => start(variant, instruction));
+    retryBtn = button('ai-rw-btn', 'Retry', () => rerun());
     copyBtn = button('ai-rw-btn', 'Copy', () => copy());
     noteEl = el('span', 'ai-rw-note');
     hintEl = el('span', 'ai-rw-hint', 'Esc to cancel');
@@ -818,7 +1255,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     liveEl = el('div', 'ai-rw-sr');
     liveEl.setAttribute('aria-live', 'polite');
 
-    box.append(head, chooseEl, bodyEl, errorEl, warnEl, footEl, liveEl);
+    box.append(head, chooseEl, bodyEl, titlesBoxEl, errorEl, coverageEl, warnEl, footEl, liveEl);
     return box;
   }
 
@@ -970,6 +1407,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   // ── Rendering ──────────────────────────────────────────────────────────
 
   function headTitle(): string {
+    if (job === 'summary') {return summaryJob?.kind === 'outline' ? 'Outline' : 'Summary';}
+    if (job === 'titles') {return 'Suggest titles';}
     if (unavailable) {return 'Rewrite';}
     if (phase === 'choose') {return picker === 'language' ? 'Translate' : picker === 'audience' ? 'Reading level' : 'Rewrite';}
     if (variant === 'explain') {return 'Explain';}
@@ -1024,13 +1463,18 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   }
 
   function renderOut(): void {
-    const shown = phase === 'done' ? finalText.trim() : rewriteVisibleText(raw).trimStart();
+    // Titles stream as JSON: only a placeholder until the list shows.
+    const shown = job === 'titles' ? ''
+      : job === 'summary' ? summaryVisibleText(raw).trim()
+        : phase === 'done' ? finalText.trim() : rewriteVisibleText(raw).trimStart();
     outEl.textContent = shown;
     newPaneEl.classList.toggle('is-waiting', phase === 'running' && !shown);
     if (phase === 'running' && !shown) {
       const name = deps.badge(route, null, false)?.text.split(' · ')[1];
       outEl.textContent = '';
-      outEl.dataset.placeholder = name ? `Waiting for ${name}…` : 'Waiting for the engine…';
+      outEl.dataset.placeholder = repairing ? REPAIR_NOTE
+        : job === 'titles' && raw ? 'Suggesting titles…'
+          : name ? `Waiting for ${name}…` : 'Waiting for the engine…';
     } else {
       delete outEl.dataset.placeholder;
     }
@@ -1055,14 +1499,21 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     // Explain (nothing is replaced) nor a whole document (too long).
     root.dataset.layout = mode === 'replace' && target.multiline ? 'split' : 'single';
     root.setAttribute('aria-busy', phase === 'running' ? 'true' : 'false');
-    root.setAttribute('aria-label', variant === 'explain' && phase !== 'choose' ? 'Explain with AI' : 'Rewrite with AI');
+    root.setAttribute('aria-label', job === 'summary' ? 'Summarize with AI'
+      : job === 'titles' ? 'Suggest titles with AI'
+        : variant === 'explain' && phase !== 'choose' ? 'Explain with AI' : 'Rewrite with AI');
     titleEl.textContent = headTitle();
     if (variant === 'custom' && instruction && phase !== 'choose') {titleEl.title = instruction;} else {titleEl.removeAttribute('title');}
     chooseEl.hidden = phase !== 'choose';
     menuEl.hidden = !!picker;
     formEl.hidden = !!picker;
     pickerEl.hidden = !picker;
-    bodyEl.hidden = phase === 'choose' || phase === 'error';
+    bodyEl.hidden = phase === 'choose' || phase === 'error' || (mode === 'choose' && phase === 'done');
+    titlesBoxEl.hidden = !(mode === 'choose' && phase === 'done');
+    kindEl.hidden = job !== 'summary';
+    for (const seg of kindEl.querySelectorAll<HTMLElement>('.ai-rw-kind-seg')) {
+      seg.setAttribute('aria-pressed', seg.dataset.kind === summaryJob?.kind ? 'true' : 'false');
+    }
     errorEl.hidden = phase !== 'error';
     footEl.hidden = phase === 'choose' || phase === 'error';
     newLabelEl.textContent = mode === 'readOnly' ? 'Explanation' : variant === 'translate' ? 'Translation' : 'Rewrite';
@@ -1070,16 +1521,25 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     renderOut();
 
     const ready = phase === 'done' && !!finalText.trim();
-    acceptBtn.hidden = phase === 'error';
+    acceptBtn.hidden = phase === 'error' || mode === 'choose';
     acceptBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
-    acceptBtn.textContent = mode === 'readOnly' ? 'Insert below' : mode === 'replaceDocument' ? 'Replace document' : 'Accept';
+    acceptBtn.textContent = mode === 'readOnly' ? 'Insert below'
+      : mode === 'insert' ? 'Insert'
+        : mode === 'replaceDocument' ? 'Replace document' : 'Accept';
     acceptBtn.title = mode === 'readOnly'
       ? 'Insert the explanation as a quote below the selection'
-      : mode === 'replaceDocument' ? 'Replace the document body; frontmatter is kept (Enter)' : 'Replace the selection (Enter)';
-    copyBtn.hidden = phase === 'error';
+      : mode === 'insert' ? 'Insert at the cursor (Enter)'
+        : mode === 'replaceDocument' ? 'Replace the document body; frontmatter is kept (Enter)' : 'Replace the selection (Enter)';
+    copyBtn.hidden = phase === 'error' || mode === 'choose';
     copyBtn.setAttribute('aria-disabled', (phase === 'done' ? finalText : rewriteVisibleText(raw)).trim() ? 'false' : 'true');
     retryBtn.hidden = phase === 'error';
-    noteEl.textContent = note;
+    noteEl.textContent = repairing ? REPAIR_NOTE : note;
+
+    // What part of the document was sent, when not all of it fit.
+    const covered = job === 'rewrite' ? (target.scope === 'document' ? 'translate' : null) : job;
+    const covText = covered && (phase === 'running' || phase === 'done') ? coverageNoteText(covered, coverage) : '';
+    coverageEl.hidden = !covText;
+    coverageEl.textContent = covText;
     hintEl.textContent = mode === 'readOnly' ? 'Esc to close' : 'Esc to cancel';
 
     // The structure check, between the preview and the footer. A warning
@@ -1108,8 +1568,10 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     textBox.append(el('div', 'ai-rw-error-message', e.code === 'unknown' && detail ? detail : copyText.message));
     if (detail && e.code !== 'unknown') {textBox.append(el('div', 'ai-rw-error-detail', detail));}
     if (e.code === 'contextOverflow' && target) {
-      const what = target.scope === 'document' ? 'The document' : 'The selection';
-      textBox.append(el('div', 'ai-rw-error-detail', `${what} is ${target.text.length.toLocaleString()} characters.`));
+      const what = target.scope === 'selection' ? 'The selection' : 'The document';
+      const size = job === 'summary' ? summaryJob?.markdown.length ?? 0
+        : job === 'titles' ? titleJob?.markdown.length ?? 0 : target.text.length;
+      textBox.append(el('div', 'ai-rw-error-detail', `${what} is ${size.toLocaleString()} characters.`));
     }
     const actions = el('div', 'ai-rw-error-actions');
     const settingsBtn = button(`ai-rw-btn${copyText.action === 'openSettings' ? ' ai-rw-btn--primary' : ''}`, 'Open AI settings', () => {
@@ -1118,7 +1580,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     });
     actions.append(settingsBtn);
     if (!unavailable && copyText.action !== 'shortenSelection' && e.code !== 'cloudBlocked') {
-      actions.append(button(`ai-rw-btn${copyText.action === 'retry' ? ' ai-rw-btn--primary' : ''}`, 'Retry', () => start(variant, instruction)));
+      actions.append(button(`ai-rw-btn${copyText.action === 'retry' ? ' ai-rw-btn--primary' : ''}`, e.code === 'badOutput' ? 'Try again' : 'Retry', () => rerun()));
     }
     actions.append(button('ai-rw-btn', 'Close', () => close()));
     errorEl.replaceChildren(iconEl, textBox, actions);
@@ -1147,10 +1609,11 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     root.style.left = `${Math.round(left)}px`;
   }
 
-  /** Arrow keys, Home and End move between the chips of the first level or the picker's rows. */
+  /** Arrow keys, Home and End move between the chips of the first level, the picker's rows or the titles. */
   function moveFocus(e: KeyboardEvent): boolean {
-    if (!root || phase !== 'choose' || !/^(Arrow(Up|Down|Left|Right)|Home|End)$/.test(e.key)) {return false;}
-    const selector = picker ? '.ai-rw-picker-list > button' : '.ai-rw-menu .ai-rw-chip';
+    const inTitles = outputMode() === 'choose' && phase === 'done';
+    if (!root || (phase !== 'choose' && !inTitles) || !/^(Arrow(Up|Down|Left|Right)|Home|End)$/.test(e.key)) {return false;}
+    const selector = inTitles ? '.ai-rw-titles > button' : picker ? '.ai-rw-picker-list > button' : '.ai-rw-menu .ai-rw-chip';
     const items = [...root.querySelectorAll<HTMLButtonElement>(selector)];
     const i = items.indexOf(e.target as HTMLButtonElement);
     if (i < 0) {return false;}
@@ -1182,6 +1645,14 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     instruction = '';
     docOnly = t.scope === 'document';
     wholeDocument = docOnly;
+    job = 'rewrite';
+    summaryJob = null;
+    titleJob = null;
+    titles = [];
+    coverage = 1;
+    sentText = '';
+    untranslated = '';
+    repairing = false;
     root = build();
     getPortal().appendChild(root);
 
@@ -1198,8 +1669,10 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
         e.preventDefault();
         return;
       }
-      // Enter accepts a replacement; Explain inserts only on an explicit click.
-      if (e.key === 'Enter' && phase === 'done' && outputMode() !== 'readOnly' && !e.shiftKey && !e.altKey) {
+      // Enter accepts a replacement or inserts a summary; Explain inserts
+      // only on an explicit click, and a title is picked on its own row.
+      const mode = outputMode();
+      if (e.key === 'Enter' && phase === 'done' && mode !== 'readOnly' && mode !== 'choose' && !e.shiftKey && !e.altKey) {
         const t2 = e.target as HTMLElement | null;
         const inField = !!t2 && (t2.tagName === 'INPUT' || t2.tagName === 'TEXTAREA');
         const onOtherButton = !!t2 && t2.tagName === 'BUTTON' && t2 !== acceptBtn && root.contains(t2);
@@ -1233,19 +1706,26 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     rememberSessionThinking(thinking.kind, level);
     // Pressed at once; the route's answer confirms it.
     thinking = { ...thinking, sent: level };
-    start(variant, instruction);
+    rerun();
   }
 
-  function start(v: AiRewriteVariant, custom?: string): void {
-    const t = target;
-    if (!t || !root) {return;}
+  /** Run the current job again (Retry, Try again, the thinking dial). */
+  function rerun(): void {
+    if (job === 'summary') {startSummary();}
+    else if (job === 'titles') {startTitles();}
+    else {start(variant, instruction);}
+  }
+
+  /** The routed model's context window for `feature` (unknown: `DEFAULT_CONTEXT_TOKENS`). */
+  function contextTokensFor(feature: string): number {
+    return deps.routeInfo?.(feature).contextTokens ?? DEFAULT_CONTEXT_TOKENS;
+  }
+
+  /** Abort what runs and reset for a new request; returns its sequence number and signal. */
+  function beginRun(): { seq: number; signal: AbortSignal } {
     abort();
-    const seq = runSeq;
     const ac = new AbortController();
     controller = ac;
-    variant = v;
-    instruction = v === 'custom' ? (custom ?? instruction) : '';
-    picker = null;
     phase = 'running';
     raw = '';
     finalText = '';
@@ -1253,40 +1733,12 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     error = null;
     note = '';
     warning = null;
-    oldTextEl.textContent = t.scope === 'document' ? '' : t.text.trim();
-    const def = getAiRewriteVariant(v);
-    if (def?.param === 'language' && params.language) {rememberLanguage(params.language);}
-    if (def?.param === 'audience' && params.audience) {rememberAudience(params.audience);}
-    render();
-    position();
-    root.focus({ preventScroll: true });
+    repairing = false;
+    return { seq: runSeq, signal: ac.signal };
+  }
 
-    // TODO(M4): budget a whole document with `budgetDocument` (ai/documentBudget.ts)
-    // once it lands: send what fits and set `note` to its coverage ("Translated
-    // the first N% of the document."). Until then the whole body goes and an
-    // engine that cannot take it answers `contextOverflow`.
-    const readOnly = def?.output === 'readOnly';
-    const messages = readOnly
-      ? buildExplainMessages({ selection: t.text, before: t.before, after: t.after, title: t.title })
-      : buildRewriteMessages({
-        variant: v,
-        instruction,
-        selection: t.text,
-        before: t.before,
-        after: t.after,
-        params: def?.param ? params : undefined,
-        scope: t.scope,
-      });
-    const maxTokens = readOnly ? explainMaxTokens()
-      : t.scope === 'document' ? documentMaxTokens(t.text)
-        : rewriteMaxTokens(t.text, v);
-    deps.run({
-      feature: 'rewrite',
-      messages,
-      maxTokens,
-      temperature: v === 'fixFlow' || v === 'translate' ? 0.2 : 0.5,
-      thinking: sessionThinkingLevel,
-    }, {
+  function runEvents(seq: number): AiRunEvents {
+    return {
       onRoute: (r, th) => {
         if (seq !== runSeq) {return;}
         route = r;
@@ -1300,24 +1752,223 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
         raw = text;
         scheduleOut();
       },
-    }, ac.signal).then((outcome) => {
+    };
+  }
+
+  function noteServed(outcome: AiRunOutcome): void {
+    served = outcome.result.served;
+    viaFallback = outcome.viaFallback;
+    thinking = outcome.thinking;
+    deps.onServed(outcome.result.served, outcome.viaFallback);
+  }
+
+  function finishNote(reason: string | undefined): string {
+    return reason === 'length' ? 'Stopped at the length limit.' : reason === 'error' ? 'The stream ended early.' : '';
+  }
+
+  function showError(e: AiError): void {
+    phase = 'error';
+    error = e;
+    repairing = false;
+    render();
+    position();
+    liveEl.textContent = `${aiErrorCopy(e.code).title}.`;
+    errorEl.querySelector<HTMLButtonElement>('.ai-rw-btn--primary, .ai-rw-btn')?.focus({ preventScroll: true });
+  }
+
+  function runFailed(seq: number): (err: unknown) => void {
+    return (err) => {
       if (seq !== runSeq || !root) {return;}
       controller = null;
-      served = outcome.result.served;
-      viaFallback = outcome.viaFallback;
-      thinking = outcome.thinking;
-      deps.onServed(outcome.result.served, outcome.viaFallback);
+      const e = toAiError(err);
+      if (e.code === 'cancelled') {return;}
+      showError(e);
+    };
+  }
+
+  // ── Document jobs ──────────────────────────────────────────────────────
+
+  function pickKind(kind: AiSummaryKind): void {
+    if (!summaryJob || summaryJob.kind === kind) {return;}
+    summaryJob.kind = kind;
+    startSummary();
+  }
+
+  /** `/summary`, `/outline`: budget the body, stream the summary, Insert when done. Never retried (D16). */
+  function startSummary(): void {
+    const t = target;
+    const sj = summaryJob;
+    if (!t || !root || !sj) {return;}
+    const { seq, signal } = beginRun();
+    const kind = sj.kind;
+    const b = budgetDocument(sj.markdown, {
+      contextTokens: contextTokensFor('summary'),
+      outputTokens: summaryMaxTokens(kind, sj.markdown.length),
+      reserveTokens: DOCUMENT_RESERVE_TOKENS,
+    });
+    coverage = b.coverage;
+    render();
+    position();
+    root.focus({ preventScroll: true });
+    deps.run({
+      feature: 'summary',
+      messages: buildSummaryMessages({ document: b.text, kind, coverage: b.coverage }),
+      maxTokens: summaryMaxTokens(kind, b.text.length),
+      temperature: 0.3,
+      thinking: sessionThinkingLevel,
+    }, runEvents(seq), signal).then((outcome) => {
+      if (seq !== runSeq || !root) {return;}
+      controller = null;
+      noteServed(outcome);
+      raw = outcome.result.text || raw;
+      finalText = finalizeSummary(raw, kind, coverage);
+      if (!finalText.trim()) {
+        showError(makeAiError('badOutput'));
+        return;
+      }
+      phase = 'done';
+      note = finishNote(outcome.result.finishReason);
+      render();
+      position();
+      liveEl.textContent = `${kind === 'outline' ? 'Outline' : 'Summary'} ready. Press Enter to insert or Escape to cancel.`;
+      acceptBtn.focus({ preventScroll: true });
+    }, runFailed(seq));
+  }
+
+  /** `/title`: budget the body (plus every heading), ask for three titles, one JSON repair round trip. */
+  function startTitles(): void {
+    const t = target;
+    const tj = titleJob;
+    if (!t || !root || !tj) {return;}
+    const { seq, signal } = beginRun();
+    titles = [];
+    const info = deps.routeInfo?.('title');
+    const outline = headingsOutline(tj.markdown);
+    const b = budgetDocument(tj.markdown, {
+      contextTokens: info?.contextTokens ?? DEFAULT_CONTEXT_TOKENS,
+      outputTokens: titleMaxTokens(3),
+      reserveTokens: DOCUMENT_RESERVE_TOKENS + Math.ceil(renderHeadingOutline(outline).length / CHARS_PER_TOKEN),
+    });
+    coverage = b.coverage;
+    render();
+    position();
+    root.focus({ preventScroll: true });
+    const messages = buildTitleMessages({ document: b.text, outline, existingTitle: tj.existingTitle, count: 3 });
+    const request = (msgs: AiMessage[]): Promise<AiRunOutcome> => deps.run({
+      feature: 'title',
+      messages: msgs,
+      maxTokens: titleMaxTokens(3),
+      temperature: 0.7,
+      thinking: sessionThinkingLevel,
+      ...(info?.json ? { format: 'json' as const } : {}),
+    }, runEvents(seq), signal);
+    request(messages).then(async (first) => {
+      if (seq !== runSeq || !root) {return;}
+      noteServed(first);
+      const firstText = first.result.text || raw;
+      let parsed = parseTitles(firstText, tj.existingTitle);
+      if (!parsed.ok) {
+        // D16: one repair round trip, abortable like the first request.
+        repairing = true;
+        render();
+        const second = await request([...messages, ...jsonRepairMessages(firstText, parsed.error)]);
+        if (seq !== runSeq || !root) {return;}
+        noteServed(second);
+        repairing = false;
+        parsed = parseTitles(second.result.text || raw, tj.existingTitle);
+        if (!parsed.ok) {throw makeAiError('badOutput', parsed.error);}
+      }
+      controller = null;
+      titles = parsed.titles.slice(0, 3);
+      phase = 'done';
+      renderTitles();
+      render();
+      position();
+      liveEl.textContent = `${titles.length} ${titles.length === 1 ? 'title' : 'titles'} ready. ${AI_TITLE_EFFECT_HINTS[tj.effect]}. Escape cancels.`;
+      titlesEl.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+    }).catch(runFailed(seq));
+  }
+
+  function renderTitles(): void {
+    titlesEl.replaceChildren(...titles.map((title) => {
+      const b = button('ai-rw-option ai-rw-title-option', '', () => pickTitle(title));
+      b.setAttribute('role', 'menuitem');
+      b.append(el('span', 'ai-rw-option-label', title));
+      return b;
+    }));
+    titleHintEl.textContent = titleJob ? AI_TITLE_EFFECT_HINTS[titleJob.effect] : '';
+  }
+
+  function pickTitle(title: string): void {
+    const t = target;
+    const tj = titleJob;
+    if (!t || !tj || phase !== 'done') {return;}
+    const ok = tj.apply(title);
+    close({ refocus: true });
+    if (!ok) {t.focus();}
+  }
+
+  function start(v: AiRewriteVariant, custom?: string): void {
+    const t = target;
+    if (!t || !root) {return;}
+    const { seq, signal } = beginRun();
+    variant = v;
+    instruction = v === 'custom' ? (custom ?? instruction) : '';
+    picker = null;
+    oldTextEl.textContent = t.scope === 'document' ? '' : t.text.trim();
+    const def = getAiRewriteVariant(v);
+    if (def?.param === 'language' && params.language) {rememberLanguage(params.language);}
+    if (def?.param === 'audience' && params.audience) {rememberAudience(params.audience);}
+    const readOnly = def?.output === 'readOnly';
+
+    // A whole document is fitted to the routed model's context: the part
+    // that fits is translated, the rest is kept as it is (coverage note).
+    sentText = t.text;
+    untranslated = '';
+    coverage = 1;
+    let maxTokens = readOnly ? explainMaxTokens() : rewriteMaxTokens(t.text, v);
+    if (t.scope === 'document' && !readOnly) {
+      const b = budgetTranslation(t.text, contextTokensFor('rewrite'));
+      sentText = b.text;
+      untranslated = b.rest;
+      coverage = b.coverage;
+      maxTokens = b.maxTokens;
+    }
+    render();
+    position();
+    root.focus({ preventScroll: true });
+
+    const messages = readOnly
+      ? buildExplainMessages({ selection: t.text, before: t.before, after: t.after, title: t.title })
+      : buildRewriteMessages({
+        variant: v,
+        instruction,
+        selection: sentText,
+        before: t.before,
+        after: t.after,
+        params: def?.param ? params : undefined,
+        scope: t.scope === 'document' ? 'document' : 'selection',
+      });
+    deps.run({
+      feature: 'rewrite',
+      messages,
+      maxTokens,
+      temperature: v === 'fixFlow' || v === 'translate' ? 0.2 : 0.5,
+      thinking: sessionThinkingLevel,
+    }, runEvents(seq), signal).then((outcome) => {
+      if (seq !== runSeq || !root) {return;}
+      controller = null;
+      noteServed(outcome);
       // Explain is a note, not a version of the selection: no whitespace to carry over.
-      finalText = finalizeRewriteText(outcome.result.text || raw, readOnly ? '' : t.text);
+      finalText = finalizeRewriteText(outcome.result.text || raw, readOnly ? '' : sentText);
       if (!finalText.trim()) {
         phase = 'error';
         error = { code: 'unknown', message: 'The engine sent back no text.' };
       } else {
         phase = 'done';
-        const reason = outcome.result.finishReason;
-        note = reason === 'length' ? 'Stopped at the length limit.' : reason === 'error' ? 'The stream ended early.' : '';
+        note = finishNote(outcome.result.finishReason);
         if (STRUCTURE_CHECKED.has(v)) {
-          const diff = checkMarkdownStructure(t.text, finalText);
+          const diff = checkMarkdownStructure(sentText, finalText);
           const text = structureWarningText(diff);
           warning = text ? { text, title: diff.messages.join('\n') } : null;
         }
@@ -1331,24 +1982,17 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
         // Explain leaves the keyboard on the popover so Enter cannot insert by accident.
         (readOnly ? root : acceptBtn).focus({ preventScroll: true });
       }
-    }, (err: unknown) => {
-      if (seq !== runSeq || !root) {return;}
-      controller = null;
-      const e = toAiError(err);
-      if (e.code === 'cancelled') {return;}
-      phase = 'error';
-      error = e;
-      render();
-      position();
-      liveEl.textContent = `${aiErrorCopy(e.code).title}.`;
-      errorEl.querySelector<HTMLButtonElement>('.ai-rw-btn--primary, .ai-rw-btn')?.focus({ preventScroll: true });
-    });
+    }, runFailed(seq));
   }
 
   function accept(): void {
     const t = target;
-    if (!t || phase !== 'done' || !finalText.trim()) {return;}
-    const ok = outputMode() === 'readOnly' ? t.insertBelow(finalText) : t.accept(finalText);
+    const mode = outputMode();
+    if (!t || phase !== 'done' || !finalText.trim() || mode === 'choose') {return;}
+    const ok = mode === 'readOnly' ? t.insertBelow(finalText)
+      // A translation cut to fit keeps the untranslated rest after it.
+      : mode === 'replaceDocument' && untranslated.trim() ? t.accept(`${finalText.trimEnd()}\n\n${untranslated.trimStart()}`)
+        : t.accept(finalText);
     close({ refocus: true });
     if (!ok) {t.focus();}
   }
@@ -1392,6 +2036,18 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       render();
       position();
       inputEl.focus({ preventScroll: true });
+    },
+    openSummary(t, sj) {
+      mount(t);
+      job = 'summary';
+      summaryJob = { ...sj };
+      startSummary();
+    },
+    openTitles(t, tj) {
+      mount(t);
+      job = 'titles';
+      titleJob = tj;
+      startTitles();
     },
     openUnavailable(t, reason) {
       mount(t);

@@ -267,6 +267,10 @@ export type MikeDownCommand =
   | 'aiExplain'
   /** Translate with AI: the popover's language picker; with nothing selected, the whole document. */
   | 'aiTranslate'
+  /** Summarize the document with AI: the popover streams a TL;DR, Insert puts it at the cursor (no-op without `host.ai`). */
+  | 'aiSummarize'
+  /** Suggest titles with AI: three candidates; a pick sets `title:`, the H1, or a new H1 (no-op without `host.ai`). */
+  | 'aiSuggestTitle'
   | 'copyAsRichText'
   // Menu-bar commands for hosts with their own menus (MikeDown Desktop). Each
   // mirrors an existing toolbar action or keystroke; no-ops in source mode

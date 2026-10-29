@@ -34,6 +34,10 @@
  * inline at a fixed position once the picker/host resolves), so cancelling
  * them is simply "never touched the document."
  *
+ * AI (`/summary`, `/outline`, `/title`) hands off like a picker too: the
+ * popover marks `/query` with a decoration and removes it only when Insert
+ * (or a title pick) commits, in that same transaction.
+ *
  * `/properties` is the odd one out: the frontmatter it inserts doesn't live
  * in the ProseMirror doc at all (see `insertEmptyFrontmatter` in
  * editor-main.ts), so ProseMirror's own undo can't restore it — `actionProperties`
@@ -87,6 +91,13 @@ export interface SlashActionDeps {
   /** `/image`: the host's file picker. Absent means `/image` is hidden and
    *  does nothing if run anyway. */
   pickImage?: ImagePicker;
+  /** `/summary`, `/outline`: open the AI popover in insert mode on `/query`
+   *  (picker pattern: Insert removes `/query` in its own transaction, cancel
+   *  leaves it). False when AI summary is not offered. */
+  aiSummarize?: (kind: 'tldr' | 'outline', range: Range) => boolean;
+  /** `/title`: open the AI popover in choose mode on `/query`; the pick
+   *  removes `/query` in the same undo step. False when not offered. */
+  aiSuggestTitle?: (range: Range) => boolean;
 }
 
 const CALLOUT_IDS = new Set(['note', 'tip', 'important', 'warning', 'caution']);
@@ -163,6 +174,20 @@ function handleSlashAction(
       return actionDate(view, range, false);
     case 'datetime':
       return actionDate(view, range, true);
+
+    case 'summary':
+    case 'outline':
+      if (!deps.aiSummarize) {
+        return false;
+      }
+      markSlashDismissed(range.from);
+      return deps.aiSummarize(id === 'outline' ? 'outline' : 'tldr', range);
+    case 'title':
+      if (!deps.aiSuggestTitle) {
+        return false;
+      }
+      markSlashDismissed(range.from);
+      return deps.aiSuggestTitle(range);
 
     default:
       return false;

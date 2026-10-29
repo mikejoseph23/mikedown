@@ -48,31 +48,44 @@ export function aiSetupTarget(tier: AiHostTier, settings: Pick<AiSettings, 'engi
 
 // ── The menu (AI on) ────────────────────────────────────────────────────────
 
+/** An AI menu entry: enabled, or disabled with the reason as its hint; null leaves it out. */
+export type AiToolbarEntryState = { enabled: true } | { enabled: false; hint: string } | null;
+
 export interface AiToolbarMenuInput {
   /** Rewrite selection: null leaves it out (read-only), otherwise enabled or disabled with a hint. */
-  rewrite: { enabled: true } | { enabled: false; hint: string } | null;
+  rewrite: AiToolbarEntryState;
+  /** "Summarize document…": absent or null leaves it out. A disabled hint carries the router's reason (D15). */
+  summarize?: AiToolbarEntryState;
+  /** "Suggest titles…": absent or null leaves it out. */
+  titles?: AiToolbarEntryState;
   /** True for a host with an engine registry ("Manage engines…"); otherwise "AI settings…". */
   canManageEngines: boolean;
-  icons: { rewrite: string; manage: string };
+  icons: { rewrite: string; manage: string; summarize?: string; titles?: string };
   onRewrite(): void;
+  onSummarize?(): void;
+  onSuggestTitles?(): void;
   onManage(): void;
 }
 
 export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdownEntry[] {
   const entries: ToolbarDropdownEntry[] = [];
-  const r = input.rewrite;
-  if (r) {
+  const add = (id: string, label: string, icon: string, state: AiToolbarEntryState | undefined, run: () => void): void => {
+    if (!state) {return;}
     entries.push({
       type: 'action',
-      id: 'ai-rewrite',
-      label: 'Rewrite selection',
-      icon: input.icons.rewrite,
-      hint: r.enabled ? undefined : r.hint,
-      isDisabled: () => !r.enabled,
-      action: () => input.onRewrite(),
+      id,
+      label,
+      icon,
+      hint: state.enabled ? undefined : state.hint,
+      isDisabled: () => !state.enabled,
+      action: run,
     });
-    entries.push({ type: 'separator' });
-  }
+  };
+  // Flat entries, no submenus (D14).
+  add('ai-rewrite', 'Rewrite selection', input.icons.rewrite, input.rewrite, () => input.onRewrite());
+  add('ai-summarize', 'Summarize document…', input.icons.summarize ?? input.icons.rewrite, input.summarize, () => input.onSummarize?.());
+  add('ai-titles', 'Suggest titles…', input.icons.titles ?? input.icons.rewrite, input.titles, () => input.onSuggestTitles?.());
+  if (entries.length > 0) {entries.push({ type: 'separator' });}
   entries.push({
     type: 'action',
     id: 'ai-manage',

@@ -42,6 +42,7 @@ import { Wikilink } from './wikilink-node';
 import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
 import { SlashCommands, closeSlashMenu, setSlashFrontmatterProvider, setSlashDisableHandler, setSlashHiddenCommands, setSlashSourceMode, setSlashCommandsConfig } from './slashcommands';
 import { initSlashCommandActions } from './slashcommands-actions';
+import { AI_SLASH_COMMANDS } from './slashcommands-registry';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
 import { MathInline, MathBlock, setMathRenderingEnabled } from './math';
 import { FootnoteRef, FootnoteDef } from './footnote';
@@ -97,7 +98,7 @@ import {
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
-import { defaultAiSettings, parseAiSettings } from './ai';
+import { defaultAiSettings, isRouteUsable, parseAiSettings, resolveRoute, type AiSummaryKind } from './ai';
 import type { AiEngineStatus, AiServedBy, AiSettings, AiSettingsPatch, MikeDownAiHost } from './ai';
 import { buildAiSettingsSection } from './ai-settings';
 import { mountAiEnginesPage } from './ai-engines-page';
@@ -113,9 +114,10 @@ import {
 } from './ai-toolbar';
 import { aiFeatureAvailability, runAiCompletion, type AiFeatureAvailability } from './ai-request';
 import {
-  AiRewriteHighlight, aiRewriteMenuGroups, cmAiRewriteHighlight, createAiRewriteBubble, createAiRewritePopover,
-  richDocumentTarget, richRewriteTarget, sourceDocumentTarget, sourceRewriteTarget, type AiRewriteBadge,
-  type AiRewriteTarget,
+  AiRewriteHighlight, aiRewriteMenuGroups, applyRichTitle, applySourceTitle, cmAiRewriteHighlight, createAiRewriteBubble,
+  createAiRewritePopover, cursorInsertTarget, richDocumentTarget, richRewriteTarget, setYamlTitle, sourceCursorTarget,
+  sourceDocumentTarget, sourceRewriteTarget, yamlHasTitle, type AiCursorTarget, type AiRewriteBadge,
+  type AiRewriteTarget, type AiTitleEffect,
 } from './ai-rewrite';
 import type { AiRewriteParams, AiRewriteVariant } from './ai/prompts/rewrite';
 import type {
@@ -469,7 +471,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   const hiddenSlashCommands: string[] = [];
   if (!host.pickImage) {hiddenSlashCommands.push('image');}
   if (!features.sidebar) {hiddenSlashCommands.push('properties');}
-  setSlashHiddenCommands(hiddenSlashCommands);
+  // The AI group stays hidden until syncAiSlashCommands knows the AI state.
+  setSlashHiddenCommands([...hiddenSlashCommands, ...AI_SLASH_COMMANDS.summary, ...AI_SLASH_COMMANDS.title]);
 
   // Find bar entry points (wired by buildFindReplaceBar when the feature is on).
   let openFindBar: (replace?: boolean) => void = () => {};
@@ -2211,6 +2214,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   let currentAiSettings: AiSettings = defaultAiSettings();
   let aiStatuses: AiEngineStatus[] = [];
   let aiServed: { served: AiServedBy; viaFallback: boolean } | null = null;
+  /** This session's cloud consent answers (grants), shared by every AI request in this editor. */
+  const aiConsent: Record<string, boolean | undefined> = {};
   /** Pending waiters for a settings echo (the AI tab saving engines before a test). */
   const aiSettingsWaiters = new Set<(s: AiSettings) => void>();
   let aiStatusTimer: number | undefined;
@@ -2233,6 +2238,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   function renderAiIndicator(): void {
+    syncAiSlashCommands();
     outlineSidebar?.applyAiIndicator(aiHost
       ? aiIndicatorState({
         settings: currentAiSettings,
@@ -2412,13 +2418,28 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     }
   }
 
-  /** This session's cloud consent answers (grants), shared by every AI request in this editor. */
-  const aiConsent: Record<string, boolean | undefined> = {};
-
   /** Whether the rewrite entry points show: hidden, disabled with a reason, or enabled. */
   function aiRewriteAvailability(): AiFeatureAvailability {
     if (readOnly) {return { state: 'hidden' };}
     return aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, 'rewrite');
+  }
+
+  /** Whether `/summary` or `/title` can run (read-only is the callers' to check). */
+  function aiDocAvailability(feature: 'summary' | 'title'): AiFeatureAvailability {
+    return aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, feature);
+  }
+
+  /**
+   * The `ai` slash group shows only while its feature is available (D15:
+   * hidden and disabled both hide; the reason is in the AI menu). The hidden
+   * set is shared by every editor on the page, so focus syncs it again.
+   */
+  function syncAiSlashCommands(): void {
+    const hidden = [...hiddenSlashCommands];
+    for (const feature of ['summary', 'title'] as const) {
+      if (aiDocAvailability(feature).state !== 'enabled') {hidden.push(...AI_SLASH_COMMANDS[feature]);}
+    }
+    setSlashHiddenCommands(hidden);
   }
 
   // ── Toolbar AI button ──────────────────────────────────────────────────────
@@ -2477,12 +2498,24 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         : availability.state === 'disabled' ? { enabled: false as const, hint: 'No engine available' }
           : !hasTextSelection() ? { enabled: false as const, hint: 'Select text first' }
             : { enabled: true as const };
+    // Summarize and Suggest titles: left out when off, disabled with the router's reason (D15).
+    const docEntry = (feature: 'summary' | 'title') => {
+      if (readOnly) {return null;}
+      const a = aiDocAvailability(feature);
+      return a.state === 'hidden' ? null
+        : a.state === 'disabled' ? { enabled: false as const, hint: a.reason }
+          : { enabled: true as const };
+    };
     const tier2 = aiHostTier(ai) === 2;
     showToolbarDropdown(anchor, aiToolbarMenuEntries({
       rewrite,
+      summarize: docEntry('summary'),
+      titles: docEntry('title'),
       canManageEngines: tier2,
-      icons: { rewrite: toolbarIcons.rewrite, manage: toolbarIcons.gear },
+      icons: { rewrite: toolbarIcons.rewrite, manage: toolbarIcons.gear, summarize: toolbarIcons.toc, titles: toolbarIcons.ai },
       onRewrite: () => { startAiRewrite(); },
+      onSummarize: () => { startAiSummary(); },
+      onSuggestTitles: () => { startAiTitles(); },
       onManage: () => { if (tier2) {showAiEnginesPage();} else {showSettingsModal('ai');} },
     }));
   }
@@ -4010,6 +4043,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     insertEmptyFrontmatter,
     focusPropertiesSection: () => outlineSidebar?.focusPropertiesSection(),
     pickImage: host.pickImage ? () => host.pickImage!() : undefined,
+    aiSummarize: (kind, range) => startAiSummary(kind, range),
+    aiSuggestTitle: (range) => startAiTitles(range),
   });
   // Hidden slash commands (`/image`, `/properties`) are set once, near the top
   // of the factory, from the host's capabilities and the enabled features.
@@ -4067,6 +4102,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     },
     openSettings: () => showSettingsModal('ai'),
     documentTarget: aiDocumentTarget,
+    routeInfo: aiRouteInfo,
   }) : null;
   if (aiRewrite) {disposers.push(() => aiRewrite.destroy());}
 
@@ -4076,6 +4112,120 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       return cmView ? sourceDocumentTarget(cmView, (md) => md.length - extractFrontmatter(md).body.length) : null;
     }
     return richDocumentTarget(editor, { scrollToTop: () => { editorContainer.scrollTop = 0; } });
+  }
+
+  /** The model the router would pick for `feature` now: its context window and JSON mode. */
+  function aiRouteInfo(feature: string): { contextTokens: number | null; json: boolean } {
+    const ai = aiHost;
+    // A tier-1 host routes by itself: nothing known about its model.
+    if (!ai || aiHostTier(ai) !== 2) {return { contextTokens: null, json: false };}
+    const r = resolveRoute(currentAiSettings, aiStatuses, aiConsent, { feature });
+    if (!isRouteUsable(r)) {return { contextTokens: null, json: false };}
+    const model = currentAiSettings.engines.find((e) => e.id === r.engineId)?.models.find((m) => m.id === r.modelId);
+    return { contextTokens: model?.capabilities.contextTokens ?? null, json: model?.capabilities.json === true };
+  }
+
+  /** The body as markdown (frontmatter left out), from whichever view shows. */
+  function aiBodyMarkdown(): string {
+    if (sourceMode && cmView) {return extractFrontmatter(cmView.state.doc.toString()).body;}
+    return editor.storage.markdown.getMarkdown();
+  }
+
+  /** Where a summary goes: the `/query` (rich text) or the caret. */
+  function aiCursorTarget(slash?: { from: number; to: number }): AiCursorTarget | null {
+    if (sourceMode) {
+      return cmView ? sourceCursorTarget(cmView, (md) => md.length - extractFrontmatter(md).body.length) : null;
+    }
+    return cursorInsertTarget(editor, slash);
+  }
+
+  /**
+   * `/summary`, `/outline` and "Summarize document…": the popover in insert
+   * mode at the cursor (or on `/query`, which Insert removes). False when
+   * the feature is not available or there is nothing to summarise.
+   */
+  function startAiSummary(kind: AiSummaryKind = 'tldr', slash?: { from: number; to: number }): boolean {
+    if (!aiRewrite || destroyed || readOnly) {return false;}
+    if (aiDocAvailability('summary').state !== 'enabled') {return false;}
+    const markdown = aiBodyMarkdown();
+    if (!markdown.trim()) {return false;}
+    aiBubble?.hide();
+    aiRewrite.close();
+    const target = aiCursorTarget(slash);
+    if (!target) {return false;}
+    aiRewrite.openSummary(target, { markdown, kind });
+    return true;
+  }
+
+  /** What a picked title changes (D12): frontmatter `title:`, else the first H1, else a new H1. */
+  function aiTitleEffect(): AiTitleEffect {
+    if (sourceMode && cmView) {
+      const { frontmatter, body } = extractFrontmatter(cmView.state.doc.toString());
+      if (yamlHasTitle(frontmatter)) {return 'frontmatter';}
+      return /^ {0,3}#[ \t]+\S/m.test(body) ? 'h1' : 'insertH1';
+    }
+    if (yamlHasTitle(frontmatterContent)) {return 'frontmatter';}
+    let h1 = false;
+    editor.state.doc.descendants((node) => {
+      if (h1) {return false;}
+      if (node.type.name === 'heading' && node.attrs.level === 1) {h1 = true;}
+      return !node.isTextblock;
+    });
+    return h1 ? 'h1' : 'insertH1';
+  }
+
+  /**
+   * Set a picked title, `/query` removal included, as one undo step. Rich
+   * text with a frontmatter `title:`: the YAML is outside ProseMirror, so
+   * `/query` goes in a PM transaction, the title through the Properties
+   * path, and an undo of that transaction puts the old YAML back (the
+   * `/properties` undo-depth pattern in slashcommands-actions.ts).
+   */
+  function applyAiTitle(target: AiCursorTarget, title: string): boolean {
+    const effect = aiTitleEffect();
+    if (sourceMode) {
+      if (!cmView) {return false;}
+      const full = cmView.state.doc.toString();
+      const { frontmatter, body } = extractFrontmatter(full);
+      return applySourceTitle(cmView, effect, title, { yaml: frontmatter, bodyStart: full.length - body.length });
+    }
+    const r = target.range();
+    const query = r && r.to > r.from ? r : null;
+    if (effect !== 'frontmatter') {return applyRichTitle(editor, effect, title, query);}
+    const previous = frontmatterContent;
+    const depthBefore = pmUndoDepth(editor.state);
+    if (query) {editor.view.dispatch(closeHistory(editor.state.tr).delete(query.from, query.to).scrollIntoView());}
+    setFrontmatterTitle(title);
+    if (query && previous !== null) {
+      const onUpdate = (): void => {
+        editor.off('update', onUpdate);
+        if (pmUndoDepth(editor.state) <= depthBefore && frontmatterContent !== previous) {applyFrontmatterYaml(previous);}
+      };
+      editor.on('update', onUpdate);
+    }
+    return true;
+  }
+
+  /**
+   * `/title` and "Suggest titles…": the popover in choose mode. False when
+   * the feature is not available or the document is empty.
+   */
+  function startAiTitles(slash?: { from: number; to: number }): boolean {
+    if (!aiRewrite || destroyed || readOnly) {return false;}
+    if (aiDocAvailability('title').state !== 'enabled') {return false;}
+    const markdown = aiBodyMarkdown();
+    if (!markdown.trim()) {return false;}
+    aiBubble?.hide();
+    aiRewrite.close();
+    const target = aiCursorTarget(slash);
+    if (!target) {return false;}
+    aiRewrite.openTitles(target, {
+      markdown,
+      existingTitle: aiDocumentTitle() || undefined,
+      effect: aiTitleEffect(),
+      apply: (title) => applyAiTitle(target, title),
+    });
+    return true;
   }
 
   /** The document title for Explain's context: frontmatter `title:`, else the first heading. */
@@ -4155,6 +4305,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     disposers.push(() => aiBubble.destroy());
     editor.on('selectionUpdate', () => aiBubble.schedule());
     editor.on('focus', () => aiBubble.schedule());
+    editor.on('focus', () => syncAiSlashCommands());
     editor.on('blur', () => aiBubble.schedule());
     const onDown = (): void => { aiPointerDown = true; aiBubble.hide(); };
     listen(editorContainer, 'mousedown', onDown);
@@ -5014,8 +5165,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // the user edits YAML directly in CodeMirror; the sidebar reflects but
   // doesn't drive (see refreshPropertiesEditable below).
   function applyFrontmatterEdit(entries: ParsedEntry[]): void {
+    applyFrontmatterYaml(serializeFrontmatter(entries));
+  }
+
+  /** The persist-and-re-render half of `applyFrontmatterEdit`, for YAML built elsewhere. */
+  function applyFrontmatterYaml(newYaml: string): void {
     if (sourceMode) {return;}
-    const newYaml = serializeFrontmatter(entries);
     if (newYaml === frontmatterContent) {return;}
     frontmatterContent = newYaml;
     const markdown = serializeDocument();
@@ -5023,6 +5178,15 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     notifyChange(markdown, { pristine: false });
     renderFrontmatterBlock();
     refreshPropertiesSidebar();
+  }
+
+  /**
+   * `/title` on a document with `title:` (D12): only the title line changes
+   * (`setYamlTitle`), then the Properties path persists and re-renders.
+   */
+  function setFrontmatterTitle(title: string): void {
+    if (frontmatterContent === null) {return;}
+    applyFrontmatterYaml(setYamlTitle(frontmatterContent, title));
   }
 
   function refreshPropertiesSidebar(): void {
@@ -6361,6 +6525,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // Translate the selection: opens the language picker (with "Whole document").
       case 'aiTranslate':
         startAiRewrite('translate');
+        break;
+      // Summarize the document: the popover in insert mode at the cursor.
+      case 'aiSummarize':
+        startAiSummary();
+        break;
+      // Suggest titles: three candidates; a pick sets title:, the H1 or a new H1.
+      case 'aiSuggestTitle':
+        startAiTitles();
         break;
       // M11 — Copy as rich text: write HTML + plain text to clipboard.
       case 'copyAsRichText':

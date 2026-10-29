@@ -80,7 +80,8 @@ export function setSlashDisableHandler(fn: (() => void) | null): void {
 }
 
 /** Command ids left out of the menu because the host lacks the feature
- *  (e.g. `image` without `host.pickImage`). */
+ *  (e.g. `image` without `host.pickImage`, or the AI group while its
+ *  feature is not available). */
 export function setSlashHiddenCommands(ids: Iterable<string>): void {
   hiddenCommands = new Set(ids);
 }
@@ -153,12 +154,13 @@ const LISTBOX_ID = 'mikedown-slash-menu';
 const OPTION_ID_PREFIX = 'mikedown-slash-opt-';
 const FOOTER_ID = 'mikedown-slash-opt-off';
 
-const GROUP_ORDER: SlashCommandGroup[] = ['basic', 'lists', 'insert', 'callouts'];
+const GROUP_ORDER: SlashCommandGroup[] = ['basic', 'lists', 'insert', 'callouts', 'ai'];
 const GROUP_LABEL: Record<SlashCommandGroup, string> = {
   basic: 'Basic blocks',
   lists: 'Lists',
   insert: 'Insert',
-  callouts: 'Callouts'
+  callouts: 'Callouts',
+  ai: 'AI'
 };
 
 export function isSlashMenuOpen(): boolean {
@@ -282,7 +284,11 @@ const ICONS: Record<string, string> = {
   calendar: svg(
     '<rect x="2" y="3" width="12" height="11" rx="1.5"/><line x1="2" y1="6.5" x2="14" y2="6.5"/><line x1="5.5" y1="1.8" x2="5.5" y2="4"/><line x1="10.5" y1="1.8" x2="10.5" y2="4"/><rect x="4.5" y="8.8" width="2.2" height="2.2" rx="0.4" fill="currentColor" stroke="none"/>'
   ),
-  clock: svg('<circle cx="8" cy="8" r="6"/><polyline points="8 4.5 8 8 10.5 9.5"/>')
+  clock: svg('<circle cx="8" cy="8" r="6"/><polyline points="8 4.5 8 8 10.5 9.5"/>'),
+  ai: svg(
+    '<path d="M8 2.2l1.25 3.3 3.3 1.25-3.3 1.25L8 11.3 6.75 8 3.45 6.75 6.75 5.5z"/><path d="M12.6 10.6l.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5z"/>',
+    1.4
+  )
 };
 const FALLBACK_ICON = svg('<rect x="3" y="3" width="10" height="10" rx="2"/>');
 const OFF_ICON = svg('<path d="M8 2v5"/><path d="M4.6 4.2a5 5 0 1 0 6.8 0"/>', 1.5);

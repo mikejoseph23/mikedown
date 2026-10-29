@@ -189,6 +189,37 @@
   box-shadow: 0 0 0 1px var(--mikedown-divider, rgba(15, 15, 20, 0.08));
 }
 
+/* Summary kind: TL;DR ⇄ Outline, the dial's pill beside the title. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-kind {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 1px;
+  border-radius: 10px;
+  background: var(--mikedown-hover, rgba(55, 53, 47, 0.06));
+  color: var(--mikedown-text-muted, #6f6f74);
+  font-size: 11.5px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-kind[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-kind-seg {
+  padding: 0 7px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-kind-seg:hover { color: var(--mikedown-text-ui, #3a3a3d); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-kind-seg[aria-pressed="true"] {
+  background: var(--mikedown-surface-raised, #fff);
+  color: var(--mikedown-text-ui, #3a3a3d);
+  box-shadow: 0 0 0 1px var(--mikedown-divider, rgba(15, 15, 20, 0.08));
+}
+
 :is(.mikedown-root, .mikedown-portal) .ai-rw-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -378,6 +409,21 @@
 :is(.mikedown-root, .mikedown-portal) .ai-rw-warn-icon { display: inline-flex; padding-top: 2px; flex-shrink: 0; }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-warn-text { overflow-wrap: anywhere; }
 
+/* Title candidates (choose mode) and the effect hint under them. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-titles-box { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 10px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-titles { display: flex; flex-direction: column; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-title-option { min-height: 32px; padding: 4px 10px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-title-option .ai-rw-option-label { overflow-wrap: anywhere; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-titles-hint { padding: 0 10px; color: var(--mikedown-text-muted, #6f6f74); font-size: 12px; }
+
+/* Coverage: the document was cut to fit the model's context. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-coverage {
+  padding: 6px 14px;
+  border-top: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08));
+  color: var(--mikedown-text-muted, #6f6f74);
+  font-size: 12px;
+}
+
 /* Footer. */
 :is(.mikedown-root, .mikedown-portal) .ai-rw-foot {
   display: flex;
@@ -416,11 +462,13 @@
   padding: 0 0 0 12px;
   border-left: 3px solid var(--mikedown-quote-border, rgba(150, 150, 150, 0.5));
 }
+/* Summary (insert): the preview reads like the block it inserts. */
+:is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-output="insert"] .ai-rw-text { max-height: 360px; }
 /* Whole-document translate: more room for the new text (there is no old pane). */
 :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-output="replaceDocument"] { max-height: min(80vh, 640px); }
 :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-output="replaceDocument"] .ai-rw-text { max-height: 420px; }
 
-:is(.mikedown-root, .mikedown-portal) :is(.ai-rw-btn, .ai-rw-chip, .ai-rw-icon-btn, .ai-rw-option, .ai-rw-think-seg, .ai-bubble-item):focus-visible {
+:is(.mikedown-root, .mikedown-portal) :is(.ai-rw-btn, .ai-rw-chip, .ai-rw-icon-btn, .ai-rw-option, .ai-rw-think-seg, .ai-rw-kind-seg, .ai-bubble-item):focus-visible {
   outline: 2px solid var(--mikedown-focus-ring, rgba(63, 81, 181, 0.55));
   outline-offset: 1px;
 }
