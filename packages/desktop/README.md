@@ -228,8 +228,11 @@ webview never opens a socket to an engine and never sees an API key. The
 commands are `ai_complete` (streams `ai-token:<id>`, then `ai-done:<id>` or
 `ai-error:<id>` to the calling window; closing the window cancels its
 requests), `ai_cancel`, `ai_list_engines`, `ai_test_engine`,
-`ai_discover_models`, `ai_set_secret` and `ai_request_cloud_consent` (a native
-dialog), called only from `src/host/aiApi.ts`; `src/host/aiHost.ts` turns them
+`ai_discover_models`, `ai_set_secret`, `ai_request_cloud_consent` (a native
+dialog with Allow, Not for this folder and Not now), `ai_list_consents`,
+`ai_forget_consent`, `ai_forget_engine_consents`, `ai_detect_local_servers`
+(the setup wizard's search for a running local server) and `ai_hardware_info`
+(memory, CPU and GPU for the wizard's local hint), called only from `src/host/aiApi.ts`; `src/host/aiHost.ts` turns them
 into core's `host.ai` (tier 2). Adapters per engine kind are in
 `commands/ai/providers/`; request building, SSE reading and discovery parsing
 are ports of `packages/core/src/ai/` and run against the shared
@@ -246,14 +249,27 @@ are ports of `packages/core/src/ai/` and run against the shared
   sets `~/.omlx/settings.json`, `auth.api_key`): a JSON file read last, only if
   it is a regular file under your home folder (symlinks resolved), at most 64 KB.
 - A cloud engine needs `ai.allowCloud` and the user's answer for the window's
-  folder (`ai.consent.<engineId>` in that folder's settings file; a window
-  with no folder remembers it for the session). The Rust side checks this
-  itself, whatever the webview asks for.
-  That consent lives in the folder's `.mikedown/settings.json`, which a repo
-  can contain, so a cloned folder can arrive with consent for an engine id
-  already recorded. It cannot send anything anywhere new (the engine, its URL
-  and `ai.allowCloud` are global), but look at a folder's file before trusting
-  it.
+  folder (a window with no folder remembers it for the session). The Rust side
+  checks this itself, whatever the webview asks for.
+  Answers (Allow, or Not for this folder) are saved in the app's own data
+  folder, `<app-data>/ai-consent.json` (`commands/ai/consent_store.rs`), keyed
+  by the folder's canonical path and the engine id, together with a fingerprint
+  of the engine (kind, address, locality). Nothing is written into the folder,
+  so a cloned or synced folder cannot arrive with consent already recorded. If
+  an engine's address changes, its old answer no longer counts and the dialog
+  asks again. Deleting an engine forgets its answers, and the AI tab's **Cloud
+  consents** list (this window's folder) has a **Forget** button per answer.
+  Older versions kept consent as `ai.consent.<engineId>` in the folder's
+  `.mikedown/settings.json`; the first lookup moves a `true` there into the
+  data file and removes the key from the folder file, so an older build opened
+  on the same folder asks again.
+- **From the Dock or Finder:** a macOS app launched that way has no shell
+  profile, so a key in `ANTHROPIC_API_KEY` or a similar variable is not seen.
+  The engine form says so under the key-from-variable field; use the engine's
+  key file or paste the key into Settings (it goes to the OS keychain).
+  Started from a terminal, the app does see the variables, and adding the
+  engine picks up the key it finds.
+- GitHub Copilot is a VS Code feature and is not offered here.
 
 #### Privacy
 
@@ -268,8 +284,9 @@ The native consent dialog (`commands/ai/consent.rs`, the same words as the
 VS Code modal, checked against `test/ai-fixtures/consent/`) says what the
 request sends and spells out the provider's policy URL, since a native dialog
 cannot carry a link. To open the policy from the app, go to Settings, AI,
-**Manage engines**, open the cloud engine and expand **What is sent**: the
-policy link there opens in your browser.
+**Manage engines**, and expand **What this means** above the cloud engines (or
+open a cloud engine and expand **What is sent**): the policy links there open
+in your browser.
 
 ### Disk, scope and native window state
 

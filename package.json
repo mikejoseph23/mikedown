@@ -756,7 +756,7 @@
         "mikedown.ai.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Master switch for MikeDown's AI features. Off by default; nothing is sent anywhere while it is off. Edit these in the MikeDown Settings modal (toolbar gear, AI tab)."
+          "description": "Master switch for MikeDown's AI features. Off by default; nothing is sent anywhere while it is off. It turns on by itself when AI setup finishes with an engine and a default model (the toolbar AI button, then Set up). Edit these in the MikeDown Settings modal (toolbar gear, AI tab)."
         },
         "mikedown.ai.showToolbarButton": {
           "type": "boolean",
@@ -767,19 +767,18 @@
           "type": "boolean",
           "default": false,
           "scope": "machine",
-          "markdownDescription": "Allow AI engines whose address is not local (cloud APIs). Even when on, MikeDown asks once per workspace before it sends text to a cloud engine. User settings only, so a repository cannot turn cloud on for you. Edit it in the MikeDown Settings modal (toolbar gear, AI tab)."
+          "markdownDescription": "Allow AI engines whose address is not local (cloud APIs, and GitHub Copilot). Even when on, MikeDown asks once per workspace before it sends text to a cloud engine, and asks again if that engine's address changes; the answers are listed under Cloud consents in the AI tab. Choosing a cloud provider or Copilot in AI setup turns this on. User settings only, so a repository cannot turn cloud on for you. Edit it in the MikeDown Settings modal (toolbar gear, AI tab)."
         },
         "mikedown.ai.engines": {
           "type": "array",
           "default": [],
           "scope": "machine",
-          "markdownDescription": "The AI engines MikeDown can use (oMLX, LM Studio, Ollama, OpenAI-compatible servers, Anthropic, OpenAI) and the models each one serves. User settings only, so a repository cannot add an endpoint. API keys are never stored here: they live in VS Code's secret storage, or come from the environment variable named in `apiKeyEnv` or the JSON file named in `apiKeyFile`. Edit engines in the MikeDown Settings modal (toolbar gear, AI tab).",
+          "markdownDescription": "The AI engines MikeDown can use (oMLX, LM Studio, Ollama, OpenAI-compatible servers, Anthropic, OpenAI and other cloud providers, GitHub Copilot) and the models each one serves. User settings only, so a repository cannot add an endpoint. API keys are never stored here: they live in VS Code's secret storage, or come from the environment variable named in `apiKeyEnv` or the JSON file named in `apiKeyFile`. Edit engines in the MikeDown Settings modal (toolbar gear, AI tab).",
           "items": {
             "type": "object",
             "required": [
               "name",
-              "kind",
-              "baseUrl"
+              "kind"
             ],
             "properties": {
               "id": {
@@ -796,12 +795,13 @@
                   "lmstudio",
                   "ollama",
                   "anthropic",
-                  "openai"
+                  "openai",
+                  "vscode-lm"
                 ]
               },
               "baseUrl": {
                 "type": "string",
-                "description": "For example http://127.0.0.1:8000/v1 or https://api.anthropic.com."
+                "description": "Required except for GitHub Copilot (kind vscode-lm), which has no address. For example http://127.0.0.1:8000/v1 or https://api.anthropic.com."
               },
               "enabled": {
                 "type": "boolean",
@@ -889,7 +889,7 @@
             "fallback": "anyLocal",
             "tasks": {}
           },
-          "markdownDescription": "Which engine and model serve each AI task, and what happens when that one is unavailable. Edit these in the MikeDown Settings modal (toolbar gear, AI tab).",
+          "markdownDescription": "Which engine and model serve each AI task (the Tasks page of the AI Engines page), and what happens when that one is unavailable. Edit these in the MikeDown Settings modal (toolbar gear, AI tab).",
           "properties": {
             "default": {
               "oneOf": [
@@ -970,7 +970,7 @@
             "192.168.0.0/16"
           ],
           "scope": "machine",
-          "markdownDescription": "IPv4 ranges (CIDR) and host name suffixes that count as local, besides loopback, link-local, `.local`, `.lan` and `.home.arpa`. Add a WireGuard range such as `10.0.98.0/24` or `.ts.net` here. User settings only. Edit these in the MikeDown Settings modal (toolbar gear, AI tab)."
+          "markdownDescription": "IPv4 ranges (CIDR) and host name suffixes that count as local, besides loopback, link-local, `.local`, `.lan` and `.home.arpa`. Add a WireGuard range such as `10.0.98.0/24` or `.ts.net` here. User settings only. Edit it in VS Code settings (`settings.json`); the MikeDown Settings modal does not show it."
         }
       }
     }

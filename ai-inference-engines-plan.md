@@ -708,6 +708,7 @@ Each is its own planning document; all run on the layer this plan builds and eac
 9. What changed summary (17): git in the VS Code host.
 10. `@mikedown/ai-providers` package if OPEN-1 flips.
 11. On-demand thinking dial: change the thinking level per request (rewrite popover, future chat) on top of the per-model default from M3b.
+12. Setup, privacy and polish items from the first review of the shipped engines (local server detection, one-click setup, the setup wizard and a GitHub Copilot engine, cloud key flow, consent hardening, the Tasks rename) are absorbed by `ai-setup-privacy-polish-plan.md`.
 
 [Return to Top](#ai-inference-engines-plan)
 
