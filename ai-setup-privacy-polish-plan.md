@@ -28,7 +28,7 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 | [M2 Cloud setup in one place](#m2-cloud-setup-in-one-place) | Opus | ✅ Done | 45 | `a78eaf4`; OQ2 scope change done by M4 |
 | [T1 Setup tests](#t1-setup-tests) | Sonnet | ⬜ Not Started | — | Unit, host, cargo |
 | [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links) | Opus | ✅ Done | 16 | `f5b48a7` (cherry-picked from worktree); openLink and panel wiring passed to M2/M4 |
-| [M4 Consent flow hardening](#m4-consent-flow-hardening) | Sonnet | 🔄 In Progress | — | VS Code and Desktop; needs OQ1 to OQ3 |
+| [M4 Consent flow hardening](#m4-consent-flow-hardening) | Sonnet | ✅ Done | 15 | `e73e2c2` (cherry-picked from worktree) |
 | [T2 Privacy and consent tests](#t2-privacy-and-consent-tests) | Sonnet | ⬜ Not Started | — | Unit, host, cargo |
 | [M5 UI polish: surfaces, naming, states, keyboard](#m5-ui-polish-surfaces-naming-states-keyboard) | Opus | ⬜ Not Started | — | Context menu, toolbar menu, popover, sidebar, commands |
 | [M6 Docs, settings sync, release notes](#m6-docs-settings-sync-release-notes) | Sonnet | ⬜ Not Started | — | README, CHANGELOG, Desktop README, package.json descriptions |
@@ -125,9 +125,9 @@ Listed here, not fixed (scope guard). Each has a home in a milestone.
 - [x] B1 `src/ai/engineService.ts#status`: `keySource` leaves out `env`, so `ai-engine-form.ts#buildKey` (lines 456 to 503) says "Stored in the system's secure storage" for a key read from `apiKeyEnv`. → M2.
 - [x] B2 `ai-settings-model.ts#autoFetchDecision`: a cloud engine with a key available from env or file never auto-fetches on open; only a typed key triggers it. → M2.
 - [x] B3 `editor.ts#turnOnAiAndSetUp` persists `ai.enabled: true` before the Engines page opens; Cancel leaves AI on with no route. → M1.
-- [ ] B4 Consent is not voided when an engine's `baseUrl` or `kind` changes (`engineService.ts#settingsChanged` prunes consent only for removed engines; Desktop never prunes). → M4.
-- [ ] B5 Desktop: `ai.consent.<id>` keys of deleted engines stay in every folder's `.mikedown/settings.json`. → M4.
-- [ ] B6 `engineService.ts#requestCloudConsent` returns `false` when `allowCloud` is off (no error), while Desktop rejects with `cloudBlocked`; the webview shows "Not allowed in this workspace" on VS Code for what is really "Cloud engines are off". Reachable only when the webview's settings copy is stale. → M4.
+- [x] B4 Consent is not voided when an engine's `baseUrl` or `kind` changes (`engineService.ts#settingsChanged` prunes consent only for removed engines; Desktop never prunes). → M4.
+- [x] B5 Desktop: `ai.consent.<id>` keys of deleted engines stay in every folder's `.mikedown/settings.json`. → M4.
+- [x] B6 `engineService.ts#requestCloudConsent` returns `false` when `allowCloud` is off (no error), while Desktop rejects with `cloudBlocked`; the webview shows "Not allowed in this workspace" on VS Code for what is really "Cloud engines are off". Reachable only when the webview's settings copy is stale. → M4.
 - [x] B7 The VS Code consent modal's "what is sent" line is wrong for every whole-document feature (P2). → M3.
 
 [Return to Top](#ai-setup-privacy-polish-plan)
@@ -333,24 +333,24 @@ Fixes P3, P4, P5, P6, P7, B4, B5, B6. Depends on OQ1, OQ2, OQ3 (defaults: app-da
 
 VS Code:
 
-- [ ] Consent key includes the engine fingerprint: `mikedown.ai.consent.<engineId>` stores `{ fingerprint, answer: 'allow' | 'never', at }`; `engineService.ts#ensureConsent` treats a fingerprint mismatch as "never asked" (B4). `settingsChanged` forgets consent for removed engines (already) and for fingerprint changes.
-- [ ] OQ3: `askConsent` returns `'allow' | 'never' | 'notNow'`; `never` is stored and makes the route `consentDenied` without asking; `notNow` is session-only (unchanged). `ConsentStore` API grows accordingly; `AiConsentState` already carries `false`, map `never` to it.
-- [ ] B6: `requestCloudConsent` rejects with `cloudBlocked` when `allowCloud` is off, matching Desktop; `webviewBridge.ts` already posts `aiError` for a rejection, so the webview shows "Cloud engines are off".
-- [ ] `listConsents()` on the service (engine id, answer, at) and a bridge message `aiListConsents` → `aiConsents`, plus `aiForgetConsent { engineId }`. Document in `webviewBridge.ts` and `editor-main.ts`.
-- [ ] OQ2: `mikedown.ai.allowCloud` scope `machine` in `package.json` (and the CLAUDE.md Settings rule sentence gains "and `mikedown.ai.allowCloud`"; the worker edits CLAUDE.md only for that sentence).
+- [x] Consent key includes the engine fingerprint: `mikedown.ai.consent.<engineId>` stores `{ fingerprint, answer: 'allow' | 'never', at }`; `engineService.ts#ensureConsent` treats a fingerprint mismatch as "never asked" (B4). `settingsChanged` forgets consent for removed engines (already) and for fingerprint changes.
+- [x] OQ3: `askConsent` returns `'allow' | 'never' | 'notNow'`; `never` is stored and makes the route `consentDenied` without asking; `notNow` is session-only (unchanged). `ConsentStore` API grows accordingly; `AiConsentState` already carries `false`, map `never` to it.
+- [x] B6: `requestCloudConsent` rejects with `cloudBlocked` when `allowCloud` is off, matching Desktop; `webviewBridge.ts` already posts `aiError` for a rejection, so the webview shows "Cloud engines are off".
+- [x] `listConsents()` on the service (engine id, answer, at) and a bridge message `aiListConsents` → `aiConsents`, plus `aiForgetConsent { engineId }`. Document in `webviewBridge.ts` and `editor-main.ts`.
+- [x] OQ2: `mikedown.ai.allowCloud` scope `machine` in `package.json` (and the CLAUDE.md Settings rule sentence gains "and `mikedown.ai.allowCloud`"; the worker edits CLAUDE.md only for that sentence).
 
 Desktop:
 
-- [ ] OQ1: consent moves to `<app-data>/ai-consent.json` keyed by canonical folder path and engine id, with the engine fingerprint and answer; `read_folder_consent` reads the old `ai.consent.*` key once as a migration, then `write_folder_consent` is retired and the old keys are removed from the folder file on the next write (B5). `aiSettings.ts#aiSettingsFromFlat` keeps stripping `ai.consent.*` for old files.
-- [ ] Three answers in the native dialog (`MessageDialogButtons::YesNoCancelCustom` or two dialogs if the plugin lacks three custom labels; pick what Tauri 2's dialog plugin offers and note it in the summary).
-- [ ] `ai_list_consents` and `ai_forget_consent` commands; `aiApi.ts` / `aiHost.ts` expose them as `listConsents` / `forgetConsent` on `MikeDownAiHost` (optional methods).
+- [x] OQ1: consent moves to `<app-data>/ai-consent.json` keyed by canonical folder path and engine id, with the engine fingerprint and answer; `read_folder_consent` reads the old `ai.consent.*` key once as a migration, then `write_folder_consent` is retired and the old keys are removed from the folder file on the next write (B5). `aiSettings.ts#aiSettingsFromFlat` keeps stripping `ai.consent.*` for old files.
+- [x] Three answers in the native dialog (`MessageDialogButtons::YesNoCancelCustom` or two dialogs if the plugin lacks three custom labels; pick what Tauri 2's dialog plugin offers and note it in the summary).
+- [x] `ai_list_consents` and `ai_forget_consent` commands; `aiApi.ts` / `aiHost.ts` expose them as `listConsents` / `forgetConsent` on `MikeDownAiHost` (optional methods).
 
 Core and UI:
 
-- [ ] `MikeDownAiHost` gains optional `listConsents?()` and `forgetConsent?(engineId)`; `AiConsentRecord` type in `types.ts`.
-- [ ] AI tab (`ai-settings.ts`): a **Cloud consents** row under Allow cloud, shown when the host has `listConsents`: one line per record ("Anthropic · this workspace · Allowed · Forget"), empty text "No cloud engine has been allowed here." Forget calls the host and refreshes.
-- [ ] `ai-request.ts`: a `never` answer from the host is written into `ctx.consent` as `false` for the session so the menu entries disable with the router's reason, not a re-ask.
-- [ ] P7 (OQ9): no code change beyond M3's wording; add a line to `packages/core/README.md` (or the AI section of the npm docs, wherever `requestCloudConsent` is documented) that a host without it sends to cloud engines without asking.
+- [x] `MikeDownAiHost` gains optional `listConsents?()` and `forgetConsent?(engineId)`; `AiConsentRecord` type in `types.ts`.
+- [x] AI tab (`ai-settings.ts`): a **Cloud consents** row under Allow cloud, shown when the host has `listConsents`: one line per record ("Anthropic · this workspace · Allowed · Forget"), empty text "No cloud engine has been allowed here." Forget calls the host and refreshes.
+- [x] `ai-request.ts`: a `never` answer from the host is written into `ctx.consent` as `false` for the session so the menu entries disable with the router's reason, not a re-ask.
+- [x] P7 (OQ9): no code change beyond M3's wording; add a line to `packages/core/README.md` (or the AI section of the npm docs, wherever `requestCloudConsent` is documented) that a host without it sends to cloud engines without asking.
 
 Worker notes: `editor.ts` is touched only to pass the two new host methods through `aiSessionOptions`; coordinate with M5 (sequential). Update the protocol comment blocks on both hosts.
 
@@ -527,6 +527,8 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 ---
 
 ## Progress Log / Notes
+
+**2026-10-29 08:00** - M4 done (`36ac87a` in the worktree, cherry-picked to develop as `e73e2c2`, 15 min; one import conflict in Desktop `aiApi.ts`). Consent is keyed by engine fingerprint with `allow` / `never` answers (B4); three answers on both hosts (OQ3); `cloudBlocked` on VS Code when Allow cloud is off (B6); `listConsents` / `forgetConsent` with a Cloud consents row on the AI tab; Desktop consent in `<app-data>/ai-consent.json` with migration from folder files (OQ1, B5); `allowCloud` machine scope plus the CLAUDE.md sentence (OQ2); `openLink` into `settingsSectionContext` and the badge tooltip (M3 follow-ups); AI tab checkbox re-sync and the shared `aiConsentStepNote` (M2 follow-ups). Worktree run: lint 0 errors, test:unit 2885, test:packages 83, Desktop 570, cargo green. Behaviour changes: existing VS Code users get one extra consent prompt per cloud engine (old bare `true` has no fingerprint); Desktop legacy folder consent migrates on first lookup and is removed from the folder file, so an older build on another machine asks again; `ai_request_cloud_consent` now returns a string answer. Leftover → M1b-b: point M2's cloud card in `ai-engines-page.ts` at `aiConsentStepNote`. Main-tree suites after the merge run with M1b-a's commit (it was already editing the tree).
 
 **2026-10-29 07:45** - M1b split in two (Parallel table allows it): M1b-a (backend: `setup.ts`, `hardwareInfo` on both hosts, `vscode-lm` kind, preset `installUrl`/`pricingUrl`; Opus, main tree) starts now beside M4; M1b-b (the wizard UI, touches `editor.ts`) waits until M4 has merged, so no two workers edit `editor.ts` at once.
 
