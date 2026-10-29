@@ -572,7 +572,7 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [ ] W2 "Turn on and set up" panel says the local vs cloud privacy point twice (disclaimer, then "Local engines keep your text here…"); cut the second line.
 - [ ] W3 Same panel ends "No local AI server found. Install LM Studio or Ollama, or use a cloud API key", which leads with local and goes against the cloud-first default; reword to lead with connecting a provider, local under Advanced.
 - [ ] W4 First-look panel is heavy grey text; trim the disclaimer to one sentence plus "Learn more".
-- [ ] W5 BUG: wizard content clipped at a fixed height with no scrollbar (cards and "What this means" cut off), with the Engines page's two-pane layout showing below. Fix dispatched.
+- [x] W5 BUG: wizard box only got half the page height (the hidden nav/detail panes stayed in the flex column because `.ai-page-body { display: flex }` overrode `hidden`). Fixed in `6000eaa`, Desktop too.
 - [ ] W6 The disclaimer appears a third time as the wizard's top banner.
 - [ ] W7 "Allow cloud engines" toggle shows (off) on the connect-a-cloud-provider step even though picking a provider turns it on; hide it or show it as "will turn on".
 - [ ] W8 "Set up AI" appears twice (top bar and page heading).
