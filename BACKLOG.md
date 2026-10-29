@@ -11,6 +11,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 - **PDF export bookmarks** (#11). Exported PDFs should carry a bookmark outline from the headings. Export goes through Chromium print today, which doesn't reliably emit an outline, so this likely means post-processing the PDF or generating it ourselves.
 - **Inline footnotes** — the `^[text]` form (reference footnotes shipped in 2.14.0).
 - **PlantUML / D2 diagram** support (less common than Mermaid).
+- **AI Recipes (user-defined prompt templates).** Let users define a recipe that takes a kind of document, asks the model for a specific structure back, and runs a follow-up action. A recipe is a markdown file with frontmatter (name, document-type hint, prompt, output template as headings or a JSON shape), stored per user or per workspace (e.g. `.mikedown/recipes/*.md`). Run it from the AI menu or `/recipe` through the existing router and `documentBudget`. Follow-up actions come from a fixed list only: insert at cursor, replace selection or document, append a section, set frontmatter properties, save as a new file (no shell, no URLs). A workspace recipe can only change the prompt, never the endpoint, and may need a first-run confirmation. Ship a few built-ins (meeting notes to action items, bug report triage) as examples. Properties Suggest (`ai/json.ts` plus apply chips) is the existing pattern to generalize. _From the 2026-10-29 session._
 
 ## Polish
 
