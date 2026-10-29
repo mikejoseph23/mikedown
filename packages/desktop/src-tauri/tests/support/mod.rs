@@ -10,6 +10,7 @@
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -139,9 +140,16 @@ pub fn shipped_endpoints(base: &str) -> Vec<String> {
         .collect()
 }
 
+/// Prefix of every `mock_app` identifier; cleanup refuses any app-data dir without it.
+pub const TEST_IDENTIFIER_PREFIX: &str = "com.interappdev.mikedown.test.";
+
 /// A mock-runtime app at version `current` with the updater plugin pointed at `endpoints`.
+/// `mock_context` leaves the identifier empty, which makes `app_data_dir()` the whole
+/// `~/Library/Application Support`; each app gets its own identifier instead.
 pub fn mock_app(current: &str, endpoints: &[String]) -> tauri::App<tauri::test::MockRuntime> {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let mut ctx = tauri::test::mock_context(tauri::test::noop_assets());
+    ctx.config_mut().identifier = format!("{TEST_IDENTIFIER_PREFIX}{}.{}", std::process::id(), NEXT.fetch_add(1, Ordering::SeqCst));
     ctx.config_mut().plugins.0.insert(
         "updater".into(),
         serde_json::json!({

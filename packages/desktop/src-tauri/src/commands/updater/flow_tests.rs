@@ -73,6 +73,8 @@ fn settle() {
 
 fn cleanup(r: &Rig) {
     if let Ok(dir) = r.app.path().app_data_dir() {
+        let ours = dir.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with(support::TEST_IDENTIFIER_PREFIX));
+        assert!(ours, "refusing to delete {dir:?}: not a test app-data dir");
         let _ = stdfs::remove_dir_all(dir);
     }
 }
