@@ -220,6 +220,9 @@ export interface AiEngineStatusModel {
   loaded?: boolean;
 }
 
+/** Where a host found an engine's key: its secret store, a variable, or a key file. */
+export type AiKeySource = 'stored' | 'env' | 'file';
+
 export interface AiEngineStatus {
   engineId: string;
   /** Null = never probed. */
@@ -227,11 +230,12 @@ export interface AiEngineStatus {
   isLocal: boolean;
   hasKey: boolean;
   /**
-   * Where the key came from, when `hasKey` and the host knows: its secret store
-   * or the engine's `apiKeyFile`. Absent for a variable, no key, or a host that
-   * does not say (the engine form then guesses from the engine's settings).
+   * Where the key came from, when `hasKey` and the host knows: its secret store,
+   * the engine's `apiKeyEnv` variable, or its `apiKeyFile`. Absent for no key or
+   * a host that does not say (the engine form then guesses from the engine's
+   * settings).
    */
-  keySource?: 'file' | 'stored';
+  keySource?: AiKeySource;
   latencyMs?: number;
   error?: string;
   models: AiEngineStatusModel[];
@@ -309,6 +313,14 @@ export interface MikeDownAiHost {
   discoverModels?(engineId: string): Promise<AiEngineStatus>;
   /** Store (or with null, delete) an engine's key. Never part of `saveSettings`. */
   setSecret?(engineId: string, apiKey: string | null): Promise<void>;
+  /**
+   * False when the host process may not see variables set in a shell profile
+   * (MikeDown Desktop opened from the Dock or Start menu), so `apiKeyEnv` is
+   * unreliable there and the engine form points at the key file or a pasted
+   * key instead. Absent: the host reads them (VS Code resolves the shell
+   * environment) or does not say.
+   */
+  readonly shellEnv?: boolean;
   /**
    * Host UI asking to use a cloud engine in this workspace. Absent means the
    * host decides on its own. `about` names the request that asked, so the

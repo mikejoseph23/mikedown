@@ -17,6 +17,8 @@
  *   and never comes back.
  * - `detectLocalServers` asks Rust which local presets answer (the setup UI
  *   only); Rust caps each address, so an abort here only stops waiting.
+ * - `shellEnv: false`: an app opened from the Dock does not see variables
+ *   set in a shell profile, so the engine form points at the key file instead.
  */
 import type { AiCompletionRequest, AiCompletionResult, AiEngineStatus, AiError, MikeDownAiHost } from '@mikedown/core';
 import {
@@ -113,6 +115,8 @@ export function createAiHost(deps: AiHostDeps): MikeDownAiHost {
 
   return {
     complete,
+    // Opened from the Dock or Start menu, the app has no shell profile variables (F10).
+    shellEnv: false,
 
     async listEngines() {
       const settings = deps.settings();

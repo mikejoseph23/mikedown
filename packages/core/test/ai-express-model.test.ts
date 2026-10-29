@@ -69,6 +69,13 @@ describe('presets', () => {
     expect(groups.cloud.every((p) => (p.popular ?? []).length > 0)).toBe(true);
   });
 
+  it('every cloud preset links its key page over https, and its caption no longer repeats the key hint', () => {
+    for (const p of AI_ENGINE_PRESETS.filter((x) => x.family === 'cloud')) {
+      expect(p.keyUrl, p.id).toMatch(/^https:\/\//);
+      expect(p.caption, p.id).not.toBe(p.keyHint);
+    }
+  });
+
   it('finds the preset a saved engine came from', () => {
     expect(presetForEngine({ kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8000/v1/', apiKeyEnv: 'OMLX_API_KEY' })?.id).toBe('omlx');
     expect(presetForEngine({ kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8000/v1', apiKeyEnv: 'VLLM_API_KEY' })?.id).toBe('vllm');
@@ -271,6 +278,15 @@ describe('autoFetchDecision', () => {
     // A cloud form opening, or a URL edit under Advanced, does not fetch by itself.
     expect(autoFetchDecision(null, cloud({ event: 'open', key: '', neverProbed: true })).fetch).toBe(false);
     expect(autoFetchDecision(null, cloud({ event: 'url', key: 'sk-1' })).fetch).toBe(false);
+  });
+
+  it('cloud (B2): opening fetches when the host already has a key, the engine has no models and was never reached', () => {
+    const open = (over: Partial<AutoFetchState>) => autoFetchDecision(null, cloud({ event: 'open', hasKey: true, modelCount: 0, neverProbed: true, ...over }));
+    expect(open({})).toMatchObject({ fetch: true, delayMs: 0, storeKey: false });
+    expect(open({ hasKey: false }).fetch).toBe(false);
+    expect(open({ modelCount: 3 }).fetch).toBe(false);
+    expect(open({ neverProbed: false }).fetch).toBe(false);
+    expect(open({ discovery: 'manual' }).fetch).toBe(false);
   });
 
   it('local: fetches on a changed URL and on first open of a never-probed engine', () => {

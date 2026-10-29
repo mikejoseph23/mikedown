@@ -28,15 +28,21 @@
  * (it opens the engine already set up there). Without the method the cards
  * are the plain list.
  *
+ * The cloud cards carry the **Allow cloud engines** switch, one line on what
+ * it means and the privacy card folded under "What this means"; it edits the
+ * page's draft, so Done saves it with the rest. A cloud engine's head, while
+ * the switch is off, says so with a "Turn on cloud engines" button (F4).
+ *
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
 import { AI_ENGINE_PRESETS, AI_PRESET_FAMILIES } from './ai';
 import { AI_DETECT_LOOKING, AI_DETECT_NONE, detectLocalServers } from './ai-local-setup';
-import type { AiEngineConfig, AiEnginePreset, AiLocalServerProbe, AiRoute, AiSettings, AiSettingsPatch } from './ai';
+import type { AiEngineConfig, AiEnginePreset, AiEngineStatus, AiLocalServerProbe, AiRoute, AiSettings, AiSettingsPatch } from './ai';
 import {
   defaultRouteForEngine,
   engineDisplayName,
+  engineLocalityInfo,
   engineFromPreset,
   engineIssues,
   engineKindLabel,
@@ -52,7 +58,7 @@ import type { EngineFormRefresh } from './ai-engine-form';
 import { createRoutingSection } from './ai-routing-section';
 import { createAiSettingsSession } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
-import { ICONS, button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, statusBadge, switchInput } from './ai-settings-dom';
+import { ICONS, button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, privacyCard, statusBadge, switchInput } from './ai-settings-dom';
 import type { MikeDownSettingsSectionContext } from './types';
 
 export type AiEnginesPageSection = 'engines' | 'routing';
@@ -62,6 +68,8 @@ export interface AiEnginesPageOptions extends AiSettingsSessionOptions {
   initial?: { engineId?: string; section?: AiEnginesPageSection };
   /** Shared with the session that opened the page (stored-key knowledge). */
   keyOverride?: Map<string, boolean>;
+  /** Shared with the session that opened the page (engine statuses). */
+  statusMap?: Map<string, AiEngineStatus>;
   /** Done: the `ai.*` keys that changed (possibly none) and the settings they lead to. */
   onDone(patch: AiSettingsPatch, settings: AiSettings): void;
   /** Back without saving; the page already took back what it added. */
@@ -457,7 +465,8 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
 
     const main = el('div', 'ai-detail-main');
     const titleLine = el('div', 'ai-detail-title-line');
-    titleLine.append(detailTitle(name), ...localityPills(engine, session.draft));
+    // The head says "blocked" with a way out (below) instead of the bare pill.
+    titleLine.append(detailTitle(name), ...localityPills(engine, session.draft, { blocked: false }));
     const models = engine.models.filter((m) => !m.missing).length;
     const picked = engine.models.filter((m) => !m.missing && m.enabled).length;
     const subParts = [engineKindLabel(engine.kind), shortUrl(engine.baseUrl) || 'no address'];
@@ -497,7 +506,37 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       if (headNote) {box.append(note(headNote.level, headNote.text, 'ai-result'));}
       detailHead.append(box);
     }
+    if (cloudBlocked(engine)) {detailHead.append(buildCloudOffNote(engine));}
     if (confirmDeleteId === engine.id) {detailHead.append(buildDeleteConfirm(engine));}
+  }
+
+  function cloudBlocked(engine: AiEngineConfig): boolean {
+    return !session.draft.allowCloud && engineLocalityInfo(engine, session.draft.localNetworks).locality === 'cloud';
+  }
+
+  /** A cloud engine while Allow cloud is off: say so, with the switch one click away (F4). */
+  function buildCloudOffNote(engine: AiEngineConfig): HTMLElement {
+    const box = el('div', 'ai-cloud-off');
+    box.append(note('info', `Cloud engines are off, so nothing is sent to ${engineDisplayName(engine)} yet.`));
+    const on = button('settings-btn ai-cloud-off-btn', 'Turn on cloud engines', { fk: `eng:${engine.id}:allow-cloud` });
+    on.addEventListener('click', () => {
+      setAllowCloud(true);
+      headNotes.set(engine.id, { level: 'info', text: 'Cloud engines are on. Choose Done to save.' });
+      renderDetailHead();
+      focusKey(`eng:${engine.id}:star`);
+    });
+    box.append(on);
+    return box;
+  }
+
+  /** Flip Allow cloud in the draft (Done saves it with the rest); the AI tab reads the same draft once the page is done. */
+  function setAllowCloud(on: boolean): void {
+    if (session.draft.allowCloud === on) {return;}
+    session.draft = { ...session.draft, allowCloud: on };
+    renderNav();
+    if (selection.kind === 'engine') {rerenderForm(selection.id);}
+    scheduleRouting();
+    announce(on ? 'Cloud engines turned on. Choose Done to save.' : 'Cloud engines turned off. Choose Done to save.');
   }
 
   function rerenderForm(engineId: string): void {
@@ -604,15 +643,49 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       const grid = el('div', 'ai-cards-grid');
       grid.setAttribute('role', 'group');
       grid.setAttribute('aria-labelledby', headingId);
-      section.append(heading, el('div', 'ai-cards-explainer', family.explainer), grid);
+      section.append(heading, el('div', 'ai-cards-explainer', family.explainer));
       if (family.family === 'local') {
+        section.append(grid);
         fillLocalGrid(grid, presets);
         if (canDetect) {section.append(buildDetectLine());}
       } else {
+        // The switch and what it means sit where a cloud engine is added (F4, OQ5).
+        section.append(buildCloudAccess(presets), grid);
         for (const preset of presets) {grid.append(buildCard(preset));}
       }
       box.append(section);
     }
+    return box;
+  }
+
+  /** The "What this means" disclosure stays open across redraws while the page is open. */
+  let cloudPrivacyOpen = false;
+
+  /** Allow cloud engines over the cloud cards: the switch, one line, and the privacy card folded. */
+  function buildCloudAccess(presets: AiEnginePreset[]): HTMLElement {
+    const box = el('div', 'ai-cloud-access');
+    const row = el('div', 'ai-cloud-access-row');
+    const toggle = switchInput(session.draft.allowCloud, 'Allow cloud engines', 'cards:allow-cloud');
+    toggle.id = nextId('ai-allow-cloud');
+    const label = el('label', 'ai-cloud-access-label', 'Allow cloud engines');
+    label.htmlFor = toggle.id;
+    const line = el('span', 'ai-cloud-access-line', 'Text you ask about is sent to the provider over the internet.');
+    line.id = nextId('ai-allow-cloud-line');
+    toggle.setAttribute('aria-describedby', line.id);
+    toggle.addEventListener('change', () => setAllowCloud(toggle.checked));
+    const text = el('div', 'ai-cloud-access-text');
+    text.append(label, line);
+    row.append(toggle, text);
+    box.append(row, privacyCard(presets, {
+      collapsed: 'What this means',
+      open: cloudPrivacyOpen,
+      onToggle: (open) => { cloudPrivacyOpen = open; },
+      openLink: ctx.openLink,
+      extra: ai.requestCloudConsent
+        ? 'Even when allowed, each cloud engine asks for your OK before its first request in each workspace or folder.'
+        : 'Once allowed, this app sends requests to cloud engines without asking again.',
+      className: 'ai-cloud-access-privacy',
+    }));
     return box;
   }
 

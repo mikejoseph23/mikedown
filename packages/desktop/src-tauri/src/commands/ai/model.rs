@@ -263,7 +263,7 @@ pub struct EngineInfo {
     pub ok: Option<bool>,
     pub is_local: bool,
     pub has_key: bool,
-    /// `"stored"` or `"file"` when the key came from there; absent for a variable or no key.
+    /// `"stored"`, `"env"` or `"file"`: where the key came from; absent without a key.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_source: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]

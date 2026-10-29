@@ -186,8 +186,14 @@ describe('aiHost registry methods', () => {
     const { host, api } = setup(saved.engines);
     api.listEngines.mockResolvedValueOnce([{ engineId: 'e1', ok: true, isLocal: true, hasKey: true, keySource: 'file' }]);
     expect(((await host.listEngines?.()) ?? [])[0].keySource).toBe('file');
+    api.listEngines.mockResolvedValueOnce([{ engineId: 'e1', ok: true, isLocal: true, hasKey: true, keySource: 'env' }]);
+    expect(((await host.listEngines?.()) ?? [])[0].keySource).toBe('env');
     api.listEngines.mockResolvedValueOnce([{ engineId: 'e1', ok: true, isLocal: true, hasKey: true }]);
     expect(((await host.listEngines?.()) ?? [])[0]).not.toHaveProperty('keySource');
+  });
+
+  it('says it does not read shell variables (F10), so the form points at the key file', () => {
+    expect(setup(saved.engines).host.shellEnv).toBe(false);
   });
 
   it('an engine Rust has not seen yet is never-probed with locality from the URL', async () => {

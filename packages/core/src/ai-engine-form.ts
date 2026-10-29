@@ -23,7 +23,7 @@
  */
 
 import { AI_ENGINE_KINDS, aiErrorCopy, aiProviderPolicy, isKnownEngineKind, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
-import type { AiEngineConfig, AiEngineStatus, AiLocalitySetting, AiModelConfig, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
+import type { AiEngineConfig, AiEngineStatus, AiKeySource, AiLocalitySetting, AiModelConfig, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
 import {
   AI_CAPABILITY_CHIPS,
   AI_ENGINE_KIND_LABELS,
@@ -59,7 +59,7 @@ import {
   withModel,
 } from './ai-settings-model';
 import type { AutoFetchEvent, AutoFetchState, DiscoveryProblem, EngineFormPreset, ModelPickerOption } from './ai-settings-model';
-import { ICONS, button, el, keepFocus, nextId, note, privacyCard, switchInput } from './ai-settings-dom';
+import { ICONS, button, el, hostLink, keepFocus, nextId, note, privacyCard, switchInput } from './ai-settings-dom';
 
 /** What else must re-render after a draft change made by the form. */
 export interface EngineFormRefresh {
@@ -85,7 +85,7 @@ export interface EngineFormDeps {
   onStatuses(): void;
   hasKey(engineId: string): boolean;
   /** Where the key came from, when the host said; without it the form guesses from the engine's settings. */
-  keySource?(engineId: string): 'file' | 'stored' | undefined;
+  keySource?(engineId: string): AiKeySource | undefined;
   /** Store (or with null, clear) a key through `host.ai.setSecret`. Resolves with an error message, or null when it worked. */
   setKey(engineId: string, value: string | null): Promise<string | null>;
   /** Make sure the host has this engine's connection fields before reaching it. */
@@ -95,7 +95,7 @@ export interface EngineFormDeps {
   announce(text: string): void;
   /** Focus the control with this `data-fk` inside the mounted form. */
   focusKey(key: string): void;
-  /** Open an external link through the host (the provider's policy). Absent: a plain anchor. */
+  /** Open an external link through the host (the provider's policy, its key page). Absent: a plain anchor. */
   openLink?: (href: string) => void;
 }
 
@@ -206,6 +206,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       baseUrl: engine.baseUrl,
       discovery: engine.discovery,
       neverProbed: !status || status.ok === null,
+      hasKey: deps.hasKey(engine.id),
+      modelCount: engine.models.length,
       fetchedFor: st.fetchedFor,
     };
   }
@@ -382,6 +384,30 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     }
   }
 
+  /**
+   * A new cloud engine whose preset names a key variable or file: the host
+   * cannot say whether it has a key for an engine it has never seen, so save
+   * it first (as Test does) and ask. A key found there fetches models at once
+   * (B2), so a user with `ANTHROPIC_API_KEY` set is done after one click.
+   */
+  async function lookUpKey(id: string): Promise<void> {
+    const engine = getEngine(id);
+    if (!engine || !ai.listEngines || !ai.discoverModels || deps.hasKey(id) || !deps.savesFirst(id)) {return;}
+    if (!engine.apiKeyEnv?.trim() && !engine.apiKeyFile?.path.trim()) {return;}
+    try {
+      await deps.ensureSaved(id);
+      const status = (await ai.listEngines()).find((s) => s.engineId === id);
+      // Typing a key since takes over; a deleted engine needs nothing.
+      if (!status?.hasKey || !getEngine(id) || (keyText.get(id) ?? '').trim()) {return;}
+      deps.statuses.set(id, status);
+      deps.onStatuses();
+      deps.refresh(id, { form: true, head: true });
+      trigger(id, 'open');
+    } catch {
+      // No answer: the key field is still there.
+    }
+  }
+
   // ── The form ──────────────────────────────────────────────────────────────
 
   function build(id: string): HTMLElement {
@@ -470,7 +496,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     input.value = keyText.get(id) ?? '';
     const source = has ? deps.keySource?.(id) : undefined;
     const fromFile = has && (source ? source === 'file' : !keyStored.has(id) && !!engine.apiKeyFile?.path);
-    input.placeholder = fromFile ? 'Found' : has ? 'Stored' : 'Paste your key';
+    const fromEnv = has && source === 'env';
+    input.placeholder = fromFile || fromEnv ? 'Found' : has ? 'Stored' : 'Paste your key';
     const problem = fetchState(id).problem;
     if (problem?.kind === 'auth') {input.setAttribute('aria-invalid', 'true');}
     input.addEventListener('input', () => {
@@ -500,7 +527,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); flush(); } });
     input.addEventListener('blur', flush);
     line.append(input);
-    if (has) {
+    // A key from a variable or a key file is not stored here: there is nothing to clear.
+    if (has && source !== 'env' && source !== 'file') {
       const clear = button('settings-btn', 'Clear', { fk: `eng:${id}:key-clear`, ariaLabel: `Clear the stored API key for ${engineDisplayName(engine)}` });
       clear.addEventListener('click', () => { void clearKey(id); });
       line.append(clear);
@@ -510,12 +538,17 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     const result = keyResults.get(id);
     if (result) {
       caption.append(note(result.level, result.text));
+    } else if (fromEnv) {
+      caption.innerHTML = `<span class="ai-key-state">${ICONS.check}<span>Key found</span></span>`;
+      caption.append(' in ', el('code', 'ai-key-env', engine.apiKeyEnv ?? 'a variable'), '. Paste a key to use another one.');
     } else if (fromFile) {
       caption.innerHTML = `<span class="ai-key-state">${ICONS.check}<span>Key found</span></span>`;
       caption.append(` in ${engine.apiKeyFile?.path ?? 'the key file'}${source ? '' : ' (or stored here)'}. Paste a key to use another one.`);
     } else if (has) {
       caption.innerHTML = `<span class="ai-key-state">${ICONS.check}<span>Stored</span></span>`;
       caption.append(' in the system’s secure storage. Paste a new key to replace it.');
+    } else if (preset.keyUrl) {
+      caption.append(hostLink(preset.keyHint, preset.keyUrl, deps.openLink, 'ai-key-link'));
     } else {
       caption.textContent = preset.keyHint;
     }
@@ -1086,7 +1119,10 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     });
     return sheetRow('Key from variable', input, {
       forId: input.id,
-      caption: 'Used when no key is stored, for example OMLX_API_KEY. Apps opened from the Dock or Start menu may not see variables set in a shell profile.',
+      // Desktop opened from the Dock has no shell environment (F10).
+      caption: ai.shellEnv === false
+        ? 'This app does not read shell variables when opened from the Dock; use the key file or paste the key.'
+        : 'Used when no key is stored, for example OMLX_API_KEY. Apps opened from the Dock or Start menu may not see variables set in a shell profile.',
     });
   }
 
@@ -1385,6 +1421,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       if (!engine) {return `eng:${id}:name`;}
       const family = presetOf(engine).family;
       trigger(id, 'open');
+      if (opts.isNew && family === 'cloud') {void lookUpKey(id);}
       if (!opts.isNew) {return `eng:${id}:name`;}
       // Design call 2: the first field a new engine needs.
       if (family === 'cloud' && ai.setSecret) {return `eng:${id}:key`;}

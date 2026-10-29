@@ -233,6 +233,13 @@ describe('statuses, discovery and secrets', () => {
     expect(engines.find((e) => e.id === 'omlx')!.models.map((m) => m.id)).toEqual(['qwen', 'gemma-4-26b-vl']);
   });
 
+  it('B1: a key from the engine variable is reported as env; a stored key wins', async () => {
+    const { service } = setup(rawSettings, { env: { OMLX_API_KEY: 'from-env' } });
+    const omlx = (list: Awaited<ReturnType<typeof service.listEngines>>) => list.find((s) => s.engineId === 'omlx');
+    expect(omlx(await service.listEngines())).toMatchObject({ hasKey: true, keySource: 'env' });
+    expect(await service.setSecret('omlx', 'stored-key')).toMatchObject({ hasKey: true, keySource: 'stored' });
+  });
+
   it('setSecret reports hasKey; a removed engine loses its key and consent', async () => {
     const { service, store, consent, setSettings } = setup();
     expect(await service.setSecret('claude', 'sk-ant-1')).toMatchObject({ hasKey: true, keySource: 'stored' });

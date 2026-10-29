@@ -9,7 +9,8 @@
  * a host that can look for local servers (`host.ai.detectLocalServers`) the
  * panel looks while it is open: a running server makes the primary button
  * "Use LM Studio" (one click: engine, models, default route, AI on) with
- * "Set up another way…" beside it; otherwise the primary is "Set up", which
+ * "Set up another way…" beside it, and one privacy line whose "Learn more"
+ * opens the AI Engines page too; otherwise the primary is "Set up", which
  * opens the AI Engines page, and AI turns on only at its Done (B3). A tier-1
  * host routes by itself: its button is "Turn on" and lands on the AI tab.
  * With AI on, a click opens a menu of AI actions plus "Manage engines…",
@@ -20,7 +21,7 @@
 
 import type { AiSettings, AiThinkingChoice, AiThinkingLevel } from './ai';
 import type { AiHostTier } from './ai-settings-model';
-import { button, el, experimentalBadge, experimentalDisclaimer, nextId } from './ai-settings-dom';
+import { button, el, experimentalBadge, experimentalDisclaimer, nextId, privacyLine } from './ai-settings-dom';
 import { AI_DETECT_LOOKING, AI_DETECT_NONE } from './ai-local-setup';
 import { getPortal } from './portal';
 import type { ToolbarDropdownEntry } from './toolbar-dropdown';
@@ -221,7 +222,11 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
   const cancel = button('settings-btn settings-btn--secondary', 'Cancel', { fk: 'ai-first-run:cancel' });
   const primary = button('settings-btn settings-btn--primary', setUpLabel, { fk: 'ai-first-run:turn-on' });
   actions.append(other, cancel, primary);
-  panel.append(head, verbs, text, status, actions);
+  // Beside "Set up another way…" (which can lead to a cloud engine): local vs cloud in one line.
+  const privacy = privacyLine(() => setUp());
+  privacy.hidden = true;
+  const learnMore = privacy.querySelector<HTMLButtonElement>('button')!;
+  panel.append(head, verbs, text, status, privacy, actions);
 
   let found: Extract<AiFirstRunDetection, { kind: 'found' }> | null = null;
   let busy = false;
@@ -265,7 +270,7 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
       if (!busy) {close(true);}
     } else if (e.key === 'Tab') {
       // Keep Tab on the panel's buttons.
-      const order = [other, cancel, primary].filter((b) => !b.hidden && !b.disabled);
+      const order = [learnMore, other, cancel, primary].filter((b) => !b.hidden && !b.closest('[hidden]') && !b.disabled);
       if (order.length === 0) {return;}
       e.preventDefault();
       const at = order.indexOf(document.activeElement as HTMLButtonElement);
@@ -282,7 +287,7 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
   async function useLocal(server: Extract<AiFirstRunDetection, { kind: 'found' }>): Promise<void> {
     if (!opts.onUseLocal) {return;}
     busy = true;
-    for (const b of [other, cancel, primary]) {b.disabled = true;}
+    for (const b of [learnMore, other, cancel, primary]) {b.disabled = true;}
     setStatus('working', `Setting up ${server.name}…`);
     try {
       await opts.onUseLocal(server.presetId);
@@ -293,8 +298,9 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
       if (closed) {return;}
       // Back to the plain panel: setup the long way is one click away.
       found = null;
-      for (const b of [other, cancel, primary]) {b.disabled = false;}
+      for (const b of [learnMore, other, cancel, primary]) {b.disabled = false;}
       other.hidden = true;
+      privacy.hidden = true;
       primary.textContent = setUpLabel;
       setStatus('error', err instanceof Error && err.message ? err.message : `${server.name} could not be set up.`);
       primary.focus({ preventScroll: true });
@@ -318,6 +324,7 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
           found = result;
           primary.textContent = `Use ${result.name}`;
           other.hidden = false;
+          privacy.hidden = false;
           setStatus('found', aiDetectFoundText(result.name, result.models));
         } else if (result.kind === 'none') {
           setStatus('none', AI_DETECT_NONE);

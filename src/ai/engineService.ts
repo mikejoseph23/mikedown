@@ -155,8 +155,8 @@ export class AiEngineService {
         return model;
       }),
     };
-    // A variable's name is already in the engine's settings; only the secret store and the key file are named.
-    if (key?.source === 'stored' || key?.source === 'file') {status.keySource = key.source;}
+    // Where the key came from (B1): the form says "Key found in ANTHROPIC_API_KEY" and offers no Clear for a variable or a file.
+    if (key) {status.keySource = key.source;}
     if (entry?.latencyMs !== undefined) {status.latencyMs = entry.latencyMs;}
     if (entry?.error) {status.error = entry.error;}
     return status;

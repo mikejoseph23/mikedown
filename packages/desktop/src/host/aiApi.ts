@@ -5,7 +5,7 @@
  * `setSecret` is write-only.
  */
 import type { AiCompletionResult, AiErrorCode } from '@mikedown/core';
-import type { AiConsentAbout, AiDiscoveredModel, AiLocalServerProbe, AiWireCompletionRequest } from '@mikedown/core/ai';
+import type { AiConsentAbout, AiDiscoveredModel, AiKeySource, AiLocalServerProbe, AiWireCompletionRequest } from '@mikedown/core/ai';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
@@ -16,8 +16,8 @@ export interface AiEngineInfo {
   ok: boolean | null;
   isLocal: boolean;
   hasKey: boolean;
-  /** `stored` (the keychain) or `file` (the engine's `apiKeyFile`); absent for a variable or no key. */
-  keySource?: 'file' | 'stored';
+  /** `stored` (the keychain), `env` (the engine's `apiKeyEnv`) or `file` (its `apiKeyFile`); absent without a key. */
+  keySource?: AiKeySource;
   latencyMs?: number;
   error?: string;
 }

@@ -26,8 +26,8 @@ type RawEngine = typeof claude;
 
 const NO_ROUTING = { default: null, fallback: 'none', tasks: {} };
 
-function settingsOf(engines: RawEngine[], routing: Record<string, unknown> = NO_ROUTING): AiSettings {
-  return parseAiSettings({ enabled: true, allowCloud: true, engines, routing }, { onWarning: () => {} });
+function settingsOf(engines: RawEngine[], routing: Record<string, unknown> = NO_ROUTING, allowCloud = true): AiSettings {
+  return parseAiSettings({ enabled: true, allowCloud, engines, routing }, { onWarning: () => {} });
 }
 
 const probed = (engineId: string, isLocal = true): AiEngineStatus => ({ engineId, ok: true, isLocal, hasKey: false, models: [] });
@@ -54,7 +54,7 @@ const ANTHROPIC_IDS = [
 interface Mounted {
   c: HTMLElement;
   page: AiEnginesPageHandle;
-  ai: { discoverModels: ReturnType<typeof vi.fn>; setSecret: ReturnType<typeof vi.fn>; testEngine: ReturnType<typeof vi.fn> };
+  ai: { discoverModels: ReturnType<typeof vi.fn>; setSecret: ReturnType<typeof vi.fn>; testEngine: ReturnType<typeof vi.fn>; listEngines: ReturnType<typeof vi.fn> };
   onDone: ReturnType<typeof vi.fn>;
   onCancel: ReturnType<typeof vi.fn>;
   saveNow: ReturnType<typeof vi.fn>;
@@ -70,17 +70,21 @@ function mountPage(engines: RawEngine[], over: {
   statuses?: AiEngineStatus[];
   discover?: (id: string) => Promise<AiEngineStatus>;
   initial?: AiEnginesPageOptions['initial'];
+  allowCloud?: boolean;
+  listEngines?: () => Promise<AiEngineStatus[]>;
+  host?: Partial<MikeDownAiHost>;
 } = {}): Mounted {
-  const settings = settingsOf(engines, over.routing);
+  const settings = settingsOf(engines, over.routing, over.allowCloud ?? true);
   // Local engines are probed unless the test says otherwise, so opening a form fetches nothing.
   const statuses = over.statuses ?? engines.filter((e) => !e.baseUrl.startsWith('https')).map((e) => probed(e.id));
   let hostSettings = settings;
   const ai = {
     complete: vi.fn(),
-    listEngines: vi.fn(async () => []),
+    listEngines: vi.fn(over.listEngines ?? (async (): Promise<AiEngineStatus[]> => [])),
     testEngine: vi.fn(),
     discoverModels: vi.fn(over.discover ?? (async (id: string) => probed(id))),
     setSecret: vi.fn(async () => {}),
+    ...over.host,
   };
   const saveNow = vi.fn((patch: Record<string, unknown>) => {
     if (patch['ai.engines']) {
@@ -167,7 +171,9 @@ describe('Express fields per preset family', () => {
     expect(labels(m.c)).toEqual(['Name', 'API key', 'Default model', 'Enabled']);
     expect(q(m.c, 'eng:claude:key')).not.toBeNull();
     expect(q(m.c, 'eng:claude:url')).toBeNull();
-    expect(m.c.querySelector('.ai-key-caption')?.textContent).toBe('API key from console.anthropic.com');
+    expect(m.c.querySelector('.ai-key-caption')?.textContent).toBe('Get an API key in the Claude Console');
+    // The hint is a link to the provider's key page.
+    expect(m.c.querySelector<HTMLAnchorElement>('.ai-key-caption a.ai-key-link')?.getAttribute('href')).toBe('https://platform.claude.com/settings/keys');
     // The picker is part of the sheet too, between the key and the default model.
     expect(m.c.querySelector('.ai-picker')).not.toBeNull();
   });
@@ -203,14 +209,22 @@ describe('Express fields per preset family', () => {
 
 describe('key source caption', () => {
   const withFile = { ...omlx, apiKeyFile: { path: '~/.omlx/settings.json', jsonPath: 'auth.api_key' } };
-  const hasKey = (keySource?: 'file' | 'stored'): AiEngineStatus => ({ ...probed('omlx'), hasKey: true, ...(keySource ? { keySource } : {}) });
+  const hasKey = (keySource?: 'file' | 'stored' | 'env'): AiEngineStatus => ({ ...probed('omlx'), hasKey: true, ...(keySource ? { keySource } : {}) });
   const caption = (m: Mounted) => m.c.querySelector('.ai-key-caption')?.textContent ?? '';
   const placeholder = (m: Mounted) => q<HTMLInputElement>(m.c, 'eng:omlx:key')!.placeholder;
 
-  it('says the key came from the file when the host says so', () => {
+  it('says the key came from the file when the host says so, with nothing to clear', () => {
     const m = mountPage([withFile], { statuses: [hasKey('file')] });
     expect(placeholder(m)).toBe('Found');
     expect(caption(m)).toBe('Key found in ~/.omlx/settings.json. Paste a key to use another one.');
+    expect(q(m.c, 'eng:omlx:key-clear')).toBeNull();
+  });
+
+  it('B1: names the variable a key came from, with nothing to clear', () => {
+    const m = mountPage([omlx], { statuses: [hasKey('env')] });
+    expect(placeholder(m)).toBe('Found');
+    expect(caption(m)).toBe('Key found in OMLX_API_KEY. Paste a key to use another one.');
+    expect(q(m.c, 'eng:omlx:key-clear')).toBeNull();
   });
 
   it('says Stored when the host says the key is stored, even for an engine with a key file', () => {
@@ -339,6 +353,116 @@ describe('auto-fetch on a cloud key', () => {
     expect(m.ai.setSecret.mock.calls.map((c) => c[1])).toEqual(['sk-one', 'sk-two']);
     const result = saved(m);
     expect(result.engines[0].models.map((x) => x.id)).toEqual(['claude-sonnet-5-5']);
+  });
+});
+
+describe('auto-fetch on a cloud key from a variable or file (B2)', () => {
+  it('fetches on open when the host has a key and the engine has no models yet', async () => {
+    const m = mountPage([claude], {
+      statuses: [{ ...probed('claude', false), ok: null, hasKey: true, keySource: 'env' }],
+      discover: async (id) => listing(id, ANTHROPIC_IDS, { isLocal: false, hasKey: true, keySource: 'env' }),
+    });
+    await settle(0);
+    expect(m.ai.discoverModels).toHaveBeenCalledOnce();
+    expect(m.ai.setSecret).not.toHaveBeenCalled();
+    expect(m.c.querySelector('[data-model-id="claude-sonnet-5-5"]')).not.toBeNull();
+  });
+
+  it('a new cloud engine asks the host for a key from its variable, then fetches', async () => {
+    let hostHasIt = false;
+    const m = mountPage([omlx], {
+      discover: async (id) => listing(id, ANTHROPIC_IDS, { isLocal: false, hasKey: true, keySource: 'env' }),
+    });
+    m.ai.listEngines.mockImplementation(async () => {
+      hostHasIt = true;
+      const id = m.host().engines.find((e) => e.kind === 'anthropic')?.id;
+      return id ? [{ ...probed(id, false), ok: null, hasKey: true, keySource: 'env' }] : [];
+    });
+    click(q(m.c, 'nav:add'));
+    click(m.c.querySelector('[aria-label="Add Anthropic"]'));
+    await settle(0);
+    expect(hostHasIt).toBe(true);
+    expect(m.ai.discoverModels).toHaveBeenCalledOnce();
+    expect(m.c.querySelector('.ai-key-caption')?.textContent).toBe('Key found in ANTHROPIC_API_KEY. Paste a key to use another one.');
+  });
+
+  it('a new cloud engine without a key found anywhere waits for the key field', async () => {
+    const m = mountPage([omlx]);
+    click(q(m.c, 'nav:add'));
+    click(m.c.querySelector('[aria-label="Add Anthropic"]'));
+    await settle(0);
+    expect(m.ai.listEngines).toHaveBeenCalled();
+    expect(m.ai.discoverModels).not.toHaveBeenCalled();
+  });
+});
+
+describe('Allow cloud on the Engines page (F4)', () => {
+  it('the cloud cards carry the switch, one line and the privacy card folded', () => {
+    const m = mountPage([omlx], { allowCloud: false });
+    click(q(m.c, 'nav:add'));
+    const cloud = m.c.querySelector('.ai-cards-group[data-family="cloud"]')!;
+    const toggle = q<HTMLInputElement>(cloud, 'cards:allow-cloud')!;
+    expect(toggle.checked).toBe(false);
+    expect(cloud.querySelector('.ai-cloud-access-line')?.textContent).toBe('Text you ask about is sent to the provider over the internet.');
+    const details = cloud.querySelector<HTMLDetailsElement>('details.ai-cloud-access-privacy')!;
+    expect(details.open).toBe(false);
+    expect(details.querySelector('.ai-privacy-summary')?.textContent).toBe('What this means');
+    // Every cloud preset's policy, once each.
+    expect(details.querySelectorAll('a.ai-privacy-link')).toHaveLength(7);
+    // The switch sits above the cards.
+    expect(cloud.querySelector('.ai-cloud-access')!.compareDocumentPosition(cloud.querySelector('.ai-cards-grid')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('flipping it edits the draft, and Done saves it with the rest', () => {
+    const m = mountPage([omlx], { allowCloud: false });
+    click(q(m.c, 'nav:add'));
+    const toggle = q<HTMLInputElement>(m.c, 'cards:allow-cloud')!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(saved(m).allowCloud).toBe(true);
+    expect(patchOf(m)['ai.allowCloud']).toBe(true);
+  });
+
+  it('a cloud engine added while it is off says so with a button, not the bare pill', () => {
+    const m = mountPage([omlx], { allowCloud: false });
+    click(q(m.c, 'nav:add'));
+    click(m.c.querySelector('[aria-label="Add Anthropic"]'));
+    const head = m.c.querySelector('.ai-detail-head')!;
+    expect(head.querySelector('.ai-pill--blocked')).toBeNull();
+    expect(head.querySelector('.ai-cloud-off .ai-note-text')?.textContent).toBe('Cloud engines are off, so nothing is sent to Anthropic yet.');
+    const id = m.c.querySelector<HTMLElement>('.ai-nav-item.is-selected')!.dataset.engineId!;
+    click(q(head, `eng:${id}:allow-cloud`));
+    expect(m.c.querySelector('.ai-cloud-off')).toBeNull();
+    expect(m.c.querySelector('.ai-detail-head')?.textContent).toContain('Cloud engines are on. Choose Done to save.');
+    expect(document.activeElement).toBe(q(m.c, `eng:${id}:star`));
+    expect(saved(m).allowCloud).toBe(true);
+    expect(patchOf(m)['ai.allowCloud']).toBe(true);
+  });
+
+  it('a successful model fetch turns the grey dot into a reached one (F8)', async () => {
+    const m = mountPage([claude], { statuses: [{ ...probed('claude', false), ok: null }], discover: async (id) => listing(id, ANTHROPIC_IDS, { isLocal: false, latencyMs: 42 }) });
+    expect(m.c.querySelector('.ai-detail-head .ai-status')?.getAttribute('data-state')).toBe('unknown');
+    type(q<HTMLInputElement>(m.c, 'eng:claude:key'), 'sk-1');
+    await settle();
+    const badge = m.c.querySelector('.ai-detail-head .ai-status')!;
+    expect(badge.getAttribute('data-state')).toBe('ok');
+    expect(badge.textContent).toBe('42 ms');
+  });
+});
+
+describe('key variable caption per host (F10)', () => {
+  it('a host without shell variables points at the key file', () => {
+    const m = mountPage([claude], { host: { shellEnv: false } });
+    click(q(m.c, 'eng:claude:advanced'));
+    const row = q(m.c, 'eng:claude:env')!.closest('.ai-sheet-row')!;
+    expect(row.querySelector('.ai-caption')?.textContent).toBe('This app does not read shell variables when opened from the Dock; use the key file or paste the key.');
+  });
+
+  it('other hosts keep the general caption', () => {
+    const m = mountPage([claude]);
+    click(q(m.c, 'eng:claude:advanced'));
+    const row = q(m.c, 'eng:claude:env')!.closest('.ai-sheet-row')!;
+    expect(row.querySelector('.ai-caption')?.textContent).toContain('Used when no key is stored');
   });
 });
 
@@ -853,7 +977,7 @@ describe('quick-start cards', () => {
     const m = mountPage([omlx]);
     click(q(m.c, 'nav:add'));
     const card = m.c.querySelector<HTMLElement>('[aria-label="Add Anthropic"]')!;
-    expect(card.querySelector('.ai-card-caption')?.textContent).toBe('API key from console.anthropic.com');
+    expect(card.querySelector('.ai-card-caption')?.textContent).toBe('Claude models, API key from Anthropic');
     expect(card.querySelector('svg, .ai-glyph')).not.toBeNull();
     expect(m.c.querySelectorAll('.ai-card')).toHaveLength(13);
   });

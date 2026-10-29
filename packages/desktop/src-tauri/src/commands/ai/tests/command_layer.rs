@@ -279,7 +279,7 @@ async fn keys_are_set_and_cleared_through_the_command_and_only_has_key_comes_bac
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn the_engine_list_says_when_a_key_is_stored_and_names_no_other_source() {
+async fn the_engine_list_says_when_a_key_is_stored() {
     let h = Harness::new("keysource", settings_for("http://127.0.0.1:9/v1", json!({})));
     let list = || async { serde_json::to_value(ai_list_engines(h.app.handle().clone(), h.state()).await.unwrap()).unwrap() };
 
@@ -288,6 +288,36 @@ async fn the_engine_list_says_when_a_key_is_stored_and_names_no_other_source() {
     assert_eq!(list().await[0]["keySource"], "stored");
     ai_set_secret(h.state(), "e1".into(), None).await.unwrap();
     assert!(list().await[0].get("keySource").is_none());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_engine_list_names_a_variable_as_the_key_source() {
+    // B1: a key from `apiKeyEnv` is reported as `env`, and a stored key still wins.
+    let var = format!("MIKEDOWN_TEST_KEYSOURCE_{}", std::process::id());
+    std::env::set_var(&var, "sk-env");
+    let engines = json!([{ "id": "e1", "name": "Env engine", "kind": "openai-compatible", "baseUrl": "http://127.0.0.1:9/v1", "apiKeyEnv": var, "models": [] }]);
+    let h = Harness::new("keysource-env", settings_for("http://127.0.0.1:9/v1", json!({ "ai.engines": engines })));
+    let list = || async { serde_json::to_value(ai_list_engines(h.app.handle().clone(), h.state()).await.unwrap()).unwrap() };
+
+    let first = list().await;
+    assert_eq!((&first[0]["hasKey"], &first[0]["keySource"]), (&json!(true), &json!("env")));
+    ai_set_secret(h.state(), "e1".into(), Some("sk-stored".into())).await.unwrap();
+    assert_eq!(list().await[0]["keySource"], "stored");
+    std::env::remove_var(&var);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_model_fetch_alone_marks_the_engine_reached() {
+    // F8: a successful discovery is a successful test, latency included.
+    let (base, _seen) = serve(|_| Reply::Json(200, json!({ "data": [{ "id": "m1" }] }))).await;
+    let h = Harness::new("discover-probe", settings_for(&format!("{base}/v1"), json!({})));
+    let app = h.app.handle().clone();
+
+    let found = ai_discover_models(app.clone(), h.state(), "e1".into()).await.unwrap();
+    assert_eq!(found.info.ok, Some(true));
+    assert!(found.info.latency_ms.is_some());
+    let listed = &ai_list_engines(app, h.state()).await.unwrap()[0];
+    assert_eq!((listed.ok, listed.latency_ms.is_some()), (Some(true), true));
 }
 
 #[tokio::test(flavor = "multi_thread")]

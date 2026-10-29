@@ -302,7 +302,7 @@ impl AiState {
             ok: cached.as_ref().map(|c| c.ok),
             is_local: engine_locality(&engine.locality, &engine.base_url, &config.local_networks) == Locality::Local,
             has_key: key.key.is_some(),
-            key_source: key.source.and_then(KeySource::wire_name),
+            key_source: key.source.map(KeySource::wire_name),
             latency_ms: cached.as_ref().map(|c| c.latency_ms),
             error: cached.and_then(|c| c.error),
         }

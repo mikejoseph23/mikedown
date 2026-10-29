@@ -95,13 +95,13 @@ pub enum KeySource {
 }
 
 impl KeySource {
-    /// The name the webview gets as `keySource`. The variable's own name is
-    /// already in the engine's settings, so only `stored` and `file` are reported.
-    pub fn wire_name(self) -> Option<&'static str> {
+    /// The name the webview gets as `keySource` (B1: a variable is reported
+    /// too, so the form says where the key came from and offers no Clear).
+    pub fn wire_name(self) -> &'static str {
         match self {
-            KeySource::Stored => Some("stored"),
-            KeySource::File => Some("file"),
-            KeySource::Env => None,
+            KeySource::Stored => "stored",
+            KeySource::Env => "env",
+            KeySource::File => "file",
         }
     }
 }
@@ -282,9 +282,9 @@ mod tests {
 
     #[test]
     fn only_stored_and_file_keys_are_named_on_the_wire() {
-        assert_eq!(KeySource::Stored.wire_name(), Some("stored"));
-        assert_eq!(KeySource::File.wire_name(), Some("file"));
-        assert_eq!(KeySource::Env.wire_name(), None);
+        assert_eq!(KeySource::Stored.wire_name(), "stored");
+        assert_eq!(KeySource::File.wire_name(), "file");
+        assert_eq!(KeySource::Env.wire_name(), "env");
     }
 
     /// A throwaway "home" and "elsewhere" folder pair; the tests never touch the real `~`.

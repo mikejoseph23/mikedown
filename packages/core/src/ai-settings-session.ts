@@ -18,7 +18,7 @@
  */
 
 import { serializeAiSettings, toAiError } from './ai';
-import type { AiEngineConfig, AiEngineStatus, AiSettings, AiSettingsPatch, MikeDownAiHost } from './ai';
+import type { AiEngineConfig, AiEngineStatus, AiKeySource, AiSettings, AiSettingsPatch, MikeDownAiHost } from './ai';
 import type { AiHostTier } from './ai-settings-model';
 import { aiHostTier, changedAiPatch, cloneAiSettings, connectionDiffers, removeEngine, withEngine } from './ai-settings-model';
 
@@ -54,7 +54,7 @@ export interface AiSettingsSession {
   statusList(): AiEngineStatus[];
   hasKey(id: string): boolean;
   /** Where the engine's key comes from, when the host said (a key stored here counts as stored). */
-  keySource(id: string): 'file' | 'stored' | undefined;
+  keySource(id: string): AiKeySource | undefined;
   /** Store or clear a key through `host.ai.setSecret`; resolves with an error message, or null when it worked. */
   setKey(id: string, value: string | null): Promise<string | null>;
   /** Make sure the host has this engine's connection fields before asking it to reach it. */
@@ -73,7 +73,7 @@ export interface AiSettingsSession {
   /** Fresh statuses from the host (tier 2). Resolves true when they arrived. */
   refreshStatuses(): Promise<boolean>;
   /** Options for a child session that starts from this draft and shares what this one knows about the host. */
-  fork(): AiSettingsSessionOptions & { keyOverride: Map<string, boolean> };
+  fork(): AiSettingsSessionOptions & { keyOverride: Map<string, boolean>; statusMap: Map<string, AiEngineStatus> };
   /** A child saved `patch`, ending at `saved`: take it as the new draft, and as saved for those keys. */
   absorb(saved: AiSettings, patch: AiSettingsPatch): void;
   /** Closed without saving: take back engines added here that reached the host, drop their keys. */
@@ -86,12 +86,13 @@ export interface AiSettingsSession {
 const SAVE_ECHO_TIMEOUT_MS = 4000;
 
 export function createAiSettingsSession(
-  options: AiSettingsSessionOptions & { keyOverride?: Map<string, boolean> },
+  options: AiSettingsSessionOptions & { keyOverride?: Map<string, boolean>; statusMap?: Map<string, AiEngineStatus> },
 ): AiSettingsSession {
   const { ai } = options;
   let original = cloneAiSettings(options.settings);
   let draft = cloneAiSettings(options.settings);
-  const statuses = new Map<string, AiEngineStatus>(options.statuses.map((s) => [s.engineId, s]));
+  // A child session shares its parent's map, so a test or fetch on the page freshens the tab's dots too (F8).
+  const statuses = options.statusMap ?? new Map<string, AiEngineStatus>(options.statuses.map((s) => [s.engineId, s]));
   /** `hasKey` learned from Store / Clear, ahead of the next status (shared with child sessions). */
   const keyOverride = options.keyOverride ?? new Map<string, boolean>();
   /** Engines deleted in this session: their keys are dropped on commit. */
@@ -182,7 +183,7 @@ export function createAiSettingsSession(
     },
 
     fork() {
-      return { ...options, settings: cloneAiSettings(draft), statuses: statusList(), keyOverride };
+      return { ...options, settings: cloneAiSettings(draft), statuses: statusList(), keyOverride, statusMap: statuses };
     },
 
     absorb(saved, patch) {

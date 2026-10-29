@@ -93,20 +93,25 @@ export interface PrivacyCardOptions {
   className?: string;
 }
 
-/** A policy link that opens through the host when it can. */
-export function policyLink(policy: AiProviderPolicy, openLink?: (href: string) => void): HTMLAnchorElement {
-  const a = el('a', 'ai-link-btn ai-privacy-link', policy.label);
-  a.href = policy.url;
+/** An external link that opens through the host (`host.openLink`) when it can, else a plain new-tab anchor. */
+export function hostLink(label: string, url: string, openLink?: (href: string) => void, className = ''): HTMLAnchorElement {
+  const a = el('a', `ai-link-btn${className ? ` ${className}` : ''}`, label);
+  a.href = url;
   a.target = '_blank';
   a.rel = 'noopener noreferrer';
-  a.title = policy.url;
+  a.title = url;
   if (openLink) {
     a.addEventListener('click', (e) => {
       e.preventDefault();
-      openLink(policy.url);
+      openLink(url);
     });
   }
   return a;
+}
+
+/** A policy link that opens through the host when it can. */
+export function policyLink(policy: AiProviderPolicy, openLink?: (href: string) => void): HTMLAnchorElement {
+  return hostLink(policy.label, policy.url, openLink, 'ai-privacy-link');
 }
 
 /**
@@ -259,13 +264,14 @@ export function statusBadge(status: AiEngineStatus | undefined, busy: 'test' | '
     label = busy === 'test' ? 'Testing…' : 'Fetching…';
     title = busy === 'test' ? 'Testing the connection…' : 'Fetching models…';
   } else if (!status || status.ok === null) {
+    // Neither a test nor a model fetch has reached the engine yet; either one sets the status (F8).
     state = 'unknown';
     label = 'Not tested';
-    title = 'Never tested. Open the engine and choose Test connection.';
+    title = 'Not reached yet. Open the engine and fetch its models, or choose Test connection.';
   } else if (status.ok) {
     state = 'ok';
     label = status.latencyMs !== undefined ? `${Math.round(status.latencyMs)} ms` : 'OK';
-    title = `Connected${status.latencyMs !== undefined ? ` in ${Math.round(status.latencyMs)} ms` : ''} on the last test.`;
+    title = `Connected${status.latencyMs !== undefined ? ` in ${Math.round(status.latencyMs)} ms` : ''} on the last test or model fetch.`;
   } else {
     state = 'error';
     label = 'Failed';
@@ -281,8 +287,12 @@ export function statusBadge(status: AiEngineStatus | undefined, busy: 'test' | '
   return badge;
 }
 
-/** The local/cloud pill, plus "blocked by Allow cloud" for a cloud engine while cloud is off. */
-export function localityPills(engine: AiEngineConfig, settings: AiSettings): HTMLElement[] {
+/**
+ * The local/cloud pill, plus "blocked by Allow cloud" for a cloud engine while
+ * cloud is off. `blocked: false` leaves that pill out (the Engines page head
+ * says it with a button instead).
+ */
+export function localityPills(engine: AiEngineConfig, settings: AiSettings, opts: { blocked?: boolean } = {}): HTMLElement[] {
   const info = engineLocalityInfo(engine, settings.localNetworks);
   const pill = el('span', `ai-pill ai-pill--${info.locality}`);
   pill.innerHTML = info.locality === 'local' ? ICONS.local : ICONS.cloud;
@@ -292,7 +302,7 @@ export function localityPills(engine: AiEngineConfig, settings: AiSettings): HTM
     pill.title = info.locality === 'cloud' ? 'Pinned to cloud, but the address looks local.' : 'Pinned to local, but the address looks like a cloud server.';
   }
   const pills = [pill];
-  if (info.locality === 'cloud' && !settings.allowCloud) {
+  if (info.locality === 'cloud' && !settings.allowCloud && opts.blocked !== false) {
     const blocked = el('span', 'ai-pill ai-pill--blocked', 'blocked by Allow cloud');
     blocked.title = 'Turn on Allow cloud engines to route tasks here.';
     pills.push(blocked);

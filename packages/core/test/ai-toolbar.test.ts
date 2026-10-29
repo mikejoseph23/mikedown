@@ -4,7 +4,7 @@ import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle, type MikeDow
 import { defaultAiSettings, parseAiSettings } from '../src/ai';
 import type { AiSettings, MikeDownAiHost } from '../src/ai';
 import { AI_EXPERIMENTAL_DISCLAIMER } from '../src/ai-settings-dom';
-import { aiSetupTarget, aiToolbarButtonMode, aiToolbarMenuEntries } from '../src/ai-toolbar';
+import { aiSetupTarget, aiToolbarButtonMode, aiToolbarMenuEntries, hideAiFirstRunPanel, showAiFirstRunPanel } from '../src/ai-toolbar';
 import { hideToolbarDropdown } from '../src/toolbar-dropdown';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
@@ -237,5 +237,44 @@ describe('AI menu (AI on)', () => {
     aiButton()!.click();
     const labels = Array.from(document.querySelectorAll('#toolbar-dropdown .tdd-item-label')).map((n) => n.textContent);
     expect(labels).toEqual(['Manage engines…']);
+  });
+});
+
+describe('first-run panel: the privacy line beside "Set up another way…"', () => {
+  afterEach(() => {
+    hideAiFirstRunPanel();
+    document.body.replaceChildren();
+  });
+
+  it('shows one privacy line once a local server is found; Learn more opens setup like the link beside it', async () => {
+    const anchor = document.createElement('button');
+    document.body.append(anchor);
+    const onTurnOn = vi.fn();
+    const panel = showAiFirstRunPanel({
+      anchor,
+      onTurnOn,
+      detect: async () => ({ kind: 'found', presetId: 'lmstudio', name: 'LM Studio', models: 2 }),
+      onUseLocal: async () => {},
+    }).element;
+    const line = panel.querySelector<HTMLElement>('.ai-privacy-line')!;
+    expect(line.hidden).toBe(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(line.hidden).toBe(false);
+    expect(panel.querySelectorAll('.ai-privacy-line')).toHaveLength(1);
+    expect(panel.querySelectorAll('.ai-first-run-other')).toHaveLength(1);
+    expect(line.textContent).toContain('A cloud engine sends text to the provider.');
+    line.querySelector<HTMLButtonElement>('[data-fk="ai-privacy:learn-more"]')!.click();
+    expect(onTurnOn).toHaveBeenCalledOnce();
+    expect(panel.isConnected).toBe(false);
+  });
+
+  it('stays hidden when nothing is found', async () => {
+    const anchor = document.createElement('button');
+    document.body.append(anchor);
+    const panel = showAiFirstRunPanel({ anchor, onTurnOn: vi.fn(), detect: async () => ({ kind: 'none' }), onUseLocal: async () => {} }).element;
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(panel.querySelector<HTMLElement>('.ai-privacy-line')!.hidden).toBe(true);
   });
 });

@@ -39,8 +39,10 @@ export interface AiEnginePreset {
   family: AiPresetFamily;
   /** The quick-start card's one-line caption. */
   caption: string;
-  /** Under the API key field: where to get one, or whether one is needed. */
+  /** Under the API key field: where to get one, or whether one is needed. A link to `keyUrl` when it has one. */
   keyHint: string;
+  /** Cloud presets: the provider's page that creates API keys, opened through the host's `openLink`. */
+  keyUrl?: string;
   /** Cloud presets: the Popular group, in order. The first rule that matches is the auto-picked default. */
   popular?: readonly AiPopularRule[];
   /**
@@ -165,8 +167,9 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     apiKeyEnv: 'ANTHROPIC_API_KEY',
     needsKey: true,
     family: 'cloud',
-    caption: 'API key from console.anthropic.com',
-    keyHint: 'API key from console.anthropic.com',
+    caption: 'Claude models, API key from Anthropic',
+    keyHint: 'Get an API key in the Claude Console',
+    keyUrl: 'https://platform.claude.com/settings/keys',
     policy: { label: 'Anthropic privacy and data use', url: 'https://privacy.claude.com/en/collections/10663361-commercial-customers' },
     popular: [anthropicFamily('sonnet', 'Sonnet'), anthropicFamily('opus', 'Opus'), anthropicFamily('haiku', 'Haiku')],
   },
@@ -178,8 +181,9 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     apiKeyEnv: 'OPENAI_API_KEY',
     needsKey: true,
     family: 'cloud',
-    caption: 'API key from platform.openai.com',
-    keyHint: 'API key from platform.openai.com',
+    caption: 'GPT models, API key from OpenAI',
+    keyHint: 'Get an API key on the OpenAI platform',
+    keyUrl: 'https://platform.openai.com/api-keys',
     policy: { label: 'OpenAI API data controls', url: 'https://developers.openai.com/api/docs/guides/your-data' },
     popular: [
       { label: 'Flagship', match: /^gpt-\d+(\.\d+)?$/ },
@@ -194,8 +198,9 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     apiKeyEnv: 'OPENROUTER_API_KEY',
     needsKey: true,
     family: 'cloud',
-    caption: 'API key from openrouter.ai/keys',
-    keyHint: 'API key from openrouter.ai/keys',
+    caption: 'Models from many providers with one key',
+    keyHint: 'Get an API key on OpenRouter',
+    keyUrl: 'https://openrouter.ai/keys',
     policy: {
       label: 'OpenRouter privacy policy',
       url: 'https://openrouter.ai/privacy',
@@ -216,8 +221,9 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     apiKeyEnv: 'GEMINI_API_KEY',
     needsKey: true,
     family: 'cloud',
-    caption: 'API key from Google AI Studio',
-    keyHint: 'API key from Google AI Studio (aistudio.google.com)',
+    caption: 'Gemini models, API key from Google AI Studio',
+    keyHint: 'Get an API key in Google AI Studio',
+    keyUrl: 'https://aistudio.google.com/apikey',
     policy: { label: 'Gemini API terms and data use', url: 'https://ai.google.dev/gemini-api/terms' },
     popular: [
       { label: 'Flash', match: /(^|\/)gemini-\d+(\.\d+)?-flash$/ },
@@ -233,8 +239,9 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     apiKeyEnv: 'GROQ_API_KEY',
     needsKey: true,
     family: 'cloud',
-    caption: 'API key from console.groq.com',
-    keyHint: 'API key from console.groq.com/keys',
+    caption: 'Fast open models such as Llama and Qwen',
+    keyHint: 'Get an API key in the Groq console',
+    keyUrl: 'https://console.groq.com/keys',
     policy: { label: 'Groq: your data in GroqCloud', url: 'https://console.groq.com/docs/your-data' },
     popular: [
       { label: 'GPT-OSS', match: /^openai\/gpt-oss-\d+b$/ },
@@ -250,8 +257,9 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     apiKeyEnv: 'MISTRAL_API_KEY',
     needsKey: true,
     family: 'cloud',
-    caption: 'API key from console.mistral.ai',
-    keyHint: 'API key from console.mistral.ai',
+    caption: 'Mistral models, API key from Mistral',
+    keyHint: 'Get an API key in the Mistral console',
+    keyUrl: 'https://console.mistral.ai/api-keys',
     policy: { label: 'Mistral AI privacy policy', url: 'https://legal.mistral.ai/terms/privacy-policy/' },
     popular: [
       { label: 'Medium', match: /^mistral-medium-/, prefer: /-latest$/ },
@@ -267,8 +275,9 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     apiKeyEnv: 'DEEPSEEK_API_KEY',
     needsKey: true,
     family: 'cloud',
-    caption: 'API key from platform.deepseek.com',
-    keyHint: 'API key from platform.deepseek.com',
+    caption: 'DeepSeek chat and reasoning models',
+    keyHint: 'Get an API key on the DeepSeek platform',
+    keyUrl: 'https://platform.deepseek.com/api_keys',
     policy: { label: 'DeepSeek privacy policy', url: 'https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html' },
     popular: [
       { label: 'Chat', match: /^deepseek-chat/ },

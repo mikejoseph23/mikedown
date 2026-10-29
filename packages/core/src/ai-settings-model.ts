@@ -687,6 +687,8 @@ export interface EngineFormPreset {
   family: AiPresetFamily;
   needsKey: boolean;
   keyHint: string;
+  /** Where the provider makes API keys (cloud presets); the key hint links to it. */
+  keyUrl?: string;
   popular: readonly AiPopularRule[];
 }
 
@@ -697,7 +699,7 @@ export interface EngineFormPreset {
  */
 export function enginePreset(engine: AiEngineConfig, localNetworks: readonly string[]): EngineFormPreset {
   const p = presetForEngine(engine);
-  if (p) {return { id: p.id, name: p.name, family: p.family, needsKey: p.needsKey, keyHint: p.keyHint, popular: p.popular ?? [] };}
+  if (p) {return { id: p.id, name: p.name, family: p.family, needsKey: p.needsKey, keyHint: p.keyHint, ...(p.keyUrl ? { keyUrl: p.keyUrl } : {}), popular: p.popular ?? [] };}
   const family: AiPresetFamily = engineLocality(engine, localNetworks) === 'local' ? 'local' : 'cloud';
   return {
     id: 'custom',
@@ -939,6 +941,10 @@ export interface AutoFetchState {
   discovery: 'auto' | 'manual';
   /** The host has never probed or discovered this engine. */
   neverProbed?: boolean;
+  /** The host has a key for the engine (stored, a variable or a key file), whatever the field says. */
+  hasKey?: boolean;
+  /** Models the engine has in settings now. */
+  modelCount?: number;
   /** The URL or key the last fetch ran for, so a blur without a change does not fetch again. */
   fetchedFor?: string;
 }
@@ -968,7 +974,9 @@ const NO_FETCH = (cancelPending: boolean, fingerprint = ''): AutoFetchDecision =
 /**
  * When the Express form fetches models (design call 3), as plain data so
  * tests need no timers. Cloud: 600 ms after the key field settles on a new,
- * non-empty value, storing the key first. Local: when the URL changes (on
+ * non-empty value, storing the key first, and on open for an engine with no
+ * models that the host never probed but already has a key for (from
+ * `ANTHROPIC_API_KEY` or a key file, B2). Local: when the URL changes (on
  * change or blur) to a new valid address, and when the form opens for an
  * engine the host never probed. Manual and Retry always run (the user
  * asked). A plain save never fetches; `discovery: manual` never auto-fetches.
@@ -986,6 +994,12 @@ export function autoFetchDecision(prev: AutoFetchState | null, next: AutoFetchSt
   }
   if (next.discovery === 'manual' || !urlOk) {return NO_FETCH(next.event === 'key' && !key);}
   if (next.family === 'cloud') {
+    // The key came from a variable or a key file: the hard part is done, so fetch on open.
+    if (next.event === 'open') {
+      return next.hasKey && !next.modelCount && next.neverProbed
+        ? { fetch: true, delayMs: 0, storeKey: false, cancelPending: true, fingerprint: cloudFingerprint }
+        : NO_FETCH(false);
+    }
     if (next.event !== 'key') {return NO_FETCH(false);}
     if (!key) {return NO_FETCH(true);}
     const already = (next.fetchedFor ?? prev?.fetchedFor) === cloudFingerprint;
