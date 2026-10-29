@@ -11,8 +11,8 @@ import type { AiError, AiErrorCode } from './types';
 export interface AiErrorCopy {
   title: string;
   message: string;
-  /** Suggested next step, when there is one. */
-  action?: 'openSettings' | 'retry' | 'shortenSelection';
+  /** Suggested next step, when there is one. `openEngine`: the failing engine's own page. */
+  action?: 'openSettings' | 'openEngine' | 'retry' | 'shortenSelection';
 }
 
 export const AI_ERROR_COPY: Readonly<Record<AiErrorCode, AiErrorCopy>> = {
@@ -28,7 +28,7 @@ export const AI_ERROR_COPY: Readonly<Record<AiErrorCode, AiErrorCopy>> = {
   },
   modelNotFound: {
     title: 'Model not found',
-    message: 'The engine does not serve this model. Discover models again or pick another one in AI settings.',
+    message: 'The engine does not serve this model. Refresh models or pick another one in AI settings.',
     action: 'openSettings',
   },
   contextOverflow: {
@@ -99,14 +99,31 @@ export function makeAiError(code: AiErrorCode, message?: string): AiError {
 
 /** Any rejection value as an `AiError`: an `AiError` as is, an `AbortError` as `cancelled`, the rest `unknown`. */
 export function toAiError(err: unknown): AiError {
-  if (isAiError(err)) {return { code: err.code, message: err.message };}
+  if (isAiError(err)) {return { code: err.code, message: err.message, ...(typeof err.engineId === 'string' ? { engineId: err.engineId } : {}) };}
   if (typeof err === 'object' && err !== null && (err as { name?: unknown }).name === 'AbortError') {return makeAiError('cancelled');}
   const message = err instanceof Error ? err.message : typeof err === 'string' ? err : AI_ERROR_COPY.unknown.message;
   return { code: 'unknown', message };
 }
 
-export function aiErrorCopy(code: AiErrorCode): AiErrorCopy {
-  return AI_ERROR_COPY[code] ?? AI_ERROR_COPY.unknown;
+/** The codes whose fix is on one engine's page, when the error names the engine. */
+const ENGINE_CODES: ReadonlySet<AiErrorCode> = new Set(['unreachable', 'auth', 'modelNotFound']);
+
+/** Copy for `unreachable`, `auth` and `modelNotFound` that names the engine ("Anthropic refused the API key."). */
+const ENGINE_COPY: Partial<Record<AiErrorCode, (engine: string) => string>> = {
+  unreachable: (engine) => `${engine} did not answer. Check that the server is running and the base URL is right.`,
+  auth: (engine) => `${engine} refused the API key. Store a new key, or check the environment variable.`,
+  modelNotFound: (engine) => `${engine} does not serve this model. Refresh its models or pick another one.`,
+};
+
+/**
+ * The copy for `code`. With `engine` (the display name of the engine the
+ * request went to), an engine problem names it and its action is
+ * `openEngine`: the popover's button opens that engine instead of the AI tab.
+ */
+export function aiErrorCopy(code: AiErrorCode, opts: { engine?: string } = {}): AiErrorCopy {
+  const copy = AI_ERROR_COPY[code] ?? AI_ERROR_COPY.unknown;
+  const named = opts.engine && ENGINE_CODES.has(code) ? ENGINE_COPY[code] : undefined;
+  return named && opts.engine ? { ...copy, message: named(opts.engine), action: 'openEngine' } : copy;
 }
 
 /**

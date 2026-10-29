@@ -35,12 +35,33 @@ export interface ContextMenuActions {
   showLanguagePicker(): void;
   openLink(href: string, behavior: 'navigateCurrentTab' | 'openNewTab'): void;
   /**
-   * The AI rewrite entry: null hides it, `enabled: false` greys it with the
-   * reason. `groups` (from `aiRewriteMenuGroups`) become one submenu with a
-   * separator between groups; a variant with a picker (Reading level…,
-   * Translate…) opens the popover on that picker rather than a third level.
+   * The `AI` submenu: null hides it. The rewrite part (with a selection):
+   * `hidden` leaves it out, `enabled: false` greys it with the reason, and
+   * `groups` (from `aiRewriteMenuGroups`) become rows with a separator between
+   * groups; a variant with a picker (Reading level…, Translate…) opens the
+   * popover on that picker rather than a third level. After a separator,
+   * Summarize document… and Suggest titles… (`summarize`, `titles`; null or
+   * absent leaves one out), with or without a selection (U1).
    */
-  aiRewrite?(): { enabled: boolean; reason?: string; groups: AiRewriteMenuGroup[]; run(variant: AiRewriteVariant): void } | null;
+  aiRewrite?(): AiContextMenu | null;
+}
+
+/** One document item in the `AI` submenu: enabled, or greyed with the router's reason. */
+export interface AiContextMenuItem {
+  enabled: boolean;
+  reason?: string;
+  run(): void;
+}
+
+export interface AiContextMenu {
+  enabled: boolean;
+  reason?: string;
+  /** Rewrite is off (the document items may still show). */
+  hidden?: boolean;
+  groups: AiRewriteMenuGroup[];
+  run(variant: AiRewriteVariant): void;
+  summarize?: AiContextMenuItem | null;
+  titles?: AiContextMenuItem | null;
 }
 
 let menuEl: HTMLElement | null = null;
@@ -302,22 +323,44 @@ export function buildTextMenu(editor: Editor, actions?: ContextMenuActions): Con
   ];
 }
 
-/** "AI" (Length, Tone, Audience, Translate, Explain, Custom prompt…) for a non-empty selection when AI rewrite is offered. */
+/**
+ * "AI": the rewrite groups (Length, Tone, Audience, Translate, Explain,
+ * Custom prompt…) for a non-empty selection, then Summarize document… and
+ * Suggest titles…. With nothing enabled it is one greyed row with the reason.
+ */
 function buildAiRewriteEntries(editor: Editor, actions?: ContextMenuActions): ContextMenuEntry[] {
-  if (editor.state.selection.empty) {return [];}
-  const rewrite = actions?.aiRewrite?.();
-  if (!rewrite) {return [];}
-  if (!rewrite.enabled) {
-    return [{ label: 'AI', action: () => {}, disabled: true, title: rewrite.reason }, { separator: true }];
+  const ai = actions?.aiRewrite?.();
+  if (!ai) {return [];}
+  const rewrite = !editor.state.selection.empty && !ai.hidden;
+  const docs: ContextMenuItem[] = [];
+  const addDoc = (label: string, item: AiContextMenuItem | null | undefined): void => {
+    if (!item) {return;}
+    docs.push({ label, action: () => item.run(), ...(item.enabled ? {} : { disabled: true, title: item.reason }) });
+  };
+  addDoc('Summarize document…', ai.summarize);
+  addDoc('Suggest titles…', ai.titles);
+  if (!rewrite && docs.length === 0) {return [];}
+  const anyEnabled = (rewrite && ai.enabled) || docs.some((d) => !d.disabled);
+  if (!anyEnabled) {
+    const reason = rewrite ? ai.reason : docs.find((d) => d.title)?.title;
+    return [{ label: 'AI', action: () => {}, disabled: true, title: reason }, { separator: true }];
   }
+  const rewriteItems: ContextMenuEntry[] = !rewrite ? []
+    : ai.enabled
+      ? ai.groups.flatMap((g, i): ContextMenuEntry[] => [
+        ...(i > 0 ? [{ separator: true } as ContextMenuSeparator] : []),
+        ...g.variants.map((v): ContextMenuItem => ({ label: v.label, action: () => ai.run(v.id), ...(v.title ? { title: v.title } : {}) })),
+      ])
+      : [{ label: 'Rewrite selection', action: () => {}, disabled: true, title: ai.reason }];
   return [
     {
       submenu: true,
       label: 'AI',
-      items: rewrite.groups.flatMap((g, i): ContextMenuEntry[] => [
-        ...(i > 0 ? [{ separator: true } as ContextMenuSeparator] : []),
-        ...g.variants.map((v): ContextMenuItem => ({ label: v.label, action: () => rewrite.run(v.id) })),
-      ]),
+      items: [
+        ...rewriteItems,
+        ...(rewriteItems.length > 0 && docs.length > 0 ? [{ separator: true } as ContextMenuSeparator] : []),
+        ...docs,
+      ],
     },
     { separator: true },
   ];

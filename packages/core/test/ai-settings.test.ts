@@ -147,7 +147,7 @@ describe('AI settings model', () => {
     const served = aiIndicatorState({ ...base, settings: settings(), served: { engineId: 'claude', engineName: 'Anthropic', modelId: 'claude-sonnet-5-5', isLocal: false }, viaFallback: true });
     expect(served).toMatchObject({ text: 'AI: cloud · Anthropic · claude-sonnet-5-5 (fallback)', tone: 'cloud', fallback: true });
     const noRoute = aiIndicatorState({ ...base, settings: { ...settings(), routing: { default: null, fallback: 'none', tasks: {} } } });
-    expect(noRoute).toMatchObject({ text: 'AI: no route', tone: 'none' });
+    expect(noRoute).toMatchObject({ text: 'AI: no model chosen', tone: 'none' });
     expect(aiIndicatorState({ ...base, tier: 1, settings: settings() })?.text).toBe('AI: on');
   });
 });
@@ -589,6 +589,52 @@ describe('models table under Advanced (the M3 controls, moved)', () => {
   });
 });
 
+describe('AI tab order and naming (U3, U8)', () => {
+  it('intro, master switch, Engines, Allow cloud, toolbar button, Features; task pickers folded under Advanced', () => {
+    class Host extends NoopHost { ai = tier2(); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    const panel = document.querySelector<HTMLElement>('.settings-panel--ai')!;
+    const text = panel.textContent ?? '';
+    const order = ['AI features', 'Enable AI features', 'Engines', 'Allow cloud engines', 'Show AI button on the toolbar', 'Features'].map((t) => text.indexOf(t));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    // The task pickers are folded until asked for.
+    const toggle = panel.querySelector<HTMLButtonElement>('[data-fk="features:advanced"]')!;
+    expect(toggle.textContent).toBe('Advanced: task per feature');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    const tasks = document.getElementById(toggle.getAttribute('aria-controls')!)!;
+    expect(tasks.hidden).toBe(true);
+    expect(tasks.querySelector('[data-fk="feature:rewrite:task"]')).not.toBeNull();
+    expect(panel.querySelector('.ai-feature [data-fk="feature:rewrite:task"]')).toBeNull();
+    toggle.click();
+    expect(tasks.hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('a tier-1 host has no Advanced: it routes by itself', () => {
+    class Tier1 extends NoopHost { ai = { complete: vi.fn() } as unknown as MikeDownAiHost; }
+    const handle = mount(new Tier1());
+    handle.command('openAiSettings');
+    expect(document.querySelector('[data-fk="features:advanced"]')).toBeNull();
+  });
+
+  it('the page names Tasks, the star says Use by default, and Fetch models becomes Refresh models once there is a list', () => {
+    class Host extends NoopHost { ai = tier2(); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings', { page: true });
+    const navNames = Array.from(document.querySelectorAll('.ai-nav-name')).map((n) => n.textContent);
+    expect(navNames).toContain('Tasks');
+    expect(navNames).not.toContain('Routing');
+    // oMLX is the default; LM Studio is not.
+    click(document.querySelector('[data-fk="nav:eng:lms"]'));
+    const star = document.querySelector<HTMLButtonElement>('[data-fk="eng:lms:star"]')!;
+    expect(star.textContent).toBe('Use by default');
+    expect(star.title).toBe('Use this engine by default');
+    expect(document.querySelector('[data-fk="eng:lms:fetch"]')?.textContent).toBe('Refresh models');
+  });
+});
+
 describe('AI tab lifecycle', () => {
   it('statuses pushed while the tab is open update the engine dots', () => {
     class Host extends NoopHost { ai = tier2(); }
@@ -611,7 +657,7 @@ describe('AI tab lifecycle', () => {
     const chip = document.querySelector<HTMLButtonElement>('[data-testid="sidebar-ai-chip"]')!;
     expect(chip.textContent).toBe('AI: local · oMLX · Qwen Flash');
     push!([{ engineId: 'omlx', ok: false, isLocal: true, hasKey: false, models: [] }]);
-    expect(chip.textContent).toBe('AI: no route');
+    expect(chip.textContent).toBe('AI: no model chosen');
     handle.destroy();
     expect(push).toBeNull();
   });
@@ -624,6 +670,7 @@ describe('AI indicator chip', () => {
     const chip = document.querySelector<HTMLButtonElement>('[data-testid="sidebar-ai-chip"]')!;
     expect(chip.hidden).toBe(false);
     expect(chip.textContent).toBe('AI: local · oMLX · Qwen Flash');
+    expect(chip.title).toMatch(/ Click for AI settings\.$/);
     handle.setAiServed({ engineId: 'claude', engineName: 'Anthropic', modelId: 'claude-sonnet-5-5', isLocal: false }, { viaFallback: true });
     expect(chip.textContent).toBe('AI: cloud · Anthropic · claude-sonnet-5-5 (fallback)');
     expect(chip.dataset.tone).toBe('cloud');
@@ -635,7 +682,9 @@ describe('AI indicator chip', () => {
     class Host extends NoopHost { ai = tier2(); }
     mount(new Host(), settings({ routing: { default: null, fallback: 'none', tasks: {} } }));
     const chip = document.querySelector<HTMLButtonElement>('[data-testid="sidebar-ai-chip"]')!;
-    expect(chip.textContent).toBe('AI: no route');
+    expect(chip.textContent).toBe('AI: no model chosen');
+    // The tooltip says what a click opens (U7).
+    expect(chip.title).toMatch(/ Click to choose a model\.$/);
     chip.focus();
     chip.click();
     expect(document.querySelector('.settings-modal')).toBeNull();

@@ -311,6 +311,9 @@ const toolbarIcons = {
   more: toolbarSvg('<circle cx="3.5" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor" stroke="none"/>'),
   ai: toolbarSvg('<path d="M7 2.5l1.25 3.25L11.5 7 8.25 8.25 7 11.5 5.75 8.25 2.5 7l3.25-1.25z"/><path d="M12.5 10v3.5M10.75 11.75h3.5"/>', 1.5),
   rewrite: toolbarSvg('<path d="M10.5 2.5l3 3L6 13H3v-3z"/><path d="M9 4l3 3"/>', 1.5),
+  explain: toolbarSvg('<circle cx="8" cy="8" r="6"/><path d="M6.3 6.3a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1"/><circle cx="8" cy="11.3" r="0.6" fill="currentColor" stroke="none"/>', 1.5),
+  translate: toolbarSvg('<path d="M2 4h7M5.5 2.5V4M4 4c.5 2.5 2 4.5 4.5 5.5M7.5 4c-.6 2.6-2.3 4.7-5 6"/><path d="M8.5 14l2.5-6 2.5 6M9.3 12h3.4"/>', 1.5),
+  tag: toolbarSvg('<path d="M2.5 2.5h5l6 6-5 5-6-6z"/><circle cx="5.5" cy="5.5" r="1" fill="currentColor" stroke="none"/>', 1.5),
   emoji: toolbarSvg('<circle cx="8" cy="8" r="6"/><circle cx="6" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="10" cy="6.5" r="0.6" fill="currentColor" stroke="none"/><path d="M5.5 9.5c.7 1.2 1.7 1.8 2.5 1.8s1.8-.6 2.5-1.8"/>'),
 };
 
@@ -2506,6 +2509,19 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // Only for a host with AI support; ai.showToolbarButton hides it. AI off:
   // the first-run panel. AI on: a menu of AI actions and Manage engines….
 
+  /** A request is running in this editor's popover (its `onBusy`). */
+  let aiPopoverBusy = false;
+
+  /** Whether an AI request runs anywhere in this editor: the popover or the sidebar's Suggest. */
+  function aiBusy(): boolean {
+    return aiPopoverBusy || propertiesController !== null;
+  }
+
+  /** The toolbar AI button pulses while a request runs (U5); the toolbar's layout does not change. */
+  function syncAiToolbarBusy(btn = shell.toolbar?.querySelector<HTMLButtonElement>('button[data-action="ai"]')): void {
+    btn?.classList.toggle('is-ai-running', aiBusy());
+  }
+
   /** Match the button's popup type to the current settings (first-run panel or menu). */
   function syncAiToolbarPopup(btn: HTMLButtonElement): void {
     const popup = aiToolbarButtonMode(!!aiHost, currentAiSettings) === 'firstRun' ? 'dialog' : 'menu';
@@ -2602,12 +2618,18 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       return;
     }
     const availability = aiRewriteAvailability();
+    const selected = hasTextSelection();
+    // Rewrite, Explain and Translate share the rewrite feature: off leaves them
+    // out, no route disables them with the router's reason (D15).
+    const selectionEntry = (needsSelection: boolean) => readOnly ? null
+      : availability.state === 'hidden' ? null
+        : availability.state === 'disabled' ? { enabled: false as const, hint: availability.reason }
+          : needsSelection && !selected ? { enabled: false as const, hint: 'Select text first' }
+            : { enabled: true as const };
+    // Rewrite stays in the menu while its feature is off, so the menu is never empty.
     const rewrite = readOnly ? null
       : availability.state === 'hidden' ? { enabled: false as const, hint: 'Off in AI settings' }
-        // The router's reason, as for Summarize and Suggest titles (D15).
-        : availability.state === 'disabled' ? { enabled: false as const, hint: availability.reason }
-          : !hasTextSelection() ? { enabled: false as const, hint: 'Select text first' }
-            : { enabled: true as const };
+        : selectionEntry(true);
     // Summarize and Suggest titles: left out when off, disabled with the router's reason (D15).
     const docEntry = (feature: 'summary' | 'title') => {
       if (readOnly) {return null;}
@@ -2619,20 +2641,34 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const tier2 = aiHostTier(ai) === 2;
     const summarize = docEntry('summary');
     const titles = docEntry('title');
+    // Suggest properties needs the sidebar (its chips land there).
+    const propsAvailability = outlineSidebar && !readOnly ? aiPropertiesAvailability() : { state: 'hidden' as const };
+    const properties = propsAvailability.state === 'hidden' ? null
+      : propsAvailability.state === 'disabled' ? { enabled: false as const, hint: propsAvailability.reason }
+        : { enabled: true as const };
     // The Thinking row, when the model a menu task routes to can think (the popover dial's check).
     const thinkKind = tier2 ? aiThinkingKind([
-      ...(rewrite ? ['rewrite'] : []), ...(summarize ? ['summary'] : []), ...(titles ? ['title'] : []),
+      ...(availability.state !== 'hidden' ? ['rewrite'] : []), ...(summarize ? ['summary'] : []), ...(titles ? ['title'] : []),
     ]) : null;
     showToolbarDropdown(anchor, ui.aiToolbarMenuEntries({
       rewrite,
+      explain: selectionEntry(true),
+      translate: selectionEntry(false),
       summarize,
       titles,
+      properties,
       ...(thinkKind ? { thinking: { choices: ui.thinkingChoices(thinkKind), value: ui.loadThinkingLevel, onChange: ui.rememberThinkingLevel } } : {}),
       canManageEngines: tier2,
-      icons: { rewrite: toolbarIcons.rewrite, manage: toolbarIcons.gear, summarize: toolbarIcons.toc, titles: toolbarIcons.ai },
+      icons: {
+        rewrite: toolbarIcons.rewrite, explain: toolbarIcons.explain, translate: toolbarIcons.translate,
+        summarize: toolbarIcons.toc, titles: toolbarIcons.ai, properties: toolbarIcons.tag, manage: toolbarIcons.gear,
+      },
       onRewrite: () => { startAiRewrite(); },
+      onExplain: () => { startAiRewrite('explain'); },
+      onTranslate: () => { startAiRewrite('translate'); },
       onSummarize: () => { startAiSummary(); },
       onSuggestTitles: () => { startAiTitles(); },
+      onSuggestProperties: () => { startAiPropertySuggestions(); },
       onManage: () => { if (tier2) {showAiEnginesPage();} else {showSettingsModal('ai');} },
     }));
   }
@@ -3064,6 +3100,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         overflowOpeners.set(aiBtn, (anchor) => openAiToolbar(anchor));
         aiBtn.addEventListener('click', () => openAiToolbar(aiBtn));
         syncAiToolbarPopup(aiBtn);
+        syncAiToolbarBusy(aiBtn);
         refs.ai = aiBtn;
         return aiBtn;
       },
@@ -4193,11 +4230,20 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     showLanguagePicker: () => showLanguagePickerForSelection(),
     openLink: (href, behavior) => openLinkViaHost(href, behavior),
     aiRewrite: () => {
+      if (readOnly) {return null;}
       const a = aiRewriteAvailability();
-      if (a.state === 'hidden') {return null;}
-      return a.state === 'enabled'
-        ? { enabled: true, groups: aiUi?.aiRewriteMenuGroups() ?? [], run: (variant) => { startAiRewrite(variant); } }
-        : { enabled: false, reason: a.reason, groups: [], run: () => {} };
+      // Summarize document… and Suggest titles… after the rewrite groups (U1).
+      const doc = (feature: 'summary' | 'title', run: () => void) => {
+        const d = aiDocAvailability(feature);
+        return d.state === 'hidden' ? null : d.state === 'enabled' ? { enabled: true, run } : { enabled: false, reason: d.reason, run };
+      };
+      const summarize = doc('summary', () => { startAiSummary(); });
+      const titles = doc('title', () => { startAiTitles(); });
+      if (a.state === 'hidden' && !summarize && !titles) {return null;}
+      const rewrite = a.state === 'enabled'
+        ? { enabled: true, groups: aiUi?.aiRewriteMenuGroups() ?? [], run: (variant: AiRewriteVariant) => { startAiRewrite(variant); } }
+        : { enabled: false, hidden: a.state === 'hidden', reason: a.state === 'disabled' ? a.reason : undefined, groups: [], run: () => {} };
+      return { ...rewrite, summarize, titles };
     },
   };
 
@@ -4220,7 +4266,15 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         aiServed = { served, viaFallback };
         renderAiIndicator();
       },
-      openSettings: () => showSettingsModal('ai'),
+      // An engine error's "Open <engine>": that engine's page (F9).
+      openSettings: (engineId) => {
+        if (engineId && aiHostTier(ai) === 2) {showAiEnginesPage({ initial: { engineId } });} else {showSettingsModal('ai');}
+      },
+      engineName: (engineId) => {
+        const engine = currentAiSettings.engines.find((e) => e.id === engineId);
+        return engine ? ui.engineDisplayName(engine) : null;
+      },
+      onBusy: (running) => { aiPopoverBusy = running; syncAiToolbarBusy(); },
       documentTarget: aiDocumentTarget,
       routeInfo: aiRouteInfo,
     });
@@ -4242,7 +4296,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     return {
       where: by.isLocal ? 'local' : 'cloud',
       text: s.text.replace(/^AI: /, ''),
-      title: served ? s.title.replace(/ Click to open AI settings\.$/, '') : aiPendingBadgeTitle(aiUi, by, s.text.replace(/^AI: (local|cloud) · /, ''), about),
+      title: served ? s.title.replace(/ Click (for AI settings|to choose a model)\.$/, '') : aiPendingBadgeTitle(aiUi, by, s.text.replace(/^AI: (local|cloud) · /, ''), about),
       fallback: viaFallback,
     };
   }
@@ -4427,6 +4481,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function cancelAiPropertySuggestions(clear = false): void {
     propertiesController?.abort();
     propertiesController = null;
+    syncAiToolbarBusy();
     if (clear) {outlineSidebar?.applyPropertySuggestions(null, 'idle');}
   }
 
@@ -4444,6 +4499,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     cancelAiPropertySuggestions();
     const controller = new AbortController();
     propertiesController = controller;
+    syncAiToolbarBusy();
     const live = (): boolean => propertiesController === controller && !destroyed;
 
     const markdown = aiBodyMarkdown();
@@ -4526,11 +4582,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
           }
         }
         propertiesController = null;
+        syncAiToolbarBusy();
         const cut = outOfRoom(last, false);
         sidebar.applyPropertySuggestions(parsed.suggestions, 'idle', cut || undefined);
       } catch (err) {
         if (!live()) {return;}
         propertiesController = null;
+        syncAiToolbarBusy();
         const e = ui.toAiError(err);
         if (e.code === 'cancelled') {
           sidebar.applyPropertySuggestions(null, 'idle');

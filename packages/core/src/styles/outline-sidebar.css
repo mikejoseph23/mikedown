@@ -780,6 +780,13 @@
   white-space: nowrap;
 }
 
+/* Why the disabled Suggest cannot run: wraps (it can be a sentence or two). */
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-reason {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.4;
+}
+
 :is(.mikedown-root, .mikedown-portal) .properties-suggest-error {
   color: var(--mikedown-danger, #f48771);
   line-height: 1.4;

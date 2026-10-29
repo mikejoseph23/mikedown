@@ -398,13 +398,22 @@
         "items": [
           {
             "kind": "item",
+            "id": "aiRewrite",
+            "label": "Rewrite Selection",
+            "accelerator": "CmdOrCtrl+Alt+K"
+          },
+          {
+            "kind": "item",
             "id": "aiExplain",
-            "label": "Explain…"
+            "label": "Explain Selection"
           },
           {
             "kind": "item",
             "id": "aiTranslate",
             "label": "Translate…"
+          },
+          {
+            "kind": "separator"
           },
           {
             "kind": "item",
@@ -419,7 +428,7 @@
           {
             "kind": "item",
             "id": "aiSuggestProperties",
-            "label": "Suggest Properties…"
+            "label": "Suggest Properties"
           }
         ]
       }

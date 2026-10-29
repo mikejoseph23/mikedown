@@ -521,8 +521,13 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
     if (!engine) {return null;}
     const holder = el('div', 'ai-wizard-form');
     if (connectError) {holder.append(note('error', connectError, 'ai-wizard-error'));}
-    holder.append(form.build(engine.id));
+    holder.append(buildForm(engine.id));
     return holder;
+  }
+
+  /** The engine form; on the cloud step "What this means" above already says what is sent, so the form's card is left out. */
+  function buildForm(id: string): HTMLElement {
+    return form.build(id, { privacy: step !== 'cloud' });
   }
 
   function footer(o: { label: string; fk: string; ready: boolean; hint?: string; onClick(): void }): HTMLElement {
@@ -732,7 +737,7 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
         const current = column.querySelector<HTMLElement>('.ai-form');
         if (current) {
           keepFocus(current, () => {
-            const fresh = form.build(id);
+            const fresh = buildForm(id);
             current.replaceWith(fresh);
             return fresh;
           });

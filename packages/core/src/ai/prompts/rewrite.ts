@@ -65,6 +65,8 @@ export interface AiRewriteVariantDefinition {
   id: AiRewriteVariant;
   /** Menu label. */
   label: string;
+  /** Tooltip, where the label alone does not tell two variants apart (Longer, Add detail). */
+  title?: string;
   /**
    * The instruction line sent to the model. Empty for `custom` (the user's own
    * words); `{language}` and `{audience}` are filled from `RewritePromptInput.params`.
@@ -88,6 +90,7 @@ export const AI_REWRITE_VARIANTS: readonly AiRewriteVariantDefinition[] = [
   {
     id: 'longer',
     label: 'Longer',
+    title: 'Longer: the same points, said at more length',
     instruction: 'Make it longer: add detail, examples or explanation that fit the surrounding text. Do not invent facts, numbers, names or links.',
     group: 'length',
     output: 'replace',
@@ -95,6 +98,7 @@ export const AI_REWRITE_VARIANTS: readonly AiRewriteVariantDefinition[] = [
   {
     id: 'expand',
     label: 'Add detail',
+    title: 'Add detail (facts and examples)',
     instruction: 'Expand it: develop each point with the reasoning, detail or an example that the surrounding text supports, so it reads as a fuller passage. Do not invent facts, numbers, names or links.',
     group: 'length',
     output: 'replace',

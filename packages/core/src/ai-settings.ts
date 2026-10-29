@@ -3,10 +3,14 @@
  * `ai` group (see `editor.ts#showSettingsModal`), with the modal's own row
  * builders so it sits flush with the other tabs.
  *
+ * Order (U8): the intro, the master switch, the Engines summary, Allow
+ * cloud with the cloud consents, the toolbar button switch, Features.
  * Tier 1 hosts (`complete` only, they route by themselves) get the master
- * switch and the feature toggles. Tier 2 hosts (an engine registry) also get
- * Allow cloud, a compact engine list (name, local/cloud pill, status dot,
- * enabled switch), the default route with "Change…", and "Manage engines…".
+ * switch, the toolbar switch and the feature toggles. Tier 2 hosts (an
+ * engine registry) also get a compact engine list (name, local/cloud pill,
+ * status dot, enabled switch), the default model with "Change…" (the Tasks
+ * section), "Manage engines…", Allow cloud, and each feature's task under
+ * "Advanced: task per feature".
  * Engines, their forms and routing live on the AI Engines page
  * (`ai-engines-page.ts`), which the tab opens over the modal.
  *
@@ -24,7 +28,7 @@ import { engineDisplayName, engineKindLabel, routeLabel, taskRouteNote } from '.
 import { createAiSettingsSession } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
 import type { AiEnginesPageSection } from './ai-engines-page';
-import { button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, privacyCard, statusBadge, switchInput } from './ai-settings-dom';
+import { ICONS, button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, privacyCard, statusBadge, switchInput } from './ai-settings-dom';
 import type { MikeDownSettingsSectionBuild, MikeDownSettingsSectionContext } from './types';
 
 /** The tab asks its host to open the AI Engines page over the modal. */
@@ -84,7 +88,6 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   masterField.input.addEventListener('change', () => {
     session.draft = { ...session.draft, enabled: masterField.input.checked };
   });
-  rows.push(masterField.row);
 
   const toolbarField = ctx.makeCheckboxRow(
     'Show AI button on the toolbar',
@@ -95,7 +98,6 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   toolbarField.input.addEventListener('change', () => {
     session.draft = { ...session.draft, showToolbarButton: toolbarField.input.checked };
   });
-  rows.push(toolbarField.row);
 
   const cloudField = ctx.makeCheckboxRow(
     'Allow cloud engines',
@@ -183,7 +185,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
         session.absorb(saved, patch);
         cloudField.input.checked = session.draft.allowCloud;
         renderEngines();
-        if (Object.keys(patch).length > 0) {announce('Engines and routing saved.');}
+        if (Object.keys(patch).length > 0) {announce('Engines and tasks saved.');}
       },
     });
   }
@@ -266,13 +268,13 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   }
 
   // ── Features ──────────────────────────────────────────────────────────────
+  // One switch per feature. On tier 2 the task each feature routes through
+  // is under "Advanced: task per feature" (U8): most people never change it.
 
-  const featuresRow = ctx.makeRow(
-    'Features',
-    tier === 2 ? 'Turn each feature on or off. A feature can use a different task’s route if you like.' : 'Turn each feature on or off.',
-  );
+  const featuresRow = ctx.makeRow('Features', 'Turn each feature on or off.');
   featuresRow.classList.add('ai-section');
   const featureRows: HTMLElement[] = [];
+  const taskRows: HTMLElement[] = [];
   for (const def of AI_FEATURES) {
     const planned = def.status === 'planned';
     const resolved = resolveAiFeature(session.draft.features, def.id);
@@ -283,40 +285,12 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
     const lbl = el('span', 'settings-label', def.label);
     lbl.id = labelId;
     text.append(lbl, el('span', 'settings-desc', def.description));
-    const defaultTask = getAiTask(def.defaultTask);
     const controls = el('div', 'ai-feature-controls');
     if (planned) {
       controls.append(el('span', 'ai-pill ai-pill--soon', 'Coming later'));
       row.setAttribute('aria-disabled', 'true');
     } else {
-      if (tier === 2) {
-        const select = el('select', 'settings-input settings-input--small');
-        select.dataset.fk = `feature:${def.id}:task`;
-        select.setAttribute('aria-label', `Task route for ${def.label}`);
-        const dflt = el('option', '', `Default task (${defaultTask?.label ?? def.defaultTask})`);
-        dflt.value = '';
-        select.append(dflt);
-        for (const task of AI_TASKS) {
-          if (task.hostMethod) {continue;}
-          const o = el('option', '', task.label);
-          o.value = task.id;
-          select.append(o);
-        }
-        const saved = session.draft.features[def.id]?.task;
-        if (saved && !AI_TASKS.some((t) => t.id === saved)) {
-          const o = el('option', '', saved);
-          o.value = saved;
-          select.append(o);
-        }
-        select.value = saved ?? '';
-        select.addEventListener('change', () => {
-          const draft = session.draft;
-          const entry = { ...(draft.features[def.id] ?? {}) };
-          if (select.value) {entry.task = select.value;} else {delete entry.task;}
-          session.draft = { ...draft, features: { ...draft.features, [def.id]: entry } };
-        });
-        controls.append(select);
-      }
+      if (tier === 2) {taskRows.push(buildTaskRow(def));}
       const toggle = switchInput(resolved.enabled, def.label, `feature:${def.id}:enabled`);
       toggle.setAttribute('aria-labelledby', labelId);
       toggle.removeAttribute('aria-label');
@@ -330,21 +304,78 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
     featureRows.push(row);
   }
   featuresRow.append(ctx.makeGroup(...featureRows));
+  if (taskRows.length > 0) {featuresRow.append(...buildTaskDisclosure(taskRows));}
+
+  /** One feature's task picker: "Default task (Rewrite)" or another task's route. */
+  function buildTaskRow(def: (typeof AI_FEATURES)[number]): HTMLElement {
+    const defaultTask = getAiTask(def.defaultTask);
+    const row = el('div', 'settings-row settings-row--inline ai-feature-task');
+    const labelId = nextId('ai-feature-task');
+    const lbl = el('span', 'settings-label', def.label);
+    lbl.id = labelId;
+    const select = el('select', 'settings-input settings-input--small');
+    select.dataset.fk = `feature:${def.id}:task`;
+    select.setAttribute('aria-label', `Task route for ${def.label}`);
+    const dflt = el('option', '', `Default task (${defaultTask?.label ?? def.defaultTask})`);
+    dflt.value = '';
+    select.append(dflt);
+    for (const task of AI_TASKS) {
+      if (task.hostMethod) {continue;}
+      const o = el('option', '', task.label);
+      o.value = task.id;
+      select.append(o);
+    }
+    const saved = session.draft.features[def.id]?.task;
+    if (saved && !AI_TASKS.some((t) => t.id === saved)) {
+      const o = el('option', '', saved);
+      o.value = saved;
+      select.append(o);
+    }
+    select.value = saved ?? '';
+    select.addEventListener('change', () => {
+      const draft = session.draft;
+      const entry = { ...(draft.features[def.id] ?? {}) };
+      if (select.value) {entry.task = select.value;} else {delete entry.task;}
+      session.draft = { ...draft, features: { ...draft.features, [def.id]: entry } };
+    });
+    row.append(lbl, select);
+    return row;
+  }
+
+  /** "Advanced: task per feature", closed until opened; a feature can use another task's model. */
+  function buildTaskDisclosure(taskRowsIn: HTMLElement[]): HTMLElement[] {
+    const panelId = nextId('ai-feature-tasks');
+    const toggle = button('ai-disclosure ai-feature-tasks-toggle', 'Advanced: task per feature', { html: ICONS.chevron, fk: 'features:advanced' });
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', panelId);
+    const panel = el('div', 'ai-advanced ai-feature-tasks');
+    panel.id = panelId;
+    panel.hidden = true;
+    panel.append(el('div', 'settings-desc', 'Each feature uses its own task’s model (see Tasks on the AI Engines page). Pick another task to borrow its model.'), ctx.makeGroup(...taskRowsIn));
+    toggle.addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      toggle.setAttribute('aria-expanded', String(!panel.hidden));
+    });
+    return [toggle, panel];
+  }
 
   // ── Assemble ──────────────────────────────────────────────────────────────
 
+  // Intro, master switch, Engines (with the default model), Allow cloud and
+  // its consents, the toolbar button, Features (U8).
+  rows.push(masterField.row);
   if (tier === 2) {
+    if (canManage) {
+      rows.push(enginesRow);
+      renderEngines();
+    }
     rows.push(cloudField.row);
     if (listConsents && forgetConsent) {
       rows.push(consentsRow);
       void refreshConsents();
     }
-    if (canManage) {
-      rows.push(enginesRow);
-      renderEngines();
-    }
   }
-  rows.push(featuresRow, live);
+  rows.push(toolbarField.row, featuresRow, live);
 
   // Statuses pushed while the tab is open refresh the dots in place.
   const unsubscribe = canManage ? opts.subscribeStatuses?.((list) => {

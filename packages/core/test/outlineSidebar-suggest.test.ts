@@ -292,6 +292,38 @@ describe('Properties Suggest', () => {
     expect(suggestBtn(el).getAttribute('aria-disabled')).toBe('false');
   });
 
+  it('a press on the disabled Suggest puts the reason in the chips row, where the keyboard can read it (U4)', () => {
+    const { el, handle } = mount(BODY, REPLY);
+    handle.command('toggleSource');
+    expect(row(el).hidden).toBe(true);
+    suggestBtn(el).click();
+    expect(row(el).hidden).toBe(false);
+    expect(row(el).querySelector('[role="status"]')?.textContent).toContain('Switch to rich text to apply suggestions');
+    // Back in rich text Suggest can run: the reason goes.
+    handle.command('toggleSource');
+    expect(row(el).hidden).toBe(true);
+    handle.command('toggleSource');
+    suggestBtn(el).click();
+    rowButton(el, 'Dismiss').click();
+    expect(row(el).hidden).toBe(true);
+  });
+
+  it('Suggest shows a running state and aria-busy while it runs, and the toolbar AI button pulses (U5)', async () => {
+    const pending: Array<(text: string) => void> = [];
+    const { el } = mount(BODY, () => new Promise<string>((resolve) => { pending.push(resolve); }));
+    const aiBtn = () => el.querySelector<HTMLButtonElement>('button[data-action="ai"]');
+    suggestBtn(el).click();
+    await settle();
+    expect(suggestBtn(el).classList.contains('is-running')).toBe(true);
+    expect(suggestBtn(el).getAttribute('aria-busy')).toBe('true');
+    expect(aiBtn()?.classList.contains('is-ai-running')).toBe(true);
+    pending[0](REPLY);
+    await settle();
+    expect(suggestBtn(el).classList.contains('is-running')).toBe(false);
+    expect(suggestBtn(el).getAttribute('aria-busy')).toBe('false');
+    expect(aiBtn()?.classList.contains('is-ai-running')).toBe(false);
+  });
+
   it('AI off: no Suggest button', () => {
     const { el } = mount(BODY, REPLY, { ai: { enabled: false } });
     expect(suggestBtn(el).hidden).toBe(true);

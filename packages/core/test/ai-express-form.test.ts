@@ -785,7 +785,7 @@ describe('Thinking level', () => {
 
   it('Anthropic has Low, Medium and High, no Off, and writes the native fields', () => {
     const m = mountPage([withModel(claude)]);
-    expect(choices(m, 'claude')).toEqual(['Model default', 'Low', 'Medium', 'High']);
+    expect(choices(m, 'claude')).toEqual(['Default', 'Low', 'Medium', 'High']);
     choose(q(m.c, 'eng:claude:thinking'), 'high');
     const result = saved(m);
     expect(overrides(result, 'claude')).toEqual({ thinking: { type: 'adaptive' }, output_config: { effort: 'high' } });
@@ -817,7 +817,7 @@ describe('Thinking level', () => {
 
   it('a local OpenAI-compatible server gets Off through the chat template, tiers through reasoning_effort', () => {
     const m = mountPage([withModel(omlx)]);
-    expect(choices(m, 'omlx')).toEqual(['Model default', 'Off', 'Low', 'Medium', 'High']);
+    expect(choices(m, 'omlx')).toEqual(['Default', 'Off', 'Low', 'Medium', 'High']);
     choose(q(m.c, 'eng:omlx:thinking'), 'off');
     const off = saved(m);
     expect(overrides(off, 'omlx')).toEqual({ chat_template_kwargs: { enable_thinking: false } });
@@ -837,7 +837,7 @@ describe('Thinking level', () => {
 
   it('LM Studio is On or Off', () => {
     const m = mountPage([withModel(lms)]);
-    expect(choices(m, 'lms')).toEqual(['Model default', 'Off', 'On']);
+    expect(choices(m, 'lms')).toEqual(['Default', 'Off', 'On']);
     choose(q(m.c, 'eng:lms:thinking'), 'medium');
     expect(overrides(saved(m), 'lms')).toEqual({ reasoning_effort: 'medium' });
   });

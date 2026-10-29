@@ -2,9 +2,9 @@
  * The AI Engines page (M3c): engines and routing on a full-size page of
  * their own, laid out like VS Code's Settings editor or the Network pane of
  * Apple's System Settings. A header with Back and Done; on the left a quiet
- * list of engines, then Routing, then Add engine; on the right the selected
- * engine's Express form (`ai-engine-form.ts`), the routing section
- * (`ai-routing-section.ts`) or the quick-start cards. Under 720 px the page
+ * list of engines, then Tasks (which model does what), then Add engine; on
+ * the right the selected engine's Express form (`ai-engine-form.ts`), the
+ * Tasks section (`ai-routing-section.ts`) or the quick-start cards. Under 720 px the page
  * is one column: the list first, and picking an entry pushes its detail,
  * with Back returning to the list.
  *
@@ -161,7 +161,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
 
   const body = el('div', 'ai-page-body');
   const nav = el('nav', 'ai-page-nav');
-  nav.setAttribute('aria-label', 'Engines and routing');
+  nav.setAttribute('aria-label', 'Engines and tasks');
   const detail = el('section', 'ai-page-detail');
   const detailId = nextId('ai-page-detail');
   detail.id = detailId;
@@ -368,7 +368,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     const icon = el('span', 'ai-nav-icon');
     icon.innerHTML = ICONS.routing;
     const text = el('span', 'ai-nav-text');
-    text.append(el('span', 'ai-nav-name', 'Routing'), el('span', 'ai-nav-sub', routingSubline()));
+    text.append(el('span', 'ai-nav-name', 'Tasks'), el('span', 'ai-nav-sub', routingSubline()));
     btn.append(icon, text);
     btn.addEventListener('click', () => select({ kind: 'routing' }));
     return btn;
@@ -472,7 +472,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
         const icon = el('span', 'ai-detail-icon');
         icon.innerHTML = ICONS.routing;
         const main = el('div', 'ai-detail-main');
-        main.append(detailTitle('Routing'), el('div', 'ai-detail-sub', 'Which model serves each kind of task. Tasks on Default use the default model.'));
+        main.append(detailTitle('Tasks'), el('div', 'ai-detail-sub', 'Which model does what. Tasks on Default use the default model.'));
         detailHead.append(icon, main);
         return;
       }
@@ -510,9 +510,9 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     main.append(titleLine, el('div', 'ai-detail-sub', subParts.join(' · ')));
 
     const isDefault = session.draft.routing.default?.engineId === engine.id;
-    const star = button(`settings-btn ai-default-btn${isDefault ? ' is-on' : ''}`, isDefault ? 'Default' : 'Make default', {
+    const star = button(`settings-btn ai-default-btn${isDefault ? ' is-on' : ''}`, isDefault ? 'Default' : 'Use by default', {
       html: isDefault ? ICONS.starOn : ICONS.starOff,
-      title: isDefault ? `Default: ${routeLabel(session.draft, session.draft.routing.default as AiRoute)}` : 'Make this the default engine',
+      title: isDefault ? `Default: ${routeLabel(session.draft, session.draft.routing.default as AiRoute)}` : 'Use this engine by default',
       fk: `eng:${engine.id}:star`,
     });
     star.setAttribute('aria-pressed', String(isDefault));
@@ -914,7 +914,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     box.setAttribute('aria-describedby', textId);
     const head = el('div', 'ai-page-confirm-title', 'Discard changes?');
     head.id = headId;
-    const text = el('div', 'ai-page-confirm-text', 'Your changes to engines and routing have not been saved. Engines added here and their keys are removed.');
+    const text = el('div', 'ai-page-confirm-text', 'Your changes to engines and tasks have not been saved. Engines added here and their keys are removed.');
     text.id = textId;
     const keep = button('settings-btn', 'Keep editing', { fk: 'page:keep' });
     keep.addEventListener('click', () => hideDiscard());

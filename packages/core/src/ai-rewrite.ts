@@ -917,7 +917,12 @@ export interface AiRewritePopoverDeps {
   /** Footer badge for the route about to serve (before the result) or what served. */
   badge(route: AiRouteOk | null, served: AiServedBy | null, viaFallback: boolean, about?: { feature?: string; sends?: AiSendsScope }): AiRewriteBadge | null;
   onServed(served: AiServedBy, viaFallback: boolean): void;
-  openSettings(): void;
+  /** The AI settings; with `engineId`, that engine's page (an error's "Open <engine>"). */
+  openSettings(engineId?: string): void;
+  /** An engine's display name, so an error can name it ("Anthropic refused the API key."). Absent: errors stay generic. */
+  engineName?(engineId: string): string | null;
+  /** A request started or stopped running in the popover (the toolbar button's running state). */
+  onBusy?(running: boolean): void;
   /** The whole body as a target (Translate's "Whole document"); absent hides the toggle. */
   documentTarget?(): AiRewriteTarget | null;
   /**
@@ -1086,6 +1091,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     detach = [];
     root?.remove();
     root = null;
+    syncBusy();
     const t = target;
     target = null;
     picker = null;
@@ -1111,9 +1117,11 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     spark.innerHTML = SPARK;
     titleEl = el('span', 'ai-rw-title', 'Rewrite');
     thinkEl = el('div', 'ai-rw-think');
-    thinkEl.setAttribute('role', 'group');
+    thinkEl.setAttribute('role', 'radiogroup');
     thinkEl.setAttribute('aria-label', 'Thinking');
     thinkEl.hidden = true;
+    // Arrow keys move between levels (roving focus); Enter or Space picks, which runs again.
+    thinkEl.addEventListener('keydown', onThinkingKey);
     badgeEl = el('span', 'ai-rw-badge');
     badgeEl.hidden = true;
     closeBtn = button('ai-rw-icon-btn', '', () => close());
@@ -1150,6 +1158,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       for (const v of g.variants) {
         const chip = button('ai-rw-chip', v.label, () => choose(v));
         chip.setAttribute('role', 'menuitem');
+        if (v.title) {chip.title = v.title;}
         chip.dataset.variant = v.id;
         if (v.param) {chip.setAttribute('aria-haspopup', 'menu');}
         chips.append(chip);
@@ -1373,18 +1382,27 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     return `Rewrite · ${plainLabel(getAiRewriteVariant(variant)?.label ?? '')}`;
   }
 
-  /** The thinking dial: one segment per level the route's kind can express, the level in effect pressed. */
+  /**
+   * The thinking dial: a radio group with one segment per level the route's
+   * kind can express, the level in effect checked. One Tab stop; a redraw
+   * keeps the focus on the segment that had it.
+   */
   function renderThinking(): void {
     const choices = thinking && phase !== 'choose' ? thinkingChoices(thinking.kind) : [];
     thinkEl.hidden = choices.length === 0;
     if (choices.length === 0) {return;}
     const current = thinkingInEffect(thinking);
+    const focused = thinkEl.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.level : undefined;
     const label = el('span', 'ai-rw-think-label', 'Thinking');
     label.setAttribute('aria-hidden', 'true');
+    const stop = focused ?? (choices.some((c) => c.level === current) ? current : choices[0].level);
     const segments = choices.map((c) => {
       const seg = button('ai-rw-think-seg', thinkingSegmentLabel(c.label), () => pickThinking(c.level));
       seg.dataset.level = c.level;
-      seg.setAttribute('aria-pressed', c.level === current ? 'true' : 'false');
+      seg.setAttribute('role', 'radio');
+      seg.setAttribute('aria-checked', c.level === current ? 'true' : 'false');
+      seg.setAttribute('aria-label', c.label);
+      seg.tabIndex = c.level === stop ? 0 : -1;
       seg.title = `Thinking: ${c.label} (runs again)`;
       return seg;
     });
@@ -1392,6 +1410,20 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       ? `Thinking: ${choices.find((c) => c.level === current)?.label ?? current}${thinking?.sent ? '' : ' (the model\'s setting)'}`
       : 'Thinking: the model\'s default';
     thinkEl.replaceChildren(label, ...segments);
+    if (focused) {segments.find((b) => b.dataset.level === focused)?.focus({ preventScroll: true });}
+  }
+
+  function onThinkingKey(e: KeyboardEvent): void {
+    if (!/^(Arrow(Left|Right|Up|Down)|Home|End)$/.test(e.key)) {return;}
+    const segs = [...thinkEl.querySelectorAll<HTMLButtonElement>('.ai-rw-think-seg')];
+    const at = segs.indexOf(document.activeElement as HTMLButtonElement);
+    if (at < 0) {return;}
+    e.preventDefault();
+    e.stopPropagation();
+    const forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? segs.length - 1 : (at + (forward ? 1 : -1) + segs.length) % segs.length;
+    for (const [i, b] of segs.entries()) {b.tabIndex = i === next ? 0 : -1;}
+    segs[next].focus({ preventScroll: true });
   }
 
   function renderBadge(): void {
@@ -1455,7 +1487,17 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     frame = requestAnimationFrame(() => { frame = 0; if (root) {renderOut();} });
   }
 
+  /** Tell the host when a request starts or stops running here (once per change). */
+  let busyReported = false;
+  function syncBusy(): void {
+    const running = !!root && phase === 'running';
+    if (running === busyReported) {return;}
+    busyReported = running;
+    deps.onBusy?.(running);
+  }
+
   function render(): void {
+    syncBusy();
     if (!root || !target) {return;}
     const mode = outputMode();
     root.dataset.phase = phase;
@@ -1524,10 +1566,20 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     if (phase === 'error' && error) {renderError(error);}
   }
 
+  /** The failing engine's name, when the error says which engine it was and the host can name it. */
+  function errorEngine(e: AiError): string | null {
+    return e.engineId ? deps.engineName?.(e.engineId) ?? null : null;
+  }
+
+  /** The copy an error shows: an override, the router's "No engine can rewrite", or the code's (naming the engine). */
+  function copyFor(e: AiError): AiErrorCopy {
+    if (unavailable) {return { title: 'No engine can rewrite right now', message: e.message, action: 'openSettings' as const };}
+    const engine = errorEngine(e);
+    return errorCopy ?? aiErrorCopy(e.code, engine ? { engine } : {});
+  }
+
   function renderError(e: AiError): void {
-    const copyText: AiErrorCopy = unavailable
-      ? { title: 'No engine can rewrite right now', message: e.message, action: 'openSettings' as const }
-      : errorCopy ?? aiErrorCopy(e.code);
+    const copyText = copyFor(e);
     const iconEl = el('span', 'ai-rw-error-icon');
     iconEl.innerHTML = ALERT;
     const textBox = el('div', 'ai-rw-error-text');
@@ -1543,9 +1595,12 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       textBox.append(el('div', 'ai-rw-error-detail', `${what} is ${size.toLocaleString()} characters.`));
     }
     const actions = el('div', 'ai-rw-error-actions');
-    const settingsBtn = button(`ai-rw-btn${copyText.action === 'openSettings' ? ' ai-rw-btn--primary' : ''}`, 'Open AI settings', () => {
+    // An engine problem opens that engine's page, by name (F9).
+    const onEngine = copyText.action === 'openEngine' && !!e.engineId;
+    const settingsLabel = onEngine ? `Open ${errorEngine(e) ?? 'engine'}` : 'Open AI settings';
+    const settingsBtn = button(`ai-rw-btn${copyText.action === 'openSettings' || onEngine ? ' ai-rw-btn--primary' : ''}`, settingsLabel, () => {
       close({ refocus: false });
-      deps.openSettings();
+      if (onEngine) {deps.openSettings(e.engineId);} else {deps.openSettings();}
     });
     actions.append(settingsBtn);
     if (!unavailable && copyText.action !== 'shortenSelection' && e.code !== 'cloudBlocked') {
@@ -1674,9 +1729,11 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     if (!thinking || phase === 'choose') {return;}
     if (level === thinkingInEffect(thinking)) {return;}
     rememberThinkingLevel(level);
-    // Pressed at once; the route's answer confirms it.
+    // Checked at once; the route's answer confirms it.
     thinking = { ...thinking, sent: level };
+    const label = thinkingChoices(thinking.kind).find((c) => c.level === level)?.label ?? level;
     rerun();
+    liveEl.textContent = `Thinking: ${label}`;
   }
 
   /** Run the current job again (Retry, Try again, the thinking dial). */
@@ -1762,7 +1819,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     repairing = false;
     render();
     position();
-    liveEl.textContent = `${(errorCopy ?? aiErrorCopy(e.code)).title}.`;
+    liveEl.textContent = `${copyFor(e).title}.`;
     errorEl.querySelector<HTMLButtonElement>('.ai-rw-btn--primary, .ai-rw-btn')?.focus({ preventScroll: true });
   }
 

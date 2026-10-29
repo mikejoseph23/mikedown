@@ -189,7 +189,8 @@ export function routeUnusableError(r: AiRouteUnusable): AiError {
     modelMissing: 'modelNotFound',
     modelNotListed: 'modelNotFound',
   };
-  return makeAiError(map[r.unusable] ?? 'unknown', r.reason);
+  const e = makeAiError(map[r.unusable] ?? 'unknown', r.reason);
+  return r.engineId ? { ...e, engineId: r.engineId } : e;
 }
 
 function isTier2(ai: MikeDownAiHost): boolean {
@@ -270,7 +271,8 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
         failed.set(route.engineId, e.message);
         continue;
       }
-      throw e;
+      // The popover's "Open <engine>" goes to the engine that failed.
+      throw route && !e.engineId && e.code !== 'cancelled' ? { ...e, engineId: route.engineId } : e;
     }
   }
   throw makeAiError('unknown', 'No engine answered.');

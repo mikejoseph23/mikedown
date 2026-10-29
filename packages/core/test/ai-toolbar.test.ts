@@ -224,10 +224,15 @@ describe('AI menu (AI on)', () => {
     mount(new Host(), withEngine());
     aiButton()!.click();
     const items = Array.from(document.querySelectorAll<HTMLElement>('#toolbar-dropdown .tdd-item'));
-    expect(items.map((i) => i.querySelector('.tdd-item-label')?.textContent)).toEqual(['Rewrite selection', 'Summarize document…', 'Suggest titles…', 'Manage engines…']);
+    expect(items.map((i) => i.querySelector('.tdd-item-label')?.textContent)).toEqual([
+      'Rewrite selection', 'Explain selection', 'Translate…', 'Summarize document…', 'Suggest titles…', 'Manage engines…',
+    ]);
     expect(items[0].getAttribute('aria-disabled')).toBe('true');
     expect(items[0].querySelector('.tdd-item-hint')?.textContent).toBe('Select text first');
-    items[3].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    // Explain needs a selection too; Translate offers the whole document without one.
+    expect(items[1].querySelector('.tdd-item-hint')?.textContent).toBe('Select text first');
+    expect(items[2].getAttribute('aria-disabled')).not.toBe('true');
+    items[5].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(document.querySelector('#mikedown-ai-page-overlay')).not.toBeNull();
   });
 

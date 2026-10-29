@@ -166,15 +166,15 @@ export const COMMANDS: readonly ShortcutRow[] = [
   editor('insertLink', 'Link…', 'CmdOrCtrl+K', 'richText'),
   editor('insertImage', 'Image…', undefined, 'richText'),
   editor('openEmojiPicker', 'Emoji…', 'CmdOrCtrl+;', 'richText', 'app'),
-  // Core binds the chord only when the host does not own shortcuts; no menu
-  // item (AI is off by default), and a no-op without AI.
-  editor('aiRewrite', 'Rewrite with AI', 'CmdOrCtrl+Alt+K', 'editor', 'app', { keyOnly: true }),
-  // AI menu (Format > AI): key-free, no-ops without AI. Rewrite stays keystroke-only.
-  editor('aiExplain', 'Explain…', undefined, 'editor'),
+  // AI menu (Format > AI): the toolbar AI menu's words and order (U1), no-ops
+  // without AI. Only Rewrite has a chord (core binds it only when the host
+  // does not own shortcuts, so the page handles it here).
+  editor('aiRewrite', 'Rewrite Selection', 'CmdOrCtrl+Alt+K', 'editor', 'app'),
+  editor('aiExplain', 'Explain Selection', undefined, 'editor'),
   editor('aiTranslate', 'Translate…', undefined, 'editor'),
   editor('aiSummarize', 'Summarize Document…', undefined, 'always'),
   editor('aiSuggestTitle', 'Suggest Titles…', undefined, 'always'),
-  editor('aiSuggestProperties', 'Suggest Properties…', undefined, 'always'),
+  editor('aiSuggestProperties', 'Suggest Properties', undefined, 'always'),
 
   // ── View ────────────────────────────────────────────────────────────────
   { command: 'toggleSidebar', accelerator: 'CmdOrCtrl+B', label: 'Toggle Sidebar', outsideEditor: true, hideAccelerator: true },

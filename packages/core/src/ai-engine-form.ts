@@ -108,8 +108,12 @@ export interface EngineFormDeps {
 }
 
 export interface EngineFormController {
-  /** The form for one engine. Rebuilt on every render; state lives in the controller. */
-  build(engineId: string): HTMLElement;
+  /**
+   * The form for one engine. Rebuilt on every render; state lives in the
+   * controller. `privacy: false` leaves out the "What is sent" card (the
+   * setup wizard's cloud step already shows "What this means" above it).
+   */
+  build(engineId: string, opts?: { privacy?: boolean }): HTMLElement;
   /**
    * The form was just opened: fetch models when design call 3 says so, and
    * return the `data-fk` to focus (key for a new cloud engine, URL for a new
@@ -433,7 +437,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
 
   // ── The form ──────────────────────────────────────────────────────────────
 
-  function build(id: string): HTMLElement {
+  function build(id: string, opts: { privacy?: boolean } = {}): HTMLElement {
     const engine = getEngine(id);
     const wrap = el('div', 'ai-form');
     wrap.id = `ai-engine-editor-${id}`;
@@ -445,7 +449,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     wrap.setAttribute('aria-label', `${engineDisplayName(engine)} settings`);
 
     // Cloud (and Copilot, which is cloud too): what happens to the text, folded at the head of the form.
-    if (preset.family === 'cloud' || preset.family === 'host') {
+    if ((preset.family === 'cloud' || preset.family === 'host') && opts.privacy !== false) {
       wrap.append(privacyCard({ policy: aiProviderPolicy(engine) }, {
         hostEngine: preset.family === 'host',
         collapsed: 'What is sent',
@@ -658,7 +662,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     const count = el('span', 'ai-models-count', st.running ? 'Fetching…' : modelCountLine(engine));
     head.append(label, count);
     if (ai.discoverModels) {
-      const fetchBtn = button('ai-link-btn', 'Fetch models', { html: ICONS.refresh, fk: `eng:${id}:fetch` });
+      // "Fetch models" the first time; once there is a list, it refreshes it.
+      const fetchBtn = button('ai-link-btn', engine.models.length > 0 ? 'Refresh models' : 'Fetch models', { html: ICONS.refresh, fk: `eng:${id}:fetch` });
       const urlBad = !isHostEngineKind(engine.kind) && !!baseUrlProblem(engine.baseUrl);
       if (st.running) {fetchBtn.setAttribute('aria-disabled', 'true');}
       fetchBtn.disabled = engine.discovery === 'manual' || urlBad;
@@ -1008,8 +1013,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     const select = el('select', `settings-input ${where === 'table' ? 'settings-input--small ' : ''}ai-thinking-select`);
     select.dataset.fk = where === 'express' ? `eng:${id}:thinking` : `model:${id}:${model.id}:thinking`;
     select.setAttribute('aria-label', `Thinking for ${modelDisplayName(model)}`);
-    select.title = 'How hard the model thinks before it answers. Model default sends nothing.';
-    const dflt = el('option', '', where === 'table' ? 'Default' : 'Model default');
+    select.title = 'How hard the model thinks before it answers. Default sends nothing (the model decides).';
+    const dflt = el('option', '', 'Default');
     dflt.value = '';
     select.append(dflt);
     for (const c of choices) {

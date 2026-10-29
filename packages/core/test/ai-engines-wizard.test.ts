@@ -233,6 +233,15 @@ describe('setup wizard: step 2, cloud', () => {
     expect(q(m.c, 'wiz:continue')!.getAttribute('aria-disabled')).toBe('true');
   });
 
+  it('shows one privacy disclosure on the cloud step: What this means, not the form\'s What is sent too', async () => {
+    const m = mount({ host: { detectLocalServers: servers() } });
+    await flush();
+    click(q(m.c, 'wiz:card:anthropic'));
+    const summaries = Array.from(m.c.querySelectorAll('.ai-privacy-summary')).map((n) => n.textContent?.trim());
+    expect(summaries).toEqual(['What this means']);
+    expect(m.c.querySelector('.ai-form .ai-form-privacy')).toBeNull();
+  });
+
   it('a key, then the models, then Continue; Back walks back through the steps', async () => {
     const m = mount({
       host: { detectLocalServers: servers() },

@@ -362,32 +362,41 @@
       },
       {
         "kind": "submenu",
-        "label": "AI",
+        "label": "&AI",
         "items": [
           {
             "kind": "item",
+            "id": "aiRewrite",
+            "label": "&Rewrite Selection",
+            "accelerator": "CmdOrCtrl+Alt+K"
+          },
+          {
+            "kind": "item",
             "id": "aiExplain",
-            "label": "Explain…"
+            "label": "&Explain Selection"
           },
           {
             "kind": "item",
             "id": "aiTranslate",
-            "label": "Translate…"
+            "label": "&Translate…"
+          },
+          {
+            "kind": "separator"
           },
           {
             "kind": "item",
             "id": "aiSummarize",
-            "label": "Summarize Document…"
+            "label": "&Summarize Document…"
           },
           {
             "kind": "item",
             "id": "aiSuggestTitle",
-            "label": "Suggest Titles…"
+            "label": "Suggest T&itles…"
           },
           {
             "kind": "item",
             "id": "aiSuggestProperties",
-            "label": "Suggest Properties…"
+            "label": "Suggest &Properties"
           }
         ]
       }

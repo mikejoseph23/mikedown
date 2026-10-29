@@ -263,6 +263,8 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
   let suggestAvailability: SuggestPropertiesAvailability = { state: 'hidden' };
   let suggestState: PropertySuggestionsState = 'idle';
   let suggestMessage = '';
+  /** The disabled Suggest was pressed: its reason shows in the chips row until dismissed or enabled. */
+  let suggestReason = '';
   let suggestions: PropertySuggestions | null = null;
   let suggestCb: (() => void) | null = null;
   let applySuggestionCb: ((pick: PropertySuggestionPick) => boolean) | null = null;
@@ -385,7 +387,15 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     suggestBtnEl.innerHTML = SPARKLE_SVG;
     suggestBtnEl.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      if (suggestAvailability.state === 'enabled') {suggestCb?.();}
+      const a = suggestAvailability;
+      if (a.state === 'enabled') {
+        // While one runs, a press starts afresh (the owner aborts the old run).
+        suggestCb?.();
+      } else if (a.state === 'disabled') {
+        // The reason as text in the chips row, not only the hover tooltip (U4).
+        suggestReason = a.reason;
+        renderSuggestions();
+      }
     });
     propsHeader.appendChild(suggestBtnEl);
     propertiesSectionEl.appendChild(propsHeader);
@@ -1249,6 +1259,11 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
 
   function applySuggestAvailability(a: SuggestPropertiesAvailability): void {
     suggestAvailability = a;
+    if (suggestReason) {
+      // Keep the shown reason current; drop it once Suggest can run (or is gone).
+      suggestReason = a.state === 'disabled' ? a.reason : '';
+      renderSuggestions();
+    }
     renderSuggestButton();
   }
 
@@ -1260,7 +1275,10 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     // aria-disabled, not disabled: the reason tooltip must still show on hover.
     btn.setAttribute('aria-disabled', a.state === 'enabled' ? 'false' : 'true');
     btn.classList.toggle('disabled', a.state === 'disabled');
-    btn.title = a.state === 'disabled' ? a.reason : 'Suggest properties with AI';
+    const running = a.state === 'enabled' && suggestState === 'running';
+    btn.classList.toggle('is-running', running);
+    btn.setAttribute('aria-busy', running ? 'true' : 'false');
+    btn.title = a.state === 'disabled' ? a.reason : running ? 'Suggesting properties…' : 'Suggest properties with AI';
   }
 
   /** Show the sidebar with Properties expanded, so a run started elsewhere is visible. */
@@ -1277,7 +1295,11 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     suggestState = state;
     suggestMessage = message ?? '';
     suggestions = state === 'idle' && s ? { ...s, tags: [...s.tags] } : null;
-    if (state !== 'idle' || s) {revealProperties();}
+    if (state !== 'idle' || s) {
+      suggestReason = '';
+      revealProperties();
+    }
+    renderSuggestButton();
     renderSuggestions();
   }
 
@@ -1300,6 +1322,8 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
   function closeSuggestions(): void {
     suggestState = 'idle';
     suggestions = null;
+    suggestReason = '';
+    renderSuggestButton();
     renderSuggestions();
   }
 
@@ -1308,8 +1332,25 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     if (!row) {return;}
     row.replaceChildren();
     row.dataset.state = suggestState;
-    row.hidden = suggestState === 'idle' && !suggestions;
+    row.hidden = suggestState === 'idle' && !suggestions && !suggestReason;
     if (row.hidden) {return;}
+
+    if (suggestState === 'idle' && !suggestions) {
+      // Why Suggest cannot run, readable without hovering.
+      const why = document.createElement('div');
+      why.className = 'properties-suggest-status';
+      why.setAttribute('role', 'status');
+      const text = document.createElement('span');
+      text.className = 'properties-suggest-reason';
+      text.textContent = suggestReason;
+      why.append(text, textButton('Dismiss', () => {
+        suggestReason = '';
+        renderSuggestions();
+        suggestBtnEl?.focus();
+      }));
+      row.appendChild(why);
+      return;
+    }
 
     if (suggestState === 'running') {
       const bar = document.createElement('div');

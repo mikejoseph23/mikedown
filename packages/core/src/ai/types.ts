@@ -329,6 +329,8 @@ export const AI_ERROR_CODES: readonly AiErrorCode[] = [
 export interface AiError {
   code: AiErrorCode;
   message: string;
+  /** The engine the failed request went to (or the router turned down), when known. */
+  engineId?: string;
 }
 
 /**

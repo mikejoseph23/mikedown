@@ -1,5 +1,6 @@
 /**
- * Routing (M3, moved onto the AI Engines page in M3c): the default model,
+ * Tasks, "which model does what" (M3, moved onto the AI Engines page in
+ * M3c; the file keeps its old name): the default model,
  * the fallback mode and one route per task. Built from the Settings modal's
  * own rows (`MikeDownSettingsSectionContext`) so it sits flush with them.
  *
@@ -150,7 +151,7 @@ export function createRoutingSection(ctx: MikeDownSettingsSectionContext, deps: 
       for (const taskId of unknownRoutedTasks(draft)) {
         taskRow(taskId, taskId, 'Saved by a newer version of MikeDown. Kept as is.', { requires: {} }, false);
       }
-      const tasksHead = el('div', 'ai-subhead', 'Tasks');
+      const tasksHead = el('div', 'ai-subhead', 'Model per task');
       body.append(top, tasksHead, ctx.makeGroup(...taskRows));
     });
   }

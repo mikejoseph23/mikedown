@@ -38,7 +38,8 @@ export interface ToolbarDropdownMiniRow {
 }
 
 /**
- * A labelled radio group of text segments. Picking one keeps the menu open.
+ * A labelled radio group of text segments. Picking one keeps the menu open
+ * and announces it ("Thinking: High").
  * It is one stop for ArrowUp/ArrowDown (on the checked segment);
  * ArrowLeft/ArrowRight move between segments, Enter or Space picks.
  */
@@ -46,7 +47,8 @@ export interface ToolbarDropdownSegmented {
   type: 'segmented';
   id: string;
   label: string;
-  options: Array<{ value: string; label: string; title?: string }>;
+  /** `spoken`: the value as announced after the label, when the visible label is shortened ("Med"). */
+  options: Array<{ value: string; label: string; title?: string; spoken?: string }>;
   value: () => string;
   onChange: (value: string) => void;
   title?: string;
@@ -309,6 +311,11 @@ function buildSegmented(entry: ToolbarDropdownSegmented): HTMLElement {
     const current = entry.value();
     for (const s of segs) {s.setAttribute('aria-checked', s.dataset.value === current ? 'true' : 'false');}
   };
+  // Picks are read out; focus alone already reads the segment.
+  const live = document.createElement('span');
+  live.className = 'tdd-sr';
+  live.setAttribute('role', 'status');
+  live.setAttribute('aria-live', 'polite');
   for (const opt of entry.options) {
     const seg = document.createElement('button');
     seg.type = 'button';
@@ -321,7 +328,10 @@ function buildSegmented(entry: ToolbarDropdownSegmented): HTMLElement {
     seg.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (opt.value !== entry.value()) {entry.onChange(opt.value);}
+      if (opt.value !== entry.value()) {
+        entry.onChange(opt.value);
+        live.textContent = `${entry.label}: ${opt.spoken ?? opt.label}`;
+      }
       sync();
       takeFocus(seg);
     });
@@ -343,7 +353,7 @@ function buildSegmented(entry: ToolbarDropdownSegmented): HTMLElement {
     setFocusedIndex(index);
   }
 
-  row.appendChild(group);
+  row.append(group, live);
   return row;
 }
 

@@ -52,7 +52,7 @@ describe('the ai slash group', () => {
 describe('AI menu entries', () => {
   const base = { icons: { rewrite: '', manage: '' }, onRewrite: () => {}, onManage: () => {}, canManageEngines: true };
 
-  it('Summarize document… and Suggest titles… sit after Rewrite selection, before the separator', () => {
+  it('Summarize document… and Suggest titles… sit after the selection entries, in their own group', () => {
     const entries = aiToolbarMenuEntries({
       ...base,
       rewrite: { enabled: true },
@@ -60,9 +60,9 @@ describe('AI menu entries', () => {
       titles: { enabled: true },
     });
     expect(entries.map((e) => (e.type === 'action' ? e.label : e.type))).toEqual([
-      'Rewrite selection', 'Summarize document…', 'Suggest titles…', 'separator', 'Manage engines…',
+      'Rewrite selection', 'separator', 'Summarize document…', 'Suggest titles…', 'separator', 'Manage engines…',
     ]);
-    const summarize = entries[1];
+    const summarize = entries[2];
     expect(summarize.type === 'action' && summarize.isDisabled?.()).toBe(true);
     expect(summarize.type === 'action' && summarize.hint).toBe('No engine can summarize');
   });

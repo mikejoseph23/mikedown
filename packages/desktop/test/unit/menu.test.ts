@@ -128,6 +128,26 @@ describe('command table', () => {
     expect(rowFor('reveal', false)?.label).toBe('Show in Explorer');
   });
 
+  it('Format > AI lists the toolbar menu\'s six actions in its words and order, with access keys on Windows (U1, U2)', () => {
+    const ai = (isMac: boolean) => {
+      const format = buildMenuSpec(isMac).find((n) => n.kind === 'submenu' && n.label === 'Format') as Extract<MenuNode, { kind: 'submenu' }>;
+      return format.items.find((n) => n.kind === 'submenu' && n.label.replace('&', '') === 'AI') as Extract<MenuNode, { kind: 'submenu' }>;
+    };
+    const labels = (sub: Extract<MenuNode, { kind: 'submenu' }>) => sub.items.map((n) => (n.kind === 'item' ? n.label : '—'));
+    expect(menuIds(ai(true).items)).toEqual(['aiRewrite', 'aiExplain', 'aiTranslate', 'aiSummarize', 'aiSuggestTitle', 'aiSuggestProperties']);
+    expect(labels(ai(true))).toEqual(['Rewrite Selection', 'Explain Selection', 'Translate…', '—', 'Summarize Document…', 'Suggest Titles…', 'Suggest Properties']);
+    // Only Rewrite has a chord (no new default keys, OQ8).
+    expect(ai(true).items.filter((n) => n.kind === 'item' && n.accelerator).map((n) => (n.kind === 'item' ? n.id : ''))).toEqual(['aiRewrite']);
+    // macOS has no mnemonics; Windows gets one distinct access key per item.
+    expect(ai(true).label).toBe('AI');
+    expect(ai(false).label).toBe('&AI');
+    const keys = labels(ai(false)).filter((l) => l !== '—').map((l) => l.match(/&(.)/)?.[1]?.toLowerCase());
+    expect(keys.every(Boolean)).toBe(true);
+    expect(new Set(keys).size).toBe(keys.length);
+    // The shortcuts sheet shows the plain words.
+    expect(shortcutGroups(false).flatMap((g) => g.rows)).toContainEqual({ label: 'Rewrite Selection', keys: 'Ctrl+Alt+K' });
+  });
+
   it('keeps the menu ids M4, M7 and M9 use', () => {
     for (const isMac of [true, false]) {
       const ids = menuIds(buildMenuSpec(isMac));

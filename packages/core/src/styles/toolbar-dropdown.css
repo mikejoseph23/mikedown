@@ -185,6 +185,16 @@
   padding: 3px 8px 5px;
 }
 
+/* A segmented row's announcement ("Thinking: High"): read out, never shown. */
+:is(.mikedown-root, .mikedown-portal) .tdd-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 :is(.mikedown-root, .mikedown-portal) .tdd-seg-row > .tdd-seg {
   display: inline-flex;
   align-items: center;

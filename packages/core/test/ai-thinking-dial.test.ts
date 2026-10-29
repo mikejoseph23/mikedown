@@ -263,7 +263,7 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 const popover = () => document.querySelector<HTMLElement>('.mikedown-ai-rewrite');
 const dial = () => popover()?.querySelector<HTMLElement>('.ai-rw-think');
 const segments = () => [...(dial()?.querySelectorAll<HTMLButtonElement>('.ai-rw-think-seg') ?? [])];
-const pressed = () => segments().find((s) => s.getAttribute('aria-pressed') === 'true')?.dataset.level ?? null;
+const pressed = () => segments().find((s) => s.getAttribute('aria-checked') === 'true')?.dataset.level ?? null;
 
 async function rewriteShorter(handle: MikeDownEditorHandle): Promise<void> {
   handle.tiptap.commands.setTextSelection({ from: 1, to: 13 });
@@ -328,6 +328,35 @@ describe('popover thinking dial', () => {
   });
 });
 
+describe('popover thinking dial: keyboard (U2)', () => {
+  it('is a radio group with one Tab stop; arrows move between levels, a pick runs again and is read out', async () => {
+    const { handle, requests } = mountTier2('openai-compatible');
+    await settle();
+    await rewriteShorter(handle);
+    expect(dial()!.getAttribute('role')).toBe('radiogroup');
+    expect(segments().every((s) => s.getAttribute('role') === 'radio')).toBe(true);
+    // One stop: the checked level (Default checks nothing, so the first).
+    expect(segments().filter((s) => s.tabIndex === 0)).toHaveLength(1);
+    segments()[0].focus();
+    const arrow = (k: string) => document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+    arrow('ArrowRight');
+    expect((document.activeElement as HTMLElement).dataset.level).toBe('low');
+    arrow('ArrowLeft');
+    arrow('ArrowLeft');
+    expect((document.activeElement as HTMLElement).dataset.level).toBe('high');
+    // Moving does not run anything; picking does, and keeps the focus on the dial.
+    expect(requests).toHaveLength(1);
+    (document.activeElement as HTMLButtonElement).click();
+    expect(popover()!.querySelector('.ai-rw-sr')!.textContent).toBe('Thinking: High');
+    await settle();
+    await settle();
+    expect(requests).toHaveLength(2);
+    expect(pressed()).toBe('high');
+    // The new answer takes the focus (Enter accepts); Tab back lands on the checked level.
+    expect(segments().find((s) => s.dataset.level === 'high')!.tabIndex).toBe(0);
+  });
+});
+
 describe('popover engine badge', () => {
   it('sits in the footer with the full model name; the header keeps the title and the dial, and there is no Esc hint', async () => {
     const long = 'Qwen3-30B-A3B-Instruct-2507-MLX-4bit';
@@ -370,7 +399,7 @@ async function openAiMenu(): Promise<void> {
 }
 
 describe('AI menu Thinking row', () => {
-  it('is a labelled radio group at the top: Default and the routed kind\'s levels, Default checked', async () => {
+  it('is a labelled radio group near the bottom, above Manage engines…: Default and the routed kind\'s levels, Default checked', async () => {
     mountTier2('openai-compatible');
     await settle();
     await openAiMenu();
@@ -378,7 +407,10 @@ describe('AI menu Thinking row', () => {
     expect(row.getAttribute('role')).toBe('group');
     expect(row.getAttribute('aria-label')).toBe('Thinking');
     expect(row.classList.contains('ai-rw-think')).toBe(true);
-    expect(menu()!.firstElementChild!.contains(row)).toBe(true);
+    // A setting, so it sits after the actions: Thinking, a separator, Manage engines….
+    const rowEl = row.closest('.tdd-seg-row')!;
+    expect(rowEl.nextElementSibling?.classList.contains('tdd-separator')).toBe(true);
+    expect(menu()!.lastElementChild?.getAttribute('data-tdd-id')).toBe('ai-manage');
     expect(menuSegs().map((s) => s.textContent)).toEqual(['Default', 'Off', 'Low', 'Med', 'High']);
     expect(menuSegs().every((s) => s.getAttribute('role') === 'menuitemradio')).toBe(true);
     expect(menuChecked()).toBe('default');
@@ -443,7 +475,10 @@ describe('AI menu Thinking row', () => {
     mountTier2('openai-compatible');
     await settle();
     await openAiMenu();
-    key('ArrowDown');
+    // Up from the top wraps to Manage engines…, then the Thinking row above it.
+    key('ArrowUp');
+    expect((document.activeElement as HTMLElement).dataset.tddId).toBe('ai-manage');
+    key('ArrowUp');
     expect(document.activeElement).toBe(menuSegs()[0]);
     key('ArrowRight');
     expect(document.activeElement).toBe(menuSegs()[1]);
@@ -456,9 +491,11 @@ describe('AI menu Thinking row', () => {
     expect(menu()).not.toBeNull();
     expect(menuChecked()).toBe('off');
     expect(loadThinkingLevel()).toBe('off');
-    // Down leaves the row for the first action; Up comes back to the segment last on.
+    // The pick is read out.
+    expect(menu()!.querySelector('.tdd-sr')?.textContent).toBe('Thinking: Off');
+    // Down leaves the row for Manage engines…; Up comes back to the segment last on.
     key('ArrowDown');
-    expect((document.activeElement as HTMLElement).dataset.tddId).toBe('ai-rewrite');
+    expect((document.activeElement as HTMLElement).dataset.tddId).toBe('ai-manage');
     key('ArrowUp');
     expect(document.activeElement).toBe(menuSegs()[1]);
     key('Escape');

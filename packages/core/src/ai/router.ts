@@ -71,6 +71,8 @@ export interface AiRouteUnusable {
   /** Tooltip copy, e.g. "oMLX (Mac Studio) failed its last connection test". */
   reason: string;
   task?: string;
+  /** The engine the rejection is about (the routed one), when it is about one engine. */
+  engineId?: string;
 }
 
 export type AiRouteResolution = AiRouteOk | AiRouteUnusable;
@@ -88,6 +90,7 @@ export interface ResolveRouteOptions {
 interface Rejection {
   code: AiUnusableCode;
   reason: string;
+  engineId?: string;
 }
 
 interface Candidate {
@@ -154,7 +157,7 @@ export function resolveRoute(
   // Step 4.
   function fallbackFrom(primary: AiRoute | null, rejection: Rejection): AiRouteResolution {
     const mode = settings.routing.fallback;
-    if (mode === 'none') {return { unusable: rejection.code, reason: rejection.reason, task };}
+    if (mode === 'none') {return unusableFrom(rejection);}
 
     // A primary that is not a configured engine counts as local: no silent hop to cloud.
     const primaryEngine = primary ? settings.engines.find((e) => e.id === primary.engineId) : undefined;
@@ -173,7 +176,7 @@ export function resolveRoute(
     }
     if (mode === 'default') {
       const only = preferFirst(tier, prefers);
-      return only ? ok(only, true, rejection.reason) : { unusable: rejection.code, reason: rejection.reason, task };
+      return only ? ok(only, true, rejection.reason) : unusableFrom(rejection);
     }
 
     const scan = (wantLocal: boolean): Candidate[] => {
@@ -196,7 +199,11 @@ export function resolveRoute(
       const cloud = preferFirst(scan(false), prefers);
       if (cloud) {return ok(cloud, true, rejection.reason);}
     }
-    return { unusable: rejection.code, reason: rejection.reason, task };
+    return unusableFrom(rejection);
+  }
+
+  function unusableFrom(rejection: Rejection): AiRouteUnusable {
+    return { unusable: rejection.code, reason: rejection.reason, task, ...(rejection.engineId ? { engineId: rejection.engineId } : {}) };
   }
 }
 
@@ -225,17 +232,18 @@ function checkCandidate(
   const engine = settings.engines.find((e) => e.id === route.engineId);
   if (!engine) {return { code: 'engineMissing', reason: 'The routed engine no longer exists.' };}
   const name = engineLabel(engine);
-  if (!engine.enabled) {return { code: 'engineDisabled', reason: `${name} is turned off.` };}
+  const engineId = engine.id;
+  if (!engine.enabled) {return { code: 'engineDisabled', reason: `${name} is turned off.`, engineId };}
   if (!isKnownEngineKind(engine.kind)) {return { code: 'engineUnsupported', reason: `${name} uses an engine kind this version does not support.` };}
   // A host kind (`vscode-lm`) runs only where the host reports the engine; elsewhere it is unsupported.
   const status = statusById.get(engine.id);
   if (isHostEngineKind(engine.kind) && !status) {return { code: 'engineUnsupported', reason: `${name} uses an engine kind this app does not support.` };}
 
   const model = engine.models.find((m) => m.id === route.modelId);
-  if (!model) {return { code: 'modelMissing', reason: `${name} has no model "${route.modelId}".` };}
+  if (!model) {return { code: 'modelMissing', reason: `${name} has no model "${route.modelId}".`, engineId };}
   if (!model.enabled) {return { code: 'modelDisabled', reason: `${modelLabel(model)} is turned off.` };}
   if (model.missing || status?.models.find((m) => m.id === model.id)?.missing) {
-    return { code: 'modelNotListed', reason: `${name} no longer lists ${modelLabel(model)}.` };
+    return { code: 'modelNotListed', reason: `${name} no longer lists ${modelLabel(model)}.`, engineId };
   }
 
   const lacking = missingCapabilities(model.capabilities, requires, requiresAny);
@@ -253,7 +261,7 @@ function checkCandidate(
   }
 
   if (status?.ok === false) {
-    return { code: 'probeFailed', reason: status.error ? `${name} failed its last connection test: ${status.error}` : `${name} failed its last connection test.` };
+    return { code: 'probeFailed', reason: status.error ? `${name} failed its last connection test: ${status.error}` : `${name} failed its last connection test.`, engineId };
   }
   return { engine, model, isLocal, needsConsent };
 }

@@ -64,7 +64,7 @@ describe('mountAiEnginesPage', () => {
     const page = mountAiEnginesPage(c, settingsSectionContext(() => {}), options());
     expect(document.body.children.length).toBe(before);
     expect(c.querySelector('.ai-page-title')?.textContent).toBe('AI Engines');
-    expect(Array.from(c.querySelectorAll('.ai-nav-name')).map((n) => n.textContent)).toEqual(['oMLX', 'Anthropic', 'Routing', 'Add engine']);
+    expect(Array.from(c.querySelectorAll('.ai-nav-name')).map((n) => n.textContent)).toEqual(['oMLX', 'Anthropic', 'Tasks', 'Add engine']);
     // The first engine is selected and its Express form is open.
     expect(c.querySelector('[data-fk="nav:eng:omlx"]')?.getAttribute('aria-current')).toBe('true');
     expect(c.querySelector('.ai-page-detail .ai-form')).not.toBeNull();
@@ -89,7 +89,7 @@ describe('mountAiEnginesPage', () => {
     const onDone = vi.fn();
     const c = container();
     const page = mountAiEnginesPage(c, settingsSectionContext(() => {}), options({ onDone, initial: { section: 'routing' } }));
-    expect(c.querySelector('.ai-detail-title')?.textContent).toBe('Routing');
+    expect(c.querySelector('.ai-detail-title')?.textContent).toBe('Tasks');
     page.focus();
     expect(document.activeElement?.getAttribute('data-fk')).toBe('route:default');
     const fallback = c.querySelector<HTMLSelectElement>('[data-fk="route:fallback"]')!;
@@ -567,7 +567,7 @@ describe('entry points', () => {
 
     mountEditor(tier2(), { ...settings(), routing: { default: null, fallback: 'none', tasks: {} } });
     const bare = document.querySelector<HTMLButtonElement>('[data-testid="sidebar-ai-chip"]')!;
-    expect(bare.textContent).toBe('AI: no route');
+    expect(bare.textContent).toBe('AI: no model chosen');
     bare.click();
     expect(document.querySelector('.settings-modal')).toBeNull();
     expect(document.querySelector('[data-fk="nav:routing"]')?.getAttribute('aria-current')).toBe('true');

@@ -153,6 +153,14 @@ describe('runAiCompletion', () => {
     expect(out).toMatchObject({ viaFallback: false, result: { text: 'fine' } });
   });
 
+  it('names the engine on a failure: the host\'s error and the router\'s (F9)', async () => {
+    const { ai } = fakeHost([async () => { throw makeAiError('auth', '401'); }]);
+    await expect(runAiCompletion(ctx(ai, aiSettings()), req, {}, new AbortController().signal)).rejects.toMatchObject({ code: 'auth', engineId: 'omlx' });
+    const down: AiEngineStatus[] = [{ engineId: 'omlx', ok: false, isLocal: true, hasKey: false, error: 'refused', models: [] }];
+    const s = aiSettings({ routing: { default: { engineId: 'omlx', modelId: 'qwen' }, fallback: 'none', tasks: {} } });
+    await expect(runAiCompletion(ctx(ai, s, down), req, {}, new AbortController().signal)).rejects.toMatchObject({ code: 'unreachable', engineId: 'omlx' });
+  });
+
   it('asks for cloud consent once per session and remembers a grant', async () => {
     const requestCloudConsent = vi.fn(async () => true);
     const { ai, calls } = fakeHost([answer('cloud')], { requestCloudConsent });
@@ -311,6 +319,41 @@ describe('context menu entry', () => {
     expect(off[0]).toMatchObject({ label: 'AI', disabled: true, title: 'No engine.' });
     expect(buildTextMenu(editor, { ...base, aiRewrite: () => null })[0]).toMatchObject({ label: 'Bold' });
     expect(buildTextMenu({ state: { selection: { empty: true } } } as never, { ...base, aiRewrite: () => ({ enabled: true, groups, run }) })[0]).toMatchObject({ label: 'Bold' });
+  });
+
+  it('adds Summarize document… and Suggest titles… after the rewrite groups, and only those with no selection (U1)', () => {
+    const base: ContextMenuActions = { showLinkDialog() {}, showImageDialog() {}, showEmojiPicker() {}, showLanguagePicker() {}, openLink() {} };
+    const run = vi.fn();
+    const summarize = vi.fn();
+    const groups = aiRewriteMenuGroups();
+    const menu = (empty: boolean, over: Record<string, unknown> = {}) => buildTextMenu({ state: { selection: { empty } } } as never, {
+      ...base,
+      aiRewrite: () => ({ enabled: true, groups, run, summarize: { enabled: true, run: summarize }, titles: { enabled: false, reason: 'No engine can do Titles.', run: vi.fn() }, ...over }),
+    });
+    const labels = (sub: ContextMenuSubmenu) => sub.items.map((i) => ('label' in i ? i.label : '—'));
+
+    const withSelection = menu(false)[0] as ContextMenuSubmenu;
+    expect(labels(withSelection).slice(-3)).toEqual(['—', 'Summarize document…', 'Suggest titles…']);
+    // The router's reason on the disabled one.
+    expect(withSelection.items[withSelection.items.length - 1]).toMatchObject({ disabled: true, title: 'No engine can do Titles.' });
+    (withSelection.items[withSelection.items.length - 2] as { action(): void }).action();
+    expect(summarize).toHaveBeenCalled();
+
+    const noSelection = menu(true)[0] as ContextMenuSubmenu;
+    expect(noSelection.submenu).toBe(true);
+    expect(labels(noSelection)).toEqual(['Summarize document…', 'Suggest titles…']);
+
+    // Rewrite off: the document items still show; rewrite with no route: one greyed row with the reason.
+    expect(labels(menu(false, { hidden: true, enabled: false, groups: [] })[0] as ContextMenuSubmenu)).toEqual(['Summarize document…', 'Suggest titles…']);
+    expect(labels(menu(false, { enabled: false, reason: 'No engine.', groups: [] })[0] as ContextMenuSubmenu)).toEqual(['Rewrite selection', '—', 'Summarize document…', 'Suggest titles…']);
+    // Nothing enabled at all: the greyed AI row, as before.
+    expect(menu(true, { summarize: { enabled: false, reason: 'AI is off.', run: vi.fn() } })[0]).toMatchObject({ label: 'AI', disabled: true, title: 'AI is off.' });
+  });
+
+  it('tells Longer and Add detail apart in their tooltips', () => {
+    const length = aiRewriteMenuGroups().find((g) => g.group === 'length')!;
+    expect(length.variants.find((v) => v.id === 'longer')).toMatchObject({ label: 'Longer', title: expect.stringContaining('Longer') });
+    expect(length.variants.find((v) => v.id === 'expand')).toMatchObject({ label: 'Add detail', title: 'Add detail (facts and examples)' });
   });
 });
 

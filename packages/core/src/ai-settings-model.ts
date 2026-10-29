@@ -646,29 +646,35 @@ function servedLabels(settings: AiSettings, served: AiServedBy): { engine: strin
  * The sidebar chip. Null hides it: AI has never been set up (off with no
  * engines), so a release that ships AI dark shows nothing new. Otherwise
  * `AI: off`, the engine and model that served the last request, the route
- * the next request would take (before anything was sent), `AI: no route`,
- * or `AI: on` for a host that routes by itself.
+ * the next request would take (before anything was sent), `AI: no model
+ * chosen`, or `AI: on` for a host that routes by itself. The tooltip ends
+ * with what a click opens (`openAiFromChip`): the Tasks page when no model
+ * is chosen, the AI tab otherwise.
  */
+/** The chip tooltip's last sentence: what a click opens (U7). */
+export const AI_CHIP_CLICK_SETTINGS = 'Click for AI settings.';
+export const AI_CHIP_CLICK_CHOOSE = 'Click to choose a model.';
+
 export function aiIndicatorState(input: AiIndicatorInput): AiIndicatorState | null {
   const { settings, statuses, tier, served, viaFallback } = input;
   if (!settings.enabled) {
     if (settings.engines.length === 0) {return null;}
-    return { text: 'AI: off', tone: 'off', title: 'AI features are turned off. Click to open AI settings.', fallback: false, warn: false };
+    return { text: 'AI: off', tone: 'off', title: `AI features are turned off. ${AI_CHIP_CLICK_SETTINGS}`, fallback: false, warn: false };
   }
   if (served) {
     const where = served.isLocal ? 'local' : 'cloud';
     const l = servedLabels(settings, served);
     const parts = [`AI: ${where}`, l.engine, l.model].filter(Boolean);
     const text = parts.join(' · ') + (viaFallback ? ' (fallback)' : '');
-    const title = `Last request served by ${l.engine} · ${l.model}, ${served.isLocal ? 'on this network' : 'a cloud engine'}${viaFallback ? ', through the fallback route' : ''}.${cloudSentNote(settings, served)}${l.warn ? ' Its pinned locality disagrees with its address.' : ''} Click to open AI settings.`;
+    const title = `Last request served by ${l.engine} · ${l.model}, ${served.isLocal ? 'on this network' : 'a cloud engine'}${viaFallback ? ', through the fallback route' : ''}.${cloudSentNote(settings, served)}${l.warn ? ' Its pinned locality disagrees with its address.' : ''} ${AI_CHIP_CLICK_SETTINGS}`;
     return { text, tone: where, title, fallback: viaFallback, warn: l.warn };
   }
   if (tier === 1) {
-    return { text: 'AI: on', tone: 'on', title: 'AI features are on. Click to open AI settings.', fallback: false, warn: false };
+    return { text: 'AI: on', tone: 'on', title: `AI features are on. ${AI_CHIP_CLICK_SETTINGS}`, fallback: false, warn: false };
   }
   const r = previewTaskRoute(settings, statuses, getAiTask('rewrite') ? 'rewrite' : AI_TASKS[0].id);
   if ('unusable' in r) {
-    return { text: 'AI: no route', tone: 'none', title: `${r.reason} Click to open AI settings.`, fallback: false, warn: false };
+    return { text: 'AI: no model chosen', tone: 'none', title: `${r.reason} ${AI_CHIP_CLICK_CHOOSE}`, fallback: false, warn: false };
   }
   const engine = settings.engines.find((e) => e.id === r.engineId);
   const where = r.isLocal ? 'local' : 'cloud';
@@ -677,7 +683,7 @@ export function aiIndicatorState(input: AiIndicatorInput): AiIndicatorState | nu
   return {
     text: `AI: ${where} · ${label}${r.viaFallback ? ' (fallback)' : ''}`,
     tone: where,
-    title: `Requests go to ${label}${r.isLocal ? '' : ', a cloud engine'}. Nothing has been sent yet. Click to open AI settings.`,
+    title: `Requests go to ${label}${r.isLocal ? '' : ', a cloud engine'}. Nothing has been sent yet. ${AI_CHIP_CLICK_SETTINGS}`,
     fallback: r.viaFallback,
     warn,
   };

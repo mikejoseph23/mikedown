@@ -14,8 +14,9 @@
  * opens the AI Engines page (on the setup wizard while there is no engine
  * yet), and AI turns on only at its Done (B3). A tier-1
  * host routes by itself: its button is "Turn on" and lands on the AI tab.
- * With AI on, a click opens a menu of AI actions plus "Manage engines…",
- * under a Thinking row when the routed model can think.
+ * With AI on, a click opens a menu of every AI action (the same list as the
+ * context menu's `AI` submenu), a Thinking row when the routed model can
+ * think, and "Manage engines…".
  *
  * Toolbar chrome only: nothing here touches the editor document or its DOM.
  */
@@ -59,21 +60,31 @@ export type AiToolbarEntryState = { enabled: true } | { enabled: false; hint: st
 export interface AiToolbarMenuInput {
   /** Rewrite selection: null leaves it out (read-only), otherwise enabled or disabled with a hint. */
   rewrite: AiToolbarEntryState;
+  /** "Explain selection": absent or null leaves it out. */
+  explain?: AiToolbarEntryState;
+  /** "Translate…" (the selection, or the whole document without one): absent or null leaves it out. */
+  translate?: AiToolbarEntryState;
   /** "Summarize document…": absent or null leaves it out. A disabled hint carries the router's reason (D15). */
   summarize?: AiToolbarEntryState;
   /** "Suggest titles…": absent or null leaves it out. */
   titles?: AiToolbarEntryState;
+  /** "Suggest properties" (the sidebar's Suggest): absent or null leaves it out. */
+  properties?: AiToolbarEntryState;
   /**
-   * The Thinking row at the top: Default plus the levels the routed model's
-   * kind can express. Absent hides it (no model that can think).
+   * The Thinking row near the bottom (it reads as a setting): Default plus
+   * the levels the routed model's kind can express. Absent hides it (no
+   * model that can think).
    */
   thinking?: AiToolbarThinkingRow;
   /** True for a host with an engine registry ("Manage engines…"); otherwise "AI settings…". */
   canManageEngines: boolean;
-  icons: { rewrite: string; manage: string; summarize?: string; titles?: string };
+  icons: { rewrite: string; manage: string; explain?: string; translate?: string; summarize?: string; titles?: string; properties?: string };
   onRewrite(): void;
+  onExplain?(): void;
+  onTranslate?(): void;
   onSummarize?(): void;
   onSuggestTitles?(): void;
+  onSuggestProperties?(): void;
   onManage(): void;
 }
 
@@ -97,8 +108,8 @@ function thinkingRowEntry(row: AiToolbarThinkingRow): ToolbarDropdownEntry {
     label: 'Thinking',
     title: 'Thinking level for the next AI requests',
     options: [
-      { value: THINKING_DEFAULT, label: 'Default', title: 'Thinking: the model\'s default' },
-      ...row.choices.map((c) => ({ value: c.level, label: short(c.label), title: `Thinking: ${c.label}` })),
+      { value: THINKING_DEFAULT, label: 'Default', title: 'Thinking: the model\'s default', spoken: 'Default' },
+      ...row.choices.map((c) => ({ value: c.level, label: short(c.label), title: `Thinking: ${c.label}`, spoken: c.label })),
     ],
     value: () => row.value() ?? THINKING_DEFAULT,
     onChange: (v) => row.onChange(v === THINKING_DEFAULT ? null : v as AiThinkingLevel),
@@ -106,28 +117,40 @@ function thinkingRowEntry(row: AiToolbarThinkingRow): ToolbarDropdownEntry {
   };
 }
 
+/**
+ * The AI menu: one flat list, the same as the context menu's `AI` submenu
+ * and the commands (U1): the selection actions, the document actions, the
+ * Thinking row, then Manage engines…. No submenus (D14).
+ */
 export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdownEntry[] {
   const entries: ToolbarDropdownEntry[] = [];
-  if (input.thinking && input.thinking.choices.length > 0) {
-    entries.push(thinkingRowEntry(input.thinking), { type: 'separator' });
-  }
-  const add = (id: string, label: string, icon: string, state: AiToolbarEntryState | undefined, run: () => void): void => {
+  const separate = (): void => {
+    if (entries.length > 0 && entries[entries.length - 1].type !== 'separator') {entries.push({ type: 'separator' });}
+  };
+  const add = (id: string, label: string, icon: string | undefined, state: AiToolbarEntryState | undefined, run: () => void): void => {
     if (!state) {return;}
     entries.push({
       type: 'action',
       id,
       label,
-      icon,
+      icon: icon ?? input.icons.rewrite,
       hint: state.enabled ? undefined : state.hint,
       isDisabled: () => !state.enabled,
       action: run,
     });
   };
-  // Flat entries, no submenus (D14).
   add('ai-rewrite', 'Rewrite selection', input.icons.rewrite, input.rewrite, () => input.onRewrite());
-  add('ai-summarize', 'Summarize document…', input.icons.summarize ?? input.icons.rewrite, input.summarize, () => input.onSummarize?.());
-  add('ai-titles', 'Suggest titles…', input.icons.titles ?? input.icons.rewrite, input.titles, () => input.onSuggestTitles?.());
-  if (entries.length > 0 && entries[entries.length - 1].type !== 'separator') {entries.push({ type: 'separator' });}
+  add('ai-explain', 'Explain selection', input.icons.explain, input.explain, () => input.onExplain?.());
+  add('ai-translate', 'Translate…', input.icons.translate, input.translate, () => input.onTranslate?.());
+  separate();
+  add('ai-summarize', 'Summarize document…', input.icons.summarize, input.summarize, () => input.onSummarize?.());
+  add('ai-titles', 'Suggest titles…', input.icons.titles, input.titles, () => input.onSuggestTitles?.());
+  add('ai-properties', 'Suggest properties', input.icons.properties, input.properties, () => input.onSuggestProperties?.());
+  if (input.thinking && input.thinking.choices.length > 0) {
+    separate();
+    entries.push(thinkingRowEntry(input.thinking));
+  }
+  separate();
   entries.push({
     type: 'action',
     id: 'ai-manage',
@@ -169,6 +192,9 @@ export interface AiFirstRunPanelHandle {
 
 /** The one line of verbs under the title (U9). */
 export const AI_FIRST_RUN_VERBS = 'Rewrite, translate, explain, summarize, suggest titles and tags.';
+
+/** Local vs cloud in one line, under the disclaimer (U9). */
+export const AI_FIRST_RUN_WHERE = 'Local engines keep your text here; cloud engines send it to the provider.';
 
 /** "LM Studio is running on this computer, 3 models." */
 export function aiDetectFoundText(name: string, models?: number): string {
@@ -212,6 +238,8 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
   const verbs = el('p', 'ai-first-run-verbs', AI_FIRST_RUN_VERBS);
   const text = experimentalDisclaimer();
   text.id = textId;
+  // Gives way to the privacy line with "Learn more" when a server was found (it says the same, with a link).
+  const where = el('p', 'ai-first-run-where', AI_FIRST_RUN_WHERE);
 
   // Detection and setup progress: one quiet line, read out as it changes.
   const status = el('div', 'ai-first-run-status');
@@ -229,7 +257,7 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
   const privacy = privacyLine(() => setUp());
   privacy.hidden = true;
   const learnMore = privacy.querySelector<HTMLButtonElement>('button')!;
-  panel.append(head, verbs, text, status, privacy, actions);
+  panel.append(head, verbs, text, where, status, privacy, actions);
 
   let found: Extract<AiFirstRunDetection, { kind: 'found' }> | null = null;
   let busy = false;
@@ -304,6 +332,7 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
       for (const b of [learnMore, other, cancel, primary]) {b.disabled = false;}
       other.hidden = true;
       privacy.hidden = true;
+      where.hidden = false;
       primary.textContent = setUpLabel;
       setStatus('error', err instanceof Error && err.message ? err.message : `${server.name} could not be set up.`);
       primary.focus({ preventScroll: true });
@@ -328,6 +357,7 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
           primary.textContent = `Use ${result.name}`;
           other.hidden = false;
           privacy.hidden = false;
+          where.hidden = true;
           setStatus('found', aiDetectFoundText(result.name, result.models));
         } else if (result.kind === 'none') {
           setStatus('none', AI_DETECT_NONE);

@@ -23,7 +23,8 @@ export function shortcutGroups(isMac: boolean): ShortcutGroup[] {
       const chords = rows.filter((r) => r.command === n.id && r.accelerator).map((r) => formatAccelerator(r.accelerator!, isMac));
       if (!chords.length) {continue;}
       seen.add(n.id);
-      into.rows.push({ label: n.label.replace(/…$/, ''), keys: [...new Set(chords)].join('  or  ') });
+      // Mnemonic markers (`&R`) are for the native menu only.
+      into.rows.push({ label: n.label.replace(/&/g, '').replace(/…$/, ''), keys: [...new Set(chords)].join('  or  ') });
     }
   };
   for (const menu of buildMenuSpec(isMac)) {

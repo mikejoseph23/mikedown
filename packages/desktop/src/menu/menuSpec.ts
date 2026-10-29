@@ -42,6 +42,29 @@ function item(command: CommandId, isMac: boolean): MenuNode {
   return node;
 }
 
+/**
+ * Access keys for the AI menu on Windows and Linux (the native menu turns
+ * `&X` into an underlined X; macOS has no mnemonics, so its labels stay plain).
+ */
+const AI_MNEMONICS: Partial<Record<CommandId, string>> = {
+  aiRewrite: '&Rewrite Selection',
+  aiExplain: '&Explain Selection',
+  aiTranslate: '&Translate…',
+  aiSummarize: '&Summarize Document…',
+  aiSuggestTitle: 'Suggest T&itles…',
+  aiSuggestProperties: 'Suggest &Properties',
+};
+
+function mnemonic(plain: string, marked: string, isMac: boolean): string {
+  return isMac ? plain : marked;
+}
+
+function withMnemonic(node: MenuNode, isMac: boolean): MenuNode {
+  if (isMac || node.kind !== 'item') {return node;}
+  const marked = AI_MNEMONICS[node.id as CommandId];
+  return marked ? { ...node, label: marked } : node;
+}
+
 export interface MenuSpecOptions {
   /** False on a store build: Help > Check for Updates… is left out. */
   updates?: boolean;
@@ -90,7 +113,14 @@ export function buildMenuSpec(isMac: boolean, opts: MenuSpecOptions = {}): MenuN
         items: [i('paragraph'), i('heading1'), i('heading2'), i('heading3'), i('heading4'), i('heading5'), i('heading6')],
       },
       { kind: 'submenu', label: 'Insert', items: [i('insertTable'), i('insertLink'), i('insertImage'), i('openEmojiPicker')] },
-      { kind: 'submenu', label: 'AI', items: [i('aiExplain'), i('aiTranslate'), i('aiSummarize'), i('aiSuggestTitle'), i('aiSuggestProperties')] },
+      {
+        kind: 'submenu',
+        label: mnemonic('AI', '&AI', isMac),
+        items: [
+          i('aiRewrite'), i('aiExplain'), i('aiTranslate'), sep,
+          i('aiSummarize'), i('aiSuggestTitle'), i('aiSuggestProperties'),
+        ].map((n) => withMnemonic(n, isMac)),
+      },
     ],
   };
 
