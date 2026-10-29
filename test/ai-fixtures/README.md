@@ -64,3 +64,21 @@ A usable result is matched on `engineId`, `modelId`, `viaFallback`, `isLocal`, `
 ## `outputs/`
 
 One model reply per file, for `parseLenientJson`: `{ "description", "raw", "expected": { "ok", "value" } }`. `raw` is the reply exactly as a local model might send it (clean JSON, in a fence, after prose, behind a `<think>` block, trailing comma, single quotes, unquoted key, plain text, cut off). `expected.value` is the parsed object; `ok: false` files have no `value`.
+
+## `requests/thinking-overrides.json`
+
+`{ "description", "cases": [...] }`, each case one per-request thinking level (the rewrite popover's dial):
+
+```json
+{
+  "name": "...",
+  "kind": "AiEngineKind",
+  "local": true,
+  "level": "off | low | medium | high",
+  "modelOverrides": { "the model's saved requestOverrides, or null" },
+  "requestOverrides": { "what thinkingRequestOverrides(kind, modelOverrides, level, { local }) returns" },
+  "expectedBody": { "top-level keys of the built body, each compared whole" }
+}
+```
+
+Core checks `requestOverrides` (`packages/core/test/ai-thinking-dial.test.ts`); both hosts build the body for model `m` with the model's and the request's overrides and compare each `expectedBody` key (`test/unit/ai-protocol.test.ts`, `packages/desktop/src-tauri/src/commands/ai/tests.rs`).

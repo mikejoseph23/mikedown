@@ -10,7 +10,9 @@
 //!   `max_tokens` always set. No sampling parameters: API version 2026-10-21
 //!   rejects `temperature`.
 //!
-//! `model.requestOverrides` merge last, deeply, so they win (OPEN-6).
+//! `model.requestOverrides` merge last, deeply, so they win (OPEN-6); the
+//! request's own `requestOverrides` (a per-request thinking level) merge over
+//! those the same way.
 
 use serde_json::{json, Map, Value};
 
@@ -144,7 +146,8 @@ pub fn build_completion_body(kind: EngineKind, model: &ModelConfig, req: &Comple
     } else {
         chat_completions_body(kind, &model.id, req, stream)
     };
-    merge_request_overrides(body, model.request_overrides.as_ref())
+    let body = merge_request_overrides(body, model.request_overrides.as_ref());
+    merge_request_overrides(body, req.request_overrides.as_ref().and_then(Value::as_object))
 }
 
 fn chat_completions_body(kind: EngineKind, model_id: &str, req: &CompletionRequest, stream: bool) -> Value {

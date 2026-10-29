@@ -90,6 +90,16 @@ describe('aiHost.complete', () => {
     expect(listenerCount()).toBe(0);
   });
 
+  it('passes the per-request requestOverrides (thinking dial) through to ai_complete', async () => {
+    const { host, api, emit } = setup();
+    const req: AiCompletionRequest = { ...REQUEST, requestOverrides: { reasoning_effort: 'low' } };
+    const pending = host.complete(req, () => undefined, new AbortController().signal);
+    await vi.waitFor(() => expect(api.complete).toHaveBeenCalled());
+    expect(api.complete.mock.calls[0][0]).toMatchObject({ requestOverrides: { reasoning_effort: 'low' } });
+    emit.done('req-1', { text: 'ok', served: SERVED, finishReason: 'stop' });
+    await pending;
+  });
+
   it('rejects with the code and message of an error event, and unlistens', async () => {
     const { host, api, emit, listenerCount } = setup();
     const pending = host.complete(REQUEST, () => undefined, new AbortController().signal);

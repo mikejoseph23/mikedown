@@ -148,7 +148,7 @@ describe('runAiCompletion', () => {
     const out = await runAiCompletion(ctx(ai, aiSettings()), req, { onRoute, onToken: (_d, t) => tokens.push(t) }, new AbortController().signal);
     expect(calls[0].req.route).toEqual({ engineId: 'omlx', modelId: 'qwen' });
     expect(calls[0].req.task).toBe('rewrite');
-    expect(onRoute).toHaveBeenCalledWith(expect.objectContaining({ engineId: 'omlx', viaFallback: false }));
+    expect(onRoute).toHaveBeenCalledWith(expect.objectContaining({ engineId: 'omlx', viaFallback: false }), { kind: 'openai-compatible', configured: null, sent: null });
     expect(tokens).toEqual(['fine']);
     expect(out).toMatchObject({ viaFallback: false, result: { text: 'fine' } });
   });

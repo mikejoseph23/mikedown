@@ -97,7 +97,11 @@ const sleep = (ms: number, signal: AbortSignal) =>
     signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
   });
 
-/** A tier 2 host (so the AI tab lists engines) whose only engine streams canned text. */
+/**
+ * A tier 2 host (so the AI tab lists engines) whose only engine streams canned
+ * text. The request's `route`, `requestOverrides` (the thinking dial) and the
+ * rest are ignored: the same text comes back whatever is asked.
+ */
 export const stubAiHost: MikeDownAiHost = {
   async complete(_req, onToken, signal) {
     let text = '';

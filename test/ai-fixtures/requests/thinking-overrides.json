@@ -1,0 +1,68 @@
+{
+  "description": "Per-request thinking level (the rewrite popover's dial). Core turns the level into the request's requestOverrides (thinkingRequestOverrides); the host builds the body, merges the model's requestOverrides over it, then the request's (request wins).",
+  "cases": [
+    {
+      "name": "local openai-compatible, model set to Off, request Low",
+      "kind": "openai-compatible",
+      "local": true,
+      "level": "low",
+      "modelOverrides": { "chat_template_kwargs": { "enable_thinking": false }, "top_k": 20 },
+      "requestOverrides": { "reasoning_effort": "low", "chat_template_kwargs": { "enable_thinking": true } },
+      "expectedBody": { "model": "m", "stream": true, "top_k": 20, "reasoning_effort": "low", "chat_template_kwargs": { "enable_thinking": true } }
+    },
+    {
+      "name": "local openai-compatible, model set to High, request Off",
+      "kind": "openai-compatible",
+      "local": true,
+      "level": "off",
+      "modelOverrides": { "reasoning_effort": "high", "chat_template_kwargs": { "x": 1 } },
+      "requestOverrides": { "chat_template_kwargs": { "enable_thinking": false }, "reasoning_effort": "none" },
+      "expectedBody": { "model": "m", "reasoning_effort": "none", "chat_template_kwargs": { "x": 1, "enable_thinking": false } }
+    },
+    {
+      "name": "cloud openai-compatible (Gemini), no model overrides, request Off",
+      "kind": "openai-compatible",
+      "local": false,
+      "level": "off",
+      "modelOverrides": null,
+      "requestOverrides": { "reasoning_effort": "none" },
+      "expectedBody": { "model": "m", "reasoning_effort": "none" }
+    },
+    {
+      "name": "lmstudio, no model overrides, request Off",
+      "kind": "lmstudio",
+      "local": true,
+      "level": "off",
+      "modelOverrides": null,
+      "requestOverrides": { "reasoning_effort": "none" },
+      "expectedBody": { "model": "m", "reasoning_effort": "none" }
+    },
+    {
+      "name": "openai, model set to High, request Medium",
+      "kind": "openai",
+      "local": false,
+      "level": "medium",
+      "modelOverrides": { "reasoning_effort": "high" },
+      "requestOverrides": { "reasoning_effort": "medium" },
+      "expectedBody": { "model": "m", "reasoning_effort": "medium" }
+    },
+    {
+      "name": "ollama, no model overrides, request High",
+      "kind": "ollama",
+      "local": true,
+      "level": "high",
+      "modelOverrides": null,
+      "requestOverrides": { "reasoning_effort": "high" },
+      "expectedBody": { "model": "m", "reasoning_effort": "high" }
+    },
+    {
+      "name": "anthropic, model set to High, request Low",
+      "kind": "anthropic",
+      "local": false,
+      "level": "low",
+      "modelOverrides": { "thinking": { "type": "adaptive" }, "output_config": { "effort": "high" } },
+      "requestOverrides": { "thinking": { "type": "adaptive" }, "output_config": { "effort": "low" } },
+      "expectedBody": { "model": "m", "thinking": { "type": "adaptive" }, "output_config": { "effort": "low" } }
+    }
+  ]
+}

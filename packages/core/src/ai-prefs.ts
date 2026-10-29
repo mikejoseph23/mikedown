@@ -4,9 +4,14 @@
  * picker's recents; storage may be missing or throw in a webview sandbox, so
  * every read has a default and every write is best effort. Never a
  * `mikedown.*` setting (D3).
+ *
+ * The popover's thinking level is remembered per engine kind for the
+ * session only (in memory, never `localStorage`): the model's configured
+ * level is the lasting choice, made in Settings.
  */
 
 import { getAiAudience, type AiAudience } from './ai/prompts/rewrite';
+import type { AiThinkingLevel } from './ai/thinking';
 
 const LANGUAGES_KEY = 'mikedown.ai.recentLanguages';
 const AUDIENCE_KEY = 'mikedown.ai.audience';
@@ -87,4 +92,20 @@ export function rememberAudience(audience: AiAudience): void {
   } catch {
     // Storage refused: the choice is not remembered.
   }
+}
+
+const sessionThinking = new Map<string, AiThinkingLevel>();
+
+/** The thinking level last picked in the popover for this engine kind this session, or null. */
+export function sessionThinkingLevel(kind: string): AiThinkingLevel | null {
+  return sessionThinking.get(kind) ?? null;
+}
+
+export function rememberSessionThinking(kind: string, level: AiThinkingLevel): void {
+  sessionThinking.set(kind, level);
+}
+
+/** Forget every session thinking level (tests; a fresh page starts empty anyway). */
+export function clearSessionThinking(): void {
+  sessionThinking.clear();
 }

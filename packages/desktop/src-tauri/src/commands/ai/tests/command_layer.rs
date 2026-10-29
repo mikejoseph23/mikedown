@@ -145,6 +145,31 @@ async fn ai_complete_streams_tokens_then_done_and_uses_the_stored_key() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn ai_complete_merges_the_request_overrides_over_the_models() {
+    let fixture = sse_fixture("openai-chat-stream.json");
+    let chunks = chunks_of(&fixture);
+    let (base, seen) = serve(move |_| Reply::Sse(chunks.clone())).await;
+    let h = Harness::new("thinking", settings_for(&format!("{base}/v1"), json!({})));
+
+    let mut rx = h.listen("think-1");
+    let mut req = completion("think-1", "e1", "the-model");
+    req["requestOverrides"] = json!({ "reasoning_effort": "high", "chat_template_kwargs": { "enable_thinking": true } });
+    h.complete(req).await.unwrap();
+    loop {
+        match next(&mut rx).await {
+            ("token", _) => {}
+            ("done", _) => break,
+            (kind, payload) => panic!("unexpected {kind} event: {payload}"),
+        }
+    }
+    let sent = seen.lock().unwrap();
+    let body: Value = serde_json::from_str(&sent[0].body).unwrap();
+    // The model says low; the request wins, and nested objects still merge.
+    assert_eq!(body["reasoning_effort"], "high");
+    assert_eq!(body["chat_template_kwargs"], json!({ "x": 1, "enable_thinking": true }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn ai_cancel_stops_a_stream_mid_flight_and_only_for_its_own_window() {
     let (base, _) = serve(|_| Reply::SseThenHang(FIRST_TOKEN.to_string())).await;
     let h = Harness::new("cancel", settings_for(&format!("{base}/v1"), json!({})));

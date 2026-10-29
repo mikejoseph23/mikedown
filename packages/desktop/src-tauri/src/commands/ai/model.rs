@@ -159,6 +159,11 @@ pub struct CompletionRequest {
     pub max_tokens: Option<u64>,
     #[serde(default)]
     pub temperature: Option<f64>,
+    /// Per-request body fields (the popover's thinking dial), merged over the
+    /// model's `requestOverrides` so the request wins. Anything but an object
+    /// is ignored.
+    #[serde(default)]
+    pub request_overrides: Option<Value>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]

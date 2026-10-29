@@ -46,6 +46,11 @@ describe('stub ai host', () => {
     expect(result).toMatchObject({ text: STUB_TEXT, finishReason: 'stop', served: { engineName: expect.stringMatching(/stub/i) } });
   });
 
+  it('ignores per-request requestOverrides (the thinking dial) and streams the same text', async () => {
+    const result = await stubAiHost.complete({ ...request, requestOverrides: { reasoning_effort: 'low' } }, () => {}, new AbortController().signal);
+    expect(result).toMatchObject({ text: STUB_TEXT, finishReason: 'stop' });
+  });
+
   it('stops when aborted', async () => {
     const controller = new AbortController();
     const onToken = vi.fn(() => controller.abort());

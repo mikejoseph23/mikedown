@@ -119,7 +119,10 @@
  *   Webview → Extension:
  *     { type: 'aiComplete', request }  — AiCompletionRequest with image bytes
  *         as base64 (toWireCompletionRequest); streamed back as aiToken, then
- *         aiDone or aiError, all keyed by request.requestId.
+ *         aiDone or aiError, all keyed by request.requestId. An optional
+ *         `request.requestOverrides` object (the popover's thinking dial: the
+ *         engine kind's thinking fields only) is merged over the model's
+ *         configured requestOverrides, deeply, so the request wins.
  *     { type: 'aiCancel', requestId }  — abort that request (the panel's one
  *         in-flight request; a new aiComplete also aborts the previous one).
  *     { type: 'aiListEngines' }        — answered by aiEngines.

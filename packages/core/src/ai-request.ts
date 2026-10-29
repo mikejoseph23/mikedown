@@ -9,10 +9,25 @@
  *   too). A refusal ("Not now") only applies to the request that asked, so
  *   the fallback runs now and the next explicit attempt asks again.
  * - A tier-1 host (no `listEngines`) routes by itself: no route is sent.
+ * - Thinking: a per-request level becomes the request's `requestOverrides`
+ *   (the kind's thinking fields only); the host merges them over the
+ *   model's own, so the request wins. Only for a routed engine whose kind
+ *   has a mapping (`thinkingChoices`).
  * - Cancellation is the caller's `AbortSignal`; the host aborts the request.
  */
 
-import { isRouteUsable, makeAiError, resolveAiFeature, resolveRoute, toAiError } from './ai';
+import {
+  isRouteUsable,
+  makeAiError,
+  resolveAiFeature,
+  resolveRoute,
+  thinkingChoices,
+  thinkingLevelFrom,
+  toAiError,
+  withThinkingLevel,
+  type AiThinkingLevel,
+  type AiThinkingOptions,
+} from './ai';
 import type {
   AiCompletionResult,
   AiConsentState,
@@ -41,11 +56,31 @@ export interface AiRunRequest {
   maxTokens?: number;
   temperature?: number;
   format?: 'text' | 'json';
+  /**
+   * Thinking level for this request; null or absent sends none (the model's
+   * configured overrides apply). A function is asked once the route's engine
+   * kind is known, so a choice remembered per kind follows a fallback.
+   */
+  thinking?: AiThinkingLevel | null | ((kind: string) => AiThinkingLevel | null);
+}
+
+/** The thinking dial's state for the route serving a request. */
+export interface AiRunThinking {
+  /** The routed engine's kind (`thinkingChoices(kind)` is non-empty). */
+  kind: string;
+  /** The level the model's own `requestOverrides` express (null: model default). */
+  configured: AiThinkingLevel | null;
+  /** The level this request sent (null: none, `configured` applies). */
+  sent: AiThinkingLevel | null;
 }
 
 export interface AiRunEvents {
-  /** The route about to be used (null for a tier-1 host), before any token. Called again on a retry. */
-  onRoute?(route: AiRouteOk | null): void;
+  /**
+   * The route about to be used (null for a tier-1 host), before any token.
+   * Called again on a retry. `thinking` is null when the route's kind has no
+   * thinking mapping (and always for a tier-1 host).
+   */
+  onRoute?(route: AiRouteOk | null, thinking: AiRunThinking | null): void;
   /** A text delta, and everything received so far for the current attempt. */
   onToken?(delta: string, text: string): void;
 }
@@ -54,6 +89,48 @@ export interface AiRunOutcome {
   result: AiCompletionResult;
   route: AiRouteOk | null;
   viaFallback: boolean;
+  thinking: AiRunThinking | null;
+}
+
+type Json = Record<string, unknown>;
+
+const isObject = (v: unknown): v is Json => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/**
+ * The per-request `requestOverrides` for one thinking level: the kind's
+ * thinking fields only (`withThinkingLevel` on nothing). The host merges
+ * them over the model's overrides, and a merge cannot delete, so a thinking
+ * field the model sets that this level leaves out is sent at its neutral
+ * value: `reasoning_effort: "none"`, or `chat_template_kwargs.enable_thinking:
+ * true` (a model set to Off on a local engine, asked for a tier). Undefined
+ * when the kind cannot express the level.
+ */
+export function thinkingRequestOverrides(
+  kind: string,
+  modelOverrides: Json | undefined,
+  level: AiThinkingLevel,
+  opts: AiThinkingOptions = {},
+): Json | undefined {
+  const out = withThinkingLevel(kind, undefined, level, opts);
+  if (!out || kind === 'anthropic' || !modelOverrides) {return out;}
+  if (modelOverrides.reasoning_effort !== undefined && out.reasoning_effort === undefined) {out.reasoning_effort = 'none';}
+  const modelKwargs = modelOverrides.chat_template_kwargs;
+  const kwargs = isObject(out.chat_template_kwargs) ? out.chat_template_kwargs : {};
+  if (isObject(modelKwargs) && modelKwargs.enable_thinking !== undefined && kwargs.enable_thinking === undefined) {
+    out.chat_template_kwargs = { ...kwargs, enable_thinking: true };
+  }
+  return out;
+}
+
+/** The dial state and the overrides to send for `route`, or null when its kind has no mapping. */
+function routeThinking(settings: AiSettings, route: AiRouteOk, wanted: AiRunRequest['thinking']): { info: AiRunThinking; overrides?: Json } | null {
+  const engine = settings.engines.find((e) => e.id === route.engineId);
+  if (!engine || thinkingChoices(engine.kind).length === 0) {return null;}
+  const model = engine.models.find((m) => m.id === route.modelId);
+  const configured = thinkingLevelFrom(engine.kind, model?.requestOverrides);
+  const level = typeof wanted === 'function' ? wanted(engine.kind) : wanted ?? null;
+  const overrides = level ? thinkingRequestOverrides(engine.kind, model?.requestOverrides, level, { local: route.isLocal }) : undefined;
+  return { info: { kind: engine.kind, configured, sent: overrides ? level : null }, ...(overrides ? { overrides } : {}) };
 }
 
 let requestCounter = 0;
@@ -113,7 +190,8 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
       route = resolved;
     }
 
-    events.onRoute?.(route);
+    const thinking = route ? routeThinking(ctx.settings(), route, req.thinking) : null;
+    events.onRoute?.(route, thinking?.info ?? null);
     let text = '';
     let gotToken = false;
     try {
@@ -126,13 +204,14 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
         ...(req.format ? { format: req.format } : {}),
         ...(req.maxTokens !== undefined ? { maxTokens: req.maxTokens } : {}),
         ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+        ...(thinking?.overrides ? { requestOverrides: thinking.overrides } : {}),
       }, (delta) => {
         if (signal.aborted) {return;}
         gotToken = true;
         text += delta;
         events.onToken?.(delta, text);
       }, signal);
-      return { result, route, viaFallback: route?.viaFallback ?? false };
+      return { result, route, viaFallback: route?.viaFallback ?? false, thinking: thinking?.info ?? null };
     } catch (err) {
       const e = signal.aborted ? makeAiError('cancelled') : toAiError(err);
       // The routed engine is down and nothing was shown yet: the host has

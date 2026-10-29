@@ -103,7 +103,7 @@ export const AI_REWRITE_VARIANTS: readonly AiRewriteVariantDefinition[] = [
     id: 'simpler',
     label: 'Simpler',
     instruction: 'Make it simpler: shorter sentences, everyday words, one idea at a time. Keep the meaning and every fact, name and link.',
-    group: 'length',
+    group: 'tone',
     output: 'replace',
   },
   {

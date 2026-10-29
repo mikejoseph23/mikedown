@@ -35,8 +35,8 @@ import { closeHistory } from '@tiptap/pm/history';
 import { StateEffect, StateField } from '@codemirror/state';
 import { Decoration as CmDecoration, EditorView as CmEditorView } from '@codemirror/view';
 import { isolateHistory } from '@codemirror/commands';
-import { aiErrorCopy, toAiError } from './ai';
-import type { AiError, AiRouteOk, AiServedBy } from './ai';
+import { aiErrorCopy, thinkingChoices, toAiError } from './ai';
+import type { AiError, AiRouteOk, AiServedBy, AiThinkingLevel } from './ai';
 import {
   AI_AUDIENCES,
   AI_REWRITE_VARIANTS,
@@ -55,8 +55,15 @@ import {
 } from './ai/prompts/rewrite';
 import { buildExplainMessages, explainMaxTokens } from './ai/prompts/explain';
 import { checkMarkdownStructure, type StructureDiff, type StructureMismatch } from './ai/prompts/structureCheck';
-import type { AiFeatureAvailability, AiRunEvents, AiRunOutcome, AiRunRequest } from './ai-request';
-import { loadAudience, rememberAudience, rememberLanguage, translateLanguageChoices } from './ai-prefs';
+import type { AiFeatureAvailability, AiRunEvents, AiRunOutcome, AiRunRequest, AiRunThinking } from './ai-request';
+import {
+  loadAudience,
+  rememberAudience,
+  rememberLanguage,
+  rememberSessionThinking,
+  sessionThinkingLevel,
+  translateLanguageChoices,
+} from './ai-prefs';
 import { getPortal } from './portal';
 
 /** A target range; `id` tells one open target from the next. */
@@ -635,6 +642,14 @@ function hasParam(def: AiRewriteVariantDefinition | undefined, params: AiRewrite
 
 const plainLabel = (label: string): string => label.replace(/…$/, '');
 
+/** The dial's segment label: `thinkingChoices` labels, Medium shortened to fit the header. */
+const thinkingSegmentLabel = (label: string): string => (label === 'Medium' ? 'Med' : label);
+
+/** The level a route ran with: what the request sent, else the model's own. */
+function thinkingInEffect(t: AiRunThinking | null): AiThinkingLevel | null {
+  return t ? t.sent ?? t.configured : null;
+}
+
 export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePopover {
   let target: AiRewriteTarget | null = null;
   let root: HTMLElement | null = null;
@@ -653,6 +668,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   let route: AiRouteOk | null = null;
   let served: AiServedBy | null = null;
   let viaFallback = false;
+  /** The thinking dial for the current route; null hides it (no mapping, tier-1 host, no route yet). */
+  let thinking: AiRunThinking | null = null;
   let error: AiError | null = null;
   /** The error is the router's: nothing can serve, so the fix is in settings. */
   let unavailable = false;
@@ -666,6 +683,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   // Parts rebuilt per open.
   let titleEl: HTMLElement;
   let badgeEl: HTMLElement;
+  let thinkEl: HTMLElement;
   let chooseEl: HTMLElement;
   let menuEl: HTMLElement;
   let formEl: HTMLFormElement;
@@ -723,13 +741,17 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     const spark = el('span', 'ai-rw-spark');
     spark.innerHTML = SPARK;
     titleEl = el('span', 'ai-rw-title', 'Rewrite');
+    thinkEl = el('div', 'ai-rw-think');
+    thinkEl.setAttribute('role', 'group');
+    thinkEl.setAttribute('aria-label', 'Thinking');
+    thinkEl.hidden = true;
     badgeEl = el('span', 'ai-rw-badge');
     badgeEl.hidden = true;
     const closeBtn = button('ai-rw-icon-btn', '', () => close());
     closeBtn.innerHTML = CLOSE;
     closeBtn.setAttribute('aria-label', 'Cancel (Esc)');
     closeBtn.title = 'Cancel (Esc)';
-    head.append(spark, titleEl, badgeEl, closeBtn);
+    head.append(spark, titleEl, thinkEl, badgeEl, closeBtn);
 
     // First level: one row per group (Length, Tone, Audience, Translate,
     // Explain), then the custom prompt. Second level: the picker.
@@ -961,13 +983,38 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     return `Rewrite · ${plainLabel(getAiRewriteVariant(variant)?.label ?? '')}`;
   }
 
+  /** The thinking dial: one segment per level the route's kind can express, the level in effect pressed. */
+  function renderThinking(): void {
+    const choices = thinking && phase !== 'choose' ? thinkingChoices(thinking.kind) : [];
+    thinkEl.hidden = choices.length === 0;
+    if (choices.length === 0) {return;}
+    const current = thinkingInEffect(thinking);
+    const label = el('span', 'ai-rw-think-label', 'Thinking');
+    label.setAttribute('aria-hidden', 'true');
+    const segments = choices.map((c) => {
+      const seg = button('ai-rw-think-seg', thinkingSegmentLabel(c.label), () => pickThinking(c.level));
+      seg.dataset.level = c.level;
+      seg.setAttribute('aria-pressed', c.level === current ? 'true' : 'false');
+      seg.title = `Thinking: ${c.label} (runs again)`;
+      return seg;
+    });
+    thinkEl.title = current
+      ? `Thinking: ${choices.find((c) => c.level === current)?.label ?? current}${thinking?.sent ? '' : ' (the model\'s setting)'}`
+      : 'Thinking: the model\'s default';
+    thinkEl.replaceChildren(label, ...segments);
+  }
+
   function renderBadge(): void {
+    renderThinking();
     const b = deps.badge(route, served, served ? viaFallback : route?.viaFallback ?? false);
     badgeEl.hidden = !b;
     if (!b) {return;}
     badgeEl.dataset.where = b.where ?? '';
     badgeEl.classList.toggle('is-pending', !served);
-    badgeEl.title = b.title;
+    // Name the level that served ("... oMLX · Qwen3 30B, on this network. Thinking: low.").
+    const level = served ? thinkingInEffect(thinking) : null;
+    const levelLabel = level && thinking ? thinkingChoices(thinking.kind).find((c) => c.level === level)?.label : undefined;
+    badgeEl.title = levelLabel ? `${b.title} Thinking: ${levelLabel.toLowerCase()}.` : b.title;
     const glyph = el('span', 'ai-rw-badge-glyph');
     glyph.innerHTML = b.where === 'cloud' ? CLOUD : LOCAL;
     const text = el('span', 'ai-rw-badge-text', b.text);
@@ -1124,6 +1171,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     route = null;
     served = null;
     viaFallback = false;
+    thinking = null;
     error = null;
     unavailable = false;
     note = '';
@@ -1178,6 +1226,16 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     );
   }
 
+  /** A dial change: remembered for this kind for the session, then the same run again (like Retry). */
+  function pickThinking(level: AiThinkingLevel): void {
+    if (!thinking || phase === 'choose') {return;}
+    if (level === thinkingInEffect(thinking)) {return;}
+    rememberSessionThinking(thinking.kind, level);
+    // Pressed at once; the route's answer confirms it.
+    thinking = { ...thinking, sent: level };
+    start(variant, instruction);
+  }
+
   function start(v: AiRewriteVariant, custom?: string): void {
     const t = target;
     if (!t || !root) {return;}
@@ -1227,10 +1285,12 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       messages,
       maxTokens,
       temperature: v === 'fixFlow' || v === 'translate' ? 0.2 : 0.5,
+      thinking: sessionThinkingLevel,
     }, {
-      onRoute: (r) => {
+      onRoute: (r, th) => {
         if (seq !== runSeq) {return;}
         route = r;
+        thinking = th;
         raw = '';
         renderBadge();
         renderOut();
@@ -1245,6 +1305,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       controller = null;
       served = outcome.result.served;
       viaFallback = outcome.viaFallback;
+      thinking = outcome.thinking;
       deps.onServed(outcome.result.served, outcome.viaFallback);
       // Explain is a note, not a version of the selection: no whitespace to carry over.
       finalText = finalizeRewriteText(outcome.result.text || raw, readOnly ? '' : t.text);

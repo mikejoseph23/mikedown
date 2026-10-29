@@ -179,6 +179,12 @@ export interface AiCompletionRequest {
   format?: 'text' | 'json';
   maxTokens?: number;
   temperature?: number;
+  /**
+   * Per-request body fields (the popover's thinking dial). The host merges
+   * them over the model's configured `requestOverrides`, deeply, so the
+   * request wins. Tier-1 hosts may ignore them.
+   */
+  requestOverrides?: Record<string, unknown>;
 }
 
 export interface AiServedBy {

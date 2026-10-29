@@ -4,9 +4,14 @@
  * each webview message with the right reply.
  */
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { parseAiSettings, thinkingOverrides, type AiThinkingLevel } from '@mikedown/core/ai';
 import { VsCodeHost } from '../../src/webview/vsCodeHost';
 import { handleAiMessage, isAiWebviewMessage } from '../../src/ai/webviewBridge';
-import type { AiEngineService } from '../../src/ai/engineService';
+import { AiEngineService } from '../../src/ai/engineService';
+import { createAdapters } from '../../src/ai/providers';
+import { AiSecrets } from '../../src/ai/secrets';
 
 function setup() {
   const posted: any[] = [];
@@ -319,5 +324,71 @@ describe('host bridge, errors and ordering', () => {
     const service = { setSecret: async (id: string) => ({ engineId: id, hasKey: true }) } as unknown as AiEngineService;
     await handleAiMessage(service, {}, { type: 'aiSetSecret', requestId: 's', engineId: 'claude', apiKey: 'sk-ant-secret' }, (m) => posted.push(m));
     expect(JSON.stringify(posted)).not.toContain('sk-ant-secret');
+  });
+});
+
+describe('per-request requestOverrides (thinking dial), end to end', () => {
+  interface ThinkingCase {
+    name: string;
+    kind: 'openai-compatible' | 'lmstudio' | 'ollama' | 'anthropic' | 'openai';
+    local: boolean;
+    level: AiThinkingLevel;
+    modelOverrides: Record<string, unknown> | null;
+    requestOverrides: Record<string, unknown>;
+    expectedBody: Record<string, unknown>;
+  }
+  const fixture = JSON.parse(readFileSync(join(__dirname, '../ai-fixtures/requests/thinking-overrides.json'), 'utf8')) as { cases: ThinkingCase[] };
+  const stream = (kind: string): string[] => JSON.parse(readFileSync(join(__dirname, '../ai-fixtures/sse', kind === 'anthropic' ? 'anthropic-messages-stream.json' : 'openai-chat-stream.json'), 'utf8')).chunks;
+  const BASES: Record<ThinkingCase['kind'], [local: string, cloud: string]> = {
+    'openai-compatible': ['http://127.0.0.1:8000/v1', 'https://generativelanguage.googleapis.com/v1beta/openai'],
+    lmstudio: ['http://127.0.0.1:1234/v1', 'http://127.0.0.1:1234/v1'],
+    ollama: ['http://127.0.0.1:11434/v1', 'http://127.0.0.1:11434/v1'],
+    anthropic: ['https://api.anthropic.com', 'https://api.anthropic.com'],
+    openai: ['https://api.openai.com/v1', 'https://api.openai.com/v1'],
+  };
+
+  /** The webview's VsCodeHost posts aiComplete; the bridge hands it to a real AiEngineService and adapter; returns the posted body. */
+  async function bodyFor(c: ThinkingCase, requestOverrides: Record<string, unknown> | undefined): Promise<Record<string, unknown>> {
+    const settings = parseAiSettings({
+      enabled: true,
+      allowCloud: true,
+      engines: [{ id: 'e', name: 'Engine', kind: c.kind, baseUrl: BASES[c.kind][c.local ? 0 : 1], apiKeyEnv: 'K', models: [{ id: 'm', ...(c.modelOverrides ? { requestOverrides: c.modelOverrides } : {}) }] }],
+      routing: { default: { engineId: 'e', modelId: 'm' }, fallback: 'none', tasks: {} },
+    }, { onWarning: () => {} });
+    const bodies: Array<Record<string, unknown>> = [];
+    const chunks = stream(c.kind);
+    const fetch = async (_url: string, init?: RequestInit): Promise<Response> => {
+      bodies.push(JSON.parse(String(init?.body)));
+      const enc = new TextEncoder();
+      return new Response(new ReadableStream<Uint8Array>({ start(ctl) { for (const ch of chunks) {ctl.enqueue(enc.encode(ch));} ctl.close(); } }), { status: 200 });
+    };
+    const store = new Map<string, string>();
+    const service = new AiEngineService({
+      readSettings: () => settings,
+      secrets: new AiSecrets({ get: async (k) => store.get(k), store: async (k, v) => { store.set(k, v); }, delete: async (k) => { store.delete(k); } }, { K: 'k' }),
+      consent: { get: () => true, grant: async () => {}, forget: async () => {} },
+      askConsent: async () => true,
+      saveEngines: async () => {},
+      log: () => {},
+      adapters: createAdapters({ fetch }),
+    });
+    const { host, posted, ai } = setup();
+    const pending = ai.complete({ ...request, route: { engineId: 'e', modelId: 'm' }, messages: [{ role: 'user', content: 'hi' }], ...(requestOverrides ? { requestOverrides } : {}) }, () => {}, new AbortController().signal);
+    await handleAiMessage(service, {}, posted[0], (reply) => host.handleReply(reply as never));
+    await pending;
+    expect(bodies).toHaveLength(1);
+    return bodies[0];
+  }
+
+  it.each(fixture.cases.map((c) => [c.name, c] as const))('%s: the request wins over the model', async (_name, c) => {
+    const body = await bodyFor(c, c.requestOverrides);
+    for (const [key, value] of Object.entries(c.expectedBody)) {expect(body[key], key).toEqual(value);}
+    // Acceptance: the body's thinking fields are the level's.
+    expect(body).toMatchObject(thinkingOverrides(c.kind, c.level, { local: c.local }));
+  });
+
+  it('without requestOverrides the model\'s own still apply', async () => {
+    const c = fixture.cases.find((x) => x.kind === 'openai' && x.modelOverrides)!;
+    expect(await bodyFor(c, undefined)).toMatchObject(c.modelOverrides!);
   });
 });

@@ -12,7 +12,8 @@
  *   2026-10-21 rejects `temperature`.
  *
  * `model.requestOverrides` merge last, deeply (objects merge, everything else
- * replaces), so they win (OPEN-6).
+ * replaces), so they win (OPEN-6); then the request's own `requestOverrides`
+ * (a per-request thinking level) merge over those the same way.
  */
 
 import type { AiCompletionRequest, AiEngineConfig, AiEngineKind, AiMessage, AiMessagePart, AiModelConfig } from './types';
@@ -181,7 +182,8 @@ export interface BuildCompletionOptions {
 export function buildCompletionBody(kind: AiEngineKind, model: Pick<AiModelConfig, 'id' | 'requestOverrides'>, req: AiCompletionRequest, opts: BuildCompletionOptions = {}): Json {
   const stream = opts.stream ?? true;
   const body = kind === 'anthropic' ? anthropicBody(model.id, req, stream) : chatCompletionsBody(kind, model.id, req, stream);
-  return mergeRequestOverrides(body, model.requestOverrides);
+  const merged = mergeRequestOverrides(body, model.requestOverrides);
+  return isPlainObject(req.requestOverrides) ? mergeRequestOverrides(merged, req.requestOverrides) : merged;
 }
 
 function chatCompletionsBody(kind: AiEngineKind, modelId: string, req: AiCompletionRequest, stream: boolean): Json {

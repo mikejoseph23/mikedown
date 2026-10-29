@@ -9,7 +9,9 @@
 //!   `ai-token:<id>` events, then exactly one `ai-done:<id>` (the
 //!   `AiCompletionResult`) or `ai-error:<id>` (`{ code, message }`). The id is
 //!   the request id with characters Tauri does not allow in event names
-//!   replaced by `_`, so the webview can listen before it invokes.
+//!   replaced by `_`, so the webview can listen before it invokes. The
+//!   request's optional `requestOverrides` (the popover's thinking dial) merge
+//!   over the model's own when the body is built, so the request wins.
 //! - `ai_cancel(id)` stops one of the calling window's requests; closing a
 //!   window cancels all of its requests.
 //! - `ai_list_engines`, `ai_test_engine`, `ai_discover_models`: engine status

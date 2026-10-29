@@ -142,6 +142,7 @@
   background: var(--mikedown-hover, rgba(55, 53, 47, 0.06));
   color: var(--mikedown-text-muted, #6f6f74);
   font-size: 11.5px;
+  line-height: 16px;
   white-space: nowrap;
 }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-badge-glyph { display: inline-flex; flex-shrink: 0; }
@@ -152,6 +153,41 @@
 :is(.mikedown-root, .mikedown-portal) .ai-rw-badge.is-pending { opacity: 0.75; }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-badge-fallback { color: var(--mikedown-warning, #b26a00); }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-head .ai-rw-badge[hidden] + .ai-rw-icon-btn { margin-left: auto; }
+
+/* Thinking dial: a segmented pill the badge's height, just left of it. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-think {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 1px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--mikedown-hover, rgba(55, 53, 47, 0.06));
+  color: var(--mikedown-text-muted, #6f6f74);
+  font-size: 11.5px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-think[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-think:not([hidden]) + .ai-rw-badge { margin-left: 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-think-label { padding: 0 4px 0 6px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-think-seg {
+  padding: 0 6px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-think-seg:hover { color: var(--mikedown-text-ui, #3a3a3d); }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-think-seg[aria-pressed="true"] {
+  background: var(--mikedown-surface-raised, #fff);
+  color: var(--mikedown-text-ui, #3a3a3d);
+  box-shadow: 0 0 0 1px var(--mikedown-divider, rgba(15, 15, 20, 0.08));
+}
 
 :is(.mikedown-root, .mikedown-portal) .ai-rw-icon-btn {
   display: inline-flex;
@@ -384,7 +420,7 @@
 :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-output="replaceDocument"] { max-height: min(80vh, 640px); }
 :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-output="replaceDocument"] .ai-rw-text { max-height: 420px; }
 
-:is(.mikedown-root, .mikedown-portal) :is(.ai-rw-btn, .ai-rw-chip, .ai-rw-icon-btn, .ai-rw-option, .ai-bubble-item):focus-visible {
+:is(.mikedown-root, .mikedown-portal) :is(.ai-rw-btn, .ai-rw-chip, .ai-rw-icon-btn, .ai-rw-option, .ai-rw-think-seg, .ai-bubble-item):focus-visible {
   outline: 2px solid var(--mikedown-focus-ring, rgba(63, 81, 181, 0.55));
   outline-offset: 1px;
 }
@@ -402,4 +438,5 @@
   :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-layout="split"] .ai-rw-body { grid-template-columns: 1fr; }
   :is(.mikedown-root, .mikedown-portal) .ai-rw-pane--old { border-right: 0; border-bottom: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08)); }
   :is(.mikedown-root, .mikedown-portal) .ai-rw-hint { display: none; }
+  :is(.mikedown-root, .mikedown-portal) .ai-rw-think-label { display: none; }
 }

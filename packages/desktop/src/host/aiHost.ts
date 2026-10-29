@@ -5,7 +5,9 @@
  *
  * - `complete` registers the request's three event listeners first, then
  *   invokes `ai_complete`, and removes the listeners when the request settles
- *   (done, error, abort or a failed invoke), so none leak.
+ *   (done, error, abort or a failed invoke), so none leak. The request goes
+ *   over whole, `requestOverrides` (the popover's thinking dial) included;
+ *   Rust merges them over the model's own.
  * - `listEngines` / `testEngine` / `discoverModels` combine what Rust knows
  *   (reachability, key presence, locality) with the saved engines in settings,
  *   which own the model list. Discovery merges the endpoint's models into the

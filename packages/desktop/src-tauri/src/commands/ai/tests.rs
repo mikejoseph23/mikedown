@@ -37,6 +37,41 @@ fn sse_fixture(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(fixtures().join("sse").join(name)).unwrap()).unwrap()
 }
 
+// ── Per-request thinking (shared fixture) ───────────────────────────────────
+
+#[test]
+fn request_overrides_merge_over_the_model_overrides_per_the_thinking_fixture() {
+    let path = fixtures().join("requests").join("thinking-overrides.json");
+    let fixture: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let cases = fixture["cases"].as_array().unwrap();
+    assert!(!cases.is_empty());
+    for case in cases {
+        let name = case["name"].as_str().unwrap();
+        let kind: super::model::EngineKind = serde_json::from_value(case["kind"].clone()).unwrap();
+        let model: super::model::ModelConfig =
+            serde_json::from_value(json!({ "id": "m", "requestOverrides": case["modelOverrides"] })).unwrap();
+        let req: CompletionRequest = serde_json::from_value(json!({
+            "requestId": "r1", "feature": "rewrite", "task": "rewrite",
+            "messages": [{ "role": "user", "content": "hello" }],
+            "requestOverrides": case["requestOverrides"],
+        }))
+        .unwrap();
+        let body = super::requests::build_completion_body(kind, &model, &req, true);
+        for (key, expected) in case["expectedBody"].as_object().unwrap() {
+            assert_eq!(&body[key], expected, "{name}: body.{key}");
+        }
+    }
+}
+
+#[test]
+fn request_overrides_that_are_not_an_object_are_ignored() {
+    let model: super::model::ModelConfig =
+        serde_json::from_value(json!({ "id": "m", "requestOverrides": { "reasoning_effort": "low" } })).unwrap();
+    let req = request(json!({ "requestOverrides": "high" }));
+    let body = super::requests::build_completion_body(super::model::EngineKind::OpenAiCompatible, &model, &req, true);
+    assert_eq!(body["reasoning_effort"], "low");
+}
+
 // ── Settings slice ──────────────────────────────────────────────────────────
 
 #[test]

@@ -35,6 +35,9 @@ describe('grouped variants', () => {
     const groups = aiRewriteMenuGroups();
     expect(groups.map((g) => g.label)).toEqual(['Length', 'Tone', 'Audience', 'Translate', 'Explain', 'Custom']);
     expect(groups.flatMap((g) => g.variants.map((v) => v.id))).toEqual(AI_REWRITE_VARIANTS.map((v) => v.id));
+    // D1: Length is Shorter, Longer, Expand; Simpler sits under Tone.
+    expect(groups[0].variants.map((v) => v.id)).toEqual(['shorter', 'longer', 'expand']);
+    expect(groups[1].variants.map((v) => v.id)).toEqual(['simpler', 'fixFlow', 'formal', 'casual']);
   });
 
   it('quotes every line of a note, keeping blank lines inside the quote', () => {
@@ -163,7 +166,7 @@ describe('choose phase', () => {
     handle.command('aiRewrite');
     const groups = [...popover()!.querySelectorAll<HTMLElement>('.ai-rw-group')];
     expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Length', 'Tone', 'Audience', 'Translate', 'Explain']);
-    expect(groups[0].querySelectorAll('[role="menuitem"]')).toHaveLength(4);
+    expect(groups[0].querySelectorAll('[role="menuitem"]')).toHaveLength(3);
     expect(popover()!.querySelector('.ai-rw-input')).not.toBeNull();
   });
 
