@@ -10,7 +10,7 @@
  * TipTap (ProseMirror) renders the WYSIWYG surface with tiptap-markdown for
  * parse/serialize; CodeMirror 6 is the source view (Cmd+/).
  */
-import { Editor, Extension, mergeAttributes, posToDOMRect } from '@tiptap/core';
+import { Editor, Extension, mergeAttributes } from '@tiptap/core';
 import { Selection, TextSelection, EditorState as PmEditorState } from '@tiptap/pm/state';
 import { undoDepth as pmUndoDepth, closeHistory } from '@tiptap/pm/history';
 import { StarterKit } from '@tiptap/starter-kit';
@@ -122,7 +122,7 @@ import {
 } from './ai-toolbar';
 import { aiFeatureAvailability, aiRunThinkingOn, runAiCompletion, type AiFeatureAvailability, type AiRunOutcome } from './ai-request';
 import {
-  AiRewriteHighlight, aiRewriteMenuGroups, applyRichTitle, applySourceTitle, cmAiRewriteHighlight, createAiRewriteBubble,
+  AiRewriteHighlight, aiRewriteMenuGroups, applyRichTitle, applySourceTitle, cmAiRewriteHighlight,
   createAiRewritePopover, cursorInsertTarget, richDocumentTarget, richRewriteTarget, setYamlTitle, sourceCursorTarget,
   sourceDocumentTarget, sourceRewriteTarget, yamlHasTitle, type AiCursorTarget, type AiRewriteBadge,
   type AiRewriteTarget, type AiTitleEffect,
@@ -4081,7 +4081,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     },
   };
 
-  // ── AI rewrite: popover, selection bubble, entry point ─────────────────────
+  // ── AI rewrite: popover, entry point ─────────────────────
   // Inert without host.ai. Every request resolves its route afresh
   // (runAiCompletion); the popover previews, Accept replaces in one transaction.
   const aiRewrite = aiHost ? createAiRewritePopover({
@@ -4164,7 +4164,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (aiDocAvailability('summary').state !== 'enabled') {return false;}
     const markdown = aiBodyMarkdown();
     if (!markdown.trim()) {return false;}
-    aiBubble?.hide();
     aiRewrite.close();
     const target = aiCursorTarget(slash);
     if (!target) {return false;}
@@ -4402,7 +4401,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (aiDocAvailability('title').state !== 'enabled') {return false;}
     const markdown = aiBodyMarkdown();
     if (!markdown.trim()) {return false;}
-    aiBubble?.hide();
     aiRewrite.close();
     const target = aiCursorTarget(slash);
     if (!target) {return false;}
@@ -4441,7 +4439,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (!aiRewrite || destroyed) {return false;}
     const availability = aiRewriteAvailability();
     if (availability.state === 'hidden') {return false;}
-    aiBubble?.hide();
     aiRewrite.close();
     const target = (sourceMode
       ? (cmView ? sourceRewriteTarget(cmView) : null)
@@ -4458,52 +4455,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     return true;
   }
 
-  /** The selection's rect when the bubble may show over it. */
-  function aiBubbleSelectionRect(): DOMRect | null {
-    if (aiRewrite?.isOpen() || settingsOverlay?.isConnected || aiPage || aiPointerDown) {return null;}
-    if (sourceMode) {
-      if (!cmView || !cmView.hasFocus) {return null;}
-      const sel = cmView.state.selection.main;
-      if (sel.empty || !cmView.state.sliceDoc(sel.from, sel.to).trim()) {return null;}
-      const a = cmView.coordsAtPos(sel.from);
-      const b = cmView.coordsAtPos(sel.to, -1);
-      if (!a) {return null;}
-      return new DOMRect(a.left, a.top, Math.max(1, (b?.right ?? a.right) - a.left), Math.max(1, (b?.bottom ?? a.bottom) - a.top));
-    }
-    if (!editor.view.hasFocus()) {return null;}
-    const sel = editor.state.selection;
-    if (sel.empty || '$anchorCell' in sel || !editor.state.doc.textBetween(sel.from, sel.to, ' ').trim()) {return null;}
-    // Code is not prose: no bubble inside a code block (the hotkey still works).
-    if (sel.$from.parent.type.spec.code && sel.$from.sameParent(sel.$to)) {return null;}
-    try {
-      const startCoords = editor.view.coordsAtPos(sel.from);
-      const box = posToDOMRect(editor.view, sel.from, sel.to);
-      return new DOMRect(startCoords.left, box.top, Math.max(1, box.right - startCoords.left), box.height);
-    } catch { return null; }
-  }
-
-  let aiPointerDown = false;
-  const aiBubble = aiRewrite ? createAiRewriteBubble({
-    availability: aiRewriteAvailability,
-    selectionRect: aiBubbleSelectionRect,
-    run: (variant) => { startAiRewrite(variant); },
-  }) : null;
-  if (aiBubble) {
-    disposers.push(() => aiBubble.destroy());
-    editor.on('selectionUpdate', () => aiBubble.schedule());
-    editor.on('focus', () => aiBubble.schedule());
-    editor.on('focus', () => syncAiSlashCommands());
-    editor.on('blur', () => aiBubble.schedule());
-    const onDown = (): void => { aiPointerDown = true; aiBubble.hide(); };
-    listen(editorContainer, 'mousedown', onDown);
-    listen(sourceContainer, 'mousedown', onDown);
-    listen(document, 'mouseup', () => {
-      if (!aiPointerDown) {return;}
-      aiPointerDown = false;
-      aiBubble.schedule();
-    });
-    listen(root, 'scroll', () => aiBubble.schedule(), true);
-  }
+  editor.on('focus', () => syncAiSlashCommands());
 
   // Wikilink autocomplete: lazily ask the host for the workspace file list the
   // first time the `[[` popup opens with an empty candidate cache.
@@ -6040,7 +5992,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
             const sel = update.state.selection.main;
             postStats({ selection: sel.empty ? null : update.state.sliceDoc(sel.from, sel.to) });
           }
-          if (update.selectionSet || update.focusChanged) {aiBubble?.schedule();}
         }),
       ],
     });
@@ -6050,7 +6001,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function switchToSource(): void {
     if (sourceMode) {return;}
     aiRewrite?.close();
-    aiBubble?.hide();
     // Chips apply in rich text only.
     cancelAiPropertySuggestions(true);
 
@@ -6161,7 +6111,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function switchToWysiwyg(): void {
     if (!sourceMode || !cmView) {return;}
     aiRewrite?.close();
-    aiBubble?.hide();
 
     const md = cmView.state.doc.toString();
 

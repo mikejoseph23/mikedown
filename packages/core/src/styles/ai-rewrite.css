@@ -1,5 +1,5 @@
-/* MikeDown — selection rewrite (ai-rewrite.ts): the target highlight, the
- * selection bubble and the preview popover. Overlays live in the portal and
+/* MikeDown — selection rewrite (ai-rewrite.ts): the target highlight and
+ * the preview popover. Overlays live in the portal and
  * read only --mikedown-* tokens.
  */
 
@@ -10,77 +10,6 @@
   box-shadow: 0 1px 0 color-mix(in srgb, var(--mikedown-accent, #3f51b5) 55%, transparent);
   border-radius: 2px;
 }
-
-/* ── Selection bubble ───────────────────────────────────────────────────── */
-
-:is(.mikedown-root, .mikedown-portal) .mikedown-ai-bubble {
-  position: fixed;
-  z-index: 990;
-  font-family: var(--mikedown-font-ui, system-ui, sans-serif);
-  font-size: 12.5px;
-  animation: mikedown-ai-fade 0.12s ease-out;
-}
-
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 7px 0 8px;
-  border: 1px solid var(--mikedown-border, rgba(15, 15, 20, 0.1));
-  border-radius: 13px;
-  background: var(--mikedown-surface-raised, #fff);
-  color: var(--mikedown-text-ui, #3a3a3d);
-  box-shadow: 0 2px 8px var(--mikedown-shadow, rgba(15, 15, 20, 0.12));
-  font: inherit;
-  font-weight: 500;
-  cursor: pointer;
-}
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn:hover { background: var(--mikedown-hover, rgba(55, 53, 47, 0.06)); }
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn[aria-disabled="true"] {
-  color: var(--mikedown-text-muted, #6f6f74);
-  cursor: default;
-}
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn[aria-disabled="true"]:hover { background: var(--mikedown-surface-raised, #fff); }
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-spark { display: inline-flex; color: var(--mikedown-accent, #3f51b5); }
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn[aria-disabled="true"] .ai-bubble-spark { color: inherit; }
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-chevron { display: inline-flex; opacity: 0.7; }
-
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  min-width: 176px;
-  padding: 4px;
-  border: 1px solid var(--mikedown-border, rgba(15, 15, 20, 0.1));
-  border-radius: var(--mikedown-radius, 8px);
-  background: var(--mikedown-surface-raised, #fff);
-  box-shadow: 0 6px 20px var(--mikedown-shadow, rgba(15, 15, 20, 0.12));
-  animation: mikedown-ai-fade 0.08s ease-out;
-}
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-item {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: var(--mikedown-radius-sm, 6px);
-  background: none;
-  color: var(--mikedown-text-ui, #3a3a3d);
-  font: inherit;
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-}
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-item:hover { background: var(--mikedown-hover, rgba(55, 53, 47, 0.06)); }
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-sep {
-  height: 1px;
-  margin: 4px 6px;
-  background: var(--mikedown-divider, rgba(15, 15, 20, 0.08));
-}
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-item-key { color: var(--mikedown-text-muted, #6f6f74); font-size: 11.5px; }
 
 /* ── Popover ────────────────────────────────────────────────────────────── */
 
@@ -394,9 +323,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-phase="running"] .ai-rw-caret { animation: none; opacity: 0.6; }
-  :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite,
-  :is(.mikedown-root, .mikedown-portal) .mikedown-ai-bubble,
-  :is(.mikedown-root, .mikedown-portal) .ai-bubble-menu { animation: none; }
+  :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite { animation: none; }
 }
 
 /* Errors. */
@@ -479,7 +406,7 @@
 :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-output="replaceDocument"] { max-height: min(80vh, 640px); }
 :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-output="replaceDocument"] .ai-rw-text { max-height: 420px; }
 
-:is(.mikedown-root, .mikedown-portal) :is(.ai-rw-btn, .ai-rw-chip, .ai-rw-icon-btn, .ai-rw-option, .ai-rw-think-seg, .ai-rw-kind-seg, .ai-bubble-item):focus-visible {
+:is(.mikedown-root, .mikedown-portal) :is(.ai-rw-btn, .ai-rw-chip, .ai-rw-icon-btn, .ai-rw-option, .ai-rw-think-seg, .ai-rw-kind-seg):focus-visible {
   outline: 2px solid var(--mikedown-focus-ring, rgba(63, 81, 181, 0.55));
   outline-offset: 1px;
 }

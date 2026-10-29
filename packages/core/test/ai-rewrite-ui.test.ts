@@ -11,7 +11,7 @@ import type { AiCompletionRequest, MikeDownAiHost } from '../src/ai';
 import { AI_REWRITE_VARIANTS } from '../src/ai/prompts/rewrite';
 import { EXPLAIN_SYSTEM_PROMPT } from '../src/ai/prompts/explain';
 import { checkMarkdownStructure } from '../src/ai/prompts/structureCheck';
-import { aiRewriteMenuGroups, blockquoteMarkdown, createAiRewriteBubble, structureWarningText } from '../src/ai-rewrite';
+import { aiRewriteMenuGroups, blockquoteMarkdown, structureWarningText } from '../src/ai-rewrite';
 import {
   AI_TRANSLATE_LANGUAGES,
   loadAudience,
@@ -86,26 +86,6 @@ describe('remembered picker choices', () => {
   });
 });
 
-describe('selection bubble', () => {
-  it('lists the variants grouped with a separator between groups', async () => {
-    const run = vi.fn();
-    const bubble = createAiRewriteBubble({
-      availability: () => ({ state: 'enabled' }),
-      selectionRect: () => new DOMRect(20, 40, 80, 16),
-      run,
-    });
-    bubble.schedule();
-    await new Promise((r) => setTimeout(r, 180));
-    document.querySelector<HTMLButtonElement>('.ai-bubble-btn')!.click();
-    const menu = document.querySelector('.ai-bubble-menu')!;
-    expect(menu.querySelectorAll('.ai-bubble-item')).toHaveLength(AI_REWRITE_VARIANTS.length);
-    expect(menu.querySelectorAll('[role="separator"]')).toHaveLength(aiRewriteMenuGroups().length - 1);
-    [...menu.querySelectorAll<HTMLButtonElement>('.ai-bubble-item')].find((b) => b.textContent === 'Translate…')!.click();
-    expect(run).toHaveBeenCalledWith('translate');
-    bubble.destroy();
-  });
-});
-
 // ── The popover in a real editor ────────────────────────────────────────────
 
 const mounted: Array<{ handle: MikeDownEditorHandle; el: HTMLElement }> = [];
@@ -158,6 +138,17 @@ function selectText(handle: MikeDownEditorHandle, text: string): void {
   if (from < 0) {throw new Error(`no "${text}" in the document`);}
   handle.tiptap.commands.setTextSelection({ from, to: from + text.length });
 }
+
+describe('no selection bubble', () => {
+  it('a non-empty selection with AI on creates no floating element', async () => {
+    const { handle } = mountWithAi('Hello world, some words here.\n', 'Hi.');
+    handle.tiptap.commands.focus();
+    selectText(handle, 'some words');
+    await new Promise((r) => setTimeout(r, 200));
+    expect(document.querySelector('[class*="ai-bubble"]')).toBeNull();
+    expect(popover()).toBeNull();
+  });
+});
 
 describe('choose phase', () => {
   it('shows one labelled group per kind, then the custom prompt', () => {

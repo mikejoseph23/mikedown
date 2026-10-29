@@ -1,7 +1,7 @@
 /**
  * Selection rewrite (the `rewrite` AI feature): the popover that previews a
- * rewrite before it replaces the selection, the selection bubble that opens
- * it, and the highlight that marks the target while it is open.
+ * rewrite before it replaces the selection and the highlight that marks the
+ * target while it is open.
  *
  * Transaction discipline (CLAUDE.md, brainstorm constraints 4, 5 and 7):
  *
@@ -90,7 +90,7 @@ import {
 } from './ai/prompts/rewrite';
 import { buildExplainMessages, explainMaxTokens } from './ai/prompts/explain';
 import { checkMarkdownStructure, type StructureDiff, type StructureMismatch } from './ai/prompts/structureCheck';
-import type { AiFeatureAvailability, AiRunEvents, AiRunOutcome, AiRunRequest, AiRunThinking } from './ai-request';
+import type { AiRunEvents, AiRunOutcome, AiRunRequest, AiRunThinking } from './ai-request';
 import { aiRunThinkingOn } from './ai-request';
 import {
   loadAudience,
@@ -823,7 +823,6 @@ export function applySourceTitle(view: CmEditorView, effect: AiTitleEffect, titl
 
 const icon = (body: string, size = 14) => `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 const SPARK = icon('<path d="M8 2.2l1.25 3.3 3.3 1.25-3.3 1.25L8 11.3 6.75 8 3.45 6.75 6.75 5.5z"/><path d="M12.6 10.6l.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5z"/>');
-const CHEVRON = icon('<path d="M4.5 6.5L8 10l3.5-3.5"/>', 12);
 const CLOSE = icon('<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>', 12);
 const LOCAL = icon('<path d="M2.5 7.5L8 3l5.5 4.5M4 6.5V13h8V6.5"/>', 11);
 const CLOUD = icon('<path d="M4.5 12.5h7a2.75 2.75 0 0 0 .3-5.48A4 4 0 0 0 4.1 7.6 2.5 2.5 0 0 0 4.5 12.5z"/>', 11);
@@ -850,11 +849,6 @@ function button(className: string, label: string, onClick: () => void): HTMLButt
 
 export function isMacPlatform(): boolean {
   return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
-}
-
-/** The rewrite hotkey as shown in menus. */
-export function rewriteHotkeyLabel(): string {
-  return isMacPlatform() ? '⌥⌘K' : 'Ctrl+Alt+K';
 }
 
 // ── Grouped variants ────────────────────────────────────────────────────────
@@ -2129,114 +2123,5 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     destroy() {
       close({ refocus: false });
     },
-  };
-}
-
-// ── Selection bubble ────────────────────────────────────────────────────────
-
-export interface AiRewriteBubbleDeps {
-  availability(): AiFeatureAvailability;
-  /** The selection's screen rect when the bubble may show, else null. */
-  selectionRect(): DOMRect | null;
-  run(variant: AiRewriteVariant): void;
-}
-
-export interface AiRewriteBubble {
-  /** Re-check after a selection change (debounced). */
-  schedule(): void;
-  hide(): void;
-  destroy(): void;
-}
-
-export function createAiRewriteBubble(deps: AiRewriteBubbleDeps): AiRewriteBubble {
-  let box: HTMLElement | null = null;
-  let menu: HTMLElement | null = null;
-  let timer: number | undefined;
-
-  function hide(): void {
-    window.clearTimeout(timer);
-    menu = null;
-    box?.remove();
-    box = null;
-  }
-
-  function toggleMenu(): void {
-    if (!box) {return;}
-    if (menu) {
-      menu.remove();
-      menu = null;
-      box.querySelector('.ai-bubble-btn')?.setAttribute('aria-expanded', 'false');
-      return;
-    }
-    const list = el('div', 'ai-bubble-menu');
-    menu = list;
-    list.setAttribute('role', 'menu');
-    // One run of items per group with a thin separator between groups.
-    aiRewriteMenuGroups().forEach((g, i) => {
-      if (i > 0) {
-        const sep = el('div', 'ai-bubble-sep');
-        sep.setAttribute('role', 'separator');
-        list.append(sep);
-      }
-      for (const v of g.variants) {
-        const item = button('ai-bubble-item', '', () => { hide(); deps.run(v.id); });
-        item.setAttribute('role', 'menuitem');
-        if (v.param) {item.setAttribute('aria-haspopup', 'dialog');}
-        item.append(el('span', 'ai-bubble-item-label', v.label));
-        if (v.id === 'custom') {item.append(el('span', 'ai-bubble-item-key', rewriteHotkeyLabel()));}
-        list.append(item);
-      }
-    });
-    box.append(list);
-    box.querySelector('.ai-bubble-btn')?.setAttribute('aria-expanded', 'true');
-  }
-
-  function show(rect: DOMRect, availability: AiFeatureAvailability): void {
-    if (!box) {
-      box = el('div', 'mikedown-ai-bubble');
-      const btn = button('ai-bubble-btn', '', () => toggleMenu());
-      btn.setAttribute('aria-haspopup', 'menu');
-      btn.setAttribute('aria-expanded', 'false');
-      btn.tabIndex = -1;
-      const spark = el('span', 'ai-bubble-spark');
-      spark.innerHTML = SPARK;
-      const chev = el('span', 'ai-bubble-chevron');
-      chev.innerHTML = CHEVRON;
-      btn.append(spark, el('span', 'ai-bubble-label', 'Rewrite'), chev);
-      box.append(btn);
-      box.addEventListener('mousedown', (e) => e.preventDefault());
-      getPortal().appendChild(box);
-    }
-    const btn = box.querySelector<HTMLButtonElement>('.ai-bubble-btn')!;
-    const disabled = availability.state === 'disabled';
-    btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-    btn.title = disabled ? (availability as { reason: string }).reason : `Rewrite the selection with AI (${rewriteHotkeyLabel()})`;
-    if (disabled && menu) {toggleMenu();}
-
-    const vw = window.innerWidth;
-    const gap = 6;
-    const h = btn.offsetHeight || 26;
-    const w = btn.offsetWidth || 96;
-    let top = rect.top - h - gap;
-    if (top < gap) {top = rect.bottom + gap;}
-    const left = Math.max(gap, Math.min(rect.left, vw - w - gap));
-    box.style.top = `${Math.round(top)}px`;
-    box.style.left = `${Math.round(left)}px`;
-  }
-
-  function update(): void {
-    const availability = deps.availability();
-    const rect = availability.state === 'hidden' ? null : deps.selectionRect();
-    if (!rect || availability.state === 'hidden') { hide(); return; }
-    show(rect, availability);
-  }
-
-  return {
-    schedule() {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(update, 140);
-    },
-    hide,
-    destroy: hide,
   };
 }
