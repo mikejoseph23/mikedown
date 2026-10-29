@@ -24,7 +24,7 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
 | [M1 Find running local servers, one-click local setup](#m1-find-running-local-servers-one-click-local-setup) | Opus | ✅ Done | 14 | `7d9ea11`; one-click saves the engine quietly first, then one patch |
-| [M1b Setup wizard: recommend a path, cloud by default](#m1b-setup-wizard-recommend-a-path-cloud-by-default) | Opus | ⬜ Not Started | — | Running engine → hardware → cloud; subscription vs API key; `vscode.lm` as a new engine kind |
+| [M1b Setup wizard: recommend a path, cloud by default](#m1b-setup-wizard-recommend-a-path-cloud-by-default) | Opus | 🔄 In Progress | — | Split: M1b-a backend (setup.ts, hardware, `vscode-lm`) now; M1b-b wizard UI after M4 merges |
 | [M2 Cloud setup in one place](#m2-cloud-setup-in-one-place) | Opus | ✅ Done | 45 | `a78eaf4`; OQ2 scope change done by M4 |
 | [T1 Setup tests](#t1-setup-tests) | Sonnet | ⬜ Not Started | — | Unit, host, cargo |
 | [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links) | Opus | ✅ Done | 16 | `f5b48a7` (cherry-picked from worktree); openLink and panel wiring passed to M2/M4 |
@@ -527,6 +527,8 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 ---
 
 ## Progress Log / Notes
+
+**2026-10-29 07:45** - M1b split in two (Parallel table allows it): M1b-a (backend: `setup.ts`, `hardwareInfo` on both hosts, `vscode-lm` kind, preset `installUrl`/`pricingUrl`; Opus, main tree) starts now beside M4; M1b-b (the wizard UI, touches `editor.ts`) waits until M4 has merged, so no two workers edit `editor.ts` at once.
 
 **2026-10-29 07:40** - M2 done (`a78eaf4`, 45 min). The Engines page cloud group has the Allow cloud switch and M3's `privacyCard` under "What this means"; a cloud engine added while cloud is off gets a **Turn on cloud engines** note; `keyUrl` links; B1 (`keySource: 'env'` on both hosts and in Rust), B2 (auto-fetch with a key), F8 (Desktop discovery fills the probe cache), the F10 Dock caption, new cloud card captions; `privacyLine` in the first-run panel. The OQ2 scope change was delegated to M4. Lint 0 errors, test:unit 2887, test:packages 83, Desktop 570, cargo 204+26+7. Sent to M4: re-check the AI tab's Allow cloud box after the page flips it, and one shared consent-sentence constant. Note: `lookUpKey` saves the engine to host settings on a card click, before Done (taken back on Discard), so T1 should test Discard. M6: mention env-var keys and the Dock key-file note.
 
