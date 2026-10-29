@@ -31,8 +31,8 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 | [M4 Consent flow hardening](#m4-consent-flow-hardening) | Sonnet | ✅ Done | 15 | `e73e2c2` (cherry-picked from worktree) |
 | [T2 Privacy and consent tests](#t2-privacy-and-consent-tests) | Sonnet | ✅ Done | 6 | Unit, host, cargo |
 | [M5 UI polish: surfaces, naming, states, keyboard](#m5-ui-polish-surfaces-naming-states-keyboard) | Opus | ✅ Done | 18 | Context menu, toolbar menu, popover, sidebar, commands |
-| [M6 Docs, settings sync, release notes](#m6-docs-settings-sync-release-notes) | Sonnet | 🔄 In Progress | — | README, CHANGELOG, Desktop README, package.json descriptions |
-| [T3 Hands-on sign-off](#t3-hands-on-sign-off) | Sonnet | ⬜ Not Started | — | VS Code and Desktop, Mike signs off |
+| [M6 Docs, settings sync, release notes](#m6-docs-settings-sync-release-notes) | Sonnet | ✅ Done | 7 | README, CHANGELOG, Desktop README, package.json descriptions |
+| [T3 Hands-on sign-off](#t3-hands-on-sign-off) | Sonnet | 🔄 In Progress | — | VS Code and Desktop, Mike signs off |
 | [T4 Fresh-user onboarding walk (Mike)](#t4-fresh-user-onboarding-walk-mike) | Mike | ⬜ Not Started | — | Clean slate, OpenAI, Anthropic, DeepSeek, then local; before the release |
 
 [Return to Top](#ai-setup-privacy-polish-plan)
@@ -423,12 +423,12 @@ Worker notes: this is the milestone that edits `editor.ts` the most (`openAiTool
 
 **Recommended model: Sonnet.**
 
-- [ ] `package.json#contributes.configuration`: descriptions of `mikedown.ai.allowCloud` (scope and the consent sentence), `mikedown.ai.enabled` ("turns on when setup finishes" if M1 changed it); any new key from M1 to M5 is present with schema and default; `src/settings.ts` reads it; the Settings UI shows it (three-place rule audit, one checkbox per key, list them in the summary).
-- [ ] `README.md` AI section: the one-click local path, the cloud path (key, Allow cloud, consent), the Privacy subsection (from M3), the consents list (M4), the renamed Tasks page. `packages/desktop/README.md`: consent now in app data (OQ1), the Dock env-var note. `website/vscode/index.html` AI paragraph matches.
-- [ ] `CHANGELOG.md` (Unreleased): one entry per user-visible change in M1 to M5, grouped Setup / Privacy / Polish.
-- [ ] `ai-inference-engines-plan.md` "Follow-up plans" and `ai-writing-features-plan.md` "Follow-ups": add a line pointing at this plan for the items it absorbed (no other edits to those plans).
-- [ ] `docs/` (contributor docs from `a5c54e5`): the new host methods (`detectLocalServers`, `listConsents`, `forgetConsent`), the privacy module, and the protocol messages.
-- [ ] `RESUME.md`: not edited by this milestone (the session owner updates it).
+- [x] `package.json#contributes.configuration`: descriptions of `mikedown.ai.allowCloud` (scope and the consent sentence), `mikedown.ai.enabled` ("turns on when setup finishes" if M1 changed it); any new key from M1 to M5 is present with schema and default; `src/settings.ts` reads it; the Settings UI shows it (three-place rule audit, one checkbox per key, list them in the summary).
+- [x] `README.md` AI section: the one-click local path, the cloud path (key, Allow cloud, consent), the Privacy subsection (from M3), the consents list (M4), the renamed Tasks page. `packages/desktop/README.md`: consent now in app data (OQ1), the Dock env-var note. `website/vscode/index.html` AI paragraph matches.
+- [x] `CHANGELOG.md` (Unreleased): one entry per user-visible change in M1 to M5, grouped Setup / Privacy / Polish.
+- [x] `ai-inference-engines-plan.md` "Follow-up plans" and `ai-writing-features-plan.md` "Follow-ups": add a line pointing at this plan for the items it absorbed (no other edits to those plans).
+- [x] `docs/` (contributor docs from `a5c54e5`): the new host methods (`detectLocalServers`, `listConsents`, `forgetConsent`), the privacy module, and the protocol messages.
+- [x] `RESUME.md`: not edited by this milestone (the session owner updates it).
 
 [Return to Top](#ai-setup-privacy-polish-plan)
 
@@ -527,6 +527,8 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 ---
 
 ## Progress Log / Notes
+
+**2026-10-29 09:15** - M6 done (`a52f662`, 7 min). README AI section (wizard, Copilot, cloud path, Privacy, consents, Tasks), Desktop README (app-data consent, Dock env note), `website/vscode/index.html`, CHANGELOG Unreleased (Setup / Privacy / Polish), pointer lines in the two older AI plans, contributor docs, three-place audit. Fixes found: `package.json`'s engine schema didn't allow `vscode-lm` and required `baseUrl` (a Copilot engine would have warned in `settings.json`); fixed. CLAUDE.md: path fixes (protocol comment in `src/webview/editor-main.ts`, `showSettingsModal` in `packages/core/src/editor.ts`) plus the new modules and host methods in its AI bullets (kept). Open for Mike: `mikedown.ai.localNetworks` has no field in the Settings UI (three-place rule gap, pre-existing); M6 corrected its description only.
 
 **2026-10-29 09:05** - M5 done (`d5cb623`, 18 min). One action list on the toolbar menu and the context menu `AI` submenu (OQ7), Tasks naming and the other OQ10 renames, Open <engine> on engine errors (F9), running states, AI tab reorder, chip tooltip, dial keyboard and announcements, `when` clauses on the VS Code commands, Desktop menu labels and mnemonics, one privacy disclosure in the wizard's cloud step, Copilot in the lists. Main tree: lint 0 errors, test:unit 3123, test:edge 22, test:packages 83 (817 of 850 kB), Desktop 572, cargo green. Behaviour choices flagged to Mike: Translate in the toolbar menu works with no selection (whole document, like the command); the disabled Suggest shows its reason only after a press; Desktop Rewrite Selection is a visible menu item with its chord; on the thinking dial, arrow keys move focus without re-running, a pick re-runs. `AiError.engineId` / `AiRouteUnusable.engineId` added to public types (additive). Open wording question for Mike: the Add detail tooltip uses the plan's "(facts and examples)" while the prompt tells the model not to invent facts; M5 suggests "(reasoning and examples)". The summary's "Strings for M6" table feeds M6. Not checked visually (T3).
 
