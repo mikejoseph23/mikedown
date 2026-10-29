@@ -1,6 +1,7 @@
 import {
   AI_ENGINE_PRESETS,
   AI_LOCAL_DETECT_TIMEOUT_MS,
+  aiTimingLogParts,
   buildAuthHeaders,
   countDetectedModels,
   engineLocality,
@@ -612,10 +613,18 @@ export class AiEngineService {
       const apiKey = await this.deps.secrets.resolve(engine);
       if (controller.signal.aborted) {throw makeAiError('cancelled');}
 
+      // Adapters that stream over HTTP time the request themselves; VS Code's LM API is timed here.
+      const sentAt = this.now();
+      let firstAt: number | undefined;
       const result = await adapter.complete(engine, apiKey, model, req, (delta) => {
+        firstAt ??= this.now();
         if (!controller.signal.aborted) {onToken(delta);}
       }, controller.signal);
       result.served = { engineId: engine.id, engineName: engineName(engine), modelId: model.id, isLocal };
+      if (!result.timing) {
+        result.timing = { totalMs: this.now() - sentAt, outputChars: result.text.length };
+        if (firstAt !== undefined) {result.timing.firstTokenMs = firstAt - sentAt;}
+      }
       this.recordHealth(engine, true);
       this.logRequest(req, picked, started, result.finishReason ?? 'stop', result);
       return result;
@@ -649,7 +658,8 @@ export class AiEngineService {
   /**
    * One line per request: feature, task, engine, model, locality, latency,
    * finish, then the thinking level and `max_tokens` when the effective
-   * overrides (model's, then the request's) set a level. Never the prompt.
+   * overrides (model's, then the request's) set a level, the token counts,
+   * the time to the first token and the speed. Never the prompt.
    */
   private logRequest(
     req: AiCompletionRequest,
@@ -672,6 +682,7 @@ export class AiEngineService {
     if (usage && (usage.promptTokens !== undefined || usage.completionTokens !== undefined)) {
       parts.push(`${usage.promptTokens ?? '?'} in, ${usage.completionTokens ?? '?'} out`);
     }
+    if (result) {parts.push(...aiTimingLogParts(result));}
     this.deps.log(parts.join(' · '));
   }
 

@@ -1,6 +1,7 @@
 {
   "description": "oMLX with reasoning_effort set: reasoning_content deltas (thinking, not text) before content, ending with finish_reason \"length\". No usage chunk.",
   "kind": "openai-compatible",
+  "outputChars": 40,
   "chunks": [
     "data: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"The user wants\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" a s",
     "hort line.\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Short\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-1\",\"object\":\"chat.completion.chunk\",\"created\":1792000000,\"model\":\"tls20/Qwen3.8-Flash-Next-oQ5e-mtp\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"er",

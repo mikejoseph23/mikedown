@@ -1,0 +1,18 @@
+{
+  "description": "Which engines get stream_options.include_usage on a streamed completion (streamUsageSupported in core, stream_usage_supported in Desktop's requests.rs). OpenAI, LM Studio and Ollama always; openai-compatible on this machine or network, or on a cloud host known to take it; Anthropic never (it reports usage unasked). Mistral and unknown cloud hosts are left out.",
+  "cases": [
+    { "kind": "openai", "baseUrl": "https://api.openai.com/v1", "expected": true },
+    { "kind": "lmstudio", "baseUrl": "http://127.0.0.1:1234/v1", "expected": true },
+    { "kind": "ollama", "baseUrl": "http://127.0.0.1:11434/v1", "expected": true },
+    { "kind": "openai-compatible", "baseUrl": "http://127.0.0.1:8000/v1", "expected": true },
+    { "kind": "openai-compatible", "baseUrl": "http://localhost:8080/v1", "expected": true },
+    { "kind": "openai-compatible", "baseUrl": "http://192.168.1.20:8000/v1", "expected": true },
+    { "kind": "openai-compatible", "baseUrl": "https://openrouter.ai/api/v1", "expected": true },
+    { "kind": "openai-compatible", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai", "expected": true },
+    { "kind": "openai-compatible", "baseUrl": "https://api.groq.com/openai/v1", "expected": true },
+    { "kind": "openai-compatible", "baseUrl": "https://api.deepseek.com/v1", "expected": true },
+    { "kind": "openai-compatible", "baseUrl": "https://api.mistral.ai/v1", "expected": false },
+    { "kind": "openai-compatible", "baseUrl": "https://llm.example.com/v1", "expected": false },
+    { "kind": "anthropic", "baseUrl": "https://api.anthropic.com", "expected": false }
+  ]
+}

@@ -231,6 +231,8 @@ pub struct StreamReader {
     prompt_tokens: Option<u64>,
     completion_tokens: Option<u64>,
     error: Option<AiError>,
+    /// Reasoning (`reasoning_content`, `reasoning`, Anthropic `thinking_delta`), in UTF-16 units.
+    reasoning_chars: u64,
 }
 
 impl StreamReader {
@@ -244,7 +246,14 @@ impl StreamReader {
             prompt_tokens: None,
             completion_tokens: None,
             error: None,
+            reasoning_chars: 0,
         }
+    }
+
+    /// Port of `outputChars()`: answer plus reasoning so far, in UTF-16 units
+    /// (JavaScript string length), so both hosts estimate the same tokens.
+    pub fn output_chars(&self) -> u64 {
+        self.text.encode_utf16().count() as u64 + self.reasoning_chars
     }
 
     pub fn push(&mut self, chunk: &str) -> Vec<String> {
@@ -308,6 +317,10 @@ impl StreamReader {
                         deltas.push(content.to_string());
                     }
                 }
+                let reasoning = choice.pointer("/delta/reasoning_content").or_else(|| choice.pointer("/delta/reasoning"));
+                if let Some(r) = reasoning.and_then(Value::as_str) {
+                    self.reasoning_chars += r.encode_utf16().count() as u64;
+                }
                 if let Some(reason) = choice.get("finish_reason").and_then(Value::as_str) {
                     if !reason.is_empty() {
                         self.stop_reason = Some(reason.to_string());
@@ -331,13 +344,21 @@ impl StreamReader {
                 }
                 Some("content_block_delta") => {
                     let delta = json.get("delta");
-                    if delta.and_then(|d| d.get("type")).and_then(Value::as_str) == Some("text_delta") {
-                        if let Some(text) = delta.and_then(|d| d.get("text")).and_then(Value::as_str) {
-                            if !text.is_empty() {
-                                self.text.push_str(text);
-                                deltas.push(text.to_string());
+                    match delta.and_then(|d| d.get("type")).and_then(Value::as_str) {
+                        Some("text_delta") => {
+                            if let Some(text) = delta.and_then(|d| d.get("text")).and_then(Value::as_str) {
+                                if !text.is_empty() {
+                                    self.text.push_str(text);
+                                    deltas.push(text.to_string());
+                                }
                             }
                         }
+                        Some("thinking_delta") => {
+                            if let Some(thinking) = delta.and_then(|d| d.get("thinking")).and_then(Value::as_str) {
+                                self.reasoning_chars += thinking.encode_utf16().count() as u64;
+                            }
+                        }
+                        _ => {}
                     }
                 }
                 Some("message_delta") => {
@@ -436,6 +457,9 @@ mod tests {
             };
             assert_eq!(finish, expected["finishReason"].as_str().unwrap(), "{name}: finishReason");
             assert_eq!(outcome.stop_reason.as_deref(), expected["stopReason"].as_str(), "{name}: stopReason");
+            if let Some(chars) = fixture.get("outputChars") {
+                assert_eq!(reader.output_chars(), chars.as_u64().unwrap(), "{name}: outputChars");
+            }
             match expected.get("usage") {
                 Some(u) => {
                     let got = outcome.usage.unwrap_or_else(|| panic!("{name}: usage missing"));
@@ -454,6 +478,6 @@ mod tests {
             }
             seen += 1;
         }
-        assert_eq!(seen, 5, "all five sse fixtures are covered");
+        assert_eq!(seen, 7, "all seven sse fixtures are covered");
     }
 }

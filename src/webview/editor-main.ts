@@ -151,7 +151,9 @@
  *         probe); answered by aiHardware.
  *   Extension → Webview:
  *     { type: 'aiToken', requestId, delta }
- *     { type: 'aiDone', requestId, result: AiCompletionResult }
+ *     { type: 'aiDone', requestId, result: AiCompletionResult } — `result.timing`
+ *         (total and first-token ms, output characters) is optional; an
+ *         older host leaves it out and the popover shows no speed.
  *     { type: 'aiError', requestId, code: AiErrorCode, message } — also the
  *         failure reply to a test/discover/setSecret request.
  *     { type: 'aiEngines', engines: AiEngineStatus[] } — the listEngines reply,

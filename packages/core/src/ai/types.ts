@@ -213,11 +213,25 @@ export interface AiUsage {
   completionTokens?: number;
 }
 
+/**
+ * How long a completion took, measured by the host from sending the request.
+ * Optional on the wire: an older host sends none.
+ */
+export interface AiTiming {
+  /** To the end of the answer. */
+  totalMs: number;
+  /** To the first output, answer or reasoning. Absent when the server did not stream. */
+  firstTokenMs?: number;
+  /** Characters of output (answer plus reasoning), to estimate tokens when the engine reports no usage. */
+  outputChars?: number;
+}
+
 export interface AiCompletionResult {
   text: string;
   served: AiServedBy;
   usage?: AiUsage;
   finishReason?: AiFinishReason;
+  timing?: AiTiming;
 }
 
 /** One model as the host last saw it. */
@@ -304,6 +318,7 @@ export type AiErrorCode =
   | 'unreachable'
   | 'auth'
   | 'modelNotFound'
+  | 'modelLoadFailed'
   | 'contextOverflow'
   | 'rateLimited'
   | 'cloudBlocked'
@@ -316,6 +331,7 @@ export const AI_ERROR_CODES: readonly AiErrorCode[] = [
   'unreachable',
   'auth',
   'modelNotFound',
+  'modelLoadFailed',
   'contextOverflow',
   'rateLimited',
   'cloudBlocked',

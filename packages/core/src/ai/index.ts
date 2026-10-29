@@ -14,6 +14,7 @@ export * from './discovery';
 export * from './schema';
 export * from './router';
 export * from './sse';
+export * from './stats';
 export * from './requests';
 export * from './wire';
 export * from './errors';

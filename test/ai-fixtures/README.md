@@ -9,7 +9,8 @@ One completion stream per file:
 ```json
 {
   "description": "...",
-  "kind": "openai-compatible | anthropic",
+  "kind": "openai-compatible | lmstudio | ollama | anthropic",
+  "outputChars": 0,
   "chunks": ["raw text exactly as received, split at arbitrary points", "..."],
   "expected": {
     "deltas": ["text deltas in order, as push() returns them"],
@@ -22,15 +23,25 @@ One completion stream per file:
 }
 ```
 
-Feed `chunks` in order to `createCompletionStreamReader(kind)` (`push` each, then `finish`). `deltas` are the concatenated `push` results; the other `expected` keys are the `finish()` outcome (absent keys are absent there too). Chunks are deliberately split mid-line, inside JSON strings, inside an `event:` line and between the lines of one event; one OpenAI event uses CRLF.
+Feed `chunks` in order to `createCompletionStreamReader(kind)` (`push` each, then `finish`). `deltas` are the concatenated `push` results; the other `expected` keys are the `finish()` outcome (absent keys are absent there too). `outputChars` (optional, top level) is `reader.outputChars()` after the stream: answer plus reasoning in UTF-16 units, the basis of the host's first-token time and token estimate. Chunks are deliberately split mid-line, inside JSON strings, inside an `event:` line and between the lines of one event; one OpenAI event uses CRLF.
 
 | File | Shape |
 | --- | --- |
 | `openai-chat-stream.json` | Chat Completions deltas, keep-alive comment, usage chunk, `[DONE]` |
 | `openai-reasoning-length-stream.json` | oMLX `reasoning_content` deltas (ignored), `finish_reason: "length"` |
 | `openai-truncated-stream.json` | No `finish_reason`, no `[DONE]`, last event cut mid-JSON: `finishReason: "error"` |
+| `openai-usage-stream.json` | LM Studio with `stream_options.include_usage`: `reasoning_content`, an emoji, then usage in its own chunk with empty `choices` |
+| `openai-no-usage-stream.json` | Ollama `/v1` without usage: a `reasoning` delta, two content deltas; the host estimates tokens |
 | `anthropic-messages-stream.json` | `message_start`, `ping`, empty thinking block, three `text_delta`, `message_delta` (`end_turn`, usage), `message_stop` |
 | `anthropic-error-stream.json` | One delta, then an `error` event (`overloaded_error` maps to `rateLimited`) |
+
+## `stats/result-stats.json`
+
+`{ "description", "cases": [...] }`, each case one completion result (`text`, `usage?`, `timing?`) with the popover footer (`aiResultStatsText`, null without timing), its tooltip (`aiResultStatsTitle`) and the request log's additions (`aiTimingLogParts`; Desktop's `timing_log_parts`). Checked by `packages/core/test/ai-result-stats.test.ts` (all three) and `commands/ai/request_log.rs` (`log`).
+
+## `requests/stream-usage.json`
+
+`{ "description", "cases": [{ kind, baseUrl, expected }] }`: whether a streamed completion asks for usage (`streamUsageSupported`, `withStreamUsage`; Desktop's `stream_usage_supported`, `with_stream_usage`). Checked by `packages/core/test/ai-result-stats.test.ts` and `commands/ai/tests.rs`.
 
 ## `discovery/`
 

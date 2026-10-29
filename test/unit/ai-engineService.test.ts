@@ -46,7 +46,7 @@ function fakeAdapter(kind: AiEngineKind, overrides: Partial<ProviderAdapter> = {
   };
 }
 
-function setup(raw: Record<string, unknown> = rawSettings, opts: { env?: Record<string, string>; askConsent?: ConsentDialogAnswer; adapters?: Partial<Record<AiEngineKind, Partial<ProviderAdapter>>> } = {}) {
+function setup(raw: Record<string, unknown> = rawSettings, opts: { env?: Record<string, string>; askConsent?: ConsentDialogAnswer; adapters?: Partial<Record<AiEngineKind, Partial<ProviderAdapter>>>; now?: () => number } = {}) {
   let settings: AiSettings = parseAiSettings(raw, { onWarning: () => {} });
   const store = memoryStore();
   const consent = new Map<string, StoredConsent>();
@@ -69,6 +69,7 @@ function setup(raw: Record<string, unknown> = rawSettings, opts: { env?: Record<
     saveEngines: async (engines) => { saved.push(engines); },
     log: (l) => log.push(l),
     adapters,
+    ...(opts.now ? { now: opts.now } : {}),
   };
   const service = new AiEngineService(deps);
   return {
@@ -199,18 +200,18 @@ describe('completions', () => {
     expect(result.served).toEqual({ engineId: 'omlx', engineName: 'oMLX', modelId: 'qwen', isLocal: true });
     expect(tokens).toEqual(['ok']);
     expect(log).toHaveLength(1);
-    expect(log[0]).toMatch(/^rewrite\/rewrite · oMLX · qwen · local · \d+ ms · stop$/);
+    expect(log[0]).toMatch(/^rewrite\/rewrite · oMLX · qwen · local · \d+ ms · stop(?: · first token \d+ ms)?$/);
     expect(log.join('\n')).not.toContain('secret prompt');
   });
 
   it('adds the thinking level and max_tokens to the log line when the request sets one, and nothing otherwise', async () => {
     const { service, log } = setup(rawSettings, { env: { OMLX_API_KEY: 'sk-secret' } });
     await service.complete({}, { ...req(), requestOverrides: { reasoning_effort: 'high' }, maxTokens: 4096 }, () => {});
-    expect(log[0]).toMatch(/^rewrite\/rewrite · oMLX · qwen · local · \d+ ms · stop · thinking high · max_tokens 4096$/);
+    expect(log[0]).toMatch(/^rewrite\/rewrite · oMLX · qwen · local · \d+ ms · stop · thinking high · max_tokens 4096(?: · first token \d+ ms)?$/);
     await service.complete({}, { ...req(), requestOverrides: { reasoning_effort: 'none' } }, () => {});
-    expect(log[1]).toMatch(/· stop · thinking off$/);
+    expect(log[1]).toMatch(/· stop · thinking off(?: · first token \d+ ms)?$/);
     await service.complete({}, { ...req(), requestOverrides: { top_p: 0.5 } }, () => {});
-    expect(log[2]).toMatch(/^rewrite\/rewrite · oMLX · qwen · local · \d+ ms · stop$/);
+    expect(log[2]).toMatch(/^rewrite\/rewrite · oMLX · qwen · local · \d+ ms · stop(?: · first token \d+ ms)?$/);
     await service.complete({}, req(), () => {});
     expect(log[3]).not.toContain('thinking');
     expect(log.join('\n')).not.toMatch(/secret|sk-/);
@@ -220,9 +221,44 @@ describe('completions', () => {
     const raw = { ...rawSettings, engines: [{ ...rawSettings.engines[0], models: [{ id: 'qwen', requestOverrides: { reasoning_effort: 'low' } }] }, rawSettings.engines[1]] };
     const { service, log } = setup(raw);
     await service.complete({}, req(), () => {});
-    expect(log[0]).toMatch(/· stop · thinking low$/);
+    expect(log[0]).toMatch(/· stop · thinking low(?: · first token \d+ ms)?$/);
     await service.complete({}, { ...req(), requestOverrides: { reasoning_effort: 'high' } }, () => {});
-    expect(log[1]).toMatch(/· stop · thinking high$/);
+    expect(log[1]).toMatch(/· stop · thinking high(?: · first token \d+ ms)?$/);
+  });
+
+  it('logs the time to the first token and the speed from the adapter\'s timing and usage', async () => {
+    const { service, log } = setup(rawSettings, {
+      adapters: {
+        'openai-compatible': {
+          complete: async (engine, _key, model) => ({
+            text: 'Short.', served: { engineId: engine.id, engineName: engine.name, modelId: model.id, isLocal: true }, finishReason: 'stop',
+            usage: { promptTokens: 418, completionTokens: 68 }, timing: { totalMs: 2400, firstTokenMs: 600, outputChars: 300 },
+          }),
+        },
+      },
+    });
+    const result = await service.complete({}, req(), () => {});
+    expect(result.timing).toEqual({ totalMs: 2400, firstTokenMs: 600, outputChars: 300 });
+    expect(log[0]).toMatch(/· stop · 418 in, 68 out · first token 600 ms · 38 tok\/s$/);
+  });
+
+  it('an adapter that does not time the request (VS Code LM) is timed by the service', async () => {
+    let t = 1000;
+    const { service } = setup(rawSettings, {
+      now: () => t,
+      adapters: {
+        'openai-compatible': {
+          complete: async (engine, _key, model, _req, onToken) => {
+            t += 300;
+            onToken('Short answer.');
+            t += 1000;
+            return { text: 'Short answer.', served: { engineId: engine.id, engineName: engine.name, modelId: model.id, isLocal: true }, finishReason: 'stop' };
+          },
+        },
+      },
+    });
+    const result = await service.complete({}, req(), () => {});
+    expect(result.timing).toEqual({ totalMs: 1300, firstTokenMs: 300, outputChars: 13 });
   });
 
   it('a stored key wins over apiKeyEnv', async () => {

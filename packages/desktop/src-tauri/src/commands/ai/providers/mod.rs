@@ -22,9 +22,9 @@ use tokio::sync::watch;
 use super::discovery;
 use super::errors::{code_from_http, from_reqwest, message_from_body, AiError, ErrorCode};
 use super::model::{
-    CompletionRequest, CompletionResult, DiscoveredModel, EngineConfig, EngineKind, FinishReason, ModelConfig, ProbeOutcome, ServedBy,
+    CompletionRequest, CompletionResult, DiscoveredModel, EngineConfig, EngineKind, FinishReason, ModelConfig, ProbeOutcome, ServedBy, Timing,
 };
-use super::requests::{auth_headers, build_completion_body, engine_endpoints, unsupported_request_param, without_request_param};
+use super::requests::{auth_headers, build_completion_body, engine_endpoints, unsupported_request_param, with_stream_usage, without_request_param};
 use super::sse::{StreamReader, Utf8Chunker};
 
 pub mod anthropic;
@@ -161,7 +161,9 @@ impl From<AiError> for StreamFailure {
 }
 
 /// Streaming completion against `url`: POST the body, read SSE chunks through
-/// the kind's reader, call `on_token` for every text delta.
+/// the kind's reader, call `on_token` for every text delta. Timing runs from
+/// the POST: the first token is the first output the reader sees (reasoning
+/// included), the total is the end of the stream.
 #[allow(clippy::too_many_arguments)]
 pub async fn stream_completion(
     client: &reqwest::Client,
@@ -175,6 +177,8 @@ pub async fn stream_completion(
 ) -> Result<CompletionResult, StreamFailure> {
     check_url(url)?;
     let rb = with_headers(client.post(url), auth_headers(kind, api_key)).body(body.to_string());
+    let sent = Instant::now();
+    let mut first_token_ms: Option<u64> = None;
     let resp = tokio::select! {
         biased;
         _ = wait_cancelled(cancel.clone()) => return Err(AiError::cancelled().into()),
@@ -207,6 +211,9 @@ pub async fn stream_completion(
                 for delta in reader.push(&text) {
                     on_token(&delta);
                 }
+                if first_token_ms.is_none() && reader.output_chars() > 0 {
+                    first_token_ms = Some(sent.elapsed().as_millis() as u64);
+                }
             }
         }
     }
@@ -215,7 +222,11 @@ pub async fn stream_completion(
         for delta in reader.push(&tail) {
             on_token(&delta);
         }
+        if first_token_ms.is_none() && reader.output_chars() > 0 {
+            first_token_ms = Some(sent.elapsed().as_millis() as u64);
+        }
     }
+    let timing = Timing { total_ms: sent.elapsed().as_millis() as u64, first_token_ms, output_chars: reader.output_chars() };
     let outcome = reader.finish();
     if let Some(err) = outcome.error {
         return Err(err.into());
@@ -223,7 +234,7 @@ pub async fn stream_completion(
     if outcome.finish_reason == FinishReason::Error && outcome.text.is_empty() {
         return Err(AiError::new(ErrorCode::Unreachable, "The engine closed the connection before answering.").into());
     }
-    Ok(CompletionResult { text: outcome.text, served, usage: outcome.usage, finish_reason: outcome.finish_reason })
+    Ok(CompletionResult { text: outcome.text, served, usage: outcome.usage, finish_reason: outcome.finish_reason, timing: Some(timing) })
 }
 
 /// Parameters a model rejected this session, by (engine id, base URL, model id).
@@ -235,7 +246,8 @@ fn rejected_params() -> &'static Mutex<HashMap<(String, String, String), Vec<Str
 /// Completion over the engine's `completions` endpoint with the body for its
 /// kind. Every kind shares this; they differ in discovery.
 ///
-/// When the model rejects a parameter (a 400 that names `temperature`,
+/// Usage rides in the stream where the server takes `stream_options`
+/// (`with_stream_usage`). When the model rejects a parameter (a 400 that names `temperature`,
 /// `max_tokens` and the like) the request is retried once without it, or
 /// with its replacement, and the parameter is remembered for that engine
 /// and model for the session, so the next request leaves it out from the
@@ -253,7 +265,7 @@ pub async fn complete_streaming(
 ) -> Result<CompletionResult, AiError> {
     let url = engine_endpoints(engine.kind, &engine.base_url).completions;
     let key = (engine.id.clone(), engine.base_url.clone(), model.id.clone());
-    let mut body = build_completion_body(engine.kind, model, req, true);
+    let mut body = with_stream_usage(build_completion_body(engine.kind, model, req, true), engine.kind, &engine.base_url);
     let remembered = rejected_params().lock().unwrap().get(&key).cloned().unwrap_or_default();
     for param in &remembered {
         body = without_request_param(&body, param).unwrap_or(body);

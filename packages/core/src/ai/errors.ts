@@ -11,8 +11,11 @@ import type { AiError, AiErrorCode } from './types';
 export interface AiErrorCopy {
   title: string;
   message: string;
-  /** Suggested next step, when there is one. `openEngine`: the failing engine's own page. */
-  action?: 'openSettings' | 'openEngine' | 'retry' | 'shortenSelection';
+  /**
+   * Suggested next step, when there is one. `openEngine`: the failing
+   * engine's own page. `chooseModel`: the same page, to pick another model.
+   */
+  action?: 'openSettings' | 'openEngine' | 'chooseModel' | 'retry' | 'shortenSelection';
 }
 
 export const AI_ERROR_COPY: Readonly<Record<AiErrorCode, AiErrorCopy>> = {
@@ -30,6 +33,11 @@ export const AI_ERROR_COPY: Readonly<Record<AiErrorCode, AiErrorCopy>> = {
     title: 'Model not found',
     message: 'The engine does not serve this model. Refresh models or pick another one in AI settings.',
     action: 'openSettings',
+  },
+  modelLoadFailed: {
+    title: "Model didn't load",
+    message: "The engine couldn't load the model. Load it in the engine's app, or choose another model.",
+    action: 'chooseModel',
   },
   contextOverflow: {
     title: 'Too much text',
@@ -105,35 +113,59 @@ export function toAiError(err: unknown): AiError {
   return { code: 'unknown', message };
 }
 
-/** The codes whose fix is on one engine's page, when the error names the engine. */
-const ENGINE_CODES: ReadonlySet<AiErrorCode> = new Set(['unreachable', 'auth', 'modelNotFound']);
-
-/** Copy for `unreachable`, `auth` and `modelNotFound` that names the engine ("Anthropic refused the API key."). */
-const ENGINE_COPY: Partial<Record<AiErrorCode, (engine: string) => string>> = {
+/** Copy for the codes whose fix is on one engine's page, naming the engine ("Anthropic refused the API key."). */
+const ENGINE_COPY: Partial<Record<AiErrorCode, (engine: string, model: string) => string>> = {
   unreachable: (engine) => `${engine} did not answer. Check that the server is running and the base URL is right.`,
   auth: (engine) => `${engine} refused the API key. Store a new key, or check the environment variable.`,
   modelNotFound: (engine) => `${engine} does not serve this model. Refresh its models or pick another one.`,
+  modelLoadFailed: (engine, model) => `${engine} couldn't load ${model}. Load it in ${engine}, or choose another model.`,
 };
 
 /**
  * The copy for `code`. With `engine` (the display name of the engine the
  * request went to), an engine problem names it and its action is
- * `openEngine`: the popover's button opens that engine instead of the AI tab.
+ * `openEngine` (`chooseModel` for a model that did not load): the popover's
+ * button opens that engine instead of the AI tab. `model` names the model
+ * where the copy has room for it.
  */
-export function aiErrorCopy(code: AiErrorCode, opts: { engine?: string } = {}): AiErrorCopy {
+export function aiErrorCopy(code: AiErrorCode, opts: { engine?: string; model?: string } = {}): AiErrorCopy {
   const copy = AI_ERROR_COPY[code] ?? AI_ERROR_COPY.unknown;
-  const named = opts.engine && ENGINE_CODES.has(code) ? ENGINE_COPY[code] : undefined;
-  return named && opts.engine ? { ...copy, message: named(opts.engine), action: 'openEngine' } : copy;
+  const named = opts.engine ? ENGINE_COPY[code] : undefined;
+  if (!named || !opts.engine) {return copy;}
+  return { ...copy, message: named(opts.engine, opts.model || 'the model'), action: copy.action === 'chooseModel' ? 'chooseModel' : 'openEngine' };
+}
+
+/**
+ * A local server that could not load the model: LM Studio's `Failed to load
+ * model "x"`, llama.cpp's `error loading model`, Ollama's `llama runner
+ * process has terminated` and its out-of-memory refusal.
+ */
+export const MODEL_LOAD_FAILED_PHRASES: readonly string[] = [
+  'failed to load model',
+  'error loading model',
+  'unable to load model',
+  'could not load model',
+  "couldn't load model",
+  'model failed to load',
+  'llama runner process has terminated',
+  'requires more system memory',
+];
+
+function isModelLoadFailure(bodyText: string): boolean {
+  const lower = bodyText.toLowerCase();
+  return MODEL_LOAD_FAILED_PHRASES.some((p) => lower.includes(p));
 }
 
 /**
  * Map an HTTP failure to a code (shared by both hosts): 401/403 auth, 404
- * modelNotFound, 413 or a 400 that mentions the context contextOverflow, 429
- * and 529 rateLimited, 502/503/504 unreachable, everything else unknown.
+ * modelNotFound, a body that says the model failed to load modelLoadFailed,
+ * 413 or a 400 that mentions the context contextOverflow, 429 and 529
+ * rateLimited, 502/503/504 unreachable, everything else unknown.
  */
 export function aiErrorCodeFromHttp(status: number, bodyText = ''): AiErrorCode {
   if (status === 401 || status === 403) {return 'auth';}
   if (status === 404) {return 'modelNotFound';}
+  if (isModelLoadFailure(bodyText)) {return 'modelLoadFailed';}
   if (status === 413) {return 'contextOverflow';}
   if (status === 429 || status === 529) {return 'rateLimited';}
   if (status === 400 && /context|too long|maximum.*tokens|token limit/i.test(bodyText)) {return 'contextOverflow';}

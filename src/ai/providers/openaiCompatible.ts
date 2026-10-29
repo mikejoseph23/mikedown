@@ -8,6 +8,7 @@ import {
   parseEmbeddingsResponse,
   parseOmlxModelStatus,
   parseOpenAiModelList,
+  withStreamUsage,
   withModelStatus,
   withoutRequestParam,
   type AiCompletionRequest,
@@ -108,17 +109,20 @@ export async function probeModelList(
 }
 
 /** The result shape every adapter returns. The engine service fills `served.isLocal` from the user's local networks. */
-export function completionResult(engine: AiEngineConfig, model: AiModelConfig, out: { text: string; finishReason: AiCompletionResult['finishReason']; usage?: AiCompletionResult['usage'] }): AiCompletionResult {
+export function completionResult(engine: AiEngineConfig, model: AiModelConfig, out: Pick<AiCompletionResult, 'text' | 'finishReason' | 'usage' | 'timing'>): AiCompletionResult {
   const result: AiCompletionResult = {
     text: out.text,
     served: { engineId: engine.id, engineName: engine.name || engine.id, modelId: model.id, isLocal: engineLocality(engine) === 'local' },
     finishReason: out.finishReason,
   };
   if (out.usage) {result.usage = out.usage;}
+  if (out.timing) {result.timing = out.timing;}
   return result;
 }
 
 /**
+ * Usage rides in the stream where the server takes `stream_options`
+ * (`withStreamUsage`), so the result can say how many tokens came back.
  * Completions retry once when the model rejects a parameter (a 400 that
  * names `temperature`, `max_tokens` and the like), without it or with its
  * replacement. The parameter is remembered per engine (and base URL) and model for the
@@ -134,7 +138,7 @@ export function createChatCompletionsAdapter(parts: ChatCompletionsAdapterParts,
     probe: (engine, apiKey, signal) => probeModelList(ctx, engine, apiKey, signal),
     async complete(engine, apiKey, model, req: AiCompletionRequest, onToken, signal) {
       const key = `${engine.id}\n${engine.baseUrl}\n${model.id}`;
-      let body = buildCompletionBody(parts.kind, model, req);
+      let body = withStreamUsage(buildCompletionBody(parts.kind, model, req), engine);
       for (const param of rejected.get(key) ?? []) {body = withoutRequestParam(body, param) ?? body;}
       const send = (b: Record<string, unknown>) =>
         streamCompletion(ctx.fetch, parts.kind, engineEndpoints(engine).completions, buildAuthHeaders(parts.kind, apiKey), b, onToken, signal);

@@ -1,11 +1,11 @@
 //! The per-request log line, in the same shape as the VS Code extension's
 //! (`logRequest` in `src/ai/engineService.ts`):
-//! `feature/task · engine · model · local|cloud · N ms · finish[ · thinking <level>[ · max_tokens N]][ · P in, C out]`.
+//! `feature/task · engine · model · local|cloud · N ms · finish[ · thinking <level>[ · max_tokens N]][ · P in, C out][ · first token N ms][ · [~]X tok/s]`.
 //! Never the prompt, the response or a key.
 
 use serde_json::{Map, Value};
 
-use super::model::{EngineKind, ServedBy, Usage};
+use super::model::{EngineKind, ServedBy, Timing, Usage};
 use super::requests::merge_request_overrides;
 
 /// `thinking <level>` and `max_tokens <n>` when the effective overrides (the
@@ -55,6 +55,42 @@ fn thinking_level(kind: EngineKind, overrides: &Map<String, Value>) -> Option<&'
     Some(if kind == EngineKind::LmStudio { "medium" } else { level })
 }
 
+/// Characters per token for the estimate when the engine reports no usage (`AI_CHARS_PER_TOKEN`).
+const CHARS_PER_TOKEN: f64 = 4.0;
+
+/// Port of `formatAiTokensPerSecond`: "38 tok/s", "~38 tok/s", "4.5 tok/s".
+fn format_tokens_per_second(tps: f64, approximate: bool) -> String {
+    let n = if tps < 10.0 { format!("{tps:.1}") } else { format!("{}", tps.round()) };
+    format!("{}{n} tok/s", if approximate { "~" } else { "" })
+}
+
+/// Port of `aiTimingLogParts` (core `stats.ts`): `first token N ms` and the
+/// speed. Output tokens are the reported count when above zero, else
+/// output characters / 4 (approximate); speed is over the time after the
+/// first token, or the whole request without one.
+pub fn timing_log_parts(timing: Option<&Timing>, usage: Option<&Usage>) -> Vec<String> {
+    let Some(t) = timing else { return Vec::new() };
+    let mut parts = Vec::new();
+    if let Some(first) = t.first_token_ms {
+        parts.push(format!("first token {first} ms"));
+    }
+    let reported = usage.and_then(|u| u.completion_tokens).filter(|n| *n > 0);
+    let (tokens, approximate) = match reported {
+        Some(n) => (Some(n as f64), false),
+        None if t.output_chars > 0 => (Some((t.output_chars as f64 / CHARS_PER_TOKEN).round().max(1.0)), true),
+        None => (None, false),
+    };
+    let generation_ms = match t.first_token_ms {
+        Some(first) if t.total_ms > first => t.total_ms - first,
+        _ => t.total_ms,
+    };
+    if let Some(tokens) = tokens.filter(|_| generation_ms > 0) {
+        parts.push(format_tokens_per_second(tokens / (generation_ms as f64 / 1000.0), approximate));
+    }
+    parts
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn format_request_log(
     feature: &str,
     task: &str,
@@ -63,6 +99,7 @@ pub fn format_request_log(
     finish: &str,
     thinking: &[String],
     usage: Option<&Usage>,
+    timing: Option<&Timing>,
 ) -> String {
     let mut parts = vec![
         format!("{feature}/{task}"),
@@ -79,6 +116,7 @@ pub fn format_request_log(
             parts.push(format!("{} in, {} out", n(u.prompt_tokens), n(u.completion_tokens)));
         }
     }
+    parts.extend(timing_log_parts(timing, usage));
     parts.join(" · ")
 }
 
@@ -94,7 +132,7 @@ mod tests {
 
     #[test]
     fn plain_line_without_thinking_keeps_the_base_shape() {
-        let line = format_request_log("rewrite", "rewrite", &served(true), 13024, "stop", &[], None);
+        let line = format_request_log("rewrite", "rewrite", &served(true), 13024, "stop", &[], None, None);
         assert_eq!(line, "rewrite/rewrite · oMLX · qwen · local · 13024 ms · stop");
     }
 
@@ -103,8 +141,37 @@ mod tests {
         let overrides = json!({ "reasoning_effort": "high" });
         let thinking = thinking_log_parts(EngineKind::OpenAiCompatible, None, Some(&overrides), Some(4096));
         let usage = Usage { prompt_tokens: Some(10), completion_tokens: None };
-        let line = format_request_log("rewrite", "rewrite", &served(false), 5, "length", &thinking, Some(&usage));
+        let line = format_request_log("rewrite", "rewrite", &served(false), 5, "length", &thinking, Some(&usage), None);
         assert_eq!(line, "rewrite/rewrite · oMLX · qwen · cloud · 5 ms · length · thinking high · max_tokens 4096 · 10 in, ? out");
+    }
+
+    #[test]
+    fn timing_comes_last_with_the_first_token_and_the_speed() {
+        let usage = Usage { prompt_tokens: Some(418), completion_tokens: Some(68) };
+        let timing = Timing { total_ms: 2400, first_token_ms: Some(600), output_chars: 300 };
+        let line = format_request_log("rewrite", "rewrite", &served(true), 2410, "stop", &[], Some(&usage), Some(&timing));
+        assert_eq!(line, "rewrite/rewrite · oMLX · qwen · local · 2410 ms · stop · 418 in, 68 out · first token 600 ms · 38 tok/s");
+    }
+
+    #[test]
+    fn timing_parts_match_the_shared_stats_fixture() {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../test/ai-fixtures/stats/result-stats.json");
+        let fixture: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            let name = case["name"].as_str().unwrap();
+            let result = &case["result"];
+            let usage = result.get("usage").map(|u| Usage {
+                prompt_tokens: u.get("promptTokens").and_then(Value::as_u64),
+                completion_tokens: u.get("completionTokens").and_then(Value::as_u64),
+            });
+            let timing = result.get("timing").map(|t| Timing {
+                total_ms: t["totalMs"].as_u64().unwrap(),
+                first_token_ms: t.get("firstTokenMs").and_then(Value::as_u64),
+                output_chars: t.get("outputChars").and_then(Value::as_u64).unwrap_or(0),
+            });
+            let want: Vec<String> = case["log"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
+            assert_eq!(timing_log_parts(timing.as_ref(), usage.as_ref()), want, "{name}");
+        }
     }
 
     #[test]

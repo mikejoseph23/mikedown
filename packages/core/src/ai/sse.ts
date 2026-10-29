@@ -112,6 +112,12 @@ export interface StreamOutcome {
 export interface CompletionStreamReader {
   push(chunk: string): string[];
   finish(): StreamOutcome;
+  /**
+   * Output seen so far, answer plus reasoning, in UTF-16 units: above zero
+   * once the model starts generating (the host's first-token time), and the
+   * basis of a token estimate when the engine reports no usage.
+   */
+  outputChars(): number;
 }
 
 function parseJson(data: string): Record<string, unknown> | null {
@@ -170,6 +176,7 @@ function mapAnthropicStop(reason: string): AiFinishReason {
 export function createOpenAiStreamReader(): CompletionStreamReader {
   const parser = new SseParser();
   let text = '';
+  let reasoningChars = 0;
   let done = false;
   let stopReason: string | undefined;
   let usage: AiUsage | undefined;
@@ -201,6 +208,9 @@ export function createOpenAiStreamReader(): CompletionStreamReader {
           text += content;
           deltas.push(content);
         }
+        // oMLX, LM Studio and vLLM send `reasoning_content`; Ollama and OpenRouter `reasoning`.
+        const reasoning = delta?.reasoning_content ?? delta?.reasoning;
+        if (typeof reasoning === 'string') {reasoningChars += reasoning.length;}
         if (typeof choice.finish_reason === 'string' && choice.finish_reason) {stopReason = choice.finish_reason;}
       }
     }
@@ -209,6 +219,7 @@ export function createOpenAiStreamReader(): CompletionStreamReader {
 
   return {
     push: (chunk) => handle(parser.push(chunk)),
+    outputChars: () => text.length + reasoningChars,
     finish() {
       handle(parser.end());
       let finishReason: AiFinishReason;
@@ -232,6 +243,7 @@ export function createOpenAiStreamReader(): CompletionStreamReader {
 export function createAnthropicStreamReader(): CompletionStreamReader {
   const parser = new SseParser();
   let text = '';
+  let thinkingChars = 0;
   let done = false;
   let stopReason: string | undefined;
   let promptTokens: number | undefined;
@@ -257,6 +269,8 @@ export function createAnthropicStreamReader(): CompletionStreamReader {
           if (delta?.type === 'text_delta' && typeof delta.text === 'string' && delta.text) {
             text += delta.text;
             deltas.push(delta.text);
+          } else if (delta?.type === 'thinking_delta' && typeof delta.thinking === 'string') {
+            thinkingChars += delta.thinking.length;
           }
           break;
         }
@@ -283,6 +297,7 @@ export function createAnthropicStreamReader(): CompletionStreamReader {
 
   return {
     push: (chunk) => handle(parser.push(chunk)),
+    outputChars: () => text.length + thinkingChars,
     finish() {
       handle(parser.end());
       let finishReason: AiFinishReason;

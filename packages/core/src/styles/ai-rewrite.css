@@ -373,6 +373,8 @@
 :is(.mikedown-root, .mikedown-portal) .ai-rw-error-title { font-weight: 600; color: var(--mikedown-text-ui, #3a3a3d); }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-error-message { color: var(--mikedown-text-ui, #3a3a3d); }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-error-detail { margin-top: 2px; color: var(--mikedown-text-muted, #6f6f74); font-size: 12px; overflow-wrap: anywhere; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-error-more { margin-top: 4px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-error-more > summary { color: var(--mikedown-text-muted, #6f6f74); font-size: 12px; cursor: pointer; }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-error-actions { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
 /* Structure check: a quiet warning line above the footer; Accept stays on. */
@@ -414,6 +416,16 @@
   border-top: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08));
 }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-note { color: var(--mikedown-warning, #b26a00); font-size: 12px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-stats {
+  margin-left: auto;
+  color: var(--mikedown-text-muted, #6f6f74);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: default;
+}
+/* The stats take the push to the right; the badge sits beside them. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-stats:not([hidden]) + .ai-rw-badge { margin-left: 0; }
 
 :is(.mikedown-root, .mikedown-portal) .ai-rw-btn {
   height: 26px;

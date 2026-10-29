@@ -193,6 +193,19 @@ pub struct ServedBy {
     pub is_local: bool,
 }
 
+/// How long a completion took, from sending the request (`AiTiming` in core).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Timing {
+    /// To the end of the answer.
+    pub total_ms: u64,
+    /// To the first output, answer or reasoning.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_token_ms: Option<u64>,
+    /// Output characters (answer plus reasoning, UTF-16 units), for the token estimate.
+    pub output_chars: u64,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompletionResult {
@@ -201,6 +214,8 @@ pub struct CompletionResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<Usage>,
     pub finish_reason: FinishReason,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timing: Option<Timing>,
 }
 
 /// Capability values a discovery endpoint reported; anything absent is filled

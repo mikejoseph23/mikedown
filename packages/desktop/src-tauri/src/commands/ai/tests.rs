@@ -501,6 +501,47 @@ async fn an_openai_style_stream_reaches_on_token_and_the_result() {
     assert_eq!(body["max_tokens"], 32);
 }
 
+#[test]
+fn stream_usage_goes_to_the_engines_in_the_fixture() {
+    let fixture = requests_fixture("stream-usage.json");
+    for case in fixture["cases"].as_array().unwrap() {
+        let kind: super::model::EngineKind = serde_json::from_value(case["kind"].clone()).unwrap();
+        let base = case["baseUrl"].as_str().unwrap();
+        let expected = case["expected"].as_bool().unwrap();
+        assert_eq!(super::requests::stream_usage_supported(kind, base), expected, "{base}");
+        let body = super::requests::with_stream_usage(json!({ "stream": true }), kind, base);
+        assert_eq!(body.get("stream_options").is_some(), expected, "{base}: body");
+    }
+    // Not streaming, or the overrides set it: left alone.
+    let lm = super::model::EngineKind::LmStudio;
+    assert!(super::requests::with_stream_usage(json!({ "stream": false }), lm, "http://127.0.0.1:1234/v1").get("stream_options").is_none());
+    let own = json!({ "stream": true, "stream_options": { "include_usage": false } });
+    assert_eq!(super::requests::with_stream_usage(own.clone(), lm, "http://127.0.0.1:1234/v1"), own);
+}
+
+#[tokio::test]
+async fn a_stream_with_usage_is_timed_and_asked_for_usage() {
+    let fixture = sse_fixture("openai-usage-stream.json");
+    let chunks = chunks_of(&fixture);
+    let (base, seen) = serve(move |_| Reply::Sse(chunks.clone())).await;
+    let eng = engine("lmstudio", &format!("{base}/v1"));
+    let (_tx, cancel) = never();
+    let (result, _) = run(&eng, None, &request(json!({})), &cancel).await;
+
+    let result = result.unwrap();
+    assert_eq!(result.usage.unwrap().completion_tokens, Some(6));
+    let timing = result.timing.expect("timing");
+    assert_eq!(timing.output_chars, fixture["outputChars"].as_u64().unwrap());
+    let first = timing.first_token_ms.expect("first token");
+    assert!(first <= timing.total_ms);
+    let json = serde_json::to_value(&result).unwrap();
+    assert!(json["timing"]["totalMs"].is_u64(), "timing crosses to the webview in camelCase");
+
+    let sent = seen.lock().unwrap();
+    let body: Value = serde_json::from_str(&sent[0].body).unwrap();
+    assert_eq!(body["stream_options"], json!({ "include_usage": true }));
+}
+
 #[tokio::test]
 async fn an_anthropic_stream_uses_the_messages_api_and_its_headers() {
     let fixture = sse_fixture("anthropic-messages-stream.json");
@@ -520,6 +561,7 @@ async fn an_anthropic_stream_uses_the_messages_api_and_its_headers() {
     assert_eq!(sent[0].headers["anthropic-version"], super::requests::ANTHROPIC_API_VERSION);
     assert!(!sent[0].headers.contains_key("authorization"));
     let body: Value = serde_json::from_str(&sent[0].body).unwrap();
+    assert!(body.get("stream_options").is_none(), "Anthropic reports usage unasked");
     assert_eq!(body["system"], "be brief");
     assert!(body.get("temperature").is_none(), "Anthropic rejects sampling parameters");
 }
@@ -557,6 +599,7 @@ async fn http_failures_map_to_codes_with_the_servers_message() {
         (404, json!({ "error": { "message": "no such model" } }), ErrorCode::ModelNotFound),
         (429, json!({}), ErrorCode::RateLimited),
         (400, json!({ "error": { "message": "maximum context length is 8192 tokens" } }), ErrorCode::ContextOverflow),
+        (400, json!({ "error": "Failed to load model \"qwen3.8-flash-next-oq5e-mtp\". Error: Failed to load model." }), ErrorCode::ModelLoadFailed),
     ] {
         let (base, _) = serve(move |_| Reply::Json(status, body.clone())).await;
         let (_tx, cancel) = never();

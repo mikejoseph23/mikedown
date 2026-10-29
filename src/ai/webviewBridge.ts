@@ -21,7 +21,7 @@ import type { AiEngineService } from './engineService';
  *
  * Host → webview:
  *   aiToken        { requestId, delta }
- *   aiDone         { requestId, result: AiCompletionResult }
+ *   aiDone         { requestId, result: AiCompletionResult }  (`result.timing` optional: total and first-token ms)
  *   aiError        { requestId, code, message }   (also answers a failed test/discover/setSecret/consent)
  *   aiEngines      { engines: AiEngineStatus[] }  (reply to aiListEngines, and pushed after a settings or status change)
  *   aiEngineStatus { requestId, status }

@@ -53,6 +53,9 @@ import {
   DEFAULT_CONTEXT_TOKENS,
   aiErrorCopy,
   aiLengthLimitCopy,
+  aiResultStats,
+  aiResultStatsText,
+  aiResultStatsTitle,
   budgetDocument,
   buildSummaryMessages,
   buildTitleMessages,
@@ -72,7 +75,7 @@ import {
   whatIsSent,
   type AiSummaryKind,
 } from './ai';
-import type { AiError, AiErrorCopy, AiMessage, AiRouteOk, AiSendsScope, AiServedBy, AiThinkingLevel } from './ai';
+import type { AiError, AiErrorCopy, AiMessage, AiResultStats, AiRouteOk, AiSendsScope, AiServedBy, AiThinkingLevel } from './ai';
 import type { AiServedRequest } from './ai-settings-model';
 import {
   AI_AUDIENCES,
@@ -1032,6 +1035,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   let summaryCutOff = false;
   let route: AiRouteOk | null = null;
   let served: AiServedBy | null = null;
+  /** How long the served result took and how fast it came (null: the host did not measure). */
+  let stats: AiResultStats | null = null;
   let viaFallback = false;
   /** The thinking dial for the current route; null hides it (no mapping, tier-1 host, no route yet). */
   let thinking: AiRunThinking | null = null;
@@ -1062,6 +1067,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   // Parts rebuilt per open.
   let titleEl: HTMLElement;
   let badgeEl: HTMLElement;
+  let statsEl: HTMLElement;
   let thinkEl: HTMLElement;
   let chooseEl: HTMLElement;
   let menuEl: HTMLElement;
@@ -1224,7 +1230,10 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     retryBtn = button('ai-rw-btn', 'Retry', () => rerun());
     copyBtn = button('ai-rw-btn', 'Copy', () => copy());
     noteEl = el('span', 'ai-rw-note');
-    footEl.append(acceptBtn, retryBtn, copyBtn, noteEl, badgeEl);
+    // "2.4 s · 38 tok/s", beside the badge once the answer is in.
+    statsEl = el('span', 'ai-rw-stats');
+    statsEl.hidden = true;
+    footEl.append(acceptBtn, retryBtn, copyBtn, noteEl, statsEl, badgeEl);
 
     liveEl = el('div', 'ai-rw-sr');
     liveEl.setAttribute('aria-live', 'polite');
@@ -1573,6 +1582,11 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     copyBtn.setAttribute('aria-disabled', (phase === 'done' ? finalText : rewriteVisibleText(raw)).trim() ? 'false' : 'true');
     retryBtn.hidden = phase === 'error';
     noteEl.textContent = repairing ? REPAIR_NOTE : note;
+    statsEl.hidden = !(phase === 'done' && stats);
+    if (phase === 'done' && stats) {
+      statsEl.textContent = aiResultStatsText(stats);
+      statsEl.title = aiResultStatsTitle(stats);
+    }
 
     // What part of the document was sent, when not all of it fit.
     const covered = job === 'rewrite' ? (target.scope === 'document' ? 'translate' : null) : job;
@@ -1606,7 +1620,9 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   function copyFor(e: AiError): AiErrorCopy {
     if (unavailable) {return { title: 'No engine can rewrite right now', message: e.message, action: 'openSettings' as const };}
     const engine = errorEngine(e);
-    return errorCopy ?? aiErrorCopy(e.code, engine ? { engine } : {});
+    // The model the request went to, for "LM Studio couldn't load <model>".
+    const model = route && (!e.engineId || route.engineId === e.engineId) ? route.modelId : undefined;
+    return errorCopy ?? aiErrorCopy(e.code, { ...(engine ? { engine } : {}), ...(model ? { model } : {}) });
   }
 
   function renderError(e: AiError): void {
@@ -1618,7 +1634,14 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     // The router's reason or the host's detail, when it says more than the generic copy.
     const detail = e.message && e.message !== copyText.message ? e.message : '';
     textBox.append(el('div', 'ai-rw-error-message', e.code === 'unknown' && detail ? detail : copyText.message));
-    if (detail && e.code !== 'unknown') {textBox.append(el('div', 'ai-rw-error-detail', detail));}
+    if (detail && e.code === 'modelLoadFailed') {
+      // The server's own words are long and technical: one click away.
+      const more = el('details', 'ai-rw-error-more');
+      more.append(el('summary', undefined, 'Details'), el('div', 'ai-rw-error-detail', detail));
+      textBox.append(more);
+    } else if (detail && e.code !== 'unknown') {
+      textBox.append(el('div', 'ai-rw-error-detail', detail));
+    }
     if (e.code === 'contextOverflow' && target) {
       const what = target.scope === 'selection' ? 'The selection' : 'The document';
       const size = job === 'summary' ? summaryJob?.markdown.length ?? 0
@@ -1627,9 +1650,10 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     }
     const actions = el('div', 'ai-rw-error-actions');
     // An engine problem opens that engine's page, by name (F9).
-    const onEngine = copyText.action === 'openEngine' && !!e.engineId;
-    const settingsLabel = onEngine ? `Open ${errorEngine(e) ?? 'engine'}` : 'Open AI settings';
-    const settingsBtn = button(`ai-rw-btn${copyText.action === 'openSettings' || onEngine ? ' ai-rw-btn--primary' : ''}`, settingsLabel, () => {
+    const onEngine = (copyText.action === 'openEngine' || copyText.action === 'chooseModel') && !!e.engineId;
+    const settingsLabel = copyText.action === 'chooseModel' ? 'Choose model' : onEngine ? `Open ${errorEngine(e) ?? 'engine'}` : 'Open AI settings';
+    const primary = copyText.action === 'openSettings' || copyText.action === 'chooseModel' || onEngine;
+    const settingsBtn = button(`ai-rw-btn${primary ? ' ai-rw-btn--primary' : ''}`, settingsLabel, () => {
       close({ refocus: false });
       if (onEngine) {deps.openSettings(e.engineId);} else {deps.openSettings();}
     });
@@ -1689,6 +1713,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     summaryCutOff = false;
     route = null;
     served = null;
+    stats = null;
     viaFallback = false;
     thinking = null;
     error = null;
@@ -1789,6 +1814,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     finalText = '';
     summaryCutOff = false;
     served = null;
+    stats = null;
     error = null;
     errorCopy = null;
     note = '';
@@ -1826,6 +1852,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     // The feature rides along so the sidebar chip can say what the last request sent.
     const by: AiServedRequest = { ...outcome.result.served, ...jobSends() };
     served = by;
+    stats = aiResultStats(outcome.result);
     viaFallback = outcome.viaFallback;
     thinking = outcome.thinking;
     deps.onServed(by, outcome.viaFallback);

@@ -7,6 +7,7 @@ import {
   type AiEngineKind,
   type AiError,
   type AiFinishReason,
+  type AiTiming,
   type AiUsage,
 } from '@mikedown/core/ai';
 
@@ -148,6 +149,7 @@ export interface StreamResult {
   text: string;
   finishReason: AiFinishReason;
   usage?: AiUsage;
+  timing?: AiTiming;
 }
 
 type Json = Record<string, unknown>;
@@ -185,6 +187,9 @@ function parseWholeCompletion(kind: AiEngineKind, json: unknown): StreamResult {
  * POST a streaming completion and feed the SSE body through core's reader for
  * `kind`, calling `onToken` per text delta. A stream that reports an error, or
  * ends without its terminator, rejects: half an answer is not an answer.
+ *
+ * Timing runs from the POST: the first token is the first output the reader
+ * sees (reasoning included), the total is the end of the stream.
  */
 export async function streamCompletion(
   doFetch: FetchLike,
@@ -194,7 +199,9 @@ export async function streamCompletion(
   body: unknown,
   onToken: (delta: string) => void,
   signal: AbortSignal,
+  now: () => number = () => performance.now(),
 ): Promise<StreamResult> {
+  const sent = now();
   let res: Response;
   try {
     res = await doFetch(url, { method: 'POST', headers: { ...headers, accept: 'text/event-stream' }, body: JSON.stringify(body), signal });
@@ -208,26 +215,33 @@ export async function streamCompletion(
     if (contentType.includes('application/json')) {
       const whole = parseWholeCompletion(kind, await res.json());
       if (whole.text) {onToken(whole.text);}
-      return whole;
+      return { ...whole, timing: { totalMs: Math.round(now() - sent), outputChars: whole.text.length } };
     }
     if (!res.body) {throw makeAiError('unknown', `${originOf(url)} sent an empty response.`);}
 
     const reader = createCompletionStreamReader(kind);
     const decoder = new TextDecoder();
     const stream = res.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
+    let firstAt: number | undefined;
+    const feed = (text: string): void => {
+      for (const delta of reader.push(text)) {onToken(delta);}
+      if (firstAt === undefined && reader.outputChars() > 0) {firstAt = now();}
+    };
     for (;;) {
       const { done, value } = await stream.read();
       if (done) {break;}
-      for (const delta of reader.push(decoder.decode(value, { stream: true }))) {onToken(delta);}
+      feed(decoder.decode(value, { stream: true }));
     }
-    for (const delta of reader.push(decoder.decode())) {onToken(delta);}
+    feed(decoder.decode());
 
     const outcome = reader.finish();
     if (outcome.error) {throw makeAiError(outcome.error.code, outcome.error.message);}
     if (outcome.finishReason === 'error') {
       throw makeAiError('unknown', `${originOf(url)} closed the stream before the answer was complete.`);
     }
-    return { text: outcome.text, finishReason: outcome.finishReason, ...(outcome.usage ? { usage: outcome.usage } : {}) };
+    const timing: AiTiming = { totalMs: Math.round(now() - sent), outputChars: reader.outputChars() };
+    if (firstAt !== undefined) {timing.firstTokenMs = Math.round(firstAt - sent);}
+    return { text: outcome.text, finishReason: outcome.finishReason, ...(outcome.usage ? { usage: outcome.usage } : {}), timing };
   } catch (err) {
     throw networkError(err, url);
   }

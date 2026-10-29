@@ -1,0 +1,18 @@
+{
+  "description": "Ollama /v1 stream without stream_options: a `reasoning` delta (counted in outputChars), two content deltas, finish_reason stop, [DONE], no usage. The host estimates output tokens from outputChars.",
+  "kind": "ollama",
+  "outputChars": 28,
+  "chunks": [
+    "data: {\"id\":\"chatcmpl-417\",\"object\":\"chat.completion.chunk\",\"created\":1793282400,\"model\":\"qwen3:8b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning\":\"Short answer.\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-417\",\"object\":\"chat.completion.chunk\",\"created\":1793282400,\"model\":\"qwen3:8b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"A ti",
+    "dy\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-417\",\"object\":\"chat.completion.chunk\",\"created\":1793282400,\"model\":\"qwen3:8b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\" rewrite.\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-417\",\"object\":\"chat.completion.chunk\",\"created\":1793282400,\"model\":\"qwen3:8b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+  ],
+  "expected": {
+    "deltas": [
+      "A tidy",
+      " rewrite."
+    ],
+    "text": "A tidy rewrite.",
+    "finishReason": "stop",
+    "stopReason": "stop"
+  }
+}

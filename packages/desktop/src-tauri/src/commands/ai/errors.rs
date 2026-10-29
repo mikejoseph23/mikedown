@@ -11,6 +11,7 @@ pub enum ErrorCode {
     Unreachable,
     Auth,
     ModelNotFound,
+    ModelLoadFailed,
     ContextOverflow,
     RateLimited,
     CloudBlocked,
@@ -26,6 +27,7 @@ impl ErrorCode {
             ErrorCode::Unreachable => "unreachable",
             ErrorCode::Auth => "auth",
             ErrorCode::ModelNotFound => "modelNotFound",
+            ErrorCode::ModelLoadFailed => "modelLoadFailed",
             ErrorCode::ContextOverflow => "contextOverflow",
             ErrorCode::RateLimited => "rateLimited",
             ErrorCode::CloudBlocked => "cloudBlocked",
@@ -62,7 +64,21 @@ impl std::fmt::Display for AiError {
     }
 }
 
-/// 401/403 auth, 404 modelNotFound, 413 or a 400 that mentions the context
+/// A local server that could not load the model (LM Studio, llama.cpp,
+/// Ollama). Mirrors `MODEL_LOAD_FAILED_PHRASES` in core.
+pub const MODEL_LOAD_FAILED_PHRASES: [&str; 8] = [
+    "failed to load model",
+    "error loading model",
+    "unable to load model",
+    "could not load model",
+    "couldn't load model",
+    "model failed to load",
+    "llama runner process has terminated",
+    "requires more system memory",
+];
+
+/// 401/403 auth, 404 modelNotFound, a body that says the model failed to
+/// load modelLoadFailed, 413 or a 400 that mentions the context
 /// contextOverflow, 429 and 529 rateLimited, 502/503/504 unreachable,
 /// everything else unknown.
 pub fn code_from_http(status: u16, body: &str) -> ErrorCode {
@@ -70,6 +86,7 @@ pub fn code_from_http(status: u16, body: &str) -> ErrorCode {
     match status {
         401 | 403 => ErrorCode::Auth,
         404 => ErrorCode::ModelNotFound,
+        _ if MODEL_LOAD_FAILED_PHRASES.iter().any(|p| lower.contains(p)) => ErrorCode::ModelLoadFailed,
         413 => ErrorCode::ContextOverflow,
         429 | 529 => ErrorCode::RateLimited,
         400 if ["context", "too long", "token limit"].iter().any(|k| lower.contains(k))
@@ -145,6 +162,19 @@ mod tests {
         assert_eq!(code_from_http(400, "This model's maximum context length is 8192 tokens"), ErrorCode::ContextOverflow);
         assert_eq!(code_from_http(400, "The model `x` does not exist"), ErrorCode::ModelNotFound);
         assert_eq!(code_from_http(400, "bad json"), ErrorCode::Unknown);
+    }
+
+    #[test]
+    fn a_model_that_did_not_load_maps_like_core() {
+        let lm = r#"{"error":"Failed to load model \"qwen3.8-flash-next-oq5e-mtp\". Error: Failed to load model."}"#;
+        assert_eq!(code_from_http(400, lm), ErrorCode::ModelLoadFailed);
+        // A load failure that mentions the context is still a load failure.
+        assert_eq!(code_from_http(400, "Failed to load model: context length too large for memory"), ErrorCode::ModelLoadFailed);
+        assert_eq!(code_from_http(500, r#"{"error":"llama runner process has terminated: exit status 2"}"#), ErrorCode::ModelLoadFailed);
+        assert_eq!(code_from_http(500, "model requires more system memory (40 GiB) than is available (16 GiB)"), ErrorCode::ModelLoadFailed);
+        assert_eq!(code_from_http(503, "Loading model"), ErrorCode::Unreachable);
+        assert_eq!(code_from_http(401, "failed to load model"), ErrorCode::Auth);
+        assert_eq!(ErrorCode::ModelLoadFailed.as_str(), "modelLoadFailed");
     }
 
     #[test]

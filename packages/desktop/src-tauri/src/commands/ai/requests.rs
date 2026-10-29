@@ -21,6 +21,7 @@
 
 use serde_json::{json, Map, Value};
 
+use super::locality::{default_local_networks, detect_locality, host_of_url, Locality};
 use super::model::{CompletionRequest, EngineKind, Message, MessageContent, MessagePart, ModelConfig};
 
 pub const ANTHROPIC_API_VERSION: &str = "2026-10-21";
@@ -289,8 +290,16 @@ fn anthropic_body(model_id: &str, req: &CompletionRequest, stream: bool) -> Valu
 
 /// Body fields a server may reject for one model while taking them for
 /// others. Only these are retried: anything else in a 400 is a real error.
-pub const RETRYABLE_REQUEST_PARAMS: [&str; 7] =
-    ["temperature", "top_p", "presence_penalty", "frequency_penalty", "max_tokens", "max_completion_tokens", "reasoning_effort"];
+pub const RETRYABLE_REQUEST_PARAMS: [&str; 8] = [
+    "temperature",
+    "top_p",
+    "presence_penalty",
+    "frequency_penalty",
+    "max_tokens",
+    "max_completion_tokens",
+    "reasoning_effort",
+    "stream_options",
+];
 
 const UNSUPPORTED_WORDING: [&str; 4] = ["unsupported", "not supported", "does not support", "not compatible"];
 
@@ -368,6 +377,36 @@ pub fn without_request_param(body: &Value, param: &str) -> Option<Value> {
         out.insert(r.to_string(), value);
     }
     Some(Value::Object(out))
+}
+
+/// Port of `STREAM_USAGE_HOSTS`: cloud hosts of the OpenAI-compatible kind
+/// that take `stream_options.include_usage`.
+pub const STREAM_USAGE_HOSTS: [&str; 4] = ["openrouter.ai", "generativelanguage.googleapis.com", "api.groq.com", "api.deepseek.com"];
+
+/// Port of `streamUsageSupported`: `openai`, LM Studio and Ollama; on
+/// `openai-compatible`, a server on this machine or network, or a host in
+/// `STREAM_USAGE_HOSTS`.
+pub fn stream_usage_supported(kind: EngineKind, base_url: &str) -> bool {
+    match kind {
+        EngineKind::OpenAi | EngineKind::LmStudio | EngineKind::Ollama => true,
+        EngineKind::OpenAiCompatible => {
+            detect_locality(base_url, &default_local_networks()) == Locality::Local
+                || host_of_url(base_url).is_some_and(|h| STREAM_USAGE_HOSTS.contains(&h.as_str()))
+        }
+        EngineKind::Anthropic => false,
+    }
+}
+
+/// Port of `withStreamUsage`: ask for usage in the stream when the engine
+/// takes it, the body streams and the overrides did not set `stream_options`.
+pub fn with_stream_usage(mut body: Value, kind: EngineKind, base_url: &str) -> Value {
+    let wanted = body.get("stream") == Some(&Value::Bool(true)) && body.get("stream_options").is_none() && stream_usage_supported(kind, base_url);
+    if wanted {
+        if let Some(obj) = body.as_object_mut() {
+            obj.insert("stream_options".to_string(), json!({ "include_usage": true }));
+        }
+    }
+    body
 }
 
 #[cfg(test)]

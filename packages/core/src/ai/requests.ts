@@ -23,6 +23,7 @@
  */
 
 import { isOpenAiReasoningModel, openAiOffReasoningEffort } from './capabilityHeuristics';
+import { detectLocality, hostOfUrl } from './locality';
 import type { AiCompletionRequest, AiEngineConfig, AiEngineKind, AiMessage, AiMessagePart, AiModelConfig } from './types';
 
 /** `anthropic-version` sent by the Anthropic adapter. */
@@ -238,6 +239,48 @@ function anthropicBody(modelId: string, req: AiCompletionRequest, stream: boolea
   return body;
 }
 
+// ── Usage in the stream ─────────────────────────────────────────────────────
+
+/**
+ * Cloud hosts of the `openai-compatible` kind that take
+ * `stream_options.include_usage` (OpenRouter, Gemini, Groq, DeepSeek).
+ * Mistral and unknown cloud hosts are left out: a strict server may reject
+ * a field it does not know.
+ */
+export const STREAM_USAGE_HOSTS: readonly string[] = ['openrouter.ai', 'generativelanguage.googleapis.com', 'api.groq.com', 'api.deepseek.com'];
+
+/**
+ * Whether a streamed completion may ask for usage in the stream. `openai`,
+ * LM Studio and Ollama take it; on `openai-compatible`, a server on this
+ * machine or network (oMLX, vLLM, llama.cpp all take it) or a host in
+ * `STREAM_USAGE_HOSTS`. Anthropic reports usage without being asked.
+ */
+export function streamUsageSupported(engine: Pick<AiEngineConfig, 'kind' | 'baseUrl'>): boolean {
+  switch (engine.kind) {
+    case 'openai':
+    case 'lmstudio':
+    case 'ollama':
+      return true;
+    case 'openai-compatible': {
+      if (detectLocality(engine.baseUrl) === 'local') {return true;}
+      const host = hostOfUrl(engine.baseUrl);
+      return host !== null && STREAM_USAGE_HOSTS.includes(host);
+    }
+    default:
+      return false;
+  }
+}
+
+/**
+ * `body` asking for usage in the stream (`stream_options.include_usage`)
+ * when the engine takes it, the body streams and the overrides did not set
+ * `stream_options` themselves. Hosts apply it after `buildCompletionBody`.
+ */
+export function withStreamUsage(body: Json, engine: Pick<AiEngineConfig, 'kind' | 'baseUrl'>): Json {
+  if (body.stream !== true || 'stream_options' in body || !streamUsageSupported(engine)) {return body;}
+  return { ...body, stream_options: { include_usage: true } };
+}
+
 // ── Unsupported parameters ──────────────────────────────────────────────────
 
 /**
@@ -252,6 +295,7 @@ export const RETRYABLE_REQUEST_PARAMS: readonly string[] = [
   'max_tokens',
   'max_completion_tokens',
   'reasoning_effort',
+  'stream_options',
 ];
 
 const UNSUPPORTED_WORDING = /unsupported|not supported|does not support|not compatible/i;

@@ -1,0 +1,24 @@
+{
+  "description": "LM Studio stream with stream_options.include_usage: reasoning_content deltas (counted in outputChars, not text), content with an emoji (two UTF-16 units), a finish chunk with no usage, then a separate chunk with empty choices carrying usage, then [DONE]. Captured shape from LM Studio 0.3.x; chunks split inside a JSON string and inside the usage object.",
+  "kind": "lmstudio",
+  "outputChars": 30,
+  "chunks": [
+    "data: {\"id\":\"chatcmpl-9nzyx7jglkcbk1yylejuwk\",\"object\":\"chat.completion.chunk\",\"created\":1793282342,\"model\":\"qwen/qwen3.6-35b-a3b\",\"system_fingerprint\":\"qwen/qwen3.6-35b-a3b\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-9nzyx7jglkcbk1yylejuwk\",\"object\":\"chat.completion.chunk\",\"created\":1793282342,\"model\":\"qwen/qwen3.6-35b-a3b\",\"system_fingerprint\":\"qwen/qwen3.6-35b-a3b\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"Greet them\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-9nzyx7jglkcbk1yylejuwk\",\"object\":\"chat.completion.chunk\",\"created\":1793282342,\"model\":\"qwen/qwen3.6-35b-a3b\",\"system_fingerprint\":\"qwen/qwen3.6-35b-a3b\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" briefly.\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-9nzyx7jglkcbk1yylejuwk\",\"object\":\"chat.completion.chunk\",\"created\":1793282342,\"model\":\"qwen/qwen3.6-35b-a3b\",\"system_fingerprint\":\"qwen/qwen3.6-35b-a3b\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi \"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-9nzyx7jglkcbk1yylejuwk\",\"object\":\"chat.completion.chunk\",\"created\":1793282342,\"model\":\"qwen/qwen3.6-35b-a3b\",\"system_fingerprint\":\"qwen/qwen3.6-35b-a3b\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"the",
+    "re 👋\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-9nzyx7jglkcbk1yylejuwk\",\"object\":\"chat.completion.chunk\",\"created\":1793282342,\"model\":\"qwen/qwen3.6-35b-a3b\",\"system_fingerprint\":\"qwen/qwen3.6-35b-a3b\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}\n\ndata: {\"id\":\"chatcmpl-9nzyx7jglkcbk1yylejuwk\",\"object\":\"chat.completion.chunk\",\"created\":1793282342,\"model\":\"qwen/qwen3.6-35b-a3b\",\"system_fingerprint\":\"qwen/qwen3.6-35b-a3b\",\"choices\":[],\"usag",
+    "e\":{\"prompt_tokens\":18,\"completion_tokens\":6,\"total_tokens\":24,\"completion_tokens_details\":{\"reasoning_tokens\":3}}}\n\ndata: [D",
+    "ONE]\n\n"
+  ],
+  "expected": {
+    "deltas": [
+      "Hi ",
+      "there 👋"
+    ],
+    "text": "Hi there 👋",
+    "finishReason": "stop",
+    "stopReason": "stop",
+    "usage": {
+      "promptTokens": 18,
+      "completionTokens": 6
+    }
+  }
+}

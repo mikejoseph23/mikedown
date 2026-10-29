@@ -465,9 +465,19 @@ pub async fn ai_complete<R: Runtime>(
             Err(error) => format!("error {}", error.code.as_str()),
         };
         let usage = outcome.as_ref().ok().and_then(|r| r.usage);
+        let timing = outcome.as_ref().ok().and_then(|r| r.timing);
         eprintln!(
             "[mikedown ai] {}",
-            request_log::format_request_log(&request.feature, &request.task, &log_served, started.elapsed().as_millis(), &finish, &thinking, usage.as_ref())
+            request_log::format_request_log(
+                &request.feature,
+                &request.task,
+                &log_served,
+                started.elapsed().as_millis(),
+                &finish,
+                &thinking,
+                usage.as_ref(),
+                timing.as_ref()
+            )
         );
         match outcome {
             Ok(result) => {

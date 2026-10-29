@@ -1,0 +1,61 @@
+{
+  "description": "Timing and usage of one completion result, turned into the popover footer (aiResultStatsText), its tooltip (aiResultStatsTitle) and the request log's additions (aiTimingLogParts in core, timing_log_parts in Desktop's request_log.rs). footer null: no stats (no timing). Speed is output tokens over (total - first token), or over the total without a first-token time; no usage, or a zero count, estimates outputChars / 4 and marks it with ~.",
+  "cases": [
+    {
+      "name": "usage reported, streamed",
+      "result": { "text": "x", "usage": { "promptTokens": 418, "completionTokens": 68 }, "timing": { "totalMs": 2400, "firstTokenMs": 600, "outputChars": 300 } },
+      "footer": "2.4 s · 38 tok/s",
+      "title": "First token after 0.6 s\nTotal 2.4 s\n68 output tokens\n418 input tokens\n38 tok/s",
+      "log": ["first token 600 ms", "38 tok/s"]
+    },
+    {
+      "name": "no usage: estimated from the characters",
+      "result": { "text": "x", "timing": { "totalMs": 2400, "firstTokenMs": 400, "outputChars": 304 } },
+      "footer": "2.4 s · ~38 tok/s",
+      "title": "First token after 0.4 s\nTotal 2.4 s\nAbout 76 output tokens (estimated from the text)\n~38 tok/s",
+      "log": ["first token 400 ms", "~38 tok/s"]
+    },
+    {
+      "name": "zero usage next to real output is not believed",
+      "result": { "text": "x", "usage": { "promptTokens": 0, "completionTokens": 0 }, "timing": { "totalMs": 1000, "firstTokenMs": 200, "outputChars": 40 } },
+      "footer": "1.0 s · ~13 tok/s",
+      "title": "First token after 0.2 s\nTotal 1.0 s\nAbout 10 output tokens (estimated from the text)\n~13 tok/s",
+      "log": ["first token 200 ms", "~13 tok/s"]
+    },
+    {
+      "name": "not streamed: no first-token time, speed over the total",
+      "result": { "text": "x", "timing": { "totalMs": 5000, "outputChars": 100 } },
+      "footer": "5.0 s · ~5.0 tok/s",
+      "title": "Total 5.0 s\nAbout 25 output tokens (estimated from the text)\n~5.0 tok/s",
+      "log": ["~5.0 tok/s"]
+    },
+    {
+      "name": "everything in one chunk: first token at the end falls back to the total",
+      "result": { "text": "x", "usage": { "completionTokens": 12 }, "timing": { "totalMs": 900, "firstTokenMs": 900, "outputChars": 50 } },
+      "footer": "0.9 s · 13 tok/s",
+      "title": "First token after 0.9 s\nTotal 0.9 s\n12 output tokens\n13 tok/s",
+      "log": ["first token 900 ms", "13 tok/s"]
+    },
+    {
+      "name": "a long thinking run, whole seconds",
+      "result": { "text": "x", "usage": { "promptTokens": 1200, "completionTokens": 2048 }, "timing": { "totalMs": 65400, "firstTokenMs": 12000, "outputChars": 8000 } },
+      "footer": "65 s · 38 tok/s",
+      "title": "First token after 12 s\nTotal 65 s\n2,048 output tokens\n1,200 input tokens\n38 tok/s",
+      "log": ["first token 12000 ms", "38 tok/s"]
+    },
+    {
+      "name": "no output at all: time only",
+      "result": { "text": "", "timing": { "totalMs": 300, "outputChars": 0 } },
+      "footer": "0.3 s",
+      "title": "Total 0.3 s",
+      "log": []
+    },
+    {
+      "name": "an older host: no timing, no stats",
+      "result": { "text": "Hello", "usage": { "completionTokens": 2 } },
+      "footer": null,
+      "title": null,
+      "log": []
+    }
+  ]
+}
