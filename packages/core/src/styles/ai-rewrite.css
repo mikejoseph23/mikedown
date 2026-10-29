@@ -36,7 +36,12 @@
   font-weight: 500;
   cursor: pointer;
 }
-:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn:hover { background: var(--mikedown-hover, rgba(55, 53, 47, 0.06)); }
+/* The bubble floats over the text: the hover tint sits on the opaque surface, never replaces it. */
+:is(.mikedown-root, .mikedown-portal) .ai-bubble-btn:hover {
+  background:
+    linear-gradient(var(--mikedown-hover, rgba(55, 53, 47, 0.06)), var(--mikedown-hover, rgba(55, 53, 47, 0.06))),
+    var(--mikedown-surface-raised, #fff);
+}
 :is(.mikedown-root, .mikedown-portal) .ai-bubble-btn[aria-disabled="true"] {
   color: var(--mikedown-text-muted, #6f6f74);
   cursor: default;
