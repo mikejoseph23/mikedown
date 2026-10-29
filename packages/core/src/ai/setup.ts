@@ -220,12 +220,17 @@ export type AiModelSizeTag = 'fits' | 'tight' | 'too large';
 /** A model this much over the "fits" size is still worth a try. */
 const TIGHT_FACTOR = 1.75;
 
-/** The largest model (billions) that runs well, by OQ11's bands; small machines scale down with memory. */
-function fitsBillions(memoryBytes: number): number {
+/**
+ * The largest model (billions) that runs well, by OQ11's bands. A machine
+ * above the threshold in the small band gets the band's 8B, as its hint
+ * says ("up to about 8B"); one below it scales down with memory.
+ */
+function fitsBillions(hw: AiHardwareInfo): number {
+  const memoryBytes = modelMemoryBytes(hw);
   const gb = memoryBytes / GIB;
   switch (memoryBand(memoryBytes)) {
     case 'small':
-      return Math.min(8, gb / 2);
+      return isLocalCapable(hw) ? 8 : Math.min(8, gb / 2);
     case 'medium':
       return 30;
     case 'large':
@@ -243,7 +248,7 @@ export function modelSizeHint(id: string, hardware: AiHardwareInfo | null): AiMo
   if (!hardware) {return undefined;}
   const params = modelParamsBillions(id);
   if (params === null) {return undefined;}
-  const fits = fitsBillions(modelMemoryBytes(hardware));
+  const fits = fitsBillions(hardware);
   if (params <= fits) {return 'fits';}
   return params <= fits * TIGHT_FACTOR ? 'tight' : 'too large';
 }

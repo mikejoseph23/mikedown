@@ -246,15 +246,16 @@ describe('modelSizeHint: 7b, 30b, 70b and ids without a size (T1)', () => {
   it('judges an NVIDIA machine by its video memory, not its system memory', () => {
     expect(tag('qwen3-30b-a3b', pc(64, 8))).toBe('too large');
     expect(tag('qwen3-30b-a3b', pc(16, 24))).toBe('fits');
-    // Pinned as it is today: a 7b on an 8 GB card is "tight" (the card's memory halved).
-    expect(tag('qwen2.5-7b', pc(64, 8))).toBe('tight');
+    // An 8 GB card is above the threshold: the band's 8B fits, as its hint says; a 14b is tight.
+    expect(tag('qwen2.5-7b', pc(64, 8))).toBe('fits');
+    expect(tag('llama-3.1-8b', pc(64, 8))).toBe('fits');
+    expect(tag('phi-4-14b', pc(64, 8))).toBe('tight');
   });
 
-  // The Step 1 sentence for an 8 GB card says "Models up to about 8B parameters run well" while a 7b model is
-  // tagged "tight" (an Apple Silicon machine with 16 GB gets "fits" for the same size). Reported, not fixed (T1).
-  it.fails('an 8 GB NVIDIA card tags a 7b model "fits", as its "up to about 8B run well" sentence says', () => {
+  it('an 8 GB NVIDIA card tags a 7b model "fits", as its "up to about 8B run well" sentence says', () => {
     expect(recommendSetupPath({ running: [], hardware: pc(16, 8) }).localHint).toBe('Models up to about 8B parameters run well.');
     expect(modelSizeHint('qwen2.5-7b', pc(16, 8))).toBe('fits');
+    expect(modelSizeHint('llama-3.1-8b', pc(16, 8))).toBe('fits');
   });
 });
 
