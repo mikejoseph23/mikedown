@@ -151,12 +151,12 @@ describe('the AI menu with a Copilot route (U1)', () => {
     const items = await openMenu(el);
     const byId = (id: string) => items.find((i) => i.dataset.tddId === id)!;
     // The reason shows once, in the status row; the entries only grey out.
-    expect(byId('ai-status').querySelector('.tdd-item-label')?.textContent).toMatch(/GitHub Copilot uses an engine kind this app does not support/);
+    expect(document.querySelector('#toolbar-dropdown .tdd-status[data-tdd-id="ai-status"] .tdd-status-label')?.textContent).toMatch(/GitHub Copilot uses an engine kind this app does not support/);
     for (const id of ['ai-rewrite', 'ai-explain', 'ai-translate', 'ai-summarize', 'ai-titles']) {
       expect(byId(id).getAttribute('aria-disabled'), id).toBe('true');
       expect(byId(id).querySelector('.tdd-item-hint'), id).toBeNull();
     }
-    expect(items.filter((i) => /uses an engine kind/.test(i.textContent ?? ''))).toHaveLength(1);
+    expect([...document.querySelectorAll('#toolbar-dropdown > *')].filter((i) => /uses an engine kind/.test(i.textContent ?? ''))).toHaveLength(1);
   });
 
   it('a host that reports Copilot: the entries run, and there is no Thinking row (Copilot has no levels)', async () => {

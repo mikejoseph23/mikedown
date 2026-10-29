@@ -5,7 +5,7 @@ import { defaultAiSettings, parseAiSettings } from '../src/ai';
 import type { AiSettings, MikeDownAiHost } from '../src/ai';
 import { AI_EXPERIMENTAL_DISCLAIMER } from '../src/ai-settings-dom';
 import { aiMenuStatusLine, aiSetupTarget, aiToolbarButtonMode, aiToolbarMenuEntries, hideAiFirstRunPanel, showAiFirstRunPanel } from '../src/ai-toolbar';
-import { hideToolbarDropdown } from '../src/toolbar-dropdown';
+import { hideToolbarDropdown, showToolbarDropdown } from '../src/toolbar-dropdown';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
 stubLayoutMeasurement();
@@ -76,16 +76,16 @@ describe('aiToolbarMenuEntries', () => {
     const entries = aiToolbarMenuEntries({
       ...base, rewrite: off, explain: off, translate: off, summarize: off, titles: off, properties: off, canManageEngines: true, onRetest: retest,
     });
+    const status = entries.find((e) => e.type === 'status');
+    expect(status).toMatchObject({ id: 'ai-status', label: "oMLX isn't reachable", detail: reason });
     const actions = entries.filter((e) => e.type === 'action');
     expect(actions.map((e) => e.label)).toEqual([
-      "oMLX isn't reachable", 'Look again', 'Rewrite selection', 'Explain selection', 'Translate…',
+      'Look again', 'Rewrite selection', 'Explain selection', 'Translate…',
       'Summarize document…', 'Suggest titles…', 'Suggest properties', 'Manage engines…',
     ]);
-    expect(actions[0]).toMatchObject({ id: 'ai-status', hint: reason });
-    expect(actions[0].isDisabled?.()).toBe(true);
-    expect(actions.filter((e) => e.hint === reason)).toHaveLength(1);
-    expect(actions.slice(2, 8).every((e) => e.isDisabled?.() && !e.hint)).toBe(true);
-    actions[1].action();
+    expect(actions.filter((e) => e.hint === reason)).toHaveLength(0);
+    expect(actions.slice(1, 7).every((e) => e.isDisabled?.() && !e.hint)).toBe(true);
+    actions[0].action();
     expect(retest).toHaveBeenCalledOnce();
   });
 
@@ -283,6 +283,72 @@ describe('AI menu (AI on)', () => {
     aiButton()!.click();
     const labels = Array.from(document.querySelectorAll('#toolbar-dropdown .tdd-item-label')).map((n) => n.textContent);
     expect(labels).toEqual(['Manage engines…']);
+  });
+});
+
+describe('AI menu: an unreachable engine and "Look again"', () => {
+  const down = { engineId: 'omlx', ok: false, isLocal: true, hasKey: false, error: 'Could not reach http://127.0.0.1:8000 (ECONNREFUSED).', models: [] };
+  const up = { engineId: 'omlx', ok: true, isLocal: true, hasKey: false, latencyMs: 4, models: [{ id: 'qwen', capabilities: { chat: true, stream: true, vision: false, json: true, tools: false, fim: false, embed: false, contextTokens: 32768 }, source: 'user' }] };
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const statusRow = () => document.querySelector<HTMLElement>('#toolbar-dropdown .tdd-status');
+
+  it('shows one non-focusable status row; Look again retests the engine and the row goes away', async () => {
+    let current = down;
+    const ai = { ...tier2(), listEngines: vi.fn(async () => [current]), testEngine: vi.fn(async () => (current = up)) } as unknown as MikeDownAiHost;
+    class Host extends NoopHost { ai = ai; }
+    const handle = mount(new Host(), withEngine({ routing: { default: { engineId: 'omlx', modelId: 'qwen' }, fallback: 'none', tasks: {} } }));
+    handle.setAiEngineStatuses([down]);
+    aiButton()!.click();
+    const row = statusRow()!;
+    expect(row.getAttribute('role')).toBe('status');
+    expect(row.querySelector('.tdd-status-label')?.textContent).toBe("oMLX isn't reachable");
+    expect(row.querySelector('.tdd-status-detail')?.textContent).toMatch(/ECONNREFUSED/);
+    expect(row.hasAttribute('tabindex')).toBe(false);
+    const look = document.querySelector<HTMLElement>('#toolbar-dropdown .tdd-item[data-tdd-id="ai-retest"]')!;
+    expect(look.querySelector('.tdd-item-label')?.textContent).toBe('Look again');
+    look.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await wait(100);
+    expect(ai.testEngine).toHaveBeenCalledWith('omlx');
+    // The menu opened again with the engine answering.
+    expect(document.querySelector('#toolbar-dropdown')).not.toBeNull();
+    expect(statusRow()).toBeNull();
+  });
+
+  it('a host without testEngine gets no Look again row', async () => {
+    const ai = { ...tier2(), listEngines: vi.fn(async () => [down]), testEngine: undefined } as unknown as MikeDownAiHost;
+    class Host extends NoopHost { ai = ai; }
+    const handle = mount(new Host(), withEngine({ routing: { default: { engineId: 'omlx', modelId: 'qwen' }, fallback: 'none', tasks: {} } }));
+    handle.setAiEngineStatuses([down]);
+    aiButton()!.click();
+    expect(statusRow()).not.toBeNull();
+    expect(document.querySelector('#toolbar-dropdown [data-tdd-id="ai-retest"]')).toBeNull();
+  });
+});
+
+describe('toolbar dropdown status entry', () => {
+  it('renders without focus: arrows skip it and a click leaves the menu open', async () => {
+    const run = vi.fn();
+    const anchor = document.createElement('button');
+    document.body.appendChild(anchor);
+    showToolbarDropdown(anchor, [
+      { type: 'status', id: 's', label: 'Not reachable', detail: 'Details' },
+      { type: 'action', id: 'a', label: 'First', action: run },
+      { type: 'action', id: 'b', label: 'Second', action: run },
+    ]);
+    await new Promise((r) => setTimeout(r, 40));
+    const status = document.querySelector<HTMLElement>('#toolbar-dropdown .tdd-status')!;
+    expect(status.getAttribute('role')).toBe('status');
+    expect(status.querySelector('svg')).not.toBeNull();
+    expect(status.getAttribute('tabindex')).toBeNull();
+    const key = (k: string) => document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+    key('ArrowDown');
+    expect(document.activeElement?.getAttribute('data-tdd-id')).toBe('a');
+    key('ArrowUp');
+    expect(document.activeElement?.getAttribute('data-tdd-id')).toBe('b');
+    status.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(document.querySelector('#toolbar-dropdown')).not.toBeNull();
+    expect(run).not.toHaveBeenCalled();
+    anchor.remove();
   });
 });
 

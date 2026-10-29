@@ -1,8 +1,9 @@
 /**
  * Toolbar Dropdown — reusable popover menu anchored to toolbar buttons.
  *
- * Supports action items, separators, mini-rows (horizontal icon strips) and
- * segmented rows (a labelled radio group).
+ * Supports action items, separators, mini-rows (horizontal icon strips),
+ * segmented rows (a labelled radio group) and status rows (a note that is not
+ * an action).
  * Keyboard navigable, auto-positions, only one open at a time.
  */
 import { getPortal } from './portal';
@@ -56,7 +57,20 @@ export interface ToolbarDropdownSegmented {
   classes?: { group?: string; label?: string; segment?: string };
 }
 
-export type ToolbarDropdownEntry = ToolbarDropdownItem | ToolbarDropdownSeparator | ToolbarDropdownMiniRow | ToolbarDropdownSegmented;
+/**
+ * A note that is not an action: a warning icon, the label and a muted detail
+ * line. It takes no focus, ignores clicks and is skipped by the arrow keys;
+ * screen readers get it as a status.
+ */
+export interface ToolbarDropdownStatus {
+  type: 'status';
+  id: string;
+  label: string;
+  /** A muted second line (the full error behind the label, say). */
+  detail?: string;
+}
+
+export type ToolbarDropdownEntry = ToolbarDropdownItem | ToolbarDropdownSeparator | ToolbarDropdownMiniRow | ToolbarDropdownSegmented | ToolbarDropdownStatus;
 
 // ── Module state ─────────────────────────────────────────────────────────────
 
@@ -98,6 +112,9 @@ export function showToolbarDropdown(
         break;
       case 'segmented':
         dropdownEl.appendChild(buildSegmented(entry));
+        break;
+      case 'status':
+        dropdownEl.appendChild(buildStatus(entry));
         break;
     }
   }
@@ -236,6 +253,35 @@ function buildActionItem(item: ToolbarDropdownItem): HTMLElement {
   });
 
   focusableEls.push(el);
+  return el;
+}
+
+const STATUS_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 2 1.5 13.5h13z"/><path d="M8 6.5v3.5"/><path d="M8 12v.01"/></svg>';
+
+function buildStatus(entry: ToolbarDropdownStatus): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'tdd-status';
+  el.setAttribute('role', 'status');
+  el.dataset.tddId = entry.id;
+  const icon = document.createElement('span');
+  icon.className = 'tdd-status-icon';
+  const tmpl = document.createElement('template');
+  tmpl.innerHTML = STATUS_ICON;
+  icon.appendChild(tmpl.content);
+  el.appendChild(icon);
+  const label = document.createElement('span');
+  label.className = 'tdd-status-label';
+  label.textContent = entry.label;
+  el.appendChild(label);
+  if (entry.detail) {
+    const detail = document.createElement('span');
+    detail.className = 'tdd-status-detail';
+    detail.textContent = entry.detail;
+    el.appendChild(detail);
+    el.title = entry.detail;
+  }
+  // Not in focusableEls: no focus, and a click on it does nothing (and keeps the menu open).
+  el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
   return el;
 }
 

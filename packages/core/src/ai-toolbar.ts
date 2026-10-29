@@ -165,7 +165,7 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
   const shared = sharedDisabledReason([input.rewrite, input.explain, input.translate, input.summarize, input.titles, input.properties]);
   if (shared) {
     const { label, detail } = aiMenuStatusLine(shared);
-    entries.push({ type: 'action', id: 'ai-status', label, hint: detail, isDisabled: () => true, action: () => {} });
+    entries.push({ type: 'status', id: 'ai-status', label, ...(detail ? { detail } : {}) });
     if (input.onRetest) {
       entries.push({ type: 'action', id: 'ai-retest', label: 'Look again', action: () => input.onRetest?.() });
     }

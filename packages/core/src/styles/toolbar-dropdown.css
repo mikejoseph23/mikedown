@@ -98,6 +98,38 @@
   color: var(--mikedown-text-muted);
 }
 
+/* Status row: a note, not an action. Warning icon, label, muted detail line. */
+:is(.mikedown-root, .mikedown-portal) .tdd-status {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  column-gap: 8px;
+  align-items: start;
+  padding: 6px 10px;
+  margin: 0 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--mikedown-text);
+  background: color-mix(in srgb, var(--mikedown-warning, #b26a00) 12%, transparent);
+  cursor: default;
+  user-select: text;
+}
+
+:is(.mikedown-root, .mikedown-portal) .tdd-status-icon {
+  display: flex;
+  align-items: center;
+  height: 1.35em;
+  color: var(--mikedown-warning, #b26a00);
+}
+
+:is(.mikedown-root, .mikedown-portal) .tdd-status-detail {
+  grid-column: 2;
+  font-size: 11px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: var(--mikedown-text-muted);
+}
+
 /* Active indicator — small dot on the left */
 :is(.mikedown-root, .mikedown-portal) .tdd-item-active-indicator {
   display: none;

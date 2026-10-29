@@ -446,8 +446,8 @@ describe('availability', () => {
       expect(byLabel(label).getAttribute('aria-disabled')).toBe('true');
       expect(byLabel(label).querySelector('.tdd-item-hint')).toBeNull();
     }
-    const status = items.find((i) => i.dataset.tddId === 'ai-status')!;
-    expect(status.getAttribute('aria-disabled')).toBe('true');
+    const status = document.querySelector<HTMLElement>('#toolbar-dropdown .tdd-status[data-tdd-id="ai-status"]')!;
+    expect(status.getAttribute('role')).toBe('status');
     expect(status.textContent?.length).toBeGreaterThan(0);
   });
 });

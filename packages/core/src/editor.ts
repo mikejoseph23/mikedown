@@ -2670,7 +2670,18 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       onSuggestTitles: () => { startAiTitles(); },
       onSuggestProperties: () => { startAiPropertySuggestions(); },
       onManage: () => { if (tier2) {showAiEnginesPage();} else {showSettingsModal('ai');} },
+      // "Look again": retest the engines that failed, then open the menu afresh.
+      ...(ai.testEngine ? { onRetest: () => { void retestAiEngines(ai).then(() => { if (!destroyed && anchor.isConnected) {openAiToolbar(anchor);} }); } } : {}),
     }));
+  }
+
+  /** Test every engine whose last probe failed (the host's own test, as the Engines page uses), then take the new statuses. */
+  async function retestAiEngines(ai: MikeDownAiHost): Promise<void> {
+    const failed = aiStatuses.filter((s) => s.ok === false).map((s) => s.engineId);
+    const results = await Promise.all(failed.map((id) => ai.testEngine?.(id).catch(() => null) ?? null));
+    if (destroyed) {return;}
+    const fresh = new Map(results.filter((r): r is AiEngineStatus => r !== null).map((r) => [r.engineId, r]));
+    if (fresh.size > 0) {setAiStatuses(aiStatuses.map((s) => fresh.get(s.engineId) ?? s));}
   }
   disposers.push(() => aiUi?.hideAiFirstRunPanel());
   // This editor's own sidebar (null when features.sidebar is off).
