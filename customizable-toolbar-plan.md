@@ -33,9 +33,9 @@
 | [M3 — Settings plumbing: core, VS Code, Desktop, wrappers, Toolbar section](#m3--settings-plumbing-core-vs-code-desktop-wrappers-toolbar-section) | Sonnet | ✅ Done | 7 | `8988bc9`; OQ1 own tab, OQ6 reuse `APP_WIDE_KEYS` |
 | [M4 — Edit mode UI: handles, palette tray, drag, spacers](#m4--edit-mode-ui-handles-palette-tray-drag-spacers) | Opus | ✅ Done | 17 | `0c24296`, `1d6b7fd`; D15 amended (separator next to spacer kept) |
 | [M5 — Keyboard and accessibility for edit mode](#m5--keyboard-and-accessibility-for-edit-mode) | Opus | ✅ Done | 27 | `ba9cd29`; tray click adds; movable items not `aria-disabled` |
-| [T2 — Edit mode, overflow and host tests](#t2--edit-mode-overflow-and-host-tests) | Sonnet | 🔄 In Progress | — | jsdom keyboard flows, fakeRow overflow |
+| [T2 — Edit mode, overflow and host tests](#t2--edit-mode-overflow-and-host-tests) | Sonnet | ✅ Done | 9 | jsdom keyboard flows, fakeRow overflow |
 | [M6 — Docs, website, CHANGELOG](#m6--docs-website-changelog) | Haiku | ✅ Done | 3 | `f56ec53`; `[Unreleased]` CHANGELOG heading |
-| [T3 — Hands-on checklist (VS Code, Desktop, React demo)](#t3--hands-on-checklist-vs-code-desktop-react-demo) | Human (Mike) | ⬜ Not Started | — | Drag is the one thing jsdom can't prove |
+| [T3 — Hands-on checklist (VS Code, Desktop, React demo)](#t3--hands-on-checklist-vs-code-desktop-react-demo) | Human (Mike) | 🔄 Awaiting Mike | — | Drag is the one thing jsdom can't prove |
 
 ---
 
@@ -280,12 +280,12 @@ Decisions Mike made (D1 to D4) and the ones made while writing this plan (D5 onw
 
 **Tasks**
 
-- [ ] `packages/core/test/toolbar-customize.test.ts`: enter edit mode via a programmatic entry (export `enterToolbarEditMode` for tests or trigger the context menu entry); `.toolbar-editing` set and all `.toolbar-overflowed` cleared; tray lists exactly the unused available items plus Separator and Spacer; keyboard grab/move/drop reorders the DOM and the working layout; Delete removes to tray; Enter on a tray item inserts; Escape with a grab restores, without a grab calls `host.saveSettings` once with the serialized layout (or `null` when equal to default) when the layout changed, and not at all when it did not (M4); `features.customizeToolbar: false` exposes no entry points; `destroy()` during edit mode removes the tray.
-- [ ] Deferred update (D8): `updateSettings({ toolbarLayout })` during edit mode does not re-render; after Done with changes the user's layout wins; after Done without changes the deferred layout applies.
-- [ ] Two instances on one page (`two-editors.test.ts` pattern): edit mode in one leaves the other's toolbar untouched; the host's broadcast after Done re-renders both.
-- [ ] Overflow: fakeRow with a spacer between buttons: spacer collapses first (`data-w="0"` when squeezed), buttons overflow from the right, spacer never listed in More; a layout starting with `~` after `textFormat` still keeps `textFormat` first.
-- [ ] Host side: `test/unit/` test for the VS Code settings reader including `toolbarLayout` object and `null`; Desktop test for global-only enforcement and `null` removal.
-- [ ] `npm run test:unit`, `npm run test:edge`, `npm run test:packages` green. Commit.
+- [x] `packages/core/test/toolbar-customize.test.ts`: enter edit mode via a programmatic entry (export `enterToolbarEditMode` for tests or trigger the context menu entry); `.toolbar-editing` set and all `.toolbar-overflowed` cleared; tray lists exactly the unused available items plus Separator and Spacer; keyboard grab/move/drop reorders the DOM and the working layout; Delete removes to tray; Enter on a tray item inserts; Escape with a grab restores, without a grab calls `host.saveSettings` once with the serialized layout (or `null` when equal to default) when the layout changed, and not at all when it did not (M4); `features.customizeToolbar: false` exposes no entry points; `destroy()` during edit mode removes the tray.
+- [x] Deferred update (D8): `updateSettings({ toolbarLayout })` during edit mode does not re-render; after Done with changes the user's layout wins; after Done without changes the deferred layout applies.
+- [x] Two instances on one page (`two-editors.test.ts` pattern): edit mode in one leaves the other's toolbar untouched; the host's broadcast after Done re-renders both.
+- [x] Overflow: fakeRow with a spacer between buttons: spacer collapses first (`data-w="0"` when squeezed), buttons overflow from the right, spacer never listed in More; a layout starting with `~` after `textFormat` still keeps `textFormat` first.
+- [x] Host side: `test/unit/` test for the VS Code settings reader including `toolbarLayout` object and `null`; Desktop test for global-only enforcement and `null` removal.
+- [x] `npm run test:unit`, `npm run test:edge`, `npm run test:packages` green. Commit.
 
 **Acceptance criteria**
 
@@ -416,5 +416,7 @@ When a milestone leaves items skipped or partial, the orchestrator writes a gap-
 **2026-10-28 19:52** - M4 done (`0c24296`, `1d6b7fd`, fast-forwarded, 17 min). `toolbar-customize.ts`: edit session (working layout, tray with unused items + Separator + Flexible Spacer + Reset + Done, ghost and insertion line, pure `toolbarDropSlot` hit-test), pointer-event drag, three entry points, OQ2 confirm-then-discard in the Settings modal, per-instance session disposed on `destroy()`. Decisions accepted: (1) D15 amended so a separator next to a spacer survives normalize (otherwise the M4 acceptance step "spacer between Redo and Source" is lost on reload; two layout tests updated); (2) Done with no change saves nothing and applies a deferred incoming layout (T2 wording updated); (3) `settings` is not draggable, per the M4 task list. Worker smoke-tested in the React demo in Chrome at 555px (right-click entry, drag to tray, spacer, Undo to far left, Done; no console errors); VS Code visual check left for T3. Main tree: lint 0 errors, `test:unit` 2402, `test:edge` 22, `test:integration` 47 passing. Dispatched M5 (Opus, worktree).
 
 **2026-10-28 20:10** - M5 done (`2bad634` cherry-picked as `ba9cd29` after another session's `f8565a1`, 27 min). D11 keyboard model, "cannot be moved" for fixed items, live-region announcements and entry instruction, focus return to the opener with fallback, 3:1 focus ring via a new `--mikedown-toolbar-edit-focus` token (VS Code maps it to `focusBorder`), reduced motion. Decisions accepted: movable items are toggle buttons (`aria-pressed`) instead of `aria-disabled` (VoiceOver would read them as dimmed; M4 assertion updated); keyboard steps never merge dividers and adding a divider beside the same kind is refused with an announcement; clicking a tray tile adds it; focus stays in the tray after an add; Reset moves focus to Done. Worker verified the keyboard flow in Chrome on the developers demo. Main tree: lint 0 errors, `test:unit` 2422, `test:edge` 22, `test:integration` 47 passing. Dispatched T2 (Sonnet, worktree).
+
+**2026-10-28 20:15** - T2 done (`e074fe8`, fast-forwarded, 9 min): edit-mode, deferred-update (D8), two-instance (D16) and spacer-overflow tests plus a shared `toolbar-geometry.ts` helper; no source bugs found. Main tree: lint 0 errors, `test:unit` 2451, `test:edge` 22, `test:packages` 79, desktop unit 567, `test:integration` 47 passing. Every automated milestone is complete; paused at T3 for Mike's hands-on sign-off. Stale registry entries (angular-core-extraction, desktop-app, wrappers-npm) removed at Mike's request.
 
 [Return to Top](#customizable-toolbar-firefox-style--planning-document)
