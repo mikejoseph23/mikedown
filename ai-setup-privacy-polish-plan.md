@@ -591,4 +591,4 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [ ] W21 Consent dialog names api.openai.com twice in the first paragraph.
 - [ ] W22 Consent dialog shows the raw policy URL and a "Read the provider's policy" button; drop the URL.
 - [ ] W23/W24 Consent buttons: four, with "Not now" vs "Not for this workspace" hard to tell apart, and no "Allow once". Recommended set: Don't allow · Allow once · Allow for this workspace.
-- [ ] W25 BUG: OpenAI reasoning models (gpt-5.5) reject temperature 0.3 (HTTP 400 on Summarize). Fix dispatched (model-aware params plus one retry on parameter-shaped 400s, both hosts).
+- [x] W25 BUG: OpenAI reasoning models (gpt-5.5) reject temperature 0.3 (HTTP 400 on Summarize). Fixed in `6f3038e`: reasoning models drop temperature/top_p, plus one retry without a parameter the API names as unsupported, remembered per engine and model for the session (both hosts).
