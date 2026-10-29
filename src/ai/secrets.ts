@@ -123,9 +123,19 @@ export class AiSecrets {
     }
   }
 
+  /** The key to send and where it came from: the stored one, then `apiKeyEnv`, then `apiKeyFile`, then none. */
+  async resolveWithSource(engine: KeySource): Promise<{ key: string; source: 'stored' | 'env' | 'file' } | null> {
+    const stored = await this.getStored(engine.id);
+    if (stored) {return { key: stored, source: 'stored' };}
+    const env = this.envKey(engine);
+    if (env) {return { key: env, source: 'env' };}
+    const file = this.fileKey(engine);
+    return file ? { key: file, source: 'file' } : null;
+  }
+
   /** The key to send: the stored one, then `apiKeyEnv`, then `apiKeyFile`, then none. */
   async resolve(engine: KeySource): Promise<string | null> {
-    return (await this.getStored(engine.id)) ?? this.envKey(engine) ?? this.fileKey(engine);
+    return (await this.resolveWithSource(engine))?.key ?? null;
   }
 
   async hasKey(engine: KeySource): Promise<boolean> {

@@ -235,14 +235,16 @@ describe('statuses, discovery and secrets', () => {
 
   it('setSecret reports hasKey; a removed engine loses its key and consent', async () => {
     const { service, store, consent, setSettings } = setup();
-    expect(await service.setSecret('claude', 'sk-ant-1')).toMatchObject({ hasKey: true });
+    expect(await service.setSecret('claude', 'sk-ant-1')).toMatchObject({ hasKey: true, keySource: 'stored' });
     expect(store.data.get('mikedown.ai.apiKey.claude')).toBe('sk-ant-1');
     consent.set('claude', true);
     setSettings({ ...rawSettings, engines: [rawSettings.engines[0]] });
     expect(await service.settingsChanged()).toEqual(['claude']);
     expect(store.data.has('mikedown.ai.apiKey.claude')).toBe(false);
     expect(consent.has('claude')).toBe(false);
-    expect(await service.setSecret('omlx', null)).toMatchObject({ hasKey: false });
+    const cleared = await service.setSecret('omlx', null);
+    expect(cleared).toMatchObject({ hasKey: false });
+    expect(cleared).not.toHaveProperty('keySource');
   });
 });
 
@@ -578,6 +580,17 @@ describe('AiSecrets key file', () => {
     await secrets.delete('omlx');
     expect(await secrets.resolve(omlx)).toBe('from-env');
     expect(await new AiSecrets(store, {}, () => home).resolve(omlx)).toBe('sk-file');
+  });
+
+  it('names the source of the key: stored, variable or file', async () => {
+    const store = memoryStore({ [secretKey('omlx')]: 'stored' });
+    const { secrets, home } = setup(good, { OMLX_API_KEY: 'from-env' }, store);
+    expect(await secrets.resolveWithSource(omlx)).toEqual({ key: 'stored', source: 'stored' });
+    await secrets.delete('omlx');
+    expect(await secrets.resolveWithSource(omlx)).toEqual({ key: 'from-env', source: 'env' });
+    const fileOnly = new AiSecrets(store, {}, () => home);
+    expect(await fileOnly.resolveWithSource(omlx)).toEqual({ key: 'sk-file', source: 'file' });
+    expect(await fileOnly.resolveWithSource({ id: 'omlx' })).toBeNull();
   });
 
   it('accepts an absolute path under home', async () => {

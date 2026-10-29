@@ -129,11 +129,12 @@ export class AiEngineService {
   private async status(settings: AiSettings, engine: AiEngineConfig): Promise<AiEngineStatus> {
     const entry = this.cached(engine);
     const loaded = this.loaded.get(engine.id);
+    const key = await this.deps.secrets.resolveWithSource(engine);
     const status: AiEngineStatus = {
       engineId: engine.id,
       ok: entry ? entry.ok : null,
       isLocal: engineLocality(engine, settings.localNetworks) === 'local',
-      hasKey: await this.deps.secrets.hasKey(engine),
+      hasKey: key !== null,
       models: engine.models.map((m) => {
         const model: AiEngineStatus['models'][number] = { id: m.id, capabilities: m.capabilities, source: m.capabilitiesSource };
         if (m.label !== undefined) {model.label = m.label;}
@@ -143,6 +144,8 @@ export class AiEngineService {
         return model;
       }),
     };
+    // A variable's name is already in the engine's settings; only the secret store and the key file are named.
+    if (key?.source === 'stored' || key?.source === 'file') {status.keySource = key.source;}
     if (entry?.latencyMs !== undefined) {status.latencyMs = entry.latencyMs;}
     if (entry?.error) {status.error = entry.error;}
     return status;
