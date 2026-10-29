@@ -47,6 +47,10 @@ All notable changes to MikeDown Editor are documented here.
 
 - npm packages (`@mikedown/*`): the AI UI is no longer in the editor's main bundle. `@mikedown/core` loads it with `import()` only when the host provides `host.ai`, so bundlers split it into its own chunk and editors without AI never download it (about 70 kB gzipped less in core's main entry). The standalone web component is now an entry plus chunks in `dist/` (about 815 kB gzipped up front instead of 863 kB, the AI chunk loads on demand); the CDN `<script type="module">` tag is unchanged, but a self-hosted copy needs every `dist/mikedown-editor.*.js` file.
 
+### Fixed
+
+- `==highlight==` is readable in dark VS Code themes when the editor theme is Auto: a translucent amber instead of bright yellow under pale text.
+
 ## [2.16.0] - 2026-10-28
 
 ### Added

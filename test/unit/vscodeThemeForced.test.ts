@@ -22,3 +22,11 @@ describe('forced editor theme', () => {
     }
   });
 });
+
+describe('highlight mark in dark VS Code themes', () => {
+  // The core mark rule follows the OS colour scheme, so with the editor theme
+  // on auto a dark VS Code theme kept the bright yellow under pale text.
+  it.each(['vscode-dark', 'vscode-high-contrast'])('body.%s darkens the mark unless the editor is forced light', (cls) => {
+    expect(css).toContain(`body.${cls}:not([data-mikedown-theme="light"]) :is(.mikedown-root, .mikedown-portal) .ProseMirror mark`);
+  });
+});

@@ -253,6 +253,18 @@ body[data-mikedown-theme="dark"] {
 }
 
 
+/* ==highlight== in a dark VS Code theme with the editor theme on auto. The core
+   rule follows prefers-color-scheme (the OS), which can disagree with the VS
+   Code theme, leaving the light yellow mark under light text. */
+body.vscode-dark:not([data-mikedown-theme="light"]) :is(.mikedown-root, .mikedown-portal) .ProseMirror mark,
+body.vscode-high-contrast:not([data-mikedown-theme="light"]) :is(.mikedown-root, .mikedown-portal) .ProseMirror mark {
+  background: rgba(255, 213, 79, 0.28);
+  color: inherit;
+}
+body.vscode-high-contrast:not([data-mikedown-theme="light"]) :is(.mikedown-root, .mikedown-portal) .ProseMirror mark {
+  outline: 1px solid var(--vscode-contrastBorder, currentColor);
+}
+
 /* Moved from the core editor.css diff. */
 body[data-mikedown-theme="light"] :is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-diff-changed {
   background-color: rgba(40, 167, 69, 0.08);
