@@ -13,11 +13,12 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
 
 ## Current Status
 
-**Work happens on `develop` (pushed, `origin/develop` = `764eaf9`, 2 newer local commits). It carries the experimental AI features (engines, rewrite family, /summary, /title, Properties Suggest), the customizable toolbar and the AI bundle split. All plans are signed off. Nothing from `develop` is released or merged to `main`.**
+**Work happens on `develop` (`origin/develop` = `42a8983`; 4 newer local commits, planning docs and backlog only). It carries the experimental AI features (engines, rewrite family, /summary, /title, Properties Suggest), the customizable toolbar and the AI bundle split. All plans are signed off. Nothing from `develop` is released or merged to `main`.**
 
 - **Released:** VS Code 2.16.0 (tag `v2.16.0`, TOC features; confirm the Marketplace upload), npm family 0.2.0, Desktop 0.3.0, site `0.3.0-site.3`.
 - **`main`:** 1 unpushed commit (`f09fdb2`, backlog cleanup), already merged into `develop`.
-- **`develop` unpushed:** `e1032e9` (AI bundle split) and `b27cf29` (plan log). Push with Mike's OK.
+- **`develop` unpushed:** `b15233f`, `e1fa98e` (backlog), `542624d`, `2f2323a` (new AI setup plan). Push with Mike's OK.
+- **Junk in pushed `42a8983` ("Loose updates"):** about 100k lines of dictionaries under `packages/desktop/private/tmp/claude-503/.../scratchpad/desktop-dist/`, a stray scratchpad copy. Remove it in a follow-up commit and gitignore the path (check with the session that owns `packages/desktop/private/`).
 - **The main folder is checked out on `develop`.** No orchestrator sessions are registered (`.orchestrator/active-sessions.json` is `[]`).
 - Off by default: everything AI sits behind `mikedown.ai.enabled`, labelled Experimental with one shared disclaimer (`AI_EXPERIMENTAL_DISCLAIMER`).
 
@@ -36,8 +37,15 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
    - Core main is 223 → 154 kB.
    - VS Code and vitest import `ai-ui-eager.ts`, so AI stays synchronous there.
 
+## What's Done (2026-10-29, day session)
+
+1. A Fable review pass over the AI features produced **`ai-setup-privacy-polish-plan.md`** (`542624d`, `2f2323a`). Milestones: M1 detect running local servers and one-click local setup; M1b setup wizard (path recommendation: running local engine, then Copilot via `vscode-lm`, then a hardware threshold, otherwise cloud; local under Advanced; the "subscription is not API access" note; Copilot as a new `vscode-lm` engine kind); M2 cloud setup in one place; M3 privacy copy and provider policy links; M4 consent hardening; M5 UI polish; M6 docs; T1 to T3 tests and hands-on. It lists 7 bugs (B1 to B7) and **13 open questions for Mike**, each with a recommendation.
+2. Corrections the review found: there is **no `vscode.lm` integration today** (`src/ai/vscodeAi.ts` is wiring plus the consent modal), and neither host has hardware detection.
+3. `BACKLOG.md`: added **AI Recipes** (user-defined prompt templates with a structured output and a follow-up action; a separate effort); dropped the shipped customizable toolbar entry.
+
 ## What's Next
 
+1. **Orchestrator on `ai-setup-privacy-polish-plan.md`** (launched 2026-10-29). Mike answers OQ1 to OQ13 first, or accepts the recommendations.
 1. **Push** `develop` if it's ahead of origin (with Mike's OK).
 2. **Hand-check the website demos' AI** with the lazy chunk (`npm run build:site && npm run preview -w website`, `/mikedown/developers/`).
 3. **AI release (M7 box 4, Mike):** docs and loose ends are done (2026-10-29, `1ad8388`..`a5c54e5`; new subpath `@mikedown/core/ai/engines-page`). Release order: `npm run version:npm -- 0.3.0`, `test:packages`, `release:npm` dry run, Mike publishes, bump the Desktop core pin off `0.1.0` (unblocks the Desktop dist build), `npm run vsix:minor`. Lint warnings are 1213 (TOC code from main, e.g. `toc-node.ts` 93), none in AI/toolbar files.
@@ -59,6 +67,7 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
 
 ## Planning Docs
 
+- `ai-setup-privacy-polish-plan.md`: **new, active** (orchestrator). 13 open questions.
 - `ai-inference-engines-plan.md`: engines layer done through T4; **M7 release prep open**; "Follow-up plans" list.
 - `ai-writing-features-plan.md`: **complete** (D1 to D18; follow-up #9 bundle split done). Archive when ready.
 - `customizable-toolbar-plan.md`: **complete**, OQs closed. Archive when ready (`/iadev:repo-markdown-cleanup`).
@@ -94,6 +103,11 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
 
 ## Recent Git Log (`develop`)
 
+- `2f2323a` Add the setup wizard milestone to the AI setup plan
+- `542624d` Add the AI setup, privacy and polish plan from the review pass
+- `e1fa98e` Drop the shipped customizable toolbar from the backlog
+- `b15233f` Add AI Recipes to the backlog
+- `42a8983` Loose updates (contains the junk scratchpad dictionaries)
 - `b27cf29` Log the AI bundle split in the AI writing features plan
 - `e1032e9` Load the AI UI on demand so editors without host.ai never ship it
 - `764eaf9` Log the Properties sidebar fixes in the AI writing features plan
