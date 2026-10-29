@@ -19,6 +19,10 @@ export default defineConfig({
     // @mikedown/core/ai: the pure AI layer (schema, router, SSE, request
     // builders) for hosts that run inference, without the editor.
     'ai/index': 'src/ai/index.ts',
+    // @mikedown/core/ai/engines-page: `mountAiEnginesPage`, the AI Engines page
+    // as a component a host can mount in its own container. DOM code, so it
+    // stays out of the pure `ai` entry and out of the main entry (bundle split).
+    'ai/engines-page': 'src/ai-engines-page.ts',
   },
   format: ['esm'],
   dts: true,

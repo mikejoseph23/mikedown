@@ -173,6 +173,22 @@ function staticGraph(file: string): string[] {
   return [...out];
 }
 
+/** A declaration file and the shared declaration chunks it imports (tsup moves types used by several entries into `types-*.d.ts`). */
+function dtsGraph(file: string): string[] {
+  const out = new Set<string>();
+  const queue = [file];
+  while (queue.length) {
+    const f = queue.shift()!;
+    if (out.has(f)) continue;
+    out.add(f);
+    for (const m of read(f).matchAll(/from\s*["'](\.{1,2}\/[^"']+?)(?:\.js)?["']/g)) {
+      const next = join(f, '..', `${m[1]}.d.ts`).replace(/^\.\//, '');
+      if (existsSync(join(dist, next))) queue.push(next);
+    }
+  }
+  return [...out];
+}
+
 suite('@mikedown/core dist shape', () => {
   it('index.js is ESM with no VS Code leakage', () => {
     const js = read('index.js');
@@ -238,8 +254,9 @@ suite('@mikedown/core dist shape', () => {
   it('index.d.ts exports the public API', () => {
     const dts = read('index.d.ts');
     expect(dts).toMatch(/declare function createMikeDownEditor\(/);
-    expect(dts).toMatch(/interface MikeDownHost\b/);
-    expect(dts).toMatch(/interface MikeDownEditorHandle\b/);
+    const declared = dtsGraph('index.d.ts').map(read).join('\n');
+    expect(declared).toMatch(/interface MikeDownHost\b/);
+    expect(declared).toMatch(/interface MikeDownEditorHandle\b/);
     const exportLines = dts.split('\n').filter((l) => /^export\s*(type\s*)?\{/.test(l)).join('\n');
     expect(exportLines).toMatch(/\bcreateMikeDownEditor\b/);
     expect(exportLines).toMatch(/\bMikeDownHost\b/);
@@ -292,7 +309,7 @@ suite('@mikedown/core ai subpath', () => {
   });
 
   it('index.d.ts exposes the ai host group on MikeDownHost', () => {
-    expect(read('index.d.ts')).toMatch(/\bai\?: MikeDownAiHost\b/);
+    expect(dtsGraph('index.d.ts').map(read).join('\n')).toMatch(/\bai\?: MikeDownAiHost\b/);
   });
 
   it('the ./ai export maps types and code to files that exist', () => {
@@ -322,6 +339,27 @@ suite('@mikedown/core ai subpath', () => {
       expect(dts, name).toContain(name);
     }
     expect(staticGraph('ai/index.js').map(read).join('\n')).not.toMatch(/\b(fetch|XMLHttpRequest|WebSocket|EventSource)\b\s*\(|\bnew\s+(XMLHttpRequest|WebSocket|EventSource)\b/);
+  });
+
+  it('ai/index.d.ts exposes the rewrite prompt helpers', () => {
+    const dts = read('ai/index.d.ts');
+    for (const name of ['buildRewriteMessages', 'rewriteSystemPrompt', 'rewriteMaxTokens', 'finalizeRewriteText']) {
+      expect(dts, name).toContain(name);
+    }
+  });
+
+  it('./ai/engines-page exports mountAiEnginesPage, and neither the main nor the ai entry loads it', () => {
+    const m = JSON.parse(readFileSync(join(corePkg.dirPath, 'package.json'), 'utf8'));
+    const entry = m.exports['./ai/engines-page'];
+    expect(entry).toBeTruthy();
+    expect(entry.types).toBe('./dist/ai/engines-page.d.ts');
+    for (const target of targetsOf(entry)) {
+      expect(existsSync(join(corePkg.dirPath, target)), target).toBe(true);
+    }
+    expect(read('ai/engines-page.d.ts')).toContain('mountAiEnginesPage');
+    expect(read('ai/engines-page.js')).toContain('mountAiEnginesPage');
+    expect(staticGraph('index.js')).not.toContain('ai/engines-page.js');
+    expect(staticGraph('ai/index.js')).not.toContain('ai/engines-page.js');
   });
 
   it('no public package depends on a provider SDK or an HTTP client', () => {

@@ -29,6 +29,11 @@
       "import": "./dist/ai/index.js",
       "default": "./dist/ai/index.js"
     },
+    "./ai/engines-page": {
+      "types": "./dist/ai/engines-page.d.ts",
+      "import": "./dist/ai/engines-page.js",
+      "default": "./dist/ai/engines-page.js"
+    },
     "./styles.css": "./dist/styles.css",
     "./tokens.css": "./dist/tokens.css",
     "./shared/*": {
