@@ -568,28 +568,28 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 
 **2026-10-29 T4 walk, VS Code fresh profile (findings so far)**
 
-- [ ] W1 Toolbar AI menu with an unreachable engine repeats the same "oMLX failed its last connection test…" line under all six items; show the reason once at the top (with Start it / Manage engines) and just grey out the items.
-- [ ] W2 "Turn on and set up" panel says the local vs cloud privacy point twice (disclaimer, then "Local engines keep your text here…"); cut the second line.
-- [ ] W3 Same panel ends "No local AI server found. Install LM Studio or Ollama, or use a cloud API key", which leads with local and goes against the cloud-first default; reword to lead with connecting a provider, local under Advanced.
-- [ ] W4 First-look panel is heavy grey text; trim the disclaimer to one sentence plus "Learn more".
+- [x] W1 Toolbar AI menu with an unreachable engine repeats the same "oMLX failed its last connection test…" line under all six items; show the reason once at the top (with Start it / Manage engines) and just grey out the items. Fixed in `232003b, 7383055`.
+- [x] W2 "Turn on and set up" panel says the local vs cloud privacy point twice (disclaimer, then "Local engines keep your text here…"); cut the second line. Fixed in `232003b`.
+- [x] W3 Same panel ends "No local AI server found. Install LM Studio or Ollama, or use a cloud API key", which leads with local and goes against the cloud-first default; reword to lead with connecting a provider, local under Advanced. Fixed in `232003b`.
+- [x] W4 First-look panel is heavy grey text; trim the disclaimer to one sentence plus "Learn more". Fixed in `232003b`.
 - [x] W5 BUG: wizard box only got half the page height (the hidden nav/detail panes stayed in the flex column because `.ai-page-body { display: flex }` overrode `hidden`). Fixed in `6000eaa`, Desktop too.
-- [ ] W6 The disclaimer appears a third time as the wizard's top banner.
-- [ ] W7 "Allow cloud engines" toggle shows (off) on the connect-a-cloud-provider step even though picking a provider turns it on; hide it or show it as "will turn on".
-- [ ] W8 "Set up AI" appears twice (top bar and page heading).
+- [x] W6 The disclaimer appears a third time as the wizard's top banner. Fixed in `6ebdbb6`.
+- [x] W7 "Allow cloud engines" toggle shows (off) on the connect-a-cloud-provider step even though picking a provider turns it on; hide it or show it as "will turn on". Fixed in `6ebdbb6`.
+- [x] W8 "Set up AI" appears twice (top bar and page heading). Fixed in `6ebdbb6`.
 - [ ] W9 Fresh VS Code profile opens .md in the text editor (customEditor priority `option`); the "Make MikeDown the default editor?" toast handled it well. Note only.
 - [ ] W10 Long `--user-data-dir` paths make VS Code exit silently (socket path limit); use a short path such as `/tmp/mdfresh` for the T4 clean slate.
-- [ ] W11 Wizard key step shows the key link twice ("OpenAI API keys" in the note and "Get an API key on the OpenAI platform" under the field); keep one.
-- [ ] W12 The subscription vs API key note sits under Name, so it reads as about the name; hide Name under Advanced for new users and put the note directly above the key field.
-- [ ] W13 The wizard key step is the full engine form (model search, Fetch models, Default model, Enabled) before any key exists; for new users: paste key, models auto-load, default picked, done. (Auto-fetch and default pick do work.)
-- [ ] W14 The note's grey-on-grey box has low contrast.
-- [ ] W15 83 OpenAI models (dated snapshots included) is a lot for a first run; show Popular only in the wizard with "Show all models" collapsed. Non-chat models are correctly filtered.
-- [ ] W16 "Picked" checkboxes vs "Default model" is unclear in the wizard; picking one should mean it is the default.
-- [ ] W17 Final step says "AI is ready" then "Choose Done to turn AI on"; relabel the button Turn on AI.
-- [ ] W18 "Fine-tune in AI Engines" misuses an ML term; use "Change settings in AI Engines".
-- [ ] W19 "Even when allowed, each cloud engine asks…" refers to the Allow cloud switch the user never saw; say "MikeDown asks once per workspace before the first request."
-- [ ] W20 Minor: "OpenAI · gpt-5.5, cloud" mixes separators; "OpenAI · gpt-5.5 · Cloud".
-- [ ] W21 Consent dialog names api.openai.com twice in the first paragraph.
-- [ ] W22 Consent dialog shows the raw policy URL and a "Read the provider's policy" button; drop the URL.
-- [ ] W23/W24 Consent buttons: four, with "Not now" vs "Not for this workspace" hard to tell apart, and no "Allow once". Recommended set: Don't allow · Allow once · Allow for this workspace.
+- [x] W11 Wizard key step shows the key link twice ("OpenAI API keys" in the note and "Get an API key on the OpenAI platform" under the field); keep one. Fixed in `f7c0e6f`.
+- [x] W12 The subscription vs API key note sits under Name, so it reads as about the name; hide Name under Advanced for new users and put the note directly above the key field. Fixed in `f7c0e6f`.
+- [x] W13 The wizard key step is the full engine form (model search, Fetch models, Default model, Enabled) before any key exists; for new users: paste key, models auto-load, default picked, done. (Auto-fetch and default pick do work.) Fixed in `f7c0e6f`.
+- [x] W14 The note's grey-on-grey box has low contrast. Fixed in `f7c0e6f`.
+- [x] W15 83 OpenAI models (dated snapshots included) is a lot for a first run; show Popular only in the wizard with "Show all models" collapsed. Non-chat models are correctly filtered. Fixed in `f7c0e6f`.
+- [x] W16 "Picked" checkboxes vs "Default model" is unclear in the wizard; picking one should mean it is the default. Fixed in `f7c0e6f`.
+- [x] W17 Final step says "AI is ready" then "Choose Done to turn AI on"; relabel the button Turn on AI. Fixed in `6ebdbb6`.
+- [x] W18 "Fine-tune in AI Engines" misuses an ML term; use "Change settings in AI Engines". Fixed in `6ebdbb6`.
+- [x] W19 "Even when allowed, each cloud engine asks…" refers to the Allow cloud switch the user never saw; say "MikeDown asks once per workspace before the first request." Fixed in `936dd68`.
+- [x] W20 Minor: "OpenAI · gpt-5.5, cloud" mixes separators; "OpenAI · gpt-5.5 · Cloud". Fixed in `6ebdbb6`.
+- [x] W21 Consent dialog names api.openai.com twice in the first paragraph. Fixed in `936dd68`.
+- [x] W22 Consent dialog shows the raw policy URL and a "Read the provider's policy" button; drop the URL. Fixed in `936dd68`.
+- [x] W23/W24 Consent buttons: four, with "Not now" vs "Not for this workspace" hard to tell apart, and no "Allow once". Recommended set: Don't allow · Allow once · Allow for this workspace. Fixed in `936dd68`.
 - [x] W25 BUG: OpenAI reasoning models (gpt-5.5) reject temperature 0.3 (HTTP 400 on Summarize). Fixed in `6f3038e`: reasoning models drop temperature/top_p, plus one retry without a parameter the API names as unsupported, remembered per engine and model for the session (both hosts).
 - [ ] W26 Thinking dial Off sends `reasoning_effort: "none"`, which gpt-5 and o-series reject; the retry net recovers but costs one failed request per session. Map Off to the lowest effort each model family accepts. No CHANGELOG entry yet for `6f3038e`.
