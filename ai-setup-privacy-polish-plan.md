@@ -603,9 +603,9 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [ ] R5 Popover footer engine badge "cloud · OpenAI ·gpt-5.5" is missing a space.
 - [ ] R6 Popover Thinking row has no Default option and nothing selected, while the toolbar menu shows Default selected.
 - [ ] R7 Note only: on VS Code the native modal orders buttons Don't allow · Read the provider's policy · Allow once · Allow for this workspace; the policy button lands between deny and allow.
-- [ ] E1 Engines page "Add an engine" still leads with "Run on this machine" and shows the old `AI_DETECT_NONE` line ("No local AI server found. Install LM Studio or Ollama, or use a cloud API key."); match the wizard (cloud first, new wording).
-- [ ] E2 Engines page intro "Nothing is sent until AI is on" is stale once AI is on.
-- [ ] E3 Cloud cards don't show "Added" for an engine already added (OpenAI), unlike local cards' status.
-- [ ] E4 Adding a second cloud provider from the Engines page (full form) skips the subscription vs API key note and the Pricing link; show the same note as the wizard.
+- [x] E1 Engines page "Add an engine" still leads with "Run on this machine" and shows the old `AI_DETECT_NONE` line ("No local AI server found. Install LM Studio or Ollama, or use a cloud API key."); match the wizard (cloud first, new wording). Fixed in `a1504d2`.
+- [x] E2 Engines page intro "Nothing is sent until AI is on" is stale once AI is on. Fixed in `a1504d2`.
+- [x] E3 Cloud cards don't show "Added" for an engine already added (OpenAI), unlike local cards' status. Fixed in `a1504d2`.
+- [x] E4 Adding a second cloud provider from the Engines page (full form) skips the subscription vs API key note and the Pricing link; show the same note as the wizard. Fixed in `a1504d2`.
 - [x] E5 Not a bug: Mike clicked Use by default on Anthropic.
 - Note: Mike tested OpenAI and Anthropic live and chose not to test DeepSeek, Gemini, Groq, Mistral or OpenRouter (no new accounts); those rely on recorded fixtures and user reports.
