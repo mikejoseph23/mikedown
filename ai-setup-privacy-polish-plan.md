@@ -25,10 +25,10 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 |---|---|---|---|---|
 | [M1 Find running local servers, one-click local setup](#m1-find-running-local-servers-one-click-local-setup) | Opus | ✅ Done | 14 | `7d9ea11`; one-click saves the engine quietly first, then one patch |
 | [M1b Setup wizard: recommend a path, cloud by default](#m1b-setup-wizard-recommend-a-path-cloud-by-default) | Opus | ⬜ Not Started | — | Running engine → hardware → cloud; subscription vs API key; `vscode.lm` as a new engine kind |
-| [M2 Cloud setup in one place](#m2-cloud-setup-in-one-place) | Opus | ⬜ Not Started | — | Allow cloud on the Engines page, key-first flow, env/file keys |
+| [M2 Cloud setup in one place](#m2-cloud-setup-in-one-place) | Opus | 🔄 In Progress | — | Allow cloud on the Engines page, key-first flow, env/file keys |
 | [T1 Setup tests](#t1-setup-tests) | Sonnet | ⬜ Not Started | — | Unit, host, cargo |
 | [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links) | Opus | ✅ Done | 16 | `f5b48a7` (cherry-picked from worktree); openLink and panel wiring passed to M2/M4 |
-| [M4 Consent flow hardening](#m4-consent-flow-hardening) | Sonnet | ⬜ Not Started | — | VS Code and Desktop; needs OQ1 to OQ3 |
+| [M4 Consent flow hardening](#m4-consent-flow-hardening) | Sonnet | 🔄 In Progress | — | VS Code and Desktop; needs OQ1 to OQ3 |
 | [T2 Privacy and consent tests](#t2-privacy-and-consent-tests) | Sonnet | ⬜ Not Started | — | Unit, host, cargo |
 | [M5 UI polish: surfaces, naming, states, keyboard](#m5-ui-polish-surfaces-naming-states-keyboard) | Opus | ⬜ Not Started | — | Context menu, toolbar menu, popover, sidebar, commands |
 | [M6 Docs, settings sync, release notes](#m6-docs-settings-sync-release-notes) | Sonnet | ⬜ Not Started | — | README, CHANGELOG, Desktop README, package.json descriptions |
