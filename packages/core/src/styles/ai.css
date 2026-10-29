@@ -1284,6 +1284,10 @@
   display: flex;
   min-height: 0;
 }
+/* The page toggles its parts with `hidden` (the list and detail while the
+   wizard shows); the display rules above would otherwise beat it, and the
+   hidden body would split the height with the wizard. */
+:is(.mikedown-root, .mikedown-portal) .ai-page > [hidden] { display: none; }
 
 /* Left pane: a quiet source list. */
 :is(.mikedown-root, .mikedown-portal) .ai-page-nav {
