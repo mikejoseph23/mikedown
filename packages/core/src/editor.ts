@@ -4257,9 +4257,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     return { state: 'enabled' };
   }
 
+  let lastPropertiesState: SuggestPropertiesAvailability['state'] = 'hidden';
   function syncAiPropertiesAvailability(): void {
     if (!outlineSidebar) {return;}
-    outlineSidebar.applySuggestAvailability(aiPropertiesAvailability());
+    const a = aiPropertiesAvailability();
+    // Turned off or out of reach: a run stops and its chips go with it.
+    if (a.state !== 'enabled' && lastPropertiesState === 'enabled') {cancelAiPropertySuggestions(true);}
+    lastPropertiesState = a.state;
+    outlineSidebar.applySuggestAvailability(a);
   }
 
   /** Abort a running request; `clear` also empties the chips row. */

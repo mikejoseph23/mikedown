@@ -6,7 +6,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../src/index';
-import type { AiCompletionRequest, MikeDownAiHost } from '../src/ai';
+import { parseAiSettings, type AiCompletionRequest, type MikeDownAiHost } from '../src/ai';
 import { PROPERTIES_SYSTEM_PROMPT } from '../src/ai/prompts/properties';
 import { mergePropertySuggestion } from '../src/propertySuggestions';
 import { createOutlineSidebar, type OutlineSidebar } from '../src/outlineSidebar';
@@ -241,6 +241,28 @@ describe('Properties Suggest', () => {
     pending[2](REPLY);
     await settle();
     expect(row(el).hidden).toBe(true);
+  });
+
+  it('turning AI off clears the chips; a run going at the time is aborted and shows nothing (T3 F6)', async () => {
+    const { el, handle } = mount(BODY, REPLY);
+    suggestBtn(el).click();
+    await settle();
+    expect(chips(el).length).toBeGreaterThan(0);
+    handle.updateSettings({ ai: parseAiSettings({ enabled: false }, { onWarning: () => {} }) });
+    expect(suggestBtn(el).hidden).toBe(true);
+    expect(row(el).hidden).toBe(true);
+    expect(chips(el)).toHaveLength(0);
+
+    const pending: Array<(text: string) => void> = [];
+    const second = mount(BODY, () => new Promise<string>((resolve) => { pending.push(resolve); }));
+    suggestBtn(second.el).click();
+    await settle();
+    expect(row(second.el).dataset.state).toBe('running');
+    second.handle.updateSettings({ ai: parseAiSettings({ enabled: false }, { onWarning: () => {} }) });
+    expect(row(second.el).hidden).toBe(true);
+    pending[0](REPLY);
+    await settle();
+    expect(row(second.el).hidden).toBe(true);
   });
 
   it('the aiSuggestProperties command shows the sidebar and runs Suggest', async () => {
