@@ -10,6 +10,7 @@ import {
   engineIssues,
   mergeDiscoveryStatus,
   parseContextTokens,
+  parseLocalNetworksText,
   parseRequestOverrides,
   removeEngine,
   routePairs,
@@ -632,6 +633,74 @@ describe('AI tab order and naming (U3, U8)', () => {
     expect(star.textContent).toBe('Use by default');
     expect(star.title).toBe('Use this engine by default');
     expect(document.querySelector('[data-fk="eng:lms:fetch"]')?.textContent).toBe('Refresh models');
+  });
+});
+
+describe('Local networks field on the AI tab', () => {
+  const field = () => document.querySelector<HTMLTextAreaElement>('[data-fk="ai-local-networks"]')!;
+  const type = (text: string) => {
+    field().value = text;
+    field().dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  it('parses lines and commas, dedupes, and restores the defaults when blank', () => {
+    expect(parseLocalNetworksText(' 10.0.98.0/24\n.TS.net, 10.0.98.0/24 ')).toEqual({ ok: true, value: ['10.0.98.0/24', '.ts.net'] });
+    expect(parseLocalNetworksText('  \n ')).toEqual({ ok: true, value: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'] });
+  });
+
+  it('refuses a malformed range or host name, naming the entry', () => {
+    for (const bad of ['10.0.0.0/33', '300.1.1.1', '10.0.0', 'http://x.example', 'a b/c']) {
+      expect(parseLocalNetworksText(bad).ok, bad).toBe(false);
+    }
+    const r = parseLocalNetworksText('10.0.98.0/24 10.0.0.0/40');
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toContain('10.0.0.0/40');
+  });
+
+  it('sits folded under Advanced, shows the current list and saves only when changed', () => {
+    const saveSettings = vi.fn();
+    class Host extends NoopHost { ai = tier2(); saveSettings = saveSettings; }
+    const handle = mount(new Host(), settings({ localNetworks: ['10.0.98.0/24'] }));
+    handle.command('openAiSettings');
+    const toggle = document.querySelector<HTMLButtonElement>('[data-fk="local-networks:advanced"]')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.getElementById(toggle.getAttribute('aria-controls')!)!.hidden).toBe(true);
+    toggle.click();
+    expect(field().value).toBe('10.0.98.0/24');
+    click(byText('.settings-btn--primary', 'Save to Settings'));
+    expect(Object.keys(saveSettings.mock.calls[0][0]).filter((k) => k.startsWith('ai.'))).toEqual([]);
+
+    handle.command('openAiSettings');
+    type('10.0.98.0/24\n.ts.net');
+    click(byText('.settings-btn--primary', 'Save to Settings'));
+    const patch = saveSettings.mock.calls[1][0] as Record<string, unknown>;
+    expect(Object.keys(patch).filter((k) => k.startsWith('ai.'))).toEqual(['ai.localNetworks']);
+    expect(patch['ai.localNetworks']).toEqual(['10.0.98.0/24', '.ts.net']);
+  });
+
+  it('a bad entry shows an error and leaves the draft alone; blank saves the defaults', () => {
+    const saveSettings = vi.fn();
+    class Host extends NoopHost { ai = tier2(); saveSettings = saveSettings; }
+    const handle = mount(new Host(), settings({ localNetworks: ['10.0.98.0/24'] }));
+    handle.command('openAiSettings');
+    type('10.0.98.0/99');
+    expect(field().getAttribute('aria-invalid')).toBe('true');
+    expect(document.getElementById(field().getAttribute('aria-describedby')!)!.textContent).toContain('10.0.98.0/99');
+    click(byText('.settings-btn--primary', 'Save to Settings'));
+    expect(Object.keys(saveSettings.mock.calls[0][0]).filter((k) => k.startsWith('ai.'))).toEqual([]);
+
+    handle.command('openAiSettings');
+    type('');
+    expect(field().hasAttribute('aria-invalid')).toBe(false);
+    click(byText('.settings-btn--primary', 'Save to Settings'));
+    expect((saveSettings.mock.calls[1][0] as Record<string, unknown>)['ai.localNetworks']).toEqual(['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
+  });
+
+  it('a tier-1 host has no field: it has no engines of its own', () => {
+    class Tier1 extends NoopHost { ai = { complete: vi.fn() } as unknown as MikeDownAiHost; }
+    const handle = mount(new Tier1());
+    handle.command('openAiSettings');
+    expect(field()).toBeNull();
   });
 });
 

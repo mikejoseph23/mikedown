@@ -13,6 +13,7 @@ import {
   AI_ENGINE_PRESETS,
   AI_TASKS,
   DEFAULT_CONTEXT_TOKENS,
+  DEFAULT_LOCAL_NETWORKS,
   aiConsentHost,
   detectCapabilities,
   detectLocality,
@@ -235,6 +236,32 @@ export function addManualModel(engine: AiEngineConfig, rawId: string): { ok: tru
     manual: true,
   };
   return { ok: true, engine: { ...engine, models: [...engine.models, model] }, model };
+}
+
+/**
+ * The Local networks field: one entry per line (commas work too). An entry
+ * is an IPv4 address or CIDR range (`10.0.98.0/24`) or a host-name suffix
+ * (`.ts.net`), the two forms `detectLocality` understands. Blank restores
+ * the defaults. Any bad entry fails the whole edit, so a typo never saves a
+ * range that silently matches nothing.
+ */
+export function parseLocalNetworksText(text: string): { ok: true; value: string[] } | { ok: false; error: string } {
+  const entries = [...new Set(text.split(/[\s,]+/).map((e) => e.trim().toLowerCase()).filter((e) => e.length > 0))];
+  if (entries.length === 0) {return { ok: true, value: [...DEFAULT_LOCAL_NETWORKS] };}
+  const bad: string[] = [];
+  for (const entry of entries) {
+    const numeric = /^\d/.test(entry);
+    const valid = numeric
+      ? /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?:\/(\d{1,2}))?$/.test(entry)
+        && entry.split('/')[0].split('.').every((p) => Number(p) <= 255)
+        && Number(entry.split('/')[1] ?? 0) <= 32
+      : /^\.?[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(entry);
+    if (!valid) {bad.push(entry);}
+  }
+  if (bad.length > 0) {
+    return { ok: false, error: `Not a network or host name: ${bad.join(', ')}. Use an IPv4 range like 10.0.98.0/24 or a suffix like .ts.net.` };
+  }
+  return { ok: true, value: entries };
 }
 
 /**

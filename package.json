@@ -970,7 +970,7 @@
             "192.168.0.0/16"
           ],
           "scope": "machine",
-          "markdownDescription": "IPv4 ranges (CIDR) and host name suffixes that count as local, besides loopback, link-local, `.local`, `.lan` and `.home.arpa`. Add a WireGuard range such as `10.0.98.0/24` or `.ts.net` here. User settings only. Edit it in VS Code settings (`settings.json`); the MikeDown Settings modal does not show it."
+          "markdownDescription": "IPv4 ranges (CIDR) and host name suffixes that count as local, besides loopback, link-local, `.local`, `.lan` and `.home.arpa`. Add a WireGuard range such as `10.0.98.0/24` or `.ts.net` here. User settings only. Edit it under Advanced: local networks on the AI tab of the MikeDown Settings modal, or here."
         }
       }
     }

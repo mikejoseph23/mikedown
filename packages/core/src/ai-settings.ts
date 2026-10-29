@@ -24,7 +24,7 @@
 
 import { AI_FEATURES, AI_NO_CONSENTS_TEXT, AI_TASKS, aiConsentStepNote, aiConsentSummary, aiProviderPolicy, getAiTask, resolveAiFeature, toAiError } from './ai';
 import type { AiConsentRecord, AiEngineConfig, AiSettings, AiSettingsPatch } from './ai';
-import { engineDisplayName, engineKindLabel, routeLabel, taskRouteNote } from './ai-settings-model';
+import { engineDisplayName, engineKindLabel, parseLocalNetworksText, routeLabel, taskRouteNote } from './ai-settings-model';
 import { createAiSettingsSession } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
 import type { AiEnginesPageSection } from './ai-engines-page';
@@ -359,6 +359,61 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
     return [toggle, panel];
   }
 
+  // ── Local networks ────────────────────────────────────────────────────────
+  // A power-user list (tier 2 only): extra ranges and host-name suffixes that
+  // count as local, so an engine there needs no Allow cloud. The host saves
+  // it to user settings only; a repo cannot widen it.
+
+  const localNetsRow = ctx.makeRow('Local networks', 'Networks and host names that count as local, so an engine there never needs Allow cloud.');
+  localNetsRow.classList.add('ai-section');
+  {
+    const panelId = nextId('ai-local-networks');
+    const toggle = button('ai-disclosure ai-local-networks-toggle', 'Advanced: local networks', { html: ICONS.chevron, fk: 'local-networks:advanced' });
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', panelId);
+    const panel = el('div', 'ai-advanced ai-local-networks');
+    panel.id = panelId;
+    panel.hidden = true;
+
+    const area = el('textarea', 'settings-input ai-mono ai-overrides-text');
+    area.rows = 4;
+    area.spellcheck = false;
+    area.dataset.fk = 'ai-local-networks';
+    area.placeholder = '10.0.98.0/24\n.ts.net';
+    area.value = session.draft.localNetworks.join('\n');
+    area.setAttribute('aria-label', 'Local networks, one per line');
+    const err = el('div', 'ai-field-error');
+    err.id = nextId('ai-local-networks-error');
+    err.setAttribute('aria-live', 'polite');
+    area.setAttribute('aria-describedby', err.id);
+    area.addEventListener('input', () => {
+      const parsed = parseLocalNetworksText(area.value);
+      if (!parsed.ok) {
+        err.textContent = parsed.error;
+        area.setAttribute('aria-invalid', 'true');
+        return;
+      }
+      err.textContent = '';
+      area.removeAttribute('aria-invalid');
+      session.draft = { ...session.draft, localNetworks: parsed.value };
+      if (canManage) {renderEngines();}
+    });
+    // Leaving the field shows what was kept: normalized, or the defaults when blank.
+    area.addEventListener('blur', () => {
+      if (area.getAttribute('aria-invalid') !== 'true') {area.value = session.draft.localNetworks.join('\n');}
+    });
+    panel.append(
+      el('div', 'settings-desc', 'One per line. An IPv4 range such as 10.0.98.0/24 (a WireGuard network, say) or a host-name suffix such as .ts.net. Loopback, link-local, .local, .lan and .home.arpa always count. Leave it blank for the defaults (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16). Saved to your user settings only, never to a folder.'),
+      area,
+      err,
+    );
+    toggle.addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      toggle.setAttribute('aria-expanded', String(!panel.hidden));
+    });
+    localNetsRow.append(toggle, panel);
+  }
+
   // ── Assemble ──────────────────────────────────────────────────────────────
 
   // Intro, master switch, Engines (with the default model), Allow cloud and
@@ -375,7 +430,9 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
       void refreshConsents();
     }
   }
-  rows.push(toolbarField.row, featuresRow, live);
+  rows.push(toolbarField.row, featuresRow);
+  if (tier === 2) {rows.push(localNetsRow);}
+  rows.push(live);
 
   // Statuses pushed while the tab is open refresh the dots in place.
   const unsubscribe = canManage ? opts.subscribeStatuses?.((list) => {
