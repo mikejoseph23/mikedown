@@ -592,7 +592,7 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [x] W22 Consent dialog shows the raw policy URL and a "Read the provider's policy" button; drop the URL. Fixed in `936dd68`.
 - [x] W23/W24 Consent buttons: four, with "Not now" vs "Not for this workspace" hard to tell apart, and no "Allow once". Recommended set: Don't allow · Allow once · Allow for this workspace. Fixed in `936dd68`.
 - [x] W25 BUG: OpenAI reasoning models (gpt-5.5) reject temperature 0.3 (HTTP 400 on Summarize). Fixed in `6f3038e`: reasoning models drop temperature/top_p, plus one retry without a parameter the API names as unsupported, remembered per engine and model for the session (both hosts).
-- [ ] W26 Thinking dial Off sends `reasoning_effort: "none"`, which gpt-5 and o-series reject; the retry net recovers but costs one failed request per session. Map Off to the lowest effort each model family accepts. No CHANGELOG entry yet for `6f3038e`.
+- [x] W26 Fixed in `d4d8e15` (Off maps per family: gpt-5.1+ none, gpt-5/mini/nano minimal, else low). Thinking dial Off sends `reasoning_effort: "none"`, which gpt-5 and o-series reject; the retry net recovers but costs one failed request per session. Map Off to the lowest effort each model family accepts. No CHANGELOG entry yet for `6f3038e`.
 
 **2026-10-29 T4 walk, round 2 (VS Code fresh profile).** Wizard to OpenAI to Summarize works end to end; Allow once works; gpt-5.5 no longer 400s (W25 verified).
 

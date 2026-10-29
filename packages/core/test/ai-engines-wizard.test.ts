@@ -265,6 +265,7 @@ describe('setup wizard: step 2, cloud', () => {
     await flush();
     click(q(m.c, 'wiz:card:openrouter'));
     expect(text(m.c.querySelector('.ai-wizard-subscription'))).toContain('passes each request on to the provider');
+    expect(Array.from(m.c.querySelectorAll('.ai-wizard-subscription a')).map((a) => a.textContent)).toContain('Privacy');
     click(q(m.c, 'wiz:card:openai'));
     expect(text(m.c.querySelector('.ai-wizard-subscription'))).not.toContain('passes each request on');
   });

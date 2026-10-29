@@ -27,7 +27,7 @@
  */
 
 import { AI_CLOUD_PRIVACY, AI_ENGINE_PRESETS, AI_HOST_PRIVACY, aiConsentHost, aiConsentStepNote, hostOfUrl, isKnownEngineKind, presetForEngine } from './ai';
-import type { AiEngineConfig, AiEnginePreset } from './ai';
+import type { AiEngineConfig, AiEnginePreset, AiProviderPolicy } from './ai';
 import {
   applyDiscoveryForFamily,
   defaultRouteForEngine,
