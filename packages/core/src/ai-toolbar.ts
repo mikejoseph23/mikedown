@@ -138,7 +138,7 @@ export function aiMenuStatusLine(reason: string): { label: string; detail?: stri
 }
 
 /** The reason two or more disabled items share (not "Select text first"), or null. */
-function sharedDisabledReason(states: readonly AiToolbarEntryState[]): string | null {
+function sharedDisabledReason(states: readonly (AiToolbarEntryState | undefined)[]): string | null {
   const counts = new Map<string, number>();
   for (const state of states) {
     if (state && !state.enabled && state.hint !== SELECT_TEXT_HINT) {counts.set(state.hint, (counts.get(state.hint) ?? 0) + 1);}
