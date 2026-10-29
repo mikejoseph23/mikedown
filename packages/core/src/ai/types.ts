@@ -245,6 +245,8 @@ export interface AiEngineStatusModel {
   loaded?: boolean;
   /** What the server says the model takes, in bytes (oMLX, LM Studio, Ollama report it). */
   sizeBytes?: number;
+  /** The server says it is a mixture of experts (LM Studio `arch`, oMLX `config_model_type`). */
+  moe?: boolean;
 }
 
 /** Where a host found an engine's key: its secret store, a variable, or a key file. */
@@ -464,6 +466,8 @@ export interface AiDiscoveredModel {
   loaded?: boolean;
   /** Bytes the model takes, as the server reports it (oMLX `estimated_size`, LM Studio `size_bytes`, Ollama `size`). */
   sizeBytes?: number;
+  /** The server says it is a mixture of experts: an architecture name with `moe` in it (LM Studio `arch`, oMLX `config_model_type`). */
+  moe?: boolean;
 }
 
 /**

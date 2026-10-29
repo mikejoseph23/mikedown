@@ -68,6 +68,11 @@ describe('discovery fixtures', () => {
     expect(Object.fromEntries(parseModelSizes(fx.response))).toEqual(fx.expectedSizes);
   });
 
+  it('an architecture name with moe in it marks a mixture of experts (LM Studio arch, oMLX config_model_type)', () => {
+    expect(parseOmlxModelStatus({ models: [{ id: 'a', model_type: 'llm', config_model_type: 'nemotron_h_moe' }, { id: 'b', model_type: 'llm', config_model_type: 'qwen3_5' }] }).map((m) => m.moe)).toEqual([true, undefined]);
+    expect(parseLmStudioModels({ data: [{ id: 'a', type: 'llm', arch: 'qwen35moe' }, { id: 'b', type: 'llm', arch: 'gemma4' }] }).map((m) => m.moe)).toEqual([true, undefined]);
+  });
+
   it('oMLX /v1/models plus /v1/models/status', () => {
     const fx = load('discovery/omlx-models-status.json');
     expect(withModelStatus(parseOpenAiModelList(fx.listed), parseOmlxModelStatus(fx.response))).toEqual(fx.expected);

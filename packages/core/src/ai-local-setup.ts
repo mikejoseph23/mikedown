@@ -6,8 +6,8 @@
  * presets' default addresses answer, and only when the user opens setup;
  * nothing here runs in the background or caches a result. The one-click
  * setup adds the preset's engine, fetches its models, makes its default
- * model (`applyDiscoveryForFamily`: loaded, or the largest that fits) the
- * default route and returns one patch with engines, routing and
+ * model (`applyDiscoveryForFamily`: the loaded one) the default route and
+ * returns one patch with engines, routing and
  * `ai.enabled`, for the caller to save.
  *
  * The setup wizard's scan (`scanForSetup`) adds the hardware and VS Code's
@@ -76,8 +76,8 @@ export interface LocalSetupResult {
 
 /**
  * "Use LM Studio": add the preset's engine, fetch its models, make its
- * default model the default route and turn AI on (none loaded and no size
- * that fits: it fails and asks for a pick in Set up). The host needs to know the
+ * default model the default route and turn AI on (none loaded: it fails and
+ * asks for a pick in Set up). The host needs to know the
  * engine before it can fetch, so the engine is saved (quietly) first, as Test
  * and fetching do on the Engines page; when anything fails it is taken back
  * and this rejects with an `Error` whose message can be shown as is.
@@ -105,12 +105,11 @@ export async function setUpLocalEngine(options: AiSettingsSessionOptions, preset
   if (status.ok === false) {return fail(`Could not fetch the models from ${preset.name}${status.error ? `: ${status.error}` : '.'}`);}
   session.statuses.set(engine.id, status);
   options.onStatuses(session.statusList());
-  const hardware = await setupHardware(ai);
-  session.draft = withEngine(session.draft, applyDiscoveryForFamily(engine, status, 'local', [], hardware));
+  session.draft = withEngine(session.draft, applyDiscoveryForFamily(engine, status, 'local'));
 
   const route = defaultRouteForEngine(session.draft, session.statusList(), engine.id);
   if (!route) {
-    // Chat models, but none loaded and none known to fit: no guess, the user picks one in Set up.
+    // Chat models, but none loaded: no guess, the user picks one in Set up.
     const canChat = session.getEngine(engine.id)?.models.some((m) => !m.missing && m.capabilities.chat);
     return fail(canChat
       ? `${preset.name} has no model loaded. Load one there, or choose Set up to pick one.`

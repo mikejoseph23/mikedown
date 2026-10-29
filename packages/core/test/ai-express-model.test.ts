@@ -15,7 +15,7 @@ import {
   thinkingOverrides,
   withThinkingLevel,
 } from '../src/ai';
-import type { AiEngineConfig, AiEngineStatus, AiHardwareInfo, AiModelCapabilities, AiModelConfig, AiSettings, AiThinkingLevel } from '../src/ai';
+import type { AiEngineConfig, AiEngineStatus, AiModelCapabilities, AiModelConfig, AiSettings, AiThinkingLevel } from '../src/ai';
 import {
   AUTO_FETCH_KEY_DELAY_MS,
   applyDiscoveryForFamily,
@@ -246,22 +246,15 @@ describe('discovery and the enabled rule (OPEN-12)', () => {
     expect(next.models.filter((m) => m.enabled).map((m) => m.id)).toEqual(fx.expectedPicked);
   });
 
-  it('nothing loaded: the largest model that fits by the reported sizes, else nothing picked', () => {
+  it('nothing loaded: nothing picked, whatever the sizes say', () => {
     const fx = JSON.parse(readFileSync(join(FIXTURES, 'discovery/lmstudio-api-v0-models-loaded-later.json'), 'utf8'));
     const sizes = JSON.parse(readFileSync(join(FIXTURES, 'discovery/lmstudio-api-v1-models-sizes.json'), 'utf8'));
     const unloaded = parseLmStudioModels(fx.response).map((m) => ({ ...m, loaded: false }));
     const s: AiEngineStatus = { engineId: 'e1', ok: true, isLocal: true, hasKey: false, models: withModelSizes(unloaded, new Map(Object.entries(sizes.expectedSizes))) };
-    const mac = (gb: number): AiHardwareInfo => ({ arch: 'arm64', platform: 'darwin', totalMemoryBytes: gb * 1024 ** 3, appleSilicon: true });
-    // 64 GB: qwen3.6-35b (35 GiB) fits in 60%, qwen3-coder-next (79 GiB) does not; not glm-5.3, the first listed.
-    const pick = applyDiscoveryForFamily(engine({ kind: 'lmstudio' }), s, 'local', [], mac(64));
-    expect(pick.models[0].id).toBe('qwen/qwen3.6-35b-a3b');
-    expect(pick.models.filter((m) => m.enabled).map((m) => m.id)).toEqual(['qwen/qwen3.6-35b-a3b']);
-    // Unknown hardware, or no sizes: nothing picked, the form asks.
-    expect(applyDiscoveryForFamily(engine({ kind: 'lmstudio' }), s, 'local').models.filter((m) => m.enabled)).toEqual([]);
-    const unsized: AiEngineStatus = { ...s, models: unloaded };
-    const none = applyDiscoveryForFamily(engine({ kind: 'lmstudio' }), unsized, 'local', [], mac(64));
+    const none = applyDiscoveryForFamily(engine({ kind: 'lmstudio' }), s, 'local');
     expect(none.models.filter((m) => m.enabled)).toEqual([]);
-    expect(none.models[0].id).toBe('glm-5.3');
+    // Not glm-5.3, the first listed, and the list keeps its order.
+    expect(none.models.map((m) => m.id)).toEqual(fx.response.data.map((m: { id: string }) => m.id));
   });
 
   it('a local engine that already has a pick gets no default on top', () => {

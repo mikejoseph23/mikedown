@@ -19,6 +19,11 @@ function dataArray(body: unknown, key = 'data'): Json[] {
   return (body[key] as unknown[]).filter(isObject);
 }
 
+/** An architecture name that says mixture of experts (`qwen3_5_moe`, `qwen35moe`, `nemotron_h_moe`). */
+function moeArch(v: unknown): boolean {
+  return typeof v === 'string' && /moe/i.test(v);
+}
+
 function positiveInt(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : undefined;
 }
@@ -32,8 +37,9 @@ export function parseOpenAiModelList(body: unknown): AiDiscoveredModel[] {
 
 /**
  * LM Studio `GET /api/v0/models`: `type` (`llm`, `vlm`, `embeddings`),
- * `max_context_length`, `state` (`loaded` / `not-loaded`), and on newer
- * builds `capabilities` (`tool_use`).
+ * `max_context_length`, `state` (`loaded` / `not-loaded`), `arch` (a `moe`
+ * in it marks a mixture of experts), and on newer builds `capabilities`
+ * (`tool_use`).
  */
 export function parseLmStudioModels(body: unknown): AiDiscoveredModel[] {
   const out: AiDiscoveredModel[] = [];
@@ -52,6 +58,7 @@ export function parseLmStudioModels(body: unknown): AiDiscoveredModel[] {
     if (ctx) {caps.contextTokens = ctx;}
     const model: AiDiscoveredModel = { id: m.id, capabilities: caps, source: 'endpoint' };
     if (typeof m.state === 'string') {model.loaded = m.state === 'loaded';}
+    if (moeArch(m.arch)) {model.moe = true;}
     out.push(model);
   }
   return out;
@@ -61,7 +68,8 @@ export function parseLmStudioModels(body: unknown): AiDiscoveredModel[] {
  * oMLX `GET {base}/models/status` (beside its OpenAI `/models`): per model
  * `loaded` and `model_type` (`llm`, `vlm`, `embedding`, or a non-text type
  * such as `audio_stt` or `markitdown`, which can neither chat nor embed),
- * `model_context_length` and `estimated_size` (bytes).
+ * `model_context_length`, `estimated_size` (bytes) and `config_model_type`
+ * (a `moe` in it marks a mixture of experts).
  */
 export function parseOmlxModelStatus(body: unknown): AiDiscoveredModel[] {
   const out: AiDiscoveredModel[] = [];
@@ -83,6 +91,7 @@ export function parseOmlxModelStatus(body: unknown): AiDiscoveredModel[] {
     if (typeof m.loaded === 'boolean') {model.loaded = m.loaded;}
     const size = positiveInt(m.estimated_size);
     if (size) {model.sizeBytes = size;}
+    if (moeArch(m.config_model_type)) {model.moe = true;}
     out.push(model);
   }
   return out;
@@ -102,6 +111,7 @@ export function withModelStatus(listed: readonly AiDiscoveredModel[], status: re
     if (s.source === 'endpoint') {next.source = 'endpoint';}
     if (s.loaded !== undefined) {next.loaded = s.loaded;}
     if (s.sizeBytes !== undefined) {next.sizeBytes = s.sizeBytes;}
+    if (s.moe) {next.moe = true;}
     return next;
   });
 }

@@ -520,7 +520,7 @@ describe('setup wizard: step 2, local', () => {
     ]);
     expect(text(m.c.querySelector('[data-model-id="qwen3-8b"] .ai-tag--size'))).toBe('fits');
     // Nothing loaded and no sizes from the server: no default is guessed, Continue waits for a pick.
-    expect(text(m.c.querySelector('.ai-pick-note'))).toBe('Pick a model to start with. No chat model is loaded in LM Studio, so none was chosen for you; the tags show how each suits this machine.');
+    expect(text(m.c.querySelector('.ai-pick-note'))).toBe('Pick a model to start with. No chat model is loaded in LM Studio, so none was chosen for you; the tags give size and speed hints.');
     expect(q(m.c, 'wiz:continue')!.getAttribute('aria-disabled')).toBe('true');
     // A hint, not a gate: a large one can be picked, and Continue then works.
     click(m.c.querySelector('[data-model-id="llama-3.3-70b"]'));

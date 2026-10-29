@@ -45,7 +45,6 @@ import type {
   AiLocality,
   AiModelCapabilities,
   AiModelConfig,
-  AiHardwareInfo,
   AiPopularRule,
   AiPresetFamily,
   AiRoute,
@@ -863,18 +862,16 @@ export function modelCountLine(engine: AiEngineConfig): string {
  * Merge a discovery with OPEN-12's enabled rule: new models arrive off unless
  * `picked` names them. On a local engine the models the server has loaded
  * (chat or embeddings) arrive on too, and an engine with nothing picked yet
- * gets its default (`localDefaultModel`: a loaded chat model, else the
- * largest that comfortably fits `hardware` by the sizes the server reported)
- * picked and moved first, where the star and the default route look. When
- * there is no such model nothing is picked, and the user chooses. Models
- * already in the engine keep their own `enabled`.
+ * gets its default (`localDefaultModel`: a loaded chat model) picked and
+ * moved first, where the star and the default route look. With none loaded
+ * nothing is picked, and the user chooses. Models already in the engine keep
+ * their own `enabled`.
  */
 export function applyDiscoveryForFamily(
   engine: AiEngineConfig,
   status: AiEngineStatus,
   family: AiPresetFamily,
   picked: Iterable<string> = [],
-  hardware: AiHardwareInfo | null = null,
 ): AiEngineConfig {
   const merged = mergeDiscoveryStatus(engine, status);
   const before = new Set(engine.models.map((m) => m.id));
@@ -886,11 +883,10 @@ export function applyDiscoveryForFamily(
   const hadPick = engine.models.some((m) => m.enabled && !m.missing);
   if (family === 'local' && !hadPick) {
     // Only from the new arrivals: a model the user turned off stays off.
-    const sizes = new Map(status.models.map((m) => [m.id, m.sizeBytes]));
     const choices = models
       .filter((m) => !before.has(m.id))
-      .map((m) => ({ id: m.id, chat: m.capabilities.chat, missing: m.missing, loaded: loaded.has(m.id), sizeBytes: sizes.get(m.id) }));
-    const def = localDefaultModel(choices, hardware);
+      .map((m) => ({ id: m.id, chat: m.capabilities.chat, missing: m.missing, loaded: loaded.has(m.id) }));
+    const def = localDefaultModel(choices);
     const chosen = models.find((m) => m.id === def);
     if (chosen) {models = [{ ...chosen, enabled: true }, ...models.filter((m) => m !== chosen)];}
   }

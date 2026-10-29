@@ -45,7 +45,7 @@ Feed `chunks` in order to `createCompletionStreamReader(kind)` (`push` each, the
 
 ## `discovery/`
 
-One endpoint response per file: `request` (method and URL, informational), `response` (the parsed JSON body) and `expected` (the `AiDiscoveredModel[]` the parser returns: `{ id, label?, capabilities (partial), source, loaded?, sizeBytes? }`).
+One endpoint response per file: `request` (method and URL, informational), `response` (the parsed JSON body) and `expected` (the `AiDiscoveredModel[]` the parser returns: `{ id, label?, capabilities (partial), source, loaded?, sizeBytes?, moe? }`; `moe` only ever `true`, from an architecture name with `moe` in it).
 
 | File | Parser | Extra keys |
 | --- | --- | --- |

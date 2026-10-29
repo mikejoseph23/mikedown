@@ -52,7 +52,7 @@ export interface AiHostDeps {
   saveEngines(engines: AiEngineConfig[]): Promise<void>;
 }
 
-function statusFor(engine: AiEngineConfig, settings: AiSettings, info?: AiEngineInfo, loaded?: ReadonlySet<string>, sizes?: ReadonlyMap<string, number>): AiEngineStatus {
+function statusFor(engine: AiEngineConfig, settings: AiSettings, info?: AiEngineInfo, loaded?: ReadonlySet<string>, sizes?: ReadonlyMap<string, number>, moe?: ReadonlySet<string>): AiEngineStatus {
   const status: AiEngineStatus = {
     engineId: engine.id,
     ok: info?.ok ?? null,
@@ -66,6 +66,7 @@ function statusFor(engine: AiEngineConfig, settings: AiSettings, info?: AiEngine
       ...(m.missing ? { missing: true } : {}),
       ...(loaded?.has(m.id) ? { loaded: true } : {}),
       ...(sizes?.has(m.id) ? { sizeBytes: sizes.get(m.id) } : {}),
+      ...(moe?.has(m.id) ? { moe: true } : {}),
     })),
   };
   if (info?.keySource !== undefined) {status.keySource = info.keySource;}
@@ -167,7 +168,8 @@ export function createAiHost(deps: AiHostDeps): MikeDownAiHost {
       await deps.saveEngines(settings.engines.map((e) => (e.id === engineId ? merged : e)));
       const loaded = new Set(result.models.filter((m) => m.loaded).map((m) => m.id));
       const sizes = new Map(result.models.filter((m) => typeof m.sizeBytes === 'number' && m.sizeBytes > 0).map((m) => [m.id, m.sizeBytes!]));
-      return statusFor(merged, settings, result.info, loaded, sizes);
+      const moe = new Set(result.models.filter((m) => m.moe).map((m) => m.id));
+      return statusFor(merged, settings, result.info, loaded, sizes, moe);
     },
 
     async setSecret(engineId, apiKey) {

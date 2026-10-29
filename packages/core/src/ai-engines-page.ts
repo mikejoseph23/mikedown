@@ -205,7 +205,6 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     // The subscription vs API key note sits over a cloud key field. The wizard always shows it; the full form shows it until a key is stored.
     keyNote: (engine, preset) => (preset.family === 'cloud' && (wizard || !session.hasKey(engine.id)) ? subscriptionNote(preset, ctx.openLink, aiProviderPolicy(engine)) : null),
     modelSize: (modelId, sizeBytes) => (hardware ? modelSizeHint(modelId, hardware, sizeBytes) : undefined),
-    hardware: () => hardware,
   });
 
   const routing = createRoutingSection(ctx, {

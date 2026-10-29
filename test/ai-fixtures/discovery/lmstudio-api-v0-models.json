@@ -69,7 +69,8 @@
         "contextTokens": 262144
       },
       "source": "endpoint",
-      "loaded": false
+      "loaded": false,
+      "moe": true
     },
     {
       "id": "text-embedding-nomic-embed-text-v1.5",

@@ -61,6 +61,7 @@ impl ProviderAdapter for Ollama {
                             source: DiscoverySource::Heuristic,
                             loaded: None,
                             size_bytes: None,
+                            moe: None,
                         },
                     }
                 }

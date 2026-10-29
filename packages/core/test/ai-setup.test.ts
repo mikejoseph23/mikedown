@@ -10,6 +10,8 @@ import {
   engineLocality,
   isLocalCapable,
   localDefaultModel,
+  modelActiveParamsBillions,
+  modelMoeHint,
   modelParamsBillions,
   modelSizeHint,
   recommendSetupPath,
@@ -109,45 +111,45 @@ describe('localDefaultModel: a new local engine\'s default', () => {
   const m = (id: string, over: Partial<AiLocalModelChoice> = {}): AiLocalModelChoice => ({ id, chat: true, ...over });
 
   it('a loaded chat model wins, whatever its size', () => {
-    const models = [m('small', { sizeBytes: 4 * GB }), m('huge', { loaded: true, sizeBytes: 400 * GB })];
-    expect(localDefaultModel(models, mac(32))).toBe('huge');
-    expect(localDefaultModel(models, null)).toBe('huge');
+    expect(localDefaultModel([m('small'), m('huge-400b', { loaded: true })])).toBe('huge-400b');
   });
 
-  it('skips a loaded model that cannot chat (oMLX\'s MarkItDown converter, an embedder)', () => {
-    const models = [m('MarkItDown', { chat: false, loaded: true }), m('nomic-embed', { chat: false, loaded: true, sizeBytes: GB }), m('gemma', { sizeBytes: 8 * GB })];
-    expect(localDefaultModel(models, mac(32))).toBe('gemma');
-    expect(localDefaultModel(models, null)).toBeNull();
+  it('skips a loaded model that cannot chat (oMLX\'s MarkItDown converter, an embedder) or is gone', () => {
+    const models = [m('MarkItDown', { chat: false, loaded: true }), m('nomic-embed', { chat: false, loaded: true }), m('gone', { missing: true, loaded: true }), m('gemma')];
+    expect(localDefaultModel(models)).toBeNull();
+    expect(localDefaultModel([...models, m('qwen', { loaded: true })])).toBe('qwen');
   });
 
-  it('nothing loaded: the largest chat model that fits in 60% of memory', () => {
-    const models = [
-      m('glm', { sizeBytes: 439 * GB }),
-      m('deepseek', { sizeBytes: 175 * GB }),
-      m('embed', { chat: false, sizeBytes: 15 * GB }),
-      m('qwen-27b', { sizeBytes: 16 * GB }),
-      m('gemma-26b', { sizeBytes: 14 * GB }),
-      m('unsized'),
-      m('gone', { missing: true, sizeBytes: 18 * GB }),
-    ];
-    expect(localDefaultModel(models, mac(32))).toBe('qwen-27b');
-    expect(localDefaultModel(models, mac(24))).toBe('gemma-26b');
-    // An NVIDIA card's memory is what counts on a PC.
-    expect(localDefaultModel(models, pc(512, 24))).toBe('gemma-26b');
-    expect(localDefaultModel(models, mac(512))).toBe('deepseek');
-  });
-
-  it('nothing fits: no default', () => {
-    expect(localDefaultModel([m('glm', { sizeBytes: 439 * GB }), m('deepseek', { sizeBytes: 175 * GB })], mac(64))).toBeNull();
-  });
-
-  it('unknown sizes or unknown memory: no default, not the first model', () => {
-    const unsized = [m('glm-5.3'), m('qwen3-8b'), m('nemotron-nano-4b')];
-    expect(localDefaultModel(unsized, mac(64))).toBeNull();
-    expect(localDefaultModel([m('qwen-27b', { sizeBytes: 16 * GB })], null)).toBeNull();
-    expect(localDefaultModel([], mac(64))).toBeNull();
+  it('nothing loaded: no default, not the first model nor a guess by size', () => {
+    expect(localDefaultModel([m('glm-5.3'), m('qwen3.6-35b-a3b'), m('nemotron-nano-4b')])).toBeNull();
+    expect(localDefaultModel([])).toBeNull();
   });
 });
+
+describe('mixture-of-experts hints', () => {
+  it('reads the active parameters from the id, case-insensitive', () => {
+    expect(modelActiveParamsBillions('Qwen3.6-35B-A3B-Q8_0')).toBe(3);
+    expect(modelActiveParamsBillions('qwen3.5-122b-a10b')).toBe(10);
+    expect(modelActiveParamsBillions('NVIDIA-Nemotron-3-Super-120B-A12B-Q4_K_M')).toBe(12);
+    expect(modelActiveParamsBillions('qwen3-235b-a22b')).toBe(22);
+    expect(modelActiveParamsBillions('google/gemma-4-26b-a4b-qat')).toBe(4);
+    expect(modelActiveParamsBillions('qwen3-30b-a3.3b')).toBe(3.3);
+  });
+
+  it('ignores ids without them', () => {
+    for (const id of ['Qwen3.8-27B-MLX-4bit', 'llama-3.3-70b', 'gemma-4-31B-it-Q8_0', 'DeepSeek-V4-Flash-0731-MXFP4-MLX', 'kimi-k2.5', 'whisper-large-v3-turbo', 'llama3.1:8b', 'qwen-a3', 'xa3b']) {
+      expect(modelActiveParamsBillions(id)).toBeNull();
+    }
+  });
+
+  it('flags a model by its id or by the server\'s word, never by size', () => {
+    expect(modelMoeHint('Qwen3.6-35B-A3B')).toEqual({ activeBillions: 3 });
+    expect(modelMoeHint('glm-5.3', true)).toEqual({ activeBillions: null });
+    expect(modelMoeHint('Qwen3.8-27B-MLX-4bit')).toBeNull();
+    expect(modelMoeHint('Qwen3.8-27B-MLX-4bit', false)).toBeNull();
+  });
+});
+
 
 describe('preset links', () => {
   it('every cloud preset has an https pricing page and every local server an https install page', () => {

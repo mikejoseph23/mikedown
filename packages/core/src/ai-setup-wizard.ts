@@ -279,14 +279,13 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
       if (!status || status.ok === false) {throw new Error(status?.error || `Could not fetch the models from ${preset.name}.`);}
       const engine = session.getEngine(id);
       if (!engine) {return;}
-      const hardware = scan?.hardware ?? null;
-      session.draft = withEngine(session.draft, applyDiscoveryForFamily(engine, status, preset.family, [], hardware));
+      session.draft = withEngine(session.draft, applyDiscoveryForFamily(engine, status, preset.family));
       const fresh = session.getEngine(id)!;
       const modelId = preset.family === 'local'
         ? defaultRouteForEngine(session.draft, session.statusList(), id)?.modelId ?? null
         : firstChatModelId(fresh.models);
       if (!modelId && preset.family === 'local' && fresh.models.some((m) => !m.missing && m.capabilities.chat)) {
-        // Chat models, but none loaded and none known to fit: the form asks for a pick (no error).
+        // Chat models, but none loaded: the form asks for a pick (no error).
         connecting = null;
         go(fallback);
         form.opened(id);

@@ -262,6 +262,10 @@ pub struct DiscoveredModel {
     /// LM Studio `size_bytes`, Ollama `size`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size_bytes: Option<u64>,
+    /// The server says it is a mixture of experts (LM Studio `arch`, oMLX
+    /// `config_model_type` with `moe` in it). Only ever `Some(true)`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub moe: Option<bool>,
 }
 
 /// What `probe` found out.

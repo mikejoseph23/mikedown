@@ -106,7 +106,8 @@
         "contextTokens": 262144
       },
       "source": "endpoint",
-      "loaded": true
+      "loaded": true,
+      "moe": true
     },
     {
       "id": "qwen/qwen3-coder-next",

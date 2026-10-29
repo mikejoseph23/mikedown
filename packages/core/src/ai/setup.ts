@@ -254,15 +254,11 @@ export function modelSizeHint(id: string, hardware: AiHardwareInfo | null, sizeB
   return params <= fits * TIGHT_FACTOR ? 'tight' : 'too large';
 }
 
-// ── A new local engine's default model ───────────────────────────────────────
+// ── Server-reported sizes, mixture-of-experts, a new local engine's default ──
 
-/**
- * Share of the model memory (`modelMemoryBytes`) a model's weights may take
- * and still run comfortably: the rest is the context cache, the OS and the
- * apps beside it. A server-reported size at or under it is "fits".
- */
-export const AI_LOCAL_COMFORT_SHARE = 0.6;
-/** Up to this share a server-reported size is "tight"; above it, "too large". */
+/** A server-reported size at or under this share of the model memory is "fits". */
+const FITS_SHARE = 0.6;
+/** Up to this share it is "tight"; above it, "too large". */
 const TIGHT_SHARE = 0.8;
 
 /**
@@ -271,8 +267,36 @@ const TIGHT_SHARE = 0.8;
  */
 export function modelSizeHintFromBytes(sizeBytes: number, hardware: AiHardwareInfo): AiModelSizeTag {
   const memory = modelMemoryBytes(hardware);
-  if (sizeBytes <= memory * AI_LOCAL_COMFORT_SHARE) {return 'fits';}
+  if (sizeBytes <= memory * FITS_SHARE) {return 'fits';}
   return sizeBytes <= memory * TIGHT_SHARE ? 'tight' : 'too large';
+}
+
+/** A model size for a picker row: "16 GB", "2.6 GB", "0.2 GB". */
+export function formatModelSize(bytes: number): string {
+  const gb = bytes / GIB;
+  return `${gb >= 10 ? Math.round(gb) : Math.round(gb * 10) / 10} GB`;
+}
+
+/**
+ * The active parameters (billions) an id names, as mixture-of-experts models
+ * do: `Qwen3.6-35B-A3B`, `qwen3.5-122b-a10b`, `Nemotron-3-Super-120B-A12B`.
+ * Null when the id names none.
+ */
+export function modelActiveParamsBillions(id: string): number | null {
+  const m = /(?:^|[^a-z0-9.])a(\d+(?:\.\d+)?)b(?![a-z0-9])/.exec(id.toLowerCase());
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Whether a model is a mixture of experts, from its id's active parameters or
+ * the server's word for it (`moe`: LM Studio's `arch`, oMLX's
+ * `config_model_type`). Only a few billion parameters run per token, so it is
+ * much faster than its size suggests. A row hint only, never a reason to pick it.
+ */
+export function modelMoeHint(id: string, moe?: boolean): { activeBillions: number | null } | null {
+  const active = modelActiveParamsBillions(id);
+  return active !== null || moe ? { activeBillions: active } : null;
 }
 
 /** One model as `localDefaultModel` weighs it. */
@@ -283,28 +307,14 @@ export interface AiLocalModelChoice {
   missing?: boolean;
   /** Loaded on the server right now. */
   loaded?: boolean;
-  /** What the server reports it takes (oMLX `estimated_size`, LM Studio `size_bytes`, Ollama `size`). */
-  sizeBytes?: number;
 }
 
 /**
  * The model a new local engine starts with: a chat model the server has
- * loaded, else the largest chat model whose reported size comfortably fits
- * this machine (`AI_LOCAL_COMFORT_SHARE` of its model memory). Null when
- * none is loaded and the sizes or the memory are unknown, or nothing fits:
- * the user picks, rather than a first request starting a huge load.
+ * loaded, else null and the user picks. Size is a poor guide to speed (a
+ * mixture of experts runs far faster than a dense model its size), so no
+ * guess is made from it.
  */
-export function localDefaultModel(models: readonly AiLocalModelChoice[], hardware: AiHardwareInfo | null): string | null {
-  const chat = models.filter((m) => m.chat && !m.missing);
-  const loaded = chat.find((m) => m.loaded);
-  if (loaded) {return loaded.id;}
-  if (!hardware) {return null;}
-  const budget = modelMemoryBytes(hardware) * AI_LOCAL_COMFORT_SHARE;
-  let best: AiLocalModelChoice | null = null;
-  for (const m of chat) {
-    const size = m.sizeBytes;
-    if (typeof size !== 'number' || !(size > 0) || size > budget) {continue;}
-    if (!best || size > best.sizeBytes!) {best = m;}
-  }
-  return best?.id ?? null;
+export function localDefaultModel(models: readonly AiLocalModelChoice[]): string | null {
+  return models.find((m) => m.chat && !m.missing && m.loaded)?.id ?? null;
 }

@@ -682,25 +682,27 @@ describe('OPEN-12: enabled state after a fetch', () => {
     expect(m.c.querySelector('.ai-pick-note')).toBeNull();
   });
 
-  it('local, nothing loaded: the largest model whose reported size fits this machine is the default', async () => {
+  it('local, nothing loaded: rows hint size and MoE speed, and none of it picks a model', async () => {
     const GB = 1024 ** 3;
     const sized = (id: string) => {
-      const s = listing(id, ['glm-5.3', 'deepseek-v4-flash', 'qwen3.8-27b', 'gemma-4-26b']);
-      [439, 175, 16, 15].forEach((gb, i) => { s.models[i].sizeBytes = gb * GB; });
+      const s = listing(id, ['glm-5.3', 'Qwen3.6-35B-A3B-Q8_0', 'qwen3.8-27b', 'minimax-m3']);
+      [439, 35.2, 16, 236].forEach((gb, i) => { s.models[i].sizeBytes = gb * GB; });
+      s.models[3].moe = true;
       return s;
     };
-    const hardwareInfo = async () => ({ arch: 'arm64', platform: 'darwin', totalMemoryBytes: 64 * GB, appleSilicon: true });
+    const hardwareInfo = async () => ({ arch: 'arm64', platform: 'darwin', totalMemoryBytes: 512 * GB, appleSilicon: true });
     const m = mountPage([omlx], { discover: async (id) => sized(id), host: { hardwareInfo } });
     await settle(0);
     click(q(m.c, 'eng:omlx:fetch'));
     await settle(0);
-    const result = saved(m);
-    expect(enabledIds(result, 'omlx')).toEqual(['qwen3.8-27b']);
-    // The first engine that can chat becomes the default route.
-    expect(result.routing.default).toEqual({ engineId: 'omlx', modelId: 'qwen3.8-27b' });
-    expect(m.c.querySelector('.ai-pick-note')).toBeNull();
-    // The reported size sets the tag, not the count in the id.
-    expect(m.c.querySelector('[data-model-id="deepseek-v4-flash"] .ai-tag--size')?.textContent).toBe('too large');
+    expect(enabledIds(saved(m), 'omlx')).toEqual([]);
+    expect(m.c.querySelector('.ai-pick-note')?.textContent).toContain('the tags give size and speed hints');
+    const tags = (id: string) => Array.from(m.c.querySelectorAll(`[data-model-id="${id}"] .ai-tag`)).map((t) => t.textContent);
+    expect(tags('Qwen3.6-35B-A3B-Q8_0')).toEqual(['MoE · fast', '35 GB', 'fits']);
+    // The server's word for it (oMLX config_model_type, LM Studio arch) counts too.
+    expect(tags('minimax-m3')).toEqual(['MoE · fast', '236 GB', 'fits']);
+    expect(tags('qwen3.8-27b')).toEqual(['16 GB', 'fits']);
+    expect(m.c.querySelector('[data-model-id="Qwen3.6-35B-A3B-Q8_0"] .ai-tag--moe')?.getAttribute('title')).toContain('about 3B parameters work per token');
   });
 
   it('local: a loaded model further down the list is the default, not the first one', async () => {

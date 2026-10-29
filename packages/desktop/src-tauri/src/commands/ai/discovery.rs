@@ -29,6 +29,12 @@ fn positive_int(v: Option<&Value>) -> Option<u64> {
     (f.is_finite() && f >= 1.0).then(|| f.floor() as u64)
 }
 
+/// An architecture name that says mixture of experts (`qwen3_5_moe`,
+/// `qwen35moe`, `nemotron_h_moe`): `Some(true)`, else unknown.
+fn moe_arch(v: Option<&Value>) -> Option<bool> {
+    v.and_then(Value::as_str).filter(|s| s.to_ascii_lowercase().contains("moe")).map(|_| true)
+}
+
 fn str_id(m: &Value) -> Option<&str> {
     m.get("id").and_then(Value::as_str).filter(|s| !s.is_empty())
 }
@@ -45,6 +51,7 @@ pub fn parse_openai_model_list(body: &Value) -> Vec<DiscoveredModel> {
             source: DiscoverySource::Heuristic,
             loaded: None,
             size_bytes: None,
+            moe: None,
         })
         .collect()
 }
@@ -88,6 +95,7 @@ pub fn parse_lmstudio_models(body: &Value) -> Vec<DiscoveredModel> {
             source: DiscoverySource::Endpoint,
             loaded: m.get("state").and_then(Value::as_str).map(|s| s == "loaded"),
             size_bytes: None,
+            moe: moe_arch(m.get("arch")),
         });
     }
     out
@@ -133,6 +141,7 @@ pub fn parse_omlx_model_status(body: &Value) -> Vec<DiscoveredModel> {
             source,
             loaded: m.get("loaded").and_then(Value::as_bool),
             size_bytes: positive_int(m.get("estimated_size")),
+            moe: moe_arch(m.get("config_model_type")),
         });
     }
     out
@@ -163,6 +172,9 @@ pub fn with_model_status(listed: Vec<DiscoveredModel>, status: &[DiscoveredModel
             }
             if s.size_bytes.is_some() {
                 m.size_bytes = s.size_bytes;
+            }
+            if s.moe.is_some() {
+                m.moe = s.moe;
             }
             m
         })
@@ -243,6 +255,7 @@ pub fn parse_ollama_show(name: &str, body: &Value) -> DiscoveredModel {
         source: if described { DiscoverySource::Endpoint } else { DiscoverySource::Heuristic },
         loaded: None,
         size_bytes: None,
+        moe: None,
     }
 }
 
@@ -276,7 +289,7 @@ pub fn parse_anthropic_models(body: &Value) -> Vec<DiscoveredModel> {
             caps.json = Some(j);
         }
         let label = m.get("display_name").and_then(Value::as_str).filter(|s| !s.is_empty()).map(str::to_string);
-        out.push(DiscoveredModel { id: id.to_string(), label, capabilities: caps, source: DiscoverySource::Endpoint, loaded: None, size_bytes: None });
+        out.push(DiscoveredModel { id: id.to_string(), label, capabilities: caps, source: DiscoverySource::Endpoint, loaded: None, size_bytes: None, moe: None });
     }
     out
 }
@@ -362,6 +375,20 @@ mod tests {
         let f = fixture("lmstudio-api-v1-models-sizes.json");
         let sizes = parse_model_sizes(&f["response"]);
         assert_eq!(serde_json::to_value(&sizes).unwrap(), f["expectedSizes"]);
+    }
+
+    #[test]
+    fn an_arch_with_moe_in_it_marks_a_mixture_of_experts() {
+        let omlx = parse_omlx_model_status(&serde_json::json!({ "models": [
+            { "id": "a", "model_type": "llm", "config_model_type": "nemotron_h_moe" },
+            { "id": "b", "model_type": "llm", "config_model_type": "qwen3_5" }
+        ] }));
+        assert_eq!(omlx.iter().map(|m| m.moe).collect::<Vec<_>>(), vec![Some(true), None]);
+        let lms = parse_lmstudio_models(&serde_json::json!({ "data": [
+            { "id": "a", "type": "llm", "arch": "qwen35moe" },
+            { "id": "b", "type": "llm", "arch": "gemma4" }
+        ] }));
+        assert_eq!(lms.iter().map(|m| m.moe).collect::<Vec<_>>(), vec![Some(true), None]);
     }
 
     #[test]

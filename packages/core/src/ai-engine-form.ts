@@ -22,8 +22,8 @@
  * whose result is dropped, and runs as soon as it settles.
  */
 
-import { AI_ENGINE_KINDS, aiErrorCopy, aiProviderPolicy, isHostEngineKind, isKnownEngineKind, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
-import type { AiEngineConfig, AiEngineStatus, AiHardwareInfo, AiKeySource, AiLocalitySetting, AiModelConfig, AiModelSizeTag, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
+import { AI_ENGINE_KINDS, aiErrorCopy, aiProviderPolicy, formatModelSize, isHostEngineKind, isKnownEngineKind, modelMoeHint, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
+import type { AiEngineConfig, AiEngineStatus, AiKeySource, AiLocalitySetting, AiModelConfig, AiModelSizeTag, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
 import {
   AI_CAPABILITY_CHIPS,
   AI_ENGINE_KIND_LABELS,
@@ -108,8 +108,6 @@ export interface EngineFormDeps {
    * hardware. The picker then groups local models by it.
    */
   modelSize?(modelId: string, sizeBytes?: number): AiModelSizeTag | undefined;
-  /** This machine, when the host reported it: a new local engine's default model must fit it. */
-  hardware?(): AiHardwareInfo | null;
 }
 
 export interface EngineFormController {
@@ -315,14 +313,12 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         st.problem = discoveryProblem({ family: preset.family, presetName: preset.name, baseUrl: current.baseUrl, ok: false, message: status.error, listed: 0 });
       } else {
         const hadPick = current.models.some((m) => m.enabled && !m.missing);
-        const hardware = preset.family === 'local' ? deps.hardware?.() ?? null : null;
-        let draft = withEngine(deps.getDraft(), applyDiscoveryForFamily(current, status, preset.family, [], hardware));
+        let draft = withEngine(deps.getDraft(), applyDiscoveryForFamily(current, status, preset.family));
         const merged = draft.engines.find((e) => e.id === id) ?? current;
         let picked: string | null = null;
         // OPEN-12: key = done. The first fetch with nothing picked picks the usual default
         // (Copilot's models arrive unpicked too, and have no Popular rules: the host's first;
-        // a local server's default is the one the merge put first: loaded, or the largest that fits;
-        // none when it cannot tell, and the form asks for a pick).
+        // a local server's default is the loaded model the merge put first; none loaded, the form asks for a pick).
         if (!hadPick) {
           picked = preset.family === 'local'
             ? merged.models.find((m) => m.enabled && !m.missing && m.capabilities.chat)?.id ?? null
@@ -696,8 +692,9 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       : chat.some((m) => m.enabled);
     if (picked) {return null;}
     const sizeOf = sizeTagFor(engine.id, preset);
-    const tagged = !!sizeOf && chat.some((m) => sizeOf(m.id) !== undefined);
-    const text = `Pick a model to start with. No chat model is loaded in ${engineDisplayName(engine)}, so none was chosen for you${tagged ? '; the tags show how each suits this machine' : ''}.`;
+    const facts = new Map((deps.statuses.get(engine.id)?.models ?? []).map((m) => [m.id, m]));
+    const tagged = chat.some((m) => (sizeOf && sizeOf(m.id) !== undefined) || !!facts.get(m.id)?.sizeBytes || !!modelMoeHint(m.id, facts.get(m.id)?.moe));
+    const text = `Pick a model to start with. No chat model is loaded in ${engineDisplayName(engine)}, so none was chosen for you${tagged ? '; the tags give size and speed hints' : ''}.`;
     const line = note('info', text, 'ai-pick-note');
     line.setAttribute('role', 'status');
     return line;
@@ -897,6 +894,21 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         tags.append(t);
       }
       if (o.manual) {tags.append(el('span', 'ai-tag', 'typed in'));}
+      // Local rows: how fast (a mixture of experts) and how big, when known. Hints only; they never pick.
+      const facts = preset.family === 'local' ? deps.statuses.get(id)?.models.find((m) => m.id === o.id) : undefined;
+      const moe = preset.family === 'local' ? modelMoeHint(o.id, facts?.moe) : null;
+      if (moe) {
+        const t = el('span', 'ai-tag ai-tag--moe', 'MoE · fast');
+        t.title = moe.activeBillions !== null
+          ? `A mixture of experts: about ${moe.activeBillions}B parameters work per token, so it runs much faster than its size suggests.`
+          : 'A mixture of experts: only part of it works per token, so it runs much faster than its size suggests.';
+        tags.append(t);
+      }
+      if (facts?.sizeBytes) {
+        const t = el('span', 'ai-tag ai-tag--bytes', formatModelSize(facts.sizeBytes));
+        t.title = 'Its size, as the server reports it.';
+        tags.append(t);
+      }
       const size = sizeOf?.(o.id);
       if (size) {
         const t = el('span', `ai-tag ai-tag--size ai-tag--${size.replace(' ', '-')}`, size);
