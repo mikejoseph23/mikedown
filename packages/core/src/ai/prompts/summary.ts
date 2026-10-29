@@ -94,13 +94,21 @@ export function summaryVisibleText(raw: string): string {
 /** Drop a wrapping code fence and a "Here is the summary:" lead-in. */
 function tidy(raw: string, kind: AiSummaryKind): string {
   let text = rewriteVisibleText(raw).trim();
+  let lines = text.split('\n');
+  const dropLeadIn = (): void => {
+    if (lines.length > 1 && /^(here('s| is| are)|sure|certainly|of course)\b[^\n]*:\s*$/i.test(lines[0].trim())) {
+      lines.shift();
+      while (lines.length > 0 && lines[0].trim() === '') {lines.shift();}
+    }
+  };
+  // The lead-in goes first so a fence that follows it is the wrapper.
+  dropLeadIn();
+  text = lines.join('\n').trim();
   const fenced = /^```(?:markdown|md|text)?[ \t]*\n([\s\S]*?)\n```$/i.exec(text);
   if (fenced) {text = fenced[1].trim();}
-  const lines = text.split('\n');
-  if (lines.length > 1 && /^(here('s| is| are)|sure|certainly|of course)\b[^\n]*:\s*$/i.test(lines[0].trim())) {
-    lines.shift();
-    while (lines.length > 0 && lines[0].trim() === '') {lines.shift();}
-  }
+  lines = text.split('\n');
+  // A lead-in inside the fence.
+  dropLeadIn();
   // The callout supplies its own label.
   if (kind === 'tldr' && lines.length > 1 && /^(?:#{1,6}\s*)?(?:\*\*|__)?\s*(?:summary|tl;?dr)\s*:?\s*(?:\*\*|__)?\s*:?\s*$/i.test(lines[0].trim())) {
     lines.shift();

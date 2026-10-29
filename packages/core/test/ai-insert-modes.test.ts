@@ -162,10 +162,7 @@ describe('insert mode', () => {
     expect(md).not.toContain('Here is the outline');
   });
 
-  // BUG (not fixed here): `tidy` in ai/prompts/summary.ts looks for a wrapping code fence before it
-  // removes the lead-in, so "Here is the outline:\n\n```markdown\n- One\n```" keeps its fence and the
-  // list is inserted as a code block. Swap the two steps (strip the lead-in, then the fence).
-  it.fails('a reply with a lead-in and a wrapping code fence inserts only the list', async () => {
+  it('a reply with a lead-in and a wrapping code fence inserts only the list', async () => {
     const { handle } = mount(MD, 'Here is the outline:\n\n```markdown\n- One\n- Two\n```');
     typeSlash(handle, '/outline');
     enterInEditor(handle);
