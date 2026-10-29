@@ -279,6 +279,18 @@ async fn keys_are_set_and_cleared_through_the_command_and_only_has_key_comes_bac
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn the_engine_list_says_when_a_key_is_stored_and_names_no_other_source() {
+    let h = Harness::new("keysource", settings_for("http://127.0.0.1:9/v1", json!({})));
+    let list = || async { serde_json::to_value(ai_list_engines(h.app.handle().clone(), h.state()).await.unwrap()).unwrap() };
+
+    assert!(list().await[0].get("keySource").is_none(), "no key, no source");
+    ai_set_secret(h.state(), "e1".into(), Some("sk-1".into())).await.unwrap();
+    assert_eq!(list().await[0]["keySource"], "stored");
+    ai_set_secret(h.state(), "e1".into(), None).await.unwrap();
+    assert!(list().await[0].get("keySource").is_none());
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_and_discover_report_status_and_remember_it_for_the_engine_list() {
     let (base, seen) = serve(|req| {
         if req.headers.get("authorization").map(String::as_str) == Some("Bearer good") {

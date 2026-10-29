@@ -52,6 +52,7 @@ function statusFor(engine: AiEngineConfig, settings: AiSettings, info?: AiEngine
       ...(loaded?.has(m.id) ? { loaded: true } : {}),
     })),
   };
+  if (info?.keySource !== undefined) {status.keySource = info.keySource;}
   if (info?.latencyMs !== undefined) {status.latencyMs = info.latencyMs;}
   if (info?.error !== undefined) {status.error = info.error;}
   return status;

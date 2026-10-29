@@ -54,7 +54,7 @@ use self::locality::{default_local_networks, engine_locality, host_of_url, Local
 use self::model::{
     CompletionRequest, DiscoveryResult, DoneEvent, EngineConfig, EngineInfo, ErrorEvent, ServedBy, TokenEvent,
 };
-use self::secrets::{resolve_key_with_file, KeychainStore, SecretStore};
+use self::secrets::{resolve_key_with_file, KeyLookup, KeySource, KeychainStore, SecretStore};
 use super::multiwindow::WindowRegistry;
 use super::settings::{read_settings, settings_path, write_settings};
 
@@ -253,6 +253,11 @@ impl AiState {
     }
 
     async fn key_for(&self, engine: &EngineConfig) -> (Option<String>, Option<String>) {
+        let lookup = self.lookup_for(engine).await;
+        (lookup.key, lookup.keychain_problem)
+    }
+
+    async fn lookup_for(&self, engine: &EngineConfig) -> KeyLookup {
         let store = self.secrets.clone();
         let id = engine.id.clone();
         let env_name = engine.api_key_env.clone();
@@ -262,10 +267,10 @@ impl AiState {
         })
         .await;
         let Ok(lookup) = lookup else {
-            return (None, Some("the key lookup failed".to_string()));
+            return KeyLookup { key: None, source: None, keychain_problem: Some("the key lookup failed".to_string()), file_problem: None };
         };
         self.log_key_file_problem(engine, lookup.file_problem.as_deref());
-        (lookup.key, lookup.keychain_problem)
+        lookup
     }
 
     /// One log line per distinct key-file failure; never the key or the file's contents.
@@ -285,13 +290,14 @@ impl AiState {
         }
     }
 
-    fn cached_info(&self, engine: &EngineConfig, config: &AiConfig, has_key: bool) -> EngineInfo {
+    fn cached_info(&self, engine: &EngineConfig, config: &AiConfig, key: &KeyLookup) -> EngineInfo {
         let cached = self.probes.lock().unwrap().get(&engine.id).cloned();
         EngineInfo {
             engine_id: engine.id.clone(),
             ok: cached.as_ref().map(|c| c.ok),
             is_local: engine_locality(&engine.locality, &engine.base_url, &config.local_networks) == Locality::Local,
-            has_key,
+            has_key: key.key.is_some(),
+            key_source: key.source.and_then(KeySource::wire_name),
             latency_ms: cached.as_ref().map(|c| c.latency_ms),
             error: cached.and_then(|c| c.error),
         }
@@ -428,8 +434,8 @@ pub async fn ai_list_engines<R: Runtime>(app: AppHandle<R>, state: State<'_, AiS
     let config = load_config(&app)?;
     let mut out = Vec::with_capacity(config.engines.len());
     for engine in &config.engines {
-        let (key, _) = state.key_for(engine).await;
-        out.push(state.cached_info(engine, &config, key.is_some()));
+        let key = state.lookup_for(engine).await;
+        out.push(state.cached_info(engine, &config, &key));
     }
     Ok(out)
 }
@@ -440,11 +446,11 @@ pub async fn ai_list_engines<R: Runtime>(app: AppHandle<R>, state: State<'_, AiS
 pub async fn ai_test_engine<R: Runtime>(app: AppHandle<R>, state: State<'_, AiState>, id: String) -> Result<EngineInfo, AiError> {
     let config = load_config(&app)?;
     let engine = find_engine(&config, &id)?;
-    let (key, _) = state.key_for(engine).await;
+    let key = state.lookup_for(engine).await;
     let (_keep_alive, cancel) = watch::channel(false);
-    let outcome = providers::probe(&state.client, engine, key.as_deref(), &cancel).await;
+    let outcome = providers::probe(&state.client, engine, key.key.as_deref(), &cancel).await;
     state.store_probe(&engine.id, outcome.ok, outcome.latency_ms, outcome.error.as_ref().map(|e| e.message.clone()));
-    Ok(state.cached_info(engine, &config, key.is_some()))
+    Ok(state.cached_info(engine, &config, &key))
 }
 
 /// List the models the endpoint serves (capabilities as the endpoint
@@ -454,13 +460,13 @@ pub async fn ai_test_engine<R: Runtime>(app: AppHandle<R>, state: State<'_, AiSt
 pub async fn ai_discover_models<R: Runtime>(app: AppHandle<R>, state: State<'_, AiState>, id: String) -> Result<DiscoveryResult, AiError> {
     let config = load_config(&app)?;
     let engine = find_engine(&config, &id)?;
-    let (key, _) = state.key_for(engine).await;
+    let key = state.lookup_for(engine).await;
     let (_keep_alive, cancel) = watch::channel(false);
     let started = Instant::now();
-    match providers::list_models(&state.client, engine, key.as_deref(), &cancel).await {
+    match providers::list_models(&state.client, engine, key.key.as_deref(), &cancel).await {
         Ok(models) => {
             state.store_probe(&engine.id, true, started.elapsed().as_millis() as u64, None);
-            Ok(DiscoveryResult { info: state.cached_info(engine, &config, key.is_some()), models })
+            Ok(DiscoveryResult { info: state.cached_info(engine, &config, &key), models })
         }
         Err(error) => {
             state.store_probe(&engine.id, false, started.elapsed().as_millis() as u64, Some(error.message.clone()));

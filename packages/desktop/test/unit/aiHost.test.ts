@@ -182,6 +182,14 @@ describe('aiHost registry methods', () => {
     expect(status.models[0].source).toBe('user');
   });
 
+  it('passes on where the key came from, and says nothing when Rust does not', async () => {
+    const { host, api } = setup(saved.engines);
+    api.listEngines.mockResolvedValueOnce([{ engineId: 'e1', ok: true, isLocal: true, hasKey: true, keySource: 'file' }]);
+    expect(((await host.listEngines?.()) ?? [])[0].keySource).toBe('file');
+    api.listEngines.mockResolvedValueOnce([{ engineId: 'e1', ok: true, isLocal: true, hasKey: true }]);
+    expect(((await host.listEngines?.()) ?? [])[0]).not.toHaveProperty('keySource');
+  });
+
   it('an engine Rust has not seen yet is never-probed with locality from the URL', async () => {
     const { host } = setup(saved.engines);
     const [status] = (await host.listEngines?.()) ?? [];

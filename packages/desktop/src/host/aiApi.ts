@@ -16,6 +16,8 @@ export interface AiEngineInfo {
   ok: boolean | null;
   isLocal: boolean;
   hasKey: boolean;
+  /** `stored` (the keychain) or `file` (the engine's `apiKeyFile`); absent for a variable or no key. */
+  keySource?: 'file' | 'stored';
   latencyMs?: number;
   error?: string;
 }

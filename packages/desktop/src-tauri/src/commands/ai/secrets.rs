@@ -86,6 +86,49 @@ impl SecretStore for MemoryStore {
     }
 }
 
+/// Where a resolved key came from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeySource {
+    Stored,
+    Env,
+    File,
+}
+
+impl KeySource {
+    /// The name the webview gets as `keySource`. The variable's own name is
+    /// already in the engine's settings, so only `stored` and `file` are reported.
+    pub fn wire_name(self) -> Option<&'static str> {
+        match self {
+            KeySource::Stored => Some("stored"),
+            KeySource::File => Some("file"),
+            KeySource::Env => None,
+        }
+    }
+}
+
+/// `resolve_key` with the source of the key it found.
+fn resolve_key_sourced(
+    store: &dyn SecretStore,
+    engine_id: &str,
+    api_key_env: Option<&str>,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> (Option<(String, KeySource)>, Option<String>) {
+    let (stored, problem) = match store.get(engine_id) {
+        Ok(v) => (v.filter(|k| !k.is_empty()), None),
+        Err(e) => (None, Some(e)),
+    };
+    if let Some(key) = stored {
+        return (Some((key, KeySource::Stored)), problem);
+    }
+    let from_env = api_key_env
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .and_then(env)
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+    (from_env.map(|k| (k, KeySource::Env)), problem)
+}
+
 /// The key for an engine: stored first, then `apiKeyEnv` (non-empty), else None.
 /// A keychain failure is treated as "no stored key" so a locked keychain does
 /// not hide a working environment variable; the error is returned alongside.
@@ -95,20 +138,8 @@ pub fn resolve_key(
     api_key_env: Option<&str>,
     env: &dyn Fn(&str) -> Option<String>,
 ) -> (Option<String>, Option<String>) {
-    let (stored, problem) = match store.get(engine_id) {
-        Ok(v) => (v.filter(|k| !k.is_empty()), None),
-        Err(e) => (None, Some(e)),
-    };
-    if stored.is_some() {
-        return (stored, problem);
-    }
-    let from_env = api_key_env
-        .map(str::trim)
-        .filter(|n| !n.is_empty())
-        .and_then(env)
-        .map(|v| v.trim().to_string())
-        .filter(|v| !v.is_empty());
-    (from_env, problem)
+    let (found, problem) = resolve_key_sourced(store, engine_id, api_key_env, env);
+    (found.map(|(k, _)| k), problem)
 }
 
 /// The user's home folder from the environment (`HOME`, else `USERPROFILE`).
@@ -171,6 +202,8 @@ pub fn read_key_file(spec: &ApiKeyFile, home: &Path) -> Result<String, String> {
 /// why the key file gave nothing (only set when the file was consulted).
 pub struct KeyLookup {
     pub key: Option<String>,
+    /// Which source gave `key`.
+    pub source: Option<KeySource>,
     pub keychain_problem: Option<String>,
     pub file_problem: Option<String>,
 }
@@ -183,17 +216,17 @@ pub fn resolve_key_with_file(
     key_file: Option<&ApiKeyFile>,
     env: &dyn Fn(&str) -> Option<String>,
 ) -> KeyLookup {
-    let (key, keychain_problem) = resolve_key(store, engine_id, api_key_env, env);
-    if key.is_some() {
-        return KeyLookup { key, keychain_problem, file_problem: None };
+    let (found, keychain_problem) = resolve_key_sourced(store, engine_id, api_key_env, env);
+    if let Some((key, source)) = found {
+        return KeyLookup { key: Some(key), source: Some(source), keychain_problem, file_problem: None };
     }
     let Some(spec) = key_file else {
-        return KeyLookup { key: None, keychain_problem, file_problem: None };
+        return KeyLookup { key: None, source: None, keychain_problem, file_problem: None };
     };
     let outcome = home_from_env(env).ok_or_else(|| "no home folder".to_string()).and_then(|home| read_key_file(spec, &home));
     match outcome {
-        Ok(k) => KeyLookup { key: Some(k), keychain_problem, file_problem: None },
-        Err(why) => KeyLookup { key: None, keychain_problem, file_problem: Some(why) },
+        Ok(k) => KeyLookup { key: Some(k), source: Some(KeySource::File), keychain_problem, file_problem: None },
+        Err(why) => KeyLookup { key: None, source: None, keychain_problem, file_problem: Some(why) },
     }
 }
 
@@ -245,6 +278,13 @@ mod tests {
         let (key, problem) = resolve_key(&Locked, "omlx", Some("K"), &env_with("K", "env"));
         assert_eq!(key.as_deref(), Some("env"));
         assert_eq!(problem.as_deref(), Some("keychain locked"));
+    }
+
+    #[test]
+    fn only_stored_and_file_keys_are_named_on_the_wire() {
+        assert_eq!(KeySource::Stored.wire_name(), Some("stored"));
+        assert_eq!(KeySource::File.wire_name(), Some("file"));
+        assert_eq!(KeySource::Env.wire_name(), None);
     }
 
     /// A throwaway "home" and "elsewhere" folder pair; the tests never touch the real `~`.
@@ -319,12 +359,14 @@ mod tests {
             };
             let file = omlx();
             store.set("omlx", "stored").unwrap();
-            assert_eq!(resolve_key_with_file(&store, "omlx", Some("OMLX_API_KEY"), Some(&file), &env).key.as_deref(), Some("stored"));
+            let stored = resolve_key_with_file(&store, "omlx", Some("OMLX_API_KEY"), Some(&file), &env);
+            assert_eq!((stored.key.as_deref(), stored.source), (Some("stored"), Some(KeySource::Stored)));
             store.delete("omlx").unwrap();
-            assert_eq!(resolve_key_with_file(&store, "omlx", Some("OMLX_API_KEY"), Some(&file), &env).key.as_deref(), Some("from-env"));
+            let from_env = resolve_key_with_file(&store, "omlx", Some("OMLX_API_KEY"), Some(&file), &env);
+            assert_eq!((from_env.key.as_deref(), from_env.source), (Some("from-env"), Some(KeySource::Env)));
             let no_var = d.env();
             let lookup = resolve_key_with_file(&store, "omlx", Some("OMLX_API_KEY"), Some(&file), &no_var);
-            assert_eq!((lookup.key.as_deref(), lookup.file_problem), (Some("from-file"), None));
+            assert_eq!((lookup.key.as_deref(), lookup.source, lookup.file_problem), (Some("from-file"), Some(KeySource::File), None));
             // No file spec: no key, and no problem to report.
             let none = resolve_key_with_file(&store, "omlx", Some("OMLX_API_KEY"), None, &no_var);
             assert_eq!((none.key, none.file_problem), (None, None));
