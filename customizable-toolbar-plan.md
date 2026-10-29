@@ -346,9 +346,9 @@ Decisions Mike made (D1 to D4) and the ones made while writing this plan (D5 onw
 
 - **OQ1 — Toolbar section placement in the Settings modal:** *(M3: own `toolbar` tab after Appearance; easier to find and leaves room for M4/M6 hints.)* its own `toolbar` tab or a group at the bottom of Appearance? Two rows feel thin for a tab; a tab is easier to find. M3 worker decides and records it; Mike can overrule in T3.
 - **OQ2 — Should the Settings modal's Customize… button close the modal with "discard" semantics?** *(Mike, 2026-10-28: confirm, then discard. A dirty modal asks "Discard unsaved changes?" first; a clean one enters edit mode directly.)* Unsaved changes on other tabs would be lost; alternatively save first, then enter edit mode. Plan assumes discard with a confirm only when the modal is dirty (reuse any existing dirty check).
-- **OQ3 — `fontPicker` button:** `makeBtn('fontPicker', ...)` exists at line ~2678 but is not in the assemble block. Is it meant to be a registry item (available from the palette, not in the default layout)? If yes it becomes the first "optional" item users can add, which is a nice showcase.
-- **OQ4 — Removing `mikedown.ai.showToolbarButton` later:** D13 keeps it. Once layouts ship, the setting is redundant for users who customize. Retire in a later release or keep as the host-level kill switch?
-- **OQ5 — Hide the whole toolbar?** Firefox allows an empty toolbar; here Text Format, Settings and More are pinned so the minimum is three items. Is a "hide toolbar" toggle wanted (it already exists for embeds via `features.toolbar`)? Not planned.
+- ~~**OQ3 — `fontPicker` button:**~~ Resolved 2026-10-28 (Mike): yes, a registry item that is available from the palette but not in the default layout, the first optional item. Not built yet; see Follow-ups.
+- ~~**OQ4 — Removing `mikedown.ai.showToolbarButton` later:**~~ Resolved 2026-10-28 (Mike): keep it as the host-level kill switch; the layout only positions the button (D13 stands).
+- ~~**OQ5 — Hide the whole toolbar?**~~ Resolved 2026-10-28 (Mike): no; embeds keep `features.toolbar`.
 - **OQ6 — Desktop global-only enforcement:** *(M3: reused `APP_WIDE_KEYS`, widened to `string[]`.)* reuse `APP_WIDE_KEYS` (renaming it) or add a parallel `GLOBAL_ONLY_CORE_KEYS` list? M3 worker picks the smaller diff.
 
 [Return to Top](#customizable-toolbar-firefox-style--planning-document)
@@ -360,7 +360,7 @@ Decisions Mike made (D1 to D4) and the ones made while writing this plan (D5 onw
 - **Layout sync across hosts** (Mike's ask): the layout is one versioned value, so a sync feature moves exactly `toolbarLayout`. Candidates: a GitHub Gist (one JSON file, like VS Code's old Settings Sync), or a `mikedown-settings.json` in a user-chosen repo, with an "Export / Import toolbar layout" pair in the Toolbar section as the zero-infrastructure first step. Reconciliation on import is `normalize` + `reconcileSeen`, already built in M2. Note VS Code already syncs it through Settings Sync, so the follow-up is really Desktop ⇄ VS Code ⇄ wrappers.
 - **Customizable dropdown menus** (Text Format, Lists & Blocks, Insert, Share) and a "split a group into its buttons" option, e.g. Bold/Italic as top-level buttons. Needs per-item registry entries for the inner commands; the schema supports it as new ids without a version bump.
 - **Table toolbar customization** (`tablepicker.ts`, `#mikedown-table-toolbar`): same registry pattern, separate layout key.
-- **Retire `mikedown.ai.showToolbarButton`** once the layout is the canonical way to hide the button (see OQ4).
+- **`fontPicker` as an optional palette item** (OQ3): add a `fontPicker` registry id that is not in `DEFAULT_TOOLBAR_ITEMS` and not in a default layout's `seen` reconcile insert, so it only appears in the tray until the user drags it in. Wire the existing `makeBtn('fontPicker', ...)` construction.
 - **Named presets** (Writing, Reviewing, Minimal) in the tray.
 - **Icon-only vs icon+label** mode for the toolbar, a common Firefox-style option.
 
@@ -422,5 +422,8 @@ When a milestone leaves items skipped or partial, the orchestrator writes a gap-
 **2026-10-28 20:30** - T3 signed off by Mike. Every milestone is complete. Still open for later: OQ3 (`fontPicker` as an optional palette item), OQ4 (retiring `mikedown.ai.showToolbarButton`), OQ5 (hide-toolbar toggle, not planned). Orchestrator session closed.
 
 **2026-10-28 20:35** - Session usage: \$25.23 total, 1h 24m wall (1h 3m API), 5564 lines added. By model: Opus \$18.09 (orchestrator plus M4 and M5), Sonnet \$7.08 (M1, M2, T1, M3, T2), Haiku \$0.05 (M6). Prompt cache 99% hits.
+
+**2026-10-28** - Open questions closed by Mike: OQ3 yes (`fontPicker` becomes an optional palette item, queued as a Follow-up), OQ4 keep `mikedown.ai.showToolbarButton` as the host kill switch (the retire Follow-up is dropped), OQ5 no hide-toolbar toggle.
+
 
 [Return to Top](#customizable-toolbar-firefox-style--planning-document)
