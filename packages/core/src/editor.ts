@@ -48,7 +48,9 @@ import { MathInline, MathBlock, setMathRenderingEnabled } from './math';
 import { FootnoteRef, FootnoteDef } from './footnote';
 import { TableOfContents, syncTableOfContents, TOC_DISPLAY_ONLY_META } from './toc-node';
 import { parseTocStyle, type TocStyle } from './toc';
-import { createOutlineSidebar, type OutlineSidebar } from './outlineSidebar';
+import { createOutlineSidebar, type OutlineSidebar, type SuggestPropertiesAvailability } from './outlineSidebar';
+import { FrontmatterHistory, frontmatterAfterTransition, frontmatterEditTransaction } from './frontmatterHistory';
+import { mergePropertySuggestion, type PropertySuggestionPick } from './propertySuggestions';
 import {
   parseFrontmatter,
   serializeFrontmatter,
@@ -98,8 +100,13 @@ import {
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
-import { defaultAiSettings, isRouteUsable, parseAiSettings, resolveRoute, type AiSummaryKind } from './ai';
-import type { AiEngineStatus, AiServedBy, AiSettings, AiSettingsPatch, MikeDownAiHost } from './ai';
+import {
+  CHARS_PER_TOKEN, DEFAULT_CONTEXT_TOKENS, PROPERTY_VOCABULARY_MAX, aiErrorCopy, budgetDocument, buildPropertiesMessages,
+  defaultAiSettings, headingsOutline, isRouteUsable, jsonRepairMessages, makeAiError, parseAiSettings,
+  parsePropertySuggestions, propertiesMaxTokens, renderHeadingOutline, resolveRoute, toAiError, type AiSummaryKind,
+} from './ai';
+import type { AiEngineStatus, AiMessage, AiRouteOk, AiServedBy, AiSettings, AiSettingsPatch, MikeDownAiHost } from './ai';
+import { sessionThinkingLevel } from './ai-prefs';
 import { buildAiSettingsSection } from './ai-settings';
 import { mountAiEnginesPage } from './ai-engines-page';
 import type { AiEnginesPageHandle, AiEnginesPageSection } from './ai-engines-page';
@@ -112,7 +119,7 @@ import {
   AI_TURN_ON_PATCH, aiSetupTarget, aiToolbarButtonMode, aiToolbarMenuEntries,
   hideAiFirstRunPanel, isAiFirstRunPanelOpen, showAiFirstRunPanel,
 } from './ai-toolbar';
-import { aiFeatureAvailability, runAiCompletion, type AiFeatureAvailability } from './ai-request';
+import { aiFeatureAvailability, runAiCompletion, type AiFeatureAvailability, type AiRunOutcome } from './ai-request';
 import {
   AiRewriteHighlight, aiRewriteMenuGroups, applyRichTitle, applySourceTitle, cmAiRewriteHighlight, createAiRewriteBubble,
   createAiRewritePopover, cursorInsertTarget, richDocumentTarget, richRewriteTarget, setYamlTitle, sourceCursorTarget,
@@ -2239,6 +2246,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   function renderAiIndicator(): void {
     syncAiSlashCommands();
+    syncAiPropertiesAvailability();
     outlineSidebar?.applyAiIndicator(aiHost
       ? aiIndicatorState({
         settings: currentAiSettings,
@@ -2425,7 +2433,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   /** Whether `/summary` or `/title` can run (read-only is the callers' to check). */
-  function aiDocAvailability(feature: 'summary' | 'title'): AiFeatureAvailability {
+  function aiDocAvailability(feature: 'summary' | 'title' | 'frontmatter'): AiFeatureAvailability {
     return aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, feature);
   }
 
@@ -3593,6 +3601,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // carry MikeDown's markdown serializers. See src/webview/markdownText.ts.
       MarkdownText,
       MarkdownHardBreak,
+      // Tracked frontmatter edits ride PM history as a doc attribute (one undo step each).
+      FrontmatterHistory,
 
       // ── Code Blocks with Syntax Highlighting (M15) ────────────────────────────
       // CodeBlockLowlight extends the base CodeBlock node with lowlight (highlight.js
@@ -4079,23 +4089,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       statuses: () => aiStatuses,
       consent: aiConsent,
     }, req, events, signal),
-    badge: (route, served, viaFallback): AiRewriteBadge | null => {
-      const by: AiServedBy | null = served ?? (route ? {
-        engineId: route.engineId,
-        engineName: currentAiSettings.engines.find((e) => e.id === route.engineId)?.name ?? route.engineId,
-        modelId: route.modelId,
-        isLocal: route.isLocal,
-      } : null);
-      if (!by) {return null;}
-      const s = aiIndicatorState({ settings: { ...currentAiSettings, enabled: true }, statuses: aiStatuses, tier: aiHostTier(aiHost), served: by, viaFallback: false });
-      if (!s) {return null;}
-      return {
-        where: by.isLocal ? 'local' : 'cloud',
-        text: s.text.replace(/^AI: /, ''),
-        title: served ? s.title.replace(/ Click to open AI settings\.$/, '') : `Sending to ${s.text.replace(/^AI: (local|cloud) · /, '')}.`,
-        fallback: viaFallback,
-      };
-    },
+    badge: aiBadge,
     onServed: (served, viaFallback) => {
       aiServed = { served, viaFallback };
       renderAiIndicator();
@@ -4105,6 +4099,25 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     routeInfo: aiRouteInfo,
   }) : null;
   if (aiRewrite) {disposers.push(() => aiRewrite.destroy());}
+
+  /** The engine badge for a request: the route about to be used, or who served it. */
+  function aiBadge(route: AiRouteOk | null, served: AiServedBy | null, viaFallback: boolean): AiRewriteBadge | null {
+    const by: AiServedBy | null = served ?? (route ? {
+      engineId: route.engineId,
+      engineName: currentAiSettings.engines.find((e) => e.id === route.engineId)?.name ?? route.engineId,
+      modelId: route.modelId,
+      isLocal: route.isLocal,
+    } : null);
+    if (!by || !aiHost) {return null;}
+    const s = aiIndicatorState({ settings: { ...currentAiSettings, enabled: true }, statuses: aiStatuses, tier: aiHostTier(aiHost), served: by, viaFallback: false });
+    if (!s) {return null;}
+    return {
+      where: by.isLocal ? 'local' : 'cloud',
+      text: s.text.replace(/^AI: /, ''),
+      title: served ? s.title.replace(/ Click to open AI settings\.$/, '') : `Sending to ${s.text.replace(/^AI: (local|cloud) · /, '')}.`,
+      fallback: viaFallback,
+    };
+  }
 
   /** The whole body (frontmatter left out and untouched) as a rewrite target. */
   function aiDocumentTarget(): AiRewriteTarget | null {
@@ -4176,10 +4189,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /**
    * Set a picked title, `/query` removal included, as one undo step. Rich
-   * text with a frontmatter `title:`: the YAML is outside ProseMirror, so
-   * `/query` goes in a PM transaction, the title through the Properties
-   * path, and an undo of that transaction puts the old YAML back (the
-   * `/properties` undo-depth pattern in slashcommands-actions.ts).
+   * text with a frontmatter `title:`: only the title line changes
+   * (`setYamlTitle`), recorded with the `/query` deletion in one PM
+   * transaction (`editFrontmatterUndoable`).
    */
   function applyAiTitle(target: AiCursorTarget, title: string): boolean {
     const effect = aiTitleEffect();
@@ -4191,19 +4203,171 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     }
     const r = target.range();
     const query = r && r.to > r.from ? r : null;
-    if (effect !== 'frontmatter') {return applyRichTitle(editor, effect, title, query);}
-    const previous = frontmatterContent;
-    const depthBefore = pmUndoDepth(editor.state);
-    if (query) {editor.view.dispatch(closeHistory(editor.state.tr).delete(query.from, query.to).scrollIntoView());}
-    setFrontmatterTitle(title);
-    if (query && previous !== null) {
-      const onUpdate = (): void => {
-        editor.off('update', onUpdate);
-        if (pmUndoDepth(editor.state) <= depthBefore && frontmatterContent !== previous) {applyFrontmatterYaml(previous);}
-      };
-      editor.on('update', onUpdate);
-    }
+    if (effect !== 'frontmatter' || frontmatterContent === null) {return applyRichTitle(editor, effect === 'frontmatter' ? 'insertH1' : effect, title, query);}
+    return editFrontmatterUndoable(setYamlTitle(frontmatterContent, title), query);
+  }
+
+  /**
+   * One undoable frontmatter edit (Properties suggestion chips, a picked
+   * title): the change is a doc-attribute step in PM history
+   * (frontmatterHistory.ts), with `remove` (a `/query`) deleted in the same
+   * step. The transaction listener below applies the YAML, so undo and redo
+   * take the same path. Rich text only.
+   */
+  function editFrontmatterUndoable(next: string, remove?: { from: number; to: number } | null): boolean {
+    if (sourceMode || editor.isDestroyed) {return false;}
+    const removing = !!remove && remove.to > remove.from;
+    if (next === frontmatterContent && !removing) {return true;}
+    const tr = frontmatterEditTransaction(editor.state, frontmatterContent, next, remove);
+    editor.view.dispatch(removing ? tr.scrollIntoView() : tr);
     return true;
+  }
+
+  // Any transaction that moves the frontmatter record (an edit above, undo,
+  // redo) sets the YAML before `onUpdate` serialises the document.
+  editor.on('transaction', ({ transaction }) => {
+    const yaml = frontmatterAfterTransition(transaction.before, editor.state.doc);
+    if (yaml === undefined || yaml === frontmatterContent) {return;}
+    // A block that appears is shown open, as `/properties` does.
+    if (frontmatterContent === null) {frontmatterExpanded = true;}
+    frontmatterContent = yaml;
+    renderFrontmatterBlock();
+    refreshPropertiesSidebar();
+  });
+
+  // ── AI Properties suggestions (D5) ─────────────────────────────────────────
+  // On demand only: the sidebar's Suggest button or the aiSuggestProperties
+  // command. Chips apply one at a time, each one undo step.
+
+  /** Tokens kept for the system prompt, instructions and slack (the document gets the rest). */
+  const PROPERTIES_RESERVE_TOKENS = 768;
+  let propertiesController: AbortController | null = null;
+
+  function aiPropertiesAvailability(): SuggestPropertiesAvailability {
+    // `editor.isEditable`, not `readOnly`: this runs from the sidebar's setup, before that is declared.
+    if (!editor.isEditable) {return { state: 'hidden' };}
+    const a = aiDocAvailability('frontmatter');
+    if (a.state !== 'enabled') {return a;}
+    if (sourceMode) {return { state: 'disabled', reason: 'Switch to rich text to apply suggestions' };}
+    if (!isSimpleFrontmatter(frontmatterContent ?? '')) {
+      return { state: 'disabled', reason: 'These properties use YAML the sidebar cannot edit. Edit them in the frontmatter block.' };
+    }
+    return { state: 'enabled' };
+  }
+
+  function syncAiPropertiesAvailability(): void {
+    if (!outlineSidebar) {return;}
+    outlineSidebar.applySuggestAvailability(aiPropertiesAvailability());
+  }
+
+  /** Abort a running request; `clear` also empties the chips row. */
+  function cancelAiPropertySuggestions(clear = false): void {
+    propertiesController?.abort();
+    propertiesController = null;
+    if (clear) {outlineSidebar?.applyPropertySuggestions(null, 'idle');}
+  }
+
+  /**
+   * Ask for a title, a description and tags (the `frontmatter` feature), with
+   * one JSON repair round trip (D16), and show the result as chips. A new run
+   * aborts the previous one. False when Suggest is not available.
+   */
+  function startAiPropertySuggestions(): boolean {
+    const ai = aiHost;
+    const sidebar = outlineSidebar;
+    if (!ai || !sidebar || destroyed) {return false;}
+    if (aiPropertiesAvailability().state !== 'enabled') {return false;}
+    cancelAiPropertySuggestions();
+    const controller = new AbortController();
+    propertiesController = controller;
+    const live = (): boolean => propertiesController === controller && !destroyed;
+
+    const markdown = aiBodyMarkdown();
+    const existing = parseFrontmatter(frontmatterContent ?? '');
+    const vocabulary = [...workspaceTags].sort((a, b) => b.count - a.count).map((t) => t.tag);
+    const outline = headingsOutline(markdown);
+    const info = aiRouteInfo('frontmatter');
+    const maxTokens = propertiesMaxTokens();
+    const promptChars = renderHeadingOutline(outline).length
+      + vocabulary.slice(0, PROPERTY_VOCABULARY_MAX).join(', ').length
+      + (frontmatterContent ?? '').length;
+    const budget = budgetDocument(markdown, {
+      contextTokens: info.contextTokens ?? DEFAULT_CONTEXT_TOKENS,
+      outputTokens: maxTokens,
+      reserveTokens: PROPERTIES_RESERVE_TOKENS + Math.ceil(promptChars / CHARS_PER_TOKEN),
+    });
+    const messages = buildPropertiesMessages({ document: budget.text, outline, existing, vocabulary });
+
+    let badge = '';
+    let repairing = false;
+    let streamed = '';
+    const showRunning = (): void => sidebar.applyPropertySuggestions(null, 'running', repairing ? 'Fixing the answer format…' : badge);
+    const request = (msgs: AiMessage[]): Promise<AiRunOutcome> => runAiCompletion({
+      ai,
+      settings: () => currentAiSettings,
+      statuses: () => aiStatuses,
+      consent: aiConsent,
+    }, {
+      feature: 'frontmatter',
+      messages: msgs,
+      maxTokens,
+      temperature: 0.3,
+      thinking: sessionThinkingLevel,
+      ...(info.json ? { format: 'json' as const } : {}),
+    }, {
+      onRoute: (route) => {
+        streamed = '';
+        if (!live()) {return;}
+        badge = aiBadge(route, null, false)?.text ?? '';
+        showRunning();
+      },
+      onToken: (_delta, text) => { streamed = text; },
+    }, controller.signal);
+    const served = (o: AiRunOutcome): void => {
+      aiServed = { served: o.result.served, viaFallback: o.viaFallback };
+      renderAiIndicator();
+    };
+
+    showRunning();
+    void (async () => {
+      try {
+        const first = await request(messages);
+        if (!live()) {return;}
+        served(first);
+        const firstText = first.result.text || streamed;
+        let parsed = parsePropertySuggestions(firstText, existing, vocabulary);
+        if (!parsed.ok) {
+          // D16: one repair round trip, abortable like the first request.
+          repairing = true;
+          showRunning();
+          const second = await request([...messages, ...jsonRepairMessages(firstText, parsed.error)]);
+          if (!live()) {return;}
+          served(second);
+          parsed = parsePropertySuggestions(second.result.text || streamed, existing, vocabulary);
+          if (!parsed.ok) {throw makeAiError('badOutput', parsed.error);}
+        }
+        propertiesController = null;
+        sidebar.applyPropertySuggestions(parsed.suggestions, 'idle');
+      } catch (err) {
+        if (!live()) {return;}
+        propertiesController = null;
+        const e = toAiError(err);
+        if (e.code === 'cancelled') {
+          sidebar.applyPropertySuggestions(null, 'idle');
+          return;
+        }
+        sidebar.applyPropertySuggestions(null, 'error', aiErrorCopy(e.code).message);
+      }
+    })();
+    return true;
+  }
+
+  /** A chip click: merge it into the entries and record it as one undo step. */
+  function applyAiPropertySuggestion(pick: PropertySuggestionPick): boolean {
+    if (sourceMode || readOnly || destroyed) {return false;}
+    const yaml = frontmatterContent ?? '';
+    if (!isSimpleFrontmatter(yaml)) {return false;}
+    return editFrontmatterUndoable(serializeFrontmatter(mergePropertySuggestion(parseFrontmatter(yaml), pick)));
   }
 
   /**
@@ -4848,8 +5012,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     onSupportOpen: () => sidebarFooterLink?.onOpen(),
     onSupportDismiss: () => sidebarFooterLink?.onDismiss(),
     onAiIndicatorClick: () => openAiFromChip(),
+    onSuggestProperties: () => { startAiPropertySuggestions(); },
+    onApplyPropertySuggestion: applyAiPropertySuggestion,
+    onCancelPropertySuggestions: () => cancelAiPropertySuggestions(),
   });
   disposers.push(() => outlineSidebar?.destroy());
+  syncAiPropertiesAvailability();
   }
 
   // ── Heading Rename → Fix Links (2.7.0) ─────────────────────────────────────
@@ -5180,19 +5348,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     refreshPropertiesSidebar();
   }
 
-  /**
-   * `/title` on a document with `title:` (D12): only the title line changes
-   * (`setYamlTitle`), then the Properties path persists and re-renders.
-   */
-  function setFrontmatterTitle(title: string): void {
-    if (frontmatterContent === null) {return;}
-    applyFrontmatterYaml(setYamlTitle(frontmatterContent, title));
-  }
-
   function refreshPropertiesSidebar(): void {
     outlineSidebar?.applyProperties(parseFrontmatter(frontmatterContent ?? ''), {
       editable: !sourceMode && isSimpleFrontmatter(frontmatterContent ?? ''),
     });
+    syncAiPropertiesAvailability();
   }
 
   // M6 — `/properties`: insert an empty frontmatter block (no entries yet;
@@ -5868,6 +6028,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (sourceMode) {return;}
     aiRewrite?.close();
     aiBubble?.hide();
+    // Chips apply in rich text only.
+    cancelAiPropertySuggestions(true);
 
     // Serialize TipTap content (re-attach frontmatter for complete markdown).
     // When the document is pristine (no PM edits since last load/save), prefer
@@ -6278,6 +6440,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       refreshPropertiesSidebar();
       return;
     }
+    // Another document: suggestions for the old one go.
+    cancelAiPropertySuggestions(true);
     // In source mode only CodeMirror is loaded; the rich view is rebuilt from
     // the source text on the way back (`switchToWysiwyg`). A host that opens a
     // large file straight into source mode (edge case: files over 2 MB) then
@@ -6461,6 +6625,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     editor.setEditable(!next, false);
     if (cmView) {cmView.dispatch({ effects: cmReadOnly.reconfigure(EditorState.readOnly.of(next)) });}
     root.classList.toggle('mikedown-readonly', next);
+    if (next) {cancelAiPropertySuggestions(true);}
+    syncAiPropertiesAvailability();
   }
 
   /** Run a toolbar / keybinding command (M3). */
@@ -6533,6 +6699,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // Suggest titles: three candidates; a pick sets title:, the H1 or a new H1.
       case 'aiSuggestTitle':
         startAiTitles();
+        break;
+      // Suggest properties: the sidebar's Suggest, Properties shown and expanded.
+      case 'aiSuggestProperties':
+        startAiPropertySuggestions();
         break;
       // M11 — Copy as rich text: write HTML + plain text to clipboard.
       case 'copyAsRichText':
@@ -6842,6 +7012,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function destroy(): void {
     if (destroyed) {return;}
     destroyed = true;
+    cancelAiPropertySuggestions();
     // Close any shared popups this editor may have opened.
     closeSlashMenu();
     hideContextMenu();

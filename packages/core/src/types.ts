@@ -271,6 +271,8 @@ export type MikeDownCommand =
   | 'aiSummarize'
   /** Suggest titles with AI: three candidates; a pick sets `title:`, the H1, or a new H1 (no-op without `host.ai`). */
   | 'aiSuggestTitle'
+  /** Suggest properties with AI: the sidebar's Suggest (Properties shown and expanded); chips apply a title, description or tag (no-op without `host.ai`). */
+  | 'aiSuggestProperties'
   | 'copyAsRichText'
   // Menu-bar commands for hosts with their own menus (MikeDown Desktop). Each
   // mirrors an existing toolbar action or keystroke; no-ops in source mode

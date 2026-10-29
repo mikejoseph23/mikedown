@@ -15,6 +15,8 @@ import { formatRelativeTime } from './relativeTime';
 import type { BacklinkItem, MikeDownSidebarPrefs } from './host';
 import type { AiIndicatorState, AiIndicatorTone } from './ai-settings-model';
 import { hasDescendants, hiddenByFolds, nearestVisibleIndex } from './outlineFold';
+import type { PropertySuggestions } from './ai/prompts/properties';
+import type { PropertySuggestionPick } from './propertySuggestions';
 
 export type OutlineVisibilityPref = 'always' | 'never';
 export type OutlinePosition = 'left' | 'right';
@@ -57,7 +59,21 @@ interface InitOptions {
   onSupportDismiss?: () => void;
   /** Footer AI chip clicked — the owner opens the AI settings tab. */
   onAiIndicatorClick?: () => void;
+  /** Properties header Suggest (or "Try again") clicked — the owner runs the AI request. */
+  onSuggestProperties?: () => void;
+  /** A suggestion chip clicked: true when it was applied (the chip then goes). */
+  onApplyPropertySuggestion?: (pick: PropertySuggestionPick) => boolean;
+  /** The chips row closed while running (Cancel) — the owner aborts the request. */
+  onCancelPropertySuggestions?: () => void;
 }
+
+/** Whether the Properties header shows Suggest, and whether it can be clicked. */
+export type SuggestPropertiesAvailability =
+  | { state: 'hidden' }
+  | { state: 'disabled'; reason: string }
+  | { state: 'enabled' };
+
+export type PropertySuggestionsState = 'idle' | 'running' | 'error';
 
 /** Entry point labels this module renders (subset of `ENTRY_COPY` in src/supportCopy.ts). */
 export interface SupportLinkCopy {
@@ -95,6 +111,9 @@ const UNFOLD_ALL_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="no
 // lives on. Mirrors VS Code's own layout-sidebar codicons.
 const SIDEBAR_ICON_LEFT  = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1"/><rect x="3" y="4" width="3" height="8" fill="currentColor" stroke="none"/></svg>';
 const SIDEBAR_ICON_RIGHT = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1"/><rect x="10" y="4" width="3" height="8" fill="currentColor" stroke="none"/></svg>';
+
+// Properties header Suggest: two sparkles.
+const SPARKLE_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.5l1.7 4.8 4.8 1.7-4.8 1.7L10 16.5l-1.7-4.8L3.5 10l4.8-1.7z"/><path d="M18 14l.9 2.1 2.1.9-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z"/></svg>';
 
 // Footer AI chip glyphs, 10px: a house for local, a cloud, a hollow ring when
 // off or unrouted, a filled dot for a host that routes by itself.
@@ -134,6 +153,15 @@ export interface OutlineSidebar {
   applySupportLink(opts: { visible: boolean; copy?: SupportLinkCopy | null }): void;
   /** Show the AI indicator chip in the footer, or hide it with null. */
   applyAiIndicator(state: AiIndicatorState | null): void;
+  /** Show, disable (with the reason as its tooltip) or hide the Properties header's Suggest button. */
+  applySuggestAvailability(a: SuggestPropertiesAvailability): void;
+  /**
+   * The chips row under Properties: `running` shows a progress line and
+   * `message` (the engine badge text, or "Fixing the answer format…");
+   * `error` shows `message` with Try again; `idle` shows the chips of `s`,
+   * or nothing when `s` is null.
+   */
+  applyPropertySuggestions(s: PropertySuggestions | null, state: PropertySuggestionsState, message?: string): void;
   /** Stop the footer clock and forget the DOM this instance was bound to. */
   destroy(): void;
 }
@@ -229,6 +257,17 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
   let aiIndicatorCb: (() => void) | null = null;
   let aiIndicator: AiIndicatorState | null = null;
 
+  // Properties suggestions (AI): the header button and the chips row.
+  let suggestBtnEl: HTMLButtonElement | null = null;
+  let suggestRowEl: HTMLElement | null = null;
+  let suggestAvailability: SuggestPropertiesAvailability = { state: 'hidden' };
+  let suggestState: PropertySuggestionsState = 'idle';
+  let suggestMessage = '';
+  let suggestions: PropertySuggestions | null = null;
+  let suggestCb: (() => void) | null = null;
+  let applySuggestionCb: ((pick: PropertySuggestionPick) => boolean) | null = null;
+  let cancelSuggestionsCb: (() => void) | null = null;
+
   function init(opts: InitOptions): void {
     editorRef = opts.editor;
     prefsRef = opts.prefs ?? null;
@@ -239,6 +278,9 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     supportOpenCb = opts.onSupportOpen ?? null;
     supportDismissCb = opts.onSupportDismiss ?? null;
     aiIndicatorCb = opts.onAiIndicatorClick ?? null;
+    suggestCb = opts.onSuggestProperties ?? null;
+    applySuggestionCb = opts.onApplyPropertySuggestion ?? null;
+    cancelSuggestionsCb = opts.onCancelPropertySuggestions ?? null;
 
     sidebarEl = opts.sidebarEl;
     toggleEl = opts.toggleEl;
@@ -335,11 +377,28 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     propertiesSectionEl = document.createElement('section');
     propertiesSectionEl.className = 'sidebar-section properties-section';
     propertiesSectionEl.dataset.section = 'properties';
-    propertiesSectionEl.appendChild(buildSectionHeader('Properties', 'properties'));
+    const propsHeader = buildSectionHeader('Properties', 'properties');
+    suggestBtnEl = document.createElement('button');
+    suggestBtnEl.type = 'button';
+    suggestBtnEl.className = 'properties-suggest-btn';
+    suggestBtnEl.setAttribute('aria-label', 'Suggest properties with AI');
+    suggestBtnEl.innerHTML = SPARKLE_SVG;
+    suggestBtnEl.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (suggestAvailability.state === 'enabled') {suggestCb?.();}
+    });
+    propsHeader.appendChild(suggestBtnEl);
+    propertiesSectionEl.appendChild(propsHeader);
     propertiesListEl = document.createElement('div');
     propertiesListEl.className = 'sidebar-section-body properties-list';
     propertiesSectionEl.appendChild(propertiesListEl);
+    suggestRowEl = document.createElement('div');
+    suggestRowEl.className = 'sidebar-section-body properties-suggest';
+    suggestRowEl.setAttribute('data-testid', 'properties-suggest');
+    propertiesSectionEl.appendChild(suggestRowEl);
     root.appendChild(propertiesSectionEl);
+    renderSuggestButton();
+    renderSuggestions();
 
     // Footer
     // Footer. The rows wrapper is rebuilt on every render (60s tick, edits);
@@ -1183,6 +1242,210 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     backlinksListEl.appendChild(empty);
   }
 
+  // ── Properties suggestions (AI) ────────────────────────────────────────────
+
+  function applySuggestAvailability(a: SuggestPropertiesAvailability): void {
+    suggestAvailability = a;
+    renderSuggestButton();
+  }
+
+  function renderSuggestButton(): void {
+    const btn = suggestBtnEl;
+    if (!btn) {return;}
+    const a = suggestAvailability;
+    btn.hidden = a.state === 'hidden';
+    // aria-disabled, not disabled: the reason tooltip must still show on hover.
+    btn.setAttribute('aria-disabled', a.state === 'enabled' ? 'false' : 'true');
+    btn.classList.toggle('disabled', a.state === 'disabled');
+    btn.title = a.state === 'disabled' ? a.reason : 'Suggest properties with AI';
+  }
+
+  /** Show the sidebar with Properties expanded, so a run started elsewhere is visible. */
+  function revealProperties(): void {
+    if (sidebarEl?.hidden) {showByUser(true);}
+    if (collapsedSections.has('properties')) {
+      collapsedSections.delete('properties');
+      applySectionCollapsedDom();
+    }
+    userTouchedSections.add('properties');
+  }
+
+  function applyPropertySuggestions(s: PropertySuggestions | null, state: PropertySuggestionsState, message?: string): void {
+    suggestState = state;
+    suggestMessage = message ?? '';
+    suggestions = state === 'idle' && s ? { ...s, tags: [...s.tags] } : null;
+    if (state !== 'idle' || s) {revealProperties();}
+    renderSuggestions();
+  }
+
+  function suggestionCount(s: PropertySuggestions): number {
+    return (s.title ? 1 : 0) + (s.description ? 1 : 0) + s.tags.length;
+  }
+
+  function textButton(label: string, onClick: () => void): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'properties-suggest-action';
+    b.textContent = label;
+    b.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      onClick();
+    });
+    return b;
+  }
+
+  function closeSuggestions(): void {
+    suggestState = 'idle';
+    suggestions = null;
+    renderSuggestions();
+  }
+
+  function renderSuggestions(): void {
+    const row = suggestRowEl;
+    if (!row) {return;}
+    row.replaceChildren();
+    row.dataset.state = suggestState;
+    row.hidden = suggestState === 'idle' && !suggestions;
+    if (row.hidden) {return;}
+
+    if (suggestState === 'running') {
+      const bar = document.createElement('div');
+      bar.className = 'properties-suggest-progress';
+      bar.setAttribute('role', 'progressbar');
+      bar.setAttribute('aria-label', 'Suggesting properties');
+      const status = document.createElement('div');
+      status.className = 'properties-suggest-status';
+      status.setAttribute('role', 'status');
+      const text = document.createElement('span');
+      text.className = 'properties-suggest-message';
+      text.textContent = suggestMessage || 'Suggesting…';
+      text.title = text.textContent;
+      status.append(text, textButton('Cancel', () => {
+        closeSuggestions();
+        cancelSuggestionsCb?.();
+      }));
+      row.append(bar, status);
+      return;
+    }
+
+    if (suggestState === 'error') {
+      const msg = document.createElement('div');
+      msg.className = 'properties-suggest-error';
+      msg.setAttribute('role', 'alert');
+      msg.textContent = suggestMessage || 'The suggestions could not be made.';
+      const actions = document.createElement('div');
+      actions.className = 'properties-suggest-actions';
+      actions.append(textButton('Try again', () => suggestCb?.()), textButton('Dismiss', closeSuggestions));
+      row.append(msg, actions);
+      return;
+    }
+
+    const s = suggestions!;
+    if (suggestionCount(s) === 0) {
+      const none = document.createElement('div');
+      none.className = 'properties-suggest-status';
+      none.setAttribute('role', 'status');
+      const text = document.createElement('span');
+      text.className = 'properties-suggest-message';
+      text.textContent = 'No new suggestions.';
+      none.append(text, textButton('Dismiss', closeSuggestions));
+      row.appendChild(none);
+      return;
+    }
+
+    const chips = document.createElement('div');
+    chips.className = 'properties-suggest-chips';
+    chips.setAttribute('role', 'group');
+    chips.setAttribute('aria-label', 'Suggested properties');
+    if (s.title) {chips.appendChild(buildSuggestionChip({ kind: 'title', value: s.title }));}
+    if (s.description) {chips.appendChild(buildSuggestionChip({ kind: 'description', value: s.description }));}
+    for (const t of s.tags) {chips.appendChild(buildSuggestionChip({ kind: 'tag', tag: t.tag }, !t.known));}
+    const actions = document.createElement('div');
+    actions.className = 'properties-suggest-actions';
+    actions.appendChild(textButton('Dismiss all', closeSuggestions));
+    row.append(chips, actions);
+  }
+
+  /** Remove `pick` from the shown suggestions; the row closes when none are left. */
+  function dropSuggestion(pick: PropertySuggestionPick): void {
+    const s = suggestions;
+    if (!s) {return;}
+    if (pick.kind === 'title') {delete s.title;}
+    else if (pick.kind === 'description') {delete s.description;}
+    else {s.tags = s.tags.filter((t) => t.tag !== pick.tag);}
+    if (suggestionCount(s) === 0) {suggestions = null;}
+  }
+
+  /** After a chip goes: focus the chip now at `index` (or the last one), else the editor. */
+  function focusChipAt(index: number): void {
+    const buttons = suggestRowEl?.querySelectorAll<HTMLButtonElement>('.properties-suggest-apply') ?? [];
+    const next = buttons[Math.min(index, buttons.length - 1)];
+    if (next) {next.focus();}
+    else {editorRef?.view?.focus?.();}
+  }
+
+  function chipIndex(chip: HTMLElement): number {
+    return [...(suggestRowEl?.querySelectorAll('.properties-suggest-chip') ?? [])].indexOf(chip);
+  }
+
+  function buildSuggestionChip(pick: PropertySuggestionPick, isNew = false): HTMLElement {
+    const chip = document.createElement('span');
+    chip.className = 'properties-pill properties-suggest-chip';
+    chip.dataset.kind = pick.kind;
+
+    const apply = document.createElement('button');
+    apply.type = 'button';
+    apply.className = 'properties-suggest-apply';
+    const label = document.createElement('span');
+    label.className = 'properties-pill-text';
+    if (pick.kind === 'tag') {
+      chip.classList.add('tag');
+      label.textContent = pick.tag;
+      apply.append(label);
+      if (isNew) {
+        const mark = document.createElement('span');
+        mark.className = 'properties-suggest-new';
+        mark.textContent = 'new';
+        apply.append(mark);
+      }
+      apply.title = `Add #${pick.tag} to tags${isNew ? ' (a new tag in this workspace)' : ''}`;
+      apply.setAttribute('aria-label', `Add tag ${pick.tag}${isNew ? ', new' : ''}`);
+    } else {
+      const key = document.createElement('span');
+      key.className = 'properties-suggest-key';
+      key.textContent = pick.kind;
+      label.textContent = pick.value;
+      apply.append(key, label);
+      apply.title = `Set ${pick.kind}: ${pick.value}`;
+      apply.setAttribute('aria-label', `Set ${pick.kind} to ${pick.value}`);
+    }
+    apply.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const at = chipIndex(chip);
+      if (!applySuggestionCb?.(pick)) {return;}
+      dropSuggestion(pick);
+      renderSuggestions();
+      focusChipAt(at);
+    });
+
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'properties-pill-x';
+    x.textContent = '×';
+    x.title = 'Dismiss';
+    x.setAttribute('aria-label', pick.kind === 'tag' ? `Dismiss tag ${pick.tag}` : `Dismiss ${pick.kind}`);
+    x.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const at = chipIndex(chip);
+      dropSuggestion(pick);
+      renderSuggestions();
+      focusChipAt(at);
+    });
+
+    chip.append(apply, x);
+    return chip;
+  }
+
   // ── Properties rendering ───────────────────────────────────────────────────
 
   function renderProperties(): void {
@@ -1753,6 +2016,8 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     toggleSidebarVisible,
     applySupportLink,
     applyAiIndicator,
+    applySuggestAvailability,
+    applyPropertySuggestions,
     isVisible: () => !!sidebarEl && !sidebarEl.hidden,
     destroy: destroyOutlineSidebar,
   };

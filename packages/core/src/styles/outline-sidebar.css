@@ -683,6 +683,216 @@
   color: var(--mikedown-text, #d4d4d4);
 }
 
+/* ─── Properties suggestions (AI) ────────────────────────────────────────── */
+
+/* Suggest (sparkle) at the right of the Properties header; aria-disabled with
+   the router's reason as its tooltip when nothing can serve it. */
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--mikedown-icon, #d4d4d4);
+  opacity: 0.55;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-btn[hidden] {
+  display: none;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-btn:hover:not(.disabled),
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-btn:focus-visible {
+  opacity: 1;
+  background-color: var(--mikedown-hover, rgba(127, 127, 127, 0.18));
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-btn.disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 12px 8px;
+  font-size: 11px;
+  color: var(--mikedown-text, #d4d4d4);
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest[hidden] {
+  display: none;
+}
+
+/* Running: a thin indeterminate line, then the engine badge text. */
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-progress {
+  position: relative;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 1px;
+  background-color: color-mix(in srgb, var(--mikedown-focus-ring, #007fd4) 18%, transparent);
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 35%;
+  background-color: var(--mikedown-focus-ring, #007fd4);
+  animation: mikedown-suggest-progress 1.1s ease-in-out infinite;
+}
+
+@keyframes mikedown-suggest-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.mikedown-root, .mikedown-portal) .properties-suggest-progress::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--mikedown-text-muted, #a0a0a0);
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-message {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-error {
+  color: var(--mikedown-danger, #f48771);
+  line-height: 1.4;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-actions {
+  display: flex;
+  gap: 8px;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-action {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--mikedown-link, #3794ff);
+  cursor: pointer;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-action:hover {
+  text-decoration: underline;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* Suggested chips: the tag pill look with a dashed outline. */
+:is(.mikedown-root, .mikedown-portal) .properties-pill.properties-suggest-chip {
+  padding: 0 2px 0 0;
+  background-color: transparent;
+  border: 1px dashed color-mix(in srgb, var(--mikedown-text, #d4d4d4) 45%, transparent);
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-pill.properties-suggest-chip.tag {
+  background-color: color-mix(in srgb, var(--mikedown-link, #3794ff) 8%, transparent);
+  border-color: color-mix(in srgb, var(--mikedown-link, #3794ff) 60%, transparent);
+}
+
+/* The `#` sits inside the apply button, not before it. */
+:is(.mikedown-root, .mikedown-portal) .properties-pill.properties-suggest-chip.tag::before {
+  content: none;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-pill.properties-suggest-chip.tag .properties-pill-text::before {
+  content: '#';
+  opacity: 0.6;
+}
+
+/* Title and description: one line, ellipsis, the full text in the tooltip. */
+:is(.mikedown-root, .mikedown-portal) .properties-pill.properties-suggest-chip:is([data-kind="title"], [data-kind="description"]) {
+  flex: 1 1 100%;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-apply {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 1px 2px 1px 6px;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-pill.properties-suggest-chip:hover {
+  border-style: solid;
+  background-color: var(--mikedown-hover, rgba(127, 127, 127, 0.18));
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-pill.properties-suggest-chip.tag:hover {
+  background-color: color-mix(in srgb, var(--mikedown-link, #3794ff) 22%, transparent);
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-apply:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-chip .properties-pill-x:focus-visible {
+  outline: 1px solid var(--mikedown-focus-ring, #007fd4);
+  outline-offset: 1px;
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-key {
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mikedown-text-muted, #a0a0a0);
+}
+
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-new {
+  flex: 0 0 auto;
+  padding: 0 3px;
+  border-radius: 3px;
+  font-size: 8.5px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mikedown-accent-text, #ffffff);
+  background-color: var(--mikedown-accent, var(--mikedown-focus-ring, #0e639c));
+}
+
+/* Suggested chips always show their dismiss (×). */
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-chip .properties-pill-x {
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
 /* ─── Footer strip ───────────────────────────────────────────────────────── */
 
 :is(.mikedown-root, .mikedown-portal) .sidebar-footer {
