@@ -565,3 +565,16 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 [Return to Top](#ai-setup-privacy-polish-plan)
 
 **2026-10-29 12:00** - Mike kept the Add detail tooltip as "(facts and examples)" (already in `rewrite.ts`). `localNetworks` field added (`a7063b3`); Groq pricing link fixed (`2d40c90`). Remaining: T3 and T4 hands-on, push.
+
+**2026-10-29 T4 walk, VS Code fresh profile (findings so far)**
+
+- [ ] W1 Toolbar AI menu with an unreachable engine repeats the same "oMLX failed its last connection test…" line under all six items; show the reason once at the top (with Start it / Manage engines) and just grey out the items.
+- [ ] W2 "Turn on and set up" panel says the local vs cloud privacy point twice (disclaimer, then "Local engines keep your text here…"); cut the second line.
+- [ ] W3 Same panel ends "No local AI server found. Install LM Studio or Ollama, or use a cloud API key", which leads with local and goes against the cloud-first default; reword to lead with connecting a provider, local under Advanced.
+- [ ] W4 First-look panel is heavy grey text; trim the disclaimer to one sentence plus "Learn more".
+- [ ] W5 BUG: wizard content clipped at a fixed height with no scrollbar (cards and "What this means" cut off), with the Engines page's two-pane layout showing below. Fix dispatched.
+- [ ] W6 The disclaimer appears a third time as the wizard's top banner.
+- [ ] W7 "Allow cloud engines" toggle shows (off) on the connect-a-cloud-provider step even though picking a provider turns it on; hide it or show it as "will turn on".
+- [ ] W8 "Set up AI" appears twice (top bar and page heading).
+- [ ] W9 Fresh VS Code profile opens .md in the text editor (customEditor priority `option`); the "Make MikeDown the default editor?" toast handled it well. Note only.
+- [ ] W10 Long `--user-data-dir` paths make VS Code exit silently (socket path limit); use a short path such as `/tmp/mdfresh` for the T4 clean slate.
