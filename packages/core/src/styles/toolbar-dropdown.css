@@ -76,10 +76,25 @@
   text-overflow: ellipsis;
 }
 
-/* A muted note after the label (e.g. why the item is disabled). */
+/* A muted note under the label (e.g. why the item is disabled). It takes its
+   own line so a long reason never squeezes the label; the item's tooltip has
+   the same text. */
+:is(.mikedown-root, .mikedown-portal) .tdd-item:has(> .tdd-item-hint) {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 28px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  row-gap: 0;
+}
+
 :is(.mikedown-root, .mikedown-portal) .tdd-item-hint {
-  flex-shrink: 0;
+  flex: 1 0 100%;
+  /* Under the label: past the icon (18px) and the gap (8px). */
+  padding-left: 26px;
   font-size: 11px;
+  line-height: 1.35;
+  white-space: normal;
   color: var(--mikedown-text-muted);
 }
 

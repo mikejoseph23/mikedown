@@ -445,5 +445,9 @@ describe('availability', () => {
       expect(byLabel(label).getAttribute('aria-disabled')).toBe('true');
       expect(byLabel(label).querySelector('.tdd-item-hint')?.textContent?.length).toBeGreaterThan(0);
     }
+    // One reason for every entry: Rewrite selection says what the others say.
+    const hints = ['Rewrite selection', 'Summarize document…', 'Suggest titles…'].map((l) => byLabel(l).querySelector('.tdd-item-hint')?.textContent);
+    expect(new Set(hints).size).toBe(1);
+    expect(byLabel('Rewrite selection').title).toBe(hints[0]);
   });
 });

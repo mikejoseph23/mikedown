@@ -2504,7 +2504,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const availability = aiRewriteAvailability();
     const rewrite = readOnly ? null
       : availability.state === 'hidden' ? { enabled: false as const, hint: 'Off in AI settings' }
-        : availability.state === 'disabled' ? { enabled: false as const, hint: 'No engine available' }
+        // The router's reason, as for Summarize and Suggest titles (D15).
+        : availability.state === 'disabled' ? { enabled: false as const, hint: availability.reason }
           : !hasTextSelection() ? { enabled: false as const, hint: 'Select text first' }
             : { enabled: true as const };
     // Summarize and Suggest titles: left out when off, disabled with the router's reason (D15).
