@@ -171,9 +171,11 @@ describe('Express fields per preset family', () => {
     expect(labels(m.c)).toEqual(['Name', 'API key', 'Default model', 'Enabled']);
     expect(q(m.c, 'eng:claude:key')).not.toBeNull();
     expect(q(m.c, 'eng:claude:url')).toBeNull();
-    expect(m.c.querySelector('.ai-key-caption')?.textContent).toBe('Get an API key in the Claude Console');
-    // The hint is a link to the provider's key page.
-    expect(m.c.querySelector<HTMLAnchorElement>('.ai-key-caption a.ai-key-link')?.getAttribute('href')).toBe('https://platform.claude.com/settings/keys');
+    // With no key stored, the note (subscription vs API key, Get a key links) sits over the field and replaces the hint link.
+    expect(m.c.querySelector('.ai-sheet > .ai-wizard-subscription')).not.toBeNull();
+    expect(m.c.querySelector('.ai-wizard-subscription-links')?.textContent).toContain('Get a key: Anthropic API keys');
+    expect(m.c.querySelector<HTMLAnchorElement>('.ai-wizard-subscription a')?.getAttribute('href')).toBe('https://platform.claude.com/settings/keys');
+    expect(m.c.querySelector('.ai-key-caption a.ai-key-link')).toBeNull();
     // The picker is part of the sheet too, between the key and the default model.
     expect(m.c.querySelector('.ai-picker')).not.toBeNull();
   });
@@ -204,6 +206,8 @@ describe('Express fields per preset family', () => {
     expect(q<HTMLInputElement>(m.c, 'eng:claude:key')!.placeholder).toBe('Stored');
     expect(q(m.c, 'eng:claude:key-clear')).not.toBeNull();
     expect(m.c.querySelector('.ai-key-state')?.textContent).toBe('Stored');
+    // Once a key is stored the subscription note is gone.
+    expect(m.c.querySelector('.ai-wizard-subscription')).toBeNull();
   });
 });
 
@@ -963,14 +967,15 @@ describe('quick-start cards', () => {
     const m = mountPage([omlx]);
     click(q(m.c, 'nav:add'));
     const groups = Array.from(m.c.querySelectorAll('.ai-cards-group'));
-    expect(groups.map((g) => g.querySelector('.ai-cards-heading')?.textContent)).toEqual(['Run on this machine', 'Cloud API key']);
+    // Cloud first, as in the setup wizard.
+    expect(groups.map((g) => g.querySelector('.ai-cards-heading')?.textContent)).toEqual(['Cloud API key', 'Run on this machine']);
     for (const g of groups) {
       expect(g.getAttribute('aria-labelledby')).toBe(g.querySelector('.ai-cards-heading')!.id);
       expect(g.querySelector('.ai-cards-explainer')?.textContent).not.toBe('');
     }
     const names = (g: Element) => Array.from(g.querySelectorAll('.ai-card-name')).map((n) => n.textContent);
-    expect(names(groups[0])).toEqual(['oMLX', 'LM Studio', 'Ollama', 'llama.cpp server', 'vLLM', 'Custom OpenAI-compatible']);
-    expect(names(groups[1])).toEqual(['Anthropic', 'OpenAI', 'OpenRouter', 'Google Gemini', 'Groq', 'Mistral', 'DeepSeek']);
+    expect(names(groups[1])).toEqual(['oMLX', 'LM Studio', 'Ollama', 'llama.cpp server', 'vLLM', 'Custom OpenAI-compatible']);
+    expect(names(groups[0])).toEqual(['Anthropic', 'OpenAI', 'OpenRouter', 'Google Gemini', 'Groq', 'Mistral', 'DeepSeek']);
   });
 
   it('each card is labelled "Add <name>" and shows its caption', () => {

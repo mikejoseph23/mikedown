@@ -45,7 +45,7 @@
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
-import { AI_ENGINE_PRESETS, AI_HOST_PRESET_FAMILY, AI_PRESET_FAMILIES, aiProviderPolicy, modelSizeHint } from './ai';
+import { AI_ENGINE_PRESETS, AI_HOST_PRESET_FAMILY, AI_PRESET_FAMILIES, aiProviderPolicy, modelSizeHint, presetForEngine } from './ai';
 import { AI_DETECT_LOOKING, AI_DETECT_NONE, detectLocalServers, hostEngineAvailability, setupHardware } from './ai-local-setup';
 import type { AiEngineConfig, AiEnginePreset, AiEngineStatus, AiHardwareInfo, AiLocalServerProbe, AiPresetFamilyInfo, AiRoute, AiSettings, AiSettingsPatch } from './ai';
 import {
@@ -202,8 +202,8 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     announce,
     focusKey,
     openLink: ctx.openLink,
-    // In the wizard, the subscription vs API key note sits over a cloud key field.
-    keyNote: (engine, preset) => (wizard && preset.family === 'cloud' ? subscriptionNote(preset, ctx.openLink, aiProviderPolicy(engine)) : null),
+    // The subscription vs API key note sits over a cloud key field. The wizard always shows it; the full form shows it until a key is stored.
+    keyNote: (engine, preset) => (preset.family === 'cloud' && (wizard || !session.hasKey(engine.id)) ? subscriptionNote(preset, ctx.openLink, aiProviderPolicy(engine)) : null),
     modelSize: (modelId) => (hardware ? modelSizeHint(modelId, hardware) : undefined),
   });
 
@@ -483,7 +483,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
         const empty = session.draft.engines.length === 0;
         main.append(
           detailTitle(empty ? 'No engines yet' : 'Add an engine'),
-          el('div', 'ai-detail-sub', 'Two ways to connect: run models on your own machine, or paste a cloud API key. Nothing is sent until AI is on.'),
+          el('div', 'ai-detail-sub', `Two ways to connect: paste a cloud API key, or run models on your own machine.${session.draft.enabled ? '' : ' Nothing is sent until AI is on.'}`),
         );
         detailHead.append(icon, main);
         return;
@@ -713,7 +713,22 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       }
       box.append(section);
     }
+    placeGroups(box);
     return box;
+  }
+
+  /**
+   * Cloud leads, as in the setup wizard; a local server that is running and not
+   * yet added leads instead (the wizard leads with it too). Copilot, when
+   * offered, stays on top.
+   */
+  function placeGroups(box: HTMLElement): void {
+    const localLeads = !!localCards()?.some((c) => c.running && !c.alreadyAdded);
+    const order = localLeads ? ['host', 'local', 'cloud'] : ['host', 'cloud', 'local'];
+    for (const family of order) {
+      const section = box.querySelector(`:scope > .ai-cards-group[data-family="${family}"]`);
+      if (section) {box.append(section);}
+    }
   }
 
   /** The "What this means" disclosure stays open across redraws while the page is open. */
@@ -751,8 +766,15 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     text.append(el('span', 'ai-card-name', preset.name), el('span', 'ai-card-caption', preset.caption));
     card.append(text);
     card.title = preset.caption;
-    const added = found?.alreadyAdded && found.engineId && getEngine(found.engineId) ? found.engineId : null;
-    if (found) {
+    // A local card is added when its server's engine exists; a cloud card when an engine for that provider does.
+    const cloudEngine = preset.family === 'cloud' ? session.draft.engines.find((e) => presetForEngine(e)?.id === preset.id) : undefined;
+    const added = cloudEngine ? cloudEngine.id : found?.alreadyAdded && found.engineId && getEngine(found.engineId) ? found.engineId : null;
+    if (cloudEngine) {
+      card.dataset.state = 'added';
+      text.append(el('span', 'ai-card-state', 'Added'));
+      card.setAttribute('aria-label', `${preset.name}, added. Open it`);
+      card.title = `${preset.name} is already set up. Open it.`;
+    } else if (found) {
       const state = added ? 'added' : found.running ? 'running' : 'stopped';
       card.dataset.state = state;
       const label = state === 'added' ? 'Added'
@@ -798,6 +820,9 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       const line = section.querySelector('.ai-cards-detect');
       if (line) {line.replaceWith(buildDetectLine());}
     });
+    // A server that answered moves the local group up; keep the focus where it was.
+    const box = section.parentElement;
+    if (box) {keepFocus(box, () => { placeGroups(box); });}
   }
 
   // ── Edits ─────────────────────────────────────────────────────────────────

@@ -170,7 +170,7 @@ describe('local cards after a detection (M1)', () => {
     click(q(m.c, 'nav:add'));
     await settle();
     expect(cardOf(m.c, 'ollama').dataset.state).toBe('stopped');
-    expect(m.c.querySelector('.ai-cards-detect-text')?.textContent).toBe('No local AI server found. Install LM Studio or Ollama, or use a cloud API key.');
+    expect(m.c.querySelector('.ai-cards-detect-text')?.textContent).toBe('No local AI server found. Start LM Studio, Ollama or oMLX, then choose Look again.');
 
     answer = PROBES;
     click(q(m.c, 'cards:look-again'));
@@ -321,5 +321,49 @@ describe('Discard after a cloud card found its key in a variable (M2 lookUpKey)'
     click(q(kept.c, 'page:done'));
     expect(savedOf(kept).engines.map((e) => e.kind)).toEqual(['openai-compatible', 'anthropic']);
     expect(kept.host().engines).toHaveLength(2);
+  });
+});
+
+describe('the Add engine view', () => {
+  const openai = { id: 'openai', name: 'OpenAI', kind: 'openai', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', models: [] as unknown[] };
+  const groupOrder = (c: HTMLElement) => Array.from(c.querySelectorAll('.ai-cards-group')).map((g) => (g as HTMLElement).dataset.family);
+  const NONE = PROBES.map((p) => ({ ...p, ok: false, models: undefined }));
+
+  it('leads with the cloud cards while no local server answers', async () => {
+    const m = mountPage([openai], { detect: async () => NONE });
+    click(q(m.c, 'nav:add'));
+    expect(groupOrder(m.c)).toEqual(['cloud', 'local']);
+    await settle();
+    expect(groupOrder(m.c)).toEqual(['cloud', 'local']);
+  });
+
+  it('moves the local group up when a server that is not added is running', async () => {
+    const m = mountPage([openai]);
+    click(q(m.c, 'nav:add'));
+    expect(groupOrder(m.c)).toEqual(['cloud', 'local']);
+    await settle();
+    expect(groupOrder(m.c)).toEqual(['local', 'cloud']);
+  });
+
+  it('marks a cloud card Added when an engine for that provider exists, and opens it', () => {
+    const m = mountPage([openai]);
+    click(q(m.c, 'nav:add'));
+    const card = cardOf(m.c, 'openai');
+    expect(card.dataset.state).toBe('added');
+    expect(card.querySelector('.ai-card-state')?.textContent).toBe('Added');
+    expect(cardOf(m.c, 'anthropic').dataset.state).toBeUndefined();
+    click(card);
+    expect(m.c.querySelector('.ai-detail-title')?.textContent).toBe('OpenAI');
+    expect(m.host().engines).toHaveLength(1);
+  });
+
+  it('drops "Nothing is sent until AI is on" once AI is on', () => {
+    const off = mountPage([openai], { enabled: false });
+    click(q(off.c, 'nav:add'));
+    expect(off.c.querySelector('.ai-detail-sub')?.textContent).toContain('Nothing is sent until AI is on.');
+    const on = mountPage([openai], { enabled: true });
+    click(q(on.c, 'nav:add'));
+    expect(on.c.querySelector('.ai-detail-sub')?.textContent).toContain('Two ways to connect');
+    expect(on.c.querySelector('.ai-detail-sub')?.textContent).not.toContain('Nothing is sent');
   });
 });

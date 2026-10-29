@@ -198,7 +198,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
         const empty = el('div', 'ai-summary-empty');
         empty.append(
           el('div', 'ai-empty-title', 'No engines yet'),
-          el('div', 'ai-empty-text', 'Two ways to connect: run models on your own machine, or paste a cloud API key. Nothing is sent until AI is on.'),
+          el('div', 'ai-empty-text', `Two ways to connect: paste a cloud API key, or run models on your own machine.${draft.enabled ? '' : ' Nothing is sent until AI is on.'}`),
         );
         enginesBody.append(empty);
       } else {

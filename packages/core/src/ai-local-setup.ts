@@ -25,7 +25,7 @@ import { createAiSettingsSession, type AiSettingsSessionOptions } from './ai-set
 /** The status line while detection runs (first-run panel, cards). */
 export const AI_DETECT_LOOKING = 'Looking for local AI servers…';
 /** What both say when no local server answered. */
-export const AI_DETECT_NONE = 'No local AI server found. Install LM Studio or Ollama, or use a cloud API key.';
+export const AI_DETECT_NONE = 'No local AI server found. Start LM Studio, Ollama or oMLX, then choose Look again.';
 
 /** Slack over the host's per-address cap for the round trip (postMessage, Tauri IPC). */
 const DETECT_ROUND_TRIP_MS = 1500;

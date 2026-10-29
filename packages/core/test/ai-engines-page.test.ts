@@ -536,7 +536,7 @@ describe('the AI tab as a summary', () => {
     expect(panel.querySelector('.ai-engines--compact')).toBeNull();
     (byText('.settings-btn', 'Add engine…') as HTMLElement).click();
     expect(document.querySelectorAll('#mikedown-ai-page-overlay .ai-cards-group')).toHaveLength(2);
-    expect(document.activeElement?.getAttribute('data-fk')).toBe('card:omlx');
+    expect(document.activeElement?.getAttribute('data-fk')).toBe('card:anthropic');
   });
 });
 
