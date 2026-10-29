@@ -609,3 +609,9 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [x] E4 Adding a second cloud provider from the Engines page (full form) skips the subscription vs API key note and the Pricing link; show the same note as the wizard. Fixed in `a1504d2`.
 - [x] E5 Not a bug: Mike clicked Use by default on Anthropic.
 - Note: Mike tested OpenAI and Anthropic live and chose not to test DeepSeek, Gemini, Groq, Mistral or OpenRouter (no new accounts); those rely on recorded fixtures and user reports.
+- [ ] L1 LM Studio engine auto-picked `glm-5.3` as default; prefer the model LM Studio reports as loaded (`/api/v0/models` `state`), else the best "fits" model.
+- [ ] L2 All 24 LM Studio models were ticked automatically; for local servers tick only the loaded or default model.
+- [ ] L3 Opening the engine form focuses Base URL with its text selected; a stray keystroke wipes it.
+- [ ] L4 LM Studio "HTTP 400 Failed to load model" is shown raw; explain (LM Studio couldn't load it; load it in LM Studio or use a loaded model) and offer switching to the loaded model. Cause in this case: LM Studio's MLX runtime can't read the oMLX `oq5e` quantization (`Missing FP8 PLE shards`), not a MikeDown bug.
+- [ ] L5 LM Studio logged about 1,300 `GET /api/v0/models` per hour while the dev host was open; investigating whether MikeDown polls.
+- [ ] L6 Check: with LM Studio the popover Thinking row showed Off / On without Default (may predate the R6 reload).
