@@ -11,6 +11,7 @@
 import { bindMikeDownValue } from '@mikedown/core';
 import type {
   BindingTheme,
+  MikeDownAiHost,
   MikeDownBinding,
   MikeDownEditorHandle,
   MikeDownFeatures,
