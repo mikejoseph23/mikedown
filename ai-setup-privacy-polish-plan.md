@@ -615,3 +615,5 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [ ] L4 LM Studio "HTTP 400 Failed to load model" is shown raw; explain (LM Studio couldn't load it; load it in LM Studio or use a loaded model) and offer switching to the loaded model. Cause in this case: LM Studio's MLX runtime can't read the oMLX `oq5e` quantization (`Missing FP8 PLE shards`), not a MikeDown bug.
 - [x] L5 Not MikeDown: the `/api/v0/models` polling (about every 2 s, all day) is Mac Resource Monitor. MikeDown made only two `GET /v1/models` calls during the walk.
 - [ ] L6 Check: with LM Studio the popover Thinking row showed Off / On without Default (may predate the R6 reload).
+- [ ] F1 Feature (Mike): show timing in the result footer ("2.4 s · 38 tok/s", details in a tooltip), from provider usage or an estimate; also in the request log on both hosts. Dispatched with L4.
+- [ ] L7 Check: oMLX "Use by default" did not appear to stick (star still empty after Test connection, Summarize still served by LM Studio); re-check after reload.
