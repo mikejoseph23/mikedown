@@ -12,7 +12,7 @@
  * `MIKEDOWN_AI_LIVE_{OMLX,LMSTUDIO,OLLAMA}_MODEL`.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { AI_ENGINE_PRESETS, buildExplainMessages, buildRewriteMessages, finalizeRewriteText, parseAiSettings, thinkingOverrides, type AiCompletionRequest, type AiDiscoveredModel, type AiEngineConfig, type AiEngineKind } from '@mikedown/core/ai';
+import { AI_ENGINE_PRESETS, buildExplainMessages, buildRewriteMessages, buildSummaryMessages, buildTitleMessages, finalizeRewriteText, finalizeSummary, headingsOutline, parseAiSettings, parseTitles, thinkingOverrides, type AiCompletionRequest, type AiDiscoveredModel, type AiEngineConfig, type AiEngineKind } from '@mikedown/core/ai';
 import { AiEngineService } from '../../src/ai/engineService';
 import { AiSecrets } from '../../src/ai/secrets';
 import { createAdapters } from '../../src/ai/providers';
@@ -84,6 +84,25 @@ async function loadedModel(def: (typeof TARGET_DEFS)[number], discovered: AiDisc
 }
 
 const targets = new Map<string, Target>();
+
+/** A short document with headings, for the title and summary calls. */
+const LIVE_DOCUMENT = [
+  '# Moving the team to a four-day week',
+  '',
+  'In March we ran a six-week pilot where the whole engineering team worked Monday to Thursday. Output, measured by shipped features and closed bugs, stayed level.',
+  '',
+  '## What changed',
+  '',
+  'Meetings moved to Tuesday and Wednesday, standups became asynchronous, and Fridays were left empty on everyone\'s calendar.',
+  '',
+  '## Results',
+  '',
+  'Sick days fell by a third and two people who had been looking for other jobs withdrew their applications. Customer response times did not change.',
+  '',
+  '## Next steps',
+  '',
+  'We will keep the schedule for another quarter and review it in September.',
+].join('\n');
 
 const request = (requestId: string, content: string, maxTokens: number): AiCompletionRequest => ({
   requestId, feature: 'rewrite', task: 'rewrite', maxTokens, temperature: 0, messages: [{ role: 'user', content }],
@@ -224,6 +243,40 @@ describe.skipIf(!LIVE)('live AI engines', () => {
         }, () => {});
         console.log(`[live explain] ${def.label} ${t.model} ${Date.now() - started} ms: ${JSON.stringify(result.text)}`);
         expect(result.text.trim().length).toBeGreaterThan(0);
+      }, 120_000);
+
+      // The document features against a real model: titles come back as JSON a lenient parser
+      // accepts, and a TL;DR is non-empty prose. Thinking off so a reasoning model has room.
+      it('structure: asks for {"titles": [...]} on a document and parseTitles finds at least one', async (ctx) => {
+        const t = withModel(ctx);
+        const { service } = serviceFor(t);
+        const requestOverrides = thinkingOverrides(t.kind, 'off', { local: true });
+        const started = Date.now();
+        const result = await service.complete({}, {
+          requestId: 'live-titles', feature: 'title', task: 'structure', maxTokens: 300, temperature: 0.3,
+          messages: buildTitleMessages({ document: LIVE_DOCUMENT, outline: headingsOutline(LIVE_DOCUMENT), count: 3 }),
+          ...(Object.keys(requestOverrides).length ? { requestOverrides } : {}),
+        }, () => {});
+        const parsed = parseTitles(result.text);
+        console.log(`[live titles] ${def.label} ${t.model} ${Date.now() - started} ms: ${parsed.ok ? JSON.stringify(parsed.titles) : `NOT PARSED (${parsed.error}): ${JSON.stringify(result.text.slice(0, 200))}`}`);
+        expect(parsed.ok, 'the reply parses as titles').toBe(true);
+        if (parsed.ok) {expect(parsed.titles.length).toBeGreaterThanOrEqual(1);}
+      }, 120_000);
+
+      it('summarize: a short TL;DR of a document is non-empty prose', async (ctx) => {
+        const t = withModel(ctx);
+        const { service } = serviceFor(t);
+        const requestOverrides = thinkingOverrides(t.kind, 'off', { local: true });
+        const started = Date.now();
+        const result = await service.complete({}, {
+          requestId: 'live-summary', feature: 'summary', task: 'summarize', maxTokens: 200, temperature: 0.3,
+          messages: buildSummaryMessages({ document: LIVE_DOCUMENT, kind: 'tldr', coverage: 1 }),
+          ...(Object.keys(requestOverrides).length ? { requestOverrides } : {}),
+        }, () => {});
+        const block = finalizeSummary(result.text, 'tldr');
+        console.log(`[live summary] ${def.label} ${t.model} ${Date.now() - started} ms: ${JSON.stringify(block)}`);
+        expect(block.length, 'the model produced a visible summary within 200 tokens').toBeGreaterThan(0);
+        expect(block.startsWith('> [!NOTE]')).toBe(true);
       }, 120_000);
 
       it('a cancelled completion rejects cancelled and leaves the server answering', async (ctx) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SLASH_COMMANDS, matchCommands, extractSlashQuery } from '../src/slashcommands-registry';
+import { AI_SLASH_COMMANDS, SLASH_COMMANDS, matchCommands, extractSlashQuery } from '../src/slashcommands-registry';
 
 /** Runs a query and returns just the matched ids, in ranked order. */
 function idsFor(query: string, hasFrontmatter = false): string[] {
@@ -132,5 +132,44 @@ describe('extractSlashQuery', () => {
 
   it('returns null on an empty textBefore', () => {
     expect(extractSlashQuery('', true)).toBeNull();
+  });
+});
+
+describe('the ai group (summary, outline, title)', () => {
+  const AI_IDS = ['summary', 'outline', 'title'];
+  const all = (hidden: string[] = []) => matchCommands('', { hasFrontmatter: false, hidden: new Set(hidden) }).map((c) => c.id);
+
+  it('is the last group in the registry, labelled by the ai group id', () => {
+    expect(SLASH_COMMANDS.filter((c) => c.group === 'ai').map((c) => c.id)).toEqual(AI_IDS);
+    expect(all().slice(-3)).toEqual(AI_IDS);
+    expect(all(['image', 'properties']).slice(-3)).toEqual(AI_IDS);
+  });
+
+  it('is present only when it is not in the hidden set (the editor hides it unless the feature is available)', () => {
+    expect(matchCommands('', { hasFrontmatter: false }).some((c) => AI_IDS.includes(c.id))).toBe(true);
+    expect(all([...AI_SLASH_COMMANDS.summary, ...AI_SLASH_COMMANDS.title]).some((id) => AI_IDS.includes(id))).toBe(false);
+    // Each feature hides its own commands.
+    expect(all(AI_SLASH_COMMANDS.summary).filter((id) => AI_IDS.includes(id))).toEqual(['title']);
+    expect(all(AI_SLASH_COMMANDS.title).filter((id) => AI_IDS.includes(id))).toEqual(['summary', 'outline']);
+  });
+
+  it('a hidden command is not found by its id or its aliases', () => {
+    const hidden = new Set(AI_SLASH_COMMANDS.summary);
+    for (const q of ['summary', 'sum', 'tldr', 'summarize', 'outline']) {
+      expect(matchCommands(q, { hasFrontmatter: false, hidden }).some((c) => c.group === 'ai' && c.id !== 'title'), q).toBe(false);
+    }
+  });
+
+  it('/sum, /summ, /tl and /summarize all put Summary first', () => {
+    for (const q of ['sum', 'summ', 'tl', 'tldr', 'summarize']) {
+      expect(idsFor(q)[0], q).toBe('summary');
+    }
+  });
+
+  it('ranks a command whose id is the query above one that merely has it as an alias', () => {
+    expect(idsFor('title').slice(0, 2)).toEqual(['title', 'h1']);
+    expect(idsFor('outline').slice(0, 2)).toEqual(['outline', 'toc']);
+    // `heading` is only a keyword of title, so it stays a heading command.
+    expect(idsFor('heading')[0]).toBe('h1');
   });
 });

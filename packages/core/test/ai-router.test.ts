@@ -524,3 +524,40 @@ describe('task preferences (structure prefers JSON)', () => {
     expect(r.isLocal).toBe(true);
   });
 });
+
+describe('task preferences for the document features (summary, frontmatter, title)', () => {
+  const lost = { engineId: 'omlx', modelId: 'gone' };
+  const viaFallback = (task: string, over: Over = {}) =>
+    registry({ ...over, routing: { default: { engineId: 'omlx', modelId: 'main' }, fallback: 'anyLocal', tasks: { [task]: lost }, ...over.routing } });
+
+  it('summary prefers a model with a comfortable context window when a fallback has to choose', () => {
+    const s = viaFallback('summarize', { omlx: { models: [model('main', { contextTokens: 8192 }), model('second', { contextTokens: SUMMARIZE_MIN_CONTEXT_TOKENS })] } });
+    expect(ok(rewrite(s, [], {}, { feature: 'summary' }))).toMatchObject({ modelId: 'second', viaFallback: true });
+  });
+
+  it('summary still uses a small-context model when it is the only one', () => {
+    const s = viaFallback('summarize', {
+      omlx: { models: [model('main', { contextTokens: 8192 }), model('second', { contextTokens: 4096 })] },
+      lms: { models: [model('gemma', { contextTokens: 8192 })] },
+    });
+    expect(ok(rewrite(s, [], {}, { feature: 'summary' }))).toMatchObject({ modelId: 'main', viaFallback: true });
+  });
+
+  it('frontmatter follows the structure task: the JSON model is preferred, a model without JSON still serves', () => {
+    const withJson = viaFallback('structure', { omlx: { models: [model('main', { json: false }), model('second', { json: true })] } });
+    expect(ok(rewrite(withJson, [], {}, { feature: 'frontmatter' }))).toMatchObject({ modelId: 'second' });
+    const without = viaFallback('structure', {
+      omlx: { models: [model('main', { json: false }), model('second', { json: false })] },
+      lms: { models: [model('gemma', { json: false })] },
+    });
+    expect(ok(rewrite(without, [], {}, { feature: 'frontmatter' }))).toMatchObject({ modelId: 'main' });
+  });
+
+  it('a chosen route that is usable is never swapped for a preferred one, for summary either', () => {
+    const s = registry({
+      omlx: { models: [model('main', { contextTokens: 8192 }), model('second', { contextTokens: 131072 })] },
+      routing: { tasks: { summarize: { engineId: 'omlx', modelId: 'main' } } },
+    });
+    expect(ok(rewrite(s, [], {}, { feature: 'summary' }))).toMatchObject({ modelId: 'main', viaFallback: false });
+  });
+});

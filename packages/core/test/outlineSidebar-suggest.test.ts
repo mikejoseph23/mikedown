@@ -4,11 +4,12 @@
  * history (frontmatterHistory.ts), the JSON repair round trip, and the
  * undoable "Suggest titles…" pick on a document with `title:`.
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../src/index';
 import type { AiCompletionRequest, MikeDownAiHost } from '../src/ai';
 import { PROPERTIES_SYSTEM_PROMPT } from '../src/ai/prompts/properties';
 import { mergePropertySuggestion } from '../src/propertySuggestions';
+import { createOutlineSidebar, type OutlineSidebar } from '../src/outlineSidebar';
 import { closeSlashMenu, setSlashSourceMode } from '../src/slashcommands';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
@@ -305,5 +306,136 @@ describe('Suggest titles… on a document with title:', () => {
     expect(el.querySelector('.mikedown-outline-sidebar')?.textContent).not.toContain('Alpha Plan');
     handle.command('redo');
     expect(handle.getMarkdown()).toContain('title: Alpha Plan');
+  });
+});
+
+// ── The sidebar on its own (callbacks, no editor) ───────────────────────────
+
+describe('the sidebar\'s Suggest button and chips row, with spies for callbacks', () => {
+  let sidebar: OutlineSidebar | null = null;
+  afterEach(() => {
+    sidebar?.destroy();
+    sidebar = null;
+    document.body.innerHTML = '';
+  });
+
+  function build() {
+    document.body.innerHTML = '<aside id="side" hidden></aside><button id="toggle"></button><div id="scroll"></div>';
+    const cb = {
+      onPropertiesChange: vi.fn(),
+      onSuggestProperties: vi.fn(),
+      onApplyPropertySuggestion: vi.fn(() => true),
+      onCancelPropertySuggestions: vi.fn(),
+    };
+    sidebar = createOutlineSidebar({
+      editor: { state: { doc: { forEach: () => {} }, selection: { from: 0 } }, on: vi.fn() },
+      sidebarEl: document.getElementById('side')!,
+      toggleEl: document.getElementById('toggle') as HTMLButtonElement,
+      scrollContainer: document.getElementById('scroll')!,
+      anchorFn: (t: string) => t,
+      ...cb,
+    } as never);
+    sidebar.applyProperties([{ key: 'title', value: 'Old' }], { editable: true });
+    const btn = () => document.querySelector<HTMLButtonElement>('.properties-suggest-btn')!;
+    const row = () => document.querySelector<HTMLElement>('[data-testid="properties-suggest"]')!;
+    const applyButtons = () => [...row().querySelectorAll<HTMLButtonElement>('.properties-suggest-apply')];
+    return { cb, sidebar, btn, row, applyButtons };
+  }
+
+  const SUGGESTIONS = { title: 'New', description: 'About it.', tags: [{ tag: 'known-tag', known: true }, { tag: 'fresh', known: false }] };
+
+  it('the button is hidden, disabled with the reason as its tooltip, or enabled; a click asks only when enabled', () => {
+    const { cb, sidebar, btn } = build();
+    sidebar.applySuggestAvailability({ state: 'hidden' });
+    expect(btn().hidden).toBe(true);
+
+    sidebar.applySuggestAvailability({ state: 'disabled', reason: 'No engine can do this' });
+    expect(btn().hidden).toBe(false);
+    expect(btn().getAttribute('aria-disabled')).toBe('true');
+    expect(btn().title).toBe('No engine can do this');
+    btn().click();
+    expect(cb.onSuggestProperties).not.toHaveBeenCalled();
+
+    sidebar.applySuggestAvailability({ state: 'enabled' });
+    expect(btn().getAttribute('aria-disabled')).toBe('false');
+    expect(btn().title).toBe('Suggest properties with AI');
+    btn().click();
+    expect(cb.onSuggestProperties).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders one chip per suggestion, title and description first, and marks only new tags', () => {
+    const { sidebar, row } = build();
+    expect(row().hidden).toBe(true);
+    sidebar.applyPropertySuggestions(SUGGESTIONS, 'idle');
+    const chips = [...row().querySelectorAll<HTMLElement>('.properties-suggest-chip')];
+    expect(chips.map((c) => c.dataset.kind)).toEqual(['title', 'description', 'tag', 'tag']);
+    expect(chips.map((c) => !!c.querySelector('.properties-suggest-new'))).toEqual([false, false, false, true]);
+  });
+
+  it('applying a chip hands the pick to the owner, which merges it; the chip goes only when the owner applied it', () => {
+    const { cb, sidebar, row, applyButtons } = build();
+    sidebar.applyPropertySuggestions(SUGGESTIONS, 'idle');
+
+    cb.onApplyPropertySuggestion.mockReturnValueOnce(false);
+    applyButtons()[0].click();
+    expect(cb.onApplyPropertySuggestion).toHaveBeenLastCalledWith({ kind: 'title', value: 'New' });
+    expect(applyButtons()).toHaveLength(4);
+
+    applyButtons()[0].click();
+    expect(applyButtons()).toHaveLength(3);
+    applyButtons()[2].click();
+    expect(cb.onApplyPropertySuggestion).toHaveBeenLastCalledWith({ kind: 'tag', tag: 'fresh' });
+    expect(applyButtons().map((b) => b.querySelector('.properties-pill-text')?.textContent)).toEqual(['About it.', 'known-tag']);
+    // The sidebar never edits the properties itself for a suggestion.
+    expect(cb.onPropertiesChange).not.toHaveBeenCalled();
+    expect(row().hidden).toBe(false);
+  });
+
+  it('what the owner merges is what mergePropertySuggestion gives for each kind of pick', () => {
+    const entries = [{ key: 'title', value: 'Old' }, { key: 'tags', value: ['a'] }];
+    const merged = (['title', 'description', 'tag'] as const).reduce((acc, kind) => mergePropertySuggestion(acc, kind === 'tag'
+      ? { kind, tag: 'fresh' }
+      : { kind, value: kind === 'title' ? 'New' : 'About it.' }), entries);
+    expect(merged).toEqual([
+      { key: 'title', value: 'New' },
+      { key: 'description', value: 'About it.' },
+      { key: 'tags', value: ['a', 'fresh'] },
+    ]);
+  });
+
+  it('dismissing one chip applies nothing; Dismiss all closes the row; the last chip closing it too', () => {
+    const { cb, sidebar, row } = build();
+    sidebar.applyPropertySuggestions(SUGGESTIONS, 'idle');
+    row().querySelector<HTMLButtonElement>('.properties-pill-x')!.click();
+    expect(row().querySelectorAll('.properties-suggest-chip')).toHaveLength(3);
+    const dismissAll = [...row().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Dismiss all')!;
+    dismissAll.click();
+    expect(row().hidden).toBe(true);
+    expect(cb.onApplyPropertySuggestion).not.toHaveBeenCalled();
+
+    sidebar.applyPropertySuggestions({ tags: [{ tag: 'only', known: false }] }, 'idle');
+    row().querySelector<HTMLButtonElement>('.properties-pill-x')!.click();
+    expect(row().hidden).toBe(true);
+  });
+
+  it('no new suggestions says so with a Dismiss; running offers Cancel; an error offers Try again', () => {
+    const { cb, sidebar, row } = build();
+    const labels = () => [...row().querySelectorAll<HTMLButtonElement>('button')].map((b) => b.textContent);
+
+    sidebar.applyPropertySuggestions({ tags: [] }, 'idle');
+    expect(row().textContent).toContain('No new suggestions.');
+    expect(labels()).toEqual(['Dismiss']);
+
+    sidebar.applyPropertySuggestions(null, 'running', 'local · Proxy');
+    expect(row().dataset.state).toBe('running');
+    expect(labels()).toEqual(['Cancel']);
+    row().querySelector<HTMLButtonElement>('button')!.click();
+    expect(cb.onCancelPropertySuggestions).toHaveBeenCalledTimes(1);
+    expect(row().hidden).toBe(true);
+
+    sidebar.applyPropertySuggestions(null, 'error', 'Nothing usable came back.');
+    expect(row().querySelector('[role="alert"]')?.textContent).toBe('Nothing usable came back.');
+    [...row().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Try again')!.click();
+    expect(cb.onSuggestProperties).toHaveBeenCalledTimes(1);
   });
 });
