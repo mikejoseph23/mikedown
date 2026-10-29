@@ -127,6 +127,28 @@ describe('completions', () => {
     expect(log.join('\n')).not.toContain('secret prompt');
   });
 
+  it('adds the thinking level and max_tokens to the log line when the request sets one, and nothing otherwise', async () => {
+    const { service, log } = setup(rawSettings, { env: { OMLX_API_KEY: 'sk-secret' } });
+    await service.complete({}, { ...req(), requestOverrides: { reasoning_effort: 'high' }, maxTokens: 4096 }, () => {});
+    expect(log[0]).toMatch(/^rewrite\/rewrite · oMLX · qwen · local · \d+ ms · stop · thinking high · max_tokens 4096$/);
+    await service.complete({}, { ...req(), requestOverrides: { reasoning_effort: 'none' } }, () => {});
+    expect(log[1]).toMatch(/· stop · thinking off$/);
+    await service.complete({}, { ...req(), requestOverrides: { top_p: 0.5 } }, () => {});
+    expect(log[2]).toMatch(/^rewrite\/rewrite · oMLX · qwen · local · \d+ ms · stop$/);
+    await service.complete({}, req(), () => {});
+    expect(log[3]).not.toContain('thinking');
+    expect(log.join('\n')).not.toMatch(/secret|sk-/);
+  });
+
+  it('reads a thinking level from the model overrides, with the request winning', async () => {
+    const raw = { ...rawSettings, engines: [{ ...rawSettings.engines[0], models: [{ id: 'qwen', requestOverrides: { reasoning_effort: 'low' } }] }, rawSettings.engines[1]] };
+    const { service, log } = setup(raw);
+    await service.complete({}, req(), () => {});
+    expect(log[0]).toMatch(/· stop · thinking low$/);
+    await service.complete({}, { ...req(), requestOverrides: { reasoning_effort: 'high' } }, () => {});
+    expect(log[1]).toMatch(/· stop · thinking high$/);
+  });
+
   it('a stored key wins over apiKeyEnv', async () => {
     const { service, store } = setup(rawSettings, { env: { OMLX_API_KEY: 'from-env' } });
     store.data.set(secretKey('omlx'), 'stored');

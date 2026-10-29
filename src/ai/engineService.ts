@@ -4,7 +4,9 @@ import {
   isRouteUsable,
   makeAiError,
   mergeDiscoveredModels,
+  mergeRequestOverrides,
   resolveRoute,
+  thinkingLevelFrom,
   toAiError,
   type AiCompletionRequest,
   type AiCompletionResult,
@@ -423,7 +425,11 @@ export class AiEngineService {
     return this.inFlight.has(panel);
   }
 
-  /** One line per request: feature, task, engine, model, locality, latency, finish. Never the prompt. */
+  /**
+   * One line per request: feature, task, engine, model, locality, latency,
+   * finish, then the thinking level and `max_tokens` when the effective
+   * overrides (model's, then the request's) set a level. Never the prompt.
+   */
   private logRequest(
     req: AiCompletionRequest,
     picked: { engine: AiEngineConfig; model: AiModelConfig; isLocal: boolean } | undefined,
@@ -439,6 +445,8 @@ export class AiEngineService {
       `${this.now() - started} ms`,
       finish,
     ];
+    const thinking = picked ? thinkingLogParts(picked.engine.kind, picked.model, req) : [];
+    parts.push(...thinking);
     const usage = result?.usage;
     if (usage && (usage.promptTokens !== undefined || usage.completionTokens !== undefined)) {
       parts.push(`${usage.promptTokens ?? '?'} in, ${usage.completionTokens ?? '?'} out`);
@@ -475,4 +483,16 @@ export class AiEngineService {
     this.inFlight.clear();
     this.listeners.clear();
   }
+}
+
+/** `thinking <level>` and `max_tokens <n>` for the request log, or nothing when no thinking level applies. */
+function thinkingLogParts(kind: AiEngineKind, model: AiModelConfig, req: AiCompletionRequest): string[] {
+  const effective = mergeRequestOverrides({}, model.requestOverrides);
+  const overrides = req.requestOverrides ? mergeRequestOverrides(effective, req.requestOverrides) : effective;
+  const level = thinkingLevelFrom(kind, overrides);
+  if (!level) {return [];}
+  const parts = [`thinking ${level}`];
+  const max = overrides.max_tokens ?? overrides.max_completion_tokens ?? req.maxTokens;
+  if (typeof max === 'number') {parts.push(`max_tokens ${max}`);}
+  return parts;
 }

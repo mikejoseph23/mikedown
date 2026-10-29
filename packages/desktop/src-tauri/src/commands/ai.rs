@@ -35,6 +35,7 @@ pub mod errors;
 pub mod locality;
 pub mod model;
 pub mod providers;
+pub mod request_log;
 pub mod requests;
 pub mod secrets;
 pub mod sse;
@@ -373,6 +374,9 @@ pub async fn ai_complete<R: Runtime>(
     }
 
     let client = state.client.clone();
+    let started = Instant::now();
+    let thinking = request_log::thinking_log_parts(engine.kind, model.request_overrides.as_ref(), request.request_overrides.as_ref(), request.max_tokens);
+    let log_served = served.clone();
     let task_app = app.clone();
     let task_channel = channel.clone();
     tauri::async_runtime::spawn(async move {
@@ -387,6 +391,16 @@ pub async fn ai_complete<R: Runtime>(
         if let Some(state) = task_app.try_state::<AiState>() {
             state.inflight.lock().unwrap().remove(&task_channel);
         }
+        let finish = match &outcome {
+            Ok(result) => format!("{:?}", result.finish_reason).to_lowercase(),
+            Err(error) if error.code == ErrorCode::Cancelled => "cancelled".to_string(),
+            Err(error) => format!("error {}", error.code.as_str()),
+        };
+        let usage = outcome.as_ref().ok().and_then(|r| r.usage);
+        eprintln!(
+            "[mikedown ai] {}",
+            request_log::format_request_log(&request.feature, &request.task, &log_served, started.elapsed().as_millis(), &finish, &thinking, usage.as_ref())
+        );
         match outcome {
             Ok(result) => {
                 let _ = task_app.emit_to(label.as_str(), format!("ai-done:{task_channel}").as_str(), DoneEvent { request_id: request.request_id.clone(), result });

@@ -144,10 +144,8 @@ pub struct CompletionRequest {
     /// Feature and task ids are informational (logs, consent copy); routing
     /// is the `route` core already resolved.
     #[serde(default)]
-    #[allow(dead_code)]
     pub feature: String,
     #[serde(default)]
-    #[allow(dead_code)]
     pub task: String,
     #[serde(default)]
     pub route: Option<Route>,
