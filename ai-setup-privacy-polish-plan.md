@@ -578,3 +578,17 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [ ] W8 "Set up AI" appears twice (top bar and page heading).
 - [ ] W9 Fresh VS Code profile opens .md in the text editor (customEditor priority `option`); the "Make MikeDown the default editor?" toast handled it well. Note only.
 - [ ] W10 Long `--user-data-dir` paths make VS Code exit silently (socket path limit); use a short path such as `/tmp/mdfresh` for the T4 clean slate.
+- [ ] W11 Wizard key step shows the key link twice ("OpenAI API keys" in the note and "Get an API key on the OpenAI platform" under the field); keep one.
+- [ ] W12 The subscription vs API key note sits under Name, so it reads as about the name; hide Name under Advanced for new users and put the note directly above the key field.
+- [ ] W13 The wizard key step is the full engine form (model search, Fetch models, Default model, Enabled) before any key exists; for new users: paste key, models auto-load, default picked, done. (Auto-fetch and default pick do work.)
+- [ ] W14 The note's grey-on-grey box has low contrast.
+- [ ] W15 83 OpenAI models (dated snapshots included) is a lot for a first run; show Popular only in the wizard with "Show all models" collapsed. Non-chat models are correctly filtered.
+- [ ] W16 "Picked" checkboxes vs "Default model" is unclear in the wizard; picking one should mean it is the default.
+- [ ] W17 Final step says "AI is ready" then "Choose Done to turn AI on"; relabel the button Turn on AI.
+- [ ] W18 "Fine-tune in AI Engines" misuses an ML term; use "Change settings in AI Engines".
+- [ ] W19 "Even when allowed, each cloud engine asks…" refers to the Allow cloud switch the user never saw; say "MikeDown asks once per workspace before the first request."
+- [ ] W20 Minor: "OpenAI · gpt-5.5, cloud" mixes separators; "OpenAI · gpt-5.5 · Cloud".
+- [ ] W21 Consent dialog names api.openai.com twice in the first paragraph.
+- [ ] W22 Consent dialog shows the raw policy URL and a "Read the provider's policy" button; drop the URL.
+- [ ] W23/W24 Consent buttons: four, with "Not now" vs "Not for this workspace" hard to tell apart, and no "Allow once". Recommended set: Don't allow · Allow once · Allow for this workspace.
+- [ ] W25 BUG: OpenAI reasoning models (gpt-5.5) reject temperature 0.3 (HTTP 400 on Summarize). Fix dispatched (model-aware params plus one retry on parameter-shaped 400s, both hosts).
