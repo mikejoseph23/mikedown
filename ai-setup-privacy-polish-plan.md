@@ -24,6 +24,7 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
 | [M1 Find running local servers, one-click local setup](#m1-find-running-local-servers-one-click-local-setup) | Opus | ⬜ Not Started | — | New host method on VS Code and Desktop, cards and first-run panel |
+| [M1b Setup wizard: recommend a path, cloud by default](#m1b-setup-wizard-recommend-a-path-cloud-by-default) | Opus | ⬜ Not Started | — | Running engine → hardware → cloud; subscription vs API key; `vscode.lm` as a new engine kind |
 | [M2 Cloud setup in one place](#m2-cloud-setup-in-one-place) | Opus | ⬜ Not Started | — | Allow cloud on the Engines page, key-first flow, env/file keys |
 | [T1 Setup tests](#t1-setup-tests) | Sonnet | ⬜ Not Started | — | Unit, host, cargo |
 | [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links) | Opus | ⬜ Not Started | — | One copy module, used by every cloud surface |
@@ -48,6 +49,7 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 - [Open Questions for Mike](#open-questions-for-mike)
 - [Rules for every worker](#rules-for-every-worker)
 - [M1 Find running local servers, one-click local setup](#m1-find-running-local-servers-one-click-local-setup)
+- [M1b Setup wizard: recommend a path, cloud by default](#m1b-setup-wizard-recommend-a-path-cloud-by-default)
 - [M2 Cloud setup in one place](#m2-cloud-setup-in-one-place)
 - [T1 Setup tests](#t1-setup-tests)
 - [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links)
@@ -146,6 +148,9 @@ Product calls. Workers proceed with the recommendation unless Mike answers other
 | OQ8 | Keybindings for Explain, Translate, Summarize, Titles? | Only `Cmd+Alt+K` stays bound; add the others to the VS Code `commands` with no default key (users bind them), and give Desktop menu items the same names. |
 | OQ9 | Tier-1 hosts and consent (P7): keep "consumer's problem", or make core refuse cloud without `requestCloudConsent`? | Keep, but make the disclaimer say "this app" instead of promising a consent step when `requestCloudConsent` is absent. |
 | OQ10 | Rename "Routing" to "Which model does what" (or "Tasks") and the star to "Use by default"? | Rename the nav entry and page title to **Tasks**; keep "default model" wording; star tooltip "Use this engine by default". |
+| OQ11 | Hardware threshold for "Local is an option on this machine" (M1b)? | Apple Silicon with 16 GB or more unified memory; or any machine with 32 GB RAM or more; or an NVIDIA GPU with 8 GB VRAM or more (Desktop only, where it can be read). Below that, local is still reachable under Advanced, just not recommended. Model size hint: under 24 GB → "up to about 8B parameters", 24 to 48 GB → "up to about 30B", above → "larger models work". |
+| OQ12 | `vscode.lm` (Copilot) as an engine: build it, and make it the first option in VS Code when a Copilot model is available? | Yes, as a new engine kind `vscode-lm` (VS Code host only, no key, no URL), shown first in the VS Code wizard when `vscode.lm.selectChatModels()` returns a model. Core treats it as a cloud engine (text leaves the machine through GitHub's service), so Allow cloud and consent apply, with Copilot's own data policy linked. Confirm Mike wants the Copilot dependency surfaced in a MikeDown feature. |
+| OQ13 | Cloud by default: confirm the wizard's first screen leads with "Connect a provider" and puts local under "Advanced", even on a machine where a local server is already running? | Running server first (signal a beats the default), else cloud, with local under Advanced. A detected running server is the one case where local is the easier path. |
 
 [Return to Top](#ai-setup-privacy-polish-plan)
 
@@ -204,6 +209,45 @@ Worker notes: edits `editor.ts` (the turn-on path only). Run `npm run lint`, `np
 
 ---
 
+## M1b Setup wizard: recommend a path, cloud by default
+
+**Recommended model: Opus** (the first-run flow is the product's front door; a few screens, each with one decision, written and laid out with care).
+
+Added 2026-10-29 from Mike: the wizard guides the user on whether to use local AI at all. Cloud is the default path; local is the advanced path, kept as easy as possible. Depends on M1 (detection host method) and on OQ11 to OQ13.
+
+**Facts from the review that shape this milestone:**
+
+- There is **no `vscode.lm` integration today.** `src/ai/vscodeAi.ts` is the VS Code wiring (engine service, consent modal, settings patch); nothing in `src/` or `packages/core/src/ai/` calls `vscode.lm.selectChatModels`. "Use Copilot" is new work: a new engine kind, not a review of an existing surface.
+- There is **no hardware detection** on either host. Desktop has no `sysinfo` crate; VS Code reads nothing from `os`. Both are new, small additions.
+
+Path recommendation (pure core + two host methods):
+
+- [ ] `packages/core/src/ai/setup.ts` (pure, exported from `ai/index.ts`): `AiHardwareInfo = { arch: 'arm64' | 'x64' | string; platform: 'darwin' | 'win32' | 'linux' | string; totalMemoryBytes: number; appleSilicon: boolean; gpu?: { vendor: 'nvidia' | 'amd' | 'apple' | 'other'; vramBytes?: number; name?: string } }` and `recommendSetupPath({ running: AiLocalServerProbe[]; hardware: AiHardwareInfo | null; vscodeLm?: { available: boolean; models: number } }) → { path: 'runningLocal' | 'vscodeLm' | 'cloud'; localCapable: boolean; localHint: string; reasons: string[] }`, checked in this order: (a) a running local engine (oMLX, LM Studio `:1234`, Ollama `:11434`, from M1's `detectLocalServers`) → offer it first; (b) `vscode-lm` available (OQ12) → offer it first on VS Code; (c) hardware above the OQ11 threshold → cloud by default with "Local is an option on this machine" shown; (d) otherwise cloud, local under Advanced without the hint. `localHint` is the model-size sentence from OQ11.
+- [ ] `MikeDownAiHost` gains optional `hardwareInfo?(): Promise<AiHardwareInfo | null>`. **VS Code** (`src/ai/engineService.ts` or a new `src/ai/hardware.ts`, pure Node): `process.arch`, `process.platform`, `os.totalmem()`, `os.cpus()[0].model` (Apple Silicon when `platform === 'darwin' && arch === 'arm64'`); no GPU probe (a rough call is enough; say so in the hint). Bridge message `aiHardwareInfo {}` → `aiHardware { info }`. **Desktop** (`commands/ai/hardware.rs`): add the `sysinfo` crate for total memory and CPU brand; Apple Silicon from `cfg!(target_arch = "aarch64")` on macOS (unified memory = total memory); NVIDIA from `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader` when present on the PATH (Windows and Linux), never failing the call when absent; command `ai_hardware_info`, exposed through `aiApi.ts` / `aiHost.ts`. One log line per host, never more than once per session.
+- [ ] Cache the recommendation for the editor session; recompute when the first-run panel or the wizard opens (detection is live, hardware is static).
+
+The wizard (replaces M1's first-run panel body when the user chooses "Set up"; M1's one-click "Use LM Studio" stays as the running-engine shortcut):
+
+- [ ] Mount it on the Engines page as a new initial section `'wizard'` (`AiEnginesPageSection`), so it reuses the session, Done and Back semantics, and the Experimental badge; the first-run panel's "Set up" opens the page on it. Three steps at most, one decision each, a step indicator in the header line, Back returns to the previous step.
+- [ ] **Step 1, path:** the recommendation drives the layout. Running engine or `vscode-lm` found → a primary card ("LM Studio is running on this Mac · 3 models" / "Use GitHub Copilot, no key needed") plus "Connect a cloud provider" and, under an **Advanced: run models on this machine** disclosure, the local cards. Otherwise → "Connect a cloud provider" leads (the provider cards from M2's cloud group with the Allow cloud row and privacy card), and local sits under the Advanced disclosure with the hardware line ("Local is an option on this machine: Apple Silicon, 32 GB. Models up to about 30B run well." or "This machine is on the small side for local models; cloud is the easier path.").
+- [ ] **Step 2, provider (cloud path):** the cloud preset cards. Picking one opens M2's key-first form inline with a **Subscription vs API key** note above the key field: "Consumer subscriptions such as ChatGPT Plus or Claude Pro do not include API access. An API key is billed separately by the provider, per use. Get a key:" followed by the preset's `keyUrl` and a "Pricing" link (`pricingUrl`, new on `AiEnginePreset`, official page only). The sentence is generic on purpose; the links carry the current facts (verify each at writing time and log the date; no per-provider claims in code).
+- [ ] **Step 2, local path (Advanced):** detected engines first (Running / Not running / Added from M1), each not-running card with an **Install** link (`installUrl` on local presets: LM Studio, Ollama, oMLX, llama.cpp, vLLM official download pages) and a one-line "then come back and choose Look again"; after a server answers, the form fetches models and the picker groups them by size when ids carry a parameter count (`7b`, `30b`; pure helper `modelSizeHint(id, hardware)` in `setup.ts` that tags options "fits" / "tight" / "too large" from OQ11's table). Never blocks a pick; the tags are hints.
+- [ ] **Step 3, done:** "AI is ready: <engine> · <model>, <local | cloud>", the privacy line for the chosen locality, Done (which turns AI on, per M1's `turnOnWhenDone`). Skipping the wizard at any step leaves AI off.
+- [ ] Tier-1 hosts never see the wizard (they have no engines); the first-run panel keeps M1's tier-1 wording.
+
+`vscode-lm` engine kind (VS Code only, OQ12):
+
+- [ ] Core: `AI_ENGINE_KINDS` gains `'vscode-lm'` with label "GitHub Copilot (VS Code)"; `expressFields` for it: `name`, `models`, `defaultModel`, `enabled` (no key, no URL); `engineLocality` returns `cloud` for the kind regardless of `baseUrl` (empty), so Allow cloud and consent apply; `capabilityHeuristics` maps `vendor/family` to chat + stream; a preset `vscodelm` in `presets.ts` under a third family `'host'` ("Built into VS Code") that the cards show only when the host reports it (`AiEngineStatus` for the kind reports `ok` from `selectChatModels().length > 0`). Desktop and npm hosts treat the kind as unsupported (the existing "engine kind this version does not support" path), and the Desktop settings parser skips it as today.
+- [ ] VS Code host: `src/ai/providers/vscodeLm.ts` adapter: `probe` and `listModels` through `vscode.lm.selectChatModels({ vendor: 'copilot' })` (ids `vendor/family`, `maxInputTokens` as `contextTokens`), `complete` through `model.sendRequest(messages, {}, token)` streaming `text` parts, cancellation through a `CancellationTokenSource` tied to the `AbortSignal`, errors mapped (`LanguageModelError.NoPermissions` → `auth` with the message "Allow MikeDown to use Copilot in the VS Code prompt", `Blocked` → `badOutput`, quota → `rateLimited`). The first `sendRequest` triggers VS Code's own consent prompt; MikeDown's consent modal runs before it (two prompts the first time; say so in the wizard card). `package.json`: no new activation event needed; add `"enabledApiProposals"` only if the stable API requires none (check the VS Code version in `engines.vscode`; `vscode.lm` is stable since 1.90).
+- [ ] Privacy and terms: the preset's `policy` links GitHub Copilot's privacy/data page; the privacy card for this kind says text goes to GitHub's Copilot service under the user's Copilot plan (individual vs business plans differ in data handling; link, do not claim). Consent dialog `host` reads "GitHub Copilot" instead of a URL. Note in the README that this needs a Copilot subscription and the Copilot Chat extension.
+- [ ] Thinking: `thinkingChoices('vscode-lm')` is empty (no mapping); the dial hides.
+
+Worker notes: edits `ai-engines-page.ts` (new section), `ai-toolbar.ts` (panel hands off to the page), `presets.ts`, `types.ts`, `schema.ts`, `locality.ts`, `capabilityHeuristics.ts`, `src/ai/providers/`, `engineService.ts`, `webviewBridge.ts`, `ai.rs` + `hardware.rs`, `aiApi.ts`, `aiHost.ts`, `package.json` (three-place rule for nothing new unless a setting is added; none is planned). Runs after M1 and M2 on the same files; one `editor.ts` touch (the panel → page hand-off) after M1 lands. Design craft: the wizard must read like a macOS "Add Account" sheet or VS Code's walkthrough, not a form; one primary action per step.
+
+[Return to Top](#ai-setup-privacy-polish-plan)
+
+---
+
 ## M2 Cloud setup in one place
 
 **Recommended model: Opus** (Engines page layout, the cloud card group with an inline switch, key field states).
@@ -237,6 +281,9 @@ Worker notes: no `editor.ts` edits expected. Touches `packages/core/src/ai/types
 - [ ] `test/unit/ai-engineService.test.ts`: `detectLocalServers` caps at the timeout, logs one line, never caches; `status()` reports `keySource: 'env'`.
 - [ ] `test/unit/ai-webviewBridge.test.ts`: `aiDetectLocalServers` round trip and malformed input.
 - [ ] `packages/desktop/src-tauri`: `cargo test` cases for `ai_detect_local_servers` (fixture server, timeout) and `key_source` env reporting.
+- [ ] M1b, `packages/core/test/ai-setup.test.ts`: `recommendSetupPath` order (running local beats `vscode-lm` beats hardware beats cloud), the OQ11 threshold edges (16 GB Apple Silicon yes, 8 GB no, 32 GB x64 yes, NVIDIA 8 GB yes), `localHint` per memory band, `modelSizeHint` tags for `7b`, `30b`, `70b` ids and ids without a size; every cloud preset has `pricingUrl` and every local preset `installUrl` under `https:`; no string in `setup.ts` names a subscription as including API access.
+- [ ] M1b, `packages/core/test/ai-engines-page.test.ts`: the wizard section renders the running-engine card first when a probe answers, the cloud-first layout otherwise, local under Advanced with the hardware line, the subscription note above a cloud key field, step Back/Next, and Done only turns AI on with a usable route.
+- [ ] M1b, `test/unit/ai-hardware.test.ts`: VS Code `hardwareInfo` from faked `os` and `process` values; `test/unit/ai-vscodeLm.test.ts`: the adapter against a fake `vscode.lm` (list, stream, cancel, `NoPermissions` → `auth`); `cargo test`: `ai_hardware_info` with and without `nvidia-smi` on the PATH.
 - [ ] `npm run lint`, `npm run test:unit`, `npm run test:edge`, `npm run test:packages`, `cargo test` all green; record the run in the Progress Log.
 
 [Return to Top](#ai-setup-privacy-polish-plan)
@@ -395,6 +442,8 @@ VS Code (`npm run dev` in `/Users/michaeljosephwork/git/mikedown`, dev host on `
 
 - [ ] Fresh state (set `mikedown.ai.enabled` false, `engines` `[]` in user settings): click the toolbar AI button → the panel says "Looking for local AI servers…" then offers **Use LM Studio** (or oMLX, whichever ranks first); one click → AI on, the sidebar chip reads `AI: local · LM Studio · <model>`; select a sentence, `Cmd+Alt+K`, Shorter streams; `Cmd+Z` restores. Judge the panel's look here.
 - [ ] Open the Engines page: cards show Running / Not running / Added; "Look again" after stopping LM Studio flips it to Not running within 2 s.
+- [ ] Wizard (M1b): reset to fresh state with every local server stopped, click the AI button, "Set up": step 1 leads with "Connect a cloud provider" and, on this Mac Studio, the Advanced disclosure shows the hardware line (Apple Silicon, memory, model-size hint); open it, LM Studio card shows Not running with an Install link that opens the browser. Start LM Studio, "Look again", the card flips to Running and moves to the top. Step 2 on the cloud path: pick OpenAI, the subscription-vs-API-key note sits above the key field and both links open official pages. Judge the wizard's look here (one decision per step, no form feel).
+- [ ] Copilot (M1b, OQ12): with Copilot Chat signed in, the wizard's first card is "Use GitHub Copilot, no key needed"; pick it, Done; Rewrite → MikeDown's consent modal names GitHub Copilot, then VS Code's own Copilot permission prompt the first time; the stream lands and the chip reads `AI: cloud · GitHub Copilot · <model>`. Sign out of Copilot: the engine's dot turns Failed with "Allow MikeDown to use Copilot" wording and the rewrite entry disables with that reason.
 - [ ] Add Anthropic from the cloud card with Allow cloud off: the inline **Turn on cloud engines** note appears; the privacy card reads correctly and its policy link opens the browser; paste a real key; models fill without a click; Done. Select text, Rewrite → the consent modal shows the M3 text (what is sent for Rewrite), **Read the provider's policy** opens the browser and the modal returns; **Not for this workspace** → the menu entry disables with the reason; AI tab → Cloud consents lists it; Forget; rewrite again → **Allow for this workspace** streams; `/summary` → no second modal (same engine, same workspace); check the output channel shows `cloud`.
 - [ ] Edit the Anthropic base URL under Advanced to `https://openrouter.ai/api/v1`, Done, rewrite: the consent modal asks again (fingerprint changed).
 - [ ] Set `ANTHROPIC_API_KEY` in the shell that launches the dev host, delete the stored key with Clear: the field says "Found in ANTHROPIC_API_KEY", no Clear button, models still fetch on open.
@@ -405,6 +454,7 @@ VS Code (`npm run dev` in `/Users/michaeljosephwork/git/mikedown`, dev host on `
 Desktop (quit `/Applications/MikeDown.app`; `export PATH="$HOME/.cargo/bin:$PATH"; npm run dev` in `packages/desktop`; open `test/workspace`):
 
 - [ ] First run from the Dock-like state (no shell env; launch the built app, not `npm run dev`, for this one check): the oMLX card says Running (key file read); the Advanced "Key from variable" caption carries the Dock note.
+- [ ] Wizard on Desktop (M1b): the hardware line reads from Rust (Apple Silicon, unified memory; check the stderr `[mikedown ai]` line shows it once); no Copilot card anywhere on Desktop; the `vscode-lm` kind, if present in exported settings, shows as "not supported by this version" and is never routed.
 - [ ] Consent on Desktop: the native dialog shows the M3 text with the policy URL spelled out, three answers; **Allow for this folder** writes `<app-data>/ai-consent.json` (open it in a text editor and confirm the folder path and engine id), and `test/workspace/.mikedown/settings.json` has no `ai.consent.*` key; opening a second folder asks again.
 - [ ] Migration: hand-write `"ai.consent.<id>": true` into a folder's `.mikedown/settings.json`, open it: no dialog on the first cloud request, and the key is gone from the folder file afterwards.
 - [ ] Delete the Anthropic engine: the consents list no longer shows it; the keychain entry under `net.iadev.mikedown` is gone (Keychain Access).
@@ -423,8 +473,9 @@ Sequential blockers: **M1 and M4 both edit `editor.ts`** (M1 the turn-on path, M
 |---|---|---|
 | A (now) | M1, M3 | Different files; M3 touches `vscodeAi.ts` and `ai.rs` consent text, M1 touches `engineService.ts`, `webviewBridge.ts`, `ai.rs` detection and `editor.ts`. Both touch `ai.rs`: M1 adds a command, M3 edits the dialog text; rebase before commit. |
 | B (after A) | M2, M4 | M2 is UI and `engineService.ts#status`; M4 is `engineService.ts` consent plus `ai.rs` consent store and one `editor.ts` line. Both edit `engineService.ts`: assign M4 the consent section and M2 the status section, rebase before commit. |
-| C | T1 after M1 and M2; T2 after M3 and M4 | Tests can run in parallel with each other. |
-| D (after B and C) | M5 | Alone on `editor.ts`. |
+| B2 (after B) | M1b | Builds on M1's detection and M2's cloud group and form; alone on `ai-engines-page.ts`, `presets.ts` and the providers. Its `vscode-lm` adapter and `hardware.rs` could be split to a second worker (no shared files with the wizard UI) if time matters. |
+| C | T1 after M1, M2 and M1b; T2 after M3 and M4 | Tests can run in parallel with each other. |
+| D (after B2 and C) | M5 | Alone on `editor.ts`. |
 | E (after D) | M6, then T3 | M6 can start as soon as M5's strings are final. |
 
 Worktrees start from a stale commit: `git reset --hard <develop sha>` first, `npm run build:core` before `test:unit`; `test:integration` cannot run in a worktree. Workers commit only their own paths.
@@ -450,6 +501,8 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 ---
 
 ## Progress Log / Notes
+
+**2026-10-29 02:40** - Added M1b (setup wizard: path recommendation, cloud by default, local under Advanced, subscription vs API key note, `vscode-lm` engine kind) from Mike's request via team-lead, plus OQ11 to OQ13, T1 and T3 items and parallel group B2. Review facts recorded in M1b: no `vscode.lm` integration exists today (`src/ai/vscodeAi.ts` is wiring only) and neither host has hardware detection code.
 
 **2026-10-29 02:15** - Plan written after one review pass over the AI features on `develop` (`42a8983`). Findings: eleven setup friction points, eight privacy gaps, ten polish items, seven bugs (listed, not fixed). Six milestones, three test milestones, ten open questions for Mike. No code changed.
 
