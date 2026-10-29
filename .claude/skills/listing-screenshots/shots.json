@@ -76,9 +76,14 @@
       "prompt": "Add or confirm a local engine if needed (AI button > Set up). Select the intro paragraph, Cmd+Alt+K, pick Shorter, and wait for the result card with the timing footer."
     },
     {
-      "name": "ai-setup-wizard", "theme": "light", "ai": true,
+      "name": "ai-local-setup-dark", "theme": "dark",
       "open": [{ "file": "launch-plan.md" }],
-      "prompt": "Click the AI toolbar button > Set up, and advance the wizard to the engine choice step."
+      "prompt": "With LM Studio (or oMLX) running, click the sparkle (AI) toolbar button and wait for 'LM Studio is running on this computer, N models'. Do not click Use LM Studio."
+    },
+    {
+      "name": "ai-setup-wizard", "theme": "light",
+      "open": [{ "file": "launch-plan.md" }],
+      "prompt": "Click the sparkle (AI) toolbar button > Set up another way…, and stop on the engine choice step."
     }
   ]
 }
