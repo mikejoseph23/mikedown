@@ -30,7 +30,7 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 | [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links) | Opus | ✅ Done | 16 | `f5b48a7` (cherry-picked from worktree); openLink and panel wiring passed to M2/M4 |
 | [M4 Consent flow hardening](#m4-consent-flow-hardening) | Sonnet | ✅ Done | 15 | `e73e2c2` (cherry-picked from worktree) |
 | [T2 Privacy and consent tests](#t2-privacy-and-consent-tests) | Sonnet | ✅ Done | 6 | Unit, host, cargo |
-| [M5 UI polish: surfaces, naming, states, keyboard](#m5-ui-polish-surfaces-naming-states-keyboard) | Opus | ⬜ Not Started | — | Context menu, toolbar menu, popover, sidebar, commands |
+| [M5 UI polish: surfaces, naming, states, keyboard](#m5-ui-polish-surfaces-naming-states-keyboard) | Opus | 🔄 In Progress | — | Context menu, toolbar menu, popover, sidebar, commands |
 | [M6 Docs, settings sync, release notes](#m6-docs-settings-sync-release-notes) | Sonnet | ⬜ Not Started | — | README, CHANGELOG, Desktop README, package.json descriptions |
 | [T3 Hands-on sign-off](#t3-hands-on-sign-off) | Sonnet | ⬜ Not Started | — | VS Code and Desktop, Mike signs off |
 | [T4 Fresh-user onboarding walk (Mike)](#t4-fresh-user-onboarding-walk-mike) | Mike | ⬜ Not Started | — | Clean slate, OpenAI, Anthropic, DeepSeek, then local; before the release |
