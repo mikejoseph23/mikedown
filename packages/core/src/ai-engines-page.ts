@@ -17,13 +17,23 @@
  * Edits run in an `AiSettingsSession` (`ai-settings-session.ts`): Done hands
  * the changed `ai.*` keys to `onDone`; Back with unsaved changes asks
  * "Discard changes?" in the page, and discarding takes back engines added
- * here and their keys before `onCancel`.
+ * here and their keys before `onCancel`. Opened by the first-run panel's
+ * "Set up" (`turnOnWhenDone`), the header says AI turns on at Done, and Done
+ * adds `ai.enabled: true` when the result has a usable default route; Back
+ * leaves AI off.
+ *
+ * On a host that can look for local servers (`host.ai.detectLocalServers`),
+ * the quick-start cards look when they first show and on "Look again": a
+ * local card says Running · 3 models (and leads), Not running, or Added
+ * (it opens the engine already set up there). Without the method the cards
+ * are the plain list.
  *
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
 import { AI_ENGINE_PRESETS, AI_PRESET_FAMILIES } from './ai';
-import type { AiEngineConfig, AiEnginePreset, AiRoute, AiSettings, AiSettingsPatch } from './ai';
+import { AI_DETECT_LOOKING, AI_DETECT_NONE, detectLocalServers } from './ai-local-setup';
+import type { AiEngineConfig, AiEnginePreset, AiLocalServerProbe, AiRoute, AiSettings, AiSettingsPatch } from './ai';
 import {
   defaultRouteForEngine,
   engineDisplayName,
@@ -31,8 +41,11 @@ import {
   engineIssues,
   engineKindLabel,
   groupPresets,
+  hasUsableDefaultRoute,
+  rankLocalCandidates,
   routeLabel,
   shortUrl,
+  type LocalServerCard,
 } from './ai-settings-model';
 import { createEngineFormController } from './ai-engine-form';
 import type { EngineFormRefresh } from './ai-engine-form';
@@ -53,6 +66,11 @@ export interface AiEnginesPageOptions extends AiSettingsSessionOptions {
   onDone(patch: AiSettingsPatch, settings: AiSettings): void;
   /** Back without saving; the page already took back what it added. */
   onCancel(): void;
+  /**
+   * Opened to set AI up while it is off: Done also turns AI on (`ai.enabled`
+   * in the patch) when the result has a usable default route.
+   */
+  turnOnWhenDone?: boolean;
 }
 
 export interface AiEnginesPageHandle {
@@ -105,6 +123,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   doneBtn.addEventListener('click', () => done());
   const titleLine = el('div', 'ai-page-title-line');
   titleLine.append(title, experimentalBadge());
+  if (opts.turnOnWhenDone) {titleLine.append(el('span', 'ai-page-title-note', 'AI turns on when you choose Done'));}
   header.append(backBtn, titleLine, doneBtn);
   const disclaimer = experimentalDisclaimer('ai-page-disclaimer');
 
@@ -387,6 +406,8 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       detailBody.append(routing.element);
     } else {
       detailBody.append(buildPresetCards());
+      // The cards look once per page; "Look again" asks again.
+      if (canDetect && !detectedOnce) {lookForLocalServers();}
     }
   }
 
@@ -515,7 +536,56 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     return box;
   }
 
-  /** The quick-start cards in two groups, with the "two ways to connect" line over each (design call 2). */
+  // ── Quick-start cards and local server detection ──────────────────────────
+
+  /** The last detection while this page is open: null before it ran, when it failed, or on a host without it. */
+  let probes: AiLocalServerProbe[] | null = null;
+  let detectedOnce = false;
+  let detecting = false;
+  let detectAbort: AbortController | null = null;
+  const canDetect = typeof ai.detectLocalServers === 'function';
+
+  /** Look for local servers, then redraw the local cards and say what was found. */
+  function lookForLocalServers(): void {
+    if (!canDetect || finished) {return;}
+    detectAbort?.abort();
+    const controller = new AbortController();
+    detectAbort = controller;
+    detectedOnce = true;
+    detecting = true;
+    refreshLocalCards();
+    announce(AI_DETECT_LOOKING);
+    void detectLocalServers(ai, controller.signal).then((found) => {
+      if (finished || controller.signal.aborted) {return;}
+      detecting = false;
+      detectAbort = null;
+      probes = found;
+      refreshLocalCards();
+      announce(detectionSummary(localCards()));
+    });
+  }
+
+  /** The probes ranked against the engines as they are now (an engine added here makes its card Added). */
+  function localCards(): LocalServerCard[] | null {
+    return probes ? rankLocalCandidates(probes, session.draft.engines) : null;
+  }
+
+  function detectionSummary(cards: LocalServerCard[] | null): string {
+    if (!cards) {return 'Could not look for local AI servers.';}
+    const running = cards.filter((c) => c.running);
+    if (running.length === 0) {return AI_DETECT_NONE;}
+    return `Running on this computer: ${running.map((c) => `${presetName(c.presetId)}${c.models !== undefined ? `, ${countText(c.models)}` : ''}${c.alreadyAdded ? ', added' : ''}`).join('; ')}.`;
+  }
+
+  function presetName(id: string): string {
+    return AI_ENGINE_PRESETS.find((p) => p.id === id)?.name ?? id;
+  }
+
+  function countText(models: number): string {
+    return `${models} ${models === 1 ? 'model' : 'models'}`;
+  }
+
+  /** The cards in two groups, with the "two ways to connect" line over each (design call 2). */
   function buildPresetCards(): HTMLElement {
     const groups = groupPresets(AI_ENGINE_PRESETS);
     const box = el('div', 'ai-cards');
@@ -523,6 +593,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       const presets = groups[family.family];
       if (presets.length === 0) {continue;}
       const section = el('section', 'ai-cards-group');
+      section.dataset.family = family.family;
       const headingId = nextId('ai-cards-heading');
       const heading = el('div', 'ai-cards-heading');
       heading.id = headingId;
@@ -532,20 +603,83 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       const grid = el('div', 'ai-cards-grid');
       grid.setAttribute('role', 'group');
       grid.setAttribute('aria-labelledby', headingId);
-      for (const preset of presets) {
-        const card = button('ai-card', '', { fk: `card:${preset.id}`, ariaLabel: `Add ${preset.name}` });
-        card.innerHTML = kindGlyphHtml(preset.kind);
-        const text = el('span', 'ai-card-text');
-        text.append(el('span', 'ai-card-name', preset.name), el('span', 'ai-card-caption', preset.caption));
-        card.append(text);
-        card.title = preset.caption;
-        card.addEventListener('click', () => addEngine(preset));
-        grid.append(card);
-      }
       section.append(heading, el('div', 'ai-cards-explainer', family.explainer), grid);
+      if (family.family === 'local') {
+        fillLocalGrid(grid, presets);
+        if (canDetect) {section.append(buildDetectLine());}
+      } else {
+        for (const preset of presets) {grid.append(buildCard(preset));}
+      }
       box.append(section);
     }
     return box;
+  }
+
+  /** Local cards in detection order (running first), Custom last; the preset order before a detection. */
+  function fillLocalGrid(grid: HTMLElement, presets: AiEnginePreset[]): void {
+    grid.replaceChildren();
+    const cards = localCards();
+    const byId = new Map(cards?.map((c) => [c.presetId, c]) ?? []);
+    const ordered = cards
+      ? [...cards.map((c) => presets.find((p) => p.id === c.presetId)).filter((p): p is AiEnginePreset => !!p), ...presets.filter((p) => !byId.has(p.id))]
+      : presets;
+    for (const preset of ordered) {grid.append(buildCard(preset, byId.get(preset.id)));}
+  }
+
+  function buildCard(preset: AiEnginePreset, found?: LocalServerCard): HTMLButtonElement {
+    const card = button('ai-card', '', { fk: `card:${preset.id}`, ariaLabel: `Add ${preset.name}` });
+    card.innerHTML = kindGlyphHtml(preset.kind);
+    const text = el('span', 'ai-card-text');
+    text.append(el('span', 'ai-card-name', preset.name), el('span', 'ai-card-caption', preset.caption));
+    card.append(text);
+    card.title = preset.caption;
+    const added = found?.alreadyAdded && found.engineId && getEngine(found.engineId) ? found.engineId : null;
+    if (found) {
+      const state = added ? 'added' : found.running ? 'running' : 'stopped';
+      card.dataset.state = state;
+      const label = state === 'added' ? 'Added'
+        : state === 'running' ? `Running${found.models !== undefined ? ` · ${countText(found.models)}` : ''}`
+          : 'Not running';
+      const line = el('span', 'ai-card-state');
+      if (state === 'running') {
+        const dot = el('span', 'ai-card-dot');
+        dot.setAttribute('aria-hidden', 'true');
+        line.append(dot);
+      }
+      line.append(el('span', '', label));
+      text.append(line);
+      card.setAttribute('aria-label', added ? `${preset.name}, added. Open it` : `Add ${preset.name}, ${label.replace(' · ', ', ').toLowerCase()}`);
+      if (added) {card.title = `${preset.name} is already set up. Open it.`;}
+    }
+    card.addEventListener('click', () => {
+      if (added && getEngine(added)) {select({ kind: 'engine', id: added });} else {addEngine(preset);}
+    });
+    return card;
+  }
+
+  /** "Looking for local AI servers…" or what was found, then "Look again". */
+  function buildDetectLine(): HTMLElement {
+    const line = el('div', 'ai-cards-detect');
+    const status = el('span', 'ai-cards-detect-text', detecting ? AI_DETECT_LOOKING
+      : probes && !probes.some((p) => p.ok) ? AI_DETECT_NONE : '');
+    const again = button('ai-link-btn ai-cards-again', 'Look again', { fk: 'cards:look-again' });
+    // aria-disabled, not disabled: focus stays on it while it looks.
+    if (detecting) {again.setAttribute('aria-disabled', 'true');}
+    again.addEventListener('click', () => { if (!detecting) {lookForLocalServers();} });
+    line.append(status, again);
+    return line;
+  }
+
+  /** Redraw the local group in place, keeping focus on the same card. */
+  function refreshLocalCards(): void {
+    const section = detailBody.querySelector<HTMLElement>('.ai-cards-group[data-family="local"]');
+    if (!section || selection.kind !== 'add') {return;}
+    keepFocus(section, () => {
+      const grid = section.querySelector<HTMLElement>('.ai-cards-grid');
+      if (grid) {fillLocalGrid(grid, groupPresets(AI_ENGINE_PRESETS).local);}
+      const line = section.querySelector('.ai-cards-detect');
+      if (line) {line.replaceWith(buildDetectLine());}
+    });
   }
 
   // ── Edits ─────────────────────────────────────────────────────────────────
@@ -632,6 +766,11 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     finished = true;
     const patch = session.collect();
     const saved = session.commit();
+    // Set up from the first-run panel: AI turns on only with something to route to (B3).
+    if (opts.turnOnWhenDone && !saved.enabled && hasUsableDefaultRoute(saved)) {
+      patch['ai.enabled'] = true;
+      saved.enabled = true;
+    }
     opts.onDone(patch, saved);
   }
 
@@ -749,6 +888,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
         session.discard();
       }
       finished = true;
+      detectAbort?.abort();
       window.clearTimeout(liveTimer);
       unsubscribe?.();
       resizeObserver?.disconnect();
@@ -763,7 +903,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       } else if (!narrow && selection.kind === 'routing') {
         focusKey('route:default');
       } else if (!narrow && selection.kind === 'add' && session.draft.engines.length === 0) {
-        focusKey(`card:${AI_ENGINE_PRESETS[0].id}`);
+        detailBody.querySelector<HTMLElement>('.ai-card')?.focus({ preventScroll: true });
       } else {
         focusSelectedEntry();
       }

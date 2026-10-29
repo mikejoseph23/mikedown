@@ -28,6 +28,7 @@ import type {
   AiCompletionResult,
   AiEngineStatus,
   AiError,
+  AiLocalServerProbe,
   MikeDownAiHost,
 } from '../../packages/core/src/ai/types';
 import { makeAiError, toAiError } from '../../packages/core/src/ai/errors';
@@ -320,6 +321,24 @@ export class VsCodeHost implements MikeDownHost {
     setSecret: (engineId: string, apiKey: string | null) =>
       this.aiRequest<AiEngineStatus>({ type: 'aiSetSecret', engineId, apiKey }).then(() => undefined),
     requestCloudConsent: (engineId: string) => this.aiRequest<boolean>({ type: 'aiRequestCloudConsent', engineId }),
+    // The host caps each address; an abort here only stops waiting for the answer.
+    detectLocalServers: (candidates: { presetId: string; baseUrl: string }[], signal: AbortSignal): Promise<AiLocalServerProbe[]> => {
+      if (signal.aborted) {return Promise.reject(makeAiError('cancelled'));}
+      const requestId = nextRequestId('ai');
+      return new Promise<AiLocalServerProbe[]>((resolve, reject) => {
+        const onAbort = (): void => {
+          if (!this.aiWaiters.delete(requestId)) {return;}
+          reject(makeAiError('cancelled'));
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        const done = (): void => signal.removeEventListener('abort', onAbort);
+        this.aiWaiters.set(requestId, {
+          resolve: (probes: AiLocalServerProbe[]) => { done(); resolve(probes); },
+          reject: (err) => { done(); reject(err); },
+        });
+        this.post({ type: 'aiDetectLocalServers', requestId, candidates });
+      });
+    },
   };
 
   private handleAiReply(message: any): boolean {
@@ -343,6 +362,12 @@ export class VsCodeHost implements MikeDownHost {
         const waiter = this.aiWaiters.get(message.requestId);
         this.aiWaiters.delete(message.requestId);
         waiter?.resolve(message.status);
+        return true;
+      }
+      case 'aiEngineProbes': {
+        const waiter = this.aiWaiters.get(message.requestId);
+        this.aiWaiters.delete(message.requestId);
+        waiter?.resolve(Array.isArray(message.probes) ? message.probes : []);
         return true;
       }
       case 'aiConsent': {

@@ -13,6 +13,7 @@ import type { AiEngineService } from './engineService';
  *   aiDiscoverModels      { requestId, engineId }              → aiEngineStatus
  *   aiSetSecret           { requestId, engineId, apiKey }      → aiEngineStatus (hasKey)
  *   aiRequestCloudConsent { requestId, engineId, feature? }    → aiConsent
+ *   aiDetectLocalServers  { requestId, candidates: { presetId, baseUrl }[] } → aiEngineProbes
  *
  * Host → webview:
  *   aiToken        { requestId, delta }
@@ -21,6 +22,7 @@ import type { AiEngineService } from './engineService';
  *   aiEngines      { engines: AiEngineStatus[] }  (reply to aiListEngines, and pushed after a settings or status change)
  *   aiEngineStatus { requestId, status }
  *   aiConsent      { requestId, engineId, granted }
+ *   aiEngineProbes { requestId, probes: AiLocalServerProbe[] }  (one per candidate, in order; nothing cached)
  */
 
 export const AI_WEBVIEW_MESSAGE_TYPES: ReadonlySet<string> = new Set([
@@ -31,6 +33,7 @@ export const AI_WEBVIEW_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'aiDiscoverModels',
   'aiSetSecret',
   'aiRequestCloudConsent',
+  'aiDetectLocalServers',
 ]);
 
 export function isAiWebviewMessage(message: unknown): message is { type: string } & Record<string, unknown> {
@@ -103,6 +106,15 @@ export async function handleAiMessage(
         fail(err);
       }
       return;
+    case 'aiDetectLocalServers': {
+      const candidates = Array.isArray(message.candidates) ? message.candidates : [];
+      try {
+        post({ type: 'aiEngineProbes', requestId, probes: await service.detectLocalServers(candidates) });
+      } catch (err) {
+        fail(err);
+      }
+      return;
+    }
     case 'aiRequestCloudConsent': {
       const engineId = str(message.engineId);
       try {

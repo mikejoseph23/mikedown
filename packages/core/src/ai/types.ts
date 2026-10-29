@@ -237,6 +237,19 @@ export interface AiEngineStatus {
   models: AiEngineStatusModel[];
 }
 
+/**
+ * One local model server as `detectLocalServers` found it: whether its preset's
+ * address answered, and how many models it listed when it did.
+ */
+export interface AiLocalServerProbe {
+  presetId: string;
+  baseUrl: string;
+  ok: boolean;
+  /** Models the server listed (embedding models left out where the server says which they are). */
+  models?: number;
+  latencyMs?: number;
+}
+
 export type AiErrorCode =
   | 'unreachable'
   | 'auth'
@@ -283,6 +296,15 @@ export interface MikeDownAiHost {
 
   // Tier 2: turns on the engine registry UI and core routing.
   listEngines?(): Promise<AiEngineStatus[]>;
+  /**
+   * Look for model servers on this machine at the local presets' default
+   * addresses (`localDetectCandidates()`), one GET each, capped at
+   * `AI_LOCAL_DETECT_TIMEOUT_MS`. Only on request (the first-run panel, the
+   * quick-start cards), never in the background. The host looks each preset
+   * up by id itself and sends a key (oMLX's key file) only to the preset's
+   * own address. One result per candidate, in order. Nothing is saved.
+   */
+  detectLocalServers?(candidates: { presetId: string; baseUrl: string }[], signal: AbortSignal): Promise<AiLocalServerProbe[]>;
   testEngine?(engineId: string): Promise<AiEngineStatus>;
   discoverModels?(engineId: string): Promise<AiEngineStatus>;
   /** Store (or with null, delete) an engine's key. Never part of `saveSettings`. */

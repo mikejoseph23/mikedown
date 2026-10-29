@@ -5,7 +5,8 @@
  * tolerates junk: entries without a string id are skipped, never thrown on.
  */
 
-import type { AiDiscoveredModel, AiModelCapabilities } from './types';
+import { AI_ENGINE_PRESETS, type AiEnginePreset } from './presets';
+import type { AiApiKeyFile, AiDiscoveredModel, AiEngineKind, AiModelCapabilities } from './types';
 
 type Json = Record<string, unknown>;
 
@@ -127,4 +128,58 @@ export function parseAnthropicModels(body: unknown): AiDiscoveredModel[] {
 /** Anthropic pages its list; the next `after_id`, or null on the last page. */
 export function anthropicNextPage(body: unknown): string | null {
   return isObject(body) && body.has_more === true && typeof body.last_id === 'string' ? body.last_id : null;
+}
+
+// ── Local server detection ──────────────────────────────────────────────────
+
+/** The URL detection GETs: `detectPath` under the server root (no `/v1`), else `{baseUrl}/models`. */
+export function localDetectUrl(baseUrl: string, detectPath?: string): string {
+  const base = baseUrl.trim().replace(/\/+$/, '');
+  return detectPath ? `${base.replace(/\/v1$/, '')}${detectPath}` : `${base}/models`;
+}
+
+/**
+ * How many models a detection answer lists: `data` (OpenAI-style, LM Studio)
+ * or `models` (Ollama). LM Studio's embedding models are left out. Undefined
+ * for a body of neither shape (the server answered, the count is unknown).
+ */
+export function countDetectedModels(body: unknown): number | undefined {
+  if (!isObject(body)) {return undefined;}
+  if (Array.isArray(body.data)) {return dataArray(body).filter((m) => m.type !== 'embeddings').length;}
+  if (Array.isArray(body.models)) {return dataArray(body, 'models').length;}
+  return undefined;
+}
+
+/** What a host needs to probe one detection candidate. */
+export interface AiLocalDetectTarget {
+  presetId: string;
+  baseUrl: string;
+  /** The GET. */
+  url: string;
+  /** For the auth header shape. */
+  kind: AiEngineKind;
+  /** Where to read a key, only when `baseUrl` is the preset's own address. */
+  apiKeyEnv?: string;
+  apiKeyFile?: AiApiKeyFile;
+}
+
+/**
+ * A detection candidate checked against the presets. Null for an unknown or
+ * cloud preset, Custom, or an address that is not http(s). A key source
+ * (oMLX's key file) comes along only when the address is the preset's own,
+ * so a key never goes anywhere the user did not set up.
+ */
+export function localDetectTarget(
+  candidate: { presetId: string; baseUrl: string },
+  presets: readonly AiEnginePreset[] = AI_ENGINE_PRESETS,
+): AiLocalDetectTarget | null {
+  const preset = presets.find((p) => p.id === candidate.presetId);
+  if (!preset || preset.family !== 'local' || preset.id === 'custom') {return null;}
+  const baseUrl = typeof candidate.baseUrl === 'string' ? candidate.baseUrl.trim() : '';
+  if (!/^https?:\/\/[^/]/i.test(baseUrl)) {return null;}
+  const target: AiLocalDetectTarget = { presetId: preset.id, baseUrl, url: localDetectUrl(baseUrl, preset.detectPath), kind: preset.kind };
+  const own = baseUrl.replace(/\/+$/, '').toLowerCase() === preset.baseUrl.replace(/\/+$/, '').toLowerCase();
+  if (own && preset.apiKeyEnv) {target.apiKeyEnv = preset.apiKeyEnv;}
+  if (own && preset.apiKeyFile) {target.apiKeyFile = { ...preset.apiKeyFile };}
+  return target;
 }

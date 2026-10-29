@@ -5,6 +5,7 @@
  * `setSecret` is write-only.
  */
 import type { AiCompletionResult, AiErrorCode } from '@mikedown/core';
+import type { AiLocalServerProbe } from '@mikedown/core/ai';
 import type { AiDiscoveredModel, AiWireCompletionRequest } from '@mikedown/core/ai';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -61,6 +62,8 @@ export interface AiApi {
   discoverModels(engineId: string): Promise<AiDiscoveryResult>;
   setSecret(engineId: string, apiKey: string | null): Promise<void>;
   requestCloudConsent(engineId: string): Promise<boolean>;
+  /** Which local presets answer at their addresses (1.5 s each, nothing cached). */
+  detectLocalServers(candidates: { presetId: string; baseUrl: string }[]): Promise<AiLocalServerProbe[]>;
   onToken(requestId: string, handler: (e: AiTokenEvent) => void): Promise<UnlistenFn>;
   onDone(requestId: string, handler: (e: AiDoneEvent) => void): Promise<UnlistenFn>;
   onError(requestId: string, handler: (e: AiErrorEvent) => void): Promise<UnlistenFn>;
@@ -74,6 +77,7 @@ export const aiApi: AiApi = {
   discoverModels: (engineId) => invoke<AiDiscoveryResult>('ai_discover_models', { id: engineId }),
   setSecret: (engineId, apiKey) => invoke<void>('ai_set_secret', { id: engineId, apiKey }),
   requestCloudConsent: (engineId) => invoke<boolean>('ai_request_cloud_consent', { id: engineId }),
+  detectLocalServers: (candidates) => invoke<AiLocalServerProbe[]>('ai_detect_local_servers', { candidates }),
   onToken: (requestId, handler) => listen<AiTokenEvent>(`ai-token:${aiChannelId(requestId)}`, (e) => handler(e.payload)),
   onDone: (requestId, handler) => listen<AiDoneEvent>(`ai-done:${aiChannelId(requestId)}`, (e) => handler(e.payload)),
   onError: (requestId, handler) => listen<AiErrorEvent>(`ai-error:${aiChannelId(requestId)}`, (e) => handler(e.payload)),

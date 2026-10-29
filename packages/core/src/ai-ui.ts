@@ -6,7 +6,7 @@
  */
 
 export {
-  CHARS_PER_TOKEN, DEFAULT_CONTEXT_TOKENS, PROPERTY_VOCABULARY_MAX, aiErrorCopy, aiLengthLimitCopy, budgetDocument, buildPropertiesMessages,
+  AI_ENGINE_PRESETS, CHARS_PER_TOKEN, DEFAULT_CONTEXT_TOKENS, PROPERTY_VOCABULARY_MAX, aiErrorCopy, aiLengthLimitCopy, budgetDocument, buildPropertiesMessages,
   headingsOutline, isRouteUsable, jsonRepairMessages, makeAiError, parseAiSettings,
   parsePropertySuggestions, propertiesMaxTokens, renderHeadingOutline, resolveRoute, rewriteVisibleText, thinkingChoices, toAiError,
 } from './ai';
@@ -14,6 +14,7 @@ export { loadThinkingLevel, rememberThinkingLevel, thinkingLevelFor } from './ai
 export { buildAiSettingsSection } from './ai-settings';
 export { mountAiEnginesPage } from './ai-engines-page';
 export { withSavedAiKeys } from './ai-settings-session';
+export { bestLocalServer, detectLocalServers, setUpLocalEngine } from './ai-local-setup';
 export { aiIndicatorState } from './ai-settings-model';
 export { experimentalBadge } from './ai-settings-dom';
 export {

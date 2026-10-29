@@ -1,7 +1,12 @@
 import {
+  AI_ENGINE_PRESETS,
+  AI_LOCAL_DETECT_TIMEOUT_MS,
+  buildAuthHeaders,
+  countDetectedModels,
   engineLocality,
   isKnownEngineKind,
   isRouteUsable,
+  localDetectTarget,
   makeAiError,
   mergeDiscoveredModels,
   mergeRequestOverrides,
@@ -15,12 +20,14 @@ import {
   type AiEngineKind,
   type AiEngineStatus,
   type AiError,
+  type AiLocalServerProbe,
   type AiModelConfig,
   type AiSettings,
   type ProviderAdapter,
 } from '@mikedown/core/ai';
 import type { AiSecrets } from './secrets';
 import { createAdapters } from './providers';
+import { requestJson, resolveFetch, type FetchLike } from './providers/http';
 
 /**
  * The VS Code side of the AI layer, between the webview protocol and the
@@ -35,7 +42,8 @@ import { createAdapters } from './providers';
  * - the cloud gate, enforced here as well as in core's router (defence in
  *   depth): a cloud engine is refused with `cloudBlocked` while Allow cloud
  *   is off, and needs a stored per-workspace consent before any text leaves;
- * - one output-channel line per request, never the prompt text.
+ * - one output-channel line per request, never the prompt text;
+ * - local server detection for the setup UI: asked for, never cached.
  *
  * No `vscode` import: the editor wiring passes its pieces in (vscodeAi.ts),
  * so tests run it against fakes.
@@ -58,6 +66,8 @@ export interface EngineServiceDeps {
   saveEngines(engines: AiEngineConfig[]): PromiseLike<void>;
   log(line: string): void;
   adapters?: Map<AiEngineKind, ProviderAdapter>;
+  /** Local server detection's GETs; defaults to Node's `fetch`. */
+  fetch?: FetchLike;
   now?: () => number;
 }
 
@@ -302,6 +312,55 @@ export class AiEngineService {
       return { engineId, ok: null, isLocal: false, hasKey: !!apiKey?.trim(), models: [] };
     }
     return this.status(settings, engine);
+  }
+
+  // ── Local server detection ────────────────────────────────────────────────
+
+  /**
+   * Which local presets answer at their addresses: one GET each, in
+   * parallel, capped at `AI_LOCAL_DETECT_TIMEOUT_MS`. Runs only when the
+   * webview asks (the first-run panel, the quick-start cards); results are
+   * not cached or saved. The first GET carries no key; only a server that
+   * answers 401/403 is asked again with the preset's key (oMLX's key file),
+   * and only at the preset's own address. One log line.
+   */
+  async detectLocalServers(candidates: readonly unknown[]): Promise<AiLocalServerProbe[]> {
+    const doFetch = this.deps.fetch ?? resolveFetch({});
+    const outcomes = await Promise.all(candidates.slice(0, 32).map(async (raw) => {
+      const c = (typeof raw === 'object' && raw !== null ? raw : {}) as { presetId?: unknown; baseUrl?: unknown };
+      const probe: AiLocalServerProbe = { presetId: typeof c.presetId === 'string' ? c.presetId : '', baseUrl: typeof c.baseUrl === 'string' ? c.baseUrl : '', ok: false };
+      const target = localDetectTarget(probe);
+      if (!target) {return { probe, note: 'not a local preset' };}
+      const started = this.now();
+      const deadline = new AbortController();
+      const timer = setTimeout(() => deadline.abort(), AI_LOCAL_DETECT_TIMEOUT_MS);
+      const get = (apiKey: string | null) => requestJson(doFetch, target.url, { headers: buildAuthHeaders(target.kind, apiKey) }, deadline.signal, AI_LOCAL_DETECT_TIMEOUT_MS);
+      try {
+        let body: unknown;
+        try {
+          body = await get(null);
+        } catch (err) {
+          const key = toAiError(err).code === 'auth' && (target.apiKeyEnv || target.apiKeyFile)
+            ? await this.deps.secrets.resolve({ id: `detect:${target.presetId}`, apiKeyEnv: target.apiKeyEnv, apiKeyFile: target.apiKeyFile })
+            : null;
+          if (!key) {throw err;}
+          body = await get(key);
+        }
+        probe.ok = true;
+        probe.latencyMs = this.now() - started;
+        const models = countDetectedModels(body);
+        if (models !== undefined) {probe.models = models;}
+        return { probe, note: models === undefined ? 'ok' : `ok (${models} model${models === 1 ? '' : 's'})` };
+      } catch (err) {
+        const e = toAiError(err);
+        return { probe, note: e.code === 'unreachable' || e.code === 'cancelled' ? 'no answer' : e.code === 'auth' ? 'needs a key' : `failed (${e.code})` };
+      } finally {
+        clearTimeout(timer);
+      }
+    }));
+    const name = (id: string) => AI_ENGINE_PRESETS.find((p) => p.id === id)?.name ?? (id || '?');
+    this.deps.log(`Detect local servers: ${outcomes.map((o) => `${name(o.probe.presetId)} ${o.note}`).join(', ') || 'nothing asked'}.`);
+    return outcomes.map((o) => o.probe);
   }
 
   // ── Consent ───────────────────────────────────────────────────────────────

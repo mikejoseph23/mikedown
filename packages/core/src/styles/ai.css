@@ -492,6 +492,50 @@
   color: var(--settings-muted);
 }
 
+/* Local detection: Running leads, Not running steps back, Added is done. */
+:is(.mikedown-root, .mikedown-portal) .ai-card-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--settings-muted);
+  font-variant-numeric: tabular-nums;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-card-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--ai-ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ai-ok) 18%, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-card[data-state="running"] {
+  border-color: color-mix(in srgb, var(--ai-ok) 55%, var(--settings-divider));
+  background: color-mix(in srgb, var(--ai-ok) 6%, var(--mikedown-surface-raised, transparent));
+}
+:is(.mikedown-root, .mikedown-portal) .ai-card[data-state="running"]:hover {
+  border-color: var(--ai-ok);
+  background: color-mix(in srgb, var(--ai-ok) 10%, var(--mikedown-surface-raised, transparent));
+}
+:is(.mikedown-root, .mikedown-portal) .ai-card[data-state="running"] .ai-card-state { color: var(--settings-fg); }
+:is(.mikedown-root, .mikedown-portal) .ai-card[data-state="stopped"] { background: transparent; }
+:is(.mikedown-root, .mikedown-portal) .ai-card[data-state="stopped"] .ai-card-name { font-weight: 500; }
+:is(.mikedown-root, .mikedown-portal) .ai-card[data-state="added"] {
+  background: transparent;
+  border-style: dashed;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-cards-detect {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 18px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-cards-detect-text:empty { display: none; }
+
 /* Empty state on the summary tab: an invitation, not an error. */
 :is(.mikedown-root, .mikedown-portal) .ai-summary-empty {
   display: flex;
@@ -1557,6 +1601,13 @@
   gap: 8px;
   min-width: 0;
 }
+:is(.mikedown-root, .mikedown-portal) .ai-page-title-note {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--settings-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 :is(.mikedown-root, .mikedown-portal) .ai-page-disclaimer {
   margin: 0;
   padding: 8px 16px;
@@ -1574,7 +1625,7 @@
   --settings-focus: var(--mikedown-focus-ring, #007fd4);
   position: fixed;
   z-index: 1001;
-  width: 300px;
+  width: 340px;
   max-width: calc(100vw - 16px);
   box-sizing: border-box;
   padding: 14px 16px;
@@ -1586,9 +1637,46 @@
   font-size: 13px;
 }
 :is(.mikedown-root, .mikedown-portal) .ai-first-run .ai-disclaimer { margin-top: 8px; }
+:is(.mikedown-root, .mikedown-portal) .ai-first-run-verbs {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+/* Detection and setup progress: text-sized, never louder than the copy. */
+:is(.mikedown-root, .mikedown-portal) .ai-first-run-status {
+  --ai-ok: var(--mikedown-success, #2e7d32);
+  --ai-error: var(--mikedown-danger, #c62828);
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-first-run-status[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-first-run-status[data-state="found"] { color: var(--settings-fg); }
+:is(.mikedown-root, .mikedown-portal) .ai-first-run-status[data-state="error"] { color: var(--ai-error); }
+:is(.mikedown-root, .mikedown-portal) .ai-first-run-dot {
+  position: relative;
+  top: -1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--ai-ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ai-ok) 18%, transparent);
+}
 :is(.mikedown-root, .mikedown-portal) .ai-first-run-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
 }
+:is(.mikedown-root, .mikedown-portal) .ai-first-run-other {
+  margin: 0 auto 0 -4px;
+  padding: 2px 4px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-first-run-other[hidden] { display: none; }

@@ -15,6 +15,8 @@
  *   persists the result.
  * - `setSecret` and `requestCloudConsent` are plain commands; the key goes in
  *   and never comes back.
+ * - `detectLocalServers` asks Rust which local presets answer (the setup UI
+ *   only); Rust caps each address, so an abort here only stops waiting.
  */
 import type { AiCompletionRequest, AiCompletionResult, AiEngineStatus, AiError, MikeDownAiHost } from '@mikedown/core';
 import {
@@ -145,6 +147,20 @@ export function createAiHost(deps: AiHostDeps): MikeDownAiHost {
     async setSecret(engineId, apiKey) {
       try {
         await api.setSecret(engineId, apiKey);
+      } catch (err) {
+        throw toAiError(err);
+      }
+    },
+
+    async detectLocalServers(candidates, signal) {
+      if (signal.aborted) {throw makeAiError('cancelled');}
+      const aborted = new Promise<never>((_, reject) => {
+        signal.addEventListener('abort', () => reject(makeAiError('cancelled')), { once: true });
+      });
+      // An abort after the answer arrived rejects nobody's promise.
+      aborted.catch(() => { /* settled already */ });
+      try {
+        return await Promise.race([api.detectLocalServers(candidates), aborted]);
       } catch (err) {
         throw toAiError(err);
       }

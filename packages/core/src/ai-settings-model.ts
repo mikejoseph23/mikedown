@@ -10,6 +10,7 @@
  */
 
 import {
+  AI_ENGINE_PRESETS,
   AI_TASKS,
   DEFAULT_CONTEXT_TOKENS,
   detectCapabilities,
@@ -35,6 +36,7 @@ import type {
   AiEnginePreset,
   AiEngineStatus,
   AiErrorCode,
+  AiLocalServerProbe,
   AiLocality,
   AiModelCapabilities,
   AiModelConfig,
@@ -504,6 +506,78 @@ export function unknownRoutedTasks(settings: AiSettings): string[] {
 export function defaultRouteForEngine(settings: AiSettings, statuses: readonly AiEngineStatus[], engineId: string): AiRoute | null {
   const pair = routePairs(settings, statuses, DEFAULT_ROUTE_REQUIREMENTS).find((p) => p.engineId === engineId && p.selectable);
   return pair ? { engineId: pair.engineId, modelId: pair.modelId } : null;
+}
+
+/**
+ * Whether the default route can serve a request as saved: an enabled engine
+ * of a known kind and an enabled, still listed chat model. The Engines page
+ * opened by "Set up" turns AI on at Done only then (B3).
+ */
+export function hasUsableDefaultRoute(settings: Pick<AiSettings, 'engines' | 'routing'>): boolean {
+  const route = settings.routing.default;
+  const engine = route && settings.engines.find((e) => e.id === route.engineId);
+  if (!route || !engine || !engine.enabled || !isKnownEngineKind(engine.kind)) {return false;}
+  const model = engine.models.find((m) => m.id === route.modelId);
+  return !!model && model.enabled && !model.missing && model.capabilities.chat;
+}
+
+// ── Local server detection ──────────────────────────────────────────────────
+
+/** One local quick-start card after detection. */
+export interface LocalServerCard {
+  presetId: string;
+  baseUrl: string;
+  running: boolean;
+  /** Models the server listed, when it answered with a list. */
+  models?: number;
+  latencyMs?: number;
+  /** An engine at this address already exists (`engineId`): the card opens it instead of adding another. */
+  alreadyAdded: boolean;
+  engineId?: string;
+}
+
+/** Scheme, host and port, with `localhost` and `127.0.0.1` the same, plus the path without a trailing slash. */
+function addressKey(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname === 'localhost' || u.hostname === '[::1]' ? '127.0.0.1' : u.hostname;
+    return `${u.protocol}//${host}:${u.port || (u.protocol === 'https:' ? '443' : '80')}${u.pathname.replace(/\/+$/, '')}`.toLowerCase();
+  } catch {
+    return url.trim().toLowerCase().replace(/\/+$/, '');
+  }
+}
+
+/**
+ * The local cards' order after a detection: servers that answered and are
+ * not set up yet first (most models first), then the ones that did not
+ * answer, then those that already have an engine. Ties keep the probe order
+ * (the presets'). An engine counts as this preset's when it has the same kind
+ * and address and does not look like another preset's (oMLX and vLLM share
+ * port 8000; `presetForEngine` tells them apart by key variable).
+ */
+export function rankLocalCandidates(
+  probes: readonly AiLocalServerProbe[],
+  existingEngines: readonly Pick<AiEngineConfig, 'id' | 'kind' | 'baseUrl' | 'apiKeyEnv'>[],
+  presets: readonly AiEnginePreset[] = AI_ENGINE_PRESETS,
+): LocalServerCard[] {
+  const cards = probes.map((probe, index) => {
+    const preset = presets.find((p) => p.id === probe.presetId);
+    const engine = preset && existingEngines.find((e) =>
+      e.kind === preset.kind
+      && addressKey(e.baseUrl) === addressKey(probe.baseUrl)
+      && (presetForEngine(e, presets)?.id ?? preset.id) === preset.id);
+    const card: LocalServerCard = { presetId: probe.presetId, baseUrl: probe.baseUrl, running: probe.ok, alreadyAdded: !!engine };
+    if (engine) {card.engineId = engine.id;}
+    if (probe.ok && probe.models !== undefined) {card.models = probe.models;}
+    if (probe.latencyMs !== undefined) {card.latencyMs = probe.latencyMs;}
+    return { card, index };
+  });
+  const rank = (c: LocalServerCard) => (c.alreadyAdded ? 2 : c.running ? 0 : 1);
+  return cards
+    .sort((a, b) => rank(a.card) - rank(b.card)
+      || (a.card.running && b.card.running ? (b.card.models ?? 0) - (a.card.models ?? 0) : 0)
+      || a.index - b.index)
+    .map((x) => x.card);
 }
 
 // ── Indicator chip ──────────────────────────────────────────────────────────

@@ -107,6 +107,7 @@ import { defaultAiSettings } from './ai/defaults';
 import { AiRewriteHighlight, cmAiRewriteHighlight } from './ai-rewrite-highlight';
 import type { AiEnginesPageHandle, AiEnginesPageSection } from './ai-engines-page';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
+import type { AiFirstRunDetection } from './ai-toolbar';
 import { makeCheckboxRow, makeGroup, makeRow, makeSelectRow, settingsSectionContext } from './settings-rows';
 import type { AiFeatureAvailability, AiRunOutcome } from './ai-request';
 import type { AiCursorTarget, AiRewritePopover, AiRewriteBadge, AiRewriteTarget, AiTitleEffect } from './ai-rewrite';
@@ -2374,6 +2375,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     session?: AiSettingsSessionOptions & { keyOverride?: Map<string, boolean> };
     onDone?(patch: AiSettingsPatch, settings: AiSettings): void;
     fromModal?: boolean;
+    /** Opened by "Set up" while AI is off: Done turns AI on when there is a usable default route. */
+    turnOnWhenDone?: boolean;
   } = {}): void {
     const ai = aiHost;
     if (!ai || aiHostTier(ai) !== 2) {return;}
@@ -2401,6 +2404,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const handle = ui.mountAiEnginesPage(frame, settingsSectionContext(finish), {
       ...(o.session ?? aiSessionOptions(ai)),
       initial: o.initial,
+      ...(o.turnOnWhenDone ? { turnOnWhenDone: true } : {}),
       onDone: (patch, settings) => {
         if (Object.keys(patch).length > 0) {
           // The normal save path. The page may start from the tab's unsaved
@@ -2408,6 +2412,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
           host.saveSettings?.(patch);
           currentAiSettings = ui.withSavedAiKeys(currentAiSettings, settings, patch);
           renderAiIndicator();
+          if ('ai.enabled' in patch) {refreshAiToolbarButton();}
           scheduleAiStatusRefresh();
         }
         o.onDone?.(patch, settings);
@@ -2511,22 +2516,55 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     refreshToolbarAvailability();
   }
 
-  /** "Turn on and set up": AI on through the normal save path, then setup. */
+  /**
+   * The first-run panel's "Set up": the AI Engines page, which turns AI on at
+   * Done once something can be routed (Back leaves it off, B3). A tier-1 host
+   * routes by itself, so "Turn on" saves `ai.enabled` and opens the AI tab.
+   */
   function turnOnAiAndSetUp(): void {
     const ai = aiHost;
     const ui = aiUi;
     if (!ai || !ui || destroyed) {return;}
+    const target = ui.aiSetupTarget(aiHostTier(ai), currentAiSettings);
+    if (target.kind === 'page') {
+      showAiEnginesPage({ ...(target.engineId ? { initial: { engineId: target.engineId } } : {}), turnOnWhenDone: true });
+      return;
+    }
     host.saveSettings?.({ ...ui.AI_TURN_ON_PATCH });
     currentAiSettings = { ...currentAiSettings, enabled: true };
     renderAiIndicator();
     refreshAiToolbarButton();
     scheduleAiStatusRefresh();
-    const target = ui.aiSetupTarget(aiHostTier(ai), currentAiSettings);
-    if (target.kind === 'page') {
-      showAiEnginesPage(target.engineId ? { initial: { engineId: target.engineId } } : {});
-    } else {
-      showSettingsModal('ai');
+    showSettingsModal('ai');
+  }
+
+  /** The first-run panel's detection: the best running local server that is not set up yet. */
+  async function detectForFirstRun(signal: AbortSignal): Promise<AiFirstRunDetection> {
+    const ai = aiHost;
+    const ui = aiUi;
+    if (!ai || !ui) {return { kind: 'quiet' };}
+    const probes = await ui.detectLocalServers(ai, signal);
+    if (!probes) {return { kind: 'quiet' };}
+    const best = ui.bestLocalServer(probes, currentAiSettings.engines);
+    if (best) {
+      const name = ui.AI_ENGINE_PRESETS.find((p) => p.id === best.presetId)?.name ?? best.presetId;
+      return { kind: 'found', presetId: best.presetId, name, ...(best.models !== undefined ? { models: best.models } : {}) };
     }
+    return probes.some((p) => p.ok) ? { kind: 'quiet' } : { kind: 'none' };
+  }
+
+  /** "Use LM Studio": engine, models, default route and `ai.enabled` in one save. */
+  async function useLocalServer(presetId: string): Promise<void> {
+    const ai = aiHost;
+    const ui = aiUi;
+    if (!ai || !ui || destroyed) {return;}
+    const result = await ui.setUpLocalEngine(aiSessionOptions(ai), presetId);
+    if (destroyed) {return;}
+    host.saveSettings?.(result.patch);
+    currentAiSettings = ui.withSavedAiKeys(currentAiSettings, result.settings, result.patch);
+    renderAiIndicator();
+    refreshAiToolbarButton();
+    scheduleAiStatusRefresh();
   }
 
   /** Whether the editor (or source view) has a non-empty selection. */
@@ -2548,7 +2586,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
     const mode = aiToolbarButtonMode(true, currentAiSettings);
     if (mode === 'firstRun') {
-      ui.showAiFirstRunPanel({ anchor, onTurnOn: turnOnAiAndSetUp });
+      const tier = aiHostTier(ai);
+      ui.showAiFirstRunPanel({
+        anchor,
+        tier,
+        onTurnOn: turnOnAiAndSetUp,
+        // Only here and on the cards, never in the background (OQ6).
+        ...(tier === 2 && ai.detectLocalServers ? { detect: detectForFirstRun, onUseLocal: useLocalServer } : {}),
+      });
       return;
     }
     const availability = aiRewriteAvailability();

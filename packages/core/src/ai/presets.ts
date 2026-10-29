@@ -43,6 +43,12 @@ export interface AiEnginePreset {
   keyHint: string;
   /** Cloud presets: the Popular group, in order. The first rule that matches is the auto-picked default. */
   popular?: readonly AiPopularRule[];
+  /**
+   * Local presets: the path (from the server root, without `/v1`) that local
+   * server detection GETs when it is not `{baseUrl}/models`. The native lists
+   * answer without a key.
+   */
+  detectPath?: string;
 }
 
 export interface AiPresetFamilyInfo {
@@ -92,6 +98,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'local',
     caption: 'The LM Studio app’s local server',
     keyHint: 'Only needed if you turned on authentication in LM Studio.',
+    detectPath: '/api/v0/models',
   },
   {
     id: 'ollama',
@@ -102,6 +109,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'local',
     caption: 'Models pulled with ollama',
     keyHint: 'Ollama needs no key.',
+    detectPath: '/api/tags',
   },
   {
     id: 'llamacpp',
@@ -272,4 +280,12 @@ export function presetForEngine(
     if (sameHost) {return sameHost;}
   }
   return engine.kind !== 'openai-compatible' && sameKind.length === 1 ? sameKind[0] : undefined;
+}
+
+/** Local server detection waits this long for each address. */
+export const AI_LOCAL_DETECT_TIMEOUT_MS = 1500;
+
+/** What `detectLocalServers` is asked about: every local preset but Custom, at its default address. */
+export function localDetectCandidates(presets: readonly AiEnginePreset[] = AI_ENGINE_PRESETS): { presetId: string; baseUrl: string }[] {
+  return presets.filter((p) => p.family === 'local' && p.id !== 'custom').map((p) => ({ presetId: p.id, baseUrl: p.baseUrl }));
 }

@@ -146,7 +146,7 @@ suite('@mikedown/web-component standalone bundle', () => {
     const eager = await upFront();
     expect(eager).not.toContain(aiChunk);
     // Strings only the AI UI has: the first-run panel, the AI menu, the engine presets.
-    const markers = ['Turn on and set up', 'Manage engines', 'LM Studio'];
+    const markers = ['Set up another way', 'Manage engines', 'LM Studio'];
     for (const f of eager) {
       for (const m of markers) expect(read(f), `${m} in ${f}`).not.toContain(m);
     }

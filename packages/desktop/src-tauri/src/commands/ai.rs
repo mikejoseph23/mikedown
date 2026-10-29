@@ -21,6 +21,8 @@
 //!   account = engine id). Keys never come back out.
 //! - `ai_request_cloud_consent(id)`: a native dialog (not webview UI, so a
 //!   shared folder cannot restyle it away).
+//! - `ai_detect_local_servers(candidates)`: which local presets answer at
+//!   their addresses, for the setup UI (`detect.rs`). Only when asked.
 //!
 //! Engines come from the global `<app-data>/settings.json` only (`ai.engines`,
 //! OPEN-4): a folder's `.mikedown/settings.json` can never add an endpoint,
@@ -30,6 +32,7 @@
 //! `ai.allowCloud` and the user's consent for the window's folder, stored as
 //! `ai.consent.<engineId>` in that folder's settings file.
 
+pub mod detect;
 pub mod discovery;
 pub mod errors;
 pub mod locality;
@@ -551,6 +554,17 @@ pub async fn ai_request_cloud_consent<R: Runtime>(
         }
     }
     Ok(granted)
+}
+
+/// Look for local model servers (the first-run panel and the quick-start
+/// cards ask; never in the background). One GET per candidate, 1.5 s each;
+/// a preset's key (oMLX's key file) is sent only to its own address and only
+/// after a 401. One result per candidate, in order; nothing is cached.
+#[tauri::command]
+pub async fn ai_detect_local_servers(state: State<'_, AiState>, candidates: Vec<detect::DetectCandidate>) -> Result<Vec<detect::LocalServerProbe>, AiError> {
+    let client = state.client.clone();
+    let key_for = |target: &detect::DetectTarget<'_>| detect::preset_key(target, &|n| std::env::var(n).ok());
+    Ok(detect::detect_all(&client, candidates, detect::LOCAL_PRESETS, &key_for).await)
 }
 
 #[cfg(test)]

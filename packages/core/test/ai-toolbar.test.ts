@@ -157,7 +157,7 @@ describe('first-run panel (AI off)', () => {
     expect(p.getAttribute('role')).toBe('dialog');
     expect(p.querySelector('.ai-experimental-badge')?.textContent).toBe('Experimental');
     expect(p.textContent).toContain(AI_EXPERIMENTAL_DISCLAIMER);
-    expect(document.activeElement?.textContent).toBe('Turn on and set up');
+    expect(document.activeElement?.textContent).toBe('Set up');
     (p.querySelector('[data-fk="ai-first-run:cancel"]') as HTMLButtonElement).click();
     expect(panel()).toBeNull();
     expect(saveSettings).not.toHaveBeenCalled();
@@ -172,19 +172,22 @@ describe('first-run panel (AI off)', () => {
     expect(panel()).toBeNull();
   });
 
-  it('Turn on and set up saves ai.enabled and opens the AI Engines page on the cards (no engines)', () => {
+  it('Set up opens the AI Engines page on the cards and leaves AI off until Done (B3)', () => {
     const saveSettings = vi.fn();
     class Host extends NoopHost { ai = tier2(); saveSettings = saveSettings; }
     mount(new Host());
     aiButton()!.click();
     (panel()!.querySelector('[data-fk="ai-first-run:turn-on"]') as HTMLButtonElement).click();
     expect(panel()).toBeNull();
-    expect(saveSettings).toHaveBeenCalledWith({ 'ai.enabled': true });
+    expect(saveSettings).not.toHaveBeenCalled();
     const page = document.querySelector('#mikedown-ai-page-overlay')!;
     expect(page).not.toBeNull();
     expect(page.querySelector('.ai-cards')).not.toBeNull();
-    // The button now opens the menu.
-    expect(aiButton()!.getAttribute('aria-haspopup')).toBe('menu');
+    expect(page.querySelector('.ai-page-title-note')?.textContent).toBe('AI turns on when you choose Done');
+    // Back leaves AI off: the button still opens the first-run panel.
+    (page.querySelector('.ai-page-back') as HTMLButtonElement).click();
+    expect(saveSettings).not.toHaveBeenCalled();
+    expect(aiButton()!.getAttribute('aria-haspopup')).toBe('dialog');
   });
 
   it('with an engine already set up, the page opens on its Express form', () => {
@@ -195,16 +198,19 @@ describe('first-run panel (AI off)', () => {
     (panel()!.querySelector('[data-fk="ai-first-run:turn-on"]') as HTMLButtonElement).click();
     expect(document.querySelector('[data-fk="nav:eng:omlx"]')?.getAttribute('aria-current')).toBe('true');
     expect(document.querySelector('#mikedown-ai-page-overlay .ai-form')).not.toBeNull();
-    // Done afterwards does not write ai.enabled a second time.
+    // Done turns AI on, once, because the engine has a usable default route.
     (document.querySelector('.ai-page-done') as HTMLButtonElement).click();
     expect(saveSettings.mock.calls.flatMap((c) => Object.keys(c[0] as object)).filter((k) => k === 'ai.enabled')).toHaveLength(1);
+    expect(saveSettings).toHaveBeenCalledWith({ 'ai.enabled': true });
+    expect(aiButton()!.getAttribute('aria-haspopup')).toBe('menu');
   });
 
-  it('a tier-1 host turns on and lands on the AI tab', () => {
+  it('a tier-1 host says Turn on, turns on and lands on the AI tab', () => {
     const saveSettings = vi.fn();
     class Host extends NoopHost { ai = { complete: vi.fn() } as unknown as MikeDownAiHost; saveSettings = saveSettings; }
     mount(new Host());
     aiButton()!.click();
+    expect(panel()!.querySelector('[data-fk="ai-first-run:turn-on"]')?.textContent).toBe('Turn on');
     (panel()!.querySelector('[data-fk="ai-first-run:turn-on"]') as HTMLButtonElement).click();
     expect(saveSettings).toHaveBeenCalledWith({ 'ai.enabled': true });
     expect(document.querySelector<HTMLElement>('.settings-tab[aria-selected="true"]')?.dataset.tabId).toBe('ai');

@@ -133,6 +133,10 @@
  *         — store or delete the key in SecretStorage; answered by aiEngineStatus.
  *     { type: 'aiRequestCloudConsent', requestId, engineId } — host modal;
  *         answered by aiConsent.
+ *     { type: 'aiDetectLocalServers', requestId, candidates: { presetId, baseUrl }[] }
+ *         — the first-run panel and the quick-start cards look for local
+ *         servers (one GET per local preset, 1.5 s cap each, never cached);
+ *         answered by aiEngineProbes.
  *   Extension → Webview:
  *     { type: 'aiToken', requestId, delta }
  *     { type: 'aiDone', requestId, result: AiCompletionResult }
@@ -142,6 +146,7 @@
  *         also pushed after a settings change, probe or discovery.
  *     { type: 'aiEngineStatus', requestId, status: AiEngineStatus }
  *     { type: 'aiConsent', requestId, engineId, granted }
+ *     { type: 'aiEngineProbes', requestId, probes: AiLocalServerProbe[] }
  *     { type: 'command', command: 'openAiSettings', page?: boolean } —
  *         mikedown.openAiSettings (and the AI status bar item) send
  *         `page: true`: open the full-window AI Engines page. Without `page`

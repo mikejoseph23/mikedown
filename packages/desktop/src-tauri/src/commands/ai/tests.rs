@@ -604,3 +604,48 @@ fn each_adapter_reports_its_kind() {
     assert_eq!(providers::anthropic::Anthropic.kind(), Anthropic);
     assert_eq!(providers::openai::OpenAi.kind(), OpenAi);
 }
+
+#[tokio::test]
+async fn detection_counts_models_retries_with_a_key_after_401_and_reports_silence() {
+    // LM Studio's native list, embeddings left out.
+    let (lms, lms_seen) = serve(|_| Reply::Json(200, json!({ "data": [{ "id": "a", "type": "llm" }, { "id": "b", "type": "vlm" }, { "id": "e", "type": "embeddings" }] }))).await;
+    // An oMLX-like server that wants its key.
+    let (omlx, omlx_seen) = serve(|req| {
+        if req.headers.get("authorization").map(String::as_str) == Some("Bearer from-file") {
+            Reply::Json(200, json!({ "data": [{ "id": "m1" }, { "id": "m2" }] }))
+        } else {
+            Reply::Json(401, json!({ "error": "key" }))
+        }
+    })
+    .await;
+    // Nothing listens here.
+    let dead = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let dead_url = format!("http://{}/v1", dead.local_addr().unwrap());
+    drop(dead);
+
+    let client = providers::build_client();
+    let key_for = |t: &detect::DetectTarget<'_>| (t.preset.id == "omlx").then(|| "from-file".to_string());
+    let probes = detect::detect_all(
+        &client,
+        vec![
+            detect::DetectCandidate { preset_id: "lmstudio".into(), base_url: format!("{lms}/v1") },
+            detect::DetectCandidate { preset_id: "omlx".into(), base_url: format!("{omlx}/v1") },
+            detect::DetectCandidate { preset_id: "ollama".into(), base_url: dead_url.clone() },
+            detect::DetectCandidate { preset_id: "anthropic".into(), base_url: "https://api.anthropic.com".into() },
+        ],
+        detect::LOCAL_PRESETS,
+        &key_for,
+    )
+    .await;
+    assert_eq!(probes.len(), 4);
+    assert!(probes[0].ok);
+    assert_eq!(probes[0].models, Some(2));
+    assert_eq!(lms_seen.lock().unwrap()[0].path, "/api/v0/models");
+    assert!(probes[1].ok);
+    assert_eq!(probes[1].models, Some(2));
+    let omlx_requests = omlx_seen.lock().unwrap();
+    assert_eq!(omlx_requests.len(), 2);
+    assert!(!omlx_requests[0].headers.contains_key("authorization"));
+    assert!(!probes[2].ok && probes[2].models.is_none());
+    assert!(!probes[3].ok);
+}
