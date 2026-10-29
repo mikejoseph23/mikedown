@@ -14,7 +14,9 @@
  * - Every new request (Retry, another variant, a new open) aborts the one
  *   before it; Esc and click-away abort too.
  *
- * The popover renders model output with `textContent` only.
+ * The popover renders model output through `renderPreviewMarkdown`, which
+ * builds DOM with `textContent` only: no raw HTML, no link a click can follow.
+ * Insert and Accept use the original markdown, not the rendered text.
  *
  * Three output modes, from the variant and the target:
  *
@@ -92,6 +94,7 @@ import { buildExplainMessages, explainMaxTokens } from './ai/prompts/explain';
 import { checkMarkdownStructure, type StructureDiff, type StructureMismatch } from './ai/prompts/structureCheck';
 import type { AiRunEvents, AiRunOutcome, AiRunRequest, AiRunThinking } from './ai-request';
 import { aiRunThinkingOn } from './ai-request';
+import { renderPreviewMarkdown } from './ai-markdown-preview';
 import {
   loadAudience,
   rememberAudience,
@@ -1001,6 +1004,15 @@ function thinkingInEffect(t: AiRunThinking | null): AiThinkingLevel | null {
   return t ? t.sent ?? t.configured : null;
 }
 
+/** The dial's Default segment ("Model default": the request sends no thinking fields). */
+const THINKING_DEFAULT = 'default';
+
+/** The remembered preference the dial shows as checked: the level sent, else Default. */
+const thinkingSelected = (t: AiRunThinking | null): string => t?.sent ?? THINKING_DEFAULT;
+
+/** "local · Proxy · model" reads "Local · Proxy · model". */
+const capitalizeFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
 export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePopover {
   let target: AiRewriteTarget | null = null;
   let root: HTMLElement | null = null;
@@ -1059,6 +1071,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   let bodyEl: HTMLElement;
   let oldTextEl: HTMLElement;
   let outEl: HTMLElement;
+  let caretEl: HTMLElement;
   let newLabelEl: HTMLElement;
   let newPaneEl: HTMLElement;
   let errorEl: HTMLElement;
@@ -1184,8 +1197,9 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     oldPane.append(el('div', 'ai-rw-label', 'Original'), oldTextEl);
     newPaneEl = el('div', 'ai-rw-pane ai-rw-pane--new');
     const newText = el('div', 'ai-rw-text');
-    outEl = el('span', 'ai-rw-out');
-    newText.append(outEl, el('span', 'ai-rw-caret'));
+    outEl = el('div', 'ai-rw-out');
+    caretEl = el('span', 'ai-rw-caret');
+    newText.append(outEl);
     newLabelEl = el('div', 'ai-rw-label', 'Rewrite');
     newPaneEl.append(newLabelEl, newText);
     bodyEl.append(oldPane, newPaneEl);
@@ -1391,24 +1405,32 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     const choices = thinking && phase !== 'choose' ? thinkingChoices(thinking.kind) : [];
     thinkEl.hidden = choices.length === 0;
     if (choices.length === 0) {return;}
-    const current = thinkingInEffect(thinking);
+    const current = thinkingSelected(thinking);
     const focused = thinkEl.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.level : undefined;
     const label = el('span', 'ai-rw-think-label', 'Thinking');
     label.setAttribute('aria-hidden', 'true');
-    const stop = focused ?? (choices.some((c) => c.level === current) ? current : choices[0].level);
-    const segments = choices.map((c) => {
-      const seg = button('ai-rw-think-seg', thinkingSegmentLabel(c.label), () => pickThinking(c.level));
-      seg.dataset.level = c.level;
+    // The AI menu's Thinking row: Default first (the model's own setting, no thinking fields sent), then the kind's levels.
+    const options = [
+      { level: THINKING_DEFAULT, label: 'Default', title: 'Thinking: the model\'s default' },
+      ...choices.map((c) => ({ level: c.level as string, label: thinkingSegmentLabel(c.label), title: `Thinking: ${c.label}` })),
+    ];
+    const stop = focused && options.some((o) => o.level === focused) ? focused : current;
+    const segments = options.map((o) => {
+      const seg = button('ai-rw-think-seg', o.label, () => pickThinking(o.level === THINKING_DEFAULT ? null : o.level as AiThinkingLevel));
+      seg.dataset.level = o.level;
       seg.setAttribute('role', 'radio');
-      seg.setAttribute('aria-checked', c.level === current ? 'true' : 'false');
-      seg.setAttribute('aria-label', c.label);
-      seg.tabIndex = c.level === stop ? 0 : -1;
-      seg.title = `Thinking: ${c.label} (runs again)`;
+      seg.setAttribute('aria-checked', o.level === current ? 'true' : 'false');
+      seg.setAttribute('aria-label', o.level === THINKING_DEFAULT ? 'Default' : choices.find((c) => c.level === o.level)?.label ?? o.label);
+      seg.tabIndex = o.level === stop ? 0 : -1;
+      seg.title = `${o.title} (runs again)`;
       return seg;
     });
-    thinkEl.title = current
-      ? `Thinking: ${choices.find((c) => c.level === current)?.label ?? current}${thinking?.sent ? '' : ' (the model\'s setting)'}`
-      : 'Thinking: the model\'s default';
+    const effective = thinkingInEffect(thinking);
+    thinkEl.title = thinking?.sent
+      ? `Thinking: ${choices.find((c) => c.level === thinking?.sent)?.label ?? thinking.sent}`
+      : effective
+        ? `Thinking: the model's setting (${choices.find((c) => c.level === effective)?.label ?? effective})`
+        : 'Thinking: the model\'s default';
     thinkEl.replaceChildren(label, ...segments);
     if (focused) {segments.find((b) => b.dataset.level === focused)?.focus({ preventScroll: true });}
   }
@@ -1448,15 +1470,22 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     glyph.innerHTML = b.where === 'cloud' ? CLOUD : LOCAL;
     // "local · oMLX · Qwen3 30B": locality and engine never shrink, only the model name ellipsizes.
     const text = el('span', 'ai-rw-badge-text');
-    const cut = b.text.split(' · ');
+    const cut = capitalizeFirst(b.text).split(' · ');
     if (cut.length >= 3) {
       text.append(el('span', 'ai-rw-badge-engine', `${cut.slice(0, 2).join(' · ')} · `), el('span', 'ai-rw-badge-model', cut.slice(2).join(' · ')));
     } else {
-      text.append(el('span', 'ai-rw-badge-engine', b.text));
+      text.append(el('span', 'ai-rw-badge-engine', capitalizeFirst(b.text)));
     }
     const parts: Node[] = [glyph, text];
     if (b.fallback) {parts.push(el('span', 'ai-rw-badge-fallback', '(fallback)'));}
     badgeEl.replaceChildren(...parts);
+  }
+
+  /** The caret follows the last line of the preview rather than sitting under a block. */
+  function placeCaret(): void {
+    let host: Element = outEl;
+    for (let last = host.lastElementChild; last && /^(UL|OL|LI|BLOCKQUOTE|P|DIV)$/.test(last.tagName); last = host.lastElementChild) {host = last;}
+    host.append(caretEl);
   }
 
   function renderOut(): void {
@@ -1464,11 +1493,13 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     const shown = job === 'titles' ? ''
       : job === 'summary' ? (phase === 'done' && summaryJob ? summaryPreviewText(raw, summaryJob.kind, summaryCutOff) : summaryVisibleText(raw)).trim()
         : phase === 'done' ? finalText.trim() : rewriteVisibleText(raw).trimStart();
-    outEl.textContent = shown;
+    renderPreviewMarkdown(outEl, shown);
+    placeCaret();
     newPaneEl.classList.toggle('is-waiting', phase === 'running' && !shown);
     if (phase === 'running' && !shown) {
       const name = deps.badge(route, null, false)?.text.split(' · ')[1];
-      outEl.textContent = '';
+      outEl.replaceChildren();
+      placeCaret();
       outEl.dataset.placeholder = repairing ? REPAIR_NOTE
         : job === 'titles' && raw ? 'Suggesting titles…'
           : name ? `Waiting for ${name}…` : 'Waiting for the engine…';
@@ -1724,14 +1755,14 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     );
   }
 
-  /** A dial change: remembered for every later request (the AI menu's Thinking row too), then the same run again (like Retry). */
-  function pickThinking(level: AiThinkingLevel): void {
+  /** A dial change (null: Default): remembered for every later request (the AI menu's Thinking row too), then the same run again (like Retry). */
+  function pickThinking(level: AiThinkingLevel | null): void {
     if (!thinking || phase === 'choose') {return;}
-    if (level === thinkingInEffect(thinking)) {return;}
+    if (level === thinking.sent) {return;}
     rememberThinkingLevel(level);
     // Checked at once; the route's answer confirms it.
     thinking = { ...thinking, sent: level };
-    const label = thinkingChoices(thinking.kind).find((c) => c.level === level)?.label ?? level;
+    const label = level ? thinkingChoices(thinking.kind).find((c) => c.level === level)?.label ?? level : 'Default';
     rerun();
     liveEl.textContent = `Thinking: ${label}`;
   }

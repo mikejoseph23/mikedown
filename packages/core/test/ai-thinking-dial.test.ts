@@ -274,13 +274,14 @@ async function rewriteShorter(handle: MikeDownEditorHandle): Promise<void> {
 }
 
 describe('popover thinking dial', () => {
-  it('shows the kind\'s levels with the model\'s setting pressed, re-runs on a change and remembers it', async () => {
+  it('shows Default plus the kind\'s levels with Default checked, re-runs on a change and remembers it', async () => {
     const { handle, requests } = mountTier2('openai-compatible', { chat_template_kwargs: { enable_thinking: false } });
     await settle();
     await rewriteShorter(handle);
     expect(dial()!.hidden).toBe(false);
-    expect(segments().map((s) => s.textContent)).toEqual(['Off', 'Low', 'Med', 'High']);
-    expect(pressed()).toBe('off');
+    expect(segments().map((s) => s.textContent)).toEqual(['Default', 'Off', 'Low', 'Med', 'High']);
+    // The preference is Default (nothing sent), whatever the model itself is set to.
+    expect(pressed()).toBe('default');
     expect(requests[0].requestOverrides).toBeUndefined();
 
     segments().find((s) => s.dataset.level === 'low')!.click();
@@ -304,9 +305,10 @@ describe('popover thinking dial', () => {
     const { handle, requests } = mountTier2('anthropic', { thinking: { type: 'adaptive' }, output_config: { effort: 'high' } });
     await settle();
     await rewriteShorter(handle);
-    expect(segments().map((s) => s.textContent)).toEqual(['Low', 'Med', 'High']);
-    expect(pressed()).toBe('high');
-    segments().find((s) => s.dataset.level === 'high')!.click();
+    expect(segments().map((s) => s.textContent)).toEqual(['Default', 'Low', 'Med', 'High']);
+    expect(pressed()).toBe('default');
+    expect(dial()!.title).toContain('High');
+    segments().find((s) => s.dataset.level === 'default')!.click();
     await settle();
     expect(requests).toHaveLength(1);
   });
@@ -335,12 +337,13 @@ describe('popover thinking dial: keyboard (U2)', () => {
     await rewriteShorter(handle);
     expect(dial()!.getAttribute('role')).toBe('radiogroup');
     expect(segments().every((s) => s.getAttribute('role') === 'radio')).toBe(true);
-    // One stop: the checked level (Default checks nothing, so the first).
+    // One stop: the checked level (Default).
     expect(segments().filter((s) => s.tabIndex === 0)).toHaveLength(1);
+    expect(segments().find((s) => s.tabIndex === 0)!.dataset.level).toBe('default');
     segments()[0].focus();
     const arrow = (k: string) => document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
     arrow('ArrowRight');
-    expect((document.activeElement as HTMLElement).dataset.level).toBe('low');
+    expect((document.activeElement as HTMLElement).dataset.level).toBe('off');
     arrow('ArrowLeft');
     arrow('ArrowLeft');
     expect((document.activeElement as HTMLElement).dataset.level).toBe('high');
@@ -354,6 +357,24 @@ describe('popover thinking dial: keyboard (U2)', () => {
     expect(pressed()).toBe('high');
     // The new answer takes the focus (Enter accepts); Tab back lands on the checked level.
     expect(segments().find((s) => s.dataset.level === 'high')!.tabIndex).toBe(0);
+  });
+});
+
+describe('popover thinking dial: Default', () => {
+  it('matches the AI menu row, and picking Default after a level sends no thinking fields', async () => {
+    const { handle, requests } = mountTier2('openai-compatible');
+    await settle();
+    rememberThinkingLevel('low');
+    await rewriteShorter(handle);
+    expect(pressed()).toBe('low');
+    expect(requests[0].requestOverrides).toBeDefined();
+    segments().find((s) => s.dataset.level === 'default')!.click();
+    await settle();
+    await settle();
+    expect(requests).toHaveLength(2);
+    expect(requests[1].requestOverrides).toBeUndefined();
+    expect(loadThinkingLevel()).toBeNull();
+    expect(pressed()).toBe('default');
   });
 });
 
@@ -371,7 +392,7 @@ describe('popover engine badge', () => {
     expect(popover()!.querySelector('.ai-rw-hint')).toBeNull();
     expect(popover()!.querySelector('.ai-rw-foot')!.textContent).not.toContain('Esc');
     // Locality and engine kept whole (O2), the model name in full, and in the tooltip.
-    expect(badge.querySelector('.ai-rw-badge-engine')!.textContent).toBe('local · oMLX · ');
+    expect(badge.querySelector('.ai-rw-badge-engine')!.textContent).toBe('Local · oMLX · ');
     expect(badge.querySelector('.ai-rw-badge-model')!.textContent).toBe(long);
     expect(badge.title).toContain(long);
     // Escape still closes, and the close button names it.

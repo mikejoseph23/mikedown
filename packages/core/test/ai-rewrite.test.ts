@@ -434,10 +434,12 @@ describe('rewrite popover', () => {
     clickButton('Shorter');
     await settle();
     expect(popover()?.dataset.phase).toBe('done');
-    expect(popover()?.querySelector('.ai-rw-out')?.textContent).toBe('A **swift** fox leaps.');
-    expect(popover()?.querySelector('.ai-rw-badge-text')?.textContent).toBe('local · Proxy · house-model');
+    // The preview renders the markdown; Accept (below) still inserts the original.
+    expect(popover()?.querySelector('.ai-rw-out')?.textContent).toBe('A swift fox leaps.');
+    expect(popover()?.querySelector('.ai-rw-out strong')?.textContent).toBe('swift');
+    expect(popover()?.querySelector('.ai-rw-badge-text')?.textContent).toBe('Local · Proxy · house-model');
     // Locality and engine sit apart from the model so only the model name ellipsizes.
-    expect(popover()?.querySelector('.ai-rw-badge-engine')?.textContent).toBe('local · Proxy · ');
+    expect(popover()?.querySelector('.ai-rw-badge-engine')?.textContent).toBe('Local · Proxy · ');
     expect(popover()?.querySelector('.ai-rw-badge-model')?.textContent).toBe('house-model');
     const user = requests[0].req.messages[1].content as string;
     expect(user).toContain('<passage>\nThe quick brown fox jumps.\n</passage>');

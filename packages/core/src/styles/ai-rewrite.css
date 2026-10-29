@@ -303,6 +303,47 @@
   color: var(--mikedown-text-muted, #6f6f74);
 }
 
+/* The rendered preview (ai-markdown-preview.ts). Plain prose keeps the raw text's look:
+   paragraphs hold their own newlines and a blank line between them. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-out { display: block; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-out > :first-child { margin-top: 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-out > :last-child { margin-bottom: 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-p,
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-h,
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-list,
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-quote,
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-pre { margin: 0 0 0.7em; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-list { padding-left: 1.5em; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-list .ai-rw-md-list { margin: 0.2em 0 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-list > li { margin: 0.15em 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-h { font-weight: 600; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-h[data-level="1"] { font-size: 1.15em; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-h[data-level="2"] { font-size: 1.08em; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-quote {
+  padding-left: 10px;
+  border-left: 2px solid var(--mikedown-divider, rgba(15, 15, 20, 0.16));
+  color: var(--mikedown-text-muted, #6f6f74);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-pre {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--mikedown-hover, rgba(55, 53, 47, 0.06));
+  overflow: auto;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-out code {
+  font-family: var(--mikedown-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.92em;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-out :not(pre) > code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--mikedown-hover, rgba(55, 53, 47, 0.06));
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-link { text-decoration: underline; text-decoration-color: var(--mikedown-divider, rgba(15, 15, 20, 0.3)); text-underline-offset: 2px; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-md-hr { margin: 0.7em 0; border: 0; border-top: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.12)); }
+/* A grid item drops its trailing space; keep the "·" separator's. */
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge-engine { white-space: pre; }
+
 /* A calm caret: a slow fade, not a hard blink, only while streaming. */
 :is(.mikedown-root, .mikedown-portal) .ai-rw-caret {
   display: none;

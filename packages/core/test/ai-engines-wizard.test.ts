@@ -232,7 +232,7 @@ describe('setup wizard: step 2, cloud', () => {
     expect(note.nextElementSibling?.classList.contains('ai-key-row')).toBe(true);
     const anthropic = AI_ENGINE_PRESETS.find((p) => p.id === 'anthropic')!;
     expect(Array.from(note.querySelectorAll('a')).map((a) => [a.textContent, a.getAttribute('href')]))
-      .toEqual([['Anthropic API keys', anthropic.keyUrl], ['Pricing', anthropic.pricingUrl]]);
+      .toEqual([['Anthropic API keys', anthropic.keyUrl], ['Pricing', anthropic.pricingUrl], ['Privacy', anthropic.policy!.url]]);
     // Nothing to route to yet: Continue waits.
     expect(q(m.c, 'wiz:continue')!.getAttribute('aria-disabled')).toBe('true');
   });
