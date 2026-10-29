@@ -66,6 +66,7 @@ The extension host has zero DOM types. The webview has zero `vscode` Node APIs. 
 - `settings.ts` — reads `mikedown.*` from `vscode.workspace.getConfiguration`. **If you add a setting, also register it in** `package.json#contributes.configuration` **AND wire it into the in-editor Settings modal** (see Settings rule below).
 - `backlinkProvider.ts` / `outlineProvider.ts` — workspace-wide markdown link index + outline symbol provider.
 - `export.ts` — HTML/PDF export by reusing the webview's rendered HTML (Chromium print).
+- `ai/` — the VS Code AI host (experimental, `mikedown.ai.*`, off by default): `engineService.ts` (probes, discovery, routing statuses, cloud consent), `providers/` (one network adapter per engine kind, Node `fetch`), `secrets.ts` (API keys in SecretStorage, falling back to `apiKeyEnv`, then `apiKeyFile`), `webviewBridge.ts` (the `ai*` postMessage protocol), `vscodeAi.ts`, `statusBar.ts`. The webview never sees a key or opens a socket to an engine.
 - Host-and-webview pure modules (`imageDisplayPath`, `tagExtract`, `tagSyntax`, `wordCount`, `anchoring`, `frontmatterYaml`, `headingNumbering`) live in `packages/core/src/shared/`. The host imports them as `@mikedown/core/shared/<name>` (alias in `tsconfig.json`, `webpack.config.js` and `vitest.config.ts`).
 
 ### Webview (`packages/core/src/`)
@@ -77,6 +78,10 @@ Stylesheets are in `packages/core/src/styles/` (the CSS list in `markdownEditorP
 - UI overlays: `contextmenu.ts`, `toolbar-dropdown.ts`, `tablepicker.ts` + `tabledrag.ts`, `languagepicker.ts`, `outlineSidebar.ts` (the in-editor sidebar — Properties / Outline / Backlinks / footer), `linkautocomplete.ts`.
 - AI writing features (experimental, off by default behind `mikedown.ai.enabled`): prompt builders in `ai/prompts/` (`rewrite`, `explain`, `structureCheck`, `summary`, `title`, `properties`); `ai/json.ts` (lenient JSON with one repair retry); `ai/documentBudget.ts` (sections from the top, plus a coverage note for long documents); `ai-prefs.ts` (per-session preferences such as the thinking dial). Host commands are `mikedown.ai.*` (`explain`, `translate`, `summarize`, `suggestTitle`, `suggestProperties`, plus `rewrite`), forwarded to the webview as `{ type: 'command' }` like `aiRewrite`.
 - Settings modal lives inside `editor-main.ts` (`showSettingsModal` \~line 522) and posts `{ type: 'saveSettings', settings: {...} }` back to the host, which persists via `vscode.workspace.getConfiguration().update(...)`.
+- Toolbar: `toolbar-ids.ts` (button ids, default order, which are pinned), `toolbar-registry.ts` (item types and the `renderToolbar` walk; the definitions are built in `editor.ts#buildCondensedToolbar`), `toolbar-layout.ts` (the `mikedown.toolbarLayout` model: parse, migrate, edit), `toolbar-customize.ts` (the in-place edit mode, drag and keyboard). A new button gets an id in `toolbar-ids.ts` and a definition there; don't hardcode it in the toolbar markup.
+- AI, pure layer: `packages/core/src/ai/` (public as `@mikedown/core/ai`): settings schema, task routing, request builders, SSE parser, capability heuristics, thinking levels and the prompts. No DOM, no network, no provider SDK; hosts do the I/O. Keep it that way (the package shape test checks).
+- AI, UI: `ai-lite.ts` is the little the editor needs up front plus `loadAiUi()`; `ai-ui.ts` is the rest (rewrite popover, AI tab, Engines page, toolbar menu) and loads as a **lazy chunk** only when the host has `host.ai`. Hosts that want it in their main bundle import `ai-ui-eager.ts` once (the VS Code webview and vitest do). Don't import `ai-ui` statically from the editor's main path; that undoes the bundle split. `ai-engines-page.ts` is also its own entry, `@mikedown/core/ai/engines-page`.
+- AI, Desktop: `packages/desktop/src-tauri/src/commands/ai.rs` plus `ai/` (providers, keychain secrets, SSE) is the Rust twin of `src/ai/`; `packages/desktop/src/host/aiHost.ts` turns its commands into `host.ai`. Request building and SSE parsing are ports of the core ones and run against the shared `test/ai-fixtures/`.
 
 ### Webview ↔ extension protocol
 
@@ -123,6 +128,8 @@ Any new `mikedown.*` setting must be added in **three places**:
 1. `package.json#contributes.configuration.properties` (schema + default).
 2. `src/settings.ts` (reader).
 3. The in-editor Settings modal in `packages/core/src/editor-main.ts#showSettingsModal` — the toolbar gear button is the primary UX, the VS Code settings UI is secondary.
+
+Secrets never go in settings (any scope, any host). API keys are written with `host.ai.setSecret` (SecretStorage in VS Code, the OS keychain on Desktop), and settings only name where to look (`apiKeyEnv`, `apiKeyFile`). `mikedown.ai.engines` stays machine scope (never workspace), so a repo cannot point MikeDown at an endpoint.
 
 ## Repo conventions
 
