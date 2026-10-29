@@ -12,6 +12,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['test/**/*.test.ts', 'packages/*/test/**/*.test.ts'],
+    // The AI UI loads on demand in the editor (ai-lite.ts); registered up
+    // front, AI tests can drive it synchronously, as the VS Code webview does.
+    setupFiles: ['./packages/core/src/ai-ui-eager.ts'],
     // Pin the process time zone so date/time formatting tests (e.g. "local"
     // results in slashcommandsDate.test.ts) are deterministic regardless of
     // the machine running them.

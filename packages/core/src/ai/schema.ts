@@ -11,7 +11,7 @@
  */
 
 import { completeCapabilities, detectCapabilities } from './capabilityHeuristics';
-import { DEFAULT_LOCAL_NETWORKS } from './locality';
+import { defaultAiSettings } from './defaults';
 import { AI_ENGINE_KINDS, AI_FALLBACK_MODES } from './types';
 import type {
   AiApiKeyFile,
@@ -40,17 +40,7 @@ export interface ParseAiSettingsOptions {
 /** The top-level keys, without the `ai.` prefix. */
 export const AI_SETTINGS_KEYS = ['enabled', 'allowCloud', 'engines', 'routing', 'features', 'localNetworks', 'showToolbarButton'] as const;
 
-export function defaultAiSettings(): AiSettings {
-  return {
-    enabled: false,
-    allowCloud: false,
-    engines: [],
-    routing: { default: null, fallback: 'anyLocal', tasks: {} },
-    features: {},
-    localNetworks: [...DEFAULT_LOCAL_NETWORKS],
-    showToolbarButton: true,
-  };
-}
+export { defaultAiSettings };
 
 export function isKnownEngineKind(kind: string): kind is AiEngineKind {
   return (AI_ENGINE_KINDS as readonly string[]).includes(kind);

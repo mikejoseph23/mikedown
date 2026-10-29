@@ -66,7 +66,8 @@ unpkg works the same way:
 
 About the bundle:
 
-- It is about 780 kB gzipped (the budget is 850 kB). Most of that is syntax highlighting for every language highlight.js knows.
+- It is about 815 kB gzipped up front (the budget is 850 kB). Most of that is syntax highlighting for every language highlight.js knows.
+- It is split into a few files next to each other in `dist/`: the entry, a chunk it imports at once, and the AI UI (about 56 kB gzipped), which loads only when an element gets an `ai` host. The one `<script>` tag above is all a page needs; the browser fetches the chunks from the same folder. To self-host, copy every `dist/mikedown-editor.*.js` file, not only the entry.
 - The stylesheet goes into one `<style id="mikedown-styles">` at the start of `<head>`, once per page, so your own stylesheets come later and win. Don't also load `@mikedown/core/styles.css`.
 - KaTeX and Mermaid are not bundled. The first formula loads KaTeX (and one `<link>` to its CSS) from jsDelivr, the first diagram loads Mermaid, both pinned to the versions the bundle was built with. Turn either off with `features='{"math":false}'` or `features='{"mermaid":false}'` and nothing is fetched.
 - To use the module's exports (`MikeDownElement`, `defineMikeDownElement`), import the same URL: `import { MikeDownElement } from 'https://cdn.jsdelivr.net/npm/@mikedown/web-component@0.2.0/dist/mikedown-editor.standalone.js'`.

@@ -158,6 +158,21 @@ const suite = built ? describe : describe.skip;
 
 const read = (f: string) => readFileSync(join(dist, f), 'utf8');
 
+/** `file` and the chunks it imports statically (relative paths, from dist/), transitively. */
+function staticGraph(file: string): string[] {
+  const out = new Set<string>();
+  const queue = [file];
+  while (queue.length) {
+    const f = queue.shift()!;
+    if (out.has(f)) continue;
+    out.add(f);
+    for (const m of read(f).matchAll(/^(?:import|export)\b[^;]*?from\s*["'](\.{1,2}\/[^"']+)["']/gm)) {
+      queue.push(join(f, '..', m[1]).replace(/^\.\//, ''));
+    }
+  }
+  return [...out];
+}
+
 suite('@mikedown/core dist shape', () => {
   it('index.js is ESM with no VS Code leakage', () => {
     const js = read('index.js');
@@ -173,6 +188,18 @@ suite('@mikedown/core dist shape', () => {
     expect(js).toMatch(/import\(["']katex["']\)/);
     expect(js).not.toMatch(/^import .* from ["'](mermaid|katex)["']/m);
     expect(js).not.toMatch(/^import ["'](mermaid|katex)["']/m);
+  });
+
+  it('the AI UI is a chunk index.js loads with import(), outside its static graph', () => {
+    const graph = staticGraph('index.js');
+    const aiChunk = readdirSync(dist).find((f) => /^ai-ui-[\w-]+\.js$/.test(f));
+    expect(aiChunk).toBeTruthy();
+    expect(graph).not.toContain(aiChunk);
+    expect(graph.map(read).join('\n')).toContain(`import("./${aiChunk}")`);
+    // Strings only the AI UI has: the first-run panel and the engine presets.
+    for (const f of graph) {
+      for (const m of ['Turn on and set up', 'LM Studio']) expect(read(f), `${m} in ${f}`).not.toContain(m);
+    }
   });
 
   it('index.js gzipped stays under the 400 KB budget', () => {
@@ -247,11 +274,13 @@ suite('@mikedown/core shared subpath', () => {
 
 suite('@mikedown/core ai subpath', () => {
   it('ai/index is built, ESM, free of Node, DOM and provider SDK imports', () => {
-    const js = read('ai/index.js');
+    // Code it shares with the editor's AI chunk sits in chunks it imports.
+    const js = staticGraph('ai/index.js').map(read).join('\n');
     expect(js).toContain('parseAiSettings');
     expect(js).toContain('resolveRoute');
     expect(js).not.toMatch(/\brequire\(/);
-    expect(js).not.toMatch(/^import /m);
+    const specifiers = [...js.matchAll(/^(?:import|export)\b[^;]*?from\s*["']([^"']+)["']/gm)].map((m) => m[1]);
+    expect(specifiers.filter((x) => !/^\.{1,2}\//.test(x))).toEqual([]);
     expect(js).not.toMatch(/\bdocument\.(createElement|querySelector|body)|\bwindow\.(addEventListener|location|postMessage)/);
     expect(existsSync(join(dist, 'ai', 'index.d.ts'))).toBe(true);
   });
@@ -292,7 +321,7 @@ suite('@mikedown/core ai subpath', () => {
     for (const name of ['MikeDownAiHost', 'AiCompletionRequest', 'AiCompletionResult', 'AiEngineStatus']) {
       expect(dts, name).toContain(name);
     }
-    expect(read('ai/index.js')).not.toMatch(/\b(fetch|XMLHttpRequest|WebSocket|EventSource)\b\s*\(|\bnew\s+(XMLHttpRequest|WebSocket|EventSource)\b/);
+    expect(staticGraph('ai/index.js').map(read).join('\n')).not.toMatch(/\b(fetch|XMLHttpRequest|WebSocket|EventSource)\b\s*\(|\bnew\s+(XMLHttpRequest|WebSocket|EventSource)\b/);
   });
 
   it('no public package depends on a provider SDK or an HTTP client', () => {

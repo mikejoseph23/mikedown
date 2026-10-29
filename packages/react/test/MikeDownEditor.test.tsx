@@ -183,12 +183,13 @@ describe('controlled', () => {
 });
 
 describe('host.ai', () => {
-  it('is handed to the core untouched, next to the function host methods', () => {
+  it('is handed to the core untouched, next to the function host methods', async () => {
     const ai = { complete: vi.fn() } as unknown as MikeDownAiHost;
     const ref = createRef<MikeDownEditorHandle>();
     render(<MikeDownEditor ref={ref} defaultValue="A" host={{ ai, onStats: () => undefined }} />);
     act(() => ref.current!.command('openAiSettings'));
-    expect(document.querySelector('.settings-panel--ai')).not.toBeNull();
+    // Core loads its AI UI chunk first; the modal opens once it is there.
+    await vi.waitFor(() => expect(document.querySelector('.settings-panel--ai')).not.toBeNull());
     document.getElementById('mikedown-settings-overlay')?.remove();
   });
 

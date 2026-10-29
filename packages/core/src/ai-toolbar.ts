@@ -19,13 +19,7 @@ import { button, el, experimentalBadge, experimentalDisclaimer, nextId } from '.
 import { getPortal } from './portal';
 import type { ToolbarDropdownEntry } from './toolbar-dropdown';
 
-export type AiToolbarButtonMode = 'hidden' | 'firstRun' | 'menu';
-
-/** What the button does: hidden without AI support or when turned off in settings. */
-export function aiToolbarButtonMode(hasAiHost: boolean, settings: Pick<AiSettings, 'enabled' | 'showToolbarButton'>): AiToolbarButtonMode {
-  if (!hasAiHost || !settings.showToolbarButton) {return 'hidden';}
-  return settings.enabled ? 'menu' : 'firstRun';
-}
+export { aiToolbarButtonMode, type AiToolbarButtonMode } from './ai-lite';
 
 /** The patch "Turn on and set up" sends through `host.saveSettings`. */
 export const AI_TURN_ON_PATCH = { 'ai.enabled': true } as const;

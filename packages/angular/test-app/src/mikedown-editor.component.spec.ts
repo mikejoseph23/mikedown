@@ -302,21 +302,29 @@ describe('MikeDownEditorComponent', () => {
       fixture.destroy();
     }));
 
-    it('hands the ai input to the core: the AI tab opens with it and not without', fakeAsync(() => {
+    it('hands the ai input to the core: no AI tab without it', fakeAsync(() => {
       setup('');
       host.handle!.command('openAiSettings');
       expect(document.querySelector('.settings-panel--ai')).toBeNull();
       fixture.destroy();
+    }));
 
+    it('hands the ai input to the core: the AI tab opens with it', async () => {
       fixture = TestBed.createComponent(ControlHostComponent);
       host = fixture.componentInstance;
       host.ai = { complete: () => Promise.reject(new Error('unused')) };
-      init(fixture);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await settle();
       host.handle!.command('openAiSettings');
+      // Core loads its AI UI chunk first; the modal opens once it is there.
+      for (let i = 0; i < 100 && !document.querySelector('.settings-panel--ai'); i++) {
+        await new Promise<void>((r) => setTimeout(r, 20));
+      }
       expect(document.querySelector('.settings-panel--ai')).not.toBeNull();
       document.getElementById('mikedown-settings-overlay')?.remove();
       fixture.destroy();
-    }));
+    });
 
     it('puts the uploaded src into the markdown when imageUpload is present', async () => {
       fixture = TestBed.createComponent(ControlHostComponent);

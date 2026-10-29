@@ -100,33 +100,16 @@ import {
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
-import {
-  CHARS_PER_TOKEN, DEFAULT_CONTEXT_TOKENS, PROPERTY_VOCABULARY_MAX, aiErrorCopy, aiLengthLimitCopy, budgetDocument, buildPropertiesMessages,
-  defaultAiSettings, headingsOutline, isRouteUsable, jsonRepairMessages, makeAiError, parseAiSettings,
-  parsePropertySuggestions, propertiesMaxTokens, renderHeadingOutline, resolveRoute, rewriteVisibleText, thinkingChoices, toAiError,
-  type AiSummaryKind,
-} from './ai';
-import type { AiEngineStatus, AiMessage, AiRouteOk, AiServedBy, AiSettings, AiSettingsPatch, MikeDownAiHost } from './ai';
-import { loadThinkingLevel, rememberThinkingLevel, thinkingLevelFor } from './ai-prefs';
-import { buildAiSettingsSection } from './ai-settings';
-import { mountAiEnginesPage } from './ai-engines-page';
+import type { AiEngineStatus, AiMessage, AiRouteOk, AiServedBy, AiSettings, AiSettingsPatch, AiSummaryKind, MikeDownAiHost } from './ai';
+// The AI UI loads on demand (ai-lite.ts); only types and the light helpers are imported here.
+import { aiHostTier, aiToolbarButtonMode, loadAiUi, loadedAiUi, type AiUi } from './ai-lite';
+import { defaultAiSettings } from './ai/defaults';
+import { AiRewriteHighlight, cmAiRewriteHighlight } from './ai-rewrite-highlight';
 import type { AiEnginesPageHandle, AiEnginesPageSection } from './ai-engines-page';
-import { withSavedAiKeys } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
 import { makeCheckboxRow, makeGroup, makeRow, makeSelectRow, settingsSectionContext } from './settings-rows';
-import { aiHostTier, aiIndicatorState } from './ai-settings-model';
-import { experimentalBadge } from './ai-settings-dom';
-import {
-  AI_TURN_ON_PATCH, aiSetupTarget, aiToolbarButtonMode, aiToolbarMenuEntries,
-  hideAiFirstRunPanel, isAiFirstRunPanelOpen, showAiFirstRunPanel,
-} from './ai-toolbar';
-import { aiFeatureAvailability, aiRunThinkingOn, runAiCompletion, type AiFeatureAvailability, type AiRunOutcome } from './ai-request';
-import {
-  AiRewriteHighlight, aiRewriteMenuGroups, applyRichTitle, applySourceTitle, cmAiRewriteHighlight,
-  createAiRewritePopover, cursorInsertTarget, richDocumentTarget, richRewriteTarget, setYamlTitle, sourceCursorTarget,
-  sourceDocumentTarget, sourceRewriteTarget, yamlHasTitle, type AiCursorTarget, type AiRewriteBadge,
-  type AiRewriteTarget, type AiTitleEffect,
-} from './ai-rewrite';
+import type { AiFeatureAvailability, AiRunOutcome } from './ai-request';
+import type { AiCursorTarget, AiRewritePopover, AiRewriteBadge, AiRewriteTarget, AiTitleEffect } from './ai-rewrite';
 import type { AiRewriteParams, AiRewriteVariant } from './ai/prompts/rewrite';
 import type {
   MikeDownEditorHandle,
@@ -1098,6 +1081,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   function showSettingsModal(initialTab?: SettingsTabId): void {
+    // The AI tab is built by the AI UI: open once it has loaded.
+    if (aiHost && !aiUi) {
+      whenAiUi(() => showSettingsModal(initialTab));
+      return;
+    }
     // Remove existing modal if open
     closeSettingsModal();
 
@@ -1669,11 +1657,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // The AI tab is core's own section, built only for a host with an `ai`
     // group. Listed after the host's sections and placed last in the nav,
     // below any host tab (About, App).
-    const aiSections: MikeDownSettingsSection[] = aiHost ? [{
+    const ui = aiUi;
+    const aiSections: MikeDownSettingsSection[] = aiHost && ui ? [{
       tab: 'ai',
       tabLabel: 'AI',
       panelClassName: 'settings-panel--ai',
-      build: (ctx) => buildAiSettingsSection(ctx, {
+      build: (ctx) => ui.buildAiSettingsSection(ctx, {
         ...aiSessionOptions(aiHost),
         onSaved: (saved) => {
           currentAiSettings = saved;
@@ -1954,7 +1943,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       btn.dataset.tabId = tab.id;
       btn.textContent = tab.label;
       // The space keeps the accessible name "AI Experimental".
-      if (tab.experimental) {btn.append(' ', experimentalBadge());}
+      if (tab.experimental && aiUi) {btn.append(' ', aiUi.experimentalBadge());}
       btn.className = 'settings-tab';
       btn.addEventListener('click', () => { setActiveTab(tab.id); btn.focus(); });
       btn.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -2219,6 +2208,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // from host.ai.listEngines (tier 2) or handle.setAiEngineStatuses; the chip
   // shows what served the last request (handle.setAiServed).
   const aiHost = features.ai ? host.ai : undefined;
+  /**
+   * The AI UI (ai-ui.ts), loaded on demand: null until its chunk arrives
+   * (unless the host registered it, ai-ui-eager.ts), and always null without
+   * host.ai. Entry points that need it before then wait for it (whenAiUi).
+   */
+  let aiUi: AiUi | null = aiHost ? loadedAiUi() : null;
+  /** Settings that arrived before the AI UI, which parses them. */
+  let pendingAiSettings: { raw: unknown } | null = null;
   let currentAiSettings: AiSettings = defaultAiSettings();
   let aiStatuses: AiEngineStatus[] = [];
   let aiServed: { served: AiServedBy; viaFallback: boolean } | null = null;
@@ -2245,11 +2242,41 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (typeof off === 'function') {disposers.push(off);}
   }
 
+  /** Run `fn` with the AI UI loaded: now, or once its chunk arrives. Nothing without host.ai. */
+  function whenAiUi(fn: (ui: AiUi) => void): void {
+    if (aiUi) {
+      fn(aiUi);
+      return;
+    }
+    if (!aiHost) {return;}
+    loadAiUi().then((ui) => {
+      if (destroyed) {return;}
+      onAiUiLoaded(ui);
+      fn(ui);
+    }).catch(() => { /* AI stays unavailable; the next entry point tries again */ });
+  }
+
+  /** First time the AI UI is here: build what needs it and catch up on settings. */
+  function onAiUiLoaded(ui: AiUi): void {
+    if (aiUi) {return;}
+    aiUi = ui;
+    aiRewrite = createAiRewrite(ui);
+    const pending = pendingAiSettings;
+    pendingAiSettings = null;
+    if (pending) {
+      applyAiSettings(pending.raw);
+    } else {
+      renderAiIndicator();
+      refreshAiToolbarButton();
+    }
+  }
+
   function renderAiIndicator(): void {
     syncAiSlashCommands();
     syncAiPropertiesAvailability();
-    outlineSidebar?.applyAiIndicator(aiHost
-      ? aiIndicatorState({
+    const ui = aiUi;
+    outlineSidebar?.applyAiIndicator(aiHost && ui
+      ? ui.aiIndicatorState({
         settings: currentAiSettings,
         statuses: aiStatuses,
         tier: aiHostTier(aiHost),
@@ -2260,8 +2287,18 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   function applyAiSettings(raw: unknown): void {
+    const ui = aiUi;
+    if (!ui) {
+      // Parsed once the AI UI is here. Meanwhile the toolbar button follows
+      // the two switches it shows by.
+      pendingAiSettings = { raw };
+      const r = (raw ?? {}) as Partial<AiSettings>;
+      currentAiSettings = { ...currentAiSettings, enabled: r.enabled === true, showToolbarButton: r.showToolbarButton !== false };
+      refreshAiToolbarButton();
+      return;
+    }
     // Hosts send parsed settings; parsing again is cheap and keeps a sloppy host safe.
-    currentAiSettings = parseAiSettings(raw, { onWarning: () => { /* the host already warned */ } });
+    currentAiSettings = ui.parseAiSettings(raw, { onWarning: () => { /* the host already warned */ } });
     for (const waiter of [...aiSettingsWaiters]) {waiter(currentAiSettings);}
     renderAiIndicator();
     refreshAiToolbarButton();
@@ -2340,6 +2377,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   } = {}): void {
     const ai = aiHost;
     if (!ai || aiHostTier(ai) !== 2) {return;}
+    const ui = aiUi;
+    if (!ui) {
+      whenAiUi(() => showAiEnginesPage(o));
+      return;
+    }
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeAiEnginesPage();
 
@@ -2356,7 +2398,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       closeAiEnginesPage();
       restoreFocus(opener);
     };
-    const handle = mountAiEnginesPage(frame, settingsSectionContext(finish), {
+    const handle = ui.mountAiEnginesPage(frame, settingsSectionContext(finish), {
       ...(o.session ?? aiSessionOptions(ai)),
       initial: o.initial,
       onDone: (patch, settings) => {
@@ -2364,7 +2406,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
           // The normal save path. The page may start from the tab's unsaved
           // draft, so only the keys it sends count as saved.
           host.saveSettings?.(patch);
-          currentAiSettings = withSavedAiKeys(currentAiSettings, settings, patch);
+          currentAiSettings = ui.withSavedAiKeys(currentAiSettings, settings, patch);
           renderAiIndicator();
           scheduleAiStatusRefresh();
         }
@@ -2418,8 +2460,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   /** The sidebar chip: the AI tab, or the page when nothing can be routed. */
   function openAiFromChip(): void {
     const ai = aiHost;
-    if (!ai) {return;}
-    const state = aiIndicatorState({ settings: currentAiSettings, statuses: aiStatuses, tier: aiHostTier(ai), served: aiServed?.served ?? null, viaFallback: aiServed?.viaFallback ?? false });
+    const ui = aiUi;
+    if (!ai || !ui) {return;}
+    const state = ui.aiIndicatorState({ settings: currentAiSettings, statuses: aiStatuses, tier: aiHostTier(ai), served: aiServed?.served ?? null, viaFallback: aiServed?.viaFallback ?? false });
     if (state?.tone === 'none' && aiHostTier(ai) === 2) {
       showAiEnginesPage({ initial: currentAiSettings.engines.length > 0 ? { section: 'routing' } : undefined });
     } else {
@@ -2429,13 +2472,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** Whether the rewrite entry points show: hidden, disabled with a reason, or enabled. */
   function aiRewriteAvailability(): AiFeatureAvailability {
-    if (readOnly) {return { state: 'hidden' };}
-    return aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, 'rewrite');
+    if (readOnly || !aiUi) {return { state: 'hidden' };}
+    return aiUi.aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, 'rewrite');
   }
 
   /** Whether `/summary` or `/title` can run (read-only is the callers' to check). */
   function aiDocAvailability(feature: 'summary' | 'title' | 'frontmatter'): AiFeatureAvailability {
-    return aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, feature);
+    if (!aiUi) {return { state: 'hidden' };}
+    return aiUi.aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, feature);
   }
 
   /**
@@ -2463,20 +2507,21 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** Show or hide the button for the current settings, and reflow the toolbar. */
   function refreshAiToolbarButton(): void {
-    if (aiToolbarButtonMode(!!aiHost, currentAiSettings) === 'hidden') {hideAiFirstRunPanel();}
+    if (aiToolbarButtonMode(!!aiHost, currentAiSettings) === 'hidden') {aiUi?.hideAiFirstRunPanel();}
     refreshToolbarAvailability();
   }
 
   /** "Turn on and set up": AI on through the normal save path, then setup. */
   function turnOnAiAndSetUp(): void {
     const ai = aiHost;
-    if (!ai || destroyed) {return;}
-    host.saveSettings?.({ ...AI_TURN_ON_PATCH });
+    const ui = aiUi;
+    if (!ai || !ui || destroyed) {return;}
+    host.saveSettings?.({ ...ui.AI_TURN_ON_PATCH });
     currentAiSettings = { ...currentAiSettings, enabled: true };
     renderAiIndicator();
     refreshAiToolbarButton();
     scheduleAiStatusRefresh();
-    const target = aiSetupTarget(aiHostTier(ai), currentAiSettings);
+    const target = ui.aiSetupTarget(aiHostTier(ai), currentAiSettings);
     if (target.kind === 'page') {
       showAiEnginesPage(target.engineId ? { initial: { engineId: target.engineId } } : {});
     } else {
@@ -2494,11 +2539,16 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function openAiToolbar(anchor: HTMLElement): void {
     const ai = aiHost;
     if (!ai) {return;}
-    if (isAiFirstRunPanelOpen()) { hideAiFirstRunPanel(); return; }
+    const ui = aiUi;
+    if (!ui) {
+      whenAiUi(() => { if (anchor.isConnected) {openAiToolbar(anchor);} });
+      return;
+    }
+    if (ui.isAiFirstRunPanelOpen()) { ui.hideAiFirstRunPanel(); return; }
     if (isToolbarDropdownOpen()) { hideToolbarDropdown(); return; }
     const mode = aiToolbarButtonMode(true, currentAiSettings);
     if (mode === 'firstRun') {
-      showAiFirstRunPanel({ anchor, onTurnOn: turnOnAiAndSetUp });
+      ui.showAiFirstRunPanel({ anchor, onTurnOn: turnOnAiAndSetUp });
       return;
     }
     const availability = aiRewriteAvailability();
@@ -2523,11 +2573,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const thinkKind = tier2 ? aiThinkingKind([
       ...(rewrite ? ['rewrite'] : []), ...(summarize ? ['summary'] : []), ...(titles ? ['title'] : []),
     ]) : null;
-    showToolbarDropdown(anchor, aiToolbarMenuEntries({
+    showToolbarDropdown(anchor, ui.aiToolbarMenuEntries({
       rewrite,
       summarize,
       titles,
-      ...(thinkKind ? { thinking: { choices: thinkingChoices(thinkKind), value: loadThinkingLevel, onChange: rememberThinkingLevel } } : {}),
+      ...(thinkKind ? { thinking: { choices: ui.thinkingChoices(thinkKind), value: ui.loadThinkingLevel, onChange: ui.rememberThinkingLevel } } : {}),
       canManageEngines: tier2,
       icons: { rewrite: toolbarIcons.rewrite, manage: toolbarIcons.gear, summarize: toolbarIcons.toc, titles: toolbarIcons.ai },
       onRewrite: () => { startAiRewrite(); },
@@ -2536,7 +2586,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       onManage: () => { if (tier2) {showAiEnginesPage();} else {showSettingsModal('ai');} },
     }));
   }
-  disposers.push(() => hideAiFirstRunPanel());
+  disposers.push(() => aiUi?.hideAiFirstRunPanel());
   // This editor's own sidebar (null when features.sidebar is off).
   let outlineSidebar: OutlineSidebar | null = null;
 
@@ -4096,7 +4146,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       const a = aiRewriteAvailability();
       if (a.state === 'hidden') {return null;}
       return a.state === 'enabled'
-        ? { enabled: true, groups: aiRewriteMenuGroups(), run: (variant) => { startAiRewrite(variant); } }
+        ? { enabled: true, groups: aiUi?.aiRewriteMenuGroups() ?? [], run: (variant) => { startAiRewrite(variant); } }
         : { enabled: false, reason: a.reason, groups: [], run: () => {} };
     },
   };
@@ -4104,23 +4154,29 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // ── AI rewrite: popover, entry point ─────────────────────
   // Inert without host.ai. Every request resolves its route afresh
   // (runAiCompletion); the popover previews, Accept replaces in one transaction.
-  const aiRewrite = aiHost ? createAiRewritePopover({
-    run: (req, events, signal) => runAiCompletion({
-      ai: aiHost,
-      settings: () => currentAiSettings,
-      statuses: () => aiStatuses,
-      consent: aiConsent,
-    }, req, events, signal),
-    badge: aiBadge,
-    onServed: (served, viaFallback) => {
-      aiServed = { served, viaFallback };
-      renderAiIndicator();
-    },
-    openSettings: () => showSettingsModal('ai'),
-    documentTarget: aiDocumentTarget,
-    routeInfo: aiRouteInfo,
-  }) : null;
-  if (aiRewrite) {disposers.push(() => aiRewrite.destroy());}
+  let aiRewrite: AiRewritePopover | null = null;
+  function createAiRewrite(ui: AiUi): AiRewritePopover | null {
+    const ai = aiHost;
+    if (!ai) {return null;}
+    const popover = ui.createAiRewritePopover({
+      run: (req, events, signal) => ui.runAiCompletion({
+        ai,
+        settings: () => currentAiSettings,
+        statuses: () => aiStatuses,
+        consent: aiConsent,
+      }, req, events, signal),
+      badge: aiBadge,
+      onServed: (served, viaFallback) => {
+        aiServed = { served, viaFallback };
+        renderAiIndicator();
+      },
+      openSettings: () => showSettingsModal('ai'),
+      documentTarget: aiDocumentTarget,
+      routeInfo: aiRouteInfo,
+    });
+    disposers.push(() => popover.destroy());
+    return popover;
+  }
 
   /** The engine badge for a request: the route about to be used, or who served it. */
   function aiBadge(route: AiRouteOk | null, served: AiServedBy | null, viaFallback: boolean): AiRewriteBadge | null {
@@ -4130,8 +4186,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       modelId: route.modelId,
       isLocal: route.isLocal,
     } : null);
-    if (!by || !aiHost) {return null;}
-    const s = aiIndicatorState({ settings: { ...currentAiSettings, enabled: true }, statuses: aiStatuses, tier: aiHostTier(aiHost), served: by, viaFallback: false });
+    if (!by || !aiHost || !aiUi) {return null;}
+    const s = aiUi.aiIndicatorState({ settings: { ...currentAiSettings, enabled: true }, statuses: aiStatuses, tier: aiHostTier(aiHost), served: by, viaFallback: false });
     if (!s) {return null;}
     return {
       where: by.isLocal ? 'local' : 'cloud',
@@ -4143,19 +4199,23 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** The whole body (frontmatter left out and untouched) as a rewrite target. */
   function aiDocumentTarget(): AiRewriteTarget | null {
+    const ui = aiUi;
+    if (!ui) {return null;}
     if (sourceMode) {
-      return cmView ? sourceDocumentTarget(cmView, (md) => md.length - extractFrontmatter(md).body.length) : null;
+      return cmView ? ui.sourceDocumentTarget(cmView, (md) => md.length - extractFrontmatter(md).body.length) : null;
     }
-    return richDocumentTarget(editor, { scrollToTop: () => { editorContainer.scrollTop = 0; } });
+    return ui.richDocumentTarget(editor, { scrollToTop: () => { editorContainer.scrollTop = 0; } });
   }
 
   /** The engine kind of the first of `features` whose routed model has a thinking mapping, or null. */
   function aiThinkingKind(features: string[]): string | null {
+    const ui = aiUi;
+    if (!ui) {return null;}
     for (const feature of features) {
-      const r = resolveRoute(currentAiSettings, aiStatuses, aiConsent, { feature });
-      if (!isRouteUsable(r)) {continue;}
+      const r = ui.resolveRoute(currentAiSettings, aiStatuses, aiConsent, { feature });
+      if (!ui.isRouteUsable(r)) {continue;}
       const kind = currentAiSettings.engines.find((e) => e.id === r.engineId)?.kind;
-      if (kind && thinkingChoices(kind).length > 0) {return kind;}
+      if (kind && ui.thinkingChoices(kind).length > 0) {return kind;}
     }
     return null;
   }
@@ -4163,10 +4223,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   /** The model the router would pick for `feature` now: its context window and JSON mode. */
   function aiRouteInfo(feature: string): { contextTokens: number | null; json: boolean } {
     const ai = aiHost;
+    const ui = aiUi;
     // A tier-1 host routes by itself: nothing known about its model.
-    if (!ai || aiHostTier(ai) !== 2) {return { contextTokens: null, json: false };}
-    const r = resolveRoute(currentAiSettings, aiStatuses, aiConsent, { feature });
-    if (!isRouteUsable(r)) {return { contextTokens: null, json: false };}
+    if (!ai || !ui || aiHostTier(ai) !== 2) {return { contextTokens: null, json: false };}
+    const r = ui.resolveRoute(currentAiSettings, aiStatuses, aiConsent, { feature });
+    if (!ui.isRouteUsable(r)) {return { contextTokens: null, json: false };}
     const model = currentAiSettings.engines.find((e) => e.id === r.engineId)?.models.find((m) => m.id === r.modelId);
     return { contextTokens: model?.capabilities.contextTokens ?? null, json: model?.capabilities.json === true };
   }
@@ -4179,10 +4240,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** Where a summary goes: the `/query` (rich text) or the caret. */
   function aiCursorTarget(slash?: { from: number; to: number }): AiCursorTarget | null {
+    const ui = aiUi;
+    if (!ui) {return null;}
     if (sourceMode) {
-      return cmView ? sourceCursorTarget(cmView, (md) => md.length - extractFrontmatter(md).body.length) : null;
+      return cmView ? ui.sourceCursorTarget(cmView, (md) => md.length - extractFrontmatter(md).body.length) : null;
     }
-    return cursorInsertTarget(editor, slash);
+    return ui.cursorInsertTarget(editor, slash);
   }
 
   /**
@@ -4203,13 +4266,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   /** What a picked title changes (D12): frontmatter `title:`, else the first H1, else a new H1. */
-  function aiTitleEffect(): AiTitleEffect {
+  function aiTitleEffect(ui: AiUi): AiTitleEffect {
     if (sourceMode && cmView) {
       const { frontmatter, body } = extractFrontmatter(cmView.state.doc.toString());
-      if (yamlHasTitle(frontmatter)) {return 'frontmatter';}
+      if (ui.yamlHasTitle(frontmatter)) {return 'frontmatter';}
       return /^ {0,3}#[ \t]+\S/m.test(body) ? 'h1' : 'insertH1';
     }
-    if (yamlHasTitle(frontmatterContent)) {return 'frontmatter';}
+    if (ui.yamlHasTitle(frontmatterContent)) {return 'frontmatter';}
     let h1 = false;
     editor.state.doc.descendants((node) => {
       if (h1) {return false;}
@@ -4225,18 +4288,18 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
    * (`setYamlTitle`), recorded with the `/query` deletion in one PM
    * transaction (`editFrontmatterUndoable`).
    */
-  function applyAiTitle(target: AiCursorTarget, title: string): boolean {
-    const effect = aiTitleEffect();
+  function applyAiTitle(ui: AiUi, target: AiCursorTarget, title: string): boolean {
+    const effect = aiTitleEffect(ui);
     if (sourceMode) {
       if (!cmView) {return false;}
       const full = cmView.state.doc.toString();
       const { frontmatter, body } = extractFrontmatter(full);
-      return applySourceTitle(cmView, effect, title, { yaml: frontmatter, bodyStart: full.length - body.length });
+      return ui.applySourceTitle(cmView, effect, title, { yaml: frontmatter, bodyStart: full.length - body.length });
     }
     const r = target.range();
     const query = r && r.to > r.from ? r : null;
-    if (effect !== 'frontmatter' || frontmatterContent === null) {return applyRichTitle(editor, effect === 'frontmatter' ? 'insertH1' : effect, title, query);}
-    return editFrontmatterUndoable(setYamlTitle(frontmatterContent, title), query);
+    if (effect !== 'frontmatter' || frontmatterContent === null) {return ui.applyRichTitle(editor, effect === 'frontmatter' ? 'insertH1' : effect, title, query);}
+    return editFrontmatterUndoable(ui.setYamlTitle(frontmatterContent, title), query);
   }
 
   /**
@@ -4311,8 +4374,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
    */
   function startAiPropertySuggestions(): boolean {
     const ai = aiHost;
+    const ui = aiUi;
     const sidebar = outlineSidebar;
-    if (!ai || !sidebar || destroyed) {return false;}
+    if (!ai || !ui || !sidebar || destroyed) {return false;}
     if (aiPropertiesAvailability().state !== 'enabled') {return false;}
     cancelAiPropertySuggestions();
     const controller = new AbortController();
@@ -4322,24 +4386,24 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const markdown = aiBodyMarkdown();
     const existing = parseFrontmatter(frontmatterContent ?? '');
     const vocabulary = [...workspaceTags].sort((a, b) => b.count - a.count).map((t) => t.tag);
-    const outline = headingsOutline(markdown);
+    const outline = ui.headingsOutline(markdown);
     const info = aiRouteInfo('frontmatter');
-    const maxTokens = propertiesMaxTokens();
-    const promptChars = renderHeadingOutline(outline).length
-      + vocabulary.slice(0, PROPERTY_VOCABULARY_MAX).join(', ').length
+    const maxTokens = ui.propertiesMaxTokens();
+    const promptChars = ui.renderHeadingOutline(outline).length
+      + vocabulary.slice(0, ui.PROPERTY_VOCABULARY_MAX).join(', ').length
       + (frontmatterContent ?? '').length;
-    const budget = budgetDocument(markdown, {
-      contextTokens: info.contextTokens ?? DEFAULT_CONTEXT_TOKENS,
+    const budget = ui.budgetDocument(markdown, {
+      contextTokens: info.contextTokens ?? ui.DEFAULT_CONTEXT_TOKENS,
       outputTokens: maxTokens,
-      reserveTokens: PROPERTIES_RESERVE_TOKENS + Math.ceil(promptChars / CHARS_PER_TOKEN),
+      reserveTokens: PROPERTIES_RESERVE_TOKENS + Math.ceil(promptChars / ui.CHARS_PER_TOKEN),
     });
-    const messages = buildPropertiesMessages({ document: budget.text, outline, existing, vocabulary });
+    const messages = ui.buildPropertiesMessages({ document: budget.text, outline, existing, vocabulary });
 
     let badge = '';
     let repairing = false;
     let streamed = '';
     const showRunning = (): void => sidebar.applyPropertySuggestions(null, 'running', repairing ? 'Fixing the answer format…' : badge);
-    const request = (msgs: AiMessage[]): Promise<AiRunOutcome> => runAiCompletion({
+    const request = (msgs: AiMessage[]): Promise<AiRunOutcome> => ui.runAiCompletion({
       ai,
       settings: () => currentAiSettings,
       statuses: () => aiStatuses,
@@ -4349,7 +4413,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       messages: msgs,
       maxTokens,
       temperature: 0.3,
-      thinking: thinkingLevelFor,
+      thinking: ui.thinkingLevelFor,
       ...(info.json ? { format: 'json' as const } : {}),
     }, {
       onRoute: (route) => {
@@ -4368,7 +4432,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // An answer that stopped at the length limit: why, in the row's own words.
     let lengthMessage = '';
     const outOfRoom = (o: AiRunOutcome, empty: boolean): string => (o.result.finishReason === 'length'
-      ? aiLengthLimitCopy({ thinking: aiRunThinkingOn(o.thinking), empty }).message : '');
+      ? ui.aiLengthLimitCopy({ thinking: ui.aiRunThinkingOn(o.thinking), empty }).message : '');
 
     showRunning();
     void (async () => {
@@ -4378,24 +4442,24 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         served(first);
         const firstText = first.result.text || streamed;
         // Nothing to repair: the model ran out of room before it answered.
-        if (!rewriteVisibleText(firstText).trim() && first.result.finishReason === 'length') {
+        if (!ui.rewriteVisibleText(firstText).trim() && first.result.finishReason === 'length') {
           lengthMessage = outOfRoom(first, true);
-          throw makeAiError('badOutput', lengthMessage);
+          throw ui.makeAiError('badOutput', lengthMessage);
         }
         let last = first;
-        let parsed = parsePropertySuggestions(firstText, existing, vocabulary);
+        let parsed = ui.parsePropertySuggestions(firstText, existing, vocabulary);
         if (!parsed.ok) {
           // D16: one repair round trip, abortable like the first request.
           repairing = true;
           showRunning();
-          const second = await request([...messages, ...jsonRepairMessages(firstText, parsed.error)]);
+          const second = await request([...messages, ...ui.jsonRepairMessages(firstText, parsed.error)]);
           if (!live()) {return;}
           served(second);
           last = second;
-          parsed = parsePropertySuggestions(second.result.text || streamed, existing, vocabulary);
+          parsed = ui.parsePropertySuggestions(second.result.text || streamed, existing, vocabulary);
           if (!parsed.ok) {
-            lengthMessage = outOfRoom(second, !rewriteVisibleText(second.result.text || streamed).trim());
-            throw makeAiError('badOutput', parsed.error);
+            lengthMessage = outOfRoom(second, !ui.rewriteVisibleText(second.result.text || streamed).trim());
+            throw ui.makeAiError('badOutput', parsed.error);
           }
         }
         propertiesController = null;
@@ -4404,12 +4468,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       } catch (err) {
         if (!live()) {return;}
         propertiesController = null;
-        const e = toAiError(err);
+        const e = ui.toAiError(err);
         if (e.code === 'cancelled') {
           sidebar.applyPropertySuggestions(null, 'idle');
           return;
         }
-        sidebar.applyPropertySuggestions(null, 'error', lengthMessage || aiErrorCopy(e.code).message);
+        sidebar.applyPropertySuggestions(null, 'error', lengthMessage || ui.aiErrorCopy(e.code).message);
       }
     })();
     return true;
@@ -4428,7 +4492,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
    * the feature is not available or the document is empty.
    */
   function startAiTitles(slash?: { from: number; to: number }): boolean {
-    if (!aiRewrite || destroyed || readOnly) {return false;}
+    const ui = aiUi;
+    if (!aiRewrite || !ui || destroyed || readOnly) {return false;}
     if (aiDocAvailability('title').state !== 'enabled') {return false;}
     const markdown = aiBodyMarkdown();
     if (!markdown.trim()) {return false;}
@@ -4438,8 +4503,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     aiRewrite.openTitles(target, {
       markdown,
       existingTitle: aiDocumentTitle() || undefined,
-      effect: aiTitleEffect(),
-      apply: (title) => applyAiTitle(target, title),
+      effect: aiTitleEffect(ui),
+      apply: (title) => applyAiTitle(ui, target, title),
     });
     return true;
   }
@@ -4467,13 +4532,20 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
    * AI rewrite is not offered.
    */
   function startAiRewrite(variant?: AiRewriteVariant, params?: AiRewriteParams, opts: { wholeDocument?: boolean } = {}): boolean {
-    if (!aiRewrite || destroyed) {return false;}
+    if (destroyed) {return false;}
+    if (aiHost && !aiUi) {
+      // The hotkey or a command before the AI UI has loaded: run once it has.
+      whenAiUi(() => { startAiRewrite(variant, params, opts); });
+      return true;
+    }
+    const ui = aiUi;
+    if (!aiRewrite || !ui) {return false;}
     const availability = aiRewriteAvailability();
     if (availability.state === 'hidden') {return false;}
     aiRewrite.close();
     const target = (sourceMode
-      ? (cmView ? sourceRewriteTarget(cmView) : null)
-      : richRewriteTarget(editor))
+      ? (cmView ? ui.sourceRewriteTarget(cmView) : null)
+      : ui.richRewriteTarget(editor))
       ?? (variant === 'translate' ? aiDocumentTarget() : null);
     if (!target) {return true;}
     if (availability.state === 'disabled') {
@@ -7102,6 +7174,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   if (aiHost) {
     renderAiIndicator();
     scheduleAiStatusRefresh();
+    // Registered (ai-ui-eager.ts): build now. Otherwise fetch the chunk now,
+    // so the AI features are ready by the time anyone reaches for them.
+    if (aiUi) {
+      aiRewrite = createAiRewrite(aiUi);
+    } else {
+      whenAiUi(() => { /* onAiUiLoaded did the work */ });
+    }
   }
   if (options.theme) {setTheme(options.theme);}
   if (options.readOnly) {setReadOnly(true);}

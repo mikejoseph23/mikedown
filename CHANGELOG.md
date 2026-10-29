@@ -18,6 +18,10 @@ All notable changes to MikeDown Editor are documented here.
 - Customize Toolbar: rearrange the toolbar's buttons. Open Settings (the gear), go to the Toolbar tab and choose Customize Toolbar, or right-click the toolbar. Drag buttons into place, or use the keyboard: arrow keys move between buttons, Space picks one up and drops it, Delete removes it to the tray, and Escape or Done finishes. Separators and flexible spacers come from the tray, so you can group buttons or push the rest to the right. Changes save when you click Done. Reset to Default in the same tab brings back the standard toolbar. The layout is stored in the new `mikedown.toolbarLayout` setting, and Settings Sync carries it to your other machines.
 - Font Theme toolbar button: an optional toolbar button that opens the font pairing list (Editorial, Notebook, Technical and more). It is not on the default toolbar; drag it in from the tray in Customize Toolbar.
 
+### Changed
+
+- npm packages (`@mikedown/*`): the AI UI is no longer in the editor's main bundle. `@mikedown/core` loads it with `import()` only when the host provides `host.ai`, so bundlers split it into its own chunk and editors without AI never download it (about 70 kB gzipped less in core's main entry). The standalone web component is now an entry plus chunks in `dist/` (about 815 kB gzipped up front instead of 863 kB, the AI chunk loads on demand); the CDN `<script type="module">` tag is unchanged, but a self-hosted copy needs every `dist/mikedown-editor.*.js` file.
+
 ## [2.16.0] - 2026-10-28
 
 ### Added

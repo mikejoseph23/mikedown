@@ -188,8 +188,13 @@ el.value = '${MARKDOWN}';
       if (!w.customElements.get('mikedown-editor')) throw new Error('standalone bundle did not define <mikedown-editor> in jsdom');
       const el = w.document.querySelector('mikedown-editor');
       if (!el) throw new Error('no <mikedown-editor> element in the page');
-      const buf = readFileSync(bundle);
-      return { raw: buf.length, gz: gzipSync(buf).length };
+      // The entry and the chunk it imports; the lazy AI chunk is left out.
+      const distDir = dirname(bundle);
+      const upFront = readdirSync(distDir).filter((f) => /^mikedown-editor\..+\.js$/.test(f) && !f.startsWith('mikedown-editor.ai-ui-'));
+      return upFront.reduce((acc, f) => {
+        const buf = readFileSync(join(distDir, f));
+        return { raw: acc.raw + buf.length, gz: acc.gz + gzipSync(buf).length };
+      }, { raw: 0, gz: 0 });
     },
   },
   'react-vite': {

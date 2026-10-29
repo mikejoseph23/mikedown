@@ -40,13 +40,11 @@
  *   new H1). One JSON repair round trip when the reply does not parse.
  */
 
-import { Extension, elementFromString, posToDOMRect, type Editor } from '@tiptap/core';
-import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import { elementFromString, posToDOMRect, type Editor } from '@tiptap/core';
+import { TextSelection } from '@tiptap/pm/state';
 import { DOMParser as PmDOMParser, Fragment, type Node as PmNode } from '@tiptap/pm/model';
-import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { closeHistory } from '@tiptap/pm/history';
-import { StateEffect, StateField } from '@codemirror/state';
-import { Decoration as CmDecoration, EditorView as CmEditorView } from '@codemirror/view';
+import { EditorView as CmEditorView } from '@codemirror/view';
 import { isolateHistory } from '@codemirror/commands';
 import {
   CHARS_PER_TOKEN,
@@ -101,75 +99,11 @@ import {
   translateLanguageChoices,
 } from './ai-prefs';
 import { getPortal } from './portal';
+import { aiRewriteHighlightKey, cmRewriteRange, setCmRewriteRange, type Range } from './ai-rewrite-highlight';
 
-/**
- * A target range; `id` tells one open target from the next. An `anchor` is
- * a caret position (from === to) that follows edits and is never dropped.
- */
-interface Range { from: number; to: number; id: number; anchor?: boolean }
+export { AiRewriteHighlight, aiRewriteHighlightKey, cmAiRewriteHighlight } from './ai-rewrite-highlight';
 
 let nextTargetId = 0;
-
-// ── Target highlight: rich text ─────────────────────────────────────────────
-
-export const aiRewriteHighlightKey = new PluginKey<Range | null>('mikedownAiRewriteHighlight');
-
-/** Marks the rewrite target while the popover is open; the range follows edits. */
-export const AiRewriteHighlight = Extension.create({
-  name: 'mikedownAiRewriteHighlight',
-  addProseMirrorPlugins() {
-    return [new Plugin<Range | null>({
-      key: aiRewriteHighlightKey,
-      state: {
-        init: () => null,
-        apply(tr, value) {
-          const meta = tr.getMeta(aiRewriteHighlightKey) as { range: Range | null } | undefined;
-          if (meta) {return meta.range;}
-          if (!value || !tr.docChanged) {return value;}
-          if (value.anchor) {
-            const p = tr.mapping.map(value.from, -1);
-            return { ...value, from: p, to: p };
-          }
-          const from = tr.mapping.map(value.from, 1);
-          const to = tr.mapping.map(value.to, -1);
-          return to > from ? { from, to, id: value.id } : null;
-        },
-      },
-      props: {
-        decorations(state) {
-          const r = aiRewriteHighlightKey.getState(state);
-          if (!r || r.to <= r.from) {return null;}
-          return DecorationSet.create(state.doc, [Decoration.inline(r.from, r.to, { class: 'mikedown-ai-rewrite-target' })]);
-        },
-      },
-    })];
-  },
-});
-
-// ── Target highlight: source mode ───────────────────────────────────────────
-
-const setCmRewriteRange = StateEffect.define<Range | null>();
-
-const cmRewriteRange = StateField.define<Range | null>({
-  create: () => null,
-  update(value, tr) {
-    for (const e of tr.effects) {if (e.is(setCmRewriteRange)) {return e.value;}}
-    if (!value || !tr.docChanged) {return value;}
-    if (value.anchor) {
-      const p = tr.changes.mapPos(value.from, -1);
-      return { ...value, from: p, to: p };
-    }
-    const from = tr.changes.mapPos(value.from, 1);
-    const to = tr.changes.mapPos(value.to, -1);
-    return to > from ? { from, to, id: value.id } : null;
-  },
-  provide: (f) => CmEditorView.decorations.from(f, (r) => (r && r.to > r.from
-    ? CmDecoration.set([CmDecoration.mark({ class: 'mikedown-ai-rewrite-target' }).range(r.from, r.to)])
-    : CmDecoration.none)),
-});
-
-/** Add to the source view's extensions. */
-export const cmAiRewriteHighlight = [cmRewriteRange];
 
 // ── Targets ─────────────────────────────────────────────────────────────────
 

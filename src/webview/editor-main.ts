@@ -168,6 +168,8 @@
  */
 
 import { createMikeDownEditor } from '../../packages/core/src/index';
+// One bundle under a strict CSP: the AI UI goes in it and is there synchronously.
+import '../../packages/core/src/ai-ui-eager';
 import type { MikeDownSettings } from '../../packages/core/src/types';
 import { VsCodeHost, type VsCodeApi } from './vsCodeHost';
 import { showSupportCard, isSupportCardOpen, showSupportCopied, type SupportCardCopy } from './supportCard';

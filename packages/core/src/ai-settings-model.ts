@@ -46,17 +46,13 @@ import type {
   AiSettings,
   AiSettingsPatch,
   AiThinkingLevel,
-  MikeDownAiHost,
 } from './ai';
+import type { AiHostTier } from './ai-lite';
 
 // ── Host tier ───────────────────────────────────────────────────────────────
 
-/** 1: `complete` only, the host routes. 2: the host has an engine registry and core routes. */
-export type AiHostTier = 1 | 2;
-
-export function aiHostTier(ai: MikeDownAiHost): AiHostTier {
-  return typeof ai.listEngines === 'function' ? 2 : 1;
-}
+// In ai-lite.ts: the editor needs it before the AI UI loads.
+export { aiHostTier, type AiHostTier } from './ai-lite';
 
 // ── Labels ──────────────────────────────────────────────────────────────────
 

@@ -2,7 +2,7 @@
 // @mikedown/web-component specifics on top of package-shape.test.ts: side-effect
 // entries, the CDN bundle (size budget, no bare imports, pinned CDN URLs) and
 // its third-party notices. Run via `npm run test:packages`, which builds first.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { join } from 'node:path';
 import { build } from 'esbuild';
@@ -14,8 +14,12 @@ const dist = join(dir, 'dist');
 const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
 const standalonePath = join(dist, 'mikedown-editor.standalone.js');
 
-/** Budget: 900 kB gzipped for the standalone JS, CSS included. Raised from the M0 850 kB budget for the AI writing features. */
-const BUDGET = 900 * 1024;
+/**
+ * Budget: 850 kB gzipped for what a page loads up front (the entry and the
+ * chunks it imports statically), CSS included. The AI UI is a lazy chunk
+ * outside it (it was 900 kB while AI was in the one file).
+ */
+const BUDGET = 850 * 1024;
 
 const built = existsSync(join(dist, 'index.js')) && existsSync(standalonePath);
 if (!built) {
@@ -71,19 +75,17 @@ suite('@mikedown/web-component dist', () => {
 });
 
 suite('@mikedown/web-component standalone bundle', () => {
-  const js = built ? readFileSync(standalonePath, 'utf8') : '';
+  /** Every standalone output: the entry and its chunks (`mikedown-editor.*.js`). */
+  const files = built ? readdirSync(dist).filter((f) => /^mikedown-editor\..+\.js$/.test(f)) : [];
+  const read = (f: string) => readFileSync(join(dist, f), 'utf8');
+  const js = files.map(read).join('\n');
+  const aiChunk = files.find((f) => f.startsWith('mikedown-editor.ai-ui-'));
 
-  it(`stays under the ${BUDGET / 1024} kB gzipped budget`, () => {
-    const gz = gzipSync(readFileSync(standalonePath)).length;
-    console.info(`[web-component-shape] dist/mikedown-editor.standalone.js gzipped: ${gz} bytes (${(gz / 1024).toFixed(1)} kB)`);
-    expect(gz).toBeLessThan(BUDGET);
-  });
-
-  it('imports nothing but the two CDN URLs (loads in a no-build page)', async () => {
-    // Re-parse the bundle with esbuild and record every import it makes.
-    const seen: string[] = [];
+  /** Each file's imports, static and dynamic, as written. */
+  async function importsOf(file: string): Promise<Array<{ path: string; kind: string }>> {
+    const seen: Array<{ path: string; kind: string }> = [];
     await build({
-      entryPoints: [standalonePath],
+      entryPoints: [join(dist, file)],
       bundle: true,
       write: false,
       format: 'esm',
@@ -94,15 +96,63 @@ suite('@mikedown/web-component standalone bundle', () => {
           setup(b) {
             b.onResolve({ filter: /.*/ }, (args) => {
               if (args.kind === 'entry-point') return undefined;
-              seen.push(args.path);
+              seen.push({ path: args.path, kind: args.kind });
               return { path: args.path, external: true };
             });
           },
         },
       ],
     });
-    expect(seen.length).toBeGreaterThan(0);
-    expect(seen.filter((s) => !s.startsWith('https://cdn.jsdelivr.net/npm/'))).toEqual([]);
+    return seen;
+  }
+
+  /** The files a page loads up front: the entry and, transitively, its static imports. */
+  async function upFront(): Promise<string[]> {
+    const out = new Set<string>();
+    const queue = ['mikedown-editor.standalone.js'];
+    while (queue.length) {
+      const f = queue.shift()!;
+      if (out.has(f)) continue;
+      out.add(f);
+      for (const i of await importsOf(f)) {
+        if (i.kind === 'import-statement' && i.path.startsWith('./')) queue.push(i.path.slice(2));
+      }
+    }
+    return [...out];
+  }
+
+  it(`stays under the ${BUDGET / 1024} kB gzipped budget (entry and its static chunks)`, async () => {
+    const gz = (await upFront()).reduce((n, f) => n + gzipSync(readFileSync(join(dist, f))).length, 0);
+    console.info(`[web-component-shape] standalone up front gzipped: ${gz} bytes (${(gz / 1024).toFixed(1)} kB)`);
+    if (aiChunk) {
+      const ai = gzipSync(readFileSync(join(dist, aiChunk))).length;
+      console.info(`[web-component-shape] standalone AI chunk gzipped: ${ai} bytes (${(ai / 1024).toFixed(1)} kB)`);
+    }
+    expect(gz).toBeLessThan(BUDGET);
+  });
+
+  it('imports nothing but the two CDN URLs and its own chunks (loads in a no-build page)', async () => {
+    const all = (await Promise.all(files.map(importsOf))).flat();
+    expect(all.length).toBeGreaterThan(0);
+    const foreign = all.filter((i) => !i.path.startsWith('https://cdn.jsdelivr.net/npm/'));
+    for (const i of foreign) {
+      expect(i.path).toMatch(/^\.\/mikedown-editor\..+\.js$/);
+      expect(existsSync(join(dist, i.path)), i.path).toBe(true);
+    }
+  });
+
+  it('keeps the AI UI out of what loads up front, in one chunk loaded by import()', async () => {
+    expect(aiChunk).toBeTruthy();
+    const eager = await upFront();
+    expect(eager).not.toContain(aiChunk);
+    // Strings only the AI UI has: the first-run panel, the AI menu, the engine presets.
+    const markers = ['Turn on and set up', 'Manage engines', 'LM Studio'];
+    for (const f of eager) {
+      for (const m of markers) expect(read(f), `${m} in ${f}`).not.toContain(m);
+    }
+    for (const m of markers) expect(read(aiChunk!), m).toContain(m);
+    const dynamic = (await Promise.all(eager.map(importsOf))).flat().filter((i) => i.kind === 'dynamic-import');
+    expect(dynamic.map((i) => i.path)).toContain(`./${aiChunk}`);
   });
 
   it('loads katex and mermaid from jsDelivr pinned to the installed versions, never @latest', () => {
@@ -121,7 +171,7 @@ suite('@mikedown/web-component standalone bundle', () => {
   });
 
   it('defines the element on load', () => {
-    expect(js).toMatch(/customElements\.define\(/);
+    expect(read('mikedown-editor.standalone.js')).toMatch(/customElements\.define\(/);
     expect(js).toContain('mikedown-editor');
   });
 

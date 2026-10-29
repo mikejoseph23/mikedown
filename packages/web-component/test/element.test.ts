@@ -195,7 +195,8 @@ describe('attributes and properties', () => {
     expect(before.ai).toBe(ai);
     expect(before.getAttribute('ai')).toBeNull();
     before.handle!.command('openAiSettings');
-    expect(document.querySelector('.settings-panel--ai')).not.toBeNull();
+    // The first editor with AI loads core's AI UI chunk; the modal opens once it is there.
+    await vi.waitFor(() => expect(document.querySelector('.settings-panel--ai')).not.toBeNull());
     document.getElementById('mikedown-settings-overlay')?.remove();
 
     const later = editor();

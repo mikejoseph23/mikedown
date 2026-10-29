@@ -26,7 +26,11 @@ export default defineConfig({
   clean: true,
   target: 'es2020',
   platform: 'browser',
-  splitting: false,
+  // The AI UI (src/ai-ui.ts) is an import() in the editor: splitting emits it
+  // as its own chunk, which consumers' bundlers split again, so an editor
+  // without host.ai never loads it. Code shared by entries goes in chunks
+  // instead of being copied into each.
+  splitting: true,
   // Keep the dynamic import() calls for mermaid and katex as written.
   external: ['mermaid', 'katex'],
 });
