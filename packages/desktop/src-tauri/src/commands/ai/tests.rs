@@ -72,6 +72,25 @@ fn request_overrides_that_are_not_an_object_are_ignored() {
     assert_eq!(body["reasoning_effort"], "low");
 }
 
+#[test]
+fn a_request_without_overrides_leaves_the_body_as_the_model_made_it() {
+    let model: super::model::ModelConfig =
+        serde_json::from_value(json!({ "id": "m", "requestOverrides": { "reasoning_effort": "low", "top_k": 20 } })).unwrap();
+    let plain = request(json!({}));
+    let empty = request(json!({ "requestOverrides": {} }));
+    for kind in [super::model::EngineKind::OpenAiCompatible, super::model::EngineKind::Anthropic] {
+        let body = super::requests::build_completion_body(kind, &model, &plain, true);
+        assert_eq!(body["reasoning_effort"], "low");
+        assert_eq!(body["top_k"], 20);
+        assert_eq!(super::requests::build_completion_body(kind, &model, &empty, true), body);
+    }
+    // And with no model overrides at all, no thinking field appears.
+    let bare: super::model::ModelConfig = serde_json::from_value(json!({ "id": "m" })).unwrap();
+    let body = super::requests::build_completion_body(super::model::EngineKind::OpenAiCompatible, &bare, &plain, true);
+    assert!(body.get("reasoning_effort").is_none());
+    assert!(body.get("chat_template_kwargs").is_none());
+}
+
 // ── Settings slice ──────────────────────────────────────────────────────────
 
 #[test]

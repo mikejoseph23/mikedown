@@ -12,7 +12,7 @@
  * `MIKEDOWN_AI_LIVE_{OMLX,LMSTUDIO,OLLAMA}_MODEL`.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { AI_ENGINE_PRESETS, parseAiSettings, type AiCompletionRequest, type AiDiscoveredModel, type AiEngineConfig, type AiEngineKind } from '@mikedown/core/ai';
+import { AI_ENGINE_PRESETS, buildExplainMessages, buildRewriteMessages, finalizeRewriteText, parseAiSettings, thinkingOverrides, type AiCompletionRequest, type AiDiscoveredModel, type AiEngineConfig, type AiEngineKind } from '@mikedown/core/ai';
 import { AiEngineService } from '../../src/ai/engineService';
 import { AiSecrets } from '../../src/ai/secrets';
 import { createAdapters } from '../../src/ai/providers';
@@ -189,6 +189,41 @@ describe.skipIf(!LIVE)('live AI engines', () => {
         expect(log).toHaveLength(1);
         expect(log[0]).toMatch(/· local · \d+ ms · (stop|length)/);
         expect(log[0]).not.toContain('Count from one');
+      }, 120_000);
+
+      // The rewrite family prompts against a real model. 40 tokens, thinking off so a
+      // reasoning model has room to answer. A weak translation is a finding; only the
+      // link URL surviving is asserted.
+      it('translate (to Spanish) of a two-line fixture keeps the link URL', async (ctx) => {
+        const t = withModel(ctx);
+        const { service } = serviceFor(t);
+        const selection = 'Read the [setup guide](https://example.com/setup) first.\nThen run the installer.';
+        const requestOverrides = thinkingOverrides(t.kind, 'off', { local: true });
+        const started = Date.now();
+        const result = await service.complete({}, {
+          requestId: 'live-translate', feature: 'rewrite', task: 'rewrite', maxTokens: 40, temperature: 0,
+          messages: buildRewriteMessages({ variant: 'translate', selection, params: { language: 'Spanish' } }),
+          ...(Object.keys(requestOverrides).length ? { requestOverrides } : {}),
+        }, () => {});
+        const text = finalizeRewriteText(result.text, selection);
+        console.log(`[live translate] ${def.label} ${t.model} ${Date.now() - started} ms: ${JSON.stringify(text)}`);
+        expect(text.length, 'the model produced visible text within 40 tokens').toBeGreaterThan(0);
+        expect(text).toContain('(https://example.com/setup)');
+      }, 120_000);
+
+      it('explain answers with prose and does not hand back a rewrite', async (ctx) => {
+        const t = withModel(ctx);
+        const { service } = serviceFor(t);
+        const selection = 'Eigenvalues scale a vector without changing its direction.';
+        const requestOverrides = thinkingOverrides(t.kind, 'off', { local: true });
+        const started = Date.now();
+        const result = await service.complete({}, {
+          requestId: 'live-explain', feature: 'rewrite', task: 'rewrite', maxTokens: 40, temperature: 0,
+          messages: buildExplainMessages({ selection, title: 'Linear algebra' }),
+          ...(Object.keys(requestOverrides).length ? { requestOverrides } : {}),
+        }, () => {});
+        console.log(`[live explain] ${def.label} ${t.model} ${Date.now() - started} ms: ${JSON.stringify(result.text)}`);
+        expect(result.text.trim().length).toBeGreaterThan(0);
       }, 120_000);
 
       it('a cancelled completion rejects cancelled and leaves the server answering', async (ctx) => {

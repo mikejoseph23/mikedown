@@ -387,6 +387,18 @@ describe('per-request requestOverrides (thinking dial), end to end', () => {
     expect(body).toMatchObject(thinkingOverrides(c.kind, c.level, { local: c.local }));
   });
 
+  it.each(fixture.cases.map((c) => [c.name, c] as const))('%s: without a thinking level the body is the model\'s alone', async (_name, c) => {
+    const plain = await bodyFor(c, undefined);
+    // An empty object changes nothing either.
+    expect(await bodyFor(c, {})).toEqual(plain);
+    // Nothing the request would have added is there unless the model set it.
+    const own = c.modelOverrides ?? {};
+    for (const key of Object.keys(c.requestOverrides)) {
+      if (key in own) {expect(plain[key], key).toEqual(own[key]);}
+      else {expect(plain, key).not.toHaveProperty(key);}
+    }
+  });
+
   it('without requestOverrides the model\'s own still apply', async () => {
     const c = fixture.cases.find((x) => x.kind === 'openai' && x.modelOverrides)!;
     expect(await bodyFor(c, undefined)).toMatchObject(c.modelOverrides!);

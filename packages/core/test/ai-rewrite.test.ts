@@ -521,3 +521,126 @@ describe('rewrite popover', () => {
     expect(el.querySelector<HTMLElement>('.sidebar-ai-chip')?.textContent).toBe('AI: local · Proxy · house-model');
   });
 });
+
+// ── Rewrite family flows (T1) ───────────────────────────────────────────────
+
+describe('rewrite family flows', () => {
+  const ui = (): HTMLElement => popover()!;
+  const hasButton = (label: string): boolean => [...ui().querySelectorAll<HTMLButtonElement>('button')].some((b) => b.textContent === label && !b.hidden);
+  const press = (key: string): boolean => document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  function selectText(handle: MikeDownEditorHandle, text: string): void {
+    let from = -1;
+    handle.tiptap.state.doc.descendants((node, pos) => {
+      if (from < 0 && node.isText && node.text?.includes(text)) {from = pos + node.text.indexOf(text);}
+    });
+    if (from < 0) {throw new Error(`no "${text}" in the document`);}
+    handle.tiptap.commands.setTextSelection({ from, to: from + text.length });
+  }
+  const blockquotes = (handle: MikeDownEditorHandle): number => {
+    let n = 0;
+    handle.tiptap.state.doc.descendants((node) => { if (node.type.name === 'blockquote') {n++;} });
+    return n;
+  };
+
+  it('the choose phase renders every variant under its group, with the custom prompt last', () => {
+    const { handle } = mountWithAi('Hello world.\n', 'Hi.');
+    selectText(handle, 'Hello world.');
+    handle.command('aiRewrite');
+    const groups = [...ui().querySelectorAll<HTMLElement>('.ai-rw-group')];
+    expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Length', 'Tone', 'Audience', 'Translate', 'Explain']);
+    const labels = groups.flatMap((g) => [...g.querySelectorAll('[role="menuitem"]')].map((b) => b.textContent));
+    expect(labels).toEqual(AI_REWRITE_VARIANTS.filter((v) => v.id !== 'custom').map((v) => v.label));
+    const input = ui().querySelector('.ai-rw-input')!;
+    expect(input).not.toBeNull();
+    expect(groups.every((g) => g.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+  });
+
+  it('the language picker remembers the choice in localStorage (mocked) and preselects it in the next popover', async () => {
+    const store = new Map<string, string>();
+    const fake: Storage = {
+      get length() { return store.size; },
+      clear: () => store.clear(),
+      getItem: (k) => store.get(k) ?? null,
+      key: (i) => [...store.keys()][i] ?? null,
+      removeItem: (k) => { store.delete(k); },
+      setItem: (k, v) => { store.set(k, String(v)); },
+    };
+    vi.stubGlobal('localStorage', fake);
+    try {
+      const { handle } = mountWithAi('Hello world.\n', 'Hallo Welt.');
+      selectText(handle, 'Hello world.');
+      handle.command('aiTranslate');
+      expect(ui().querySelector('.ai-rw-picker-list')).not.toBeNull();
+      clickButton('German');
+      await settle();
+      expect(JSON.parse(store.get('mikedown.ai.recentLanguages')!)).toEqual(['German']);
+      press('Escape');
+      expect(popover()).toBeNull();
+
+      selectText(handle, 'Hello world.');
+      handle.command('aiTranslate');
+      const first = ui().querySelector<HTMLButtonElement>('.ai-rw-picker-list > button')!;
+      expect(first.textContent).toBe('German');
+      expect(first.getAttribute('aria-checked')).toBe('true');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('Explain: the footer has Insert below and no Accept; Insert below adds one blockquote, one undo removes it', async () => {
+    const { handle } = mountWithAi('Alpha beta.\n\nOmega.\n', 'First point.\n\nSecond point.');
+    selectText(handle, 'Alpha beta.');
+    const before = handle.getMarkdown();
+    expect(blockquotes(handle)).toBe(0);
+    handle.command('aiExplain');
+    await settle();
+    expect(hasButton('Insert below')).toBe(true);
+    expect(hasButton('Accept')).toBe(false);
+    expect(handle.getMarkdown()).toBe(before);
+
+    clickButton('Insert below');
+    expect(blockquotes(handle)).toBe(1);
+    expect(handle.getMarkdown()).toContain('> First point.\n>\n> Second point.');
+    handle.command('undo');
+    expect(blockquotes(handle)).toBe(0);
+    expect(handle.getMarkdown()).toBe(before);
+  });
+
+  it('whole-document translate keeps the frontmatter and undoes in one step', async () => {
+    const md = '---\ntitle: Hi\n---\nHello [docs](https://x.test/d).\n\nBye.\n';
+    const { handle } = mountWithAi(md, 'Hola [docs](https://x.test/d).\n\nAdiós.');
+    selectText(handle, 'Bye.');
+    const before = handle.getMarkdown();
+    handle.command('aiTranslate');
+    ui().querySelector<HTMLInputElement>('.ai-rw-toggle input')!.click();
+    clickButton('Spanish');
+    await settle();
+    clickButton('Replace document');
+    expect(handle.getMarkdown()).toBe('---\ntitle: Hi\n---\nHola [docs](https://x.test/d).\n\nAdiós.\n');
+    handle.command('undo');
+    expect(handle.getMarkdown()).toBe(before);
+  });
+
+  it('the structure warning line appears for a result that dropped a link, and says what', async () => {
+    const { handle } = mountWithAi('See [docs](https://x.test/d) now.\n', 'Mira docs ahora.');
+    handle.tiptap.commands.selectAll();
+    handle.command('aiTranslate');
+    clickButton('Spanish');
+    await settle();
+    const warn = ui().querySelector<HTMLElement>('.ai-rw-warn')!;
+    expect(warn.hidden).toBe(false);
+    expect(warn.textContent).toBe('Check: 1 link missing in the result');
+    expect(warn.title).toContain('https://x.test/d');
+    // A warning never blocks Accept.
+    expect([...ui().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Accept')!.getAttribute('aria-disabled')).toBe('false');
+  });
+
+  it('no warning when the translation keeps every link', async () => {
+    const { handle } = mountWithAi('See [docs](https://x.test/d).\n', 'Mira [documentos](https://x.test/d).');
+    handle.tiptap.commands.selectAll();
+    handle.command('aiTranslate');
+    clickButton('Spanish');
+    await settle();
+    expect(ui().querySelector<HTMLElement>('.ai-rw-warn')!.hidden).toBe(true);
+  });
+});
