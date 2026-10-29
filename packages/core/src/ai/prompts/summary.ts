@@ -133,6 +133,15 @@ function dropCutFragment(text: string): string {
 }
 
 /**
+ * The preview once the stream ends: the body `finalizeSummary` will insert,
+ * without the callout wrapper and the coverage line (the popover shows those
+ * apart), so the cut fragment and lead-in are gone before Insert.
+ */
+export function summaryPreviewText(raw: string, kind: AiSummaryKind, cutOff = false): string {
+  return cutOff ? dropCutFragment(tidy(raw, kind)) : tidy(raw, kind);
+}
+
+/**
  * The markdown to insert. TL;DR becomes a `[!NOTE]` callout headed
  * **Summary**; Outline stays the list. When the document was cut
  * (`coverage` below 1) a "Covers the first N% of the document." line closes

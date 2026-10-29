@@ -64,6 +64,7 @@ import {
   parseTitles,
   renderHeadingOutline,
   summaryMaxTokens,
+  summaryPreviewText,
   summaryVisibleText,
   thinkingChoices,
   titleMaxTokens,
@@ -1080,6 +1081,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   let runSeq = 0;
   let raw = '';
   let finalText = '';
+  /** The summary stream stopped at the length limit: the preview drops the same fragment Insert does. */
+  let summaryCutOff = false;
   let route: AiRouteOk | null = null;
   let served: AiServedBy | null = null;
   let viaFallback = false;
@@ -1476,7 +1479,14 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     badgeEl.title = levelLabel ? `${b.title} Thinking: ${levelLabel.toLowerCase()}.` : b.title;
     const glyph = el('span', 'ai-rw-badge-glyph');
     glyph.innerHTML = b.where === 'cloud' ? CLOUD : LOCAL;
-    const text = el('span', 'ai-rw-badge-text', b.text);
+    // "local · oMLX · Qwen3 30B": locality and engine never shrink, only the model name ellipsizes.
+    const text = el('span', 'ai-rw-badge-text');
+    const cut = b.text.split(' · ');
+    if (cut.length >= 3) {
+      text.append(el('span', 'ai-rw-badge-engine', `${cut.slice(0, 2).join(' · ')} · `), el('span', 'ai-rw-badge-model', cut.slice(2).join(' · ')));
+    } else {
+      text.append(el('span', 'ai-rw-badge-engine', b.text));
+    }
     const parts: Node[] = [glyph, text];
     if (b.fallback) {parts.push(el('span', 'ai-rw-badge-fallback', '(fallback)'));}
     badgeEl.replaceChildren(...parts);
@@ -1485,7 +1495,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   function renderOut(): void {
     // Titles stream as JSON: only a placeholder until the list shows.
     const shown = job === 'titles' ? ''
-      : job === 'summary' ? summaryVisibleText(raw).trim()
+      : job === 'summary' ? (phase === 'done' && summaryJob ? summaryPreviewText(raw, summaryJob.kind, summaryCutOff) : summaryVisibleText(raw)).trim()
         : phase === 'done' ? finalText.trim() : rewriteVisibleText(raw).trimStart();
     outEl.textContent = shown;
     newPaneEl.classList.toggle('is-waiting', phase === 'running' && !shown);
@@ -1652,6 +1662,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     side = null;
     raw = '';
     finalText = '';
+    summaryCutOff = false;
     route = null;
     served = null;
     viaFallback = false;
@@ -1750,6 +1761,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     phase = 'running';
     raw = '';
     finalText = '';
+    summaryCutOff = false;
     served = null;
     error = null;
     errorCopy = null;
@@ -1853,6 +1865,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       noteServed(outcome);
       raw = outcome.result.text || raw;
       const cutOff = outcome.result.finishReason === 'length';
+      summaryCutOff = cutOff;
       finalText = finalizeSummary(raw, kind, coverage, cutOff);
       if (!finalText.trim()) {
         if (cutOff) {showLengthError(outcome);} else {showError(makeAiError('badOutput'));}

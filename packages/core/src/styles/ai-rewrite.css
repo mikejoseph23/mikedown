@@ -138,7 +138,8 @@
   align-items: center;
   gap: 4px;
   flex: 0 1 auto;
-  min-width: 0;
+  /* Never narrower than the glyph, locality and engine; only the model name gives way. */
+  min-width: min-content;
   max-width: 45%;
   margin-left: auto;
   padding: 1px 8px 1px 6px;
@@ -151,7 +152,12 @@
   white-space: nowrap;
 }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-badge-glyph { display: inline-flex; flex-shrink: 0; }
-:is(.mikedown-root, .mikedown-portal) .ai-rw-badge-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge-text {
+  display: grid;
+  grid-template-columns: auto minmax(3ch, auto);
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-rw-badge-model { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-badge[data-where="local"] .ai-rw-badge-glyph { color: var(--mikedown-success, #2e7d32); }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-badge[data-where="cloud"] { border-color: color-mix(in srgb, var(--mikedown-info, #1e70d6) 35%, transparent); }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-badge[data-where="cloud"] .ai-rw-badge-glyph { color: var(--mikedown-info, #1e70d6); }

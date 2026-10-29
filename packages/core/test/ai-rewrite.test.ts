@@ -351,6 +351,9 @@ describe('rewrite popover', () => {
     expect(popover()?.dataset.phase).toBe('done');
     expect(popover()?.querySelector('.ai-rw-out')?.textContent).toBe('A **swift** fox leaps.');
     expect(popover()?.querySelector('.ai-rw-badge-text')?.textContent).toBe('local · Proxy · house-model');
+    // Locality and engine sit apart from the model so only the model name ellipsizes.
+    expect(popover()?.querySelector('.ai-rw-badge-engine')?.textContent).toBe('local · Proxy · ');
+    expect(popover()?.querySelector('.ai-rw-badge-model')?.textContent).toBe('house-model');
     const user = requests[0].req.messages[1].content as string;
     expect(user).toContain('<passage>\nThe quick brown fox jumps.\n</passage>');
     expect(user).toContain('First paragraph.');

@@ -154,6 +154,19 @@ describe('/summary and /title at the length limit', () => {
     expect(md).not.toContain('#pl');
   });
 
+  it('the preview after a cut shows what Insert inserts: the cut word gone, the ellipsis on', async () => {
+    const { handle } = mount(MD, { text: 'The editor ships in May. Docs follow in Ju', finish: 'length' });
+    await settle();
+    handle.tiptap.commands.setTextSelection(handle.tiptap.state.doc.content.size - 1);
+    handle.command('aiSummarize');
+    await settle();
+    expect(popover()!.dataset.phase).toBe('done');
+    const preview = popover()!.querySelector('.ai-rw-out')!.textContent;
+    expect(preview).toBe('The editor ships in May. Docs follow in…');
+    buttons().find((b) => b.textContent === 'Insert')!.click();
+    expect(handle.getMarkdown()).toContain(preview);
+  });
+
   it('a summary with no text at the limit gets the out-of-room error', async () => {
     const { handle } = mount(MD, { text: '', finish: 'length' });
     await settle();
