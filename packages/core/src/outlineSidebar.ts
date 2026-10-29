@@ -1363,7 +1363,16 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     const actions = document.createElement('div');
     actions.className = 'properties-suggest-actions';
     actions.appendChild(textButton('Dismiss all', closeSuggestions));
-    row.append(chips, actions);
+    row.append(chips);
+    // The answer was cut off: say so next to what did arrive.
+    if (suggestMessage) {
+      const note = document.createElement('div');
+      note.className = 'properties-suggest-note';
+      note.setAttribute('role', 'status');
+      note.textContent = suggestMessage;
+      row.appendChild(note);
+    }
+    row.appendChild(actions);
   }
 
   /** Remove `pick` from the shown suggestions; the row closes when none are left. */

@@ -784,6 +784,11 @@
   line-height: 1.4;
 }
 
+:is(.mikedown-root, .mikedown-portal) .properties-suggest-note {
+  color: var(--mikedown-warning, #b26a00);
+  line-height: 1.4;
+}
+
 :is(.mikedown-root, .mikedown-portal) .properties-suggest-actions {
   display: flex;
   gap: 8px;

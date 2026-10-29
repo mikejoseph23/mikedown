@@ -52,6 +52,7 @@ import {
   CHARS_PER_TOKEN,
   DEFAULT_CONTEXT_TOKENS,
   aiErrorCopy,
+  aiLengthLimitCopy,
   budgetDocument,
   buildSummaryMessages,
   buildTitleMessages,
@@ -69,7 +70,7 @@ import {
   toAiError,
   type AiSummaryKind,
 } from './ai';
-import type { AiError, AiMessage, AiRouteOk, AiServedBy, AiThinkingLevel } from './ai';
+import type { AiError, AiErrorCopy, AiMessage, AiRouteOk, AiServedBy, AiThinkingLevel } from './ai';
 import {
   AI_AUDIENCES,
   AI_REWRITE_VARIANTS,
@@ -89,6 +90,7 @@ import {
 import { buildExplainMessages, explainMaxTokens } from './ai/prompts/explain';
 import { checkMarkdownStructure, type StructureDiff, type StructureMismatch } from './ai/prompts/structureCheck';
 import type { AiFeatureAvailability, AiRunEvents, AiRunOutcome, AiRunRequest, AiRunThinking } from './ai-request';
+import { aiRunThinkingOn } from './ai-request';
 import {
   loadAudience,
   rememberAudience,
@@ -1084,6 +1086,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   /** The thinking dial for the current route; null hides it (no mapping, tier-1 host, no route yet). */
   let thinking: AiRunThinking | null = null;
   let error: AiError | null = null;
+  /** Copy that replaces the error code's own (an answer that never came, out of room). */
+  let errorCopy: AiErrorCopy | null = null;
   /** The error is the router's: nothing can serve, so the fix is in settings. */
   let unavailable = false;
   let note = '';
@@ -1572,9 +1576,9 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   }
 
   function renderError(e: AiError): void {
-    const copyText = unavailable
+    const copyText: AiErrorCopy = unavailable
       ? { title: 'No engine can rewrite right now', message: e.message, action: 'openSettings' as const }
-      : aiErrorCopy(e.code);
+      : errorCopy ?? aiErrorCopy(e.code);
     const iconEl = el('span', 'ai-rw-error-icon');
     iconEl.innerHTML = ALERT;
     const textBox = el('div', 'ai-rw-error-text');
@@ -1747,6 +1751,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     finalText = '';
     served = null;
     error = null;
+    errorCopy = null;
     note = '';
     warning = null;
     repairing = false;
@@ -1778,8 +1783,17 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     deps.onServed(outcome.result.served, outcome.viaFallback);
   }
 
-  function finishNote(reason: string | undefined): string {
-    return reason === 'length' ? 'Stopped at the length limit.' : reason === 'error' ? 'The stream ended early.' : '';
+  function finishNote(outcome: AiRunOutcome): string {
+    const reason = outcome.result.finishReason;
+    if (reason === 'length') {return aiLengthLimitCopy({ thinking: aiRunThinkingOn(outcome.thinking), empty: false }).message;}
+    return reason === 'error' ? 'The stream ended early.' : '';
+  }
+
+  /** An answer with no text that stopped at the length limit: the error says why. */
+  function showLengthError(outcome: AiRunOutcome): void {
+    const copy = aiLengthLimitCopy({ thinking: aiRunThinkingOn(outcome.thinking), empty: true });
+    errorCopy = copy;
+    showError(makeAiError('badOutput', copy.message));
   }
 
   function showError(e: AiError): void {
@@ -1788,7 +1802,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     repairing = false;
     render();
     position();
-    liveEl.textContent = `${aiErrorCopy(e.code).title}.`;
+    liveEl.textContent = `${(errorCopy ?? aiErrorCopy(e.code)).title}.`;
     errorEl.querySelector<HTMLButtonElement>('.ai-rw-btn--primary, .ai-rw-btn')?.focus({ preventScroll: true });
   }
 
@@ -1837,13 +1851,14 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       controller = null;
       noteServed(outcome);
       raw = outcome.result.text || raw;
-      finalText = finalizeSummary(raw, kind, coverage);
+      const cutOff = outcome.result.finishReason === 'length';
+      finalText = finalizeSummary(raw, kind, coverage, cutOff);
       if (!finalText.trim()) {
-        showError(makeAiError('badOutput'));
+        if (cutOff) {showLengthError(outcome);} else {showError(makeAiError('badOutput'));}
         return;
       }
       phase = 'done';
-      note = finishNote(outcome.result.finishReason);
+      note = finishNote(outcome);
       render();
       position();
       liveEl.textContent = `${kind === 'outline' ? 'Outline' : 'Summary'} ready. Press Enter to insert or Escape to cancel.`;
@@ -1882,6 +1897,13 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       if (seq !== runSeq || !root) {return;}
       noteServed(first);
       const firstText = first.result.text || raw;
+      // Nothing to repair: the model ran out of room before it answered.
+      if (!rewriteVisibleText(firstText).trim() && first.result.finishReason === 'length') {
+        controller = null;
+        showLengthError(first);
+        return;
+      }
+      let last = first;
       let parsed = parseTitles(firstText, tj.existingTitle);
       if (!parsed.ok) {
         // D16: one repair round trip, abortable like the first request.
@@ -1891,12 +1913,21 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
         if (seq !== runSeq || !root) {return;}
         noteServed(second);
         repairing = false;
+        last = second;
         parsed = parseTitles(second.result.text || raw, tj.existingTitle);
-        if (!parsed.ok) {throw makeAiError('badOutput', parsed.error);}
+        if (!parsed.ok) {
+          if (second.result.finishReason === 'length') {
+            controller = null;
+            showLengthError(second);
+            return;
+          }
+          throw makeAiError('badOutput', parsed.error);
+        }
       }
       controller = null;
       titles = parsed.titles.slice(0, 3);
       phase = 'done';
+      note = finishNote(last);
       renderTitles();
       render();
       position();
@@ -1979,10 +2010,15 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       finalText = finalizeRewriteText(outcome.result.text || raw, readOnly ? '' : sentText);
       if (!finalText.trim()) {
         phase = 'error';
-        error = { code: 'unknown', message: 'The engine sent back no text.' };
+        if (outcome.result.finishReason === 'length') {
+          errorCopy = aiLengthLimitCopy({ thinking: aiRunThinkingOn(outcome.thinking), empty: true });
+          error = makeAiError('badOutput', errorCopy.message);
+        } else {
+          error = { code: 'unknown', message: 'The engine sent back no text.' };
+        }
       } else {
         phase = 'done';
-        note = finishNote(outcome.result.finishReason);
+        note = finishNote(outcome);
         if (STRUCTURE_CHECKED.has(v)) {
           const diff = checkMarkdownStructure(sentText, finalText);
           const text = structureWarningText(diff);

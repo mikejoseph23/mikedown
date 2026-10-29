@@ -67,6 +67,24 @@ export const AI_ERROR_COPY: Readonly<Record<AiErrorCode, AiErrorCopy>> = {
   },
 };
 
+/**
+ * A stream that stopped at its token limit (`finishReason: 'length'`). A
+ * thinking model counts its reasoning against that limit, so with thinking
+ * on the advice is to lower Thinking. `empty`: no answer text came back at
+ * all (shown as the error); otherwise the answer is shown with `message` as
+ * a note.
+ */
+export function aiLengthLimitCopy(opts: { thinking: boolean; empty: boolean }): AiErrorCopy {
+  if (opts.empty) {
+    return opts.thinking
+      ? { title: 'No room left to answer', message: 'The model used its whole length budget thinking and sent no answer. Lower Thinking, or Retry.', action: 'retry' }
+      : { title: 'No room left to answer', message: 'The model reached its length limit before it sent any text. Retry.', action: 'retry' };
+  }
+  return opts.thinking
+    ? { title: 'Answer cut off', message: 'The answer was cut off at the length limit. Lower Thinking, or Retry, for a full answer.', action: 'retry' }
+    : { title: 'Answer cut off', message: 'The answer was cut off at the length limit.', action: 'retry' };
+}
+
 export function isAiErrorCode(v: unknown): v is AiErrorCode {
   return typeof v === 'string' && (AI_ERROR_CODES as readonly string[]).includes(v);
 }

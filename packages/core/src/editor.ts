@@ -101,9 +101,10 @@ import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
 import {
-  CHARS_PER_TOKEN, DEFAULT_CONTEXT_TOKENS, PROPERTY_VOCABULARY_MAX, aiErrorCopy, budgetDocument, buildPropertiesMessages,
+  CHARS_PER_TOKEN, DEFAULT_CONTEXT_TOKENS, PROPERTY_VOCABULARY_MAX, aiErrorCopy, aiLengthLimitCopy, budgetDocument, buildPropertiesMessages,
   defaultAiSettings, headingsOutline, isRouteUsable, jsonRepairMessages, makeAiError, parseAiSettings,
-  parsePropertySuggestions, propertiesMaxTokens, renderHeadingOutline, resolveRoute, toAiError, type AiSummaryKind,
+  parsePropertySuggestions, propertiesMaxTokens, renderHeadingOutline, resolveRoute, rewriteVisibleText, toAiError,
+  type AiSummaryKind,
 } from './ai';
 import type { AiEngineStatus, AiMessage, AiRouteOk, AiServedBy, AiSettings, AiSettingsPatch, MikeDownAiHost } from './ai';
 import { sessionThinkingLevel } from './ai-prefs';
@@ -119,7 +120,7 @@ import {
   AI_TURN_ON_PATCH, aiSetupTarget, aiToolbarButtonMode, aiToolbarMenuEntries,
   hideAiFirstRunPanel, isAiFirstRunPanelOpen, showAiFirstRunPanel,
 } from './ai-toolbar';
-import { aiFeatureAvailability, runAiCompletion, type AiFeatureAvailability, type AiRunOutcome } from './ai-request';
+import { aiFeatureAvailability, aiRunThinkingOn, runAiCompletion, type AiFeatureAvailability, type AiRunOutcome } from './ai-request';
 import {
   AiRewriteHighlight, aiRewriteMenuGroups, applyRichTitle, applySourceTitle, cmAiRewriteHighlight, createAiRewriteBubble,
   createAiRewritePopover, cursorInsertTarget, richDocumentTarget, richRewriteTarget, setYamlTitle, sourceCursorTarget,
@@ -4328,6 +4329,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       renderAiIndicator();
     };
 
+    // An answer that stopped at the length limit: why, in the row's own words.
+    let lengthMessage = '';
+    const outOfRoom = (o: AiRunOutcome, empty: boolean): string => (o.result.finishReason === 'length'
+      ? aiLengthLimitCopy({ thinking: aiRunThinkingOn(o.thinking), empty }).message : '');
+
     showRunning();
     void (async () => {
       try {
@@ -4335,6 +4341,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         if (!live()) {return;}
         served(first);
         const firstText = first.result.text || streamed;
+        // Nothing to repair: the model ran out of room before it answered.
+        if (!rewriteVisibleText(firstText).trim() && first.result.finishReason === 'length') {
+          lengthMessage = outOfRoom(first, true);
+          throw makeAiError('badOutput', lengthMessage);
+        }
+        let last = first;
         let parsed = parsePropertySuggestions(firstText, existing, vocabulary);
         if (!parsed.ok) {
           // D16: one repair round trip, abortable like the first request.
@@ -4343,11 +4355,16 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
           const second = await request([...messages, ...jsonRepairMessages(firstText, parsed.error)]);
           if (!live()) {return;}
           served(second);
+          last = second;
           parsed = parsePropertySuggestions(second.result.text || streamed, existing, vocabulary);
-          if (!parsed.ok) {throw makeAiError('badOutput', parsed.error);}
+          if (!parsed.ok) {
+            lengthMessage = outOfRoom(second, !rewriteVisibleText(second.result.text || streamed).trim());
+            throw makeAiError('badOutput', parsed.error);
+          }
         }
         propertiesController = null;
-        sidebar.applyPropertySuggestions(parsed.suggestions, 'idle');
+        const cut = outOfRoom(last, false);
+        sidebar.applyPropertySuggestions(parsed.suggestions, 'idle', cut || undefined);
       } catch (err) {
         if (!live()) {return;}
         propertiesController = null;
@@ -4356,7 +4373,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
           sidebar.applyPropertySuggestions(null, 'idle');
           return;
         }
-        sidebar.applyPropertySuggestions(null, 'error', aiErrorCopy(e.code).message);
+        sidebar.applyPropertySuggestions(null, 'error', lengthMessage || aiErrorCopy(e.code).message);
       }
     })();
     return true;

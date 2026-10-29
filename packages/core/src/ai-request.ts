@@ -78,6 +78,11 @@ export interface AiRunThinking {
   sent: AiThinkingLevel | null;
 }
 
+/** Whether the model may have been thinking: a routed kind with a mapping whose effective level is not Off. */
+export function aiRunThinkingOn(thinking: AiRunThinking | null): boolean {
+  return !!thinking && (thinking.sent ?? thinking.configured) !== 'off';
+}
+
 export interface AiRunEvents {
   /**
    * The route about to be used (null for a tier-1 host), before any token.

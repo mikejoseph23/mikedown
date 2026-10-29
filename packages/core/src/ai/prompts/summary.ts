@@ -117,13 +117,31 @@ function tidy(raw: string, kind: AiSummaryKind): string {
 }
 
 /**
+ * A summary that stopped at the length limit: the last word may be a
+ * fragment (a cut `#planning` reads as the tag `#pl`), so it goes unless the
+ * text ends on punctuation, with any list marker or quote left bare, and an
+ * ellipsis marks the cut.
+ */
+function dropCutFragment(text: string): string {
+  let t = text.trimEnd();
+  if (!t) {return '';}
+  if (!/[.!?;:)\]"'”’`*_]$/.test(t)) {t = t.replace(/\S+$/, '').trimEnd();}
+  // A line left with only a list marker, a quote marker or a heading mark.
+  t = t.replace(/(^|\n)[ \t]*(?:[-*+]|\d+[.)]|>|#{1,6})?[ \t]*$/, '').trimEnd();
+  if (!t) {return '';}
+  return /[\p{L}\p{N}]$/u.test(t) ? `${t}…` : `${t} …`;
+}
+
+/**
  * The markdown to insert. TL;DR becomes a `[!NOTE]` callout headed
  * **Summary**; Outline stays the list. When the document was cut
  * (`coverage` below 1) a "Covers the first N% of the document." line closes
  * it. An empty reply stays empty so the caller can report a bad output.
+ * `cutOff` (the stream stopped at the length limit) drops a trailing
+ * fragment and ends the text with an ellipsis.
  */
-export function finalizeSummary(raw: string, kind: AiSummaryKind, coverage = 1): string {
-  const body = tidy(raw, kind);
+export function finalizeSummary(raw: string, kind: AiSummaryKind, coverage = 1, cutOff = false): string {
+  const body = cutOff ? dropCutFragment(tidy(raw, kind)) : tidy(raw, kind);
   if (!body) {return '';}
   const note = coverage < 1 ? `Covers the first ${coveragePercent(coverage)}% of the document.` : '';
   if (kind === 'outline') {
