@@ -3086,11 +3086,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     // ── Font quick-switcher button ──────────────────────────────────────────
     const fontIcon = toolbarSvg('<text x="3" y="12" font-size="11" font-weight="700" fill="currentColor" stroke="none" font-family="serif">A</text><text x="10" y="12" font-size="8" fill="currentColor" stroke="none" font-family="sans-serif">a</text>', 0);
-    const fontBtn = makeBtn('fontPicker', 'Font Theme', fontIcon);
     let fontPicker: HTMLElement | null = null;
-    fontBtn.addEventListener('click', () => {
-      // Remove existing dropdown if open
-      fontPicker?.remove();
+    let closeFontPicker = (): void => { fontPicker?.remove(); fontPicker = null; };
+    const openFontPicker = (anchor: HTMLElement): void => {
+      // A second press on the button closes the open picker
+      if (fontPicker?.isConnected) { closeFontPicker(); return; }
 
       const isMac = navigator.platform?.startsWith('Mac') || navigator.userAgent.includes('Macintosh');
 
@@ -3177,7 +3177,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       const dropdown = document.createElement('div');
       dropdown.className = 'mikedown-font-quick-picker';
       fontPicker = dropdown;
-      dropdown.style.cssText = 'position:absolute;top:100%;right:0;z-index:1100;background:var(--mikedown-surface-raised,#252526);border:1px solid var(--mikedown-border,rgba(128,128,128,0.3));border-radius:var(--mikedown-radius,6px);box-shadow:0 6px 20px var(--mikedown-shadow,rgba(0,0,0,0.3));padding:4px;min-width:300px;max-height:400px;overflow-y:auto';
+      // Fixed under the anchor (the font button, or More when it has overflowed), right-aligned to it
+      const anchorRect = anchor.getBoundingClientRect();
+      dropdown.style.cssText = `position:fixed;top:${anchorRect.bottom}px;right:${Math.max(0, window.innerWidth - anchorRect.right)}px;z-index:1100;background:var(--mikedown-surface-raised,#252526);border:1px solid var(--mikedown-border,rgba(128,128,128,0.3));border-radius:var(--mikedown-radius,6px);box-shadow:0 6px 20px var(--mikedown-shadow,rgba(0,0,0,0.3));padding:4px;min-width:300px;max-height:400px;overflow-y:auto`;
 
       const currentBody = getComputedStyle(root).getPropertyValue('--mikedown-font-family').trim();
       const currentHeading = getComputedStyle(root).getPropertyValue('--mikedown-heading-font-family').trim();
@@ -3222,25 +3224,36 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         item.addEventListener('click', () => {
           setRootVar('--mikedown-font-family', theme.body);
           setRootVar('--mikedown-heading-font-family', theme.heading);
-          dropdown.remove();
+          closeFontPicker();
           host.saveSettings?.({ fontFamily: theme.body, headingFontFamily: theme.heading });
         });
         dropdown.appendChild(item);
       });
 
-      // Position relative to font button
-      fontBtn.style.position = 'relative';
-      fontBtn.appendChild(dropdown);
+      root.appendChild(dropdown);
 
       // Close on click outside
-      const closeHandler = (e: MouseEvent) => {
-        if (!dropdown.contains(e.target as Node) && e.target !== fontBtn) {
-          dropdown.remove();
-          document.removeEventListener('click', closeHandler, true);
-        }
+      const closeHandler = (e: MouseEvent): void => {
+        if (!dropdown.contains(e.target as Node) && !anchor.contains(e.target as Node)) { closeFontPicker(); }
+      };
+      closeFontPicker = (): void => {
+        dropdown.remove();
+        document.removeEventListener('click', closeHandler, true);
+        if (fontPicker === dropdown) { fontPicker = null; }
       };
       setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
-    });
+    };
+
+    // Optional item: not in the default layout, offered in the Customize tray.
+    const fontPickerDef: ToolbarItemDef = {
+      id: 'fontPicker', label: 'Font Theme', kind: 'button', removable: true,
+      render: () => {
+        const fontBtn = makeBtn('fontPicker', 'Font Theme', fontIcon);
+        overflowOpeners.set(fontBtn, openFontPicker);
+        fontBtn.addEventListener('click', () => openFontPicker(fontBtn));
+        return fontBtn;
+      },
+    };
 
     // ── More (⋯): holds whatever doesn't fit (layoutToolbarOverflow) ────────
     const moreDef: ToolbarItemDef = {
@@ -3301,7 +3314,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const defs: ToolbarItemDef[] = [
       textFormatDef, listBlockDef, linkDef, insertDef, emojiDef, headingNumbersDef, aiDef,
       undoDef, redoDef, sourceToggleDef, shareDef, selectAllDef, zoomDef,
-      themeToggleDef, settingsDef, moreDef,
+      themeToggleDef, settingsDef, moreDef, fontPickerDef,
     ];
     const tokens = toolbarResolved.tokens;
     toolbarRegistry = { defs, tokens, rendered: renderToolbar(toolbar, defs, tokens).join(' ') };

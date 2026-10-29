@@ -33,6 +33,7 @@ import {
   TOOLBAR_ITEM_TRAITS,
   TOOLBAR_SEPARATOR,
   TOOLBAR_SPACER,
+  isOptionalToolbarItem,
   isToolbarItemId,
   type ToolbarLayoutToken,
 } from './toolbar-ids';
@@ -58,11 +59,11 @@ export interface ToolbarLayout {
 /** Ids may be passed as a set or any iterable (e.g. `TOOLBAR_ITEM_IDS`). */
 export type ToolbarKnownIds = ReadonlySet<string> | Iterable<string>;
 
-/** The default layout: today's toolbar, every known id marked seen. Frozen. */
+/** The default layout: today's toolbar, every non-optional known id marked seen. Frozen. */
 export const DEFAULT_TOOLBAR_LAYOUT: ToolbarLayout = Object.freeze({
   version: TOOLBAR_LAYOUT_VERSION,
   items: DEFAULT_TOOLBAR_ITEMS as readonly string[],
-  seen: Object.freeze([...TOOLBAR_ITEM_IDS]) as readonly string[],
+  seen: Object.freeze(TOOLBAR_ITEM_IDS.filter((id) => !isOptionalToolbarItem(id))) as readonly string[],
 });
 
 function toSet(ids: ToolbarKnownIds): ReadonlySet<string> {
@@ -170,7 +171,9 @@ export function normalizeToolbarLayout(layout: ToolbarLayout, knownIds: ToolbarK
  * is added to `seen`. An id already in `seen` is never re-added, so a button
  * the user removed stays removed. Separators and spacers are never neighbors;
  * an insertion never lands after `more`. Ids in `knownIds` that `defaultItems`
- * does not mention go before `more`. Unknown ids in `seen` are preserved.
+ * does not mention go before `more`. Optional ids (`fontPicker`) are skipped:
+ * they are neither inserted nor added to `seen`, so they only appear once the
+ * user adds them. Unknown ids in `seen` are preserved.
  */
 export function reconcileSeen(layout: ToolbarLayout, defaultItems: readonly string[], knownIds: ToolbarKnownIds): ToolbarLayout {
   const known = toSet(knownIds);
@@ -211,14 +214,14 @@ export function reconcileSeen(layout: ToolbarLayout, defaultItems: readonly stri
   return { version: layout.version, items, seen: seenOut };
 }
 
-/** Known ids in default order, then any the default does not mention. */
+/** Known ids in default order, then any the default does not mention. Optional ids are left out. */
 function orderedKnown(defaultItems: readonly string[], known: ReadonlySet<string>): string[] {
   const out: string[] = [];
   for (const t of defaultItems) {
-    if (!isSpacing(t) && known.has(t) && !out.includes(t)) { out.push(t); }
+    if (!isSpacing(t) && known.has(t) && !out.includes(t) && !isOptionalToolbarItem(t)) { out.push(t); }
   }
   for (const id of known) {
-    if (!out.includes(id)) { out.push(id); }
+    if (!out.includes(id) && !isOptionalToolbarItem(id)) { out.push(id); }
   }
   return out;
 }

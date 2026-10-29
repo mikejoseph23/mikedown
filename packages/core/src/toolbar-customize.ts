@@ -37,6 +37,7 @@ import {
   DEFAULT_TOOLBAR_ITEMS,
   TOOLBAR_SEPARATOR,
   TOOLBAR_SPACER,
+  isOptionalToolbarItem,
   type ToolbarLayoutToken,
 } from './toolbar-ids';
 import {
@@ -387,7 +388,14 @@ export function enterToolbarEditMode(ctx: ToolbarCustomizeContext): ToolbarEditS
   function renderTray(): void {
     const present = new Set(working.items);
     const unused = defs.filter((d) => !present.has(d.id) && (!d.available || d.available()));
-    const tokens = [...unused.map((d) => d.id as string), TOOLBAR_SEPARATOR, TOOLBAR_SPACER];
+    // Optional items (not in the default layout) come after the separator and spacer.
+    const isOptional = (d: ToolbarItemDef): boolean => isOptionalToolbarItem(d.id);
+    const tokens = [
+      ...unused.filter((d) => !isOptional(d)).map((d) => d.id as string),
+      TOOLBAR_SEPARATOR,
+      TOOLBAR_SPACER,
+      ...unused.filter(isOptional).map((d) => d.id as string),
+    ];
     tiles.replaceChildren(...tokens.map((token) => {
       const def = defs.find((d) => d.id === token);
       const tile = document.createElement('button');

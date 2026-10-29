@@ -196,7 +196,7 @@ describe('tray', () => {
   it('holds Separator and Flexible Space on the default layout', () => {
     const { el, toolbar } = mount();
     enterViaContextMenu(toolbar);
-    expect(trayTokens(el)).toEqual(['|', '~']);
+    expect(trayTokens(el)).toEqual(['|', '~', 'fontPicker']);
     expect(trayButton(el, 'toolbar-tray-reset').disabled).toBe(true);
     expect(tray(el)!.querySelector('.toolbar-tray-heading')!.textContent).toBe('Drag items onto the toolbar');
   });
@@ -205,14 +205,53 @@ describe('tray', () => {
     const { el, toolbar } = mount(new NoopHost(), { settings: { toolbarLayout: custom } });
     enterViaContextMenu(toolbar);
     // ai, headingNumbers and share are unavailable with this host and settings.
-    expect(trayTokens(el)).toEqual(['link', 'emoji', 'sourceToggle', 'selectAll', 'zoom', 'themeToggle', '|', '~']);
+    expect(trayTokens(el)).toEqual(['link', 'emoji', 'sourceToggle', 'selectAll', 'zoom', 'themeToggle', '|', '~', 'fontPicker']);
     const labels = Array.from(tray(el)!.querySelectorAll('.toolbar-tray-label')).map((n) => n.textContent);
     expect(labels).toContain('Insert Emoji');
-    expect(labels.slice(-2)).toEqual(['Separator', 'Flexible Space']);
+    expect(labels.slice(-3)).toEqual(['Separator', 'Flexible Space', 'Font Theme']);
     // Tiles show the item's icon, never a nested button.
     expect(tray(el)!.querySelector('.toolbar-tray-item[data-token="emoji"] svg')).not.toBeNull();
     expect(tray(el)!.querySelectorAll('.toolbar-tray-item button')).toHaveLength(0);
     expect(trayButton(el, 'toolbar-tray-reset').disabled).toBe(false);
+  });
+});
+
+describe('fontPicker (optional item)', () => {
+  it('shows in the tray on the default layout, after the separator and spacer', () => {
+    const { el, toolbar } = mount();
+    enterViaContextMenu(toolbar);
+    expect(order(toolbar)).not.toContain('fontPicker');
+    expect(trayTokens(el)).toEqual(['|', '~', 'fontPicker']);
+    const tile = tray(el)!.querySelector('.toolbar-tray-item[data-token="fontPicker"]')!;
+    expect(tile.getAttribute('aria-label')).toBe('Font Theme');
+    expect(tile.querySelector('svg')).not.toBeNull();
+  });
+
+  it('is added from the keyboard, lands on the toolbar and is saved with Done', () => {
+    const { host, saveSettings } = saving();
+    const { el, toolbar } = mount(host);
+    enterViaContextMenu(toolbar);
+    arrowTo(toolbar, 'undo');
+    press('End');
+    pressN('ArrowRight', 3);
+    expect(focused(toolbar)).toBe('tray:fontPicker');
+    press('Enter');
+    expect(order(toolbar)).toContain('fontPicker');
+    expect(trayTokens(el)).toEqual(['|', '~']);
+    expect(spoken(el)).toMatch(/^Added Font Theme at /);
+    press('Escape');
+    expect(saveSettings).toHaveBeenCalledTimes(1);
+    const layout = savedLayout(saveSettings)!;
+    expect(layout.items).toContain('fontPicker');
+    expect(layout.seen).toContain('fontPicker');
+  });
+
+  it('comes back from a saved layout that holds it, and leaves the tray', () => {
+    const items = ['textFormat', 'listBlock', 'fontPicker', 'settings', 'more'];
+    const { el, toolbar } = mount(new NoopHost(), { settings: { toolbarLayout: { version: 1, items, seen: [...DEFAULT_TOOLBAR_LAYOUT.seen] } } });
+    expect(order(toolbar)).toEqual(items);
+    enterViaContextMenu(toolbar);
+    expect(trayTokens(el)).not.toContain('fontPicker');
   });
 });
 
@@ -232,7 +271,7 @@ describe('Done', () => {
     enterViaContextMenu(toolbar);
     trayButton(el, 'toolbar-tray-reset').click();
     expect(order(toolbar)).toEqual(baseline);
-    expect(trayTokens(el)).toEqual(['|', '~']);
+    expect(trayTokens(el)).toEqual(['|', '~', 'fontPicker']);
     trayButton(el, 'toolbar-tray-done').click();
     expect(saveSettings).toHaveBeenCalledTimes(1);
     expect(saveSettings).toHaveBeenCalledWith({ toolbarLayout: null });
@@ -391,7 +430,7 @@ describe('pointer drag', () => {
     expect(tray(el)!.classList.contains('is-drop-target')).toBe(true);
     pointer('pointerup', emoji, 135, 120);
     expect(order(toolbar)).not.toContain('emoji');
-    expect(trayTokens(el)).toEqual(['emoji', '|', '~']);
+    expect(trayTokens(el)).toEqual(['emoji', '|', '~', 'fontPicker']);
 
     fakeGeometry(el, toolbar);
     const undo = toolbar.querySelector<HTMLElement>('button[data-action="undo"]')!;
@@ -498,7 +537,7 @@ describe('keyboard: focus', () => {
     expect(focused(toolbar)).toBe('listBlock');
     expect(stops(toolbar)).toEqual([toolbar.children[1]]);
     const tiles = Array.from(tray(el)!.querySelectorAll<HTMLElement>('.toolbar-tray-item'));
-    expect(tiles.map((t) => t.getAttribute('tabindex'))).toEqual(['0', '-1']);
+    expect(tiles.map((t) => t.getAttribute('tabindex'))).toEqual(['0', '-1', '-1']);
   });
 
   it('arrow keys move along the toolbar, into the tray and back', () => {
@@ -518,12 +557,14 @@ describe('keyboard: focus', () => {
     expect(focused(toolbar)).toBe('tray:|');
     press('ArrowRight');
     expect(focused(toolbar)).toBe('tray:~');
+    press('ArrowRight');
+    expect(focused(toolbar)).toBe('tray:fontPicker');
     press('ArrowRight'); // no wrap
-    expect(focused(toolbar)).toBe('tray:~');
+    expect(focused(toolbar)).toBe('tray:fontPicker');
     press('ArrowUp'); // one row of tiles: up goes back to the toolbar's stop
     expect(focused(toolbar)).toBe('more');
     press('ArrowDown'); // and down returns to the tray's stop
-    expect(focused(toolbar)).toBe('tray:~');
+    expect(focused(toolbar)).toBe('tray:fontPicker');
     press('Home');
     press('ArrowLeft');
     expect(focused(toolbar)).toBe('more');
@@ -718,7 +759,7 @@ describe('keyboard: remove and add', () => {
     arrowTo(toolbar, 'emoji');
     press('Delete');
     expect(order(toolbar)).not.toContain('emoji');
-    expect(trayTokens(el)).toEqual(['emoji', '|', '~']);
+    expect(trayTokens(el)).toEqual(['emoji', '|', '~', 'fontPicker']);
     expect(spoken(el)).toBe('Removed Insert Emoji.');
     expect(focused(toolbar)).toBe('|');
     press('Backspace'); // the separator goes too; focus moves on to Undo
@@ -765,7 +806,7 @@ describe('keyboard: remove and add', () => {
     const emojiTile = tray(el)!.querySelector<HTMLElement>('.toolbar-tray-item[data-token="emoji"]')!;
     emojiTile.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
     expect(order(toolbar).slice(5, 8)).toEqual(['undo', 'redo', 'emoji']);
-    expect(trayTokens(el)).toEqual(['|', '~']);
+    expect(trayTokens(el)).toEqual(['|', '~', 'fontPicker']);
     // Enter/Space already add on keydown; the click a browser synthesizes after (detail 0) adds nothing.
     tray(el)!.querySelector<HTMLElement>('.toolbar-tray-item[data-token="~"]')!.click();
     expect(order(toolbar)).not.toContain('~');
@@ -843,7 +884,8 @@ describe('Done: what is saved (D7)', () => {
     const layout = savedLayout(saveSettings)!;
     expect(layout.version).toBe(1);
     expect(layout.items.slice(7, 10)).toEqual(['|', 'redo', 'undo']);
-    expect(layout.seen).toEqual(expect.arrayContaining([...TOOLBAR_ITEM_IDS]));
+    expect(layout.seen).toEqual(expect.arrayContaining([...DEFAULT_TOOLBAR_LAYOUT.seen]));
+    expect(layout.seen).not.toContain('fontPicker'); // optional: only recorded once the user adds or removes it
     press('Escape');
     expect(saveSettings).toHaveBeenCalledTimes(1);
   });
@@ -1028,7 +1070,7 @@ describe('keyboard: loose ends (D11)', () => {
     press('Delete');
     expect(toolbar.querySelector('.toolbar-item-grabbed')).toBeNull();
     expect(order(toolbar)).not.toContain('undo');
-    expect(trayTokens(el)).toEqual(['undo', '|', '~']);
+    expect(trayTokens(el)).toEqual(['undo', '|', '~', 'fontPicker']);
     expect(spoken(el)).toBe('Removed Undo.');
   });
 

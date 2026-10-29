@@ -7,7 +7,7 @@
  * `.toolbar-group` wrapper is flattened to its inner buttons.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createMikeDownEditor, NoopHost, type MikeDownAiHost, type MikeDownEditorHandle, type MikeDownHost } from '../src/index';
+import { createMikeDownEditor, DEFAULT_TOOLBAR_LAYOUT, NoopHost, type MikeDownAiHost, type MikeDownEditorHandle, type MikeDownHost } from '../src/index';
 import { hideToolbarDropdown } from '../src/toolbar-dropdown';
 import { parseAiSettings } from '../src/ai';
 import type { ToolbarLayoutToken } from '../src/toolbar-ids';
@@ -296,5 +296,39 @@ describe('zoom group', () => {
     for (const id of ZOOM) {
       expect(el.querySelector(`button[data-action="${id}"]`)).not.toBeNull();
     }
+  });
+});
+
+describe('fontPicker (optional item)', () => {
+  const withFontPicker = { version: 1, items: ['textFormat', 'listBlock', 'fontPicker', 'settings', 'more'], seen: [...DEFAULT_TOOLBAR_LAYOUT.seen] };
+
+  it('is absent from the default toolbar', () => {
+    const { el } = mount(withBrowser());
+    expect(ids(el)).not.toContain('fontPicker');
+  });
+
+  it('renders as a labelled button where a saved layout puts it', () => {
+    const { el } = mount(withBrowser(), { settings: { toolbarLayout: withFontPicker } });
+    expect(ids(el)).toEqual(['textFormat', 'listBlock', 'fontPicker', 'settings', 'more']);
+    const btn = el.querySelector<HTMLButtonElement>('button[data-action="fontPicker"]')!;
+    expect(btn.getAttribute('aria-label')).toBe('Font Theme');
+    expect(btn.dataset.tip).toBe('Font Theme');
+  });
+
+  it('opens the font theme list, and picking one saves the font settings', () => {
+    const saveSettings = vi.fn();
+    const { el } = mount({ onChange() {}, saveSettings } as MikeDownHost, { settings: { toolbarLayout: withFontPicker } });
+    const btn = el.querySelector<HTMLButtonElement>('button[data-action="fontPicker"]')!;
+    btn.click();
+    const picker = el.querySelector('.mikedown-font-quick-picker')!;
+    expect(picker).not.toBeNull();
+    btn.click(); // a second press closes it
+    expect(el.querySelector('.mikedown-font-quick-picker')).toBeNull();
+    btn.click();
+    const classic = Array.from(el.querySelectorAll<HTMLElement>('.mikedown-font-quick-picker > div'))
+      .find((n) => n.textContent?.startsWith('Classic'))!;
+    classic.click();
+    expect(el.querySelector('.mikedown-font-quick-picker')).toBeNull();
+    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ fontFamily: expect.stringContaining('Georgia'), headingFontFamily: expect.stringContaining('Georgia') }));
   });
 });

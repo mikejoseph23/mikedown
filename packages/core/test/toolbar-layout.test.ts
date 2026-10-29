@@ -363,10 +363,12 @@ describe('reconcileSeen cases', () => {
     const r = reconcileSeen({ version: 1, items, seen: [] }, DEFAULT_TOOLBAR_ITEMS, KNOWN);
     for (const id of items) { expect(r.items.filter((t) => t === id)).toHaveLength(1); }
     expect(r.items.slice(0, 2)).toEqual(['textFormat', 'listBlock']);
-    for (const id of KNOWN) {
+    for (const id of KNOWN.filter((k) => k !== 'fontPicker')) {
       expect(r.items).toContain(id);
       expect(r.seen).toContain(id);
     }
+    expect(r.items).not.toContain('fontPicker');
+    expect(r.seen).not.toContain('fontPicker');
     expect(r.items.at(-1)).toBe('more');
   });
 
@@ -578,5 +580,49 @@ describe('edit helpers, more cases', () => {
     expect(back.layout.items).toEqual(work.items);
     expect(back.tokens).not.toContain('emoji');
     expect(back.tokens[1]).toBe('selectAll');
+  });
+});
+
+describe('optional ids (fontPicker)', () => {
+  it('is a known id but not in the default items or the default layout seen', () => {
+    expect(KNOWN).toContain('fontPicker');
+    expect(DEFAULT_TOOLBAR_ITEMS).not.toContain('fontPicker');
+    expect(DEFAULT_TOOLBAR_LAYOUT.seen).not.toContain('fontPicker');
+  });
+
+  it('is never auto-inserted by reconcileSeen, and not recorded in seen', () => {
+    const seen = KNOWN.filter((id) => id !== 'fontPicker');
+    const r = reconcileSeen({ version: 1, items: [...DEFAULT_TOOLBAR_ITEMS], seen }, DEFAULT_TOOLBAR_ITEMS, KNOWN);
+    expect(r.items).not.toContain('fontPicker');
+    expect(r.seen).not.toContain('fontPicker');
+    const legacy = reconcileSeen({ version: 1, items: ['textFormat', 'settings', 'more'], seen: [] }, DEFAULT_TOOLBAR_ITEMS, KNOWN);
+    expect(legacy.items).not.toContain('fontPicker');
+  });
+
+  it('is absent from the default layout and from a saved layout that does not hold it', () => {
+    expect(resolveToolbarLayout(undefined, KNOWN, DEFAULT_TOOLBAR_ITEMS).tokens).not.toContain('fontPicker');
+    expect(resolveToolbarLayout(undefined, KNOWN, DEFAULT_TOOLBAR_ITEMS).layout.seen).not.toContain('fontPicker');
+    const saved = { version: 1, items: [...DEFAULT_TOOLBAR_ITEMS], seen: KNOWN.filter((id) => id !== 'fontPicker') };
+    expect(resolveToolbarLayout(saved, KNOWN, DEFAULT_TOOLBAR_ITEMS).tokens).not.toContain('fontPicker');
+  });
+
+  it('survives a round trip once the user has added it', () => {
+    const start = resolveToolbarLayout(undefined, KNOWN, DEFAULT_TOOLBAR_ITEMS).layout;
+    const at = start.items.indexOf('undo');
+    const added = layoutWithInsert(start, 'fontPicker', at);
+    expect(added.items[at]).toBe('fontPicker');
+    expect(added.seen).toContain('fontPicker');
+    const saved = serializeToolbarLayout(added);
+    const again = resolveToolbarLayout(JSON.parse(JSON.stringify(saved)), KNOWN, DEFAULT_TOOLBAR_ITEMS);
+    expect(again.tokens[at]).toBe('fontPicker');
+    expect(again.layout.seen).toContain('fontPicker');
+    expect(serializeToolbarLayout(again.layout)).toEqual(saved);
+  });
+
+  it('stays removed after the user removes it again', () => {
+    const start = resolveToolbarLayout({ version: 1, items: ['textFormat', 'fontPicker', 'settings', 'more'], seen: [] }, KNOWN, DEFAULT_TOOLBAR_ITEMS).layout;
+    const removed = layoutWithRemove(start, start.items.indexOf('fontPicker'));
+    expect(removed.items).not.toContain('fontPicker');
+    expect(resolveToolbarLayout(removed, KNOWN, DEFAULT_TOOLBAR_ITEMS).tokens).not.toContain('fontPicker');
   });
 });
