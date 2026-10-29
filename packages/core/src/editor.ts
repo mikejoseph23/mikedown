@@ -103,11 +103,11 @@ import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
 import {
   CHARS_PER_TOKEN, DEFAULT_CONTEXT_TOKENS, PROPERTY_VOCABULARY_MAX, aiErrorCopy, aiLengthLimitCopy, budgetDocument, buildPropertiesMessages,
   defaultAiSettings, headingsOutline, isRouteUsable, jsonRepairMessages, makeAiError, parseAiSettings,
-  parsePropertySuggestions, propertiesMaxTokens, renderHeadingOutline, resolveRoute, rewriteVisibleText, toAiError,
+  parsePropertySuggestions, propertiesMaxTokens, renderHeadingOutline, resolveRoute, rewriteVisibleText, thinkingChoices, toAiError,
   type AiSummaryKind,
 } from './ai';
 import type { AiEngineStatus, AiMessage, AiRouteOk, AiServedBy, AiSettings, AiSettingsPatch, MikeDownAiHost } from './ai';
-import { sessionThinkingLevel } from './ai-prefs';
+import { loadThinkingLevel, rememberThinkingLevel, thinkingLevelFor } from './ai-prefs';
 import { buildAiSettingsSection } from './ai-settings';
 import { mountAiEnginesPage } from './ai-engines-page';
 import type { AiEnginesPageHandle, AiEnginesPageSection } from './ai-engines-page';
@@ -2517,10 +2517,17 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
           : { enabled: true as const };
     };
     const tier2 = aiHostTier(ai) === 2;
+    const summarize = docEntry('summary');
+    const titles = docEntry('title');
+    // The Thinking row, when the model a menu task routes to can think (the popover dial's check).
+    const thinkKind = tier2 ? aiThinkingKind([
+      ...(rewrite ? ['rewrite'] : []), ...(summarize ? ['summary'] : []), ...(titles ? ['title'] : []),
+    ]) : null;
     showToolbarDropdown(anchor, aiToolbarMenuEntries({
       rewrite,
-      summarize: docEntry('summary'),
-      titles: docEntry('title'),
+      summarize,
+      titles,
+      ...(thinkKind ? { thinking: { choices: thinkingChoices(thinkKind), value: loadThinkingLevel, onChange: rememberThinkingLevel } } : {}),
       canManageEngines: tier2,
       icons: { rewrite: toolbarIcons.rewrite, manage: toolbarIcons.gear, summarize: toolbarIcons.toc, titles: toolbarIcons.ai },
       onRewrite: () => { startAiRewrite(); },
@@ -4142,6 +4149,17 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     return richDocumentTarget(editor, { scrollToTop: () => { editorContainer.scrollTop = 0; } });
   }
 
+  /** The engine kind of the first of `features` whose routed model has a thinking mapping, or null. */
+  function aiThinkingKind(features: string[]): string | null {
+    for (const feature of features) {
+      const r = resolveRoute(currentAiSettings, aiStatuses, aiConsent, { feature });
+      if (!isRouteUsable(r)) {continue;}
+      const kind = currentAiSettings.engines.find((e) => e.id === r.engineId)?.kind;
+      if (kind && thinkingChoices(kind).length > 0) {return kind;}
+    }
+    return null;
+  }
+
   /** The model the router would pick for `feature` now: its context window and JSON mode. */
   function aiRouteInfo(feature: string): { contextTokens: number | null; json: boolean } {
     const ai = aiHost;
@@ -4331,7 +4349,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       messages: msgs,
       maxTokens,
       temperature: 0.3,
-      thinking: sessionThinkingLevel,
+      thinking: thinkingLevelFor,
       ...(info.json ? { format: 'json' as const } : {}),
     }, {
       onRoute: (route) => {

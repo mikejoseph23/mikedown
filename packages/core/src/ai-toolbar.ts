@@ -7,12 +7,13 @@
  * opens the first-run panel: the Experimental badge, the disclaimer, and
  * "Turn on and set up" (which turns AI on through the normal saveSettings
  * path and opens setup) or Cancel. With AI on, a click opens a menu of AI
- * actions plus "Manage engines…".
+ * actions plus "Manage engines…", under a Thinking row when the routed model
+ * can think.
  *
  * Toolbar chrome only: nothing here touches the editor document or its DOM.
  */
 
-import type { AiSettings } from './ai';
+import type { AiSettings, AiThinkingChoice, AiThinkingLevel } from './ai';
 import type { AiHostTier } from './ai-settings-model';
 import { button, el, experimentalBadge, experimentalDisclaimer, nextId } from './ai-settings-dom';
 import { getPortal } from './portal';
@@ -58,6 +59,11 @@ export interface AiToolbarMenuInput {
   summarize?: AiToolbarEntryState;
   /** "Suggest titles…": absent or null leaves it out. */
   titles?: AiToolbarEntryState;
+  /**
+   * The Thinking row at the top: Default plus the levels the routed model's
+   * kind can express. Absent hides it (no model that can think).
+   */
+  thinking?: AiToolbarThinkingRow;
   /** True for a host with an engine registry ("Manage engines…"); otherwise "AI settings…". */
   canManageEngines: boolean;
   icons: { rewrite: string; manage: string; summarize?: string; titles?: string };
@@ -67,8 +73,40 @@ export interface AiToolbarMenuInput {
   onManage(): void;
 }
 
+export interface AiToolbarThinkingRow {
+  /** `thinkingChoices(kind)` for the routed model (non-empty). */
+  choices: AiThinkingChoice[];
+  /** The remembered level; null is Default (the model's own). */
+  value(): AiThinkingLevel | null;
+  onChange(level: AiThinkingLevel | null): void;
+}
+
+const THINKING_DEFAULT = 'default';
+
+/** The menu's Thinking row: the popover dial's pill, with Default first. */
+function thinkingRowEntry(row: AiToolbarThinkingRow): ToolbarDropdownEntry {
+  // The dial's labels: Medium shortened to Med.
+  const short = (label: string): string => (label === 'Medium' ? 'Med' : label);
+  return {
+    type: 'segmented',
+    id: 'ai-thinking',
+    label: 'Thinking',
+    title: 'Thinking level for the next AI requests',
+    options: [
+      { value: THINKING_DEFAULT, label: 'Default', title: 'Thinking: the model\'s default' },
+      ...row.choices.map((c) => ({ value: c.level, label: short(c.label), title: `Thinking: ${c.label}` })),
+    ],
+    value: () => row.value() ?? THINKING_DEFAULT,
+    onChange: (v) => row.onChange(v === THINKING_DEFAULT ? null : v as AiThinkingLevel),
+    classes: { group: 'ai-rw-think', label: 'ai-rw-think-label', segment: 'ai-rw-think-seg' },
+  };
+}
+
 export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdownEntry[] {
   const entries: ToolbarDropdownEntry[] = [];
+  if (input.thinking && input.thinking.choices.length > 0) {
+    entries.push(thinkingRowEntry(input.thinking), { type: 'separator' });
+  }
   const add = (id: string, label: string, icon: string, state: AiToolbarEntryState | undefined, run: () => void): void => {
     if (!state) {return;}
     entries.push({
@@ -85,7 +123,7 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
   add('ai-rewrite', 'Rewrite selection', input.icons.rewrite, input.rewrite, () => input.onRewrite());
   add('ai-summarize', 'Summarize document…', input.icons.summarize ?? input.icons.rewrite, input.summarize, () => input.onSummarize?.());
   add('ai-titles', 'Suggest titles…', input.icons.titles ?? input.icons.rewrite, input.titles, () => input.onSuggestTitles?.());
-  if (entries.length > 0) {entries.push({ type: 'separator' });}
+  if (entries.length > 0 && entries[entries.length - 1].type !== 'separator') {entries.push({ type: 'separator' });}
   entries.push({
     type: 'action',
     id: 'ai-manage',

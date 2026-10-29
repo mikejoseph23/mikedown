@@ -50,9 +50,9 @@
   border-bottom: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08));
 }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-spark { display: inline-flex; flex-shrink: 0; color: var(--mikedown-accent, #3f51b5); }
-/* A long title ("Translate · Spanish · Whole document") gives way first: it
-   ellipsizes before the badge does, and the thinking dial and Close never
-   shrink, so nothing is pushed past the edge. */
+/* A long title ("Translate · Spanish · Whole document") gives way: it
+   ellipsizes, and the thinking dial and Close never shrink, so nothing is
+   pushed past the edge. */
 :is(.mikedown-root, .mikedown-portal) .ai-rw-title {
   flex: 0 1000 auto;
   min-width: 6em;
@@ -67,9 +67,10 @@
   align-items: center;
   gap: 4px;
   flex: 0 1 auto;
-  /* Never narrower than the glyph, locality and engine; only the model name gives way. */
+  /* Never narrower than the glyph, locality and engine; only the model name
+     gives way, and only when the badge alone is wider than the footer. */
   min-width: min-content;
-  max-width: 45%;
+  max-width: 100%;
   margin-left: auto;
   padding: 1px 8px 1px 6px;
   border: 1px solid transparent;
@@ -92,9 +93,9 @@
 :is(.mikedown-root, .mikedown-portal) .ai-rw-badge[data-where="cloud"] .ai-rw-badge-glyph { color: var(--mikedown-info, #1e70d6); }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-badge.is-pending { opacity: 0.75; }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-badge-fallback { color: var(--mikedown-warning, #b26a00); }
-:is(.mikedown-root, .mikedown-portal) .ai-rw-head .ai-rw-badge[hidden] + .ai-rw-icon-btn { margin-left: auto; }
+:is(.mikedown-root, .mikedown-portal) .ai-rw-head .ai-rw-think[hidden] + .ai-rw-icon-btn { margin-left: auto; }
 
-/* Thinking dial: a segmented pill the badge's height, just left of it. */
+/* Thinking dial: a segmented pill, right of the title (also the AI menu's Thinking row). */
 :is(.mikedown-root, .mikedown-portal) .ai-rw-think {
   display: inline-flex;
   align-items: center;
@@ -110,7 +111,6 @@
   white-space: nowrap;
 }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-think[hidden] { display: none; }
-:is(.mikedown-root, .mikedown-portal) .ai-rw-think:not([hidden]) + .ai-rw-badge { margin-left: 0; }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-think-label { padding: 0 4px 0 6px; }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-think-seg {
   padding: 0 6px;
@@ -123,7 +123,7 @@
   cursor: pointer;
 }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-think-seg:hover { color: var(--mikedown-text-ui, #3a3a3d); }
-:is(.mikedown-root, .mikedown-portal) .ai-rw-think-seg[aria-pressed="true"] {
+:is(.mikedown-root, .mikedown-portal) .ai-rw-think-seg:is([aria-pressed="true"], [aria-checked="true"]) {
   background: var(--mikedown-surface-raised, #fff);
   color: var(--mikedown-text-ui, #3a3a3d);
   box-shadow: 0 0 0 1px var(--mikedown-divider, rgba(15, 15, 20, 0.08));
@@ -362,16 +362,17 @@
   font-size: 12px;
 }
 
-/* Footer. */
+/* Footer: the actions, then the engine badge on the right. A badge that
+   does not fit beside them wraps to its own line before it ellipsizes. */
 :is(.mikedown-root, .mikedown-portal) .ai-rw-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
   border-top: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08));
 }
 :is(.mikedown-root, .mikedown-portal) .ai-rw-note { color: var(--mikedown-warning, #b26a00); font-size: 12px; }
-:is(.mikedown-root, .mikedown-portal) .ai-rw-hint { margin-left: auto; color: var(--mikedown-text-muted, #6f6f74); font-size: 11.5px; white-space: nowrap; }
 
 :is(.mikedown-root, .mikedown-portal) .ai-rw-btn {
   height: 26px;
@@ -423,6 +424,5 @@
 @media (max-width: 520px) {
   :is(.mikedown-root, .mikedown-portal) .mikedown-ai-rewrite[data-layout="split"] .ai-rw-body { grid-template-columns: 1fr; }
   :is(.mikedown-root, .mikedown-portal) .ai-rw-pane--old { border-right: 0; border-bottom: 1px solid var(--mikedown-divider, rgba(15, 15, 20, 0.08)); }
-  :is(.mikedown-root, .mikedown-portal) .ai-rw-hint { display: none; }
   :is(.mikedown-root, .mikedown-portal) .ai-rw-think-label { display: none; }
 }

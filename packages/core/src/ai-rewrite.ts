@@ -96,8 +96,8 @@ import {
   loadAudience,
   rememberAudience,
   rememberLanguage,
-  rememberSessionThinking,
-  sessionThinkingLevel,
+  rememberThinkingLevel,
+  thinkingLevelFor,
   translateLanguageChoices,
 } from './ai-prefs';
 import { getPortal } from './portal';
@@ -978,7 +978,7 @@ export interface AiRewriteBadge {
 
 export interface AiRewritePopoverDeps {
   run(req: AiRunRequest, events: AiRunEvents, signal: AbortSignal): Promise<AiRunOutcome>;
-  /** Header badge for the route about to serve (before the result) or what served. */
+  /** Footer badge for the route about to serve (before the result) or what served. */
   badge(route: AiRouteOk | null, served: AiServedBy | null, viaFallback: boolean): AiRewriteBadge | null;
   onServed(served: AiServedBy, viaFallback: boolean): void;
   openSettings(): void;
@@ -1127,7 +1127,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   let retryBtn: HTMLButtonElement;
   let copyBtn: HTMLButtonElement;
   let noteEl: HTMLElement;
-  let hintEl: HTMLElement;
+  let closeBtn: HTMLButtonElement;
   let liveEl: HTMLElement;
   let kindEl: HTMLElement;
   let coverageEl: HTMLElement;
@@ -1180,10 +1180,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     thinkEl.hidden = true;
     badgeEl = el('span', 'ai-rw-badge');
     badgeEl.hidden = true;
-    const closeBtn = button('ai-rw-icon-btn', '', () => close());
+    closeBtn = button('ai-rw-icon-btn', '', () => close());
     closeBtn.innerHTML = CLOSE;
-    closeBtn.setAttribute('aria-label', 'Cancel (Esc)');
-    closeBtn.title = 'Cancel (Esc)';
     // TL;DR ⇄ Outline for a summary; picking the other one runs again.
     kindEl = el('div', 'ai-rw-kind');
     kindEl.setAttribute('role', 'group');
@@ -1195,7 +1193,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       seg.title = k === 'tldr' ? 'A short TL;DR of the document (runs again)' : 'An outline of the document (runs again)';
       kindEl.append(seg);
     }
-    head.append(spark, titleEl, kindEl, thinkEl, badgeEl, closeBtn);
+    // The title and the thinking dial; the engine badge is in the footer, where it has room.
+    head.append(spark, titleEl, kindEl, thinkEl, closeBtn);
 
     // First level: one row per group (Length, Tone, Audience, Translate,
     // Explain), then the custom prompt. Second level: the picker.
@@ -1266,8 +1265,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     retryBtn = button('ai-rw-btn', 'Retry', () => rerun());
     copyBtn = button('ai-rw-btn', 'Copy', () => copy());
     noteEl = el('span', 'ai-rw-note');
-    hintEl = el('span', 'ai-rw-hint', 'Esc to cancel');
-    footEl.append(acceptBtn, retryBtn, copyBtn, noteEl, hintEl);
+    footEl.append(acceptBtn, retryBtn, copyBtn, noteEl, badgeEl);
 
     liveEl = el('div', 'ai-rw-sr');
     liveEl.setAttribute('aria-live', 'polite');
@@ -1565,7 +1563,10 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     const covText = covered && (phase === 'running' || phase === 'done') ? coverageNoteText(covered, coverage) : '';
     coverageEl.hidden = !covText;
     coverageEl.textContent = covText;
-    hintEl.textContent = mode === 'readOnly' ? 'Esc to close' : 'Esc to cancel';
+    // Esc closes; the button names it (there is no visible hint).
+    const closeLabel = mode === 'readOnly' ? 'Close (Esc)' : 'Cancel (Esc)';
+    closeBtn.setAttribute('aria-label', closeLabel);
+    closeBtn.title = closeLabel;
 
     // The structure check, between the preview and the footer. A warning
     // only: Accept stays enabled.
@@ -1725,11 +1726,11 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     );
   }
 
-  /** A dial change: remembered for this kind for the session, then the same run again (like Retry). */
+  /** A dial change: remembered for every later request (the AI menu's Thinking row too), then the same run again (like Retry). */
   function pickThinking(level: AiThinkingLevel): void {
     if (!thinking || phase === 'choose') {return;}
     if (level === thinkingInEffect(thinking)) {return;}
-    rememberSessionThinking(thinking.kind, level);
+    rememberThinkingLevel(level);
     // Pressed at once; the route's answer confirms it.
     thinking = { ...thinking, sent: level };
     rerun();
@@ -1852,7 +1853,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       messages: buildSummaryMessages({ document: b.text, kind, coverage: b.coverage }),
       maxTokens: summaryMaxTokens(kind, b.text.length),
       temperature: 0.3,
-      thinking: sessionThinkingLevel,
+      thinking: thinkingLevelFor,
     }, runEvents(seq), signal).then((outcome) => {
       if (seq !== runSeq || !root) {return;}
       controller = null;
@@ -1898,7 +1899,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       messages: msgs,
       maxTokens: titleMaxTokens(3),
       temperature: 0.7,
-      thinking: sessionThinkingLevel,
+      thinking: thinkingLevelFor,
       ...(info?.json ? { format: 'json' as const } : {}),
     }, runEvents(seq), signal);
     request(messages).then(async (first) => {
@@ -2009,7 +2010,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       messages,
       maxTokens,
       temperature: v === 'fixFlow' || v === 'translate' ? 0.2 : 0.5,
-      thinking: sessionThinkingLevel,
+      thinking: thinkingLevelFor,
     }, runEvents(seq), signal).then((outcome) => {
       if (seq !== runSeq || !root) {return;}
       controller = null;

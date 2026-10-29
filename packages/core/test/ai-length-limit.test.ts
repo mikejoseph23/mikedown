@@ -8,7 +8,7 @@ import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../sr
 import { aiLengthLimitCopy, finalizeSummary } from '../src/ai';
 import type { AiCompletionRequest, AiCompletionResult, MikeDownAiHost } from '../src/ai';
 import { aiRunThinkingOn } from '../src/ai-request';
-import { clearSessionThinking } from '../src/ai-prefs';
+import { rememberThinkingLevel } from '../src/ai-prefs';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
 stubLayoutMeasurement();
@@ -55,7 +55,7 @@ const CHAT = { chat: true, stream: true, vision: false, json: false, tools: fals
 const mounted: Array<{ handle: MikeDownEditorHandle; el: HTMLElement }> = [];
 afterEach(async () => {
   await new Promise((r) => setTimeout(r, 10));
-  clearSessionThinking();
+  rememberThinkingLevel(null);
   for (const { handle, el } of mounted.splice(0)) {
     try { handle.destroy(); } catch { /* already destroyed */ }
     el.remove();

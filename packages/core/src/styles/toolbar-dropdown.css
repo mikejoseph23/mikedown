@@ -177,3 +177,27 @@
 @media (forced-colors: active) {
   :is(.mikedown-root, .mikedown-portal) #toolbar-dropdown { forced-color-adjust: auto; }
 }
+
+/* Segmented row: a labelled radio group (the AI menu's Thinking row). */
+:is(.mikedown-root, .mikedown-portal) .tdd-seg-row {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px 5px;
+}
+
+:is(.mikedown-root, .mikedown-portal) .tdd-seg-row > .tdd-seg {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0;
+  white-space: nowrap;
+}
+
+:is(.mikedown-root, .mikedown-portal) .tdd-seg-btn {
+  cursor: pointer;
+  outline: none;
+}
+
+:is(.mikedown-root, .mikedown-portal) .tdd-seg-btn.tdd-focused {
+  outline: 2px solid var(--mikedown-focus-ring);
+  outline-offset: 0;
+}

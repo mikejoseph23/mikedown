@@ -1,22 +1,24 @@
 /**
  * Thinking dial per request (AI writing M3): the per-request overrides core
  * sends (against the shared fixture both hosts merge), runAiCompletion's
- * plumbing, the session memory per kind, and the popover's control.
+ * plumbing, the remembered level (D10), the popover's control and the AI
+ * menu's Thinking row.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../src/index';
 import { THINKING_DEFAULT_HEADROOM_TOKENS, THINKING_HEADROOM_TOKENS, THINKING_MAX_TOKENS_CAP, parseAiSettings, thinkingMaxTokens, thinkingOverrides } from '../src/ai';
 import type { AiCompletionRequest, AiCompletionResult, AiSettings, AiThinkingLevel, MikeDownAiHost } from '../src/ai';
 import { runAiCompletion, thinkingRequestOverrides, type AiRunContext, type AiRunThinking } from '../src/ai-request';
-import { clearSessionThinking, rememberSessionThinking, sessionThinkingLevel } from '../src/ai-prefs';
+import { loadThinkingLevel, rememberThinkingLevel, thinkingLevelFor } from '../src/ai-prefs';
+import { hideToolbarDropdown } from '../src/toolbar-dropdown';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
 stubLayoutMeasurement();
 
 beforeEach(() => {
-  clearSessionThinking();
+  rememberThinkingLevel(null);
 });
 
 interface FixtureCase {
@@ -46,15 +48,42 @@ describe('thinkingRequestOverrides (shared fixture)', () => {
   });
 });
 
-describe('session thinking memory', () => {
-  it('is per kind, in memory only', () => {
-    expect(sessionThinkingLevel('openai-compatible')).toBeNull();
-    rememberSessionThinking('openai-compatible', 'low');
-    rememberSessionThinking('anthropic', 'high');
-    expect(sessionThinkingLevel('openai-compatible')).toBe('low');
-    expect(sessionThinkingLevel('anthropic')).toBe('high');
-    expect(sessionThinkingLevel('lmstudio')).toBeNull();
-    expect(JSON.stringify({ ...localStorage })).not.toContain('thinking');
+describe('remembered thinking level (D10)', () => {
+  it('round trips through localStorage; null is Default and removes it', () => {
+    expect(loadThinkingLevel()).toBeNull();
+    rememberThinkingLevel('low');
+    expect(localStorage.getItem('mikedown.ai.thinking')).toBe('low');
+    expect(loadThinkingLevel()).toBe('low');
+    rememberThinkingLevel(null);
+    expect(localStorage.getItem('mikedown.ai.thinking')).toBeNull();
+    expect(loadThinkingLevel()).toBeNull();
+    localStorage.setItem('mikedown.ai.thinking', 'turbo');
+    expect(loadThinkingLevel()).toBeNull();
+  });
+
+  it('falls back to Default when storage throws', () => {
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('denied'); });
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('denied'); });
+    try {
+      expect(() => rememberThinkingLevel('high')).not.toThrow();
+      expect(loadThinkingLevel()).toBeNull();
+    } finally {
+      get.mockRestore();
+      set.mockRestore();
+    }
+  });
+
+  it('gives each kind its nearest level', () => {
+    rememberThinkingLevel('off');
+    expect(thinkingLevelFor('openai-compatible')).toBe('off');
+    expect(thinkingLevelFor('anthropic')).toBe('low');
+    expect(thinkingLevelFor('lmstudio')).toBe('off');
+    expect(thinkingLevelFor('future-kind')).toBeNull();
+    rememberThinkingLevel('high');
+    expect(thinkingLevelFor('anthropic')).toBe('high');
+    expect(thinkingLevelFor('lmstudio')).toBe('medium');
+    rememberThinkingLevel(null);
+    expect(thinkingLevelFor('openai-compatible')).toBeNull();
   });
 });
 
@@ -177,6 +206,7 @@ describe('reasoning headroom (T3 F2)', () => {
 
 const mounted: Array<{ handle: MikeDownEditorHandle; el: HTMLElement }> = [];
 afterEach(() => {
+  hideToolbarDropdown();
   for (const { handle, el } of mounted.splice(0)) {
     handle.destroy();
     el.remove();
@@ -184,14 +214,14 @@ afterEach(() => {
   document.querySelectorAll('.mikedown-ai-rewrite').forEach((n) => n.remove());
 });
 
-function mountTier2(kind: string, modelOverrides?: Record<string, unknown>) {
+function mountTier2(kind: string, modelOverrides?: Record<string, unknown>, modelId = 'qwen') {
   const requests: AiCompletionRequest[] = [];
   class AiHost extends NoopHost {
     ai: MikeDownAiHost = {
       complete: async (req, onToken): Promise<AiCompletionResult> => {
         requests.push(req);
         onToken('Short.');
-        return { text: 'Short.', served: { engineId: 'e', engineName: 'oMLX', modelId: 'qwen', isLocal: true }, finishReason: 'stop' };
+        return { text: 'Short.', served: { engineId: 'e', engineName: 'oMLX', modelId, isLocal: true }, finishReason: 'stop' };
       },
       listEngines: async () => [],
     };
@@ -200,8 +230,8 @@ function mountTier2(kind: string, modelOverrides?: Record<string, unknown>) {
   document.body.appendChild(el);
   const ai = {
     enabled: true,
-    engines: [{ id: 'e', name: 'oMLX', kind, baseUrl: 'http://127.0.0.1:8000/v1', models: [{ id: 'qwen', capabilities: CHAT, capabilitiesSource: 'user', ...(modelOverrides ? { requestOverrides: modelOverrides } : {}) }] }],
-    routing: { default: { engineId: 'e', modelId: 'qwen' }, fallback: 'none', tasks: {} },
+    engines: [{ id: 'e', name: 'oMLX', kind, baseUrl: 'http://127.0.0.1:8000/v1', models: [{ id: modelId, capabilities: CHAT, capabilitiesSource: 'user', ...(modelOverrides ? { requestOverrides: modelOverrides } : {}) }] }],
+    routing: { default: { engineId: 'e', modelId }, fallback: 'none', tasks: {} },
   };
   const handle = createMikeDownEditor(el, { host: new AiHost(), initialMarkdown: 'Hello world.\n', hostOwnsShortcuts: true, settings: { ai } as never });
   mounted.push({ handle, el });
@@ -236,7 +266,7 @@ async function rewriteShorter(handle: MikeDownEditorHandle): Promise<void> {
 }
 
 describe('popover thinking dial', () => {
-  it('shows the kind\'s levels with the model\'s setting pressed, re-runs on a change and remembers it per kind', async () => {
+  it('shows the kind\'s levels with the model\'s setting pressed, re-runs on a change and remembers it', async () => {
     const { handle, requests } = mountTier2('openai-compatible', { chat_template_kwargs: { enable_thinking: false } });
     await settle();
     await rewriteShorter(handle);
@@ -252,7 +282,7 @@ describe('popover thinking dial', () => {
     // Local engine set to Off: the request turns thinking back on for the tier.
     expect(requests[1].requestOverrides).toEqual({ reasoning_effort: 'low', chat_template_kwargs: { enable_thinking: true } });
     expect(pressed()).toBe('low');
-    expect(sessionThinkingLevel('openai-compatible')).toBe('low');
+    expect(loadThinkingLevel()).toBe('low');
     expect(popover()!.querySelector<HTMLElement>('.ai-rw-badge')!.title).toMatch(/Thinking: low\.$/);
 
     // Retry keeps the remembered level.
@@ -287,5 +317,143 @@ describe('popover thinking dial', () => {
     await rewriteShorter(handle);
     expect(popover()!.dataset.phase).toBe('done');
     expect(dial()!.hidden).toBe(true);
+  });
+});
+
+describe('popover engine badge', () => {
+  it('sits in the footer with the full model name; the header keeps the title and the dial, and there is no Esc hint', async () => {
+    const long = 'Qwen3-30B-A3B-Instruct-2507-MLX-4bit';
+    const { handle } = mountTier2('openai-compatible', undefined, long);
+    await settle();
+    await rewriteShorter(handle);
+    const badge = popover()!.querySelector<HTMLElement>('.ai-rw-badge')!;
+    expect(badge.hidden).toBe(false);
+    expect(badge.parentElement!.classList.contains('ai-rw-foot')).toBe(true);
+    expect(popover()!.querySelector('.ai-rw-head .ai-rw-badge')).toBeNull();
+    expect(popover()!.querySelector('.ai-rw-head .ai-rw-think')).not.toBeNull();
+    expect(popover()!.querySelector('.ai-rw-hint')).toBeNull();
+    expect(popover()!.querySelector('.ai-rw-foot')!.textContent).not.toContain('Esc');
+    // Locality and engine kept whole (O2), the model name in full, and in the tooltip.
+    expect(badge.querySelector('.ai-rw-badge-engine')!.textContent).toBe('local · oMLX · ');
+    expect(badge.querySelector('.ai-rw-badge-model')!.textContent).toBe(long);
+    expect(badge.title).toContain(long);
+    // Escape still closes, and the close button names it.
+    expect(popover()!.querySelector('.ai-rw-head .ai-rw-icon-btn')!.getAttribute('aria-label')).toBe('Cancel (Esc)');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(popover()).toBeNull();
+  });
+});
+
+// ── AI menu Thinking row ───────────────────────────────────────────────────
+
+const frame = () => new Promise((r) => setTimeout(r, 40));
+const menu = () => document.querySelector<HTMLElement>('#toolbar-dropdown');
+const menuRow = () => document.querySelector<HTMLElement>('#toolbar-dropdown .tdd-seg[data-tdd-id="ai-thinking"]');
+const menuSegs = () => [...(menuRow()?.querySelectorAll<HTMLElement>('.tdd-seg-btn') ?? [])];
+const menuChecked = () => menuSegs().find((s) => s.getAttribute('aria-checked') === 'true')?.dataset.value ?? null;
+const press = (n: HTMLElement) => n.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+const key = (k: string) => document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+
+async function openAiMenu(): Promise<void> {
+  hideToolbarDropdown();
+  mounted[mounted.length - 1].el.querySelector<HTMLButtonElement>('button[data-action="ai"]')!.click();
+  // The dropdown attaches its key handler on the next frame.
+  await frame();
+}
+
+describe('AI menu Thinking row', () => {
+  it('is a labelled radio group at the top: Default and the routed kind\'s levels, Default checked', async () => {
+    mountTier2('openai-compatible');
+    await settle();
+    await openAiMenu();
+    const row = menuRow()!;
+    expect(row.getAttribute('role')).toBe('group');
+    expect(row.getAttribute('aria-label')).toBe('Thinking');
+    expect(row.classList.contains('ai-rw-think')).toBe(true);
+    expect(menu()!.firstElementChild!.contains(row)).toBe(true);
+    expect(menuSegs().map((s) => s.textContent)).toEqual(['Default', 'Off', 'Low', 'Med', 'High']);
+    expect(menuSegs().every((s) => s.getAttribute('role') === 'menuitemradio')).toBe(true);
+    expect(menuChecked()).toBe('default');
+  });
+
+  it('follows the routed kind (LM Studio is Off/On)', async () => {
+    mountTier2('lmstudio');
+    await settle();
+    await openAiMenu();
+    expect(menuSegs().map((s) => s.textContent)).toEqual(['Default', 'Off', 'On']);
+  });
+
+  it('is hidden when no routed model can think, and for a tier-1 host', async () => {
+    mountTier2('future-kind');
+    await settle();
+    await openAiMenu();
+    expect(menu()).not.toBeNull();
+    expect(menuRow()).toBeNull();
+    hideToolbarDropdown();
+
+    mountTier1();
+    await settle();
+    await openAiMenu();
+    expect(menu()).not.toBeNull();
+    expect(menuRow()).toBeNull();
+  });
+
+  it('a level picked in the menu goes with the first request, and the dial and the menu stay in sync', async () => {
+    const { handle, requests } = mountTier2('openai-compatible');
+    await settle();
+    await openAiMenu();
+    press(menuSegs().find((s) => s.dataset.value === 'low')!);
+    // A pick keeps the menu open.
+    expect(menu()).not.toBeNull();
+    expect(menuChecked()).toBe('low');
+    expect(loadThinkingLevel()).toBe('low');
+    hideToolbarDropdown();
+
+    await rewriteShorter(handle);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].requestOverrides).toEqual({ reasoning_effort: 'low' });
+    expect(pressed()).toBe('low');
+
+    // The dial changes the same value the menu shows.
+    segments().find((s) => s.dataset.level === 'high')!.click();
+    await settle();
+    await settle();
+    expect(loadThinkingLevel()).toBe('high');
+    await openAiMenu();
+    expect(menuChecked()).toBe('high');
+
+    // Default sends no override.
+    press(menuSegs().find((s) => s.dataset.value === 'default')!);
+    expect(loadThinkingLevel()).toBeNull();
+    hideToolbarDropdown();
+    const before = requests.length;
+    await rewriteShorter(handle);
+    expect(requests[before].requestOverrides).toBeUndefined();
+  });
+
+  it('is keyboard operable without breaking the menu\'s up/down order', async () => {
+    mountTier2('openai-compatible');
+    await settle();
+    await openAiMenu();
+    key('ArrowDown');
+    expect(document.activeElement).toBe(menuSegs()[0]);
+    key('ArrowRight');
+    expect(document.activeElement).toBe(menuSegs()[1]);
+    key('ArrowLeft');
+    key('ArrowLeft');
+    expect(document.activeElement).toBe(menuSegs()[menuSegs().length - 1]);
+    key('ArrowRight');
+    key('ArrowRight');
+    key('Enter');
+    expect(menu()).not.toBeNull();
+    expect(menuChecked()).toBe('off');
+    expect(loadThinkingLevel()).toBe('off');
+    // Down leaves the row for the first action; Up comes back to the segment last on.
+    key('ArrowDown');
+    expect((document.activeElement as HTMLElement).dataset.tddId).toBe('ai-rewrite');
+    key('ArrowUp');
+    expect(document.activeElement).toBe(menuSegs()[1]);
+    key('Escape');
+    expect(menu()).toBeNull();
   });
 });

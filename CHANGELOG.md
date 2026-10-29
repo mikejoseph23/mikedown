@@ -10,7 +10,7 @@ All notable changes to MikeDown Editor are documented here.
   - Rewrite is grouped into Length (Shorter, Longer, Add detail), Tone (Simpler, Fix flow, Formal, Casual) and Audience (a reading level picker). Tone and translate rewrites warn when the document's structure would change.
   - Translate opens a language picker with recent languages. With nothing selected it translates the whole document.
   - Explain gives a read-only explanation of the selection, with Insert below.
-  - A thinking dial in the rewrite popover sets how hard the model reasons for that request. It is remembered for the session.
+  - A thinking level (Default, Off, Low, Med, High) sets how hard the model reasons. Pick it in the AI toolbar menu before a request, or in the result popover's dial; it is remembered until you change it.
   - `/summary` writes a TL;DR callout or an outline of the document. `/title` offers three title candidates: a pick sets `title:` when the document has frontmatter, otherwise it replaces or inserts the H1.
   - The AI menu has Summarize document and Suggest titles. Properties has Suggest, which proposes tags, a title and a description as chips.
   - Each AI edit is one undo step.

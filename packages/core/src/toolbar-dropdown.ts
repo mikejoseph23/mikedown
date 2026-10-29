@@ -1,7 +1,8 @@
 /**
  * Toolbar Dropdown — reusable popover menu anchored to toolbar buttons.
  *
- * Supports action items, separators, and mini-rows (horizontal icon strips).
+ * Supports action items, separators, mini-rows (horizontal icon strips) and
+ * segmented rows (a labelled radio group).
  * Keyboard navigable, auto-positions, only one open at a time.
  */
 import { getPortal } from './portal';
@@ -36,7 +37,24 @@ export interface ToolbarDropdownMiniRow {
   }>;
 }
 
-export type ToolbarDropdownEntry = ToolbarDropdownItem | ToolbarDropdownSeparator | ToolbarDropdownMiniRow;
+/**
+ * A labelled radio group of text segments. Picking one keeps the menu open.
+ * It is one stop for ArrowUp/ArrowDown (on the checked segment);
+ * ArrowLeft/ArrowRight move between segments, Enter or Space picks.
+ */
+export interface ToolbarDropdownSegmented {
+  type: 'segmented';
+  id: string;
+  label: string;
+  options: Array<{ value: string; label: string; title?: string }>;
+  value: () => string;
+  onChange: (value: string) => void;
+  title?: string;
+  /** Extra classes for the pill, its label and its segments (to reuse another control's look). */
+  classes?: { group?: string; label?: string; segment?: string };
+}
+
+export type ToolbarDropdownEntry = ToolbarDropdownItem | ToolbarDropdownSeparator | ToolbarDropdownMiniRow | ToolbarDropdownSegmented;
 
 // ── Module state ─────────────────────────────────────────────────────────────
 
@@ -75,6 +93,9 @@ export function showToolbarDropdown(
         break;
       case 'mini-row':
         dropdownEl.appendChild(buildMiniRow(entry));
+        break;
+      case 'segmented':
+        dropdownEl.appendChild(buildSegmented(entry));
         break;
     }
   }
@@ -267,6 +288,82 @@ function buildMiniRow(entry: ToolbarDropdownMiniRow): HTMLElement {
   return row;
 }
 
+function buildSegmented(entry: ToolbarDropdownSegmented): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'tdd-seg-row';
+  row.setAttribute('role', 'none');
+  const group = document.createElement('div');
+  group.className = `tdd-seg${entry.classes?.group ? ` ${entry.classes.group}` : ''}`;
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', entry.label);
+  group.dataset.tddId = entry.id;
+  if (entry.title) {group.title = entry.title;}
+  const label = document.createElement('span');
+  label.className = `tdd-seg-label${entry.classes?.label ? ` ${entry.classes.label}` : ''}`;
+  label.setAttribute('aria-hidden', 'true');
+  label.textContent = entry.label;
+  group.appendChild(label);
+
+  const segs: HTMLElement[] = [];
+  const sync = (): void => {
+    const current = entry.value();
+    for (const s of segs) {s.setAttribute('aria-checked', s.dataset.value === current ? 'true' : 'false');}
+  };
+  for (const opt of entry.options) {
+    const seg = document.createElement('button');
+    seg.type = 'button';
+    seg.className = `tdd-seg-btn${entry.classes?.segment ? ` ${entry.classes.segment}` : ''}`;
+    seg.setAttribute('role', 'menuitemradio');
+    seg.setAttribute('tabindex', '-1');
+    seg.dataset.value = opt.value;
+    seg.textContent = opt.label;
+    if (opt.title) {seg.title = opt.title;}
+    seg.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (opt.value !== entry.value()) {entry.onChange(opt.value);}
+      sync();
+      takeFocus(seg);
+    });
+    seg.addEventListener('mouseenter', () => takeFocus(seg));
+    segs.push(seg);
+    group.appendChild(seg);
+  }
+  sync();
+  segmentSiblings.set(group, segs);
+
+  // One stop in the up/down order: the checked segment.
+  const stop = segs.find((s) => s.getAttribute('aria-checked') === 'true') ?? segs[0];
+  const index = focusableEls.length;
+  if (stop) {focusableEls.push(stop);}
+  /** Make `seg` the row's stop and focus it. */
+  function takeFocus(seg: HTMLElement): void {
+    focusableEls[index]?.classList.remove('tdd-focused');
+    focusableEls[index] = seg;
+    setFocusedIndex(index);
+  }
+
+  row.appendChild(group);
+  return row;
+}
+
+/** A segmented row's segments, by group element (ArrowLeft/ArrowRight). */
+const segmentSiblings = new WeakMap<HTMLElement, HTMLElement[]>();
+
+/** Move focus within the focused segmented row; false when the focus is not on one. */
+function moveSegment(delta: number): boolean {
+  const current = focusableEls[focusedIndex];
+  const group = current?.parentElement;
+  const segs = group ? segmentSiblings.get(group) : undefined;
+  if (!segs) {return false;}
+  const at = segs.indexOf(current);
+  const next = segs[(at + delta + segs.length) % segs.length];
+  current.classList.remove('tdd-focused');
+  focusableEls[focusedIndex] = next;
+  setFocusedIndex(focusedIndex);
+  return true;
+}
+
 // ── Positioning ──────────────────────────────────────────────────────────────
 
 function positionDropdown(menu: HTMLElement, anchor: HTMLElement): void {
@@ -350,6 +447,14 @@ function handleKeyDown(e: KeyboardEvent): void {
       setFocusedIndex(prev);
       break;
     }
+
+    case 'ArrowLeft':
+    case 'ArrowRight':
+      if (moveSegment(e.key === 'ArrowRight' ? 1 : -1)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      break;
 
     case 'Enter':
     case ' ': {

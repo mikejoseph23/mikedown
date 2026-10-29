@@ -1,20 +1,22 @@
 /**
- * Remembered rewrite picker choices (D10): the recent translate languages and
- * the last reading level. `localStorage` behind try/catch, like the emoji
- * picker's recents; storage may be missing or throw in a webview sandbox, so
- * every read has a default and every write is best effort. Never a
- * `mikedown.*` setting (D3).
+ * Remembered AI choices (D10): the recent translate languages, the last
+ * reading level and the thinking level. `localStorage` behind try/catch,
+ * like the emoji picker's recents; storage may be missing or throw in a
+ * webview sandbox, so every read has a default and every write is best
+ * effort. Never a `mikedown.*` setting (D3).
  *
- * The popover's thinking level is remembered per engine kind for the
- * session only (in memory, never `localStorage`): the model's configured
- * level is the lasting choice, made in Settings.
+ * The thinking level is one value, set from the AI menu's Thinking row or
+ * the popover's dial, and sent with every request until changed (null is
+ * "Default": no override, the model's own level). A kind that cannot express
+ * it gets its nearest level (`thinkingLevelFor`).
  */
 
 import { getAiAudience, type AiAudience } from './ai/prompts/rewrite';
-import type { AiThinkingLevel } from './ai/thinking';
+import { thinkingChoices, type AiThinkingLevel } from './ai/thinking';
 
 const LANGUAGES_KEY = 'mikedown.ai.recentLanguages';
 const AUDIENCE_KEY = 'mikedown.ai.audience';
+const THINKING_KEY = 'mikedown.ai.thinking';
 
 /** Recent languages shown above the fixed list. */
 export const MAX_RECENT_LANGUAGES = 3;
@@ -94,18 +96,36 @@ export function rememberAudience(audience: AiAudience): void {
   }
 }
 
-const sessionThinking = new Map<string, AiThinkingLevel>();
+const THINKING_LEVELS: readonly AiThinkingLevel[] = ['off', 'low', 'medium', 'high'];
 
-/** The thinking level last picked in the popover for this engine kind this session, or null. */
-export function sessionThinkingLevel(kind: string): AiThinkingLevel | null {
-  return sessionThinking.get(kind) ?? null;
+/** The remembered thinking level, or null for "Default" (the model's own). */
+export function loadThinkingLevel(): AiThinkingLevel | null {
+  try {
+    const raw = localStorage.getItem(THINKING_KEY);
+    return raw && (THINKING_LEVELS as readonly string[]).includes(raw) ? (raw as AiThinkingLevel) : null;
+  } catch {
+    return null;
+  }
 }
 
-export function rememberSessionThinking(kind: string, level: AiThinkingLevel): void {
-  sessionThinking.set(kind, level);
+/** Remember a thinking level; null goes back to "Default". */
+export function rememberThinkingLevel(level: AiThinkingLevel | null): void {
+  try {
+    if (level) {localStorage.setItem(THINKING_KEY, level);} else {localStorage.removeItem(THINKING_KEY);}
+  } catch {
+    // Storage refused: the choice is not remembered.
+  }
 }
 
-/** Forget every session thinking level (tests; a fresh page starts empty anyway). */
-export function clearSessionThinking(): void {
-  sessionThinking.clear();
+/**
+ * The remembered level for a request to this kind: the level itself when
+ * the kind has it, else the nearest one (Off on Anthropic is Low, any tier
+ * on LM Studio is On). Null for "Default" or a kind with no mapping.
+ */
+export function thinkingLevelFor(kind: string): AiThinkingLevel | null {
+  const level = loadThinkingLevel();
+  const choices = thinkingChoices(kind);
+  if (!level || choices.length === 0) {return null;}
+  if (choices.some((c) => c.level === level)) {return level;}
+  return level === 'off' ? choices[0].level : (choices.find((c) => c.level !== 'off') ?? choices[0]).level;
 }
