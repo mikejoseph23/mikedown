@@ -157,7 +157,7 @@
  *     { type: 'aiEngines', engines: AiEngineStatus[] } — the listEngines reply,
  *         also pushed after a settings change, probe or discovery.
  *     { type: 'aiEngineStatus', requestId, status: AiEngineStatus }
- *     { type: 'aiConsent', requestId, engineId, granted: true | false | 'never' }
+ *     { type: 'aiConsent', requestId, engineId, granted: true | 'once' | false | 'never' }
  *     { type: 'aiConsents', requestId, consents: AiConsentRecord[] }
  *     { type: 'aiEngineProbes', requestId, probes: AiLocalServerProbe[] }
  *     { type: 'aiHostEngines', requestId, probes: AiHostEngineProbe[] }

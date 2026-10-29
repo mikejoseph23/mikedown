@@ -6,7 +6,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { parseAiSettings, type AiEngineKind, type ProviderAdapter } from '@mikedown/core/ai';
-import { AiEngineService, type ConsentAnswer, type StoredConsent } from '../../src/ai/engineService';
+import { AiEngineService, type ConsentDialogAnswer, type StoredConsent } from '../../src/ai/engineService';
 import { AiSecrets } from '../../src/ai/secrets';
 import { handleAiMessage } from '../../src/ai/webviewBridge';
 
@@ -21,10 +21,10 @@ const raw = {
   routing: { default: { engineId: 'omlx', modelId: 'qwen' }, fallback: 'none', tasks: {} },
 };
 
-function setup(over: { allowCloud?: boolean; answer?: ConsentAnswer; forget?: () => Promise<void> } = {}) {
+function setup(over: { allowCloud?: boolean; answer?: ConsentDialogAnswer; forget?: () => Promise<void> } = {}) {
   const settings = parseAiSettings({ ...raw, allowCloud: over.allowCloud ?? true }, { onWarning: () => {} });
   const stored = new Map<string, StoredConsent>();
-  const askConsent = vi.fn(async (): Promise<ConsentAnswer> => over.answer ?? 'allow');
+  const askConsent = vi.fn(async (): Promise<ConsentDialogAnswer> => over.answer ?? 'allow');
   const adapter = (kind: AiEngineKind): ProviderAdapter => ({ kind, listModels: async () => [], probe: async () => ({ ok: true, latencyMs: 1 }), complete: vi.fn() });
   const service = new AiEngineService({
     readSettings: () => settings,
@@ -91,7 +91,7 @@ describe('consent messages through the bridge', () => {
   });
 
   it('aiRequestCloudConsent carries the three answers as granted values', async () => {
-    for (const [answer, granted] of [['allow', true], ['never', 'never'], ['notNow', false]] as const) {
+    for (const [answer, granted] of [['allow', true], ['allowOnce', 'once'], ['deny', false]] as const) {
       const { send, posted } = setup({ answer });
       await send({ type: 'aiRequestCloudConsent', requestId: 'c', engineId: 'claude' });
       expect(posted.at(-1), answer).toEqual({ type: 'aiConsent', requestId: 'c', engineId: 'claude', granted });

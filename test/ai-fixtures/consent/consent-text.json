@@ -1,5 +1,5 @@
 {
-  "description": "Consent dialog text (core privacy.ts#aiConsentText). Both hosts render these exact words: VS Code calls aiConsentText, Desktop has a Rust port (commands/ai/consent.rs). The policy comes from the cloud preset on the same host. Regenerate when the copy changes, and update the Rust tables to match.",
+  "description": "Consent dialog text (core privacy.ts#aiConsentText). Both hosts render these exact words: VS Code calls aiConsentText, Desktop has a Rust port (commands/ai/consent.rs). The policy comes from the cloud preset on the same host. Desktop renders the policyLine cases (the policy URL in the body; its native dialog has no room for a policy button). Regenerate when the copy changes, and update the Rust tables to match.",
   "privacy": {
     "leaves": "Text you ask about is sent over the internet to the provider and processed on their servers.",
     "terms": "API traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.",
@@ -59,7 +59,7 @@
   ],
   "cases": [
     {
-      "name": "rewrite selection, workspace",
+      "name": "rewrite selection, workspace (VS Code: a policy button)",
       "input": {
         "engineName": "Anthropic",
         "host": "api.anthropic.com",
@@ -68,9 +68,28 @@
       },
       "expected": {
         "title": "Send text to Anthropic?",
-        "body": "Anthropic is a cloud engine at api.anthropic.com. If you allow it, this request sends the selected text and the paragraph before and after it. It goes over the internet to api.anthropic.com and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nAnthropic privacy and data use: https://privacy.claude.com/en/collections/10663361-commercial-customers\n\nYou can use a local engine instead. Allowing is remembered for this workspace.",
+        "body": "Anthropic is a cloud engine at api.anthropic.com. If you allow it, this request sends the selected text and the paragraph before and after it. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nYou can use a local engine instead. Allow for this workspace is remembered; you can change it in AI settings → Cloud consents.",
         "allow": "Allow for this workspace",
-        "notNow": "Not now"
+        "allowOnce": "Allow once",
+        "deny": "Don't allow",
+        "readPolicy": "Read the provider's policy"
+      }
+    },
+    {
+      "name": "summary via OpenAI, workspace (VS Code)",
+      "input": {
+        "engineName": "OpenAI",
+        "host": "api.openai.com",
+        "feature": "summary",
+        "scopeWord": "workspace"
+      },
+      "expected": {
+        "title": "Send text to OpenAI?",
+        "body": "OpenAI is a cloud engine at api.openai.com. If you allow it, this request sends the whole document, up to what fits the model. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nYou can use a local engine instead. Allow for this workspace is remembered; you can change it in AI settings → Cloud consents.",
+        "allow": "Allow for this workspace",
+        "allowOnce": "Allow once",
+        "deny": "Don't allow",
+        "readPolicy": "Read the provider's policy"
       }
     },
     {
@@ -80,13 +99,15 @@
         "host": "api.anthropic.com",
         "feature": "rewrite",
         "sends": "document",
-        "scopeWord": "folder"
+        "scopeWord": "folder",
+        "policyLine": true
       },
       "expected": {
         "title": "Send text to Claude at work?",
-        "body": "Claude at work is a cloud engine at api.anthropic.com. If you allow it, this request sends the whole document, up to what fits the model. It goes over the internet to api.anthropic.com and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nAnthropic privacy and data use: https://privacy.claude.com/en/collections/10663361-commercial-customers\n\nYou can use a local engine instead. Allowing is remembered for this folder.",
+        "body": "Claude at work is a cloud engine at api.anthropic.com. If you allow it, this request sends the whole document, up to what fits the model. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nAnthropic privacy and data use: https://privacy.claude.com/en/collections/10663361-commercial-customers\n\nYou can use a local engine instead. Allow for this folder is remembered; you can change it in AI settings → Cloud consents.",
         "allow": "Allow for this folder",
-        "notNow": "Not now"
+        "allowOnce": "Allow once",
+        "deny": "Don't allow"
       }
     },
     {
@@ -95,13 +116,15 @@
         "engineName": "OpenAI",
         "host": "api.openai.com",
         "feature": "summary",
-        "scopeWord": "folder"
+        "scopeWord": "folder",
+        "policyLine": true
       },
       "expected": {
         "title": "Send text to OpenAI?",
-        "body": "OpenAI is a cloud engine at api.openai.com. If you allow it, this request sends the whole document, up to what fits the model. It goes over the internet to api.openai.com and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nOpenAI API data controls: https://developers.openai.com/api/docs/guides/your-data\n\nYou can use a local engine instead. Allowing is remembered for this folder.",
+        "body": "OpenAI is a cloud engine at api.openai.com. If you allow it, this request sends the whole document, up to what fits the model. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nOpenAI API data controls: https://developers.openai.com/api/docs/guides/your-data\n\nYou can use a local engine instead. Allow for this folder is remembered; you can change it in AI settings → Cloud consents.",
         "allow": "Allow for this folder",
-        "notNow": "Not now"
+        "allowOnce": "Allow once",
+        "deny": "Don't allow"
       }
     },
     {
@@ -110,13 +133,15 @@
         "engineName": "Google Gemini",
         "host": "generativelanguage.googleapis.com",
         "feature": "title",
-        "scopeWord": "session"
+        "scopeWord": "session",
+        "policyLine": true
       },
       "expected": {
         "title": "Send text to Google Gemini?",
-        "body": "Google Gemini is a cloud engine at generativelanguage.googleapis.com. If you allow it, this request sends the whole document, up to what fits the model. It goes over the internet to generativelanguage.googleapis.com and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nGemini API terms and data use: https://ai.google.dev/gemini-api/terms\n\nYou can use a local engine instead. Allowing is remembered for this session.",
+        "body": "Google Gemini is a cloud engine at generativelanguage.googleapis.com. If you allow it, this request sends the whole document, up to what fits the model. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nGemini API terms and data use: https://ai.google.dev/gemini-api/terms\n\nYou can use a local engine instead. Allow for this session lasts until you quit MikeDown.",
         "allow": "Allow for this session",
-        "notNow": "Not now"
+        "allowOnce": "Allow once",
+        "deny": "Don't allow"
       }
     },
     {
@@ -125,13 +150,15 @@
         "engineName": "OpenRouter",
         "host": "openrouter.ai",
         "feature": "frontmatter",
-        "scopeWord": "folder"
+        "scopeWord": "folder",
+        "policyLine": true
       },
       "expected": {
         "title": "Send text to OpenRouter?",
-        "body": "OpenRouter is a cloud engine at openrouter.ai. If you allow it, this request sends the document, its frontmatter and the tag names used in this workspace. It goes over the internet to openrouter.ai and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide. OpenRouter passes each request on to the provider that serves the model, whose own terms apply as well.\n\nOpenRouter privacy policy: https://openrouter.ai/privacy\n\nYou can use a local engine instead. Allowing is remembered for this folder.",
+        "body": "OpenRouter is a cloud engine at openrouter.ai. If you allow it, this request sends the document, its frontmatter and the tag names used in this workspace. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide. OpenRouter passes each request on to the provider that serves the model, whose own terms apply as well.\n\nOpenRouter privacy policy: https://openrouter.ai/privacy\n\nYou can use a local engine instead. Allow for this folder is remembered; you can change it in AI settings → Cloud consents.",
         "allow": "Allow for this folder",
-        "notNow": "Not now"
+        "allowOnce": "Allow once",
+        "deny": "Don't allow"
       }
     },
     {
@@ -143,9 +170,11 @@
       },
       "expected": {
         "title": "Send text to Groq?",
-        "body": "Groq is a cloud engine at api.groq.com. If you allow it, this request sends the text you ask the AI about. It goes over the internet to api.groq.com and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nGroq: your data in GroqCloud: https://console.groq.com/docs/your-data\n\nYou can use a local engine instead. Allowing is remembered for this workspace.",
+        "body": "Groq is a cloud engine at api.groq.com. If you allow it, this request sends the text you ask the AI about. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nYou can use a local engine instead. Allow for this workspace is remembered; you can change it in AI settings → Cloud consents.",
         "allow": "Allow for this workspace",
-        "notNow": "Not now"
+        "allowOnce": "Allow once",
+        "deny": "Don't allow",
+        "readPolicy": "Read the provider's policy"
       }
     },
     {
@@ -154,17 +183,19 @@
         "engineName": "Mistral",
         "host": "api.mistral.ai",
         "feature": "somethingNew",
-        "scopeWord": "folder"
+        "scopeWord": "folder",
+        "policyLine": true
       },
       "expected": {
         "title": "Send text to Mistral?",
-        "body": "Mistral is a cloud engine at api.mistral.ai. If you allow it, this request sends the text you ask the AI about. It goes over the internet to api.mistral.ai and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nMistral AI privacy policy: https://legal.mistral.ai/terms/privacy-policy/\n\nYou can use a local engine instead. Allowing is remembered for this folder.",
+        "body": "Mistral is a cloud engine at api.mistral.ai. If you allow it, this request sends the text you ask the AI about. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nMistral AI privacy policy: https://legal.mistral.ai/terms/privacy-policy/\n\nYou can use a local engine instead. Allow for this folder is remembered; you can change it in AI settings → Cloud consents.",
         "allow": "Allow for this folder",
-        "notNow": "Not now"
+        "allowOnce": "Allow once",
+        "deny": "Don't allow"
       }
     },
     {
-      "name": "a host no preset knows: no policy line",
+      "name": "a host no preset knows: no policy line or button",
       "input": {
         "engineName": "My proxy",
         "host": "llm.example.com",
@@ -173,26 +204,27 @@
       },
       "expected": {
         "title": "Send text to My proxy?",
-        "body": "My proxy is a cloud engine at llm.example.com. If you allow it, this request sends the whole document, up to what fits the model. It goes over the internet to llm.example.com and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nYou can use a local engine instead. Allowing is remembered for this workspace.",
+        "body": "My proxy is a cloud engine at llm.example.com. If you allow it, this request sends the whole document, up to what fits the model. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nYou can use a local engine instead. Allow for this workspace is remembered; you can change it in AI settings → Cloud consents.",
         "allow": "Allow for this workspace",
-        "notNow": "Not now"
+        "allowOnce": "Allow once",
+        "deny": "Don't allow"
       }
     },
     {
-      "name": "never button, DeepSeek",
+      "name": "DeepSeek, folder",
       "input": {
         "engineName": "DeepSeek",
         "host": "api.deepseek.com",
         "feature": "rewrite",
         "scopeWord": "folder",
-        "offerNever": true
+        "policyLine": true
       },
       "expected": {
         "title": "Send text to DeepSeek?",
-        "body": "DeepSeek is a cloud engine at api.deepseek.com. If you allow it, this request sends the selected text and the paragraph before and after it. It goes over the internet to api.deepseek.com and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nDeepSeek privacy policy: https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html\n\nYou can use a local engine instead. Allowing is remembered for this folder.",
+        "body": "DeepSeek is a cloud engine at api.deepseek.com. If you allow it, this request sends the selected text and the paragraph before and after it. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nDeepSeek privacy policy: https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html\n\nYou can use a local engine instead. Allow for this folder is remembered; you can change it in AI settings → Cloud consents.",
         "allow": "Allow for this folder",
-        "notNow": "Not now",
-        "never": "Not for this folder"
+        "allowOnce": "Allow once",
+        "deny": "Don't allow"
       }
     }
   ]

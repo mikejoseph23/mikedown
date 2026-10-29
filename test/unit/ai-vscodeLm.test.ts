@@ -121,7 +121,7 @@ describe('engine service: setup wizard methods', () => {
       readSettings: () => settings,
       secrets: new AiSecrets({ get: async () => undefined, store: async () => {}, delete: async () => {} }, {}),
       consent: { get: () => undefined, set: async () => {}, forget: async () => {}, ids: () => [] },
-      askConsent: async () => 'notNow',
+      askConsent: async () => 'deny',
       saveEngines: async () => {},
       log: (l) => log.push(l),
       adapters: createAdapters({ vscodeLm: fakeApi(models) }),

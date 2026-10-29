@@ -48,9 +48,9 @@ import { requestJson, resolveFetch, type FetchLike } from './providers/http';
  *   one, and closing the panel aborts whatever is running;
  * - the cloud gate, enforced here as well as in core's router (defence in
  *   depth): a cloud engine is refused with `cloudBlocked` while Allow cloud
- *   is off, and needs a stored per-workspace consent (Allow, or Never) before
- *   any text leaves; a consent only counts while the engine still has the
- *   kind, base URL and locality it was given for;
+ *   is off, and needs consent before any text leaves: a stored "Allow for
+ *   this workspace" or an unused "Allow once"; a consent only counts while
+ *   the engine still has the kind, base URL and locality it was given for;
  * - one output-channel line per request, never the prompt text;
  * - local server detection for the setup UI: asked for, never cached;
  * - VS Code's own models (`vscode-lm`) and this machine's hardware, for the
@@ -61,8 +61,9 @@ import { requestJson, resolveFetch, type FetchLike } from './providers/http';
  */
 
 /**
- * A stored consent answer: `allow` or `never`, with the fingerprint of the
- * engine it was given for and when. "Not now" is never stored.
+ * A stored consent answer: `allow`, or `never` (written by older versions,
+ * still honoured), with the fingerprint of the engine it was given for and
+ * when. "Allow once" and "Don't allow" are never stored.
  */
 export interface StoredConsent {
   fingerprint: string;
@@ -71,8 +72,15 @@ export interface StoredConsent {
   at: number;
 }
 
-/** The three answers of the consent modal. */
-export type ConsentAnswer = 'allow' | 'never' | 'notNow';
+/**
+ * A consent answer. The modal gives `allow` (stored), `allowOnce` (this
+ * request only) or `deny` (remembered for the session, so the user is not
+ * asked again until VS Code restarts); `never` only comes from the store.
+ */
+export type ConsentAnswer = 'allow' | 'allowOnce' | 'deny' | 'never';
+
+/** The answers the consent modal gives. */
+export type ConsentDialogAnswer = Exclude<ConsentAnswer, 'never'>;
 
 /** Per-workspace consent answers, stored as `mikedown.ai.consent.<engineId>`. */
 export interface ConsentStore {
@@ -88,7 +96,7 @@ export interface EngineServiceDeps {
   secrets: AiSecrets;
   consent: ConsentStore;
   /** Host UI (a modal) asking whether this workspace may send text to a cloud engine. `sends` overrides the feature's own scope. */
-  askConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): PromiseLike<ConsentAnswer>;
+  askConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): PromiseLike<ConsentDialogAnswer>;
   /** Persist `mikedown.ai.engines` (after a discovery merged models in). */
   saveEngines(engines: AiEngineConfig[]): PromiseLike<void>;
   log(line: string): void;
@@ -141,6 +149,10 @@ export class AiEngineService {
   private readonly loaded = new Map<string, Map<string, boolean>>();
   private readonly inFlight = new Map<object, { requestId: string; controller: AbortController }>();
   private readonly consentPrompts = new Map<string, Promise<ConsentAnswer>>();
+  /** "Allow once" grants not yet used, by engine id (the engine's fingerprint). The next completion takes it. */
+  private readonly onceGrants = new Map<string, string>();
+  /** This session's "Don't allow", by engine id: the fingerprint and when. */
+  private readonly sessionDenied = new Map<string, { fingerprint: string; at: number }>();
   private readonly listeners = new Set<() => void>();
   /** `hardwareInfo`'s answer, read once (undefined: not asked yet). */
   private hardware: AiHardwareInfo | null | undefined;
@@ -452,41 +464,66 @@ export class AiEngineService {
     return record && record.fingerprint === consentFingerprint(engine) ? record : undefined;
   }
 
-  /** Stored consents (`true` allowed, `false` never), for the host-side router (requests that come without a route). */
+  /** This session's "Don't allow" for an engine, if it still describes the engine. */
+  private deniedThisSession(engine: AiEngineConfig): { at: number } | undefined {
+    const denied = this.sessionDenied.get(engine.id);
+    return denied && denied.fingerprint === consentFingerprint(engine) ? denied : undefined;
+  }
+
+  /** Use up an "Allow once" grant for the engine. True when there was one for it as it is now. */
+  private takeOnceGrant(engine: AiEngineConfig): boolean {
+    const print = this.onceGrants.get(engine.id);
+    this.onceGrants.delete(engine.id);
+    return print === consentFingerprint(engine);
+  }
+
+  /**
+   * Consents for the host-side router (requests that come without a route):
+   * `true` stored allow, `false` stored never or this session's "Don't allow".
+   */
   consentState(settings: AiSettings = this.deps.readSettings()): AiConsentState {
     const state: Record<string, boolean> = {};
     for (const engine of settings.engines) {
       const record = this.storedConsent(engine);
       if (record) {state[engine.id] = record.answer === 'allow';}
+      else if (this.deniedThisSession(engine)) {state[engine.id] = false;}
     }
     return state;
   }
 
   /**
-   * The stored answers, newest first, for the Cloud consents list. Answers
-   * for engines that are gone or point somewhere else now are not listed.
+   * The answers, newest first, for the Cloud consents list: the stored ones
+   * and this session's "Don't allow" (so it can be forgotten without a
+   * restart). Answers for engines that are gone or point somewhere else now
+   * are not listed.
    */
   listConsents(): AiConsentRecord[] {
     const out: AiConsentRecord[] = [];
     for (const engine of this.deps.readSettings().engines) {
       const record = this.storedConsent(engine);
+      const denied = record ? undefined : this.deniedThisSession(engine);
       if (record) {out.push({ engineId: engine.id, answer: record.answer, at: record.at, scope: 'workspace' });}
+      else if (denied) {out.push({ engineId: engine.id, answer: 'deny', at: denied.at, scope: 'workspace' });}
     }
     return out.sort((a, b) => b.at - a.at);
   }
 
-  /** Forget the stored answer, so the next request asks again. */
+  /** Forget the answer (stored and this session's), so the next request asks again. */
   async forgetConsent(engineId: string): Promise<void> {
+    this.sessionDenied.delete(engineId);
+    this.onceGrants.delete(engineId);
     await this.deps.consent.forget(engineId);
     this.deps.log(`Consent ${engineId}: forgotten`);
   }
 
   /**
-   * True (allowed), false ("Not now") or `'never'` for a cloud engine in
-   * this workspace; local engines are always true. Rejects with
-   * `cloudBlocked` while Allow cloud is off, like Desktop. A stored answer is
-   * returned without asking; "Not now" is not stored, so the next explicit
-   * attempt asks again.
+   * True (allowed for the workspace), `'once'` (this request only), false
+   * ("Don't allow") or `'never'` (stored by an older version) for a cloud
+   * engine in this workspace; local engines are always true. Rejects with
+   * `cloudBlocked` while Allow cloud is off, like Desktop. A stored answer
+   * and this session's "Don't allow" are returned without asking. "Allow
+   * once" leaves a grant the next completion for the engine uses up; an
+   * unused one is replaced by the next answer.
    */
   async requestCloudConsent(engineId: string, feature?: string, sends?: AiSendsScope): Promise<AiConsentReply> {
     const settings = this.deps.readSettings();
@@ -494,21 +531,27 @@ export class AiEngineService {
     if (!engine) {return false;}
     if (engineLocality(engine, settings.localNetworks) === 'local') {return true;}
     if (!settings.allowCloud) {throw makeAiError('cloudBlocked', `${engineName(engine)} is a cloud engine and Allow cloud is off.`);}
+    this.onceGrants.delete(engine.id);
     const answer = await this.ensureConsent(engine, feature, sends);
-    return answer === 'allow' ? true : answer === 'never' ? 'never' : false;
+    if (answer === 'allowOnce') {this.onceGrants.set(engine.id, consentFingerprint(engine));}
+    return answer === 'allow' ? true : answer === 'allowOnce' ? 'once' : answer === 'never' ? 'never' : false;
   }
 
+  /** The answer that holds (stored, then this session's "Don't allow"), else the modal's. */
   private ensureConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<ConsentAnswer> {
     const stored = this.storedConsent(engine);
     if (stored) {return Promise.resolve(stored.answer);}
+    if (this.deniedThisSession(engine)) {return Promise.resolve('deny');}
     const pending = this.consentPrompts.get(engine.id);
     if (pending) {return pending;}
     const prompt = (async (): Promise<ConsentAnswer> => {
       const answer = await this.deps.askConsent(engine, feature, sends);
-      if (answer !== 'notNow') {
+      if (answer === 'allow') {
         await this.deps.consent.set(engine.id, { fingerprint: consentFingerprint(engine), answer, at: this.now() });
+      } else if (answer === 'deny') {
+        this.sessionDenied.set(engine.id, { fingerprint: consentFingerprint(engine), at: this.now() });
       }
-      this.deps.log(`Consent ${engineName(engine)}: ${answer === 'allow' ? 'allowed for this workspace' : answer === 'never' ? 'refused for this workspace' : 'not now'}`);
+      this.deps.log(`Consent ${engineName(engine)}: ${answer === 'allow' ? 'allowed for this workspace' : answer === 'allowOnce' ? 'allowed once' : 'not allowed until restart'}`);
       return answer;
     })();
     this.consentPrompts.set(engine.id, prompt);
@@ -556,8 +599,9 @@ export class AiEngineService {
 
       if (!isLocal) {
         if (!settings.allowCloud) {throw makeAiError('cloudBlocked', `${engineName(engine)} is a cloud engine and Allow cloud is off.`);}
-        const answer = await this.ensureConsent(engine, req.feature);
-        if (answer !== 'allow') {
+        // A stored allow, an unused "Allow once" from the consent request, or ask now.
+        const answer = this.storedConsent(engine)?.answer === 'allow' || this.takeOnceGrant(engine) ? 'allow' : await this.ensureConsent(engine, req.feature);
+        if (answer !== 'allow' && answer !== 'allowOnce') {
           throw makeAiError('consentDenied', answer === 'never'
             ? `Sending text to ${engineName(engine)} was turned off for this workspace.`
             : `Sending text to ${engineName(engine)} was not allowed for this workspace.`);
@@ -644,6 +688,8 @@ export class AiEngineService {
     for (const id of removed) {
       this.probes.delete(id);
       this.loaded.delete(id);
+      this.sessionDenied.delete(id);
+      this.onceGrants.delete(id);
       await this.deps.consent.forget(id);
     }
     for (const id of this.deps.consent.ids()) {

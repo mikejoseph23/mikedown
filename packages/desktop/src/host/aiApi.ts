@@ -52,8 +52,12 @@ export function aiChannelId(requestId: string): string {
   return requestId.replace(/[^A-Za-z0-9_-]/g, '_');
 }
 
-/** The native consent dialog's three answers (`Answer` in `consent_store.rs`). */
-export type AiConsentAnswer = 'allow' | 'never' | 'notNow';
+/**
+ * A consent answer (`Answer` in `consent_store.rs`): the native dialog's
+ * `allow` (stored), `allowOnce` (the next completion only) and `deny` (until
+ * the app quits), or a `never` an older version stored.
+ */
+export type AiConsentAnswer = 'allow' | 'allowOnce' | 'deny' | 'never';
 
 export interface AiApi {
   /** Starts the request; resolves with the channel id once it is running. Tokens, the result and errors arrive as events. */

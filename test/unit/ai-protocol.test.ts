@@ -357,6 +357,13 @@ describe('host bridge, errors and ordering', () => {
     expect(await never).toBe('never');
     expect(await list).toEqual([{ engineId: 'claude', answer: 'never', at: 1, scope: 'workspace' }]);
     await expect(forget).resolves.toBeUndefined();
+    const once = ai.requestCloudConsent!('claude');
+    const denied = ai.requestCloudConsent!('claude');
+    const [o, d] = posted.slice(-2);
+    host.handleReply({ type: 'aiConsent', requestId: o.requestId, engineId: 'claude', granted: 'once' });
+    host.handleReply({ type: 'aiConsent', requestId: d.requestId, engineId: 'claude', granted: false });
+    expect(await once).toBe('once');
+    expect(await denied).toBe(false);
   });
 
   it('a malformed aiComplete answers aiError instead of calling the service', async () => {

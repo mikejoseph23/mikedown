@@ -391,7 +391,7 @@ export class VsCodeHost implements MikeDownHost {
       case 'aiConsent': {
         const waiter = this.aiWaiters.get(message.requestId);
         this.aiWaiters.delete(message.requestId);
-        waiter?.resolve(message.granted === 'never' ? 'never' : !!message.granted);
+        waiter?.resolve(message.granted === 'never' || message.granted === 'once' ? message.granted : !!message.granted);
         return true;
       }
       case 'aiConsents': {

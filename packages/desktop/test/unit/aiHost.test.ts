@@ -26,7 +26,7 @@ function createFakeApi() {
     testEngine: vi.fn(async (id: string): Promise<AiEngineInfo> => ({ engineId: id, ok: true, isLocal: true, hasKey: false, latencyMs: 12 })),
     discoverModels: vi.fn(),
     setSecret: vi.fn(async () => undefined),
-    requestCloudConsent: vi.fn(async (): Promise<'allow' | 'never' | 'notNow'> => 'allow'),
+    requestCloudConsent: vi.fn(async (): Promise<'allow' | 'allowOnce' | 'deny' | 'never'> => 'allow'),
     listConsents: vi.fn(async () => [] as unknown[]),
     forgetConsent: vi.fn(async (_id: string) => undefined),
     onToken: vi.fn(async (id: string, h: Handler<AiTokenEvent>) => add(tokens, id, h)),
@@ -243,8 +243,10 @@ describe('aiHost registry methods', () => {
     await host.setSecret?.('e1', null);
     expect(api.setSecret.mock.calls).toEqual([['e1', 'sk-123'], ['e1', null]]);
     expect(await host.requestCloudConsent?.('e1')).toBe(true);
-    api.requestCloudConsent.mockResolvedValueOnce('notNow');
+    api.requestCloudConsent.mockResolvedValueOnce('deny');
     expect(await host.requestCloudConsent?.('e1')).toBe(false);
+    api.requestCloudConsent.mockResolvedValueOnce('allowOnce');
+    expect(await host.requestCloudConsent?.('e1')).toBe('once');
     api.requestCloudConsent.mockResolvedValueOnce('never');
     expect(await host.requestCloudConsent?.('e1')).toBe('never');
     api.setSecret.mockRejectedValueOnce({ code: 'unknown', message: 'The keychain refused the change: locked' });

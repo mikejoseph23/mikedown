@@ -229,7 +229,7 @@ commands are `ai_complete` (streams `ai-token:<id>`, then `ai-done:<id>` or
 `ai-error:<id>` to the calling window; closing the window cancels its
 requests), `ai_cancel`, `ai_list_engines`, `ai_test_engine`,
 `ai_discover_models`, `ai_set_secret`, `ai_request_cloud_consent` (a native
-dialog with Allow, Not for this folder and Not now), `ai_list_consents`,
+dialog with Allow for this folder, Allow once and Don't allow), `ai_list_consents`,
 `ai_forget_consent`, `ai_forget_engine_consents`, `ai_detect_local_servers`
 (the setup wizard's search for a running local server) and `ai_hardware_info`
 (memory, CPU and GPU for the wizard's local hint), called only from `src/host/aiApi.ts`; `src/host/aiHost.ts` turns them

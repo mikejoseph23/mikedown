@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import { AI_SETTINGS_KEYS, aiConsentHost, aiConsentText, aiProviderPolicy, parseAiSettings, serializeAiSettings, type AiEngineConfig, type AiSendsScope } from '@mikedown/core/ai';
 import { getSettings, stableEngineIdGenerator, effectiveAiRaw } from '../settings';
-import { AiEngineService, type ConsentAnswer, type ConsentStore, type StoredConsent } from './engineService';
+import { AiEngineService, type ConsentDialogAnswer, type ConsentStore, type StoredConsent } from './engineService';
 import { AiSecrets } from './secrets';
 import { readHardwareInfo } from './hardware';
 import { createAdapters, type VsCodeLmApi } from './providers';
@@ -27,11 +27,12 @@ function timestamp(): string {
 /**
  * The consent modal: host UI, so a workspace cannot restyle or skip it. The
  * words come from core's `aiConsentText` (Desktop renders the same ones).
- * Three answers: Allow and "Not for this workspace" are stored; Not now (or
- * closing the dialog) is not. "Read the provider's policy" opens the policy
- * in the browser and asks again.
+ * Three answers: Allow for this workspace (stored), Allow once (this request
+ * only) and Don't allow (or closing the dialog; the service remembers it for
+ * the session). "Read the provider's policy" opens the policy in the browser
+ * and asks again.
  */
-export async function askCloudConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<ConsentAnswer> {
+export async function askCloudConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<ConsentDialogAnswer> {
   const policy = aiProviderPolicy(engine);
   const text = aiConsentText({
     engineName: engine.name || engine.id,
@@ -42,26 +43,26 @@ export async function askCloudConsent(engine: AiEngineConfig, feature: string | 
     sends,
     scopeWord: 'workspace',
     policy,
-    offerNever: true,
   });
   const allow: vscode.MessageItem = { title: text.allow };
-  const never: vscode.MessageItem = { title: text.never ?? 'Not for this workspace' };
-  const notNow: vscode.MessageItem = { title: text.notNow, isCloseAffordance: true };
-  const readPolicy: vscode.MessageItem = { title: 'Read the provider\'s policy' };
-  const items = policy ? [allow, never, readPolicy, notNow] : [allow, never, notNow];
+  const allowOnce: vscode.MessageItem = { title: text.allowOnce };
+  const deny: vscode.MessageItem = { title: text.deny, isCloseAffordance: true };
+  const readPolicy: vscode.MessageItem | undefined = policy && text.readPolicy ? { title: text.readPolicy } : undefined;
+  const items = readPolicy ? [allow, allowOnce, deny, readPolicy] : [allow, allowOnce, deny];
   for (;;) {
     const pick = await vscode.window.showWarningMessage(text.title, { modal: true, detail: text.body }, ...items);
-    if (pick === readPolicy && policy) {
+    if (pick && pick === readPolicy && policy) {
       await vscode.env.openExternal(vscode.Uri.parse(policy.url));
       continue;
     }
-    return pick === allow ? 'allow' : pick === never ? 'never' : 'notNow';
+    return pick === allow ? 'allow' : pick === allowOnce ? 'allowOnce' : 'deny';
   }
 }
 
 /**
- * Consent answers in `workspaceState`, one key per engine. An older version
- * stored a bare `true`; with no fingerprint it cannot be matched to an engine,
+ * Consent answers in `workspaceState`, one key per engine: `allow`, or a
+ * `never` an older version stored (still read, listed and forgettable).
+ * An even older version stored a bare `true`; with no fingerprint it cannot be matched to an engine,
  * so it counts as "never asked" and is replaced by the next answer.
  */
 export function workspaceConsentStore(state: Pick<vscode.Memento, 'get' | 'update' | 'keys'>): ConsentStore {

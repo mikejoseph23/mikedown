@@ -228,9 +228,10 @@ fn the_cloud_gate_needs_both_the_switch_and_consent() {
     assert!(cloud_gate(Locality::Local, false, None).is_ok());
     assert_eq!(cloud_gate(Locality::Cloud, false, Some(Answer::Allow)).unwrap_err().code, ErrorCode::CloudBlocked);
     assert_eq!(cloud_gate(Locality::Cloud, true, None).unwrap_err().code, ErrorCode::ConsentDenied);
-    assert_eq!(cloud_gate(Locality::Cloud, true, Some(Answer::NotNow)).unwrap_err().code, ErrorCode::ConsentDenied);
+    assert_eq!(cloud_gate(Locality::Cloud, true, Some(Answer::Deny)).unwrap_err().code, ErrorCode::ConsentDenied);
     assert_eq!(cloud_gate(Locality::Cloud, true, Some(Answer::Never)).unwrap_err().code, ErrorCode::ConsentDenied);
     assert!(cloud_gate(Locality::Cloud, true, Some(Answer::Allow)).is_ok());
+    assert!(cloud_gate(Locality::Cloud, true, Some(Answer::AllowOnce)).is_ok());
 }
 
 #[test]
@@ -241,9 +242,9 @@ fn a_session_answer_beats_the_store_and_a_decline_is_remembered() {
     let state = AiState::with_store(Arc::new(MemoryStore::default()));
     let claude = cloud_engine("claude", "https://api.anthropic.com/v1");
     assert_eq!(state.consent_state(&base, Some(&dir), &claude), None);
-    state.remember_consent(&base, Some(&dir), &claude, Answer::NotNow);
-    assert_eq!(state.consent_state(&base, Some(&dir), &claude), Some(Answer::NotNow));
-    assert!(!consent_store::store_path(&base).exists(), "Not now is not stored");
+    state.remember_consent(&base, Some(&dir), &claude, Answer::Deny);
+    assert_eq!(state.consent_state(&base, Some(&dir), &claude), Some(Answer::Deny), "Don't allow holds for the session");
+    assert!(!consent_store::store_path(&base).exists(), "Don't allow is not stored");
     // A lone-file window is asked separately, and its answers last for the session.
     assert_eq!(state.consent_state(&base, None, &claude), None);
     state.remember_consent(&base, None, &claude, Answer::Allow);
@@ -258,6 +259,49 @@ fn a_session_answer_beats_the_store_and_a_decline_is_remembered() {
     let moved = cloud_engine("openai", "https://other.example.com/v1");
     assert_eq!(state.consent_state(&base, Some(&dir), &moved), None);
     assert_eq!(fresh.consent_state(&base, Some(&dir), &moved), None);
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
+#[test]
+fn allow_once_lets_one_completion_through_and_the_next_request_asks_again() {
+    use super::consent_store::Answer;
+    let base = temp_dir("consent-once-base");
+    let dir = temp_dir("consent-once");
+    let state = AiState::with_store(Arc::new(MemoryStore::default()));
+    let claude = cloud_engine("claude", "https://api.anthropic.com/v1");
+    state.remember_consent(&base, Some(&dir), &claude, Answer::AllowOnce);
+    assert!(!consent_store::store_path(&base).exists(), "Allow once is not stored");
+    // The next consent request is not answered by it: it asks again.
+    assert_eq!(state.consent_state(&base, Some(&dir), &claude), None);
+    // A grant for the engine as it was does not cover it once it points elsewhere.
+    assert_eq!(state.take_consent(&base, Some(&dir), &cloud_engine("claude", "https://other.example.com/v1")), None);
+    state.remember_consent(&base, Some(&dir), &claude, Answer::AllowOnce);
+    assert_eq!(state.take_consent(&base, Some(&dir), &claude), Some(Answer::AllowOnce));
+    assert_eq!(state.take_consent(&base, Some(&dir), &claude), None, "used up by the first completion");
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
+#[test]
+fn the_consents_list_shows_this_sessions_dont_allow_beside_the_stored_answers() {
+    use super::consent_store::Answer;
+    let base = temp_dir("consent-list-base");
+    let dir = temp_dir("consent-list");
+    let state = AiState::with_store(Arc::new(MemoryStore::default()));
+    let claude = cloud_engine("claude", "https://api.anthropic.com/v1");
+    let openai = cloud_engine("openai", "https://api.openai.com/v1");
+    let groq = cloud_engine("groq", "https://api.groq.com/openai/v1");
+    state.remember_consent(&base, Some(&dir), &claude, Answer::Allow);
+    state.remember_consent(&base, Some(&dir), &openai, Answer::Deny);
+    state.remember_consent(&base, Some(&dir), &groq, Answer::AllowOnce);
+    let engines = vec![claude.clone(), openai.clone(), groq.clone()];
+    let mut listed: Vec<(String, Answer)> = state.list_consents(&base, &dir, &engines).into_iter().map(|c| (c.engine_id, c.answer)).collect();
+    listed.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(listed, vec![("claude".to_string(), Answer::Allow), ("openai".to_string(), Answer::Deny)]);
+    // An engine that now points elsewhere is not listed.
+    let moved = vec![claude, cloud_engine("openai", "https://other.example.com/v1")];
+    assert_eq!(state.list_consents(&base, &dir, &moved).len(), 1);
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&base).unwrap();
 }

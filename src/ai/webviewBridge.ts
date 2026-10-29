@@ -25,8 +25,8 @@ import type { AiEngineService } from './engineService';
  *   aiError        { requestId, code, message }   (also answers a failed test/discover/setSecret/consent)
  *   aiEngines      { engines: AiEngineStatus[] }  (reply to aiListEngines, and pushed after a settings or status change)
  *   aiEngineStatus { requestId, status }
- *   aiConsent      { requestId, engineId, granted: true | false | 'never' }  (false: not now; 'never': stored, answered without asking)
- *   aiConsents     { requestId, consents: AiConsentRecord[] }  (this workspace's stored answers, newest first)
+ *   aiConsent      { requestId, engineId, granted: true | 'once' | false | 'never' }  ('once': this request only; false: don't allow, asked again after a restart; 'never': stored by an older version)
+ *   aiConsents     { requestId, consents: AiConsentRecord[] }  (this workspace's stored answers and this session's "Don't allow", newest first)
  *   aiEngineProbes { requestId, probes: AiLocalServerProbe[] }  (one per candidate, in order; nothing cached)
  *   aiHostEngines  { requestId, probes: AiHostEngineProbe[] }   (VS Code's Copilot models: how many, never a prompt)
  *   aiHardware     { requestId, info: AiHardwareInfo | null }   (memory, CPU, Apple Silicon; read once per session)

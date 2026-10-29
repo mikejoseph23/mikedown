@@ -5,8 +5,9 @@
 //! in core, regenerate the fixture and update the tables here.
 //!
 //! No claims about any provider's training or retention: the text points at
-//! the provider's own policy. A native dialog cannot link, so the policy URL is
-//! spelled out in the body.
+//! the provider's own policy. A native dialog can neither link nor spare one
+//! of its three buttons for the policy, so the policy URL is spelled out in
+//! the body (core's `policyLine`; VS Code shows a policy button instead).
 
 /// `AI_CLOUD_PRIVACY.terms`.
 pub const PRIVACY_TERMS: &str = "API traffic is covered by the provider's API terms, which differ from its consumer apps. \
@@ -104,31 +105,24 @@ pub fn policy_for_host(host: &str) -> Option<&'static ProviderPolicy> {
     PROVIDER_POLICIES.iter().find(|p| p.host == host)
 }
 
-/// `AiConsentText`.
+/// `AiConsentText` (no `readPolicy`: the policy is in the body).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsentText {
     pub title: String,
     pub body: String,
     pub allow: String,
-    pub not_now: String,
-    pub never: Option<String>,
+    pub allow_once: String,
+    pub deny: String,
 }
 
-/// `aiConsentText`, with the policy looked up from `host`.
+/// `aiConsentText` with `policyLine: true`, the policy looked up from `host`.
 /// `scope_word` is "folder" or "session" on Desktop.
-pub fn consent_text(
-    engine_name: &str,
-    host: &str,
-    feature: Option<&str>,
-    sends: Option<&str>,
-    scope_word: &str,
-    offer_never: bool,
-) -> ConsentText {
+pub fn consent_text(engine_name: &str, host: &str, feature: Option<&str>, sends: Option<&str>, scope_word: &str) -> ConsentText {
     let policy = policy_for_host(host);
     let mut paragraphs = vec![
         format!(
             "{engine_name} is a cloud engine at {host}. If you allow it, this request sends {}. \
-It goes over the internet to {host} and is processed on the provider's servers.",
+It goes over the internet and is processed on the provider's servers.",
             what_is_sent(feature, sends)
         ),
         match policy.and_then(|p| p.note) {
@@ -139,13 +133,18 @@ It goes over the internet to {host} and is processed on the provider's servers."
     if let Some(p) = policy {
         paragraphs.push(format!("{}: {}", p.label, p.url));
     }
-    paragraphs.push(format!("You can use a local engine instead. Allowing is remembered for this {scope_word}."));
+    let allow = format!("Allow for this {scope_word}");
+    paragraphs.push(if scope_word == "session" {
+        format!("You can use a local engine instead. {allow} lasts until you quit MikeDown.")
+    } else {
+        format!("You can use a local engine instead. {allow} is remembered; you can change it in AI settings \u{2192} Cloud consents.")
+    });
     ConsentText {
         title: format!("Send text to {engine_name}?"),
         body: paragraphs.join("\n\n"),
-        allow: format!("Allow for this {scope_word}"),
-        not_now: "Not now".to_string(),
-        never: offer_never.then(|| format!("Not for this {scope_word}")),
+        allow,
+        allow_once: "Allow once".to_string(),
+        deny: "Don't allow".to_string(),
     }
 }
 
@@ -182,11 +181,12 @@ mod tests {
         }
     }
 
+    /// Desktop renders the cases with `policyLine: true`; the others are VS Code's.
     #[test]
-    fn consent_text_renders_every_fixture_case() {
+    fn consent_text_renders_every_desktop_fixture_case() {
         let f = fixture();
-        let cases = f["cases"].as_array().unwrap();
-        assert!(!cases.is_empty());
+        let cases: Vec<&Value> = f["cases"].as_array().unwrap().iter().filter(|c| c["input"]["policyLine"].as_bool() == Some(true)).collect();
+        assert!(cases.len() >= 3);
         for case in cases {
             let name = case["name"].as_str().unwrap();
             let input = &case["input"];
@@ -197,13 +197,13 @@ mod tests {
                 input["feature"].as_str(),
                 input["sends"].as_str(),
                 input["scopeWord"].as_str().unwrap(),
-                input["offerNever"].as_bool().unwrap_or(false),
             );
             assert_eq!(got.title, expected["title"].as_str().unwrap(), "{name}: title");
             assert_eq!(got.body, expected["body"].as_str().unwrap(), "{name}: body");
             assert_eq!(got.allow, expected["allow"].as_str().unwrap(), "{name}: allow");
-            assert_eq!(got.not_now, expected["notNow"].as_str().unwrap(), "{name}: notNow");
-            assert_eq!(got.never.as_deref(), expected["never"].as_str(), "{name}: never");
+            assert_eq!(got.allow_once, expected["allowOnce"].as_str().unwrap(), "{name}: allowOnce");
+            assert_eq!(got.deny, expected["deny"].as_str().unwrap(), "{name}: deny");
+            assert!(expected.get("readPolicy").is_none(), "{name}: the policy is in the body, not a button");
         }
     }
 
@@ -211,13 +211,14 @@ mod tests {
     /// joined with a blank line, exactly as core's `aiConsentText` joins them.
     #[test]
     fn the_body_is_the_paragraphs_joined_by_one_blank_line() {
-        let t = consent_text("Anthropic", "api.anthropic.com", Some("rewrite"), None, "folder", false);
+        let t = consent_text("Anthropic", "api.anthropic.com", Some("rewrite"), None, "folder");
         let paragraphs: Vec<&str> = t.body.split("\n\n").collect();
         assert_eq!(paragraphs.len(), 4);
         assert!(paragraphs[0].starts_with("Anthropic is a cloud engine at api.anthropic.com. If you allow it, this request sends "));
+        assert_eq!(paragraphs[0].matches("api.anthropic.com").count(), 1, "the host is named once");
         assert_eq!(paragraphs[1], PRIVACY_TERMS);
         assert!(paragraphs[2].starts_with("Anthropic privacy and data use: https://"));
-        assert_eq!(paragraphs[3], "You can use a local engine instead. Allowing is remembered for this folder.");
+        assert_eq!(paragraphs[3], "You can use a local engine instead. Allow for this folder is remembered; you can change it in AI settings \u{2192} Cloud consents.");
         assert!(!t.body.contains("\n\n\n"));
     }
 
@@ -229,13 +230,13 @@ mod tests {
             ("frontmatter", "OpenRouter", "openrouter.ai"),
         ] {
             for word in ["folder", "session"] {
-                let t = consent_text(engine, host, Some(feature), None, word, true);
+                let t = consent_text(engine, host, Some(feature), None, word);
                 assert_eq!(t.title, format!("Send text to {engine}?"));
                 assert_eq!(t.allow, format!("Allow for this {word}"));
-                assert_eq!(t.not_now, "Not now");
-                assert_eq!(t.never.as_deref(), Some(format!("Not for this {word}").as_str()));
+                assert_eq!(t.allow_once, "Allow once");
+                assert_eq!(t.deny, "Don't allow");
                 assert!(t.body.contains(&format!("this request sends {}.", what_is_sent(Some(feature), None))), "{feature}");
-                assert!(t.body.ends_with(&format!("Allowing is remembered for this {word}.")), "{feature}/{word}");
+                assert!(t.body.contains(&format!("You can use a local engine instead. Allow for this {word} ")), "{feature}/{word}");
                 let p = policy_for_host(host).unwrap();
                 assert!(t.body.contains(&format!("{}: {}", p.label, p.url)), "{feature}: policy line");
             }
@@ -244,10 +245,9 @@ mod tests {
 
     #[test]
     fn a_feature_that_sends_nothing_known_falls_back_to_the_generic_phrase() {
-        let t = consent_text("My proxy", "llm.example.com", Some("somethingNew"), None, "folder", false);
+        let t = consent_text("My proxy", "llm.example.com", Some("somethingNew"), None, "folder");
         assert!(t.body.contains(&format!("this request sends {SENDS_FALLBACK}.")));
         assert!(!t.body.contains("https://"), "a host no preset knows has no policy line");
-        assert_eq!(t.never, None);
     }
 
     #[test]

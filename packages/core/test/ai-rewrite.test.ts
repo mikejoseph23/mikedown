@@ -182,7 +182,7 @@ describe('runAiCompletion', () => {
     expect(requestCloudConsent).toHaveBeenCalledWith('claude', { feature: 'rewrite', sends: 'document' });
   });
 
-  it('runs the fallback after "Not now", and asks again next time', async () => {
+  it('runs the fallback after "Don\'t allow", and leaves the next attempt to the host', async () => {
     const requestCloudConsent = vi.fn(async () => false);
     const { ai, calls } = fakeHost([answer('local')], { requestCloudConsent });
     const s = aiSettings({ routing: { default: { engineId: 'omlx', modelId: 'qwen' }, fallback: 'anyLocal', tasks: { rewrite: { engineId: 'claude', modelId: 'sonnet' } } } });
@@ -192,6 +192,19 @@ describe('runAiCompletion', () => {
     expect(out.viaFallback).toBe(true);
     expect(consent).toEqual({});
     await runAiCompletion(ctx(ai, s, [], consent), req, {}, new AbortController().signal);
+    expect(requestCloudConsent).toHaveBeenCalledTimes(2);
+  });
+
+  it('sends this request on "Allow once" without remembering it, so the next request asks again', async () => {
+    const requestCloudConsent = vi.fn(async () => 'once' as const);
+    const { ai, calls } = fakeHost([answer('a'), answer('b')], { requestCloudConsent });
+    const s = aiSettings({ routing: { default: { engineId: 'claude', modelId: 'sonnet' }, fallback: 'none', tasks: {} } });
+    const consent: Record<string, boolean | undefined> = {};
+    await runAiCompletion(ctx(ai, s, [], consent), req, {}, new AbortController().signal);
+    expect(calls[0].req.route?.engineId).toBe('claude');
+    expect(consent).toEqual({});
+    await runAiCompletion(ctx(ai, s, [], consent), req, {}, new AbortController().signal);
+    expect(calls[1].req.route?.engineId).toBe('claude');
     expect(requestCloudConsent).toHaveBeenCalledTimes(2);
   });
 
@@ -210,7 +223,7 @@ describe('runAiCompletion', () => {
     expect(requestCloudConsent).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects with consentDenied when "Not now" leaves nothing to fall back to', async () => {
+  it('rejects with consentDenied when "Don\'t allow" leaves nothing to fall back to', async () => {
     const { ai, calls } = fakeHost([answer('x')], { requestCloudConsent: async () => false });
     const s = aiSettings({ routing: { default: { engineId: 'claude', modelId: 'sonnet' }, fallback: 'none', tasks: {} } });
     await expect(runAiCompletion(ctx(ai, s), req, {}, new AbortController().signal)).rejects.toMatchObject({ code: 'consentDenied' });

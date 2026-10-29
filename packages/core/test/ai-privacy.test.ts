@@ -94,16 +94,22 @@ describe('aiConsentText (shared fixture)', () => {
     });
   }
 
-  it('names what is sent, where, the terms, the local alternative and the policy URL', () => {
+  it('names what is sent, where (once), the terms and the local alternative; the policy is a button, not a URL', () => {
     const t = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', feature: 'summary', scopeWord: 'workspace', policy: aiProviderPolicyForHost('api.anthropic.com') });
     expect(t.title).toBe('Send text to Anthropic?');
     expect(t.body).toContain('the whole document, up to what fits the model');
-    expect(t.body).toContain('api.anthropic.com');
+    expect(t.body.split('api.anthropic.com')).toHaveLength(2);
     expect(t.body).toContain(AI_CLOUD_PRIVACY.terms);
     expect(t.body).toContain('You can use a local engine instead.');
+    expect(t.body).not.toContain('https://');
+    expect(t.readPolicy).toBe('Read the provider\'s policy');
+    expect([t.deny, t.allowOnce, t.allow]).toEqual(['Don\'t allow', 'Allow once', 'Allow for this workspace']);
+  });
+
+  it('spells the policy URL out instead of a button when asked (Desktop)', () => {
+    const t = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', scopeWord: 'folder', policy: aiProviderPolicyForHost('api.anthropic.com'), policyLine: true });
     expect(t.body).toContain('https://privacy.claude.com/');
-    expect(t.allow).toBe('Allow for this workspace');
-    expect(t.never).toBeUndefined();
+    expect(t.readPolicy).toBeUndefined();
   });
 });
 
@@ -183,17 +189,18 @@ describe('disclaimer and indicator', () => {
 });
 
 describe('consent list copy', () => {
-  it('summarises a stored answer and says whether the host asks', () => {
+  it('summarises an answer and says whether the host asks', () => {
     expect(aiConsentSummary({ answer: 'allow', scope: 'workspace' }, 'Anthropic')).toBe('Anthropic · this workspace · Allowed');
     expect(aiConsentSummary({ answer: 'never', scope: 'folder' }, 'OpenAI')).toBe('OpenAI · this folder · Not allowed');
+    expect(aiConsentSummary({ answer: 'deny', scope: 'workspace' }, 'OpenAI')).toBe('OpenAI · this workspace · Not allowed until restart');
     expect(AI_NO_CONSENTS_TEXT).toBe('No cloud engine has been allowed here.');
-    expect(aiConsentStepNote(true)).toContain('asks for your OK');
+    expect(aiConsentStepNote(true)).toBe('MikeDown asks before a cloud engine\'s first request in each workspace or folder.');
     expect(aiConsentStepNote(false)).toContain('without asking');
   });
 
-  it('the consent text offers the third button on request', () => {
-    const t = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', scopeWord: 'workspace', offerNever: true });
-    expect(t.never).toBe('Not for this workspace');
+  it('the session word says how long Allow lasts instead of pointing at the list', () => {
+    const t = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', scopeWord: 'session' });
+    expect(t.body.split('\n\n').at(-1)).toBe('You can use a local engine instead. Allow for this session lasts until you quit MikeDown.');
   });
 });
 
@@ -232,16 +239,17 @@ describe('aiConsentText for rewrite, summary and frontmatter on both scope words
     for (const scopeWord of ['workspace', 'folder'] as const) {
       it(`${c.feature} / ${scopeWord}`, () => {
         const policy = aiProviderPolicyForHost(c.host)!;
-        const t = aiConsentText({ ...c, scopeWord, policy, offerNever: true });
+        const t = aiConsentText({ ...c, scopeWord, policy, policyLine: scopeWord === 'folder' });
         expect(t.title).toBe(`Send text to ${c.engineName}?`);
         expect(t.allow).toBe(`Allow for this ${scopeWord}`);
-        expect(t.notNow).toBe('Not now');
-        expect(t.never).toBe(`Not for this ${scopeWord}`);
+        expect(t.allowOnce).toBe('Allow once');
+        expect(t.deny).toBe('Don\'t allow');
         const paragraphs = t.body.split('\n\n');
         expect(paragraphs[0]).toContain(`this request sends ${whatIsSent(c.feature)}.`);
         expect(paragraphs[0]).toContain(`${c.engineName} is a cloud engine at ${c.host}.`);
-        expect(paragraphs.at(-2)).toBe(`${policy.label}: ${policy.url}`);
-        expect(paragraphs.at(-1)).toBe(`You can use a local engine instead. Allowing is remembered for this ${scopeWord}.`);
+        if (scopeWord === 'folder') {expect(paragraphs.at(-2)).toBe(`${policy.label}: ${policy.url}`);}
+        else {expect(t.body).not.toContain(policy.url);}
+        expect(paragraphs.at(-1)).toBe(`You can use a local engine instead. Allow for this ${scopeWord} is remembered; you can change it in AI settings \u2192 Cloud consents.`);
       });
     }
   }
@@ -250,7 +258,7 @@ describe('aiConsentText for rewrite, summary and frontmatter on both scope words
     for (const c of fixture.cases as Array<{ input: any; expected: any }>) {
       if (c.input.scopeWord !== 'folder') {continue;}
       const other = aiConsentText({ ...c.input, scopeWord: 'workspace', policy: aiProviderPolicyForHost(c.input.host) });
-      expect(other.body).toBe(c.expected.body.replace('this folder.', 'this workspace.'));
+      expect(other.body).toBe(c.expected.body.replace('Allow for this folder', 'Allow for this workspace'));
       expect(other.allow).toBe('Allow for this workspace');
     }
   });
@@ -275,8 +283,8 @@ describe('stale claims guard', () => {
   it('the rendered consent text never makes the claim either', () => {
     for (const preset of AI_ENGINE_PRESETS.filter((p) => p.family === 'cloud')) {
       const host = hostOfUrl(preset.baseUrl)!;
-      const t = aiConsentText({ engineName: preset.id, host, feature: 'summary', scopeWord: 'workspace', policy: aiProviderPolicyForHost(host), offerNever: true });
-      expect(`${t.title}\n${t.body}\n${t.allow}\n${t.notNow}\n${t.never}`, preset.id).not.toMatch(stale);
+      const t = aiConsentText({ engineName: preset.id, host, feature: 'summary', scopeWord: 'workspace', policy: aiProviderPolicyForHost(host), policyLine: true });
+      expect(`${t.title}\n${t.body}\n${t.allow}\n${t.allowOnce}\n${t.deny}`, preset.id).not.toMatch(stale);
     }
   });
 

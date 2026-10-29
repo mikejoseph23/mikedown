@@ -26,7 +26,7 @@ function setup(fetchBy: Record<string, () => Response> = {}) {
     readSettings: () => settings,
     secrets: new AiSecrets({ get: async () => undefined, store: async () => {}, delete: async () => {} }, {}, () => '/nonexistent-home'),
     consent: { get: () => undefined, set: async () => {}, forget: async () => {}, ids: () => [] },
-    askConsent: async () => 'notNow',
+    askConsent: async () => 'deny',
     saveEngines: async () => {},
     log: () => {},
     adapters: new Map(),

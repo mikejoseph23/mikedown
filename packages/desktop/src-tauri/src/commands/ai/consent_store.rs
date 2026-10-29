@@ -5,8 +5,9 @@
 //!
 //! A record counts only while the engine's fingerprint (kind, base URL,
 //! locality) matches; an engine edited to point somewhere else is "never
-//! asked" again. Only `allow` and `never` are stored; "Not now" is a session
-//! answer kept in memory by `AiState`.
+//! asked" again. Only `allow` is written; `never` (the old "Not for this
+//! folder") is still read, listed and forgettable. "Allow once" and "Don't
+//! allow" are session answers kept in memory by `AiState`.
 //!
 //! Older versions wrote `ai.consent.<engineId>: true` into
 //! `<folder>/.mikedown/settings.json`. `lookup` reads that key once as a
@@ -27,10 +28,14 @@ pub const FILE_NAME: &str = "ai-consent.json";
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Answer {
+    /// "Allow for this folder": stored.
     Allow,
+    /// "Allow once": the next completion only; never stored.
+    AllowOnce,
+    /// "Don't allow": until the app quits; never stored.
+    Deny,
+    /// Stored by older versions ("Not for this folder"); still a refusal.
     Never,
-    /// Session only; never stored.
-    NotNow,
 }
 
 impl Answer {
@@ -77,7 +82,7 @@ pub fn store_path(base: &Path) -> PathBuf {
     base.join(FILE_NAME)
 }
 
-fn now_ms() -> u64 {
+pub fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
@@ -112,8 +117,8 @@ pub fn lookup(base: &Path, folder: &Path, engine: &EngineConfig) -> Option<Answe
     }
 }
 
-/// Store an answer (`allow` or `never`), replacing any record for the same
-/// folder and engine. `NotNow` is not stored.
+/// Store an answer (`allow`, or `never` as older versions did), replacing any
+/// record for the same folder and engine. Session answers are not stored.
 pub fn record(base: &Path, folder: &Path, engine: &EngineConfig, answer: Answer) -> Result<(), String> {
     if !answer.is_stored() {
         return Ok(());
@@ -226,11 +231,12 @@ mod tests {
     }
 
     #[test]
-    fn not_now_is_never_stored() {
+    fn session_answers_are_never_stored() {
         let base = temp_dir("notnow-base");
         let dir = temp_dir("notnow-dir");
         let e = engine("claude", "https://api.anthropic.com/v1");
-        record(&base, &dir, &e, Answer::NotNow).unwrap();
+        record(&base, &dir, &e, Answer::Deny).unwrap();
+        record(&base, &dir, &e, Answer::AllowOnce).unwrap();
         assert!(!store_path(&base).exists());
         std::fs::remove_dir_all(base).unwrap();
         std::fs::remove_dir_all(dir).unwrap();
@@ -357,18 +363,18 @@ mod tests {
     }
 
     #[test]
-    fn the_three_answers_allow_and_never_stick_and_not_now_leaves_the_file_alone() {
+    fn allow_and_never_stick_and_session_answers_leave_the_file_alone() {
         let base = temp_dir("three-base");
         let dir = temp_dir("three-dir");
         let e = engine("claude", "https://api.anthropic.com/v1");
         assert_eq!(lookup(&base, &dir, &e), None);
-        record(&base, &dir, &e, Answer::NotNow).unwrap();
+        record(&base, &dir, &e, Answer::Deny).unwrap();
         assert!(!store_path(&base).exists());
         assert_eq!(lookup(&base, &dir, &e), None);
         record(&base, &dir, &e, Answer::Allow).unwrap();
         assert_eq!(lookup(&base, &dir, &e), Some(Answer::Allow));
-        // "Not now" after a stored answer does not erase or change it.
-        record(&base, &dir, &e, Answer::NotNow).unwrap();
+        // "Don't allow" after a stored answer does not erase or change it.
+        record(&base, &dir, &e, Answer::Deny).unwrap();
         assert_eq!(lookup(&base, &dir, &e), Some(Answer::Allow));
         record(&base, &dir, &e, Answer::Never).unwrap();
         assert_eq!(lookup(&base, &dir, &e), Some(Answer::Never));

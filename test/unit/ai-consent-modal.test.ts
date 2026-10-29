@@ -1,5 +1,5 @@
-// The VS Code consent modal (vscodeAi.ts#askCloudConsent): core's words, and
-// "Read the provider's policy" opens the policy and asks again.
+// The VS Code consent modal (vscodeAi.ts#askCloudConsent): core's words, the
+// three answers, and "Read the provider's policy" opens the policy and asks again.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const showWarningMessage = vi.fn();
@@ -28,18 +28,20 @@ describe('askCloudConsent', () => {
   it('renders aiConsentText in a modal, with the policy button for a known provider', async () => {
     showWarningMessage.mockImplementation(async (_t: string, _o: unknown, ...items: Array<{ title: string }>) => items[0]);
     expect(await askCloudConsent(anthropic, 'summary')).toBe('allow');
-    const expected = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', feature: 'summary', scopeWord: 'workspace', policy: aiProviderPolicyForHost('api.anthropic.com'), offerNever: true });
+    const expected = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', feature: 'summary', scopeWord: 'workspace', policy: aiProviderPolicyForHost('api.anthropic.com') });
     const [title, options, ...items] = showWarningMessage.mock.calls[0];
     expect(title).toBe(expected.title);
     expect(options).toEqual({ modal: true, detail: expected.body });
-    expect(items.map((i: { title: string }) => i.title)).toEqual(['Allow for this workspace', 'Not for this workspace', "Read the provider's policy", 'Not now']);
+    expect(options.detail).not.toContain('https://');
+    expect(items.map((i: { title: string }) => i.title)).toEqual(['Allow for this workspace', 'Allow once', "Don't allow", "Read the provider's policy"]);
+    expect(items[2].isCloseAffordance).toBe(true);
   });
 
   it('"Read the provider\'s policy" opens it and asks again until an answer', async () => {
     showWarningMessage
-      .mockImplementationOnce(async (_t: string, _o: unknown, ...items: Array<{ title: string }>) => items[2])
+      .mockImplementationOnce(async (_t: string, _o: unknown, ...items: Array<{ title: string }>) => items[3])
       .mockImplementationOnce(async () => undefined);
-    expect(await askCloudConsent(anthropic, 'rewrite', 'document')).toBe('notNow');
+    expect(await askCloudConsent(anthropic, 'rewrite', 'document')).toBe('deny');
     expect(openExternal).toHaveBeenCalledTimes(1);
     expect(String((openExternal.mock.calls[0] as unknown[])[0])).toContain('privacy.claude.com');
     expect(showWarningMessage).toHaveBeenCalledTimes(2);
@@ -48,28 +50,30 @@ describe('askCloudConsent', () => {
 
   it('has no policy button for an engine no preset knows', async () => {
     showWarningMessage.mockImplementation(async () => undefined);
-    expect(await askCloudConsent(proxy, 'rewrite')).toBe('notNow');
+    expect(await askCloudConsent(proxy, 'rewrite')).toBe('deny');
     const items = showWarningMessage.mock.calls[0].slice(2).map((i: { title: string }) => i.title);
-    expect(items).toEqual(['Allow for this workspace', 'Not for this workspace', 'Not now']);
+    expect(items).toEqual(['Allow for this workspace', 'Allow once', "Don't allow"]);
   });
 
-  it('names GitHub Copilot for a vscode-lm engine, which has no address, and links its policy', async () => {
+  it('names GitHub Copilot for a vscode-lm engine, which has no address, and offers its policy', async () => {
     const copilot = { id: 'cp', name: 'GitHub Copilot', kind: 'vscode-lm', baseUrl: '', models: [] } as unknown as AiEngineConfig;
     showWarningMessage.mockImplementation(async () => undefined);
     await askCloudConsent(copilot, 'rewrite');
     const [, options, ...items] = showWarningMessage.mock.calls[0];
     expect(options.detail).toContain('GitHub Copilot is a cloud service built into VS Code.');
     expect(options.detail).not.toContain('is a cloud engine at GitHub Copilot');
-    expect(options.detail).toContain('copilot.github.trust.page');
+    expect(options.detail).not.toContain('copilot.github.trust.page');
     expect(items.map((i: { title: string }) => i.title)).toContain("Read the provider's policy");
   });
 
-  it('answers never for "Not for this workspace"', async () => {
+  it('answers allowOnce for "Allow once" and deny for "Don\'t allow"', async () => {
     showWarningMessage.mockImplementation(async (_t: string, _o: unknown, ...items: Array<{ title: string }>) => items[1]);
-    expect(await askCloudConsent(proxy, 'rewrite')).toBe('never');
+    expect(await askCloudConsent(proxy, 'rewrite')).toBe('allowOnce');
+    showWarningMessage.mockImplementation(async (_t: string, _o: unknown, ...items: Array<{ title: string }>) => items[2]);
+    expect(await askCloudConsent(proxy, 'rewrite')).toBe('deny');
   });
 
-  it('stores allow and never with the engine fingerprint, ignores an old bare true, and lists its keys', () => {
+  it('reads an older version\'s never with the engine fingerprint, ignores an old bare true, and lists its keys', () => {
     const data = new Map<string, unknown>([['mikedown.ai.consent.old', true], ['other', 1]]);
     const store = workspaceConsentStore({ get: (k: string) => data.get(k) as never, update: async (k: string, v: unknown) => { if (v === undefined) {data.delete(k);} else {data.set(k, v);} }, keys: () => [...data.keys()] });
     expect(store.get('old')).toBeUndefined();

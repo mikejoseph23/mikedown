@@ -85,7 +85,7 @@ Core checks `requestOverrides` (`packages/core/test/ai-thinking-dial.test.ts`); 
 
 ## `consent/`
 
-`consent-text.json`: the cloud consent dialog's words, from core's `privacy.ts`. `privacy`, `sendsText`, `sendsFallback`, `features` (feature id → what it sends) and `policies` (cloud preset host → policy label, URL, optional note) mirror the core tables; `cases` are `aiConsentText` inputs (`engineName`, `host`, `feature?`, `sends?`, `scopeWord`, `offerNever?`) with the `expected` `{ title, body, allow, notNow, never? }`, the policy looked up from `host`. Checked by `packages/core/test/ai-privacy.test.ts` and the Rust port (`commands/ai/consent.rs`). When the copy changes in core, regenerate the expected text from `aiConsentText` and update the Rust tables to match.
+`consent-text.json`: the cloud consent dialog's words, from core's `privacy.ts`. `privacy`, `sendsText`, `sendsFallback`, `features` (feature id → what it sends) and `policies` (cloud preset host → policy label, URL, optional note) mirror the core tables; `cases` are `aiConsentText` inputs (`engineName`, `host`, `feature?`, `sends?`, `scopeWord`, `policyLine?`) with the `expected` `{ title, body, allow, allowOnce, deny, readPolicy? }`, the policy looked up from `host`. `policyLine: true` is Desktop's native dialog (the policy URL in the body, no button); without it, VS Code's modal (a `readPolicy` button). Checked by `packages/core/test/ai-privacy.test.ts` (every case) and the Rust port (`commands/ai/consent.rs`, the `policyLine` cases). When the copy changes in core, regenerate the expected text from `aiConsentText` and update the Rust tables to match.
 
 ## `requests/openai-reasoning.json`
 

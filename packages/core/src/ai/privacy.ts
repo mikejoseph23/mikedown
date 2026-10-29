@@ -45,7 +45,7 @@ export const AI_HOST_PRIVACY = {
  */
 export function aiConsentStepNote(hostAsks: boolean): string {
   return hostAsks
-    ? 'Even when allowed, each cloud engine asks for your OK before its first request in each workspace or folder.'
+    ? 'MikeDown asks before a cloud engine\'s first request in each workspace or folder.'
     : 'Once allowed, this app sends requests to cloud engines without asking again.';
 }
 
@@ -112,19 +112,28 @@ export interface AiConsentTextInput {
   feature?: string;
   sends?: AiSendsScope;
   scopeWord: AiConsentScopeWord;
-  /** The provider's policy (see `aiProviderPolicyForHost`); spelled out in the body, since native dialogs cannot link. */
+  /** The provider's policy (see `aiProviderPolicyForHost`). */
   policy?: AiProviderPolicy | null;
-  /** Add the "Not for this …" button text (`never`). */
-  offerNever?: boolean;
+  /**
+   * Spell the policy link out in the body, for a dialog that can neither
+   * link nor spare a button for it (Desktop's native dialog). VS Code's modal
+   * has a "Read the provider's policy" button instead.
+   */
+  policyLine?: boolean;
 }
 
 export interface AiConsentText {
   title: string;
   /** Paragraphs separated by a blank line. */
   body: string;
+  /** Remembered for the workspace or folder (for the session without one). */
   allow: string;
-  notNow: string;
-  never?: string;
+  /** This request only; nothing is remembered and the next request asks again. */
+  allowOnce: string;
+  /** Declines; the host does not ask about this engine again until it restarts. */
+  deny: string;
+  /** The policy button's label, when there is a policy and the body does not spell it out. */
+  readPolicy?: string;
 }
 
 /** The consent dialog's words, the single source for both hosts. */
@@ -135,33 +144,45 @@ export function aiConsentText(input: AiConsentTextInput): AiConsentText {
   const paragraphs = input.kind && isHostEngineKind(input.kind)
     ? [
       `${name === host ? name : `${name} (${host})`} is a cloud service built into VS Code. If you allow it, this request sends ${sends}. ` +
-        `It goes through VS Code over the internet to ${host} and is processed on its servers. ${AI_HOST_PRIVACY.permission}`,
+        `It goes through VS Code over the internet and is processed on the service's servers. ${AI_HOST_PRIVACY.permission}`,
       AI_HOST_PRIVACY.terms,
     ]
     : [
       `${name} is a cloud engine at ${host}. If you allow it, this request sends ${sends}. ` +
-        `It goes over the internet to ${host} and is processed on the provider's servers.`,
+        'It goes over the internet and is processed on the provider\'s servers.',
       policy?.note ? `${AI_CLOUD_PRIVACY.terms} ${policy.note}` : AI_CLOUD_PRIVACY.terms,
     ];
-  if (policy) {paragraphs.push(`${policy.label}: ${policy.url}`);}
-  paragraphs.push(`You can use a local engine instead. Allowing is remembered for this ${scopeWord}.`);
+  if (policy && input.policyLine) {paragraphs.push(`${policy.label}: ${policy.url}`);}
+  const allow = `Allow for this ${scopeWord}`;
+  paragraphs.push(scopeWord === 'session'
+    ? `You can use a local engine instead. ${allow} lasts until you quit MikeDown.`
+    : `You can use a local engine instead. ${allow} is remembered; you can change it in AI settings \u2192 Cloud consents.`);
   return {
     title: `Send text to ${name}?`,
     body: paragraphs.join('\n\n'),
-    allow: `Allow for this ${scopeWord}`,
-    notNow: 'Not now',
-    ...(input.offerNever ? { never: `Not for this ${scopeWord}` } : {}),
+    allow,
+    allowOnce: 'Allow once',
+    deny: 'Don\'t allow',
+    ...(policy && !input.policyLine ? { readPolicy: 'Read the provider\'s policy' } : {}),
   };
 }
 
 /** Shown in the Cloud consents list when there is nothing stored. */
 export const AI_NO_CONSENTS_TEXT = 'No cloud engine has been allowed here.';
 
+/** How each answer reads in the Cloud consents list. */
+const CONSENT_ANSWER_TEXT: Readonly<Record<AiConsentRecord['answer'], string>> = {
+  allow: 'Allowed',
+  never: 'Not allowed',
+  deny: 'Not allowed until restart',
+};
+
 /**
  * One line of the Cloud consents list, without the Forget button:
- * "Anthropic · this workspace · Allowed". A "never" answer reads "Not allowed".
+ * "Anthropic · this workspace · Allowed". A stored "never" (older versions)
+ * reads "Not allowed"; this session's "Don't allow", "Not allowed until restart".
  */
 export function aiConsentSummary(record: Pick<AiConsentRecord, 'answer' | 'scope'>, engineName: string): string {
   const where = record.scope === 'folder' ? 'this folder' : 'this workspace';
-  return `${engineName} \u00b7 ${where} \u00b7 ${record.answer === 'allow' ? 'Allowed' : 'Not allowed'}`;
+  return `${engineName} \u00b7 ${where} \u00b7 ${CONSENT_ANSWER_TEXT[record.answer] ?? 'Not allowed'}`;
 }

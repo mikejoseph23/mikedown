@@ -5,11 +5,13 @@
  *
  * - Routing is recomputed on every request (`resolveRoute`, pure) from the
  *   current settings, the last engine statuses and this session's consent.
- * - Consent: a grant is remembered for the session (the host persists it
- *   too). A refusal ("Not now") only applies to the request that asked, so
- *   the fallback runs now and the next explicit attempt asks again. A
- *   `'never'` reply ("Not for this workspace") is also kept for the session as
- *   a refusal, so the menu entries disable with the router's reason.
+ * - Consent: a grant ("Allow for this workspace") is remembered for the
+ *   session (the host persists it too). "Allow once" (`'once'`) covers only
+ *   the request that asked. A refusal ("Don't allow") applies here to that
+ *   request, so the fallback runs now; the host remembers it for the session
+ *   and answers the next attempt without a dialog. A stored `'never'` (older
+ *   versions) is kept for the session as a refusal, so the menu entries
+ *   disable with the router's reason.
  * - A tier-1 host (no `listEngines`) routes by itself: no route is sent.
  * - Thinking: a per-request level becomes the request's `requestOverrides`
  *   (the kind's thinking fields only); the host merges them over the
@@ -211,6 +213,8 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
   const tier2 = isTier2(ctx.ai);
   const failed = new Map<string, string>();
   const refused: Record<string, boolean> = {};
+  /** "Allow once" grants: this run only, never written to the session. */
+  const once: Record<string, boolean> = {};
   let retried = false;
 
   // Bounded: each pass either sends, records a consent answer, or marks one engine failed.
@@ -219,7 +223,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
 
     let route: AiRouteOk | null = null;
     if (tier2) {
-      const consent: AiConsentState = { ...ctx.consent, ...refused };
+      const consent: AiConsentState = { ...ctx.consent, ...once, ...refused };
       const resolved = resolveRoute(ctx.settings(), withFailures(ctx.statuses(), failed), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
       if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
       if (resolved.needsConsent) {
@@ -228,10 +232,11 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
           : true;
         if (signal.aborted) {throw makeAiError('cancelled');}
         if (reply === true) {ctx.consent[resolved.engineId] = true;}
+        else if (reply === 'once') {once[resolved.engineId] = true;}
         else {
           refused[resolved.engineId] = false;
-          // "Not for this workspace": the host will not ask again, so the menu entries
-          // disable with the router's reason for the rest of the session.
+          // A stored refusal from an older version: the host will not ask again, so the
+          // menu entries disable with the router's reason for the rest of the session.
           if (reply === 'never') {ctx.consent[resolved.engineId] = false;}
         }
         continue;
@@ -299,8 +304,8 @@ export function aiFeatureAvailability(
   if (!ai || !settings.enabled) {return { state: 'hidden' };}
   if (!resolveAiFeature(settings.features, feature).enabled) {return { state: 'hidden' };}
   if (!isTier2(ai)) {return { state: 'enabled' };}
-  // Grants and "never" answers count here (a "Not now" is never written to the
-  // session, so the engine is asked again on the next attempt).
+  // Grants and stored "never" answers count here ("Allow once" and "Don't allow"
+  // are never written to the session, so the next attempt goes to the host).
   const answers: Record<string, boolean> = {};
   for (const [id, v] of Object.entries(consent)) {if (typeof v === 'boolean') {answers[id] = v;}}
   const r = resolveRoute(settings, statuses, answers, { feature });
