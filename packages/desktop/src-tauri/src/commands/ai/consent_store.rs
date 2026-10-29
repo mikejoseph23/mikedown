@@ -289,4 +289,140 @@ mod tests {
         std::fs::remove_dir_all(base).unwrap();
         std::fs::remove_dir_all(dir).unwrap();
     }
+
+    fn raw_records(base: &Path) -> Vec<Value> {
+        let doc: Value = serde_json::from_str(&std::fs::read_to_string(store_path(base)).unwrap()).unwrap();
+        assert_eq!(doc["version"], 1);
+        doc["consents"].as_array().unwrap().clone()
+    }
+
+    #[test]
+    fn the_file_holds_one_record_per_folder_and_engine_with_fingerprint_answer_and_time() {
+        let base = temp_dir("layout-base");
+        let a = temp_dir("layout-a");
+        let b = temp_dir("layout-b");
+        let claude = engine("claude", "https://api.anthropic.com/v1");
+        record(&base, &a, &claude, Answer::Allow).unwrap();
+        record(&base, &b, &claude, Answer::Never).unwrap();
+        record(&base, &a, &engine("openai", "https://api.openai.com/v1"), Answer::Allow).unwrap();
+        let records = raw_records(&base);
+        assert_eq!(records.len(), 3);
+        let ours = records.iter().find(|r| r["folder"] == canonical_folder(&b) && r["engineId"] == "claude").unwrap();
+        assert_eq!(ours["answer"], "never");
+        assert_eq!(ours["fingerprint"], fingerprint(&claude));
+        assert!(ours["at"].as_u64().unwrap() > 0);
+        // Answering again for the same pair replaces the record rather than adding one.
+        record(&base, &a, &claude, Answer::Never).unwrap();
+        assert_eq!(raw_records(&base).len(), 3);
+        assert_eq!(lookup(&base, &a, &claude), Some(Answer::Never));
+        assert_eq!(lookup(&base, &b, &claude), Some(Answer::Never));
+        for d in [base, a, b] {
+            std::fs::remove_dir_all(d).unwrap();
+        }
+    }
+
+    #[test]
+    fn the_three_answers_allow_and_never_stick_and_not_now_leaves_the_file_alone() {
+        let base = temp_dir("three-base");
+        let dir = temp_dir("three-dir");
+        let e = engine("claude", "https://api.anthropic.com/v1");
+        assert_eq!(lookup(&base, &dir, &e), None);
+        record(&base, &dir, &e, Answer::NotNow).unwrap();
+        assert!(!store_path(&base).exists());
+        assert_eq!(lookup(&base, &dir, &e), None);
+        record(&base, &dir, &e, Answer::Allow).unwrap();
+        assert_eq!(lookup(&base, &dir, &e), Some(Answer::Allow));
+        // "Not now" after a stored answer does not erase or change it.
+        record(&base, &dir, &e, Answer::NotNow).unwrap();
+        assert_eq!(lookup(&base, &dir, &e), Some(Answer::Allow));
+        record(&base, &dir, &e, Answer::Never).unwrap();
+        assert_eq!(lookup(&base, &dir, &e), Some(Answer::Never));
+        assert!(raw_records(&base).iter().all(|r| r["answer"] == "never" || r["answer"] == "allow"));
+        std::fs::remove_dir_all(base).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_forgotten_engine_leaves_no_record_and_a_new_engine_with_its_id_is_not_covered() {
+        let base = temp_dir("gone-base");
+        let dir = temp_dir("gone-dir");
+        let claude = engine("claude", "https://api.anthropic.com/v1");
+        let openai = engine("openai", "https://api.openai.com/v1");
+        record(&base, &dir, &claude, Answer::Allow).unwrap();
+        record(&base, &dir, &openai, Answer::Never).unwrap();
+        assert!(forget(&base, &dir, "claude").unwrap());
+        let left = raw_records(&base);
+        assert_eq!(left.len(), 1, "only the other engine's record remains");
+        assert_eq!(left[0]["engineId"], "openai");
+        assert!(!std::fs::read_to_string(store_path(&base)).unwrap().contains("anthropic"), "nothing about the forgotten engine stays in the file");
+        // The same id pointing at a different endpoint later is a different engine.
+        assert_eq!(lookup(&base, &dir, &engine("claude", "https://proxy.example.com/v1")), None);
+        assert_eq!(list(&base, &dir).iter().map(|c| c.engine_id.as_str()).collect::<Vec<_>>(), vec!["openai"]);
+        std::fs::remove_dir_all(base).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn the_list_is_per_folder_and_newest_first() {
+        let base = temp_dir("list-base");
+        let a = temp_dir("list-a");
+        let b = temp_dir("list-b");
+        let claude = engine("claude", "https://api.anthropic.com/v1");
+        let openai = engine("openai", "https://api.openai.com/v1");
+        record(&base, &a, &claude, Answer::Allow).unwrap();
+        record(&base, &b, &openai, Answer::Allow).unwrap();
+        record(&base, &a, &openai, Answer::Never).unwrap();
+        // Make the order deterministic whatever the clock resolution.
+        let mut records = read_all(&base);
+        for r in records.iter_mut() {
+            if r.folder == canonical_folder(&a) && r.engine_id == "claude" {
+                r.at = 10;
+            }
+            if r.folder == canonical_folder(&a) && r.engine_id == "openai" {
+                r.at = 20;
+            }
+        }
+        write_all(&base, &records).unwrap();
+        let listed = list(&base, &a);
+        assert_eq!(
+            listed.iter().map(|c| (c.engine_id.as_str(), c.answer, c.scope)).collect::<Vec<_>>(),
+            vec![("openai", Answer::Never, "folder"), ("claude", Answer::Allow, "folder")]
+        );
+        assert_eq!(list(&base, &b).len(), 1);
+        for d in [base, a, b] {
+            std::fs::remove_dir_all(d).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_legacy_grant_does_not_override_a_stored_answer_or_a_stale_record() {
+        let base = temp_dir("legacy2-base");
+        let dir = temp_dir("legacy2-dir");
+        std::fs::create_dir_all(dir.join(".mikedown")).unwrap();
+        let file = dir.join(".mikedown/settings.json");
+        let legacy = "{\n  \"ai.consent.claude\": true\n}\n";
+        std::fs::write(&file, legacy).unwrap();
+        let claude = engine("claude", "https://api.anthropic.com/v1");
+        record(&base, &dir, &claude, Answer::Never).unwrap();
+        assert_eq!(lookup(&base, &dir, &claude), Some(Answer::Never), "the stored refusal wins over the old grant");
+        // The engine now points elsewhere: the record is stale, and the old grant must not revive it.
+        assert_eq!(lookup(&base, &dir, &engine("claude", "https://proxy.example.com/v1")), None);
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), legacy, "the folder file is untouched when nothing was migrated");
+        std::fs::remove_dir_all(base).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_legacy_grant_for_an_engine_nobody_asks_about_is_never_stored() {
+        let base = temp_dir("legacy3-base");
+        let dir = temp_dir("legacy3-dir");
+        std::fs::create_dir_all(dir.join(".mikedown")).unwrap();
+        std::fs::write(dir.join(".mikedown/settings.json"), "{\n  \"ai.consent.deleted\": true\n}\n").unwrap();
+        // A lookup for a different (existing) engine leaves the deleted engine's key and the store alone.
+        assert_eq!(lookup(&base, &dir, &engine("claude", "https://api.anthropic.com/v1")), None);
+        assert!(!store_path(&base).exists(), "no record is created for an engine that is gone");
+        assert!(list(&base, &dir).is_empty());
+        std::fs::remove_dir_all(base).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

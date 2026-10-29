@@ -206,4 +206,60 @@ mod tests {
             assert_eq!(got.never.as_deref(), expected["never"].as_str(), "{name}: never");
         }
     }
+
+    /// The fixture is rendered byte for byte, so the body must be the paragraphs
+    /// joined with a blank line, exactly as core's `aiConsentText` joins them.
+    #[test]
+    fn the_body_is_the_paragraphs_joined_by_one_blank_line() {
+        let t = consent_text("Anthropic", "api.anthropic.com", Some("rewrite"), None, "folder", false);
+        let paragraphs: Vec<&str> = t.body.split("\n\n").collect();
+        assert_eq!(paragraphs.len(), 4);
+        assert!(paragraphs[0].starts_with("Anthropic is a cloud engine at api.anthropic.com. If you allow it, this request sends "));
+        assert_eq!(paragraphs[1], PRIVACY_TERMS);
+        assert!(paragraphs[2].starts_with("Anthropic privacy and data use: https://"));
+        assert_eq!(paragraphs[3], "You can use a local engine instead. Allowing is remembered for this folder.");
+        assert!(!t.body.contains("\n\n\n"));
+    }
+
+    #[test]
+    fn rewrite_summary_and_frontmatter_render_on_both_scope_words() {
+        for (feature, engine, host) in [
+            ("rewrite", "Anthropic", "api.anthropic.com"),
+            ("summary", "OpenAI", "api.openai.com"),
+            ("frontmatter", "OpenRouter", "openrouter.ai"),
+        ] {
+            for word in ["folder", "session"] {
+                let t = consent_text(engine, host, Some(feature), None, word, true);
+                assert_eq!(t.title, format!("Send text to {engine}?"));
+                assert_eq!(t.allow, format!("Allow for this {word}"));
+                assert_eq!(t.not_now, "Not now");
+                assert_eq!(t.never.as_deref(), Some(format!("Not for this {word}").as_str()));
+                assert!(t.body.contains(&format!("this request sends {}.", what_is_sent(Some(feature), None))), "{feature}");
+                assert!(t.body.ends_with(&format!("Allowing is remembered for this {word}.")), "{feature}/{word}");
+                let p = policy_for_host(host).unwrap();
+                assert!(t.body.contains(&format!("{}: {}", p.label, p.url)), "{feature}: policy line");
+            }
+        }
+    }
+
+    #[test]
+    fn a_feature_that_sends_nothing_known_falls_back_to_the_generic_phrase() {
+        let t = consent_text("My proxy", "llm.example.com", Some("somethingNew"), None, "folder", false);
+        assert!(t.body.contains(&format!("this request sends {SENDS_FALLBACK}.")));
+        assert!(!t.body.contains("https://"), "a host no preset knows has no policy line");
+        assert_eq!(t.never, None);
+    }
+
+    #[test]
+    fn every_policy_link_is_https_and_no_copy_claims_what_a_provider_does_with_the_text() {
+        for p in PROVIDER_POLICIES {
+            assert!(p.url.starts_with("https://"), "{}", p.host);
+        }
+        let source = include_str!("consent.rs");
+        // Built from pieces so this test does not trip itself.
+        for claim in [["does not", " train"].concat(), ["never", " trains"].concat(), ["not used for", " training"].concat()] {
+            let tests_start = source.find("#[cfg(test)]").unwrap();
+            assert!(!source[..tests_start].to_lowercase().contains(&claim), "stale claim: {claim}");
+        }
+    }
 }

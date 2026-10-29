@@ -196,3 +196,93 @@ describe('consent list copy', () => {
     expect(t.never).toBe('Not for this workspace');
   });
 });
+
+// ── T2: coverage the M3 and M4 tests above left open ────────────────────────
+
+describe('whatIsSent covers every feature', () => {
+  it('has a non-generic sentence for each feature that declares what it sends', () => {
+    for (const f of AI_FEATURES) {
+      if (f.sends) {
+        expect(whatIsSent(f.id), f.id).toBe(AI_SENDS_TEXT[f.sends]);
+        expect(whatIsSent(f.id), f.id).not.toBe(AI_SENDS_FALLBACK);
+      } else {
+        expect(whatIsSent(f.id), f.id).toBe(AI_SENDS_FALLBACK);
+      }
+    }
+  });
+
+  it('every available feature gets a real sentence, and every scope has text', () => {
+    for (const f of AI_FEATURES.filter((f) => f.status === 'available')) {
+      expect(whatIsSent(f.id), f.id).not.toBe(AI_SENDS_FALLBACK);
+    }
+    for (const scope of ['selection', 'document', 'documentAndTags'] as const) {
+      expect(AI_SENDS_TEXT[scope].length, scope).toBeGreaterThan(10);
+    }
+  });
+});
+
+describe('aiConsentText for rewrite, summary and frontmatter on both scope words', () => {
+  const cases = [
+    { feature: 'rewrite', engineName: 'Anthropic', host: 'api.anthropic.com' },
+    { feature: 'summary', engineName: 'OpenAI', host: 'api.openai.com' },
+    { feature: 'frontmatter', engineName: 'OpenRouter', host: 'openrouter.ai' },
+  ];
+
+  for (const c of cases) {
+    for (const scopeWord of ['workspace', 'folder'] as const) {
+      it(`${c.feature} / ${scopeWord}`, () => {
+        const policy = aiProviderPolicyForHost(c.host)!;
+        const t = aiConsentText({ ...c, scopeWord, policy, offerNever: true });
+        expect(t.title).toBe(`Send text to ${c.engineName}?`);
+        expect(t.allow).toBe(`Allow for this ${scopeWord}`);
+        expect(t.notNow).toBe('Not now');
+        expect(t.never).toBe(`Not for this ${scopeWord}`);
+        const paragraphs = t.body.split('\n\n');
+        expect(paragraphs[0]).toContain(`this request sends ${whatIsSent(c.feature)}.`);
+        expect(paragraphs[0]).toContain(`${c.engineName} is a cloud engine at ${c.host}.`);
+        expect(paragraphs.at(-2)).toBe(`${policy.label}: ${policy.url}`);
+        expect(paragraphs.at(-1)).toBe(`You can use a local engine instead. Allowing is remembered for this ${scopeWord}.`);
+      });
+    }
+  }
+
+  it('a fixture case on the folder word reads the same on the workspace word apart from the word itself', () => {
+    for (const c of fixture.cases as Array<{ input: any; expected: any }>) {
+      if (c.input.scopeWord !== 'folder') {continue;}
+      const other = aiConsentText({ ...c.input, scopeWord: 'workspace', policy: aiProviderPolicyForHost(c.input.host) });
+      expect(other.body).toBe(c.expected.body.replace('this folder.', 'this workspace.'));
+      expect(other.allow).toBe('Allow for this workspace');
+    }
+  });
+});
+
+describe('stale claims guard', () => {
+  const root = join(__dirname, '..', '..', '..');
+  const sources = [
+    join(root, 'packages', 'core', 'src', 'ai', 'privacy.ts'),
+    join(root, 'packages', 'core', 'src', 'ai', 'presets.ts'),
+    join(root, 'packages', 'desktop', 'src-tauri', 'src', 'commands', 'ai', 'consent.rs'),
+    join(root, 'test', 'ai-fixtures', 'consent', 'consent-text.json'),
+  ];
+  const stale = /does not train|never trains|not used for training/i;
+
+  it('no source string says a provider does not train on, or never trains on, your text', () => {
+    for (const file of sources) {
+      expect(readFileSync(file, 'utf8'), file).not.toMatch(stale);
+    }
+  });
+
+  it('the rendered consent text never makes the claim either', () => {
+    for (const preset of AI_ENGINE_PRESETS.filter((p) => p.family === 'cloud')) {
+      const host = hostOfUrl(preset.baseUrl)!;
+      const t = aiConsentText({ engineName: preset.id, host, feature: 'summary', scopeWord: 'workspace', policy: aiProviderPolicyForHost(host), offerNever: true });
+      expect(`${t.title}\n${t.body}\n${t.allow}\n${t.notNow}\n${t.never}`, preset.id).not.toMatch(stale);
+    }
+  });
+
+  it('every cloud preset policy URL parses as https', () => {
+    for (const p of AI_ENGINE_PRESETS.filter((p) => p.family === 'cloud')) {
+      expect(new URL(p.policy!.url).protocol, p.id).toBe('https:');
+    }
+  });
+});

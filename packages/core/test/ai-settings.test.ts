@@ -651,3 +651,69 @@ describe('AI indicator chip', () => {
     expect(document.querySelector<HTMLButtonElement>('[data-testid="sidebar-ai-chip"]')?.hidden).toBe(true);
   });
 });
+
+describe('Cloud consents row on the AI tab (T2)', () => {
+  const records = [
+    { engineId: 'claude', answer: 'allow' as const, at: 200, scope: 'workspace' as const },
+    { engineId: 'gone', answer: 'never' as const, at: 100, scope: 'workspace' as const },
+  ];
+  const flush = async () => { for (let i = 0; i < 5; i++) {await Promise.resolve();} };
+
+  it('lists the stored answers with the engine name (or the id when the engine is gone) and a Forget button each', async () => {
+    class Host extends NoopHost { ai = tier2({ listConsents: vi.fn(async () => records), forgetConsent: vi.fn(async () => {}) }); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    await flush();
+    const items = Array.from(document.querySelectorAll('.ai-consents-list .ai-consent'));
+    expect(items.map((i) => i.querySelector('.ai-consent-text')?.textContent)).toEqual([
+      'Anthropic · this workspace · Allowed',
+      'gone · this workspace · Not allowed',
+    ]);
+    expect(document.querySelector('.ai-consents-empty')).toBeNull();
+    expect(document.querySelector('[aria-label="Forget the answer for Anthropic"]')).not.toBeNull();
+  });
+
+  it('shows the empty text when nothing is stored', async () => {
+    class Host extends NoopHost { ai = tier2({ listConsents: vi.fn(async () => []), forgetConsent: vi.fn(async () => {}) }); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    await flush();
+    expect(document.querySelector('.ai-consents-empty')?.textContent).toBe('No cloud engine has been allowed here.');
+    expect(document.querySelector('.ai-consents-list')).toBeNull();
+  });
+
+  it('Forget calls the host with the engine id, then lists again', async () => {
+    let stored = [...records];
+    const forgetConsent = vi.fn(async (id: string) => { stored = stored.filter((r) => r.engineId !== id); });
+    const listConsents = vi.fn(async () => stored);
+    class Host extends NoopHost { ai = tier2({ listConsents, forgetConsent }); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    await flush();
+    click(document.querySelector('[data-fk="consent-forget:claude"]'));
+    await flush();
+    expect(forgetConsent).toHaveBeenCalledWith('claude');
+    expect(listConsents).toHaveBeenCalledTimes(2);
+    expect(Array.from(document.querySelectorAll('.ai-consent-text')).map((n) => n.textContent)).toEqual(['gone · this workspace · Not allowed']);
+  });
+
+  it('a failing Forget shows the error and keeps the list', async () => {
+    const forgetConsent = vi.fn(async () => { throw { code: 'unknown', message: 'could not write' }; });
+    class Host extends NoopHost { ai = tier2({ listConsents: vi.fn(async () => records), forgetConsent }); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    await flush();
+    click(document.querySelector('[data-fk="consent-forget:claude"]'));
+    await flush();
+    expect(document.querySelector('.ai-consents')?.textContent).toContain('could not write');
+    expect(document.querySelectorAll('.ai-consent')).toHaveLength(2);
+  });
+
+  it('a host that cannot list consents gets no row', () => {
+    class Host extends NoopHost { ai = tier2(); }
+    const handle = mount(new Host(), settings());
+    handle.command('openAiSettings');
+    expect(document.querySelector('.ai-consents')).toBeNull();
+    expect(document.body.textContent).not.toContain('Cloud consents');
+  });
+});

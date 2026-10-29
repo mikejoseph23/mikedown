@@ -764,3 +764,78 @@ describe('AiSecrets key file', () => {
     expect(JSON.stringify(status)).not.toContain('sk-file');
   });
 });
+
+describe('consent answers and fingerprints (T2)', () => {
+  const claudeRaw = rawSettings.engines[1];
+  const routedToClaude = { ...rawSettings, routing: { default: { engineId: 'claude', modelId: 'claude-sonnet-5-5' }, fallback: 'none', tasks: {} } };
+
+  it('a "never" answer is voided when the engine points somewhere else, and the next request asks again', async () => {
+    const { service, askConsent, consent, setSettings } = setup(rawSettings, { askConsent: 'never' });
+    await expect(service.complete({}, req(cloud), () => {})).rejects.toMatchObject({ code: 'consentDenied' });
+    expect(consent.get('claude')).toMatchObject({ answer: 'never' });
+    expect(service.consentState()).toEqual({ claude: false });
+
+    setSettings({ ...rawSettings, engines: [rawSettings.engines[0], { ...claudeRaw, baseUrl: 'https://proxy.example.com' }] });
+    expect(service.consentState()).toEqual({});
+    await service.settingsChanged();
+    expect(consent.has('claude')).toBe(false);
+    await expect(service.complete({}, req({ engineId: 'claude', modelId: 'claude-sonnet-5-5' }, 'b'), () => {})).rejects.toMatchObject({ code: 'consentDenied' });
+    expect(askConsent).toHaveBeenCalledTimes(2);
+  });
+
+  it('changing the engine kind voids the answer too', async () => {
+    const { service, consent, setSettings } = setup();
+    await service.requestCloudConsent('claude');
+    expect(service.consentState()).toEqual({ claude: true });
+    setSettings({ ...rawSettings, engines: [rawSettings.engines[0], { ...claudeRaw, kind: 'openai' }] });
+    expect(service.consentState()).toEqual({});
+    await service.settingsChanged();
+    expect(consent.has('claude')).toBe(false);
+  });
+
+  it('an engine that is deleted takes its consent with it, and does not show in the list', async () => {
+    const { service, consent, setSettings } = setup();
+    await service.requestCloudConsent('claude');
+    expect(service.listConsents().map((r) => r.engineId)).toEqual(['claude']);
+    setSettings({ ...rawSettings, engines: [rawSettings.engines[0]] });
+    expect(service.listConsents()).toEqual([]);
+    await service.settingsChanged();
+    expect(consent.has('claude')).toBe(false);
+  });
+
+  it('a stored "never" refuses a request that came without a route, without asking', async () => {
+    const { service, askConsent, consent } = setup(routedToClaude);
+    consent.set('claude', { fingerprint: consentFingerprint(parseAiSettings(routedToClaude, { onWarning: () => {} }).engines[1]), answer: 'never', at: 1 });
+    await expect(service.complete({}, req(), () => {})).rejects.toMatchObject({ code: 'consentDenied' });
+    expect(askConsent).not.toHaveBeenCalled();
+  });
+
+  it('"Not now" on a request without a route is not stored and asks again next time; the three answers log differently', async () => {
+    const { service, askConsent, consent, log } = setup(routedToClaude, { askConsent: 'notNow' });
+    await expect(service.complete({}, req(undefined, 'a'), () => {})).rejects.toMatchObject({ code: 'consentDenied' });
+    await expect(service.complete({}, req(undefined, 'b'), () => {})).rejects.toMatchObject({ code: 'consentDenied' });
+    expect(askConsent).toHaveBeenCalledTimes(2);
+    expect(consent.size).toBe(0);
+    expect(log.join('\n')).toContain('not now');
+    expect(log.join('\n')).not.toContain('refused for this workspace');
+    expect(log.join('\n')).not.toContain('allowed for this workspace');
+  });
+
+  it('forgetting a "never" lets the next request ask again', async () => {
+    const { service, askConsent, consent } = setup(rawSettings, { askConsent: 'never' });
+    await service.requestCloudConsent('claude');
+    expect(consent.get('claude')).toMatchObject({ answer: 'never' });
+    expect(service.listConsents()).toMatchObject([{ engineId: 'claude', answer: 'never', scope: 'workspace' }]);
+    await service.forgetConsent('claude');
+    expect(service.listConsents()).toEqual([]);
+    await service.requestCloudConsent('claude');
+    expect(askConsent).toHaveBeenCalledTimes(2);
+  });
+
+  it('records the answer with a timestamp from the service clock', async () => {
+    const { service, consent } = setup();
+    const before = Date.now();
+    await service.requestCloudConsent('claude');
+    expect(consent.get('claude')!.at).toBeGreaterThanOrEqual(before);
+  });
+});
