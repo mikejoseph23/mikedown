@@ -38,31 +38,18 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
 
 ## What's Next
 
-1. **Push** `develop` (2 commits), after Mike's OK.
-2. **Fix the `wc-vite` consumer build:** `packages/web-component/src/element.ts` uses `MikeDownAiHost` without importing it (found by the bundle-split worker; it predates the split). Then run `npm run test:consumers`.
-3. **Hand-check the website demos' AI** with the lazy chunk (`npm run build:site && npm run preview -w website`, then open `/mikedown/developers/`).
-4. **AI release prep** (M7 in `ai-inference-engines-plan.md`, all 4 boxes open):
-   - docs audit/top-up (CHANGELOG, README, `website/vscode/`); the writing plan's M7 already added much of this;
-   - `CLAUDE.md` AI architecture lines, plus "secrets never in settings; use `setSecret`";
-   - release order: `npm run version:npm -- 0.3.0` (minor), `test:packages`, `release:npm` dry run, Mike publishes, then bump the Desktop core pin off `0.1.0` (this unblocks the Desktop dist `vite build`), then `npm run vsix:minor`;
-   - loose ends:
-     - a docs line for the repo-writable Desktop consent file `.mikedown/settings.json`;
-     - export the rewrite helpers and `mountAiEnginesPage` from core;
-     - an oMLX `keySource` caption;
-     - Ollama is tested against fixtures only;
-     - lint warnings went from 1066 to 1102;
-     - confirm Anthropic `max_tokens` truncation is fixed by the thinking headroom.
-
-   Suggested: one Sonnet worker for the docs and loose ends, then Mike runs the publish.
-5. **Decide when `develop` merges to `main`.** Probably right after the AI release prep.
-6. **Next AI features**, from the AI engines plan's "Follow-up plans" and `ai-copilot-brainstorm.md`: ghost text, chat with this document, alt text for images. The writing plan's follow-ups include a per-model benchmark on the AI Engines page.
-7. **Mike's older items:**
+1. **Push** `develop` if it's ahead of origin (with Mike's OK).
+2. **Hand-check the website demos' AI** with the lazy chunk (`npm run build:site && npm run preview -w website`, `/mikedown/developers/`).
+3. **AI release (M7 box 4, Mike):** docs and loose ends are done (2026-10-29, `1ad8388`..`a5c54e5`; new subpath `@mikedown/core/ai/engines-page`). Release order: `npm run version:npm -- 0.3.0`, `test:packages`, `release:npm` dry run, Mike publishes, bump the Desktop core pin off `0.1.0` (unblocks the Desktop dist build), `npm run vsix:minor`. Lint warnings are 1213 (TOC code from main, e.g. `toc-node.ts` 93), none in AI/toolbar files.
+4. **Decide when `develop` merges to `main`.** Probably right after the AI release prep.
+5. **Next AI features**, from the AI engines plan's "Follow-up plans" and `ai-copilot-brainstorm.md`: ghost text, chat with this document, alt text for images. The writing plan's follow-ups include a per-model benchmark on the AI Engines page.
+6. **Mike's older items:**
    - npm 2FA "disallow tokens" setting on each `@mikedown/*` package;
    - Desktop T4 checklist (`packages/desktop/docs/manual-test-checklist.md`);
    - re-encrypt the updater key (password was shown in chat 2026-10-24);
    - Bitbucket cap: move `~/git/rando` to GitHub;
    - T1 hands-on in `wrappers-npm-plan.md`.
-8. **Follow-ups:**
+7. **Follow-ups:**
    - typing directly into the frontmatter YAML block isn't undoable, so a later undo can overwrite it;
    - `--mikedown-toolbar-edit-focus` is documented in `tokens.md` but missing from `tokens.css`;
    - dead `buildToolbar` in `editor.ts`;
