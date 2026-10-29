@@ -42,7 +42,7 @@
 
 import { Extension, elementFromString, posToDOMRect, type Editor } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
-import { DOMParser as PmDOMParser, type Fragment } from '@tiptap/pm/model';
+import { DOMParser as PmDOMParser, Fragment, type Node as PmNode } from '@tiptap/pm/model';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { closeHistory } from '@tiptap/pm/history';
 import { StateEffect, StateField } from '@codemirror/state';
@@ -213,6 +213,22 @@ function serializeFragment(editor: Editor, fragment: Fragment): string {
   return fragment.textBetween(0, fragment.size, '\n\n');
 }
 
+/**
+ * `doc` from `from` to `to` as markdown. The serializer only writes marks
+ * (links, bold, code...) inside a text block, so a range within one block is
+ * wrapped in a plain paragraph first: its marks survive and no block syntax
+ * (a heading's `#`) is added. Code keeps its text as is.
+ */
+function serializeRange(editor: Editor, doc: PmNode, from: number, to: number): string {
+  const content = doc.slice(from, to).content;
+  const parent = doc.resolve(from).parent;
+  const paragraph = editor.state.schema.nodes.paragraph;
+  if (content.firstChild?.isInline && !parent.type.spec.code && paragraph) {
+    return serializeFragment(editor, Fragment.from(paragraph.create(null, content)));
+  }
+  return serializeFragment(editor, content);
+}
+
 type MarkdownStorage = {
   parser?: { parse(md: string, o?: { inline?: boolean }): string };
   getMarkdown?(): string;
@@ -266,7 +282,7 @@ export function richRewriteTarget(editor: Editor): AiRewriteTarget | null {
   const doc = state.doc;
   // Prose only: an image or another atom on its own is not rewritten.
   if (!doc.textBetween(from, to, ' ').trim()) {return null;}
-  const text = serializeFragment(editor, doc.slice(from, to).content);
+  const text = serializeRange(editor, doc, from, to);
   if (!text.trim()) {return null;}
 
   // Context: the enclosing top-level block plus one on each side.
@@ -274,8 +290,8 @@ export function richRewriteTarget(editor: Editor): AiRewriteTarget | null {
   const $to = doc.resolve(to);
   const beforeStart = $from.depth > 0 ? $from.posAtIndex(Math.max(0, $from.index(0) - 1), 0) : 0;
   const afterEnd = $to.depth > 0 ? $to.posAtIndex(Math.min(doc.childCount, $to.index(0) + 2), 0) : doc.content.size;
-  const before = beforeStart < from ? serializeFragment(editor, doc.slice(beforeStart, from).content) : '';
-  const after = afterEnd > to ? serializeFragment(editor, doc.slice(to, afterEnd).content) : '';
+  const before = beforeStart < from ? serializeRange(editor, doc, beforeStart, from) : '';
+  const after = afterEnd > to ? serializeRange(editor, doc, to, afterEnd) : '';
 
   const id = ++nextTargetId;
   editor.view.dispatch(state.tr.setMeta(aiRewriteHighlightKey, { range: { from, to, id } }).setMeta('addToHistory', false));

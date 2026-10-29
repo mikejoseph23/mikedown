@@ -644,3 +644,57 @@ describe('rewrite family flows', () => {
     expect(ui().querySelector<HTMLElement>('.ai-rw-warn')!.hidden).toBe(true);
   });
 });
+
+describe('rich selection keeps inline marks (T3 F1)', () => {
+  const DOC = '# Pilot\n\nSee the [pilot notes](https://example.com/pilot-notes) for **bold** facts, *soft* words and `npm test` runs.\n\nSecond part with **more**.\n';
+  /** Echo the passage back unchanged. */
+  const echo = (req: AiCompletionRequest): string => /<passage>\n([\s\S]*?)\n<\/passage>/.exec(req.messages[1].content as string)![1];
+  function select(handle: MikeDownEditorHandle, startText: string, endText: string): void {
+    let from = -1;
+    let to = -1;
+    handle.tiptap.state.doc.descendants((node, pos) => {
+      if (!node.isText || !node.text) {return;}
+      if (from < 0 && node.text.includes(startText)) {from = pos + node.text.indexOf(startText);}
+      if (to < 0 && node.text.includes(endText)) {to = pos + node.text.indexOf(endText) + endText.length;}
+    });
+    if (from < 0 || to < 0) {throw new Error(`no "${startText}" / "${endText}"`);}
+    handle.tiptap.commands.setTextSelection({ from, to });
+  }
+  const passage = (requests: Array<{ req: AiCompletionRequest }>): string => echo(requests[0].req);
+
+  async function roundTrip(startText: string, endText: string, expected: string): Promise<void> {
+    const { handle, requests } = mountWithAi(DOC, echo);
+    const before = handle.getMarkdown();
+    select(handle, startText, endText);
+    handle.command('aiRewrite');
+    clickButton('Shorter');
+    await settle();
+    expect(passage(requests)).toBe(expected);
+    clickButton('Accept');
+    expect(handle.getMarkdown()).toBe(before);
+  }
+
+  it('a selection inside a paragraph sends the link as markdown, and accepting it unchanged is byte-identical', async () => {
+    await roundTrip('See the', 'runs.', 'See the [pilot notes](https://example.com/pilot-notes) for **bold** facts, *soft* words and `npm test` runs.');
+  });
+
+  it('keeps bold, italic and inline code for a selection in the middle', async () => {
+    await roundTrip('pilot notes', 'npm test', '[pilot notes](https://example.com/pilot-notes) for **bold** facts, *soft* words and `npm test`');
+  });
+
+  it('a partial-word selection keeps its mark', async () => {
+    await roundTrip('ol', 'ol', '**ol**');
+  });
+
+  it('a selection spanning two paragraphs keeps the marks in both', async () => {
+    await roundTrip('words', 'more', 'words and `npm test` runs.\n\nSecond part with **more**');
+  });
+
+  it("Explain's passage keeps the link", async () => {
+    const { handle, requests } = mountWithAi(DOC, 'A note.');
+    select(handle, 'See the', 'runs.');
+    handle.command('aiExplain');
+    await settle();
+    expect(passage(requests)).toContain('[pilot notes](https://example.com/pilot-notes)');
+  });
+});
