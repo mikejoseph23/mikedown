@@ -217,8 +217,11 @@
 
 /* Frontmatter Block */
 
+/* In flow above the document inside the scrolling container, with the same
+   column as #editor. */
 :is(.mikedown-root, .mikedown-portal) .frontmatter-block {
-  margin-bottom: 1em;
+  max-width: var(--mikedown-content-width, 100%);
+  margin: 0 auto 1em;
   border: 1px solid var(--mikedown-border, rgba(128,128,128,0.2));
   border-radius: var(--mikedown-radius, 6px);
   overflow: hidden;
@@ -258,8 +261,8 @@
   font-family: var(--mikedown-font-mono, monospace);
   font-size: 0.85em;
   line-height: 1.5;
-  white-space: pre;
-  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   outline: none;
   background: transparent;
   color: var(--mikedown-text);

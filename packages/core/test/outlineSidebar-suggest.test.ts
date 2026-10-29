@@ -4,6 +4,8 @@
  * history (frontmatterHistory.ts), the JSON repair round trip, and the
  * undoable "Suggest titles…" pick on a document with `title:`.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../src/index';
 import { parseAiSettings, type AiCompletionRequest, type MikeDownAiHost } from '../src/ai';
@@ -392,6 +394,44 @@ describe('the sidebar\'s Suggest button and chips row, with spies for callbacks'
     const chips = [...row().querySelectorAll<HTMLElement>('.properties-suggest-chip')];
     expect(chips.map((c) => c.dataset.kind)).toEqual(['title', 'description', 'tag', 'tag']);
     expect(chips.map((c) => !!c.querySelector('.properties-suggest-new'))).toEqual([false, false, false, true]);
+  });
+
+  it('the chips row sits in the list after the property rows and before "+ Add property", with the rows\' inset', () => {
+    const { sidebar, row } = build();
+    sidebar.applyPropertySuggestions(SUGGESTIONS, 'idle');
+    const list = document.querySelector<HTMLElement>('.properties-list')!;
+    const order = () => [...list.children].map((c) => (c === row() ? 'suggest'
+      : c.classList.contains('properties-add-row') ? 'add' : 'row'));
+    expect(row().parentElement).toBe(list);
+    expect(order()).toEqual(['row', 'suggest', 'add']);
+    // Not a section body of its own: that rule zeroes the side padding.
+    expect(row().classList.contains('sidebar-section-body')).toBe(false);
+    // A re-render of the rows keeps the order.
+    sidebar.applyProperties([{ key: 'title', value: 'Old' }, { key: 'tags', value: ['a'] }], { editable: true });
+    expect(order()).toEqual(['row', 'row', 'suggest', 'add']);
+    // Read-only: after the rows (or the empty note), no add row.
+    sidebar.applyProperties([], { editable: false });
+    expect([...list.children].map((c) => c.className)).toEqual(['properties-empty', 'properties-suggest']);
+
+    const css = readFileSync(resolve(__dirname, '../src/styles/outline-sidebar.css'), 'utf8');
+    const rule = (sel: string) => css.slice(css.indexOf(`${sel} {`), css.indexOf('}', css.indexOf(`${sel} {`)));
+    const inset = (sel: string) => rule(sel).match(/padding:\s*\S+\s+([^\s;]+)/)?.[1];
+    expect(inset('.properties-suggest')).toBe(inset('.properties-row'));
+  });
+
+  it('a truncated title or description chip carries its full text as the tooltip', () => {
+    const { sidebar, row } = build();
+    const long = 'A test document containing basic Markdown features like bold text, italics, links, and tables.';
+    sidebar.applyPropertySuggestions({ title: 'New', description: long, tags: [] }, 'idle');
+    const apply = row().querySelector<HTMLElement>('.properties-suggest-chip[data-kind="description"] .properties-suggest-apply')!;
+    expect(apply.title).toBe(`Set description: ${long}`);
+  });
+
+  it('removing the last item of a list hands the owner the entries without that key', () => {
+    const { cb, sidebar } = build();
+    sidebar.applyProperties([{ key: 'title', value: 'T' }, { key: 'tags', value: ['a'] }], { editable: true });
+    document.querySelector<HTMLButtonElement>('.properties-value .properties-pill-x')!.click();
+    expect(cb.onPropertiesChange).toHaveBeenLastCalledWith([{ key: 'title', value: 'T' }]);
   });
 
   it('applying a chip hands the pick to the owner, which merges it; the chip goes only when the owner applied it', () => {

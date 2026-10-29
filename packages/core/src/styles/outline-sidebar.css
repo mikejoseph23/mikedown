@@ -723,7 +723,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 2px 12px 8px;
+  /* Same inset as .properties-row, so chips line up with the keys above. */
+  padding: 4px 10px 6px;
   font-size: 11px;
   color: var(--mikedown-text, #d4d4d4);
 }

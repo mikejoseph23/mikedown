@@ -7,7 +7,7 @@
  * works, and a `/query` removal can share the same transaction.
  *
  * The attribute is a log entry, not the source of truth: edits made outside
- * this path (typing in the sidebar, loads) do not touch it. After any
+ * this path (loads, typing in the YAML block) do not touch it. After any
  * transaction that moves the record, `frontmatterAfterTransition` says what
  * the YAML must become: forward (a new edit, or redo) is the record's
  * `next`; backward (undo) is the undone record's `prev`.

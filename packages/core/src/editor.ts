@@ -4551,8 +4551,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   // M10 — Custom context menu: prevent browser default; show custom one.
   editorContainer.addEventListener('contextmenu', (event) => {
-    event.preventDefault();
     const target = event.target as HTMLElement;
+    // The frontmatter YAML is plain contenteditable outside the document.
+    if (target.closest('.frontmatter-block')) {return;}
+    event.preventDefault();
 
     let items;
     const linkEl = target.closest<HTMLAnchorElement>('a[href]');
@@ -5338,20 +5340,15 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // refreshed frontmatterContent so they stay in lockstep. In source mode
   // the user edits YAML directly in CodeMirror; the sidebar reflects but
   // doesn't drive (see refreshPropertiesEditable below).
+  //
+  // Each edit is one undo step (frontmatterHistory.ts). Removing the last key
+  // removes the block rather than leaving an empty `---\n---`, and an edit to
+  // an empty block (`/properties`) undoes to no block at all.
   function applyFrontmatterEdit(entries: ParsedEntry[]): void {
-    applyFrontmatterYaml(serializeFrontmatter(entries));
-  }
-
-  /** The persist-and-re-render half of `applyFrontmatterEdit`, for YAML built elsewhere. */
-  function applyFrontmatterYaml(newYaml: string): void {
-    if (sourceMode) {return;}
-    if (newYaml === frontmatterContent) {return;}
-    frontmatterContent = newYaml;
-    const markdown = serializeDocument();
-    isDirty = markdown !== originalContent;
-    notifyChange(markdown, { pristine: false });
-    renderFrontmatterBlock();
-    refreshPropertiesSidebar();
+    if (sourceMode || editor.isDestroyed) {return;}
+    const next = entries.length ? serializeFrontmatter(entries) : null;
+    if (next === frontmatterContent) {return;}
+    editor.view.dispatch(frontmatterEditTransaction(editor.state, frontmatterContent || null, next));
   }
 
   function refreshPropertiesSidebar(): void {
@@ -5822,8 +5819,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       block.appendChild(content);
     }
 
-    // Insert frontmatter block BEFORE the editor container
-    editorContainer.parentNode?.insertBefore(block, editorContainer);
+    // Inside the scrolling container, above the ProseMirror element (never
+    // inside it). As a sibling of the absolutely positioned container it sat
+    // under the toolbar and the document was drawn over it.
+    editorContainer.prepend(block);
   }
 
   // ── Diff Highlighting ────────────────────────────────────────────────────────

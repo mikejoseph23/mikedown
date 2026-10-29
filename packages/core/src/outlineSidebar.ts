@@ -392,10 +392,13 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     propertiesListEl = document.createElement('div');
     propertiesListEl.className = 'sidebar-section-body properties-list';
     propertiesSectionEl.appendChild(propertiesListEl);
+    // The chips row lives inside the list body (renderProperties places it
+    // after the rows, before "+ Add property"), so it collapses with the
+    // section and takes the rows' inset rather than the body's zero padding.
     suggestRowEl = document.createElement('div');
-    suggestRowEl.className = 'sidebar-section-body properties-suggest';
+    suggestRowEl.className = 'properties-suggest';
     suggestRowEl.setAttribute('data-testid', 'properties-suggest');
-    propertiesSectionEl.appendChild(suggestRowEl);
+    propertiesListEl.appendChild(suggestRowEl);
     root.appendChild(propertiesSectionEl);
     renderSuggestButton();
     renderSuggestions();
@@ -1468,12 +1471,14 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
       empty.className = 'properties-empty';
       empty.textContent = 'No properties.';
       propertiesListEl.appendChild(empty);
-      return;
     }
 
     for (let i = 0; i < currentProperties.length; i++) {
       propertiesListEl.appendChild(buildPropertyRow(currentProperties[i], i));
     }
+
+    // Pending suggestions sit under the rows they would add to.
+    if (suggestRowEl) {propertiesListEl.appendChild(suggestRowEl);}
 
     if (propertiesEditable) {
       propertiesListEl.appendChild(buildAddPropertyRow());
@@ -1590,11 +1595,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
         ev.stopPropagation();
         const entry = currentProperties[rowIdx];
         if (!entry || !Array.isArray(entry.value)) {return;}
-        const newArr = entry.value.filter((_, i) => i !== pillIdx);
-        const next = currentProperties.map((e, i) =>
-          i === rowIdx ? { ...e, value: newArr } : e
-        );
-        commitProperties(next);
+        commitProperties(withItems(rowIdx, entry.value.filter((_, i) => i !== pillIdx)));
       });
       pill.appendChild(x);
     }
@@ -1711,13 +1712,16 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
         } else {
           arr[pillIdx] = trimmed;
         }
-        const next = currentProperties.map((e, i) =>
-          i === rowIdx ? { ...e, value: arr } : e
-        );
-        commitProperties(next);
+        commitProperties(withItems(rowIdx, arr));
       },
       cancel: () => renderProperties(),
     });
+  }
+
+  /** The entries with row `rowIdx`'s list set to `items`; an emptied list drops its key. */
+  function withItems(rowIdx: number, items: string[]): FrontmatterEntry[] {
+    if (items.length === 0) {return currentProperties.filter((_, i) => i !== rowIdx);}
+    return currentProperties.map((e, i) => (i === rowIdx ? { ...e, value: items } : e));
   }
 
   function beginAddPill(triggerEl: HTMLElement, rowIdx: number): void {
