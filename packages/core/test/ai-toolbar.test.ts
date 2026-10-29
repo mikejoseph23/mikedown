@@ -46,10 +46,10 @@ describe('aiToolbarButtonMode', () => {
 });
 
 describe('aiSetupTarget', () => {
-  it('tier 2: the default route engine, else the first engine, else the quick-start cards', () => {
+  it('tier 2: the default route engine, else the first engine, else the setup wizard', () => {
     expect(aiSetupTarget(2, withEngine())).toEqual({ kind: 'page', engineId: 'omlx' });
     expect(aiSetupTarget(2, withEngine({ routing: { default: null, fallback: 'anyLocal', tasks: {} } }))).toEqual({ kind: 'page', engineId: 'lms' });
-    expect(aiSetupTarget(2, defaultAiSettings())).toEqual({ kind: 'page' });
+    expect(aiSetupTarget(2, defaultAiSettings())).toEqual({ kind: 'wizard' });
   });
 
   it('tier 1 routes by itself: the AI tab', () => {
@@ -172,7 +172,7 @@ describe('first-run panel (AI off)', () => {
     expect(panel()).toBeNull();
   });
 
-  it('Set up opens the AI Engines page on the cards and leaves AI off until Done (B3)', () => {
+  it('Set up opens the AI Engines page on the setup wizard and leaves AI off until Done (B3)', () => {
     const saveSettings = vi.fn();
     class Host extends NoopHost { ai = tier2(); saveSettings = saveSettings; }
     mount(new Host());
@@ -182,8 +182,8 @@ describe('first-run panel (AI off)', () => {
     expect(saveSettings).not.toHaveBeenCalled();
     const page = document.querySelector('#mikedown-ai-page-overlay')!;
     expect(page).not.toBeNull();
-    expect(page.querySelector('.ai-cards')).not.toBeNull();
-    expect(page.querySelector('.ai-page-title-note')?.textContent).toBe('AI turns on when you choose Done');
+    expect(page.querySelector('.ai-wizard')).not.toBeNull();
+    expect(page.querySelector('.ai-page-title')?.textContent).toBe('Set up AI');
     // Back leaves AI off: the button still opens the first-run panel.
     (page.querySelector('.ai-page-back') as HTMLButtonElement).click();
     expect(saveSettings).not.toHaveBeenCalled();

@@ -10,12 +10,12 @@ export {
   headingsOutline, isRouteUsable, jsonRepairMessages, makeAiError, parseAiSettings,
   parsePropertySuggestions, propertiesMaxTokens, renderHeadingOutline, resolveRoute, rewriteVisibleText, thinkingChoices, toAiError,
 } from './ai';
-export { aiConsentHost, hostOfUrl, whatIsSent } from './ai';
+export { aiConsentHost, hostOfUrl, isHostEngineKind, whatIsSent } from './ai';
 export { loadThinkingLevel, rememberThinkingLevel, thinkingLevelFor } from './ai-prefs';
 export { buildAiSettingsSection } from './ai-settings';
 export { mountAiEnginesPage } from './ai-engines-page';
 export { withSavedAiKeys } from './ai-settings-session';
-export { bestLocalServer, detectLocalServers, setUpLocalEngine } from './ai-local-setup';
+export { bestLocalServer, detectLocalServers, scanForSetup, setUpLocalEngine } from './ai-local-setup';
 export { aiIndicatorState } from './ai-settings-model';
 export { experimentalBadge, privacyCard, privacyLine } from './ai-settings-dom';
 export {

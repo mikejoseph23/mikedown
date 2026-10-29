@@ -58,7 +58,8 @@ describe('askCloudConsent', () => {
     showWarningMessage.mockImplementation(async () => undefined);
     await askCloudConsent(copilot, 'rewrite');
     const [, options, ...items] = showWarningMessage.mock.calls[0];
-    expect(options.detail).toContain('is a cloud engine at GitHub Copilot.');
+    expect(options.detail).toContain('GitHub Copilot is a cloud service built into VS Code.');
+    expect(options.detail).not.toContain('is a cloud engine at GitHub Copilot');
     expect(options.detail).toContain('copilot.github.trust.page');
     expect(items.map((i: { title: string }) => i.title)).toContain("Read the provider's policy");
   });

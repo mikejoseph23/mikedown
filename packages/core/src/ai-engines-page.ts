@@ -31,14 +31,23 @@
  * The cloud cards carry the **Allow cloud engines** switch, one line on what
  * it means and the privacy card folded under "What this means"; it edits the
  * page's draft, so Done saves it with the rest. A cloud engine's head, while
- * the switch is off, says so with a "Turn on cloud engines" button (F4).
+ * the switch is off, says so with a "Turn on cloud engines" button (F4). On
+ * VS Code, a "Built into VS Code" group offers GitHub Copilot when the host
+ * reports a Copilot model (`detectHostEngines`).
+ *
+ * Opened on the `'wizard'` section (the first-run panel's "Set up" with no
+ * engines yet, tier 2 only), the page shows the setup wizard
+ * (`ai-setup-wizard.ts`) instead of the list and detail: the header says
+ * "Set up AI" with the step dots and Skip, Back walks back through the
+ * steps, and the wizard's Done is the page's Done. "Fine-tune in AI Engines"
+ * leaves the wizard for the full page, in the same session.
  *
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
-import { AI_ENGINE_PRESETS, AI_PRESET_FAMILIES } from './ai';
-import { AI_DETECT_LOOKING, AI_DETECT_NONE, detectLocalServers } from './ai-local-setup';
-import type { AiEngineConfig, AiEnginePreset, AiEngineStatus, AiLocalServerProbe, AiRoute, AiSettings, AiSettingsPatch } from './ai';
+import { AI_ENGINE_PRESETS, AI_HOST_PRESET_FAMILY, AI_PRESET_FAMILIES, modelSizeHint } from './ai';
+import { AI_DETECT_LOOKING, AI_DETECT_NONE, detectLocalServers, hostEngineAvailability, setupHardware } from './ai-local-setup';
+import type { AiEngineConfig, AiEnginePreset, AiEngineStatus, AiHardwareInfo, AiLocalServerProbe, AiPresetFamilyInfo, AiRoute, AiSettings, AiSettingsPatch } from './ai';
 import {
   defaultRouteForEngine,
   engineDisplayName,
@@ -58,13 +67,17 @@ import type { EngineFormRefresh } from './ai-engine-form';
 import { createRoutingSection } from './ai-routing-section';
 import { createAiSettingsSession } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
-import { ICONS, button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, privacyCard, statusBadge, switchInput } from './ai-settings-dom';
+import { ICONS, button, cloudAccessBox, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, statusBadge, switchInput } from './ai-settings-dom';
+import { AI_WIZARD_STEPS, createSetupWizard, subscriptionNote, wizardStepNumber, type AiWizardStep, type SetupWizard } from './ai-setup-wizard';
 import type { MikeDownSettingsSectionContext } from './types';
 
-export type AiEnginesPageSection = 'engines' | 'routing';
+export type AiEnginesPageSection = 'engines' | 'routing' | 'wizard';
 
 export interface AiEnginesPageOptions extends AiSettingsSessionOptions {
-  /** What to show first: an engine, or the routing section. Default: the first engine (the cards when there is none). */
+  /**
+   * What to show first: an engine, the routing section, or the setup wizard
+   * (tier 2 only). Default: the first engine (the cards when there is none).
+   */
   initial?: { engineId?: string; section?: AiEnginesPageSection };
   /** Shared with the session that opened the page (stored-key knowledge). */
   keyOverride?: Map<string, boolean>;
@@ -97,6 +110,10 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   const session = createAiSettingsSession(opts);
   const { ai } = session;
   const getEngine = (id: string) => session.getEngine(id);
+  /** The setup wizard while it shows; the list and detail wait underneath, unrendered. */
+  let wizard: SetupWizard | null = null;
+  /** This machine, once the host said (the models picker's size groups). */
+  let hardware: AiHardwareInfo | null = null;
 
   let selection: Selection = initialSelection();
   let narrow = false;
@@ -129,10 +146,17 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   title.id = titleId;
   const doneBtn = button('settings-btn settings-btn--primary ai-page-done', 'Done', { fk: 'page:done' });
   doneBtn.addEventListener('click', () => done());
+  // The wizard's way out at any step: AI stays off (Back asks first when something changed).
+  const skipBtn = button('settings-btn ai-page-done ai-page-skip', 'Skip', { fk: 'page:skip', title: 'Leave setup; AI stays off' });
+  skipBtn.addEventListener('click', () => leave());
+  skipBtn.hidden = true;
   const titleLine = el('div', 'ai-page-title-line');
-  titleLine.append(title, experimentalBadge());
-  if (opts.turnOnWhenDone) {titleLine.append(el('span', 'ai-page-title-note', 'AI turns on when you choose Done'));}
-  header.append(backBtn, titleLine, doneBtn);
+  const titleNote = opts.turnOnWhenDone ? el('span', 'ai-page-title-note', 'AI turns on when you choose Done') : null;
+  const stepper = el('span', 'ai-wizard-steps');
+  stepper.hidden = true;
+  titleLine.append(title, experimentalBadge(), stepper);
+  if (titleNote) {titleLine.append(titleNote);}
+  header.append(backBtn, titleLine, doneBtn, skipBtn);
   const disclaimer = experimentalDisclaimer('ai-page-disclaimer');
 
   const body = el('div', 'ai-page-body');
@@ -165,7 +189,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     getDraft: () => session.draft,
     setDraft: (next, refresh) => {
       session.draft = next;
-      applyRefresh(selectedEngineId(), refresh);
+      applyRefresh(wizard ? wizard.engineId() : selectedEngineId(), refresh);
     },
     refresh: (engineId, refresh) => applyRefresh(engineId, refresh),
     statuses: session.statuses,
@@ -178,6 +202,9 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     announce,
     focusKey,
     openLink: ctx.openLink,
+    // In the wizard, the subscription vs API key note sits over a cloud key field.
+    keyNote: (_engine, preset) => (wizard && preset.family === 'cloud' ? subscriptionNote(preset, ctx.openLink) : null),
+    modelSize: (modelId) => (hardware ? modelSizeHint(modelId, hardware) : undefined),
   });
 
   const routing = createRoutingSection(ctx, {
@@ -204,6 +231,10 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   }
 
   function applyRefresh(engineId: string | null, refresh: EngineFormRefresh): void {
+    if (wizard) {
+      wizard.refresh(engineId, refresh);
+      return;
+    }
     if (refresh.list) {
       renderNav();
       renderDetailHead();
@@ -223,7 +254,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     routingQueued = true;
     queueMicrotask(() => {
       routingQueued = false;
-      if (finished) {return;}
+      if (finished || wizard) {return;}
       refreshRoutingEntry();
       if (selection.kind === 'routing') {routing.render();}
     });
@@ -257,6 +288,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   }
 
   function renderNav(): void {
+    if (wizard) {return;}
     keepFocus(nav, () => {
       navEngines.replaceChildren();
       const heading = el('div', 'ai-nav-heading', 'Engines');
@@ -318,6 +350,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   }
 
   function refreshNavItem(engineId: string): void {
+    if (wizard) {return;}
     const engine = getEngine(engineId);
     const item = Array.from(navList.querySelectorAll<HTMLElement>('.ai-nav-item')).find((n) => n.dataset.engineId === engineId);
     if (!engine || !item) {return;}
@@ -404,6 +437,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   }
 
   function renderDetail(): void {
+    if (wizard) {return;}
     renderDetailHead();
     detailBody.replaceChildren();
     detail.dataset.kind = selection.kind;
@@ -417,6 +451,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       detailBody.append(buildPresetCards());
       // The cards look once per page; "Look again" asks again.
       if (canDetect && !detectedOnce) {lookForLocalServers();}
+      if (ai.detectHostEngines && hostAvailable === null) {lookForHostEngines();}
     }
   }
 
@@ -430,6 +465,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   }
 
   function renderDetailHead(): void {
+    if (wizard) {return;}
     keepFocus(detailHead, () => {
       detailHead.replaceChildren();
       if (selection.kind === 'routing') {
@@ -534,12 +570,17 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     if (session.draft.allowCloud === on) {return;}
     session.draft = { ...session.draft, allowCloud: on };
     renderNav();
-    if (selection.kind === 'engine') {rerenderForm(selection.id);}
+    const formEngine = wizard ? wizard.engineId() : selectedEngineId();
+    if (formEngine) {rerenderForm(formEngine);}
     scheduleRouting();
     announce(on ? 'Cloud engines turned on. Choose Done to save.' : 'Cloud engines turned off. Choose Done to save.');
   }
 
   function rerenderForm(engineId: string): void {
+    if (wizard) {
+      wizard.refresh(engineId, { form: true });
+      return;
+    }
     if (selectedEngineId() !== engineId) {return;}
     const current = detailBody.querySelector<HTMLElement>('.ai-form');
     if (!current) {return;}
@@ -625,11 +666,25 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     return `${models} ${models === 1 ? 'model' : 'models'}`;
   }
 
-  /** The cards in two groups, with the "two ways to connect" line over each (design call 2). */
+  /** VS Code offers a Copilot model: null before the page asked (or on a host that cannot say). */
+  let hostAvailable: boolean | null = null;
+
+  /** Ask once whether VS Code offers a Copilot model; the "Built into VS Code" group shows when it does. */
+  function lookForHostEngines(): void {
+    hostAvailable = false;
+    void hostEngineAvailability(ai).then((found) => {
+      if (finished || !found?.available) {return;}
+      hostAvailable = true;
+      if (selection.kind === 'add' && !wizard) {keepFocus(detailBody, () => { detailBody.replaceChildren(buildPresetCards()); });}
+    });
+  }
+
+  /** The cards in two groups (three with Copilot), with the "two ways to connect" line over each (design call 2). */
   function buildPresetCards(): HTMLElement {
     const groups = groupPresets(AI_ENGINE_PRESETS);
     const box = el('div', 'ai-cards');
-    for (const family of AI_PRESET_FAMILIES) {
+    const families: AiPresetFamilyInfo[] = hostAvailable ? [AI_HOST_PRESET_FAMILY, ...AI_PRESET_FAMILIES] : [...AI_PRESET_FAMILIES];
+    for (const family of families) {
       const presets = groups[family.family];
       if (presets.length === 0) {continue;}
       const section = el('section', 'ai-cards-group');
@@ -648,6 +703,9 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
         section.append(grid);
         fillLocalGrid(grid, presets);
         if (canDetect) {section.append(buildDetectLine());}
+      } else if (family.family === 'host') {
+        section.append(grid);
+        for (const preset of presets) {grid.append(buildCard(preset));}
       } else {
         // The switch and what it means sit where a cloud engine is added (F4, OQ5).
         section.append(buildCloudAccess(presets), grid);
@@ -663,30 +721,16 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
 
   /** Allow cloud engines over the cloud cards: the switch, one line, and the privacy card folded. */
   function buildCloudAccess(presets: AiEnginePreset[]): HTMLElement {
-    const box = el('div', 'ai-cloud-access');
-    const row = el('div', 'ai-cloud-access-row');
-    const toggle = switchInput(session.draft.allowCloud, 'Allow cloud engines', 'cards:allow-cloud');
-    toggle.id = nextId('ai-allow-cloud');
-    const label = el('label', 'ai-cloud-access-label', 'Allow cloud engines');
-    label.htmlFor = toggle.id;
-    const line = el('span', 'ai-cloud-access-line', 'Text you ask about is sent to the provider over the internet.');
-    line.id = nextId('ai-allow-cloud-line');
-    toggle.setAttribute('aria-describedby', line.id);
-    toggle.addEventListener('change', () => setAllowCloud(toggle.checked));
-    const text = el('div', 'ai-cloud-access-text');
-    text.append(label, line);
-    row.append(toggle, text);
-    box.append(row, privacyCard(presets, {
-      collapsed: 'What this means',
+    return cloudAccessBox({
+      allowed: session.draft.allowCloud,
+      onChange: (on) => setAllowCloud(on),
+      presets,
+      hostAsks: !!ai.requestCloudConsent,
       open: cloudPrivacyOpen,
       onToggle: (open) => { cloudPrivacyOpen = open; },
       openLink: ctx.openLink,
-      extra: ai.requestCloudConsent
-        ? 'Even when allowed, each cloud engine asks for your OK before its first request in each workspace or folder.'
-        : 'Once allowed, this app sends requests to cloud engines without asking again.',
-      className: 'ai-cloud-access-privacy',
-    }));
-    return box;
+      fk: 'cards:allow-cloud',
+    });
   }
 
   /** Local cards in detection order (running first), Custom last; the preset order before a detection. */
@@ -763,7 +807,9 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     session.addEngine(engine);
     select({ kind: 'engine', id: engine.id }, { isNew: true });
     scheduleRouting();
-    announce(preset.family === 'cloud' ? `Added ${engine.name}. Paste your API key.` : `Added ${engine.name}. Check the address; models are fetched from it.`);
+    announce(preset.family === 'cloud' ? `Added ${engine.name}. Paste your API key.`
+      : preset.family === 'host' ? `Added ${engine.name}. Fetching its models.`
+        : `Added ${engine.name}. Check the address; models are fetched from it.`);
   }
 
   function deleteEngine(id: string): void {
@@ -815,6 +861,10 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       hideDiscard();
       return;
     }
+    if (wizard) {
+      wizard.back();
+      return;
+    }
     if (narrow && view === 'detail') {
       view = 'list';
       applyLayout();
@@ -826,6 +876,11 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       return;
     }
     cancel();
+  }
+
+  /** Close without saving: ask first when something changed (the wizard's Skip, and Back from its first step). */
+  function leave(): void {
+    if (session.dirty()) {showDiscard();} else {cancel();}
   }
 
   function cancel(): void {
@@ -872,6 +927,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     confirmHost.replaceChildren(scrim);
     header.inert = true;
     body.inert = true;
+    if (wizard) {wizard.element.inert = true;}
     keep.focus();
   }
 
@@ -880,6 +936,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     confirmHost.replaceChildren();
     header.inert = false;
     body.inert = false;
+    if (wizard) {wizard.element.inert = false;}
     backBtn.focus();
   }
 
@@ -933,16 +990,90 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     for (const engine of session.draft.engines) {refreshNavItem(engine.id);}
     renderDetailHead();
     scheduleRouting();
+    wizard?.refresh(null, {});
   });
+
+  // ── The setup wizard ──────────────────────────────────────────────────────
+
+  function startWizard(): void {
+    const w = createSetupWizard({
+      session,
+      form,
+      ctx,
+      announce,
+      focusKey,
+      setAllowCloud,
+      onStatuses: () => opts.onStatuses(session.statusList()),
+      onStep: (step) => wizardHeader(step),
+      finish: () => done(),
+      leave,
+      openEngine: (id) => leaveWizardFor(id),
+      turnsOn: !!opts.turnOnWhenDone,
+    });
+    wizard = w;
+    root.classList.add('ai-page--wizard');
+    body.hidden = true;
+    root.insertBefore(w.element, body);
+    wizardHeader(w.step());
+  }
+
+  /** The header line for a step: "Set up AI", the step dots, Skip (Done is the last step's own button). */
+  function wizardHeader(step: AiWizardStep): void {
+    const n = wizardStepNumber(step);
+    title.textContent = 'Set up AI';
+    stepper.hidden = false;
+    stepper.replaceChildren();
+    stepper.setAttribute('role', 'img');
+    stepper.setAttribute('aria-label', `Step ${n} of ${AI_WIZARD_STEPS}`);
+    for (let i = 1; i <= AI_WIZARD_STEPS; i++) {
+      const dot = el('span', `ai-wizard-dot${i === n ? ' is-current' : i < n ? ' is-done' : ''}`);
+      stepper.append(dot);
+    }
+    stepper.append(el('span', 'ai-wizard-steps-text', `${n} of ${AI_WIZARD_STEPS}`));
+    if (titleNote) {titleNote.hidden = true;}
+    doneBtn.hidden = true;
+    skipBtn.hidden = step === 'done';
+    backBtn.setAttribute('aria-label', n === 1 ? 'Back' : 'Back to the previous step');
+  }
+
+  /** "Fine-tune in AI Engines": the full page on the wizard's engine, same session. */
+  function leaveWizardFor(engineId: string): void {
+    const w = wizard;
+    if (!w) {return;}
+    wizard = null;
+    w.dispose();
+    root.classList.remove('ai-page--wizard');
+    body.hidden = false;
+    title.textContent = 'AI Engines';
+    stepper.hidden = true;
+    if (titleNote) {titleNote.hidden = false;}
+    doneBtn.hidden = false;
+    skipBtn.hidden = true;
+    selection = getEngine(engineId) ? { kind: 'engine', id: engineId } : initialSelection();
+    view = 'detail';
+    applyLayout();
+    renderNav();
+    renderDetail();
+    if (selection.kind === 'engine') {form.opened(selection.id);}
+    if (narrow) {focusDetailTitle();} else {focusSelectedEntry();}
+  }
 
   // ── Mount ─────────────────────────────────────────────────────────────────
 
   container.replaceChildren(root);
   measure(container.getBoundingClientRect().width);
   applyLayout();
-  renderNav();
-  renderDetail();
-  if (selection.kind === 'engine') {form.opened(selection.id);}
+  // A tier-1 host routes by itself: it never sees the wizard (nor this page).
+  if (opts.initial?.section === 'wizard' && session.tier === 2) {
+    startWizard();
+  } else {
+    renderNav();
+    renderDetail();
+    if (selection.kind === 'engine') {form.opened(selection.id);}
+  }
+  if (ai.hardwareInfo) {
+    void setupHardware(ai).then((info) => { hardware = info; });
+  }
 
   // Fresh statuses as the page opens: the dots should not be stale.
   if (session.tier === 2) {
@@ -963,6 +1094,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       }
       finished = true;
       detectAbort?.abort();
+      wizard?.dispose();
       window.clearTimeout(liveTimer);
       unsubscribe?.();
       resizeObserver?.disconnect();
@@ -972,6 +1104,8 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     focus(): void {
       if (confirmDiscard) {
         focusKey('page:keep');
+      } else if (wizard) {
+        wizard.focus();
       } else if (narrow && view === 'detail') {
         focusDetailTitle();
       } else if (!narrow && selection.kind === 'routing') {

@@ -200,8 +200,12 @@ const settingsMgr = createSettingsManager({
   },
   banner: settingsBanner,
   notify: (message, opts) => dialogs.toast(message, opts),
-  // An engine deleted in the Settings modal leaves its API key in the keychain otherwise.
-  onEnginesRemoved: (ids) => { for (const id of ids) {void aiApi.setSecret(id, null).catch(() => { /* no keychain entry */ });} },
+  // An engine deleted in the Settings modal leaves its API key in the keychain
+  // and its consent answers in app data otherwise.
+  onEnginesRemoved: (ids) => {
+    for (const id of ids) {void aiApi.setSecret(id, null).catch(() => { /* no keychain entry */ });}
+    void aiApi.forgetEngineConsents(ids).catch(() => { /* nothing stored */ });
+  },
   openFile: (p) => fsApi.openInDefaultApp(p),
 });
 settings.onTreeChange((patch) => { void settingsMgr.save(patch, { silent: true, force: true }); });

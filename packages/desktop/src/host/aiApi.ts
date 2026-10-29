@@ -69,6 +69,8 @@ export interface AiApi {
   listConsents(): Promise<AiConsentRecord[]>;
   /** Forget the window folder's answer for an engine (stored and session). */
   forgetConsent(engineId: string): Promise<void>;
+  /** Engines deleted from settings: drop their answers in every folder (and the session's). */
+  forgetEngineConsents(engineIds: string[]): Promise<void>;
   /** Which local presets answer at their addresses (1.5 s each, nothing cached). */
   detectLocalServers(candidates: { presetId: string; baseUrl: string }[]): Promise<AiLocalServerProbe[]>;
   /** Memory, CPU and GPU for the setup wizard (read once by Rust, then cached). */
@@ -89,6 +91,7 @@ export const aiApi: AiApi = {
     invoke<AiConsentAnswer>('ai_request_cloud_consent', { id: engineId, feature: about?.feature ?? null, sends: about?.sends ?? null }),
   listConsents: () => invoke<AiConsentRecord[]>('ai_list_consents'),
   forgetConsent: (engineId) => invoke<void>('ai_forget_consent', { id: engineId }),
+  forgetEngineConsents: (engineIds) => invoke<void>('ai_forget_engine_consents', { ids: engineIds }),
   detectLocalServers: (candidates) => invoke<AiLocalServerProbe[]>('ai_detect_local_servers', { candidates }),
   hardwareInfo: () => invoke<AiHardwareInfo>('ai_hardware_info'),
   onToken: (requestId, handler) => listen<AiTokenEvent>(`ai-token:${aiChannelId(requestId)}`, (e) => handler(e.payload)),

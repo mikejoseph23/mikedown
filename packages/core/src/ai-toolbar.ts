@@ -11,7 +11,8 @@
  * "Use LM Studio" (one click: engine, models, default route, AI on) with
  * "Set up another way…" beside it, and one privacy line whose "Learn more"
  * opens the AI Engines page too; otherwise the primary is "Set up", which
- * opens the AI Engines page, and AI turns on only at its Done (B3). A tier-1
+ * opens the AI Engines page (on the setup wizard while there is no engine
+ * yet), and AI turns on only at its Done (B3). A tier-1
  * host routes by itself: its button is "Turn on" and lands on the AI tab.
  * With AI on, a click opens a menu of AI actions plus "Manage engines…",
  * under a Thinking row when the routed model can think.
@@ -33,19 +34,21 @@ export const AI_TURN_ON_PATCH = { 'ai.enabled': true } as const;
 
 /** Where "Set up" (or "Turn on") lands. */
 export type AiSetupTarget =
-  | { kind: 'page'; engineId?: string }
+  | { kind: 'page'; engineId: string }
+  | { kind: 'wizard' }
   | { kind: 'tab' };
 
 /**
- * "Set up": a tier-2 host opens the AI Engines page on the
- * default route's engine (its Express form), else the first engine, else the
- * quick-start cards. A tier-1 host routes by itself, so it gets the AI tab.
+ * "Set up": a tier-2 host opens the AI Engines page on the default route's
+ * engine (its Express form), else the first engine; with no engine yet, the
+ * page opens on the setup wizard (M1b). A tier-1 host routes by itself, so
+ * it gets the AI tab and never the wizard.
  */
 export function aiSetupTarget(tier: AiHostTier, settings: Pick<AiSettings, 'engines' | 'routing'>): AiSetupTarget {
   if (tier !== 2) {return { kind: 'tab' };}
   const byRoute = settings.routing.default?.engineId;
   const engineId = byRoute && settings.engines.some((e) => e.id === byRoute) ? byRoute : settings.engines[0]?.id;
-  return engineId ? { kind: 'page', engineId } : { kind: 'page' };
+  return engineId ? { kind: 'page', engineId } : { kind: 'wizard' };
 }
 
 // ── The menu (AI on) ────────────────────────────────────────────────────────

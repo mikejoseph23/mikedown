@@ -138,6 +138,19 @@ pub fn forget(base: &Path, folder: &Path, engine_id: &str) -> Result<bool, Strin
     Ok(true)
 }
 
+/// Remove every record (all folders) for engines that were deleted, so a new
+/// engine that ever gets the same id starts unasked. Returns how many went.
+pub fn forget_engines(base: &Path, engine_ids: &[String]) -> Result<usize, String> {
+    let mut records = read_all(base);
+    let before = records.len();
+    records.retain(|r| !engine_ids.iter().any(|id| *id == r.engine_id));
+    let removed = before - records.len();
+    if removed > 0 {
+        write_all(base, &records)?;
+    }
+    Ok(removed)
+}
+
 /// The folder's records, newest first.
 pub fn list(base: &Path, folder: &Path) -> Vec<ListedConsent> {
     let key = canonical_folder(folder);
@@ -250,6 +263,28 @@ mod tests {
         assert!(list(&base, &dir).is_empty());
         std::fs::remove_dir_all(base).unwrap();
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn deleting_an_engine_prunes_its_records_in_every_folder() {
+        let base = temp_dir("prune-base");
+        let a = temp_dir("prune-a");
+        let b = temp_dir("prune-b");
+        let claude = engine("claude", "https://api.anthropic.com/v1");
+        let gpt = engine("gpt", "https://api.openai.com/v1");
+        record(&base, &a, &claude, Answer::Allow).unwrap();
+        record(&base, &b, &claude, Answer::Never).unwrap();
+        record(&base, &a, &gpt, Answer::Allow).unwrap();
+        assert_eq!(forget_engines(&base, &["claude".to_string()]).unwrap(), 2);
+        assert_eq!(lookup(&base, &a, &claude), None);
+        assert_eq!(lookup(&base, &b, &claude), None);
+        assert_eq!(lookup(&base, &a, &gpt), Some(Answer::Allow), "other engines keep their answers");
+        // Nothing left to prune: no write, nothing removed.
+        assert_eq!(forget_engines(&base, &["claude".to_string()]).unwrap(), 0);
+        assert_eq!(forget_engines(&base, &[]).unwrap(), 0);
+        for dir in [base, a, b] {
+            std::fs::remove_dir_all(dir).unwrap();
+        }
     }
 
     #[test]

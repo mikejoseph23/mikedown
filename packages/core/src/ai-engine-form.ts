@@ -23,7 +23,7 @@
  */
 
 import { AI_ENGINE_KINDS, aiErrorCopy, aiProviderPolicy, isHostEngineKind, isKnownEngineKind, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
-import type { AiEngineConfig, AiEngineStatus, AiKeySource, AiLocalitySetting, AiModelConfig, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
+import type { AiEngineConfig, AiEngineStatus, AiKeySource, AiLocalitySetting, AiModelConfig, AiModelSizeTag, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
 import {
   AI_CAPABILITY_CHIPS,
   AI_ENGINE_KIND_LABELS,
@@ -41,6 +41,7 @@ import {
   enginePreset,
   expressFields,
   fetchFingerprint,
+  firstChatModelId,
   formatRequestOverrides,
   formatTokens,
   modelCountLine,
@@ -97,6 +98,13 @@ export interface EngineFormDeps {
   focusKey(key: string): void;
   /** Open an external link through the host (the provider's policy, its key page). Absent: a plain anchor. */
   openLink?: (href: string) => void;
+  /** A note to show right above the API key row (the setup wizard's subscription note), or null. */
+  keyNote?(engine: AiEngineConfig, preset: EngineFormPreset): HTMLElement | null;
+  /**
+   * How a local model's size suits this machine (`modelSizeHint`), when the
+   * host reported its hardware. The picker then groups local models by it.
+   */
+  modelSize?(modelId: string): AiModelSizeTag | undefined;
 }
 
 export interface EngineFormController {
@@ -118,6 +126,20 @@ export interface EngineFormController {
 
 /** More models than this and the picker gets a filter field. */
 const FILTER_THRESHOLD = 8;
+
+/** The picker's groups for local models when the host reported its hardware; `undefined` is a model whose id names no size. */
+const SIZE_GROUPS: ReadonlyArray<{ tag: AiModelSizeTag | undefined; title: string }> = [
+  { tag: 'fits', title: 'Runs well on this machine' },
+  { tag: 'tight', title: 'A tight fit' },
+  { tag: 'too large', title: 'Likely too large for this machine' },
+  { tag: undefined, title: 'Size not in the name' },
+];
+
+const SIZE_TITLES: Readonly<Record<AiModelSizeTag, string>> = {
+  fits: 'Its size should run well in this machine’s memory (a 4-bit estimate).',
+  tight: 'Near the limit of this machine’s memory: it may run slowly.',
+  'too large': 'Probably more than this machine’s memory holds. You can still pick it.',
+};
 
 const LOCALITY_LABELS: Record<Exclude<AiLocalitySetting, 'auto'>, string> = {
   local: 'Local',
@@ -273,9 +295,10 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         let draft = withEngine(deps.getDraft(), applyDiscoveryForFamily(current, status, preset.family));
         const merged = draft.engines.find((e) => e.id === id) ?? current;
         let picked: string | null = null;
-        // OPEN-12: key = done. The first fetch with nothing picked picks the usual default.
-        if (preset.family === 'cloud' && !hadPick) {
-          picked = autoPickDefault(preset, merged.models);
+        // OPEN-12: key = done. The first fetch with nothing picked picks the usual default
+        // (Copilot's models arrive unpicked too, and have no Popular rules: the host's first).
+        if ((preset.family === 'cloud' || preset.family === 'host') && !hadPick) {
+          picked = autoPickDefault(preset, merged.models) ?? (preset.family === 'host' ? firstChatModelId(merged.models) : null);
           if (picked) {draft = setEngineDefaultModel(draft, id, picked);}
         }
         // The first engine that can chat becomes the default route, so it works without a trip to the star.
@@ -424,6 +447,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     // Cloud (and Copilot, which is cloud too): what happens to the text, folded at the head of the form.
     if (preset.family === 'cloud' || preset.family === 'host') {
       wrap.append(privacyCard({ policy: aiProviderPolicy(engine) }, {
+        hostEngine: preset.family === 'host',
         collapsed: 'What is sent',
         open: privacyOpen.has(id),
         onToggle: (open) => { if (open) {privacyOpen.add(id);} else {privacyOpen.delete(id);} },
@@ -435,7 +459,12 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     const sheet = el('div', 'ai-sheet');
     for (const field of fields.express) {
       const row = buildExpressField(engine, preset, field);
-      if (row) {sheet.append(row);}
+      if (!row) {continue;}
+      if (field === 'key') {
+        const keyNote = deps.keyNote?.(engine, preset);
+        if (keyNote) {sheet.append(keyNote);}
+      }
+      sheet.append(row);
     }
     wrap.append(sheet, buildActions(engine), ...buildAdvanced(engine, preset, fields.advanced));
     return wrap;
@@ -644,6 +673,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     const listed = engine.models.filter((m) => !m.missing).length;
     const showInput = engine.models.length > FILTER_THRESHOLD || engine.models.length === 0 || typeOpen.has(id) || !!pickerFilter.get(id);
     const popularIds = preset.family === 'cloud' ? popularModels(preset, engine.models).map((m) => m.id) : [];
+    // Local models by how they suit this machine, when the host said what it is (a hint, never a gate).
+    const sizeOf = preset.family === 'local' && deps.modelSize ? (modelId: string) => deps.modelSize?.(modelId) : null;
 
     // Combobox: filter, pick or type (design call 6).
     let input: HTMLInputElement | null = null;
@@ -705,7 +736,12 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       const all = modelPickerOptions(current, deps.statuses.get(id), filter);
       const popular = all.filter((o) => popularIds.includes(o.id)).sort((a, b) => popularIds.indexOf(a.id) - popularIds.indexOf(b.id));
       const rest = all.filter((o) => !popularIds.includes(o.id));
-      options = [...popular, ...rest];
+      const sizes = sizeOf ? new Map(rest.map((o) => [o.id, sizeOf(o.id)])) : null;
+      const sized = !!sizes && [...sizes.values()].some((t) => t !== undefined);
+      const bySize = (tag: AiModelSizeTag | undefined) => rest.filter((o) => sizes?.get(o.id) === tag);
+      options = sized
+        ? [...SIZE_GROUPS.flatMap((g) => bySize(g.tag))]
+        : [...popular, ...rest];
       list.replaceChildren();
       let index = 0;
       const group = (title: string, items: ModelPickerOption[]) => {
@@ -721,7 +757,9 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         g.append(heading, ul);
         list.append(g);
       };
-      if (popular.length > 0) {
+      if (sized) {
+        for (const g of SIZE_GROUPS) {group(g.title, bySize(g.tag));}
+      } else if (popular.length > 0) {
         group('Popular', popular);
         group('All models', rest);
       } else {
@@ -769,6 +807,12 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         tags.append(t);
       }
       if (o.manual) {tags.append(el('span', 'ai-tag', 'typed in'));}
+      const size = sizeOf?.(o.id);
+      if (size) {
+        const t = el('span', `ai-tag ai-tag--size ai-tag--${size.replace(' ', '-')}`, size);
+        t.title = SIZE_TITLES[size];
+        tags.append(t);
+      }
       if (tags.childElementCount > 0) {li.append(tags);}
       // Keep focus in the field while clicking a row.
       li.addEventListener('mousedown', (e) => e.preventDefault());

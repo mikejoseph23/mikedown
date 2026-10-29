@@ -7,11 +7,18 @@
  * nothing here runs in the background or caches a result. The one-click
  * setup adds the preset's engine, fetches its models, makes the first chat
  * model the default route and returns one patch with engines, routing and
- * `ai.enabled`, for the caller to save. No DOM.
+ * `ai.enabled`, for the caller to save.
+ *
+ * The setup wizard's scan (`scanForSetup`) adds the hardware and VS Code's
+ * Copilot models to a detection and asks `recommendSetupPath` which path to
+ * lead with. The hardware is read once per host (it does not change); the
+ * last scan is kept for the editor session, so the wizard opened from the
+ * first-run panel lays out at once and freshens when its own scan lands.
+ * No DOM.
  */
 
-import { AI_ENGINE_PRESETS, AI_LOCAL_DETECT_TIMEOUT_MS, localDetectCandidates, toAiError } from './ai';
-import type { AiEngineConfig, AiLocalServerProbe, AiRoute, AiSettings, AiSettingsPatch, MikeDownAiHost } from './ai';
+import { AI_ENGINE_PRESETS, AI_LOCAL_DETECT_TIMEOUT_MS, localDetectCandidates, recommendSetupPath, toAiError, vscodeLmAvailability } from './ai';
+import type { AiEngineConfig, AiHardwareInfo, AiLocalServerProbe, AiRoute, AiSettings, AiSettingsPatch, AiSetupRecommendation, MikeDownAiHost } from './ai';
 import { applyDiscoveryForFamily, defaultRouteForEngine, engineFromPreset, rankLocalCandidates, withEngine, type LocalServerCard } from './ai-settings-model';
 import { createAiSettingsSession, type AiSettingsSessionOptions } from './ai-settings-session';
 
@@ -105,4 +112,81 @@ export async function setUpLocalEngine(options: AiSettingsSessionOptions, preset
   const patch: AiSettingsPatch = { ...session.collect(), 'ai.enabled': true };
   const settings = { ...session.commit(), enabled: true };
   return { patch, settings, engineId: engine.id, route };
+}
+
+// ── The setup wizard's scan ─────────────────────────────────────────────────
+
+/** What the wizard knows about this machine when it lays out its first step. */
+export interface AiSetupScan {
+  recommendation: AiSetupRecommendation;
+  /** Every local candidate as detection found it; null when the host cannot look, or the look failed. */
+  probes: AiLocalServerProbe[] | null;
+  hardware: AiHardwareInfo | null;
+  /** VS Code's Copilot models (`vscodeLmAvailability`); null on a host without them. */
+  vscodeLm: { available: boolean; models: number } | null;
+}
+
+/** How long the wizard waits for VS Code to list its Copilot models. */
+const HOST_ENGINES_TIMEOUT_MS = 3000;
+
+const hardwareByHost = new WeakMap<MikeDownAiHost, Promise<AiHardwareInfo | null>>();
+const scanByHost = new WeakMap<MikeDownAiHost, AiSetupScan>();
+
+/** True when the host can tell the wizard anything (servers, hardware or Copilot); otherwise the scan is instant. */
+export function canScanForSetup(ai: MikeDownAiHost): boolean {
+  return !!(ai.detectLocalServers || ai.hardwareInfo || ai.detectHostEngines);
+}
+
+/** This machine's hardware, asked once per host (it does not change); null when the host cannot tell. */
+export function setupHardware(ai: MikeDownAiHost): Promise<AiHardwareInfo | null> {
+  let info = hardwareByHost.get(ai);
+  if (!info) {
+    info = ai.hardwareInfo
+      ? ai.hardwareInfo().then((h) => (h && typeof h === 'object' ? h : null), () => null)
+      : Promise.resolve(null);
+    hardwareByHost.set(ai, info);
+  }
+  return info;
+}
+
+/** Whether VS Code offers a Copilot model; null on a host without the method, or when it did not answer in time. */
+export async function hostEngineAvailability(ai: MikeDownAiHost, signal?: AbortSignal): Promise<{ available: boolean; models: number } | null> {
+  if (!ai.detectHostEngines || signal?.aborted) {return null;}
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), HOST_ENGINES_TIMEOUT_MS); });
+  try {
+    const probes = await Promise.race([ai.detectHostEngines(), timeout]);
+    return probes && Array.isArray(probes) && !signal?.aborted ? vscodeLmAvailability(probes) : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** The last scan in this editor session, if any (the wizard lays out from it while a fresh one runs). */
+export function lastSetupScan(ai: MikeDownAiHost): AiSetupScan | null {
+  return scanByHost.get(ai) ?? null;
+}
+
+/** The recommendation from what is known without asking the host anything (no servers, no hardware). */
+export function plainSetupScan(): AiSetupScan {
+  return { recommendation: recommendSetupPath({ running: [], hardware: null }), probes: null, hardware: null, vscodeLm: null };
+}
+
+/**
+ * Look for local servers (unless `probes` is given: the first-run panel
+ * already looked), read the hardware (cached) and ask for Copilot's models,
+ * then recommend a path. Kept as the session's last scan.
+ */
+export async function scanForSetup(ai: MikeDownAiHost, signal?: AbortSignal, probes?: AiLocalServerProbe[] | null): Promise<AiSetupScan> {
+  const [found, hardware, vscodeLm] = await Promise.all([
+    probes !== undefined ? Promise.resolve(probes) : detectLocalServers(ai, signal),
+    setupHardware(ai),
+    hostEngineAvailability(ai, signal),
+  ]);
+  const recommendation = recommendSetupPath({ running: found ?? [], hardware, ...(vscodeLm ? { vscodeLm } : {}) });
+  const scan: AiSetupScan = { recommendation, probes: found, hardware, vscodeLm };
+  if (!signal?.aborted) {scanByHost.set(ai, scan);}
+  return scan;
 }

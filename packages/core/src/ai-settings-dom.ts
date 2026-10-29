@@ -8,7 +8,7 @@
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
-import { AI_CLOUD_PRIVACY } from './ai';
+import { AI_CLOUD_PRIVACY, AI_HOST_PRIVACY, aiConsentStepNote } from './ai';
 import type { AiEngineConfig, AiEngineStatus, AiProviderPolicy, AiSettings } from './ai';
 import { engineLocalityInfo } from './ai-settings-model';
 
@@ -42,9 +42,10 @@ const KIND_MONOGRAMS: Record<string, string> = {
   ollama: 'Ol',
   anthropic: 'An',
   openai: 'OA',
+  'vscode-lm': 'Co',
 };
 
-const KNOWN_KINDS = new Set(['openai-compatible', 'lmstudio', 'ollama', 'anthropic', 'openai']);
+const KNOWN_KINDS = new Set(['openai-compatible', 'lmstudio', 'ollama', 'anthropic', 'openai', 'vscode-lm']);
 
 /** The kind tile (a rounded square like an extension icon). */
 export function kindGlyphHtml(kind: string, extra = ''): string {
@@ -90,6 +91,12 @@ export interface PrivacyCardOptions {
   onToggle?(open: boolean): void;
   /** One more line under the policy links (the AI tab's consent line). */
   extra?: string;
+  /**
+   * An engine built into the host (VS Code's Copilot models): its own lines
+   * (no API key; the text goes to GitHub's Copilot service under the user's
+   * plan) instead of the cloud API ones.
+   */
+  hostEngine?: boolean;
   className?: string;
 }
 
@@ -132,14 +139,18 @@ export function privacyCard(
 
   const body = el('div', 'ai-privacy-body');
   const lines = el('ul', 'ai-privacy-lines');
-  for (const text of [AI_CLOUD_PRIVACY.leaves, AI_CLOUD_PRIVACY.terms, AI_CLOUD_PRIVACY.local, AI_CLOUD_PRIVACY.keys]) {
+  const texts = opts.hostEngine
+    ? [AI_HOST_PRIVACY.leaves, AI_HOST_PRIVACY.terms, AI_HOST_PRIVACY.permission, AI_HOST_PRIVACY.local]
+    : [AI_CLOUD_PRIVACY.leaves, AI_CLOUD_PRIVACY.terms, AI_CLOUD_PRIVACY.local, AI_CLOUD_PRIVACY.keys];
+  for (const text of texts) {
     lines.append(el('li', '', text));
   }
   body.append(lines);
   for (const policy of policies) {
     const line = el('p', 'ai-privacy-policy');
     line.append(policyLink(policy, opts.openLink));
-    if (policy.note) {line.append(el('span', 'ai-privacy-policy-note', ` ${policy.note}`));}
+    // The host lines already say what the Copilot note says.
+    if (policy.note && !opts.hostEngine) {line.append(el('span', 'ai-privacy-policy-note', ` ${policy.note}`));}
     body.append(line);
   }
   if (opts.extra) {body.append(el('p', 'ai-privacy-extra', opts.extra));}
@@ -158,9 +169,56 @@ export function privacyCard(
   }
   const card = el('div', className);
   const head = el('div', 'ai-privacy-head');
-  head.append(glyph, el('span', '', 'Cloud engines and your text'));
+  head.append(glyph, el('span', '', opts.hostEngine ? 'GitHub Copilot and your text' : 'Cloud engines and your text'));
   card.append(head, body);
   return card;
+}
+
+export interface CloudAccessOptions {
+  /** Allow cloud engines, as the draft has it now. */
+  allowed: boolean;
+  onChange(allowed: boolean): void;
+  /** The presets whose policy links the folded privacy card lists. */
+  presets: readonly PrivacyPolicySource[];
+  /** The host asks before a cloud engine's first request (`requestCloudConsent`). */
+  hostAsks: boolean;
+  /** Start the "What this means" fold open, and hear when it opens or closes (to keep it across rebuilds). */
+  open?: boolean;
+  onToggle?(open: boolean): void;
+  openLink?: (href: string) => void;
+  /** `data-fk` of the switch. */
+  fk: string;
+}
+
+/**
+ * **Allow cloud engines** where a cloud engine is added (F4, OQ5): the
+ * switch, one line on what it means, and the privacy card folded under
+ * "What this means" with the consent-step sentence (`aiConsentStepNote`).
+ * The AI Engines page's cloud cards and the setup wizard share it.
+ */
+export function cloudAccessBox(o: CloudAccessOptions): HTMLElement {
+  const box = el('div', 'ai-cloud-access');
+  const row = el('div', 'ai-cloud-access-row');
+  const toggle = switchInput(o.allowed, 'Allow cloud engines', o.fk);
+  toggle.id = nextId('ai-allow-cloud');
+  const label = el('label', 'ai-cloud-access-label', 'Allow cloud engines');
+  label.htmlFor = toggle.id;
+  const line = el('span', 'ai-cloud-access-line', 'Text you ask about is sent to the provider over the internet.');
+  line.id = nextId('ai-allow-cloud-line');
+  toggle.setAttribute('aria-describedby', line.id);
+  toggle.addEventListener('change', () => o.onChange(toggle.checked));
+  const text = el('div', 'ai-cloud-access-text');
+  text.append(label, line);
+  row.append(toggle, text);
+  box.append(row, privacyCard(o.presets, {
+    collapsed: 'What this means',
+    open: o.open,
+    onToggle: (open) => o.onToggle?.(open),
+    openLink: o.openLink,
+    extra: aiConsentStepNote(o.hostAsks),
+    className: 'ai-cloud-access-privacy',
+  }));
+  return box;
 }
 
 /**

@@ -2519,8 +2519,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   /**
-   * The first-run panel's "Set up": the AI Engines page, which turns AI on at
-   * Done once something can be routed (Back leaves it off, B3). A tier-1 host
+   * The first-run panel's "Set up": the AI Engines page (on the setup wizard
+   * while there is no engine), which turns AI on at Done once something can
+   * be routed (Back leaves it off, B3). A tier-1 host
    * routes by itself, so "Turn on" saves `ai.enabled` and opens the AI tab.
    */
   function turnOnAiAndSetUp(): void {
@@ -2528,8 +2529,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const ui = aiUi;
     if (!ai || !ui || destroyed) {return;}
     const target = ui.aiSetupTarget(aiHostTier(ai), currentAiSettings);
-    if (target.kind === 'page') {
-      showAiEnginesPage({ ...(target.engineId ? { initial: { engineId: target.engineId } } : {}), turnOnWhenDone: true });
+    if (target.kind !== 'tab') {
+      showAiEnginesPage({ initial: target.kind === 'page' ? { engineId: target.engineId } : { section: 'wizard' }, turnOnWhenDone: true });
       return;
     }
     host.saveSettings?.({ ...ui.AI_TURN_ON_PATCH });
@@ -2546,6 +2547,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const ui = aiUi;
     if (!ai || !ui) {return { kind: 'quiet' };}
     const probes = await ui.detectLocalServers(ai, signal);
+    // The wizard's recommendation, freshened as the panel opens (it reuses these probes).
+    void ui.scanForSetup(ai, signal, probes);
     if (!probes) {return { kind: 'quiet' };}
     const best = ui.bestLocalServer(probes, currentAiSettings.engines);
     if (best) {
@@ -4251,8 +4254,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function aiPendingBadgeTitle(ui: AiUi, by: AiServedBy, label: string, about?: { feature?: string; sends?: AiSendsScope }): string {
     if (by.isLocal) {return `Sending to ${label}.`;}
     const engine = currentAiSettings.engines.find((e) => e.id === by.engineId);
-    const host = engine ? ui.hostOfUrl(engine.baseUrl) ?? engine.baseUrl : null;
-    return `Sending to ${label}${host ? ` at ${host}` : ''}. Sends ${ui.whatIsSent(about?.feature, about?.sends)}.`;
+    // "GitHub Copilot" for a Copilot engine (no address), whose label already starts with it.
+    const host = engine ? ui.aiConsentHost(engine) : null;
+    const where = !host || label.startsWith(host) ? '' : engine && ui.isHostEngineKind(engine.kind) ? ` through ${host}` : ` at ${host}`;
+    return `Sending to ${label}${where}. Sends ${ui.whatIsSent(about?.feature, about?.sends)}.`;
   }
 
   /** The whole body (frontmatter left out and untouched) as a rewrite target. */

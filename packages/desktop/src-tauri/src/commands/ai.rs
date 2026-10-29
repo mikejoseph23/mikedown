@@ -26,6 +26,8 @@
 //!   `never` or `notNow`.
 //! - `ai_list_consents()` and `ai_forget_consent(id)`: the window folder's
 //!   stored answers, for the Cloud consents list on the AI tab.
+//! - `ai_forget_engine_consents(ids)`: engines deleted from settings lose
+//!   their answers in every folder (and this session's).
 //! - `ai_detect_local_servers(candidates)`: which local presets answer at
 //!   their addresses, for the setup UI (`detect.rs`). Only when asked.
 //! - `ai_hardware_info()`: memory, CPU and GPU for the setup wizard's local
@@ -607,6 +609,20 @@ pub async fn ai_forget_consent<R: Runtime>(
         let _io = state.consent_io.lock().unwrap();
         consent_store::forget(&base, &folder, &id).map_err(AiError::unknown)?;
     }
+    Ok(())
+}
+
+/// Engines left `ai.engines`: drop their answers in every folder and in this
+/// session, so an engine added later under the same id is asked again.
+#[tauri::command]
+pub async fn ai_forget_engine_consents<R: Runtime>(app: AppHandle<R>, state: State<'_, AiState>, ids: Vec<String>) -> Result<(), AiError> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+    state.consent.lock().unwrap().retain(|(_, engine_id), _| !ids.contains(engine_id));
+    let base = data_dir(&app)?;
+    let _io = state.consent_io.lock().unwrap();
+    consent_store::forget_engines(&base, &ids).map_err(AiError::unknown)?;
     Ok(())
 }
 

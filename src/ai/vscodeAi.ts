@@ -35,8 +35,9 @@ export async function askCloudConsent(engine: AiEngineConfig, feature: string | 
   const policy = aiProviderPolicy(engine);
   const text = aiConsentText({
     engineName: engine.name || engine.id,
-    // "GitHub Copilot" for a vscode-lm engine, which has no address.
+    // "GitHub Copilot" for a vscode-lm engine, which has no address; the kind words the body for it.
     host: aiConsentHost(engine),
+    kind: engine.kind,
     feature,
     sends,
     scopeWord: 'workspace',

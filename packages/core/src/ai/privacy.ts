@@ -26,6 +26,19 @@ export const AI_CLOUD_PRIVACY = {
 } as const;
 
 /**
+ * The privacy card's lines for an engine built into the host (VS Code's
+ * Copilot models, `vscode-lm`): no API key, and the text goes through the
+ * host to GitHub's Copilot service under the user's Copilot plan. No claim
+ * about how a plan handles it; the policy link says.
+ */
+export const AI_HOST_PRIVACY = {
+  leaves: 'Text you ask about goes through VS Code to GitHub’s Copilot service and is processed on GitHub’s servers, under your Copilot plan.',
+  terms: 'Whether it is retained or used for training is set by your plan’s terms, which differ between individual and business plans and may change; read them before you decide.',
+  local: AI_CLOUD_PRIVACY.local,
+  permission: 'VS Code also asks for its own permission the first time MikeDown uses Copilot.',
+} as const;
+
+/**
  * The sentence about the consent step, for the cloud privacy card: whether
  * the host asks before a cloud engine's first request (`hostAsks`: it has
  * `requestCloudConsent`) or sends without asking.
@@ -92,6 +105,8 @@ export type AiConsentScopeWord = 'workspace' | 'folder' | 'session';
 
 export interface AiConsentTextInput {
   engineName: string;
+  /** The engine's kind; a host kind (`vscode-lm`) reads as a service built into VS Code, not an address. */
+  kind?: string;
   /** The engine's host ("api.anthropic.com"), or its base URL when it has none. */
   host: string;
   feature?: string;
@@ -115,11 +130,19 @@ export interface AiConsentText {
 /** The consent dialog's words, the single source for both hosts. */
 export function aiConsentText(input: AiConsentTextInput): AiConsentText {
   const { engineName: name, host, scopeWord, policy } = input;
-  const paragraphs = [
-    `${name} is a cloud engine at ${host}. If you allow it, this request sends ${whatIsSent(input.feature, input.sends)}. ` +
-      `It goes over the internet to ${host} and is processed on the provider's servers.`,
-    policy?.note ? `${AI_CLOUD_PRIVACY.terms} ${policy.note}` : AI_CLOUD_PRIVACY.terms,
-  ];
+  const sends = whatIsSent(input.feature, input.sends);
+  // A host kind has no address: "GitHub Copilot is a cloud engine at GitHub Copilot" would read oddly.
+  const paragraphs = input.kind && isHostEngineKind(input.kind)
+    ? [
+      `${name === host ? name : `${name} (${host})`} is a cloud service built into VS Code. If you allow it, this request sends ${sends}. ` +
+        `It goes through VS Code over the internet to ${host} and is processed on its servers. ${AI_HOST_PRIVACY.permission}`,
+      AI_HOST_PRIVACY.terms,
+    ]
+    : [
+      `${name} is a cloud engine at ${host}. If you allow it, this request sends ${sends}. ` +
+        `It goes over the internet to ${host} and is processed on the provider's servers.`,
+      policy?.note ? `${AI_CLOUD_PRIVACY.terms} ${policy.note}` : AI_CLOUD_PRIVACY.terms,
+    ];
   if (policy) {paragraphs.push(`${policy.label}: ${policy.url}`);}
   paragraphs.push(`You can use a local engine instead. Allowing is remembered for this ${scopeWord}.`);
   return {

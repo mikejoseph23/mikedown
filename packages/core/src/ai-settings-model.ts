@@ -891,6 +891,15 @@ export function autoPickDefault(
 }
 
 /**
+ * The model to pick after a host engine's first fetch (VS Code's Copilot
+ * models, which have no Popular rules): the first listed chat model, in the
+ * host's own order. Null when none can chat.
+ */
+export function firstChatModelId(models: readonly AiModelConfig[]): string | null {
+  return models.find((m) => !m.missing && m.capabilities.chat)?.id ?? null;
+}
+
+/**
  * The engine's Default model: the default route's model when this is the
  * default engine, else its first enabled model that is still listed (which
  * is what the star picks). Null when nothing is enabled.
