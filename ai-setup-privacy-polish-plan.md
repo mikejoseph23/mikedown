@@ -607,4 +607,4 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [ ] E2 Engines page intro "Nothing is sent until AI is on" is stale once AI is on.
 - [ ] E3 Cloud cards don't show "Added" for an engine already added (OpenAI), unlike local cards' status.
 - [ ] E4 Adding a second cloud provider from the Engines page (full form) skips the subscription vs API key note and the Pricing link; show the same note as the wizard.
-- [ ] E5 After adding Anthropic it showed ★ Default; confirm whether adding a second engine takes over the default by itself (bug if so).
+- [x] E5 Not a bug: Mike clicked Use by default on Anthropic.
