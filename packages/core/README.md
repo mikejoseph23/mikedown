@@ -199,6 +199,12 @@ createMikeDownEditor(el, { host: { onChange, ai, saveSettings /* persists the ai
 
 The wrappers pass `host.ai` through untouched: `host={{ ai }}` in React, `:host` in Vue, the `[ai]` input in Angular, and the `ai` property (properties only, no attribute) on `<mikedown-editor>`. Wrapper docs list the exact binding. The [developers hub](https://www.iadev.net/mikedown/developers/#byo-ai) has a live demo with a stub host that streams canned text.
 
+### Feature ids and request overrides
+
+Each AI feature has an id, and `host.ai` receives requests tagged with it. `rewrite` covers the rewrite popover, Explain and Translate; `summary` covers `/summary` and Summarize document; `title` covers `/title` and Suggest titles; `frontmatter` covers Properties Suggest (tags, title, description); `altText` covers image alt text. The full list is in `packages/core/src/ai/features.ts`. Use the id to route or log a feature, or to turn one off in your own UI.
+
+`AiCompletionRequest.requestOverrides` is a set of extra request body fields (for example `reasoning_effort` or `chat_template_kwargs`). Core fills it when the user changes the thinking dial in the rewrite popover, and merges it over the model's configured overrides, so the request wins. Hosts that do not support per-request fields can ignore it.
+
 ## Features
 
 Switch UI blocks with `options.features`. Defaults shown.

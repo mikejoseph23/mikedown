@@ -141,6 +141,10 @@ Insert one from the toolbar **Lists & Blocks** dropdown (or right-click → **Ca
 
 Type `/toc`, choose **Insert > Table of Contents**, or type `[toc]` on its own line and press Enter. MikeDown adds a linked list of your headings between `<!-- toc -->` markers, so it renders on GitHub too, and keeps it up to date as you add, rename or remove headings. Prefer a `[toc]` placeholder line instead? Set `mikedown.tocStyle` to `placeholder`.
 
+### AI Writing Help *(experimental, off by default)*
+
+Turn on **AI features** (`mikedown.ai.enabled`) and pick an engine in the AI tab of the Settings modal. Then rewrite the selection to be shorter, longer or expanded, simpler, more formal or more casual, at a chosen reading level, or translate it into another language (or the whole document). Explain a selection in plain words, summarize the document with `/summary` (a TL;DR callout or an outline), or get three title ideas with `/title`. The Properties panel can suggest tags, a title and a description. Each AI edit is one undo step, and a warning appears when a tone or translation rewrite could change the document's structure.
+
 ### Link Navigation and Autocomplete
 
 - **Cmd+Click** (or Ctrl+Click) to follow links to files, headings, or URLs

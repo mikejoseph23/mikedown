@@ -391,6 +391,37 @@
             "accelerator": "CmdOrCtrl+;"
           }
         ]
+      },
+      {
+        "kind": "submenu",
+        "label": "AI",
+        "items": [
+          {
+            "kind": "item",
+            "id": "aiExplain",
+            "label": "Explain…"
+          },
+          {
+            "kind": "item",
+            "id": "aiTranslate",
+            "label": "Translate…"
+          },
+          {
+            "kind": "item",
+            "id": "aiSummarize",
+            "label": "Summarize Document…"
+          },
+          {
+            "kind": "item",
+            "id": "aiSuggestTitle",
+            "label": "Suggest Titles…"
+          },
+          {
+            "kind": "item",
+            "id": "aiSuggestProperties",
+            "label": "Suggest Properties…"
+          }
+        ]
       }
     ]
   },

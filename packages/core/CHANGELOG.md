@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- New prompt modules under `ai/prompts/` (`rewrite`, `explain`, `structureCheck`, `summary`, `title`, `properties`) for the AI writing features.
+- `ai/json.ts` parses model JSON leniently and makes one repair retry before reporting `badOutput`. `ai/documentBudget.ts` takes sections from the top of a long document and reports the coverage. `ai-prefs.ts` stores the per-session AI preferences.
+- `AiCompletionRequest.requestOverrides` carries per-request body fields (for example `reasoning_effort`). Hosts merge them over the model's configured overrides, so the request wins. Tier 1 hosts may ignore them.
+- The `summarize` and `structure` tasks now require chat only; `json` and `context` are preferences for them. There is a new `title` feature id, and a `badOutput` error code.
+- The rewrite popover gained modes for insert and choose, used by the summary and title commands.
+
 ## 0.2.0
 
 - `bindMikeDownValue` (`@mikedown/core/binding`): the framework-neutral value binding the React, Vue, Angular and web component wrappers are built on (pristine writes, debounced change, flush on blur, read-only, disabled and touched state).

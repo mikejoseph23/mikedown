@@ -58,6 +58,7 @@ export const EDITOR_COMMANDS = [
   'undo', 'redo', 'pasteWithoutFormatting', 'openFind', 'openFindReplace',
   'zoomIn', 'zoomOut', 'zoomReset',
   'aiRewrite',
+  'aiExplain', 'aiTranslate', 'aiSummarize', 'aiSuggestTitle', 'aiSuggestProperties',
 ] as const satisfies readonly MikeDownCommand[];
 
 export type EditorCommand = typeof EDITOR_COMMANDS[number];
@@ -168,6 +169,12 @@ export const COMMANDS: readonly ShortcutRow[] = [
   // Core binds the chord only when the host does not own shortcuts; no menu
   // item (AI is off by default), and a no-op without AI.
   editor('aiRewrite', 'Rewrite with AI', 'CmdOrCtrl+Alt+K', 'editor', 'app', { keyOnly: true }),
+  // AI menu (Format > AI): key-free, no-ops without AI. Rewrite stays keystroke-only.
+  editor('aiExplain', 'Explain…', undefined, 'editor'),
+  editor('aiTranslate', 'Translate…', undefined, 'editor'),
+  editor('aiSummarize', 'Summarize Document…', undefined, 'always'),
+  editor('aiSuggestTitle', 'Suggest Titles…', undefined, 'always'),
+  editor('aiSuggestProperties', 'Suggest Properties…', undefined, 'always'),
 
   // ── View ────────────────────────────────────────────────────────────────
   { command: 'toggleSidebar', accelerator: 'CmdOrCtrl+B', label: 'Toggle Sidebar', outsideEditor: true, hideAccelerator: true },

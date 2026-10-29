@@ -90,6 +90,7 @@ export function buildMenuSpec(isMac: boolean, opts: MenuSpecOptions = {}): MenuN
         items: [i('paragraph'), i('heading1'), i('heading2'), i('heading3'), i('heading4'), i('heading5'), i('heading6')],
       },
       { kind: 'submenu', label: 'Insert', items: [i('insertTable'), i('insertLink'), i('insertImage'), i('openEmojiPicker')] },
+      { kind: 'submenu', label: 'AI', items: [i('aiExplain'), i('aiTranslate'), i('aiSummarize'), i('aiSuggestTitle'), i('aiSuggestProperties')] },
     ],
   };
 

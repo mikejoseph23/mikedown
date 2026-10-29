@@ -160,6 +160,26 @@
         "title": "MikeDown: Rewrite Selection with AI"
       },
       {
+        "command": "mikedown.ai.explain",
+        "title": "MikeDown: Explain Selection with AI"
+      },
+      {
+        "command": "mikedown.ai.translate",
+        "title": "MikeDown: Translate with AI"
+      },
+      {
+        "command": "mikedown.ai.summarize",
+        "title": "MikeDown: Summarize Document with AI"
+      },
+      {
+        "command": "mikedown.ai.suggestTitle",
+        "title": "MikeDown: Suggest Titles with AI"
+      },
+      {
+        "command": "mikedown.ai.suggestProperties",
+        "title": "MikeDown: Suggest Properties with AI"
+      },
+      {
         "command": "mikedown.dev.resetSupportPrompt",
         "title": "MikeDown (Dev): Reset Support Prompt State"
       }
@@ -202,6 +222,26 @@
         },
         {
           "command": "mikedown.ai.rewrite",
+          "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
+        },
+        {
+          "command": "mikedown.ai.explain",
+          "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
+        },
+        {
+          "command": "mikedown.ai.translate",
+          "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
+        },
+        {
+          "command": "mikedown.ai.summarize",
+          "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
+        },
+        {
+          "command": "mikedown.ai.suggestTitle",
+          "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
+        },
+        {
+          "command": "mikedown.ai.suggestProperties",
           "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
         },
         {

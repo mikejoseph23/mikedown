@@ -466,6 +466,22 @@ function registerAi(context: vscode.ExtensionContext): void {
         void panel.webview.postMessage({ type: 'command', command: 'aiRewrite' });
       }
     }),
+    // The other AI commands forward the same way; each opens its popover in the webview.
+    vscode.commands.registerCommand('mikedown.ai.explain', () => {
+      MarkdownEditorProvider.activePanel?.webview.postMessage({ type: 'command', command: 'aiExplain' });
+    }),
+    vscode.commands.registerCommand('mikedown.ai.translate', () => {
+      MarkdownEditorProvider.activePanel?.webview.postMessage({ type: 'command', command: 'aiTranslate' });
+    }),
+    vscode.commands.registerCommand('mikedown.ai.summarize', () => {
+      MarkdownEditorProvider.activePanel?.webview.postMessage({ type: 'command', command: 'aiSummarize' });
+    }),
+    vscode.commands.registerCommand('mikedown.ai.suggestTitle', () => {
+      MarkdownEditorProvider.activePanel?.webview.postMessage({ type: 'command', command: 'aiSuggestTitle' });
+    }),
+    vscode.commands.registerCommand('mikedown.ai.suggestProperties', () => {
+      MarkdownEditorProvider.activePanel?.webview.postMessage({ type: 'command', command: 'aiSuggestProperties' });
+    }),
     vscode.commands.registerCommand('mikedown.ai.testAllEngines', async () => {
       output.show(true);
       await vscode.window.withProgress(
