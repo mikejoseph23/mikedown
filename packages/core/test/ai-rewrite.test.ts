@@ -20,6 +20,7 @@ import {
 } from '../src/ai/prompts/rewrite';
 import { aiFeatureAvailability, runAiCompletion, type AiRunContext } from '../src/ai-request';
 import { buildTextMenu, type ContextMenuActions, type ContextMenuSubmenu } from '../src/contextmenu';
+import { aiRewriteMenuGroups } from '../src/ai-rewrite';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
 stubLayoutMeasurement();
@@ -266,17 +267,21 @@ describe('context menu entry', () => {
     const editor = { state: { selection: { empty: false } } } as never;
     const base: ContextMenuActions = { showLinkDialog() {}, showImageDialog() {}, showEmojiPicker() {}, showLanguagePicker() {}, openLink() {} };
     const run = vi.fn();
-    const on = buildTextMenu(editor, { ...base, aiRewrite: () => ({ enabled: true, run }) });
+    const groups = aiRewriteMenuGroups();
+    const on = buildTextMenu(editor, { ...base, aiRewrite: () => ({ enabled: true, groups, run }) });
     const sub = on[0] as ContextMenuSubmenu;
     expect(sub.label).toBe('Rewrite');
-    expect(sub.items.map((i) => ('label' in i ? i.label : '-'))).toEqual(AI_REWRITE_VARIANTS.map((v) => v.label));
-    (sub.items[AI_REWRITE_VARIANTS.findIndex((v) => v.id === 'fixFlow')] as { action(): void }).action();
+    // Every variant once, in menu order, with a separator between groups.
+    const items = sub.items.filter((i) => 'label' in i);
+    expect(items.map((i) => ('label' in i ? i.label : ''))).toEqual(AI_REWRITE_VARIANTS.map((v) => v.label));
+    expect(sub.items.filter((i) => 'separator' in i && i.separator)).toHaveLength(groups.length - 1);
+    (items[AI_REWRITE_VARIANTS.findIndex((v) => v.id === 'fixFlow')] as { action(): void }).action();
     expect(run).toHaveBeenCalledWith('fixFlow');
 
-    const off = buildTextMenu(editor, { ...base, aiRewrite: () => ({ enabled: false, reason: 'No engine.', run }) });
+    const off = buildTextMenu(editor, { ...base, aiRewrite: () => ({ enabled: false, reason: 'No engine.', groups: [], run }) });
     expect(off[0]).toMatchObject({ label: 'Rewrite', disabled: true, title: 'No engine.' });
     expect(buildTextMenu(editor, { ...base, aiRewrite: () => null })[0]).toMatchObject({ label: 'Bold' });
-    expect(buildTextMenu({ state: { selection: { empty: true } } } as never, { ...base, aiRewrite: () => ({ enabled: true, run }) })[0]).toMatchObject({ label: 'Bold' });
+    expect(buildTextMenu({ state: { selection: { empty: true } } } as never, { ...base, aiRewrite: () => ({ enabled: true, groups, run }) })[0]).toMatchObject({ label: 'Bold' });
   });
 });
 

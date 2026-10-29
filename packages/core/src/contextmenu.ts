@@ -2,7 +2,8 @@ import { Editor } from '@tiptap/core';
 import { hideTableToolbar } from './tablepicker';
 import { setColumnAlign } from './table-align';
 import { getPortal } from './portal';
-import { AI_REWRITE_VARIANTS, type AiRewriteVariant } from './ai/prompts/rewrite';
+import type { AiRewriteVariant } from './ai/prompts/rewrite';
+import type { AiRewriteMenuGroup } from './ai-rewrite';
 
 export interface ContextMenuItem {
   label: string;
@@ -33,8 +34,13 @@ export interface ContextMenuActions {
   showEmojiPicker(): void;
   showLanguagePicker(): void;
   openLink(href: string, behavior: 'navigateCurrentTab' | 'openNewTab'): void;
-  /** The AI rewrite entry: null hides it, `enabled: false` greys it with the reason. */
-  aiRewrite?(): { enabled: boolean; reason?: string; run(variant: AiRewriteVariant): void } | null;
+  /**
+   * The AI rewrite entry: null hides it, `enabled: false` greys it with the
+   * reason. `groups` (from `aiRewriteMenuGroups`) become one submenu with a
+   * separator between groups; a variant with a picker (Reading level…,
+   * Translate…) opens the popover on that picker rather than a third level.
+   */
+  aiRewrite?(): { enabled: boolean; reason?: string; groups: AiRewriteMenuGroup[]; run(variant: AiRewriteVariant): void } | null;
 }
 
 let menuEl: HTMLElement | null = null;
@@ -296,7 +302,7 @@ export function buildTextMenu(editor: Editor, actions?: ContextMenuActions): Con
   ];
 }
 
-/** "Rewrite" (Shorter, Longer, Fix flow, Custom prompt…) for a non-empty selection when AI rewrite is offered. */
+/** "Rewrite" (Length, Tone, Audience, Translate, Explain, Custom prompt…) for a non-empty selection when AI rewrite is offered. */
 function buildAiRewriteEntries(editor: Editor, actions?: ContextMenuActions): ContextMenuEntry[] {
   if (editor.state.selection.empty) {return [];}
   const rewrite = actions?.aiRewrite?.();
@@ -308,7 +314,10 @@ function buildAiRewriteEntries(editor: Editor, actions?: ContextMenuActions): Co
     {
       submenu: true,
       label: 'Rewrite',
-      items: AI_REWRITE_VARIANTS.map((v): ContextMenuItem => ({ label: v.label, action: () => rewrite.run(v.id) })),
+      items: rewrite.groups.flatMap((g, i): ContextMenuEntry[] => [
+        ...(i > 0 ? [{ separator: true } as ContextMenuSeparator] : []),
+        ...g.variants.map((v): ContextMenuItem => ({ label: v.label, action: () => rewrite.run(v.id) })),
+      ]),
     },
     { separator: true },
   ];

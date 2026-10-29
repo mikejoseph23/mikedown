@@ -263,6 +263,10 @@ export type MikeDownCommand =
   | 'openAiSettings'
   /** Rewrite the selection with AI: opens the rewrite popover's choices (no-op without `host.ai`). */
   | 'aiRewrite'
+  /** Explain the selection with AI: the read-only popover (no-op without `host.ai`). */
+  | 'aiExplain'
+  /** Translate with AI: the popover's language picker; with nothing selected, the whole document. */
+  | 'aiTranslate'
   | 'copyAsRichText'
   // Menu-bar commands for hosts with their own menus (MikeDown Desktop). Each
   // mirrors an existing toolbar action or keystroke; no-ops in source mode

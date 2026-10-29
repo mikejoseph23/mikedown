@@ -113,10 +113,11 @@ import {
 } from './ai-toolbar';
 import { aiFeatureAvailability, runAiCompletion, type AiFeatureAvailability } from './ai-request';
 import {
-  AiRewriteHighlight, cmAiRewriteHighlight, createAiRewriteBubble, createAiRewritePopover,
-  richRewriteTarget, sourceRewriteTarget, type AiRewriteBadge,
+  AiRewriteHighlight, aiRewriteMenuGroups, cmAiRewriteHighlight, createAiRewriteBubble, createAiRewritePopover,
+  richDocumentTarget, richRewriteTarget, sourceDocumentTarget, sourceRewriteTarget, type AiRewriteBadge,
+  type AiRewriteTarget,
 } from './ai-rewrite';
-import type { AiRewriteVariant } from './ai/prompts/rewrite';
+import type { AiRewriteParams, AiRewriteVariant } from './ai/prompts/rewrite';
 import type {
   MikeDownEditorHandle,
   MikeDownEvent,
@@ -4028,8 +4029,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       const a = aiRewriteAvailability();
       if (a.state === 'hidden') {return null;}
       return a.state === 'enabled'
-        ? { enabled: true, run: (variant) => { startAiRewrite(variant); } }
-        : { enabled: false, reason: a.reason, run: () => {} };
+        ? { enabled: true, groups: aiRewriteMenuGroups(), run: (variant) => { startAiRewrite(variant); } }
+        : { enabled: false, reason: a.reason, groups: [], run: () => {} };
     },
   };
 
@@ -4065,28 +4066,57 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       renderAiIndicator();
     },
     openSettings: () => showSettingsModal('ai'),
+    documentTarget: aiDocumentTarget,
   }) : null;
   if (aiRewrite) {disposers.push(() => aiRewrite.destroy());}
 
+  /** The whole body (frontmatter left out and untouched) as a rewrite target. */
+  function aiDocumentTarget(): AiRewriteTarget | null {
+    if (sourceMode) {
+      return cmView ? sourceDocumentTarget(cmView, (md) => md.length - extractFrontmatter(md).body.length) : null;
+    }
+    return richDocumentTarget(editor, { scrollToTop: () => { editorContainer.scrollTop = 0; } });
+  }
+
+  /** The document title for Explain's context: frontmatter `title:`, else the first heading. */
+  function aiDocumentTitle(): string {
+    const markdown = sourceMode && cmView ? cmView.state.doc.toString() : '';
+    const yaml = sourceMode ? extractFrontmatter(markdown).frontmatter : frontmatterContent;
+    const fromYaml = /^title:[ \t]*(.+)$/m.exec(yaml ?? '')?.[1]?.trim().replace(/^(["'])(.*)\1$/, '$2');
+    if (fromYaml) {return fromYaml;}
+    if (sourceMode) {return /^ {0,3}#{1,6}[ \t]+(.+?)[ \t#]*$/m.exec(extractFrontmatter(markdown).body)?.[1] ?? '';}
+    let heading = '';
+    editor.state.doc.forEach((node) => {
+      if (!heading && node.type.name === 'heading') {heading = node.textContent.trim();}
+    });
+    return heading;
+  }
+
   /**
    * Open the rewrite popover on the selection (or the block at the caret).
-   * With a variant it runs at once; without one (hotkey, command, Custom
-   * prompt…) it shows the choices. False when AI rewrite is not offered.
+   * With a variant it runs at once, or opens its picker when it needs a
+   * parameter that `params` does not give (Translate…, Reading level…);
+   * without one (hotkey, command, Custom prompt…) it shows the choices.
+   * Translate with nothing to select offers the whole document. False when
+   * AI rewrite is not offered.
    */
-  function startAiRewrite(variant?: AiRewriteVariant): boolean {
+  function startAiRewrite(variant?: AiRewriteVariant, params?: AiRewriteParams, opts: { wholeDocument?: boolean } = {}): boolean {
     if (!aiRewrite || destroyed) {return false;}
     const availability = aiRewriteAvailability();
     if (availability.state === 'hidden') {return false;}
     aiBubble?.hide();
     aiRewrite.close();
-    const target = sourceMode
+    const target = (sourceMode
       ? (cmView ? sourceRewriteTarget(cmView) : null)
-      : richRewriteTarget(editor);
+      : richRewriteTarget(editor))
+      ?? (variant === 'translate' ? aiDocumentTarget() : null);
     if (!target) {return true;}
     if (availability.state === 'disabled') {
       aiRewrite.openUnavailable(target, availability.reason);
     } else {
-      aiRewrite.open(target, variant && variant !== 'custom' ? { variant } : undefined);
+      // Explain's context (also reachable from the choices).
+      if (target.scope === 'selection') {target.title = aiDocumentTitle();}
+      aiRewrite.open(target, variant ? { variant, params, wholeDocument: opts.wholeDocument } : undefined);
     }
     return true;
   }
@@ -6323,6 +6353,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // Rewrite the selection with AI (VS Code: mikedown.ai.rewrite). Opens the choices.
       case 'aiRewrite':
         startAiRewrite();
+        break;
+      // Explain the selection (read-only popover; Insert below adds it as a quote).
+      case 'aiExplain':
+        startAiRewrite('explain');
+        break;
+      // Translate the selection: opens the language picker (with "Whole document").
+      case 'aiTranslate':
+        startAiRewrite('translate');
         break;
       // M11 — Copy as rich text: write HTML + plain text to clipboard.
       case 'copyAsRichText':

@@ -15,6 +15,16 @@
  *   before it; Esc and click-away abort too.
  *
  * The popover renders model output with `textContent` only.
+ *
+ * Three output modes, from the variant and the target:
+ *
+ * - `replace`: Accept replaces the selection (every variant but Explain).
+ * - `readOnly`: Explain. Nothing changes unless Insert below is clicked,
+ *   which inserts the note as a blockquote after the target's block in one
+ *   transaction.
+ * - `replaceDocument`: Translate with "Whole document". The target is the
+ *   body without its frontmatter; Accept replaces the body in one
+ *   transaction, puts the cursor at its start and scrolls to the top.
  */
 
 import { Extension, elementFromString, posToDOMRect, type Editor } from '@tiptap/core';
@@ -28,16 +38,25 @@ import { isolateHistory } from '@codemirror/commands';
 import { aiErrorCopy, toAiError } from './ai';
 import type { AiError, AiRouteOk, AiServedBy } from './ai';
 import {
+  AI_AUDIENCES,
   AI_REWRITE_VARIANTS,
   REWRITE_CONTEXT_CHARS,
   buildRewriteMessages,
   finalizeRewriteText,
+  getAiAudience,
   getAiRewriteVariant,
   rewriteMaxTokens,
   rewriteVisibleText,
+  type AiAudience,
+  type AiRewriteGroup,
+  type AiRewriteParams,
   type AiRewriteVariant,
+  type AiRewriteVariantDefinition,
 } from './ai/prompts/rewrite';
+import { buildExplainMessages, explainMaxTokens } from './ai/prompts/explain';
+import { checkMarkdownStructure, type StructureDiff, type StructureMismatch } from './ai/prompts/structureCheck';
 import type { AiFeatureAvailability, AiRunEvents, AiRunOutcome, AiRunRequest } from './ai-request';
+import { loadAudience, rememberAudience, rememberLanguage, translateLanguageChoices } from './ai-prefs';
 import { getPortal } from './portal';
 
 /** A target range; `id` tells one open target from the next. */
@@ -100,10 +119,12 @@ export const cmAiRewriteHighlight = [cmRewriteRange];
 
 // ── Targets ─────────────────────────────────────────────────────────────────
 
-/** What the popover rewrites: one selection in one view. */
+/** What the popover rewrites: one selection, or the whole body, in one view. */
 export interface AiRewriteTarget {
   mode: 'rich' | 'source';
-  /** The selection as markdown. */
+  /** `document`: the whole body without its frontmatter (whole-document translate). */
+  scope: 'selection' | 'document';
+  /** The selection (or the body) as markdown. */
   text: string;
   before: string;
   after: string;
@@ -115,6 +136,14 @@ export interface AiRewriteTarget {
   rect(): DOMRect | null;
   /** Replace the target in one transaction. False when the target is gone. */
   accept(markdown: string): boolean;
+  /**
+   * Insert `markdown` as a blockquote after the target's block (rich text) or
+   * line (source), in one transaction. False when the target is gone or has
+   * no block (a document target).
+   */
+  insertBelow(markdown: string): boolean;
+  /** The document title, context for Explain (set by the caller). */
+  title?: string;
   /** Drop the highlight. */
   release(): void;
   /** Give the keyboard back to the editor. */
@@ -128,6 +157,33 @@ function serializeFragment(editor: Editor, fragment: Fragment): string {
     if (typeof md === 'string') {return md;}
   } catch { /* fall through to plain text */ }
   return fragment.textBetween(0, fragment.size, '\n\n');
+}
+
+type MarkdownStorage = {
+  parser?: { parse(md: string, o?: { inline?: boolean }): string };
+  getMarkdown?(): string;
+};
+
+function markdownStorage(editor: Editor): MarkdownStorage | undefined {
+  return (editor.storage as unknown as Record<string, MarkdownStorage>).markdown;
+}
+
+/** Markdown parsed into block content for the editor's schema. */
+function parseBlocks(editor: Editor, markdown: string): Fragment {
+  const html = markdownStorage(editor)?.parser?.parse(markdown) ?? markdown;
+  return PmDOMParser.fromSchema(editor.state.schema).parse(elementFromString(html)).content;
+}
+
+/** The text as a Markdown blockquote: every line quoted, blank lines kept as `>`. */
+export function blockquoteMarkdown(text: string): string {
+  return text.trim().split('\n').map((line) => (line.trim() ? `> ${line}` : '>')).join('\n');
+}
+
+/** A thin rect along the top of the visible part of `el`: where a document target "is". */
+function visibleTopRect(el: Element): DOMRect {
+  const r = el.getBoundingClientRect();
+  const top = Math.max(r.top, 8);
+  return new DOMRect(r.left, top, Math.max(1, r.width), 1);
 }
 
 function rectUnion(a: { left: number; right: number; top: number; bottom: number }, b: { left: number; right: number; top: number; bottom: number }): DOMRect {
@@ -177,6 +233,7 @@ export function richRewriteTarget(editor: Editor): AiRewriteTarget | null {
 
   return {
     mode: 'rich',
+    scope: 'selection',
     text,
     before,
     after,
@@ -191,8 +248,7 @@ export function richRewriteTarget(editor: Editor): AiRewriteTarget | null {
       const r = range();
       if (!r || editor.isDestroyed) {return false;}
       const current = editor.state;
-      const storage = (editor.storage as unknown as Record<string, { parser?: { parse(md: string, o?: { inline?: boolean }): string } }>).markdown;
-      const html = storage?.parser?.parse(markdown, { inline: true }) ?? markdown;
+      const html = markdownStorage(editor)?.parser?.parse(markdown, { inline: true }) ?? markdown;
       const slice = PmDOMParser.fromSchema(current.schema).parseSlice(elementFromString(html), {
         preserveWhitespace: true,
         context: current.doc.resolve(r.from),
@@ -216,6 +272,19 @@ export function richRewriteTarget(editor: Editor): AiRewriteTarget | null {
         tr.setSelection(TextSelection.between(tr.doc.resolve(Math.min(from, tr.doc.content.size)), tr.doc.resolve(Math.min(end, tr.doc.content.size))));
       } catch { /* keep the mapped selection */ }
       editor.view.dispatch(tr.scrollIntoView());
+      return true;
+    },
+    insertBelow(markdown) {
+      const r = range();
+      if (!r || editor.isDestroyed) {return false;}
+      const current = editor.state;
+      const content = parseBlocks(editor, blockquoteMarkdown(markdown));
+      if (!content.size) {return false;}
+      // After the top-level block that holds the end of the target, so a
+      // selection inside a list or a table gets its note after the whole block.
+      const $to = current.doc.resolve(r.to);
+      const pos = $to.depth > 0 ? $to.after(1) : r.to;
+      editor.view.dispatch(closeHistory(current.tr).insert(pos, content).scrollIntoView());
       return true;
     },
     release() {
@@ -253,6 +322,7 @@ export function sourceRewriteTarget(view: CmEditorView): AiRewriteTarget | null 
 
   return {
     mode: 'source',
+    scope: 'selection',
     text,
     before,
     after,
@@ -285,9 +355,107 @@ export function sourceRewriteTarget(view: CmEditorView): AiRewriteTarget | null 
       });
       return true;
     },
+    insertBelow(markdown) {
+      const r = range();
+      if (!r) {return false;}
+      const doc = view.state.doc;
+      // A selection that ends at the start of a line belongs to the line before.
+      const endLine = doc.lineAt(r.to);
+      const line = r.to > r.from && endLine.from === r.to ? doc.lineAt(r.to - 1) : endLine;
+      const next = line.number < doc.lines ? doc.line(line.number + 1) : null;
+      // A blank line before the quote, and one after it when text follows directly.
+      const insert = `\n\n${blockquoteMarkdown(markdown)}${next && next.text.trim() ? '\n' : ''}`;
+      view.dispatch({
+        changes: { from: line.to, insert },
+        annotations: isolateHistory.of('full'),
+        userEvent: 'input.ai',
+        scrollIntoView: true,
+      });
+      return true;
+    },
     release() {
       if (range()) {view.dispatch({ effects: setCmRewriteRange.of(null) });}
     },
+    focus() {
+      view.focus();
+    },
+  };
+}
+
+/**
+ * The rich-text body as a whole-document target. The frontmatter is not in
+ * the ProseMirror document (the editor keeps it apart), so Accept leaves it
+ * byte-identical. `scrollToTop` runs after Accept to show the top of the page.
+ */
+export function richDocumentTarget(editor: Editor, opts: { scrollToTop?: () => void } = {}): AiRewriteTarget | null {
+  if (editor.isDestroyed) {return null;}
+  const text = markdownStorage(editor)?.getMarkdown?.() ?? editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n\n');
+  if (!text.trim()) {return null;}
+  return {
+    mode: 'rich',
+    scope: 'document',
+    text,
+    before: '',
+    after: '',
+    multiline: false,
+    alive: () => !editor.isDestroyed,
+    rect: () => (editor.isDestroyed ? null : visibleTopRect(editor.view.dom)),
+    accept(markdown) {
+      if (editor.isDestroyed) {return false;}
+      const current = editor.state;
+      const content = parseBlocks(editor, markdown);
+      if (!content.size) {return false;}
+      // One transaction, its own undo step; the caret goes to the start of
+      // the body and the view scrolls there (D13).
+      const tr = closeHistory(current.tr).replaceWith(0, current.doc.content.size, content);
+      tr.setMeta(aiRewriteHighlightKey, { range: null });
+      tr.setSelection(TextSelection.atStart(tr.doc));
+      editor.view.dispatch(tr.scrollIntoView());
+      opts.scrollToTop?.();
+      return true;
+    },
+    insertBelow: () => false,
+    release() { /* no highlight */ },
+    focus() {
+      if (!editor.isDestroyed) {editor.view.focus();}
+    },
+  };
+}
+
+/**
+ * The source-mode body as a whole-document target. `bodyStart` gives where
+ * the body starts in the full text (after the frontmatter); only the body is
+ * sent and replaced, so the YAML stays byte-identical.
+ */
+export function sourceDocumentTarget(view: CmEditorView, bodyStart: (markdown: string) => number): AiRewriteTarget | null {
+  const full = view.state.doc.toString();
+  const text = full.slice(bodyStart(full));
+  if (!text.trim()) {return null;}
+  return {
+    mode: 'source',
+    scope: 'document',
+    text,
+    before: '',
+    after: '',
+    multiline: false,
+    alive: () => view.dom.isConnected,
+    rect: () => visibleTopRect(view.scrollDOM),
+    accept(markdown) {
+      const current = view.state.doc.toString();
+      const from = bodyStart(current);
+      // One CM transaction, isolated in history; caret at the start of the
+      // body, view at the top.
+      view.dispatch({
+        changes: { from, to: current.length, insert: markdown },
+        selection: { anchor: from },
+        effects: [setCmRewriteRange.of(null), CmEditorView.scrollIntoView(0, { y: 'start' })],
+        annotations: isolateHistory.of('full'),
+        userEvent: 'input.ai',
+      });
+      return true;
+    },
+    insertBelow: () => false,
+    release() { /* no highlight */ },
     focus() {
       view.focus();
     },
@@ -303,6 +471,9 @@ const CLOSE = icon('<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>', 12);
 const LOCAL = icon('<path d="M2.5 7.5L8 3l5.5 4.5M4 6.5V13h8V6.5"/>', 11);
 const CLOUD = icon('<path d="M4.5 12.5h7a2.75 2.75 0 0 0 .3-5.48A4 4 0 0 0 4.1 7.6 2.5 2.5 0 0 0 4.5 12.5z"/>', 11);
 const ALERT = icon('<path d="M8 2.5l6 10.5H2z"/><path d="M8 6.5v3M8 11.4v.1"/>', 16);
+const WARN = icon('<path d="M8 2.5l6 10.5H2z"/><path d="M8 6.5v3M8 11.4v.1"/>', 12);
+const BACK = icon('<path d="M9.5 4L5.5 8l4 4"/>', 14);
+const CHECK = icon('<path d="M3.5 8.5l3 3 6-7"/>', 12);
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -329,6 +500,90 @@ export function rewriteHotkeyLabel(): string {
   return isMacPlatform() ? '⌥⌘K' : 'Ctrl+Alt+K';
 }
 
+// ── Grouped variants ────────────────────────────────────────────────────────
+
+const GROUP_LABELS: Record<AiRewriteGroup, string> = {
+  length: 'Length',
+  tone: 'Tone',
+  audience: 'Audience',
+  translate: 'Translate',
+  explain: 'Explain',
+  custom: 'Custom',
+};
+
+export interface AiRewriteMenuGroup {
+  group: AiRewriteGroup;
+  label: string;
+  variants: AiRewriteVariantDefinition[];
+}
+
+/** `AI_REWRITE_VARIANTS` in menu order, one entry per group (Length, Tone, …, Custom). */
+export function aiRewriteMenuGroups(): AiRewriteMenuGroup[] {
+  const groups: AiRewriteMenuGroup[] = [];
+  for (const v of AI_REWRITE_VARIANTS) {
+    let g = groups.find((x) => x.group === v.group);
+    if (!g) {
+      g = { group: v.group, label: GROUP_LABELS[v.group], variants: [] };
+      groups.push(g);
+    }
+    g.variants.push(v);
+  }
+  return groups;
+}
+
+/** Variants whose result is checked for dropped links, code, list items and the like. */
+const STRUCTURE_CHECKED = new Set<AiRewriteVariant>(['translate', 'simpler', 'formal', 'casual', 'expand']);
+
+const STRUCTURE_NOUNS: Record<StructureMismatch['kind'], [string, string]> = {
+  heading: ['heading', 'headings'],
+  fencedCodeBlock: ['code block', 'code blocks'],
+  inlineCode: ['inline code span', 'inline code spans'],
+  link: ['link', 'links'],
+  image: ['image', 'images'],
+  listItem: ['list item', 'list items'],
+  tableRow: ['table row', 'table rows'],
+  wikilink: ['wikilink', 'wikilinks'],
+  footnote: ['footnote reference', 'footnote references'],
+};
+
+/**
+ * The warning line for a structure diff ("Check: 1 link missing in the
+ * result"), or '' when nothing differs. Headings of every level count as one.
+ */
+export function structureWarningText(diff: StructureDiff): string {
+  if (diff.ok) {return '';}
+  const byKind = new Map<StructureMismatch['kind'], { original: number; result: number; message: string }>();
+  for (const m of diff.mismatches) {
+    const seen = byKind.get(m.kind);
+    if (seen) {
+      seen.original += m.original;
+      seen.result += m.result;
+    } else {
+      byKind.set(m.kind, { original: m.original, result: m.result, message: m.message });
+    }
+  }
+  const parts: string[] = [];
+  for (const [kind, m] of byKind) {
+    const [one, many] = STRUCTURE_NOUNS[kind];
+    const d = m.original - m.result;
+    const noun = Math.abs(d) === 1 ? one : many;
+    if (d > 0) {parts.push(`${d} ${noun} missing in the result`);}
+    else if (d < 0) {parts.push(`${-d} extra ${noun} in the result`);}
+    else if (kind === 'link' || kind === 'image') {parts.push(`${many} point somewhere else in the result`);}
+    else {parts.push(`${many} differ in the result`);}
+  }
+  return `Check: ${parts.join('; ')}`;
+}
+
+/**
+ * Output budget for a whole-document translation: about the body's length
+ * again, more than `rewriteMaxTokens` allows a selection. A host that cannot
+ * take it answers `contextOverflow` or stops at the length limit.
+ */
+function documentMaxTokens(text: string): number {
+  return Math.max(1024, Math.min(16384, Math.ceil((text.length / 3.5) * 1.6) + 256));
+}
+
 // ── Popover ─────────────────────────────────────────────────────────────────
 
 export interface AiRewriteBadge {
@@ -344,11 +599,22 @@ export interface AiRewritePopoverDeps {
   badge(route: AiRouteOk | null, served: AiServedBy | null, viaFallback: boolean): AiRewriteBadge | null;
   onServed(served: AiServedBy, viaFallback: boolean): void;
   openSettings(): void;
+  /** The whole body as a target (Translate's "Whole document"); absent hides the toggle. */
+  documentTarget?(): AiRewriteTarget | null;
+}
+
+/** What to run when the popover opens; a parameterised variant without its parameter opens its picker. */
+export interface AiRewriteChoice {
+  variant: AiRewriteVariant;
+  instruction?: string;
+  params?: AiRewriteParams;
+  /** Translate the whole document instead of the selection. */
+  wholeDocument?: boolean;
 }
 
 export interface AiRewritePopover {
-  /** Open on a target: with a variant it runs at once, without one it shows the choices. */
-  open(target: AiRewriteTarget, choice?: { variant: AiRewriteVariant; instruction?: string }): void;
+  /** Open on a target: with a variant it runs at once (or opens its picker), without one it shows the choices. */
+  open(target: AiRewriteTarget, choice?: AiRewriteChoice): void;
   /** Open on a target to say why rewrite cannot run (AI on, no usable route). */
   openUnavailable(target: AiRewriteTarget, reason: string): void;
   close(): void;
@@ -357,6 +623,17 @@ export interface AiRewritePopover {
 }
 
 type Phase = 'choose' | 'running' | 'done' | 'error';
+type Picker = 'language' | 'audience';
+type OutputMode = 'replace' | 'readOnly' | 'replaceDocument';
+
+/** True when `params` holds what `def` needs. */
+function hasParam(def: AiRewriteVariantDefinition | undefined, params: AiRewriteParams): boolean {
+  if (def?.param === 'language') {return !!params.language?.trim();}
+  if (def?.param === 'audience') {return !!params.audience && !!getAiAudience(params.audience);}
+  return true;
+}
+
+const plainLabel = (label: string): string => label.replace(/…$/, '');
 
 export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePopover {
   let target: AiRewriteTarget | null = null;
@@ -364,6 +641,11 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   let phase: Phase = 'choose';
   let variant: AiRewriteVariant = 'shorter';
   let instruction = '';
+  let params: AiRewriteParams = {};
+  let picker: Picker | null = null;
+  let wholeDocument = false;
+  /** Opened on the document itself (no selection): only the language picker applies. */
+  let docOnly = false;
   let controller: AbortController | null = null;
   let runSeq = 0;
   let raw = '';
@@ -375,6 +657,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   /** The error is the router's: nothing can serve, so the fix is in settings. */
   let unavailable = false;
   let note = '';
+  let warning: { text: string; title: string } | null = null;
   let side: 'below' | 'above' | null = null;
   let frame = 0;
   let copiedTimer: number | undefined;
@@ -384,16 +667,23 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   let titleEl: HTMLElement;
   let badgeEl: HTMLElement;
   let chooseEl: HTMLElement;
+  let menuEl: HTMLElement;
+  let formEl: HTMLFormElement;
+  let pickerEl: HTMLElement;
   let inputEl: HTMLInputElement;
   let bodyEl: HTMLElement;
+  let oldTextEl: HTMLElement;
   let outEl: HTMLElement;
+  let newLabelEl: HTMLElement;
   let newPaneEl: HTMLElement;
   let errorEl: HTMLElement;
+  let warnEl: HTMLElement;
   let footEl: HTMLElement;
   let acceptBtn: HTMLButtonElement;
   let retryBtn: HTMLButtonElement;
   let copyBtn: HTMLButtonElement;
   let noteEl: HTMLElement;
+  let hintEl: HTMLElement;
   let liveEl: HTMLElement;
 
   function abort(): void {
@@ -413,8 +703,14 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     root = null;
     const t = target;
     target = null;
+    picker = null;
     t.release();
     if (opts.refocus !== false) {t.focus();}
+  }
+
+  function outputMode(): OutputMode {
+    if (getAiRewriteVariant(variant)?.output === 'readOnly') {return 'readOnly';}
+    return target?.scope === 'document' ? 'replaceDocument' : 'replace';
   }
 
   function build(): HTMLElement {
@@ -435,49 +731,72 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     closeBtn.title = 'Cancel (Esc)';
     head.append(spark, titleEl, badgeEl, closeBtn);
 
+    // First level: one row per group (Length, Tone, Audience, Translate,
+    // Explain), then the custom prompt. Second level: the picker.
     chooseEl = el('div', 'ai-rw-choose');
-    const chips = el('div', 'ai-rw-chips');
-    for (const v of AI_REWRITE_VARIANTS) {
-      if (v.id === 'custom') {continue;}
-      chips.append(button('ai-rw-chip', v.label, () => start(v.id)));
+    menuEl = el('div', 'ai-rw-menu');
+    menuEl.setAttribute('role', 'menu');
+    menuEl.setAttribute('aria-label', 'Rewrite options');
+    for (const g of aiRewriteMenuGroups()) {
+      if (g.group === 'custom') {continue;}
+      const section = el('div', 'ai-rw-group');
+      section.dataset.group = g.group;
+      section.setAttribute('role', 'group');
+      section.setAttribute('aria-label', g.label);
+      const heading = el('div', 'ai-rw-group-label', g.label);
+      heading.setAttribute('aria-hidden', 'true');
+      const chips = el('div', 'ai-rw-chips');
+      for (const v of g.variants) {
+        const chip = button('ai-rw-chip', v.label, () => choose(v));
+        chip.setAttribute('role', 'menuitem');
+        chip.dataset.variant = v.id;
+        if (v.param) {chip.setAttribute('aria-haspopup', 'menu');}
+        chips.append(chip);
+      }
+      section.append(heading, chips);
+      menuEl.append(section);
     }
-    const form = el('form', 'ai-rw-form');
+    formEl = el('form', 'ai-rw-form');
     inputEl = el('input', 'ai-rw-input');
     inputEl.type = 'text';
     inputEl.placeholder = 'Describe a change, e.g. "make it friendlier"';
     inputEl.setAttribute('aria-label', 'Custom rewrite instruction');
     inputEl.maxLength = 1000;
     const go = button('ai-rw-btn ai-rw-btn--primary', 'Rewrite', () => submitCustom());
-    form.append(inputEl, go);
-    form.addEventListener('submit', (e) => { e.preventDefault(); submitCustom(); });
-    chooseEl.append(chips, form);
+    formEl.append(inputEl, go);
+    formEl.addEventListener('submit', (e) => { e.preventDefault(); submitCustom(); });
+    pickerEl = el('div', 'ai-rw-picker');
+    chooseEl.append(menuEl, formEl, pickerEl);
 
     bodyEl = el('div', 'ai-rw-body');
     const oldPane = el('div', 'ai-rw-pane ai-rw-pane--old');
-    oldPane.append(el('div', 'ai-rw-label', 'Original'), el('div', 'ai-rw-text', target?.text.trim() ?? ''));
+    oldTextEl = el('div', 'ai-rw-text');
+    oldPane.append(el('div', 'ai-rw-label', 'Original'), oldTextEl);
     newPaneEl = el('div', 'ai-rw-pane ai-rw-pane--new');
     const newText = el('div', 'ai-rw-text');
     outEl = el('span', 'ai-rw-out');
     newText.append(outEl, el('span', 'ai-rw-caret'));
-    newPaneEl.append(el('div', 'ai-rw-label', 'Rewrite'), newText);
+    newLabelEl = el('div', 'ai-rw-label', 'Rewrite');
+    newPaneEl.append(newLabelEl, newText);
     bodyEl.append(oldPane, newPaneEl);
 
     errorEl = el('div', 'ai-rw-error');
     errorEl.setAttribute('role', 'alert');
 
+    warnEl = el('div', 'ai-rw-warn');
+
     footEl = el('div', 'ai-rw-foot');
     acceptBtn = button('ai-rw-btn ai-rw-btn--primary', 'Accept', () => accept());
-    acceptBtn.title = 'Replace the selection (Enter)';
     retryBtn = button('ai-rw-btn', 'Retry', () => start(variant, instruction));
     copyBtn = button('ai-rw-btn', 'Copy', () => copy());
     noteEl = el('span', 'ai-rw-note');
-    const hint = el('span', 'ai-rw-hint', 'Esc to cancel');
-    footEl.append(acceptBtn, retryBtn, copyBtn, noteEl, hint);
+    hintEl = el('span', 'ai-rw-hint', 'Esc to cancel');
+    footEl.append(acceptBtn, retryBtn, copyBtn, noteEl, hintEl);
 
     liveEl = el('div', 'ai-rw-sr');
     liveEl.setAttribute('aria-live', 'polite');
 
-    box.append(head, chooseEl, bodyEl, errorEl, footEl, liveEl);
+    box.append(head, chooseEl, bodyEl, errorEl, warnEl, footEl, liveEl);
     return box;
   }
 
@@ -487,9 +806,159 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     start('custom', text);
   }
 
-  function variantLabel(): string {
-    if (variant === 'custom') {return 'Custom';}
-    return getAiRewriteVariant(variant)?.label ?? 'Rewrite';
+  /** A first-level choice: a parameterised variant opens its picker, the rest run. */
+  function choose(def: AiRewriteVariantDefinition): void {
+    if (def.param) {
+      openPicker(def.param === 'language' ? 'language' : 'audience');
+      return;
+    }
+    start(def.id);
+  }
+
+  // ── Second-level pickers ───────────────────────────────────────────────
+
+  function pickerOption(label: string, checked: boolean, onPick: () => void): HTMLButtonElement {
+    const b = button('ai-rw-option', '', onPick);
+    b.setAttribute('role', 'menuitemradio');
+    b.setAttribute('aria-checked', checked ? 'true' : 'false');
+    const mark = el('span', 'ai-rw-option-check');
+    mark.innerHTML = CHECK;
+    b.append(mark, el('span', 'ai-rw-option-label', label));
+    return b;
+  }
+
+  function pickerSeparator(): HTMLElement {
+    const sep = el('div', 'ai-rw-option-sep');
+    sep.setAttribute('role', 'separator');
+    return sep;
+  }
+
+  function renderPicker(): void {
+    if (!picker) { pickerEl.replaceChildren(); return; }
+    const head = el('div', 'ai-rw-picker-head');
+    const back = button('ai-rw-icon-btn ai-rw-back', '', () => closePicker());
+    back.innerHTML = BACK;
+    back.setAttribute('aria-label', 'Back (Esc)');
+    back.title = 'Back (Esc)';
+    back.hidden = docOnly;
+    head.append(back, el('span', 'ai-rw-picker-title', picker === 'language' ? 'Translate to' : 'Reading level'));
+
+    const list = el('div', 'ai-rw-picker-list');
+    list.setAttribute('role', 'menu');
+    list.setAttribute('aria-label', picker === 'language' ? 'Language' : 'Audience');
+    const parts: HTMLElement[] = [head, list];
+
+    if (picker === 'language') {
+      const { recents, languages } = translateLanguageChoices();
+      // The last language used is the default: checked and focused.
+      recents.forEach((lang, i) => list.append(pickerOption(lang, i === 0, () => pickLanguage(lang))));
+      if (recents.length) {list.append(pickerSeparator());}
+      for (const lang of languages) {list.append(pickerOption(lang, false, () => pickLanguage(lang)));}
+      list.append(pickerSeparator());
+      const otherForm = el('form', 'ai-rw-form ai-rw-other');
+      otherForm.hidden = true;
+      const otherInput = el('input', 'ai-rw-input');
+      otherInput.type = 'text';
+      otherInput.placeholder = 'Language, e.g. Swahili';
+      otherInput.setAttribute('aria-label', 'Other language');
+      otherInput.maxLength = 60;
+      otherForm.append(otherInput, button('ai-rw-btn ai-rw-btn--primary', 'Translate', () => pickLanguage(otherInput.value)));
+      otherForm.addEventListener('submit', (e) => { e.preventDefault(); pickLanguage(otherInput.value); });
+      const other = button('ai-rw-option ai-rw-option--other', '', () => {
+        otherForm.hidden = false;
+        other.setAttribute('aria-expanded', 'true');
+        otherInput.focus();
+        position();
+      });
+      other.setAttribute('role', 'menuitem');
+      other.setAttribute('aria-expanded', 'false');
+      other.append(el('span', 'ai-rw-option-check'), el('span', 'ai-rw-option-label', 'Other…'));
+      list.append(other);
+      parts.push(otherForm);
+
+      if (docOnly || deps.documentTarget) {
+        const toggle = el('label', 'ai-rw-toggle');
+        const box = el('input');
+        box.type = 'checkbox';
+        box.checked = wholeDocument;
+        box.disabled = docOnly;
+        box.addEventListener('change', () => { wholeDocument = box.checked; });
+        toggle.append(box, el('span', '', 'Whole document'));
+        toggle.title = docOnly ? 'Nothing is selected, so the whole document is translated.' : 'Translate the whole document instead of the selection (frontmatter is kept).';
+        const foot = el('div', 'ai-rw-picker-foot');
+        foot.append(toggle);
+        parts.push(foot);
+      }
+    } else {
+      const remembered = loadAudience();
+      for (const a of AI_AUDIENCES) {list.append(pickerOption(a.label, a.id === remembered, () => pickAudience(a.id)));}
+    }
+    pickerEl.replaceChildren(...parts);
+  }
+
+  function openPicker(kind: Picker): void {
+    picker = kind;
+    variant = kind === 'language' ? 'translate' : 'readingLevel';
+    phase = 'choose';
+    renderPicker();
+    render();
+    position();
+    const items = [...pickerEl.querySelectorAll<HTMLButtonElement>('.ai-rw-picker-list > button')];
+    (items.find((b) => b.getAttribute('aria-checked') === 'true') ?? items[0])?.focus({ preventScroll: true });
+  }
+
+  function closePicker(): void {
+    if (docOnly) { close(); return; }
+    const was = variant;
+    picker = null;
+    renderPicker();
+    render();
+    position();
+    menuEl.querySelector<HTMLButtonElement>(`.ai-rw-chip[data-variant="${was}"]`)?.focus({ preventScroll: true });
+  }
+
+  function pickLanguage(language: string): void {
+    const lang = language.replace(/\s+/g, ' ').trim();
+    if (!lang) {
+      pickerEl.querySelector<HTMLInputElement>('.ai-rw-other .ai-rw-input')?.focus();
+      return;
+    }
+    params = { language: lang };
+    if (wholeDocument && !useDocumentTarget()) {return;}
+    start('translate');
+  }
+
+  function pickAudience(audience: AiAudience): void {
+    params = { audience };
+    start('readingLevel');
+  }
+
+  /** Swap the selection target for the whole body. False when there is no body to translate. */
+  function useDocumentTarget(): boolean {
+    if (!target) {return false;}
+    if (target.scope === 'document') {return true;}
+    const doc = deps.documentTarget?.() ?? null;
+    if (!doc) {return false;}
+    target.release();
+    target = doc;
+    side = null;
+    return true;
+  }
+
+  // ── Rendering ──────────────────────────────────────────────────────────
+
+  function headTitle(): string {
+    if (unavailable) {return 'Rewrite';}
+    if (phase === 'choose') {return picker === 'language' ? 'Translate' : picker === 'audience' ? 'Reading level' : 'Rewrite';}
+    if (variant === 'explain') {return 'Explain';}
+    if (variant === 'custom') {return 'Rewrite · Custom';}
+    if (variant === 'translate') {
+      return `Translate · ${params.language ?? ''}${target?.scope === 'document' ? ' · Whole document' : ''}`;
+    }
+    if (variant === 'readingLevel') {
+      return `Reading level · ${(params.audience && getAiAudience(params.audience)?.label) ?? ''}`;
+    }
+    return `Rewrite · ${plainLabel(getAiRewriteVariant(variant)?.label ?? '')}`;
   }
 
   function renderBadge(): void {
@@ -532,25 +1001,49 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
 
   function render(): void {
     if (!root || !target) {return;}
+    const mode = outputMode();
     root.dataset.phase = phase;
-    root.dataset.layout = target.multiline ? 'split' : 'single';
+    root.dataset.output = mode;
+    // Side by side only for a multi-line selection being replaced: not for
+    // Explain (nothing is replaced) nor a whole document (too long).
+    root.dataset.layout = mode === 'replace' && target.multiline ? 'split' : 'single';
     root.setAttribute('aria-busy', phase === 'running' ? 'true' : 'false');
-    titleEl.textContent = phase === 'choose' || unavailable ? 'Rewrite' : `Rewrite · ${variantLabel()}`;
+    root.setAttribute('aria-label', variant === 'explain' && phase !== 'choose' ? 'Explain with AI' : 'Rewrite with AI');
+    titleEl.textContent = headTitle();
     if (variant === 'custom' && instruction && phase !== 'choose') {titleEl.title = instruction;} else {titleEl.removeAttribute('title');}
     chooseEl.hidden = phase !== 'choose';
+    menuEl.hidden = !!picker;
+    formEl.hidden = !!picker;
+    pickerEl.hidden = !picker;
     bodyEl.hidden = phase === 'choose' || phase === 'error';
     errorEl.hidden = phase !== 'error';
     footEl.hidden = phase === 'choose' || phase === 'error';
+    newLabelEl.textContent = mode === 'readOnly' ? 'Explanation' : variant === 'translate' ? 'Translation' : 'Rewrite';
     renderBadge();
     renderOut();
 
     const ready = phase === 'done' && !!finalText.trim();
     acceptBtn.hidden = phase === 'error';
     acceptBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
+    acceptBtn.textContent = mode === 'readOnly' ? 'Insert below' : mode === 'replaceDocument' ? 'Replace document' : 'Accept';
+    acceptBtn.title = mode === 'readOnly'
+      ? 'Insert the explanation as a quote below the selection'
+      : mode === 'replaceDocument' ? 'Replace the document body; frontmatter is kept (Enter)' : 'Replace the selection (Enter)';
     copyBtn.hidden = phase === 'error';
     copyBtn.setAttribute('aria-disabled', (phase === 'done' ? finalText : rewriteVisibleText(raw)).trim() ? 'false' : 'true');
     retryBtn.hidden = phase === 'error';
     noteEl.textContent = note;
+    hintEl.textContent = mode === 'readOnly' ? 'Esc to close' : 'Esc to cancel';
+
+    // The structure check, between the preview and the footer. A warning
+    // only: Accept stays enabled.
+    warnEl.hidden = !(phase === 'done' && warning);
+    if (phase === 'done' && warning) {
+      const glyph = el('span', 'ai-rw-warn-icon');
+      glyph.innerHTML = WARN;
+      warnEl.replaceChildren(glyph, el('span', 'ai-rw-warn-text', warning.text));
+      warnEl.title = warning.title;
+    }
 
     if (phase === 'error' && error) {renderError(error);}
   }
@@ -568,7 +1061,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     textBox.append(el('div', 'ai-rw-error-message', e.code === 'unknown' && detail ? detail : copyText.message));
     if (detail && e.code !== 'unknown') {textBox.append(el('div', 'ai-rw-error-detail', detail));}
     if (e.code === 'contextOverflow' && target) {
-      textBox.append(el('div', 'ai-rw-error-detail', `The selection is ${target.text.length.toLocaleString()} characters.`));
+      const what = target.scope === 'document' ? 'The document' : 'The selection';
+      textBox.append(el('div', 'ai-rw-error-detail', `${what} is ${target.text.length.toLocaleString()} characters.`));
     }
     const actions = el('div', 'ai-rw-error-actions');
     const settingsBtn = button(`ai-rw-btn${copyText.action === 'openSettings' ? ' ai-rw-btn--primary' : ''}`, 'Open AI settings', () => {
@@ -606,6 +1100,21 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     root.style.left = `${Math.round(left)}px`;
   }
 
+  /** Arrow keys, Home and End move between the chips of the first level or the picker's rows. */
+  function moveFocus(e: KeyboardEvent): boolean {
+    if (!root || phase !== 'choose' || !/^(Arrow(Up|Down|Left|Right)|Home|End)$/.test(e.key)) {return false;}
+    const selector = picker ? '.ai-rw-picker-list > button' : '.ai-rw-menu .ai-rw-chip';
+    const items = [...root.querySelectorAll<HTMLButtonElement>(selector)];
+    const i = items.indexOf(e.target as HTMLButtonElement);
+    if (i < 0) {return false;}
+    const forward = e.key === 'ArrowDown' || e.key === 'ArrowRight';
+    const next = e.key === 'Home' ? 0
+      : e.key === 'End' ? items.length - 1
+        : (i + (forward ? 1 : -1) + items.length) % items.length;
+    items[next].focus({ preventScroll: true });
+    return true;
+  }
+
   function mount(t: AiRewriteTarget): void {
     close({ refocus: false });
     target = t;
@@ -618,6 +1127,13 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     error = null;
     unavailable = false;
     note = '';
+    warning = null;
+    picker = null;
+    params = {};
+    variant = 'shorter';
+    instruction = '';
+    docOnly = t.scope === 'document';
+    wholeDocument = docOnly;
     root = build();
     getPortal().appendChild(root);
 
@@ -626,10 +1142,16 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        close();
+        // Esc in a picker goes back to the first level.
+        if (phase === 'choose' && picker) {closePicker();} else {close();}
         return;
       }
-      if (e.key === 'Enter' && phase === 'done' && !e.shiftKey && !e.altKey) {
+      if (root.contains(e.target as Node) && moveFocus(e)) {
+        e.preventDefault();
+        return;
+      }
+      // Enter accepts a replacement; Explain inserts only on an explicit click.
+      if (e.key === 'Enter' && phase === 'done' && outputMode() !== 'readOnly' && !e.shiftKey && !e.altKey) {
         const t2 = e.target as HTMLElement | null;
         const inField = !!t2 && (t2.tagName === 'INPUT' || t2.tagName === 'TEXTAREA');
         const onOtherButton = !!t2 && t2.tagName === 'BUTTON' && t2 !== acceptBtn && root.contains(t2);
@@ -665,22 +1187,46 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     controller = ac;
     variant = v;
     instruction = v === 'custom' ? (custom ?? instruction) : '';
+    picker = null;
     phase = 'running';
     raw = '';
     finalText = '';
     served = null;
     error = null;
     note = '';
+    warning = null;
+    oldTextEl.textContent = t.scope === 'document' ? '' : t.text.trim();
+    const def = getAiRewriteVariant(v);
+    if (def?.param === 'language' && params.language) {rememberLanguage(params.language);}
+    if (def?.param === 'audience' && params.audience) {rememberAudience(params.audience);}
     render();
     position();
     root.focus({ preventScroll: true });
 
-    const messages = buildRewriteMessages({ variant: v, instruction, selection: t.text, before: t.before, after: t.after });
+    // TODO(M4): budget a whole document with `budgetDocument` (ai/documentBudget.ts)
+    // once it lands: send what fits and set `note` to its coverage ("Translated
+    // the first N% of the document."). Until then the whole body goes and an
+    // engine that cannot take it answers `contextOverflow`.
+    const readOnly = def?.output === 'readOnly';
+    const messages = readOnly
+      ? buildExplainMessages({ selection: t.text, before: t.before, after: t.after, title: t.title })
+      : buildRewriteMessages({
+        variant: v,
+        instruction,
+        selection: t.text,
+        before: t.before,
+        after: t.after,
+        params: def?.param ? params : undefined,
+        scope: t.scope,
+      });
+    const maxTokens = readOnly ? explainMaxTokens()
+      : t.scope === 'document' ? documentMaxTokens(t.text)
+        : rewriteMaxTokens(t.text, v);
     deps.run({
       feature: 'rewrite',
       messages,
-      maxTokens: rewriteMaxTokens(t.text, v),
-      temperature: v === 'fixFlow' ? 0.2 : 0.5,
+      maxTokens,
+      temperature: v === 'fixFlow' || v === 'translate' ? 0.2 : 0.5,
     }, {
       onRoute: (r) => {
         if (seq !== runSeq) {return;}
@@ -700,7 +1246,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       served = outcome.result.served;
       viaFallback = outcome.viaFallback;
       deps.onServed(outcome.result.served, outcome.viaFallback);
-      finalText = finalizeRewriteText(outcome.result.text || raw, t.text);
+      // Explain is a note, not a version of the selection: no whitespace to carry over.
+      finalText = finalizeRewriteText(outcome.result.text || raw, readOnly ? '' : t.text);
       if (!finalText.trim()) {
         phase = 'error';
         error = { code: 'unknown', message: 'The engine sent back no text.' };
@@ -708,11 +1255,21 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
         phase = 'done';
         const reason = outcome.result.finishReason;
         note = reason === 'length' ? 'Stopped at the length limit.' : reason === 'error' ? 'The stream ended early.' : '';
+        if (STRUCTURE_CHECKED.has(v)) {
+          const diff = checkMarkdownStructure(t.text, finalText);
+          const text = structureWarningText(diff);
+          warning = text ? { text, title: diff.messages.join('\n') } : null;
+        }
       }
       render();
       position();
-      liveEl.textContent = phase === 'done' ? 'Rewrite ready. Press Enter to accept or Escape to cancel.' : 'Rewrite failed.';
-      if (phase === 'done') {acceptBtn.focus({ preventScroll: true });}
+      liveEl.textContent = phase !== 'done' ? 'Rewrite failed.'
+        : readOnly ? 'Explanation ready. Insert below adds it to the document; Escape closes.'
+          : `${variant === 'translate' ? 'Translation' : 'Rewrite'} ready. Press Enter to accept or Escape to cancel.${warning ? ` ${warning.text}.` : ''}`;
+      if (phase === 'done') {
+        // Explain leaves the keyboard on the popover so Enter cannot insert by accident.
+        (readOnly ? root : acceptBtn).focus({ preventScroll: true });
+      }
     }, (err: unknown) => {
       if (seq !== runSeq || !root) {return;}
       controller = null;
@@ -730,7 +1287,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   function accept(): void {
     const t = target;
     if (!t || phase !== 'done' || !finalText.trim()) {return;}
-    const ok = t.accept(finalText);
+    const ok = outputMode() === 'readOnly' ? t.insertBelow(finalText) : t.accept(finalText);
     close({ refocus: true });
     if (!ok) {t.focus();}
   }
@@ -749,8 +1306,25 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   return {
     open(t, choice) {
       mount(t);
-      if (choice) {
-        start(choice.variant, choice.instruction);
+      params = { ...choice?.params };
+      wholeDocument = docOnly || !!choice?.wholeDocument;
+      const def = choice ? getAiRewriteVariant(choice.variant) : undefined;
+      // The document itself (nothing selected) can only be translated.
+      if (docOnly && (!def || def.id !== 'translate' || !hasParam(def, params))) {
+        openPicker('language');
+        return;
+      }
+      if (def && def.param && !hasParam(def, params)) {
+        openPicker(def.param === 'language' ? 'language' : 'audience');
+        return;
+      }
+      if (def && (def.id !== 'custom' || choice?.instruction?.trim())) {
+        if (def.id === 'translate' && wholeDocument && !useDocumentTarget()) {
+          wholeDocument = false;
+          openPicker('language');
+          return;
+        }
+        start(def.id, choice?.instruction);
         return;
       }
       phase = 'choose';
@@ -811,16 +1385,26 @@ export function createAiRewriteBubble(deps: AiRewriteBubbleDeps): AiRewriteBubbl
       box.querySelector('.ai-bubble-btn')?.setAttribute('aria-expanded', 'false');
       return;
     }
-    menu = el('div', 'ai-bubble-menu');
-    menu.setAttribute('role', 'menu');
-    for (const v of AI_REWRITE_VARIANTS) {
-      const item = button('ai-bubble-item', '', () => { hide(); deps.run(v.id); });
-      item.setAttribute('role', 'menuitem');
-      item.append(el('span', 'ai-bubble-item-label', v.label));
-      if (v.id === 'custom') {item.append(el('span', 'ai-bubble-item-key', rewriteHotkeyLabel()));}
-      menu.append(item);
-    }
-    box.append(menu);
+    const list = el('div', 'ai-bubble-menu');
+    menu = list;
+    list.setAttribute('role', 'menu');
+    // One run of items per group with a thin separator between groups.
+    aiRewriteMenuGroups().forEach((g, i) => {
+      if (i > 0) {
+        const sep = el('div', 'ai-bubble-sep');
+        sep.setAttribute('role', 'separator');
+        list.append(sep);
+      }
+      for (const v of g.variants) {
+        const item = button('ai-bubble-item', '', () => { hide(); deps.run(v.id); });
+        item.setAttribute('role', 'menuitem');
+        if (v.param) {item.setAttribute('aria-haspopup', 'dialog');}
+        item.append(el('span', 'ai-bubble-item-label', v.label));
+        if (v.id === 'custom') {item.append(el('span', 'ai-bubble-item-key', rewriteHotkeyLabel()));}
+        list.append(item);
+      }
+    });
+    box.append(list);
     box.querySelector('.ai-bubble-btn')?.setAttribute('aria-expanded', 'true');
   }
 
