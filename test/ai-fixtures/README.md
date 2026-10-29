@@ -89,7 +89,7 @@ Core checks `requestOverrides` (`packages/core/test/ai-thinking-dial.test.ts`); 
 
 ## `requests/openai-reasoning.json`
 
-`{ "description", "request", "cases": [...] }`: one `AiCompletionRequest` (`maxTokens` 500, `temperature` 0.3) built per case as `buildCompletionBody(kind, { id: modelId, requestOverrides: modelOverrides }, request)`. Each case has `expected` (top-level keys, each compared whole) and `absent` (keys that must not be there). OpenAI reasoning models (o-series, GPT-5 onwards on the `openai` kind, `openai/`-prefixed ids elsewhere) get no `temperature`; everything else keeps it. Checked by `packages/core/test/ai-unsupported-params.test.ts` and `commands/ai/tests.rs`.
+`{ "description", "request", "cases": [...] }`: one `AiCompletionRequest` (`maxTokens` 500, `temperature` 0.3) built per case as `buildCompletionBody(kind, { id: modelId, requestOverrides: modelOverrides }, request)`. Each case has `expected` (top-level keys, each compared whole) and `absent` (keys that must not be there). OpenAI reasoning models (o-series, GPT-5 onwards on the `openai` kind, `openai/`-prefixed ids elsewhere) get no `temperature`; everything else keeps it. Cases with `modelOverrides.reasoning_effort: "none"` (the dial's Off) check the per-family mapping: `none` for gpt-5.1 onwards in the 5.x line, `minimal` for plain gpt-5, `low` for the o-series, gpt-6+, codex/pro and anything undocumented; non-reasoning models keep `none`. Checked by `packages/core/test/ai-unsupported-params.test.ts` and `commands/ai/tests.rs`.
 
 ## `requests/unsupported-params.json`
 

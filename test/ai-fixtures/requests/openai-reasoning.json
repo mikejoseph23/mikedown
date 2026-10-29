@@ -22,6 +22,22 @@
     { "name": "Groq openai/gpt-oss-120b keeps its temperature", "kind": "openai-compatible", "modelId": "openai/gpt-oss-120b", "expected": { "max_tokens": 500, "temperature": 0.3 }, "absent": [] },
     { "name": "a bare o3-like id on a generic server keeps its temperature", "kind": "openai-compatible", "modelId": "o3-mini", "expected": { "max_tokens": 500, "temperature": 0.3 }, "absent": [] },
     { "name": "DeepSeek deepseek-reasoner keeps its temperature", "kind": "openai-compatible", "modelId": "deepseek-reasoner", "expected": { "max_tokens": 500, "temperature": 0.3 }, "absent": [] },
-    { "name": "Ollama gpt-oss:20b keeps its temperature", "kind": "ollama", "modelId": "gpt-oss:20b", "expected": { "max_tokens": 500, "temperature": 0.3 }, "absent": [] }
+    { "name": "Ollama gpt-oss:20b keeps its temperature", "kind": "ollama", "modelId": "gpt-oss:20b", "expected": { "max_tokens": 500, "temperature": 0.3 }, "absent": [] },
+    { "name": "Off on gpt-5.5 sends none (documented)", "kind": "openai", "modelId": "gpt-5.5", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "none" }, "absent": [] },
+    { "name": "Off on gpt-5.1 sends none", "kind": "openai", "modelId": "gpt-5.1", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "none" }, "absent": [] },
+    { "name": "Off on gpt-5.2-mini sends none", "kind": "openai", "modelId": "gpt-5.2-mini", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "none" }, "absent": [] },
+    { "name": "Off on gpt-5 sends minimal", "kind": "openai", "modelId": "gpt-5", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "minimal" }, "absent": [] },
+    { "name": "Off on gpt-5-mini sends minimal", "kind": "openai", "modelId": "gpt-5-mini", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "minimal" }, "absent": [] },
+    { "name": "Off on o3 sends low", "kind": "openai", "modelId": "o3", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "low" }, "absent": [] },
+    { "name": "Off on o4-mini sends low", "kind": "openai", "modelId": "o4-mini", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "low" }, "absent": [] },
+    { "name": "Off on gpt-6-mini sends low (newer models reject none)", "kind": "openai", "modelId": "gpt-6-mini", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "low" }, "absent": [] },
+    { "name": "Off on gpt-5-pro sends low", "kind": "openai", "modelId": "gpt-5-pro", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "low" }, "absent": [] },
+    { "name": "Off on gpt-5.1-codex-max sends low", "kind": "openai", "modelId": "gpt-5.1-codex-max", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "low" }, "absent": [] },
+    { "name": "Off on OpenRouter openai/o3 sends low", "kind": "openai-compatible", "modelId": "openai/o3", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "low" }, "absent": [] },
+    { "name": "Off on OpenRouter openai/gpt-5 sends minimal", "kind": "openai-compatible", "modelId": "openai/gpt-5", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "minimal" }, "absent": [] },
+    { "name": "Off on OpenRouter openai/gpt-5.5 sends none", "kind": "openai-compatible", "modelId": "openai/gpt-5.5", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "none" }, "absent": [] },
+    { "name": "Off on gpt-4o is left alone (not a reasoning model)", "kind": "openai", "modelId": "gpt-4o", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "none" }, "absent": [] },
+    { "name": "Off on a local o3-like id is left alone", "kind": "openai-compatible", "modelId": "o3-mini", "modelOverrides": { "reasoning_effort": "none" }, "expected": { "reasoning_effort": "none" }, "absent": [] },
+    { "name": "an explicit Low is never rewritten", "kind": "openai", "modelId": "o3", "modelOverrides": { "reasoning_effort": "low" }, "expected": { "reasoning_effort": "low" }, "absent": [] }
   ]
 }

@@ -6,7 +6,9 @@
  *
  * Mappings:
  * - `openai` and cloud `openai-compatible` (Gemini, Groq, OpenRouter...):
- *   `reasoning_effort` `none` / `low` / `medium` / `high`.
+ *   `reasoning_effort` `none` / `low` / `medium` / `high`. Off is stored as
+ *   `none`; `buildCompletionBody` swaps it for the lowest value an OpenAI
+ *   reasoning model accepts (`openAiOffReasoningEffort`).
  * - local `openai-compatible` (oMLX, vLLM, llama.cpp): tiers through
  *   `reasoning_effort`; Off through `chat_template_kwargs.enable_thinking:
  *   false`, which the chat template honours (oMLX ignores

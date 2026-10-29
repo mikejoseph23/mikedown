@@ -39,6 +39,20 @@ describe('OpenAI reasoning models', () => {
   });
 });
 
+describe('Thinking Off on OpenAI reasoning models', () => {
+  const req = { messages: [{ role: 'user', content: 'hi' }] } as AiCompletionRequest;
+  it('never sends none to the o-series or plain gpt-5, also from a per-request override', () => {
+    for (const [id, effort] of [['o3', 'low'], ['gpt-5', 'minimal'], ['gpt-5.5', 'none']]) {
+      const body = buildCompletionBody('openai', { id }, { ...req, requestOverrides: { reasoning_effort: 'none' } } as AiCompletionRequest);
+      expect(body.reasoning_effort, id).toBe(effort);
+    }
+  });
+  it('leaves other engines and non-reasoning models alone', () => {
+    expect(buildCompletionBody('openai', { id: 'gpt-4o', requestOverrides: { reasoning_effort: 'none' } }, req).reasoning_effort).toBe('none');
+    expect(buildCompletionBody('ollama', { id: 'o3', requestOverrides: { reasoning_effort: 'none' } }, req).reasoning_effort).toBe('none');
+  });
+});
+
 describe('unsupported parameter retry', () => {
   const fx = load('unsupported-params.json');
   it.each((fx.errors as any[]).map((c) => [c.name, c] as const))('error: %s', (_name, c) => {

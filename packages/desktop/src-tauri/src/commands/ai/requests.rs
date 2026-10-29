@@ -152,7 +152,14 @@ pub fn build_completion_body(kind: EngineKind, model: &ModelConfig, req: &Comple
         chat_completions_body(kind, &model.id, req, stream)
     };
     let body = merge_request_overrides(body, model.request_overrides.as_ref());
-    merge_request_overrides(body, req.request_overrides.as_ref().and_then(Value::as_object))
+    let mut body = merge_request_overrides(body, req.request_overrides.as_ref().and_then(Value::as_object));
+    if kind != EngineKind::Anthropic && body.get("reasoning_effort").and_then(Value::as_str) == Some("none") {
+        // Port of `acceptedOffEffort`: Off is stored as `none`, which gpt-5 and the o-series reject.
+        if let Some(effort) = openai_off_reasoning_effort(&model.id, kind).filter(|e| *e != "none") {
+            body["reasoning_effort"] = json!(effort);
+        }
+    }
+    body
 }
 
 fn chat_completions_body(kind: EngineKind, model_id: &str, req: &CompletionRequest, stream: bool) -> Value {
@@ -190,16 +197,44 @@ fn chat_completions_body(kind: EngineKind, model_id: &str, req: &CompletionReque
 /// `openai` kind matches on the id; any other kind only on an `openai/` id
 /// (OpenRouter).
 pub fn is_openai_reasoning_model(model_id: &str, kind: EngineKind) -> bool {
+    bare_openai_id(model_id, kind).is_some_and(|id| openai_reasoning_id(&id))
+}
+
+/// The id without an `openai/` vendor prefix, or `None` for an id that is not OpenAI's on this kind.
+fn bare_openai_id(model_id: &str, kind: EngineKind) -> Option<String> {
     let id = model_id.trim().to_lowercase();
-    let bare = if kind == EngineKind::OpenAi {
-        id.rsplit('/').next().unwrap_or_default()
+    if kind == EngineKind::OpenAi {
+        Some(id.rsplit('/').next().unwrap_or_default().to_string())
     } else {
-        match id.strip_prefix("openai/") {
-            Some(rest) => rest,
-            None => return false,
+        id.strip_prefix("openai/").map(str::to_string)
+    }
+}
+
+/// Port of `openAiOffReasoningEffort` (core `capabilityHeuristics.ts`): the
+/// `reasoning_effort` that means "Off" for an OpenAI reasoning model, `None`
+/// when it is not one. `gpt-5.1`+ in the 5.x line take `none`; plain
+/// `gpt-5`/`-mini`/`-nano` take `minimal`; everything else (o-series,
+/// `gpt-6`+, codex/pro, undocumented ids) gets `low`, which every family
+/// accepts.
+pub fn openai_off_reasoning_effort(model_id: &str, kind: EngineKind) -> Option<&'static str> {
+    let id = bare_openai_id(model_id, kind)?;
+    if !openai_reasoning_id(&id) {
+        return None;
+    }
+    let is_pro = id.ends_with("-pro") || id.contains("-pro-");
+    if id.contains("codex") || is_pro {
+        return Some("low");
+    }
+    if let Some(rest) = id.strip_prefix("gpt-5.") {
+        let minor = rest.bytes().take_while(u8::is_ascii_digit).count();
+        if minor > 0 && !rest.starts_with('0') && (rest.len() == minor || rest.as_bytes()[minor] == b'-') {
+            return Some("none");
         }
-    };
-    openai_reasoning_id(bare)
+    }
+    if id == "gpt-5" || id.starts_with("gpt-5-") {
+        return Some("minimal");
+    }
+    Some("low")
 }
 
 /// `^(o\d+|gpt-([5-9]|\d{2,})(\.\d+)?)(-|$)`, without a regex crate.

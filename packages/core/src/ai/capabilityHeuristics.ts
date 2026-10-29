@@ -122,9 +122,40 @@ const OPENAI_REASONING_ID = /^(o\d+|gpt-([5-9]|\d{2,})(\.\d+)?)(-|$)/;
  * the default sampling costs nothing there.
  */
 export function isOpenAiReasoningModel(modelId: string, kind?: AiEngineKind): boolean {
+  const id = bareOpenAiId(modelId, kind);
+  return id !== null && OPENAI_REASONING_ID.test(id);
+}
+
+/** The id without an `openai/` vendor prefix, or null for an id that is not OpenAI's on this kind. */
+function bareOpenAiId(modelId: string, kind?: AiEngineKind): string | null {
   const id = modelId.trim().toLowerCase();
-  if (kind === 'openai') {return OPENAI_REASONING_ID.test(id.slice(id.lastIndexOf('/') + 1));}
-  return id.startsWith('openai/') && OPENAI_REASONING_ID.test(id.slice('openai/'.length));
+  if (kind === 'openai') {return id.slice(id.lastIndexOf('/') + 1);}
+  return id.startsWith('openai/') ? id.slice('openai/'.length) : null;
+}
+
+/** `gpt-5.1` to `gpt-5.9`, the line that added `none` (documented for 5.1, 5.2 and 5.5). */
+const OPENAI_NONE_EFFORT_ID = /^gpt-5\.[1-9]\d*(-|$)/;
+/** Plain `gpt-5`, `gpt-5-mini`, `gpt-5-nano`: `minimal` is their lowest. */
+const OPENAI_MINIMAL_EFFORT_ID = /^gpt-5(-|$)/;
+
+/**
+ * The `reasoning_effort` that means "Off" for an OpenAI reasoning model, or
+ * null when `modelId` is not one (the caller leaves the request alone). The
+ * Thinking dial stores Off as `none`, which only some families accept:
+ *
+ * - `gpt-5.1` onwards in the 5.x line (5.5 included): `none`.
+ * - `gpt-5`, `gpt-5-mini`, `gpt-5-nano`: `minimal`.
+ * - everything else (o-series, `gpt-6`+, codex and pro variants, ids not
+ *   documented yet): `low`, the one value every reasoning family accepts.
+ *   Newer models reject `none` (and some `minimal`), so unknown means `low`.
+ */
+export function openAiOffReasoningEffort(modelId: string, kind?: AiEngineKind): 'none' | 'minimal' | 'low' | null {
+  const id = bareOpenAiId(modelId, kind);
+  if (id === null || !OPENAI_REASONING_ID.test(id)) {return null;}
+  if (/codex|-pro(-|$)/.test(id)) {return 'low';}
+  if (OPENAI_NONE_EFFORT_ID.test(id)) {return 'none';}
+  if (OPENAI_MINIMAL_EFFORT_ID.test(id)) {return 'minimal';}
+  return 'low';
 }
 
 /** Every row whose prefix matches, shortest first, so longer prefixes override. */

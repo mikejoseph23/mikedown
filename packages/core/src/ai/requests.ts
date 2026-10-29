@@ -22,7 +22,7 @@
  * the session.
  */
 
-import { isOpenAiReasoningModel } from './capabilityHeuristics';
+import { isOpenAiReasoningModel, openAiOffReasoningEffort } from './capabilityHeuristics';
 import type { AiCompletionRequest, AiEngineConfig, AiEngineKind, AiMessage, AiMessagePart, AiModelConfig } from './types';
 
 /** `anthropic-version` sent by the Anthropic adapter. */
@@ -190,7 +190,20 @@ export function buildCompletionBody(kind: AiEngineKind, model: Pick<AiModelConfi
   const stream = opts.stream ?? true;
   const body = kind === 'anthropic' ? anthropicBody(model.id, req, stream) : chatCompletionsBody(kind, model.id, req, stream);
   const merged = mergeRequestOverrides(body, model.requestOverrides);
-  return isPlainObject(req.requestOverrides) ? mergeRequestOverrides(merged, req.requestOverrides) : merged;
+  const final = isPlainObject(req.requestOverrides) ? mergeRequestOverrides(merged, req.requestOverrides) : merged;
+  return kind === 'anthropic' ? final : acceptedOffEffort(kind, model.id, final);
+}
+
+/**
+ * The Thinking dial's Off is stored as `reasoning_effort: "none"`, which
+ * OpenAI's gpt-5 and o-series reject. For those models send the lowest value
+ * the family accepts instead, so the first request does not fail (the
+ * unsupported-parameter retry stays as the fallback).
+ */
+function acceptedOffEffort(kind: AiEngineKind, modelId: string, body: Json): Json {
+  if (body.reasoning_effort !== 'none') {return body;}
+  const effort = openAiOffReasoningEffort(modelId, kind);
+  return effort === null || effort === 'none' ? body : { ...body, reasoning_effort: effort };
 }
 
 function chatCompletionsBody(kind: AiEngineKind, modelId: string, req: AiCompletionRequest, stream: boolean): Json {
