@@ -26,7 +26,7 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 | [M1 Find running local servers, one-click local setup](#m1-find-running-local-servers-one-click-local-setup) | Opus | ✅ Done | 14 | `7d9ea11`; one-click saves the engine quietly first, then one patch |
 | [M1b Setup wizard: recommend a path, cloud by default](#m1b-setup-wizard-recommend-a-path-cloud-by-default) | Opus | 🔄 In Progress | 17 (a) | M1b-a backend done `dbe2a23`; M1b-b wizard UI running |
 | [M2 Cloud setup in one place](#m2-cloud-setup-in-one-place) | Opus | ✅ Done | 45 | `a78eaf4`; OQ2 scope change done by M4 |
-| [T1 Setup tests](#t1-setup-tests) | Sonnet | ⬜ Not Started | — | Unit, host, cargo |
+| [T1 Setup tests](#t1-setup-tests) | Sonnet | 🔄 In Progress | — | Unit, host, cargo |
 | [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links) | Opus | ✅ Done | 16 | `f5b48a7` (cherry-picked from worktree); openLink and panel wiring passed to M2/M4 |
 | [M4 Consent flow hardening](#m4-consent-flow-hardening) | Sonnet | ✅ Done | 15 | `e73e2c2` (cherry-picked from worktree) |
 | [T2 Privacy and consent tests](#t2-privacy-and-consent-tests) | Sonnet | ✅ Done | 6 | Unit, host, cargo |
@@ -527,6 +527,8 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 ---
 
 ## Progress Log / Notes
+
+**2026-10-29 08:25** - Dispatched M1b-b (wizard UI, Opus, main tree; also writes the wizard's own tests, the Copilot privacy card variant, `aiConsentStepNote` on the cloud group, `aiPendingBadgeTitle`, the Copilot consent wording and Desktop consent pruning on engine delete) and T1 (Sonnet, worktree; every T1 box except the wizard tests).
 
 **2026-10-29 08:20** - M1b-a done (`dbe2a23`, 17 min): `ai/setup.ts` (`recommendSetupPath`, `modelSizeHint`, OQ11 bands, `hardwareLine`), `hardwareInfo` on VS Code (`src/ai/hardware.ts`) and Desktop (`hardware.rs`, `sysinfo`, `nvidia-smi`), `pricingUrl` / `installUrl` on presets (checked 2026-10-29; Groq pricing now a console billing FAQ because `groq.com/pricing` redirects home; re-check before release), the `vscode-lm` kind with `src/ai/providers/vscodeLm.ts`, a `host` preset family, `detectHostEngines` (VS Code), policy by kind, `aiConsentHost`. Main tree with M4 and T2: lint 0 errors, test:unit 2955, test:packages 83, Desktop 571, cargo 223+26+7. Notes: a `vscode-lm` engine is routable only where `listEngines` reports a status for it (Desktop leaves it out); Copilot ignores `maxTokens` / temperature, sends the system prompt as the first user message; consent body reads "GitHub Copilot is a cloud engine at GitHub Copilot." (fixture wording, left for M1b-b). Left for M1b-b: the privacy card's API key line for Copilot (`ai-settings-dom.ts`), `editor.ts#aiPendingBadgeTitle` → `aiConsentHost`.
 
