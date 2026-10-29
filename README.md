@@ -2,7 +2,7 @@
 
 **A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.**
 
-![Dark mode editor](assets/screenshots/dark-mode-editor.jpg)
+![A launch plan open in MikeDown in a dark theme: heading, a tip callout, a milestones table and a go/no-go task list, with the toolbar above and word count in the status bar.](assets/screenshots/dark-mode-editor.jpg)
 
 ## More MikeDown
 
@@ -47,19 +47,21 @@ Found a bug or have an idea? [Open an issue](https://github.com/mikejoseph23/mik
 
 *The in-editor sidebar — Properties (from YAML frontmatter), a per-document outline that follows your cursor, Backlinks, and a metadata footer, all in one pinnable pane:*
 
-![Sidebar in dark mode showing Properties, Outline, and Backlinks sections](assets/screenshots/sidebar-dark.jpg)
+![The engineering handbook with the document sidebar: outline, a backlink from the launch plan, tags and properties.](assets/screenshots/sidebar-dark.jpg)
 
-![Sidebar in light mode showing Properties, Outline, and Backlinks sections](assets/screenshots/sidebar-light.jpg)
+![The same sidebar in a light theme.](assets/screenshots/sidebar-light.jpg)
+
+![The outline on the left of an architecture overview, each heading one click away.](assets/screenshots/outline.jpg)
 
 *Multiple markdown documents open side by side, each with full WYSIWYG editing:*
 
-![Multiple markdown documents open side by side in MikeDown — dark mode](assets/screenshots/multi-doc-dark.jpg)
+![Three markdown documents open at once in MikeDown across split editor groups: an architecture overview, a capacity model with a rendered formula, and release notes.](assets/screenshots/multi-doc-dark.jpg)
 
-![Multiple markdown documents open side by side in MikeDown — light mode](assets/screenshots/multi-doc-light.jpg)
+![Three documents side by side in MikeDown in a light theme.](assets/screenshots/multi-doc-light.jpg)
 
 *Markdown editing alongside code — no separate app, no context switching:*
 
-![MikeDown editor next to a code file in split view](assets/screenshots/markdown-and-code.jpg)
+![A product spec in MikeDown on the left, with a task list and a highlighted code block, next to the HTML file it describes.](assets/screenshots/markdown-and-code.jpg)
 
 ## Features
 
@@ -73,7 +75,7 @@ Edit markdown visually using a TipTap/ProseMirror-based editor. What you see is 
 
 *WYSIWYG editing in light mode -- task lists, headings, and formatted text rendered live:*
 
-![WYSIWYG editing in light mode](assets/screenshots/light-mode-editor.jpg)
+![The same launch plan in a light theme.](assets/screenshots/light-mode-editor.jpg)
 
 ### Source Mode Toggle
 
@@ -81,7 +83,7 @@ Press `Cmd+/` (Mac) or `Ctrl+/` (Windows/Linux) to instantly switch between WYSI
 
 *Source mode showing raw markdown with the toolbar still accessible:*
 
-![Source mode showing raw markdown](assets/screenshots/source-mode.jpg)
+![The launch plan in source mode: raw markdown with line numbers and frontmatter, with the MikeDown toolbar still above it.](assets/screenshots/source-mode.jpg)
 
 ### Clean WYSIWYG Toolbar
 
