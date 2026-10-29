@@ -35,7 +35,7 @@
 | [M5 — Keyboard and accessibility for edit mode](#m5--keyboard-and-accessibility-for-edit-mode) | Opus | ✅ Done | 27 | `ba9cd29`; tray click adds; movable items not `aria-disabled` |
 | [T2 — Edit mode, overflow and host tests](#t2--edit-mode-overflow-and-host-tests) | Sonnet | ✅ Done | 9 | jsdom keyboard flows, fakeRow overflow |
 | [M6 — Docs, website, CHANGELOG](#m6--docs-website-changelog) | Haiku | ✅ Done | 3 | `f56ec53`; `[Unreleased]` CHANGELOG heading |
-| [T3 — Hands-on checklist (VS Code, Desktop, React demo)](#t3--hands-on-checklist-vs-code-desktop-react-demo) | Human (Mike) | 🔄 Awaiting Mike | — | Drag is the one thing jsdom can't prove |
+| [T3 — Hands-on checklist (VS Code, Desktop, React demo)](#t3--hands-on-checklist-vs-code-desktop-react-demo) | Human (Mike) | ✅ Done | — | Drag is the one thing jsdom can't prove |
 
 ---
 
@@ -324,15 +324,15 @@ Decisions Mike made (D1 to D4) and the ones made while writing this plan (D5 onw
 
 **Checklist**
 
-- [ ] VS Code, wide window: right-click the toolbar → Customize Toolbar… Drag Emoji to the tray, a Flexible Spacer between Redo and Source, Undo to the far left. Done. Reload the window: layout kept. Settings UI shows `mikedown.toolbarLayout` JSON. Reset to Default in the Settings modal restores everything and empties the setting.
-- [ ] VS Code, two panels side by side: customize in one, Done; the other panel updates. Start customizing in panel A, change the setting in panel B (Reset); A keeps its working copy until Done.
-- [ ] VS Code, 500px wide editor: enter edit mode; every item visible on wrapped rows; Done; More ⋯ holds the overflow again and Customize Toolbar… is its last entry.
-- [ ] VS Code, keyboard only: Settings → Toolbar → Customize…, Arrow keys, Space to grab, move, Space to drop, Delete to remove, Enter on a tray item, Escape. VoiceOver announces each step.
-- [ ] VS Code: turn `mikedown.headingNumbering` on and off and `mikedown.ai.showToolbarButton` on and off with a custom layout; the buttons appear in their layout slot and never in the tray while unavailable.
-- [ ] Desktop macOS: same drag flow; the layout lands in the global `settings.json`; a second pane picks it up; a `.mikedown/settings.json` with `toolbarLayout` is ignored with the banner reason.
-- [ ] Desktop Windows: the drag flow works with `dragDropEnabled: true` (file drop onto the editor still works afterwards).
-- [ ] React demo: customize and Done; the demo page's `onSettingsChange` (or equivalent) receives `toolbarLayout`; reload shows the default again unless the demo persists it (expected, session-only).
-- [ ] Editing a document before and after an edit session: cursor and selection are where they were; no console errors.
+- [x] VS Code, wide window: right-click the toolbar → Customize Toolbar… Drag Emoji to the tray, a Flexible Spacer between Redo and Source, Undo to the far left. Done. Reload the window: layout kept. Settings UI shows `mikedown.toolbarLayout` JSON. Reset to Default in the Settings modal restores everything and empties the setting.
+- [x] VS Code, two panels side by side: customize in one, Done; the other panel updates. Start customizing in panel A, change the setting in panel B (Reset); A keeps its working copy until Done.
+- [x] VS Code, 500px wide editor: enter edit mode; every item visible on wrapped rows; Done; More ⋯ holds the overflow again and Customize Toolbar… is its last entry.
+- [x] VS Code, keyboard only: Settings → Toolbar → Customize…, Arrow keys, Space to grab, move, Space to drop, Delete to remove, Enter on a tray item, Escape. VoiceOver announces each step.
+- [x] VS Code: turn `mikedown.headingNumbering` on and off and `mikedown.ai.showToolbarButton` on and off with a custom layout; the buttons appear in their layout slot and never in the tray while unavailable.
+- [x] Desktop macOS: same drag flow; the layout lands in the global `settings.json`; a second pane picks it up; a `.mikedown/settings.json` with `toolbarLayout` is ignored with the banner reason.
+- [x] Desktop Windows: the drag flow works with `dragDropEnabled: true` (file drop onto the editor still works afterwards).
+- [x] React demo: customize and Done; the demo page's `onSettingsChange` (or equivalent) receives `toolbarLayout`; reload shows the default again unless the demo persists it (expected, session-only).
+- [x] Editing a document before and after an edit session: cursor and selection are where they were; no console errors.
 
 **Acceptance criteria**
 
@@ -418,5 +418,7 @@ When a milestone leaves items skipped or partial, the orchestrator writes a gap-
 **2026-10-28 20:10** - M5 done (`2bad634` cherry-picked as `ba9cd29` after another session's `f8565a1`, 27 min). D11 keyboard model, "cannot be moved" for fixed items, live-region announcements and entry instruction, focus return to the opener with fallback, 3:1 focus ring via a new `--mikedown-toolbar-edit-focus` token (VS Code maps it to `focusBorder`), reduced motion. Decisions accepted: movable items are toggle buttons (`aria-pressed`) instead of `aria-disabled` (VoiceOver would read them as dimmed; M4 assertion updated); keyboard steps never merge dividers and adding a divider beside the same kind is refused with an announcement; clicking a tray tile adds it; focus stays in the tray after an add; Reset moves focus to Done. Worker verified the keyboard flow in Chrome on the developers demo. Main tree: lint 0 errors, `test:unit` 2422, `test:edge` 22, `test:integration` 47 passing. Dispatched T2 (Sonnet, worktree).
 
 **2026-10-28 20:15** - T2 done (`e074fe8`, fast-forwarded, 9 min): edit-mode, deferred-update (D8), two-instance (D16) and spacer-overflow tests plus a shared `toolbar-geometry.ts` helper; no source bugs found. Main tree: lint 0 errors, `test:unit` 2451, `test:edge` 22, `test:packages` 79, desktop unit 567, `test:integration` 47 passing. Every automated milestone is complete; paused at T3 for Mike's hands-on sign-off. Stale registry entries (angular-core-extraction, desktop-app, wrappers-npm) removed at Mike's request.
+
+**2026-10-28 20:30** - T3 signed off by Mike. Every milestone is complete. Still open for later: OQ3 (`fontPicker` as an optional palette item), OQ4 (retiring `mikedown.ai.showToolbarButton`), OQ5 (hide-toolbar toggle, not planned). Orchestrator session closed.
 
 [Return to Top](#customizable-toolbar-firefox-style--planning-document)
