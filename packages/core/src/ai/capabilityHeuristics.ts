@@ -110,6 +110,23 @@ export const OPENAI_MODEL_TABLE: CloudTable = [
   { prefix: 'omni-moderation', caps: NOT_A_CHAT_MODEL },
 ];
 
+/** The o-series and GPT-5 onwards (`o3`, `o4-mini`, `gpt-5`, `gpt-5.5`, `gpt-6-mini`), not `gpt-4o` or `gpt-oss`. */
+const OPENAI_REASONING_ID = /^(o\d+|gpt-([5-9]|\d{2,})(\.\d+)?)(-|$)/;
+
+/**
+ * OpenAI's reasoning models, which take only the default sampling: Chat
+ * Completions rejects a `temperature` or `top_p` other than 1 for them. The
+ * native `openai` kind matches on the id; any other kind only on an
+ * `openai/` id (OpenRouter), so a local model that happens to be called
+ * `o3-something` keeps its sampling. `-chat-latest` snapshots match too:
+ * the default sampling costs nothing there.
+ */
+export function isOpenAiReasoningModel(modelId: string, kind?: AiEngineKind): boolean {
+  const id = modelId.trim().toLowerCase();
+  if (kind === 'openai') {return OPENAI_REASONING_ID.test(id.slice(id.lastIndexOf('/') + 1));}
+  return id.startsWith('openai/') && OPENAI_REASONING_ID.test(id.slice('openai/'.length));
+}
+
 /** Every row whose prefix matches, shortest first, so longer prefixes override. */
 function matchCloudTable(table: CloudTable, id: string): { caps: Partial<AiModelCapabilities>; prefix: string } | null {
   const rows = table.filter((r) => id.startsWith(r.prefix)).sort((a, b) => a.prefix.length - b.prefix.length);

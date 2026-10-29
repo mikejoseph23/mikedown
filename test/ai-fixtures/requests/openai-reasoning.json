@@ -1,0 +1,27 @@
+{
+  "description": "Chat Completions bodies for OpenAI reasoning models (o-series, GPT-5 onwards), which reject a temperature other than the default. Each case builds the body for request with stream: true; expected keys are compared whole, absent keys must not be there.",
+  "request": {
+    "messages": [{ "role": "user", "content": "hello" }],
+    "maxTokens": 500,
+    "temperature": 0.3
+  },
+  "cases": [
+    { "name": "openai gpt-5.5 (the reported 400)", "kind": "openai", "modelId": "gpt-5.5", "expected": { "max_completion_tokens": 500 }, "absent": ["temperature", "max_tokens", "top_p"] },
+    { "name": "openai gpt-5-mini", "kind": "openai", "modelId": "gpt-5-mini", "expected": { "max_completion_tokens": 500 }, "absent": ["temperature", "max_tokens"] },
+    { "name": "openai gpt-5-chat-latest", "kind": "openai", "modelId": "gpt-5-chat-latest", "expected": { "max_completion_tokens": 500 }, "absent": ["temperature"] },
+    { "name": "openai gpt-6-mini", "kind": "openai", "modelId": "gpt-6-mini", "expected": { "max_completion_tokens": 500 }, "absent": ["temperature"] },
+    { "name": "openai o3", "kind": "openai", "modelId": "o3", "expected": { "max_completion_tokens": 500 }, "absent": ["temperature", "max_tokens"] },
+    { "name": "openai o4-mini", "kind": "openai", "modelId": "o4-mini", "expected": { "max_completion_tokens": 500 }, "absent": ["temperature"] },
+    { "name": "openai o1-2024-12-17", "kind": "openai", "modelId": "o1-2024-12-17", "expected": { "max_completion_tokens": 500 }, "absent": ["temperature"] },
+    { "name": "openai gpt-4o keeps its temperature", "kind": "openai", "modelId": "gpt-4o", "expected": { "max_completion_tokens": 500, "temperature": 0.3 }, "absent": ["max_tokens"] },
+    { "name": "openai gpt-4.1-mini keeps its temperature", "kind": "openai", "modelId": "gpt-4.1-mini", "expected": { "temperature": 0.3 }, "absent": [] },
+    { "name": "openai gpt-oss-120b keeps its temperature", "kind": "openai", "modelId": "gpt-oss-120b", "expected": { "temperature": 0.3 }, "absent": [] },
+    { "name": "the model's own temperature override still wins", "kind": "openai", "modelId": "gpt-5.5", "modelOverrides": { "temperature": 1 }, "expected": { "temperature": 1, "max_completion_tokens": 500 }, "absent": [] },
+    { "name": "OpenRouter openai/o3", "kind": "openai-compatible", "modelId": "openai/o3", "expected": { "max_tokens": 500 }, "absent": ["temperature", "max_completion_tokens"] },
+    { "name": "OpenRouter openai/gpt-5.5", "kind": "openai-compatible", "modelId": "openai/gpt-5.5", "expected": { "max_tokens": 500 }, "absent": ["temperature"] },
+    { "name": "Groq openai/gpt-oss-120b keeps its temperature", "kind": "openai-compatible", "modelId": "openai/gpt-oss-120b", "expected": { "max_tokens": 500, "temperature": 0.3 }, "absent": [] },
+    { "name": "a bare o3-like id on a generic server keeps its temperature", "kind": "openai-compatible", "modelId": "o3-mini", "expected": { "max_tokens": 500, "temperature": 0.3 }, "absent": [] },
+    { "name": "DeepSeek deepseek-reasoner keeps its temperature", "kind": "openai-compatible", "modelId": "deepseek-reasoner", "expected": { "max_tokens": 500, "temperature": 0.3 }, "absent": [] },
+    { "name": "Ollama gpt-oss:20b keeps its temperature", "kind": "ollama", "modelId": "gpt-oss:20b", "expected": { "max_tokens": 500, "temperature": 0.3 }, "absent": [] }
+  ]
+}

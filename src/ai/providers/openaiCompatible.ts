@@ -7,6 +7,7 @@ import {
   makeAiError,
   parseEmbeddingsResponse,
   parseOpenAiModelList,
+  withoutRequestParam,
   type AiCompletionRequest,
   type AiCompletionResult,
   type AiDiscoveredModel,
@@ -25,6 +26,7 @@ import {
   streamCompletion,
   type AdapterOptions,
   type FetchLike,
+  type HttpAiError,
 } from './http';
 
 /**
@@ -96,16 +98,36 @@ export function completionResult(engine: AiEngineConfig, model: AiModelConfig, o
   return result;
 }
 
+/**
+ * Completions retry once when the model rejects a parameter (a 400 that
+ * names `temperature`, `max_tokens` and the like), without it or with its
+ * replacement. The parameter is remembered per engine (and base URL) and model for the
+ * session, so the next request leaves it out from the start.
+ */
 export function createChatCompletionsAdapter(parts: ChatCompletionsAdapterParts, opts: AdapterOptions = {}): ProviderAdapter {
   const ctx = adapterContext(opts);
   const list = parts.listModels ?? listOpenAiModels;
+  const rejected = new Map<string, string[]>();
   return {
     kind: parts.kind,
     listModels: (engine, apiKey, signal) => list(ctx, engine, apiKey, signal),
     probe: (engine, apiKey, signal) => probeModelList(ctx, engine, apiKey, signal),
     async complete(engine, apiKey, model, req: AiCompletionRequest, onToken, signal) {
-      const body = buildCompletionBody(parts.kind, model, req);
-      const out = await streamCompletion(ctx.fetch, parts.kind, engineEndpoints(engine).completions, buildAuthHeaders(parts.kind, apiKey), body, onToken, signal);
+      const key = `${engine.id}\n${engine.baseUrl}\n${model.id}`;
+      let body = buildCompletionBody(parts.kind, model, req);
+      for (const param of rejected.get(key) ?? []) {body = withoutRequestParam(body, param) ?? body;}
+      const send = (b: Record<string, unknown>) =>
+        streamCompletion(ctx.fetch, parts.kind, engineEndpoints(engine).completions, buildAuthHeaders(parts.kind, apiKey), b, onToken, signal);
+      let out;
+      try {
+        out = await send(body);
+      } catch (err) {
+        const param = (err as HttpAiError).unsupportedParam;
+        const retry = param ? withoutRequestParam(body, param) : null;
+        if (!param || !retry) {throw err;}
+        rejected.set(key, [...(rejected.get(key) ?? []), param]);
+        out = await send(retry);
+      }
       return completionResult(engine, model, out);
     },
     async embed(engine, apiKey, model, texts, signal) {

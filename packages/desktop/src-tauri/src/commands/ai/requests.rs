@@ -5,7 +5,8 @@
 //!
 //! - Chat Completions kinds: `{ model, messages, stream, max_tokens,
 //!   temperature, response_format }`; `openai` uses `max_completion_tokens`
-//!   and asks for usage in the stream.
+//!   and asks for usage in the stream. OpenAI reasoning models (o-series,
+//!   GPT-5 onwards) get no `temperature`: they accept only the default.
 //! - `anthropic`: Messages API, system prompts lifted into `system`,
 //!   `max_tokens` always set. No sampling parameters: API version 2026-10-21
 //!   rejects `temperature`.
@@ -13,6 +14,10 @@
 //! `model.requestOverrides` merge last, deeply, so they win (OPEN-6); the
 //! request's own `requestOverrides` (a per-request thinking level) merge over
 //! those the same way.
+//!
+//! A 400 that names a parameter the model does not take
+//! (`unsupported_request_param`) is retried once without it
+//! (`without_request_param`); see `providers::complete_streaming`.
 
 use serde_json::{json, Map, Value};
 
@@ -161,7 +166,7 @@ fn chat_completions_body(kind: EngineKind, model_id: &str, req: &CompletionReque
     if let Some(max) = req.max_tokens {
         obj.insert(if kind == EngineKind::OpenAi { "max_completion_tokens" } else { "max_tokens" }.to_string(), json!(max));
     }
-    if let Some(t) = req.temperature {
+    if let Some(t) = req.temperature.filter(|_| !is_openai_reasoning_model(model_id, kind)) {
         obj.insert("temperature".to_string(), json!(t));
     }
     if req.format.as_deref() == Some("json") {
@@ -178,6 +183,48 @@ fn chat_completions_body(kind: EngineKind, model_id: &str, req: &CompletionReque
         obj.insert("stream_options".to_string(), json!({ "include_usage": true }));
     }
     body
+}
+
+/// Port of `isOpenAiReasoningModel` (core `capabilityHeuristics.ts`):
+/// OpenAI's reasoning models take only the default sampling. The native
+/// `openai` kind matches on the id; any other kind only on an `openai/` id
+/// (OpenRouter).
+pub fn is_openai_reasoning_model(model_id: &str, kind: EngineKind) -> bool {
+    let id = model_id.trim().to_lowercase();
+    let bare = if kind == EngineKind::OpenAi {
+        id.rsplit('/').next().unwrap_or_default()
+    } else {
+        match id.strip_prefix("openai/") {
+            Some(rest) => rest,
+            None => return false,
+        }
+    };
+    openai_reasoning_id(bare)
+}
+
+/// `^(o\d+|gpt-([5-9]|\d{2,})(\.\d+)?)(-|$)`, without a regex crate.
+fn openai_reasoning_id(id: &str) -> bool {
+    let digits = |s: &str| s.bytes().take_while(u8::is_ascii_digit).count();
+    let rest = if let Some(r) = id.strip_prefix("gpt-") {
+        let n = digits(r);
+        if n == 0 || (n == 1 && r.as_bytes()[0] < b'5') {
+            return false;
+        }
+        let r = &r[n..];
+        match r.strip_prefix('.') {
+            Some(minor) if digits(minor) > 0 => &minor[digits(minor)..],
+            _ => r,
+        }
+    } else if let Some(r) = id.strip_prefix('o') {
+        let n = digits(r);
+        if n == 0 {
+            return false;
+        }
+        &r[n..]
+    } else {
+        return false;
+    };
+    rest.is_empty() || rest.starts_with('-')
 }
 
 fn anthropic_body(model_id: &str, req: &CompletionRequest, stream: bool) -> Value {
@@ -201,6 +248,91 @@ fn anthropic_body(model_id: &str, req: &CompletionRequest, stream: bool) -> Valu
         body.as_object_mut().expect("object literal").insert("system".to_string(), Value::String(system.join("\n\n")));
     }
     body
+}
+
+// ── Unsupported parameters ──────────────────────────────────────────────────
+
+/// Body fields a server may reject for one model while taking them for
+/// others. Only these are retried: anything else in a 400 is a real error.
+pub const RETRYABLE_REQUEST_PARAMS: [&str; 7] =
+    ["temperature", "top_p", "presence_penalty", "frequency_penalty", "max_tokens", "max_completion_tokens", "reasoning_effort"];
+
+const UNSUPPORTED_WORDING: [&str; 4] = ["unsupported", "not supported", "does not support", "not compatible"];
+
+/// Port of `unsupportedRequestParam`: the parameter a failed completion was
+/// rejected for, or None. Only a 400 whose error says the parameter (or its
+/// value) is unsupported counts: OpenAI's `error.param`, or the first
+/// retryable name quoted in the message.
+pub fn unsupported_request_param(status: u16, body: &str) -> Option<String> {
+    if status != 400 {
+        return None;
+    }
+    let mut message = body.to_string();
+    let mut param: Option<Value> = None;
+    let mut code = String::new();
+    if let Ok(json) = serde_json::from_str::<Value>(body) {
+        match json.get("error") {
+            Some(Value::Object(error)) => {
+                message = error.get("message").and_then(Value::as_str).unwrap_or_default().to_string();
+                param = error.get("param").cloned();
+                code = error.get("code").and_then(Value::as_str).unwrap_or_default().to_string();
+            }
+            Some(Value::String(error)) => message = error.clone(),
+            _ => {
+                if let Some(m) = json.get("message").and_then(Value::as_str) {
+                    message = m.to_string();
+                }
+            }
+        }
+    }
+    let wording = format!("{code} {message}").to_lowercase();
+    if !UNSUPPORTED_WORDING.iter().any(|w| wording.contains(w)) {
+        return None;
+    }
+    if let Some(Value::String(p)) = param.filter(|p| p.as_str().is_some_and(|s| !s.is_empty())) {
+        return RETRYABLE_REQUEST_PARAMS.contains(&p.as_str()).then_some(p);
+    }
+    // The first retryable name in quotes (', " or `), so "Use
+    // 'max_completion_tokens' instead" after the real one does not count.
+    let bytes = message.as_bytes();
+    let is_quote = |b: u8| matches!(b, b'\'' | b'"' | b'`');
+    let mut i = 0;
+    while i < bytes.len() {
+        if is_quote(bytes[i]) {
+            let start = i + 1;
+            let mut j = start;
+            while j < bytes.len() && (bytes[j].is_ascii_lowercase() || bytes[j] == b'_') {
+                j += 1;
+            }
+            if j > start && j < bytes.len() && is_quote(bytes[j]) {
+                let name = &message[start..j];
+                if RETRYABLE_REQUEST_PARAMS.contains(&name) {
+                    return Some(name.to_string());
+                }
+                i = j + 1;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Port of `withoutRequestParam`: `body` without a parameter the server
+/// rejected. `max_tokens` and `max_completion_tokens` become each other,
+/// anything else is dropped. None when the body does not carry it.
+pub fn without_request_param(body: &Value, param: &str) -> Option<Value> {
+    let mut out = body.as_object()?.clone();
+    let value = out.remove(param)?;
+    let replacement = match param {
+        "max_tokens" => Some("max_completion_tokens"),
+        "max_completion_tokens" => Some("max_tokens"),
+        _ => None,
+    };
+    if let Some(r) = replacement.filter(|r| !out.contains_key(*r)) {
+        out.insert(r.to_string(), value);
+    }
+    Some(Value::Object(out))
 }
 
 #[cfg(test)]

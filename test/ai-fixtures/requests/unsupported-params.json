@@ -1,0 +1,103 @@
+{
+  "description": "A failed completion that names a parameter the model does not take is retried once without it. errors: unsupportedRequestParam(status, body) -> param or null. adjust: withoutRequestParam(body, param) -> the retried body, or null when there is nothing to retry.",
+  "errors": [
+    {
+      "name": "OpenAI temperature on gpt-5.5 (the reported 400)",
+      "status": 400,
+      "body": "{\n  \"error\": {\n    \"message\": \"Unsupported value: 'temperature' does not support 0.3 with this model. Only the default (1) value is supported.\",\n    \"type\": \"invalid_request_error\",\n    \"param\": \"temperature\",\n    \"code\": \"unsupported_value\"\n  }\n}",
+      "param": "temperature"
+    },
+    {
+      "name": "OpenAI max_tokens on a reasoning model",
+      "status": 400,
+      "body": "{\"error\":{\"message\":\"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.\",\"type\":\"invalid_request_error\",\"param\":\"max_tokens\",\"code\":\"unsupported_parameter\"}}",
+      "param": "max_tokens"
+    },
+    {
+      "name": "OpenAI reasoning_effort none on a model without it",
+      "status": 400,
+      "body": "{\"error\":{\"message\":\"Unsupported value: 'reasoning_effort' does not support 'none' with this model. Supported values are: 'low', 'medium', and 'high'.\",\"type\":\"invalid_request_error\",\"param\":\"reasoning_effort\",\"code\":\"unsupported_value\"}}",
+      "param": "reasoning_effort"
+    },
+    {
+      "name": "no param field: the first known name quoted in the message",
+      "status": 400,
+      "body": "{\"error\":{\"message\":\"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.\"}}",
+      "param": "max_tokens"
+    },
+    {
+      "name": "top-level message, double quotes",
+      "status": 400,
+      "body": "{\"message\":\"\\\"top_p\\\" is not supported for this model\"}",
+      "param": "top_p"
+    },
+    {
+      "name": "plain text body",
+      "status": 400,
+      "body": "temperature is unsupported: `temperature` does not support 0.3",
+      "param": "temperature"
+    },
+    {
+      "name": "a param that is not retryable",
+      "status": 400,
+      "body": "{\"error\":{\"message\":\"Unsupported value: 'messages[0].role' does not support 'developer' with this model.\",\"type\":\"invalid_request_error\",\"param\":\"messages[0].role\",\"code\":\"unsupported_value\"}}",
+      "param": null
+    },
+    {
+      "name": "an out-of-range value is a real error, not an unsupported one",
+      "status": 400,
+      "body": "{\"error\":{\"message\":\"Invalid 'temperature': decimal above maximum value. Expected a value <= 2, but got 7 instead.\",\"type\":\"invalid_request_error\",\"param\":\"temperature\",\"code\":\"decimal_above_max_value\"}}",
+      "param": null
+    },
+    {
+      "name": "a context overflow",
+      "status": 400,
+      "body": "{\"error\":{\"message\":\"This model's maximum context length is 128000 tokens. However, your messages resulted in 130000 tokens.\",\"type\":\"invalid_request_error\",\"param\":\"messages\",\"code\":\"context_length_exceeded\"}}",
+      "param": null
+    },
+    {
+      "name": "not a 400",
+      "status": 500,
+      "body": "{\"error\":{\"message\":\"Unsupported value: 'temperature' does not support 0.3 with this model.\",\"param\":\"temperature\",\"code\":\"unsupported_value\"}}",
+      "param": null
+    }
+  ],
+  "adjust": [
+    {
+      "name": "temperature is dropped",
+      "param": "temperature",
+      "body": { "model": "m", "stream": true, "temperature": 0.3, "max_completion_tokens": 500 },
+      "expected": { "model": "m", "stream": true, "max_completion_tokens": 500 }
+    },
+    {
+      "name": "max_tokens becomes max_completion_tokens",
+      "param": "max_tokens",
+      "body": { "model": "m", "stream": true, "max_tokens": 500 },
+      "expected": { "model": "m", "stream": true, "max_completion_tokens": 500 }
+    },
+    {
+      "name": "max_completion_tokens becomes max_tokens",
+      "param": "max_completion_tokens",
+      "body": { "model": "m", "stream": true, "max_completion_tokens": 500 },
+      "expected": { "model": "m", "stream": true, "max_tokens": 500 }
+    },
+    {
+      "name": "max_tokens is only dropped when the replacement is already there",
+      "param": "max_tokens",
+      "body": { "model": "m", "max_tokens": 100, "max_completion_tokens": 500 },
+      "expected": { "model": "m", "max_completion_tokens": 500 }
+    },
+    {
+      "name": "reasoning_effort is dropped (model default)",
+      "param": "reasoning_effort",
+      "body": { "model": "m", "reasoning_effort": "none" },
+      "expected": { "model": "m" }
+    },
+    {
+      "name": "nothing to retry when the body does not carry it",
+      "param": "top_p",
+      "body": { "model": "m", "temperature": 0.3 },
+      "expected": null
+    }
+  ]
+}

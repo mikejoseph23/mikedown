@@ -3,6 +3,7 @@ import {
   createCompletionStreamReader,
   isAiError,
   makeAiError,
+  unsupportedRequestParam,
   type AiEngineKind,
   type AiError,
   type AiFinishReason,
@@ -93,8 +94,13 @@ function errorDetail(bodyText: string): string {
   return bodyText.trim().slice(0, 300);
 }
 
+/** An `AiError` from a failed response, with the request parameter the model rejected when the body names one. */
+export interface HttpAiError extends AiError {
+  unsupportedParam?: string;
+}
+
 /** A non-2xx response as an `AiError` (401/403 auth, 404 modelNotFound, 413 or a context 400 contextOverflow, 429 rateLimited). */
-export async function httpError(res: Response): Promise<AiError> {
+export async function httpError(res: Response): Promise<HttpAiError> {
   let text = '';
   try {
     text = (await res.text()).slice(0, 4000);
@@ -102,7 +108,10 @@ export async function httpError(res: Response): Promise<AiError> {
     // Body unreadable; the status alone decides.
   }
   const detail = errorDetail(text);
-  return makeAiError(aiErrorCodeFromHttp(res.status, text), `HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
+  const error: HttpAiError = makeAiError(aiErrorCodeFromHttp(res.status, text), `HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
+  const param = unsupportedRequestParam(res.status, text);
+  if (param) {error.unsupportedParam = param;}
+  return error;
 }
 
 /** One JSON request with a timeout. Rejects with `AiError`. */

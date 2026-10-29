@@ -6,7 +6,8 @@
  * Bodies:
  * - Chat Completions kinds: `{ model, messages, stream, max_tokens,
  *   temperature, response_format }`; `openai` uses `max_completion_tokens`
- *   and asks for usage in the stream.
+ *   and asks for usage in the stream. OpenAI reasoning models (o-series,
+ *   GPT-5 onwards) get no `temperature`: they accept only the default.
  * - `anthropic`: Messages API, system prompts lifted into `system`,
  *   `max_tokens` always set (required). No sampling parameters: API version
  *   2026-10-21 rejects `temperature`.
@@ -14,8 +15,14 @@
  * `model.requestOverrides` merge last, deeply (objects merge, everything else
  * replaces), so they win (OPEN-6); then the request's own `requestOverrides`
  * (a per-request thinking level) merge over those the same way.
+ *
+ * A 400 that names a parameter the model does not take
+ * (`unsupportedRequestParam`) is retried once without it
+ * (`withoutRequestParam`); the hosts remember it per engine and model for
+ * the session.
  */
 
+import { isOpenAiReasoningModel } from './capabilityHeuristics';
 import type { AiCompletionRequest, AiEngineConfig, AiEngineKind, AiMessage, AiMessagePart, AiModelConfig } from './types';
 
 /** `anthropic-version` sent by the Anthropic adapter. */
@@ -193,7 +200,7 @@ function chatCompletionsBody(kind: AiEngineKind, modelId: string, req: AiComplet
     stream,
   };
   if (req.maxTokens !== undefined) {body[kind === 'openai' ? 'max_completion_tokens' : 'max_tokens'] = req.maxTokens;}
-  if (req.temperature !== undefined) {body.temperature = req.temperature;}
+  if (req.temperature !== undefined && !isOpenAiReasoningModel(modelId, kind)) {body.temperature = req.temperature;}
   if (req.format === 'json') {
     // LM Studio accepts only `json_schema`; a permissive object schema is the schema-free equivalent.
     body.response_format =
@@ -216,6 +223,76 @@ function anthropicBody(modelId: string, req: AiCompletionRequest, stream: boolea
   };
   if (system.length > 0) {body.system = system.join('\n\n');}
   return body;
+}
+
+// ── Unsupported parameters ──────────────────────────────────────────────────
+
+/**
+ * Body fields a server may reject for one model while taking them for
+ * others. Only these are retried: anything else in a 400 is a real error.
+ */
+export const RETRYABLE_REQUEST_PARAMS: readonly string[] = [
+  'temperature',
+  'top_p',
+  'presence_penalty',
+  'frequency_penalty',
+  'max_tokens',
+  'max_completion_tokens',
+  'reasoning_effort',
+];
+
+const UNSUPPORTED_WORDING = /unsupported|not supported|does not support|not compatible/i;
+
+/**
+ * The parameter a failed completion was rejected for, or null. Only a 400
+ * whose error says the parameter (or its value) is unsupported counts:
+ * OpenAI's `{ error: { param, code: "unsupported_value" | "unsupported_parameter", message } }`,
+ * or any body whose message quotes one of `RETRYABLE_REQUEST_PARAMS` next to
+ * that wording (the first one quoted, so "Use 'max_completion_tokens'
+ * instead" does not count).
+ */
+export function unsupportedRequestParam(status: number, bodyText: string): string | null {
+  if (status !== 400) {return null;}
+  let message = bodyText;
+  let param: unknown;
+  let code: unknown;
+  try {
+    const json: unknown = JSON.parse(bodyText);
+    const error = isPlainObject(json) ? json.error : undefined;
+    if (isPlainObject(error)) {
+      message = typeof error.message === 'string' ? error.message : '';
+      param = error.param;
+      code = error.code;
+    } else if (typeof error === 'string') {
+      message = error;
+    } else if (isPlainObject(json) && typeof json.message === 'string') {
+      message = json.message;
+    }
+  } catch {
+    // Not JSON: the text is the message.
+  }
+  if (!UNSUPPORTED_WORDING.test(`${typeof code === 'string' ? code : ''} ${message}`)) {return null;}
+  if (typeof param === 'string' && param !== '') {return RETRYABLE_REQUEST_PARAMS.includes(param) ? param : null;}
+  for (const match of message.matchAll(/['"`]([a-z_]+)['"`]/g)) {
+    if (RETRYABLE_REQUEST_PARAMS.includes(match[1])) {return match[1];}
+  }
+  return null;
+}
+
+/**
+ * `body` without a parameter the server rejected: `max_tokens` and
+ * `max_completion_tokens` become each other (the documented replacement),
+ * anything else is dropped. Null when the body does not carry it, so there
+ * is nothing to retry.
+ */
+export function withoutRequestParam(body: Json, param: string): Json | null {
+  if (!(param in body)) {return null;}
+  const out: Json = { ...body };
+  const value = out[param];
+  delete out[param];
+  const replacement = param === 'max_tokens' ? 'max_completion_tokens' : param === 'max_completion_tokens' ? 'max_tokens' : null;
+  if (replacement && !(replacement in out)) {out[replacement] = value;}
+  return out;
 }
 
 /** Embeddings body (`POST .../embeddings`), or null for kinds without an embeddings endpoint. */

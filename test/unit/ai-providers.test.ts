@@ -109,6 +109,68 @@ describe('streaming completions', () => {
   });
 });
 
+describe('unsupported parameter retry', () => {
+  const errors = fixture('requests/unsupported-params.json').errors as Array<{ name: string; body: string; param: string | null }>;
+  const temperature400 = errors.find((c) => c.param === 'temperature')!.body;
+  const maxTokens400 = errors.find((c) => c.param === 'max_tokens' && c.name.startsWith('OpenAI'))!.body;
+  const stream = fixture('sse/openai-chat-stream.json').chunks as string[];
+  const bodies = (calls: Call[]): Array<Record<string, unknown>> => calls.map((c) => JSON.parse(String(c.init?.body)));
+
+  it('retries once without the rejected parameter, then leaves it out for that engine and model', async () => {
+    let first = true;
+    const { fetch, calls } = fakeFetch(() => {
+      if (first) {
+        first = false;
+        return new Response(temperature400, { status: 400 });
+      }
+      return sseResponse(stream);
+    });
+    const adapter = createAdapters({ fetch }).get('openai-compatible')!;
+    const e = engine('openai-compatible', 'https://example.test/v1', [{ id: 'gpt-x' }, { id: 'other' }]);
+    const req = { ...request, maxTokens: 100, temperature: 0.3 };
+    const result = await adapter.complete(e, 'k', e.models[0], req, () => {}, new AbortController().signal);
+    expect(result.text).toBe(fixture('sse/openai-chat-stream.json').expected.text);
+    expect(bodies(calls).map((b) => b.temperature)).toEqual([0.3, undefined]);
+    expect(bodies(calls)[1].max_tokens).toBe(100);
+
+    await adapter.complete(e, 'k', e.models[0], req, () => {}, new AbortController().signal);
+    expect(calls).toHaveLength(3);
+    expect(bodies(calls)[2]).not.toHaveProperty('temperature');
+    // Another model on the same engine still sends it.
+    await adapter.complete(e, 'k', e.models[1], req, () => {}, new AbortController().signal);
+    expect(bodies(calls)[3].temperature).toBe(0.3);
+  });
+
+  it('max_tokens is retried as max_completion_tokens', async () => {
+    const { fetch, calls } = fakeFetch((_url, init) =>
+      'max_tokens' in JSON.parse(String(init?.body)) ? new Response(maxTokens400, { status: 400 }) : sseResponse(stream));
+    const e = engine('openai-compatible', 'https://example.test/v1', [{ id: 'azure-o3' }]);
+    await createAdapters({ fetch }).get('openai-compatible')!.complete(e, 'k', e.models[0], { ...request, maxTokens: 100 }, () => {}, new AbortController().signal);
+    expect(bodies(calls).map((b) => [b.max_tokens, b.max_completion_tokens])).toEqual([[100, undefined], [undefined, 100]]);
+  });
+
+  it('retries at most once, and never for other 400s', async () => {
+    const { fetch, calls } = fakeFetch(() => new Response(temperature400, { status: 400 }));
+    const e = engine('openai', 'https://api.openai.com/v1', [{ id: 'gpt-4o' }]);
+    const adapter = createAdapters({ fetch }).get('openai')!;
+    await expect(adapter.complete(e, 'k', e.models[0], { ...request, temperature: 0.3 }, () => {}, new AbortController().signal)).rejects.toMatchObject({ code: 'unknown' });
+    expect(calls).toHaveLength(2);
+
+    const other = fakeFetch(() => new Response('{"error":{"message":"Invalid \'messages\': empty array."}}', { status: 400 }));
+    await expect(createAdapters({ fetch: other.fetch }).get('openai')!.complete(e, 'k', e.models[0], { ...request, temperature: 0.3 }, () => {}, new AbortController().signal)).rejects.toMatchObject({ code: 'unknown' });
+    expect(other.calls).toHaveLength(1);
+  });
+
+  it('the native OpenAI kind sends no temperature to gpt-5.5 in the first place', async () => {
+    const { fetch, calls } = fakeFetch(() => sseResponse(stream));
+    const e = engine('openai', 'https://api.openai.com/v1', [{ id: 'gpt-5.5' }]);
+    await createAdapters({ fetch }).get('openai')!.complete(e, 'k', e.models[0], { ...request, maxTokens: 100, temperature: 0.3 }, () => {}, new AbortController().signal);
+    expect(calls).toHaveLength(1);
+    expect(bodies(calls)[0]).not.toHaveProperty('temperature');
+    expect(bodies(calls)[0].max_completion_tokens).toBe(100);
+  });
+});
+
 describe('HTTP and network errors', () => {
   const cases: Array<[number, string, string]> = [
     [401, '{"error":{"message":"bad key"}}', 'auth'],

@@ -11,6 +11,8 @@
 //! `ai_cancel` (or closing the window) flips, and dropping the response body
 //! closes the connection.
 
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
@@ -22,7 +24,7 @@ use super::errors::{code_from_http, from_reqwest, message_from_body, AiError, Er
 use super::model::{
     CompletionRequest, CompletionResult, DiscoveredModel, EngineConfig, EngineKind, FinishReason, ModelConfig, ProbeOutcome, ServedBy,
 };
-use super::requests::{auth_headers, build_completion_body, engine_endpoints};
+use super::requests::{auth_headers, build_completion_body, engine_endpoints, unsupported_request_param, without_request_param};
 use super::sse::{StreamReader, Utf8Chunker};
 
 pub mod anthropic;
@@ -145,6 +147,19 @@ async fn exchange(rb: reqwest::RequestBuilder, cancel: &Cancel) -> Result<Value,
     }
 }
 
+/// A failed completion, with the request parameter the model rejected when
+/// the error body names one (`unsupported_request_param`).
+pub struct StreamFailure {
+    pub error: AiError,
+    pub unsupported_param: Option<String>,
+}
+
+impl From<AiError> for StreamFailure {
+    fn from(error: AiError) -> Self {
+        Self { error, unsupported_param: None }
+    }
+}
+
 /// Streaming completion against `url`: POST the body, read SSE chunks through
 /// the kind's reader, call `on_token` for every text delta.
 #[allow(clippy::too_many_arguments)]
@@ -157,16 +172,21 @@ pub async fn stream_completion(
     served: ServedBy,
     cancel: &Cancel,
     on_token: &mut (dyn FnMut(&str) + Send),
-) -> Result<CompletionResult, AiError> {
+) -> Result<CompletionResult, StreamFailure> {
     check_url(url)?;
     let rb = with_headers(client.post(url), auth_headers(kind, api_key)).body(body.to_string());
     let resp = tokio::select! {
         biased;
-        _ = wait_cancelled(cancel.clone()) => return Err(AiError::cancelled()),
+        _ = wait_cancelled(cancel.clone()) => return Err(AiError::cancelled().into()),
         r = rb.send() => r.map_err(|e| from_reqwest(&e))?,
     };
     if !resp.status().is_success() {
-        return Err(failure(resp).await);
+        let status = resp.status().as_u16();
+        let text = read_limited(resp).await;
+        return Err(StreamFailure {
+            error: AiError::new(code_from_http(status, &text), message_from_body(status, &text)),
+            unsupported_param: unsupported_request_param(status, &text),
+        });
     }
 
     let mut stream = resp.bytes_stream();
@@ -175,13 +195,13 @@ pub async fn stream_completion(
     loop {
         let next = tokio::select! {
             biased;
-            _ = wait_cancelled(cancel.clone()) => return Err(AiError::cancelled()),
+            _ = wait_cancelled(cancel.clone()) => return Err(AiError::cancelled().into()),
             r = tokio::time::timeout(STREAM_IDLE_TIMEOUT, stream.next()) => r,
         };
         match next {
-            Err(_) => return Err(AiError::new(ErrorCode::Unreachable, "The engine stopped sending data.")),
+            Err(_) => return Err(AiError::new(ErrorCode::Unreachable, "The engine stopped sending data.").into()),
             Ok(None) => break,
-            Ok(Some(Err(e))) => return Err(from_reqwest(&e)),
+            Ok(Some(Err(e))) => return Err(from_reqwest(&e).into()),
             Ok(Some(Ok(bytes))) => {
                 let text = chunker.push(&bytes);
                 for delta in reader.push(&text) {
@@ -198,16 +218,28 @@ pub async fn stream_completion(
     }
     let outcome = reader.finish();
     if let Some(err) = outcome.error {
-        return Err(err);
+        return Err(err.into());
     }
     if outcome.finish_reason == FinishReason::Error && outcome.text.is_empty() {
-        return Err(AiError::new(ErrorCode::Unreachable, "The engine closed the connection before answering."));
+        return Err(AiError::new(ErrorCode::Unreachable, "The engine closed the connection before answering.").into());
     }
     Ok(CompletionResult { text: outcome.text, served, usage: outcome.usage, finish_reason: outcome.finish_reason })
 }
 
+/// Parameters a model rejected this session, by (engine id, base URL, model id).
+fn rejected_params() -> &'static Mutex<HashMap<(String, String, String), Vec<String>>> {
+    static REJECTED: OnceLock<Mutex<HashMap<(String, String, String), Vec<String>>>> = OnceLock::new();
+    REJECTED.get_or_init(Default::default)
+}
+
 /// Completion over the engine's `completions` endpoint with the body for its
 /// kind. Every kind shares this; they differ in discovery.
+///
+/// When the model rejects a parameter (a 400 that names `temperature`,
+/// `max_tokens` and the like) the request is retried once without it, or
+/// with its replacement, and the parameter is remembered for that engine
+/// and model for the session, so the next request leaves it out from the
+/// start. Mirrors `createChatCompletionsAdapter` in the extension.
 #[allow(clippy::too_many_arguments)]
 pub async fn complete_streaming(
     client: &reqwest::Client,
@@ -220,8 +252,21 @@ pub async fn complete_streaming(
     on_token: &mut (dyn FnMut(&str) + Send),
 ) -> Result<CompletionResult, AiError> {
     let url = engine_endpoints(engine.kind, &engine.base_url).completions;
-    let body = build_completion_body(engine.kind, model, req, true);
-    stream_completion(client, engine.kind, &url, api_key, &body, served, cancel, on_token).await
+    let key = (engine.id.clone(), engine.base_url.clone(), model.id.clone());
+    let mut body = build_completion_body(engine.kind, model, req, true);
+    let remembered = rejected_params().lock().unwrap().get(&key).cloned().unwrap_or_default();
+    for param in &remembered {
+        body = without_request_param(&body, param).unwrap_or(body);
+    }
+    match stream_completion(client, engine.kind, &url, api_key, &body, served.clone(), cancel, on_token).await {
+        Ok(result) => Ok(result),
+        Err(StreamFailure { error, unsupported_param: Some(param) }) => {
+            let Some(retry) = without_request_param(&body, &param) else { return Err(error) };
+            rejected_params().lock().unwrap().entry(key).or_default().push(param);
+            stream_completion(client, engine.kind, &url, api_key, &retry, served, cancel, on_token).await.map_err(|f| f.error)
+        }
+        Err(failure) => Err(failure.error),
+    }
 }
 
 /// `GET {base}/models` on an OpenAI-style server: ids only.

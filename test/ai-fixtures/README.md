@@ -86,3 +86,11 @@ Core checks `requestOverrides` (`packages/core/test/ai-thinking-dial.test.ts`); 
 ## `consent/`
 
 `consent-text.json`: the cloud consent dialog's words, from core's `privacy.ts`. `privacy`, `sendsText`, `sendsFallback`, `features` (feature id → what it sends) and `policies` (cloud preset host → policy label, URL, optional note) mirror the core tables; `cases` are `aiConsentText` inputs (`engineName`, `host`, `feature?`, `sends?`, `scopeWord`, `offerNever?`) with the `expected` `{ title, body, allow, notNow, never? }`, the policy looked up from `host`. Checked by `packages/core/test/ai-privacy.test.ts` and the Rust port (`commands/ai/consent.rs`). When the copy changes in core, regenerate the expected text from `aiConsentText` and update the Rust tables to match.
+
+## `requests/openai-reasoning.json`
+
+`{ "description", "request", "cases": [...] }`: one `AiCompletionRequest` (`maxTokens` 500, `temperature` 0.3) built per case as `buildCompletionBody(kind, { id: modelId, requestOverrides: modelOverrides }, request)`. Each case has `expected` (top-level keys, each compared whole) and `absent` (keys that must not be there). OpenAI reasoning models (o-series, GPT-5 onwards on the `openai` kind, `openai/`-prefixed ids elsewhere) get no `temperature`; everything else keeps it. Checked by `packages/core/test/ai-unsupported-params.test.ts` and `commands/ai/tests.rs`.
+
+## `requests/unsupported-params.json`
+
+The one-retry net for a 400 that names a parameter the model does not take. `errors`: `{ name, status, body (raw response text), param }`, where `param` is what `unsupportedRequestParam(status, body)` returns (null: not retried). `adjust`: `{ name, param, body, expected }`, where `expected` is `withoutRequestParam(body, param)` (null: nothing to retry). Checked by the same two suites; both hosts' retry loops are tested against the first two `errors` bodies (`test/unit/ai-providers.test.ts`, `commands/ai/tests.rs`).

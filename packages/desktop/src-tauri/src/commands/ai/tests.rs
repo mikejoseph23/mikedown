@@ -91,6 +91,88 @@ fn a_request_without_overrides_leaves_the_body_as_the_model_made_it() {
     assert!(body.get("chat_template_kwargs").is_none());
 }
 
+// ── OpenAI reasoning models and unsupported parameters (shared fixtures) ────
+
+fn requests_fixture(name: &str) -> Value {
+    serde_json::from_str(&std::fs::read_to_string(fixtures().join("requests").join(name)).unwrap()).unwrap()
+}
+
+#[test]
+fn openai_reasoning_bodies_match_the_fixture() {
+    let fixture = requests_fixture("openai-reasoning.json");
+    let mut req = fixture["request"].clone();
+    req["requestId"] = json!("r1");
+    let req: CompletionRequest = serde_json::from_value(req).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let kind: super::model::EngineKind = serde_json::from_value(case["kind"].clone()).unwrap();
+        let model: super::model::ModelConfig =
+            serde_json::from_value(json!({ "id": case["modelId"], "requestOverrides": case.get("modelOverrides").cloned().unwrap_or(Value::Null) })).unwrap();
+        let body = super::requests::build_completion_body(kind, &model, &req, true);
+        for (key, expected) in case["expected"].as_object().unwrap() {
+            assert_eq!(&body[key], expected, "{name}: body.{key}");
+        }
+        for key in case["absent"].as_array().unwrap() {
+            assert!(body.get(key.as_str().unwrap()).is_none(), "{name}: body.{key} should be absent");
+        }
+    }
+}
+
+#[test]
+fn unsupported_parameter_errors_and_adjustments_match_the_fixture() {
+    let fixture = requests_fixture("unsupported-params.json");
+    for case in fixture["errors"].as_array().unwrap() {
+        let got = super::requests::unsupported_request_param(case["status"].as_u64().unwrap() as u16, case["body"].as_str().unwrap());
+        assert_eq!(got.as_deref(), case["param"].as_str(), "{}", case["name"]);
+    }
+    for case in fixture["adjust"].as_array().unwrap() {
+        let got = super::requests::without_request_param(&case["body"], case["param"].as_str().unwrap());
+        assert_eq!(got.unwrap_or(Value::Null), case["expected"], "{}", case["name"]);
+    }
+}
+
+#[tokio::test]
+async fn a_rejected_parameter_is_retried_once_and_then_left_out() {
+    let errors = requests_fixture("unsupported-params.json")["errors"].clone();
+    let temperature_400: Value = serde_json::from_str(errors[0]["body"].as_str().unwrap()).unwrap();
+    let chunks = chunks_of(&sse_fixture("openai-chat-stream.json"));
+    let (base, seen) = serve(move |r| {
+        let body: Value = serde_json::from_str(&r.body).unwrap();
+        if body.get("temperature").is_some() { Reply::Json(400, temperature_400.clone()) } else { Reply::Sse(chunks.clone()) }
+    })
+    .await;
+    let eng = engine("openai-compatible", &format!("{base}/v1"));
+    let (_tx, cancel) = never();
+    let req = request(json!({ "maxTokens": 32, "temperature": 0.3 }));
+    let (result, _) = run(&eng, None, &req, &cancel).await;
+    assert!(result.is_ok());
+    let (result, _) = run(&eng, None, &req, &cancel).await;
+    assert!(result.is_ok());
+    let sent: Vec<Value> = seen.lock().unwrap().iter().map(|r| serde_json::from_str(&r.body).unwrap()).collect();
+    assert_eq!(sent.len(), 3, "one failure, its retry, then the remembered body straight away");
+    assert_eq!(sent[0]["temperature"], 0.3);
+    assert!(sent[1].get("temperature").is_none() && sent[2].get("temperature").is_none());
+    assert_eq!(sent[2]["max_tokens"], 32);
+}
+
+#[tokio::test]
+async fn the_retry_happens_at_most_once_and_never_for_other_400s() {
+    let errors = requests_fixture("unsupported-params.json")["errors"].clone();
+    let max_tokens_400: Value = serde_json::from_str(errors[1]["body"].as_str().unwrap()).unwrap();
+    let (base, seen) = serve(move |_| Reply::Json(400, max_tokens_400.clone())).await;
+    let (_tx, cancel) = never();
+    let (result, _) = run(&engine("openai-compatible", &format!("{base}/v1")), None, &request(json!({ "maxTokens": 32 })), &cancel).await;
+    assert!(result.unwrap_err().message.contains("max_tokens"));
+    let sent: Vec<Value> = seen.lock().unwrap().iter().map(|r| serde_json::from_str(&r.body).unwrap()).collect();
+    assert_eq!(sent.len(), 2);
+    assert_eq!(sent[1]["max_completion_tokens"], 32, "max_tokens is retried as its replacement");
+
+    let (base, seen) = serve(|_| Reply::Json(400, json!({ "error": { "message": "Invalid 'messages': empty array." } }))).await;
+    let (result, _) = run(&engine("openai-compatible", &format!("{base}/v1")), None, &request(json!({ "temperature": 0.3 })), &cancel).await;
+    assert!(result.is_err());
+    assert_eq!(seen.lock().unwrap().len(), 1);
+}
+
 // ── Settings slice ──────────────────────────────────────────────────────────
 
 #[test]
