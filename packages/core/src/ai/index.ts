@@ -29,3 +29,6 @@ export * from './documentBudget';
 export * from './prompts/summary';
 export * from './prompts/title';
 export * from './prompts/properties';
+
+// Privacy copy (cloud engines): the card lines, what each feature sends, the consent dialog text.
+export * from './privacy';

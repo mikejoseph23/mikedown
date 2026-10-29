@@ -1,4 +1,4 @@
-import { fromWireCompletionRequest, toAiError, type AiCompletionResult, type AiWireCompletionRequest } from '@mikedown/core/ai';
+import { AI_SENDS_TEXT, fromWireCompletionRequest, toAiError, type AiCompletionResult, type AiSendsScope, type AiWireCompletionRequest } from '@mikedown/core/ai';
 import type { AiEngineService } from './engineService';
 
 /**
@@ -12,7 +12,7 @@ import type { AiEngineService } from './engineService';
  *   aiTestEngine          { requestId, engineId }              → aiEngineStatus
  *   aiDiscoverModels      { requestId, engineId }              → aiEngineStatus
  *   aiSetSecret           { requestId, engineId, apiKey }      → aiEngineStatus (hasKey)
- *   aiRequestCloudConsent { requestId, engineId, feature? }    → aiConsent
+ *   aiRequestCloudConsent { requestId, engineId, feature?, sends? } → aiConsent
  *   aiDetectLocalServers  { requestId, candidates: { presetId, baseUrl }[] } → aiEngineProbes
  *
  * Host → webview:
@@ -47,6 +47,11 @@ export interface AiBridgeHooks {
 
 function str(v: unknown): string {
   return typeof v === 'string' ? v : '';
+}
+
+/** A known `sends` scope from the webview, else undefined. */
+function sendsScope(v: unknown): AiSendsScope | undefined {
+  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(AI_SENDS_TEXT, v) ? v as AiSendsScope : undefined;
 }
 
 /** Handle one AI message from `panel`'s webview, posting the replies through `post`. */
@@ -118,7 +123,7 @@ export async function handleAiMessage(
     case 'aiRequestCloudConsent': {
       const engineId = str(message.engineId);
       try {
-        const granted = await service.requestCloudConsent(engineId, typeof message.feature === 'string' ? message.feature : undefined);
+        const granted = await service.requestCloudConsent(engineId, typeof message.feature === 'string' ? message.feature : undefined, sendsScope(message.sends));
         post({ type: 'aiConsent', requestId, engineId, granted });
       } catch {
         post({ type: 'aiConsent', requestId, engineId, granted: false });

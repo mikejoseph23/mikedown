@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
-import { AI_SETTINGS_KEYS, getAiFeature, hostOfUrl, parseAiSettings, serializeAiSettings, type AiEngineConfig } from '@mikedown/core/ai';
+import { AI_SETTINGS_KEYS, aiConsentText, aiProviderPolicy, hostOfUrl, parseAiSettings, serializeAiSettings, type AiEngineConfig, type AiSendsScope } from '@mikedown/core/ai';
 import { getSettings, stableEngineIdGenerator, effectiveAiRaw } from '../settings';
 import { AiEngineService } from './engineService';
 import { AiSecrets } from './secrets';
@@ -22,25 +22,34 @@ function timestamp(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-/** The consent modal: host UI, so a workspace cannot restyle or skip it. */
-async function askCloudConsent(engine: AiEngineConfig, feature: string | undefined): Promise<boolean> {
-  const name = engine.name || engine.id;
-  const host = hostOfUrl(engine.baseUrl) ?? engine.baseUrl;
-  const what = feature === 'rewrite' || !feature
-    ? 'the selected text and the paragraph before and after it'
-    : `the text ${getAiFeature(feature)?.label ?? feature} works on`;
-  const allow: vscode.MessageItem = { title: 'Allow for this workspace' };
-  const notNow: vscode.MessageItem = { title: 'Not now', isCloseAffordance: true };
-  const pick = await vscode.window.showWarningMessage(
-    `Send text to ${name}?`,
-    {
-      modal: true,
-      detail: `${name} is a cloud engine (${host}). MikeDown will send it ${what}. Nothing is sent unless you allow it; allowing is remembered for this workspace.`,
-    },
-    allow,
-    notNow,
-  );
-  return pick === allow;
+/**
+ * The consent modal: host UI, so a workspace cannot restyle or skip it. The
+ * words come from core's `aiConsentText` (Desktop renders the same ones).
+ * "Read the provider's policy" opens the policy in the browser and asks
+ * again, until the answer is Allow or Not now.
+ */
+export async function askCloudConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<boolean> {
+  const policy = aiProviderPolicy(engine);
+  const text = aiConsentText({
+    engineName: engine.name || engine.id,
+    host: hostOfUrl(engine.baseUrl) ?? engine.baseUrl,
+    feature,
+    sends,
+    scopeWord: 'workspace',
+    policy,
+  });
+  const allow: vscode.MessageItem = { title: text.allow };
+  const notNow: vscode.MessageItem = { title: text.notNow, isCloseAffordance: true };
+  const readPolicy: vscode.MessageItem = { title: 'Read the provider\'s policy' };
+  const items = policy ? [allow, readPolicy, notNow] : [allow, notNow];
+  for (;;) {
+    const pick = await vscode.window.showWarningMessage(text.title, { modal: true, detail: text.body }, ...items);
+    if (pick === readPolicy && policy) {
+      await vscode.env.openExternal(vscode.Uri.parse(policy.url));
+      continue;
+    }
+    return pick === allow;
+  }
 }
 
 export function createVsCodeAiService(context: vscode.ExtensionContext, output: vscode.OutputChannel): AiEngineService {

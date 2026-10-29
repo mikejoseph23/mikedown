@@ -104,7 +104,10 @@ export function makeCheckboxRow(label: string, description: string, current: boo
   return { row, input };
 }
 
-/** The section context with these builders; `close` closes whatever hosts the rows. */
-export function settingsSectionContext(close: () => void): MikeDownSettingsSectionContext {
-  return { makeRow, makeGroup, makeFieldLabel, makeCheckboxRow, makeSelectRow, close };
+/**
+ * The section context with these builders; `close` closes whatever hosts the
+ * rows, `openLink` opens an external link through the host (policy links).
+ */
+export function settingsSectionContext(close: () => void, openLink?: (href: string) => void): MikeDownSettingsSectionContext {
+  return { makeRow, makeGroup, makeFieldLabel, makeCheckboxRow, makeSelectRow, close, ...(openLink ? { openLink } : {}) };
 }

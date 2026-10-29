@@ -169,6 +169,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     savesFirst: (id) => session.savesFirst(id),
     announce,
     focusKey,
+    openLink: ctx.openLink,
   });
 
   const routing = createRoutingSection(ctx, {

@@ -65,10 +65,11 @@ describe('VsCodeHost ai group', () => {
     const { host, posted, ai } = setup();
     const test = ai.testEngine!('omlx');
     const discover = ai.discoverModels!('omlx');
-    const consent = ai.requestCloudConsent!('claude');
+    const consent = ai.requestCloudConsent!('claude', { feature: 'rewrite', sends: 'document' });
     const secret = ai.setSecret!('claude', 'sk');
     const [t, d, c, s] = posted;
     expect([t.type, d.type, c.type, s.type]).toEqual(['aiTestEngine', 'aiDiscoverModels', 'aiRequestCloudConsent', 'aiSetSecret']);
+    expect(c).toMatchObject({ engineId: 'claude', feature: 'rewrite', sends: 'document' });
     expect(s).toMatchObject({ engineId: 'claude', apiKey: 'sk' });
     host.handleReply({ type: 'aiEngineStatus', requestId: d.requestId, status: { engineId: 'omlx', ok: true, models: ['d'] } });
     host.handleReply({ type: 'aiEngineStatus', requestId: t.requestId, status: { engineId: 'omlx', ok: true, models: ['t'] } });
@@ -154,6 +155,16 @@ describe('host bridge', () => {
       { type: 'aiConsent', requestId: 'c', engineId: 'claude', granted: true },
     ]);
     expect(service.cancel).toHaveBeenCalledWith({}, 'x');
+  });
+
+  it('consent carries the feature and a known sends scope from the webview to the service', async () => {
+    const requestCloudConsent = vi.fn(async () => true);
+    const service = fakeService({ requestCloudConsent });
+    const posted: any[] = [];
+    await handleAiMessage(service, {}, { type: 'aiRequestCloudConsent', requestId: 'c', engineId: 'claude', feature: 'rewrite', sends: 'document' }, (m) => posted.push(m));
+    await handleAiMessage(service, {}, { type: 'aiRequestCloudConsent', requestId: 'd', engineId: 'claude', feature: 'summary', sends: 'everything' }, (m) => posted.push(m));
+    expect(requestCloudConsent).toHaveBeenNthCalledWith(1, 'claude', 'rewrite', 'document');
+    expect(requestCloudConsent).toHaveBeenNthCalledWith(2, 'claude', 'summary', undefined);
   });
 });
 

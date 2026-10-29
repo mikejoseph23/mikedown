@@ -8,7 +8,8 @@
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
-import type { AiEngineConfig, AiEngineStatus, AiSettings } from './ai';
+import { AI_CLOUD_PRIVACY } from './ai';
+import type { AiEngineConfig, AiEngineStatus, AiProviderPolicy, AiSettings } from './ai';
 import { engineLocalityInfo } from './ai-settings-model';
 
 // ── Icons (inline, currentColor) ────────────────────────────────────────────
@@ -54,10 +55,12 @@ export function kindGlyphHtml(kind: string, extra = ''): string {
 
 // ── Experimental marking ────────────────────────────────────────────────────
 
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+
 /** Shown on the AI tab, the AI Engines page and the toolbar's first-run panel. */
 export const AI_EXPERIMENTAL_DISCLAIMER =
   'AI features are experimental and may change or be removed. AI output can be wrong, so review it before you keep it. ' +
-  'With a cloud engine, the selected text is sent to that provider; local engines keep it on your machine.';
+  `With a cloud engine, ${lowerFirst(AI_CLOUD_PRIVACY.leaves)} ${AI_CLOUD_PRIVACY.local}`;
 
 /** The "Experimental" pill beside an AI title. */
 export function experimentalBadge(): HTMLSpanElement {
@@ -67,6 +70,106 @@ export function experimentalBadge(): HTMLSpanElement {
 /** The disclaimer as a quiet paragraph. */
 export function experimentalDisclaimer(className = ''): HTMLParagraphElement {
   return el('p', `ai-disclaimer${className ? ` ${className}` : ''}`, AI_EXPERIMENTAL_DISCLAIMER);
+}
+
+// ── Privacy card ────────────────────────────────────────────────────────────
+
+/** Something that may carry a provider policy: a preset, or `{ policy }`. */
+export interface PrivacyPolicySource {
+  policy?: AiProviderPolicy;
+}
+
+export interface PrivacyCardOptions {
+  /** Open a link through the host (`host.openLink`). Absent: the link is a plain anchor (`target="_blank"`). */
+  openLink?: (href: string) => void;
+  /** Start as a closed disclosure with this summary ("What is sent"); `true` uses that default. */
+  collapsed?: boolean | string;
+  /** Start a collapsed card open (its state survives a rebuild when the caller keeps it). */
+  open?: boolean;
+  /** The disclosure opened or closed. */
+  onToggle?(open: boolean): void;
+  /** One more line under the policy links (the AI tab's consent line). */
+  extra?: string;
+  className?: string;
+}
+
+/** A policy link that opens through the host when it can. */
+export function policyLink(policy: AiProviderPolicy, openLink?: (href: string) => void): HTMLAnchorElement {
+  const a = el('a', 'ai-link-btn ai-privacy-link', policy.label);
+  a.href = policy.url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.title = policy.url;
+  if (openLink) {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      openLink(policy.url);
+    });
+  }
+  return a;
+}
+
+/**
+ * What happens to text sent to a cloud engine: the four `AI_CLOUD_PRIVACY`
+ * lines, then the policy link of each source that has one (a preset, or the
+ * presets of the cloud engines in use). A quiet note with a cloud glyph, not
+ * a warning. `collapsed` makes it a "What is sent" disclosure.
+ */
+export function privacyCard(
+  source?: PrivacyPolicySource | readonly PrivacyPolicySource[] | null,
+  opts: PrivacyCardOptions = {},
+): HTMLElement {
+  const list: readonly PrivacyPolicySource[] = !source ? [] : Array.isArray(source) ? source : [source as PrivacyPolicySource];
+  const policies: AiProviderPolicy[] = [];
+  for (const s of list) {
+    if (s.policy && !policies.some((p) => p.url === s.policy!.url)) {policies.push(s.policy);}
+  }
+
+  const body = el('div', 'ai-privacy-body');
+  const lines = el('ul', 'ai-privacy-lines');
+  for (const text of [AI_CLOUD_PRIVACY.leaves, AI_CLOUD_PRIVACY.terms, AI_CLOUD_PRIVACY.local, AI_CLOUD_PRIVACY.keys]) {
+    lines.append(el('li', '', text));
+  }
+  body.append(lines);
+  for (const policy of policies) {
+    const line = el('p', 'ai-privacy-policy');
+    line.append(policyLink(policy, opts.openLink));
+    if (policy.note) {line.append(el('span', 'ai-privacy-policy-note', ` ${policy.note}`));}
+    body.append(line);
+  }
+  if (opts.extra) {body.append(el('p', 'ai-privacy-extra', opts.extra));}
+
+  const className = `ai-privacy-card${opts.className ? ` ${opts.className}` : ''}`;
+  const glyph = el('span', 'ai-privacy-glyph');
+  glyph.innerHTML = ICONS.cloud;
+  if (opts.collapsed) {
+    const details = el('details', className);
+    details.open = !!opts.open;
+    const summary = el('summary', 'ai-privacy-summary');
+    summary.append(glyph, el('span', '', typeof opts.collapsed === 'string' ? opts.collapsed : 'What is sent'));
+    details.append(summary, body);
+    if (opts.onToggle) {details.addEventListener('toggle', () => opts.onToggle!(details.open));}
+    return details;
+  }
+  const card = el('div', className);
+  const head = el('div', 'ai-privacy-head');
+  head.append(glyph, el('span', '', 'Cloud engines and your text'));
+  card.append(head, body);
+  return card;
+}
+
+/**
+ * One privacy line plus "Learn more", for the first-run panel's "Set up
+ * another way…" path; `onLearnMore` opens the page with the full card.
+ */
+export function privacyLine(onLearnMore: () => void): HTMLParagraphElement {
+  const line = el('p', 'ai-privacy-line');
+  const glyph = el('span', 'ai-privacy-glyph');
+  glyph.innerHTML = ICONS.cloud;
+  const more = button('ai-link-btn', 'Learn more', { fk: 'ai-privacy:learn-more' });
+  more.addEventListener('click', () => onLearnMore());
+  line.append(glyph, el('span', '', `A cloud engine sends text to the provider. ${AI_CLOUD_PRIVACY.local} `), more);
+  return line;
 }
 
 // ── Small DOM helpers ───────────────────────────────────────────────────────

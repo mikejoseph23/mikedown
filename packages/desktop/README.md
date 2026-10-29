@@ -255,6 +255,22 @@ are ports of `packages/core/src/ai/` and run against the shared
   and `ai.allowCloud` are global), but look at a folder's file before trusting
   it.
 
+#### Privacy
+
+With a cloud engine:
+
+- Text you ask about is sent over the internet to the provider and processed on their servers.
+- API traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.
+- A local engine keeps everything on this machine or your network.
+- Your API key stays in this app's secure storage on this machine.
+
+The native consent dialog (`commands/ai/consent.rs`, the same words as the
+VS Code modal, checked against `test/ai-fixtures/consent/`) says what the
+request sends and spells out the provider's policy URL, since a native dialog
+cannot carry a link. To open the policy from the app, go to Settings, AI,
+**Manage engines**, open the cloud engine and expand **What is sent**: the
+policy link there opens in your browser.
+
 ### Disk, scope and native window state
 
 All disk I/O goes through the app's own commands in `src-tauri/src/commands/`

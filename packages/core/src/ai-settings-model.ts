@@ -18,6 +18,7 @@ import {
   engineLocality,
   generateAiId,
   getAiTask,
+  hostOfUrl,
   isKnownEngineKind,
   localityMismatch,
   mergeDiscoveredModels,
@@ -25,6 +26,7 @@ import {
   presetForEngine,
   resolveRoute,
   serializeAiSettings,
+  whatIsSent,
   withThinkingLevel,
 } from './ai';
 import type {
@@ -44,6 +46,7 @@ import type {
   AiPresetFamily,
   AiRoute,
   AiRouteResolution,
+  AiSendsScope,
   AiServedBy,
   AiSettings,
   AiSettingsPatch,
@@ -596,13 +599,30 @@ export interface AiIndicatorState {
   warn: boolean;
 }
 
+/**
+ * What served a request, plus the request's feature and scope when the
+ * editor knows them (the popover attaches them), so the chip can say what
+ * was sent. Hosts never set the extra fields.
+ */
+export type AiServedRequest = AiServedBy & { feature?: string; sends?: AiSendsScope };
+
 export interface AiIndicatorInput {
   settings: AiSettings;
   statuses: readonly AiEngineStatus[];
   tier: AiHostTier;
   /** What served the last request, if anything has. */
-  served: AiServedBy | null;
+  served: AiServedRequest | null;
   viaFallback: boolean;
+}
+
+/** " It sent text to api.anthropic.com: the selected text …." for a cloud request; empty for a local one. */
+function cloudSentNote(settings: AiSettings, served: AiServedRequest): string {
+  if (served.isLocal) {return '';}
+  const engine = served.engineId ? settings.engines.find((e) => e.id === served.engineId) : undefined;
+  const host = engine ? hostOfUrl(engine.baseUrl) ?? engine.baseUrl : null;
+  const what = served.feature || served.sends ? whatIsSent(served.feature, served.sends) : '';
+  if (host) {return what ? ` It sent text to ${host}: ${what}.` : ` It sent text to ${host}.`;}
+  return what ? ` It sent ${what}.` : '';
 }
 
 function servedLabels(settings: AiSettings, served: AiServedBy): { engine: string; model: string; warn: boolean } {
@@ -633,7 +653,7 @@ export function aiIndicatorState(input: AiIndicatorInput): AiIndicatorState | nu
     const l = servedLabels(settings, served);
     const parts = [`AI: ${where}`, l.engine, l.model].filter(Boolean);
     const text = parts.join(' · ') + (viaFallback ? ' (fallback)' : '');
-    const title = `Last request served by ${l.engine} · ${l.model}, ${served.isLocal ? 'on this network' : 'a cloud engine'}${viaFallback ? ', through the fallback route' : ''}.${l.warn ? ' Its pinned locality disagrees with its address.' : ''} Click to open AI settings.`;
+    const title = `Last request served by ${l.engine} · ${l.model}, ${served.isLocal ? 'on this network' : 'a cloud engine'}${viaFallback ? ', through the fallback route' : ''}.${cloudSentNote(settings, served)}${l.warn ? ' Its pinned locality disagrees with its address.' : ''} Click to open AI settings.`;
     return { text, tone: where, title, fallback: viaFallback, warn: l.warn };
   }
   if (tier === 1) {

@@ -6,7 +6,7 @@
  */
 
 import type { AiCapabilityRequirements } from './tasks';
-import type { AiFeatureSettings } from './types';
+import type { AiFeatureSettings, AiSendsScope } from './types';
 
 export interface AiFeatureDefinition {
   id: string;
@@ -18,6 +18,8 @@ export interface AiFeatureDefinition {
   requires: AiCapabilityRequirements;
   /** `planned` features are listed greyed ("coming later") and never surface. */
   status: 'available' | 'planned';
+  /** What a request sends, for the consent dialogs and tooltips (`whatIsSent`). Absent: a generic sentence. */
+  sends?: AiSendsScope;
 }
 
 export const AI_FEATURES: readonly AiFeatureDefinition[] = [
@@ -29,6 +31,7 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
     defaultTask: 'rewrite',
     requires: { chat: true, stream: true },
     status: 'available',
+    sends: 'selection',
   },
   {
     id: 'ghostText',
@@ -48,6 +51,7 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
     defaultTask: 'chat',
     requires: { chat: true, stream: true },
     status: 'planned',
+    sends: 'document',
   },
   {
     id: 'summary',
@@ -57,6 +61,7 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
     defaultTask: 'summarize',
     requires: { chat: true },
     status: 'available',
+    sends: 'document',
   },
   {
     id: 'frontmatter',
@@ -66,6 +71,7 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
     defaultTask: 'structure',
     requires: { chat: true },
     status: 'available',
+    sends: 'documentAndTags',
   },
   {
     id: 'title',
@@ -75,6 +81,7 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
     defaultTask: 'structure',
     requires: { chat: true },
     status: 'available',
+    sends: 'document',
   },
   {
     id: 'altText',

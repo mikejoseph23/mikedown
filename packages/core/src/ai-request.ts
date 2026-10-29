@@ -41,6 +41,7 @@ import type {
   AiMessage,
   AiRouteOk,
   AiRouteUnusable,
+  AiSendsScope,
   AiSettings,
   MikeDownAiHost,
 } from './ai';
@@ -55,6 +56,8 @@ export interface AiRunContext {
 
 export interface AiRunRequest {
   feature: string;
+  /** What this request sends when it differs from the feature's own scope (whole-document Translate); for the consent dialog. */
+  sends?: AiSendsScope;
   task?: string;
   messages: AiMessage[];
   maxTokens?: number;
@@ -217,7 +220,9 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
       const resolved = resolveRoute(ctx.settings(), withFailures(ctx.statuses(), failed), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
       if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
       if (resolved.needsConsent) {
-        const granted = ctx.ai.requestCloudConsent ? await ctx.ai.requestCloudConsent(resolved.engineId) : true;
+        const granted = ctx.ai.requestCloudConsent
+          ? await ctx.ai.requestCloudConsent(resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}) })
+          : true;
         if (signal.aborted) {throw makeAiError('cancelled');}
         if (granted) {ctx.consent[resolved.engineId] = true;} else {refused[resolved.engineId] = false;}
         continue;

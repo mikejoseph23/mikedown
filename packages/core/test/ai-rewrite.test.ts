@@ -159,11 +159,19 @@ describe('runAiCompletion', () => {
     const s = aiSettings({ routing: { default: { engineId: 'claude', modelId: 'sonnet' }, fallback: 'none', tasks: {} } });
     const consent: Record<string, boolean | undefined> = {};
     await runAiCompletion(ctx(ai, s, [], consent), req, {}, new AbortController().signal);
-    expect(requestCloudConsent).toHaveBeenCalledWith('claude');
+    expect(requestCloudConsent).toHaveBeenCalledWith('claude', { feature: req.feature });
     expect(consent).toEqual({ claude: true });
     expect(calls[0].req.route?.engineId).toBe('claude');
     await runAiCompletion(ctx(ai, s, [], consent), req, {}, new AbortController().signal);
     expect(requestCloudConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('tells the consent prompt what a whole-document request sends', async () => {
+    const requestCloudConsent = vi.fn(async () => true);
+    const { ai } = fakeHost([answer('cloud')], { requestCloudConsent });
+    const s = aiSettings({ routing: { default: { engineId: 'claude', modelId: 'sonnet' }, fallback: 'none', tasks: {} } });
+    await runAiCompletion(ctx(ai, s, [], {}), { ...req, sends: 'document' }, {}, new AbortController().signal);
+    expect(requestCloudConsent).toHaveBeenCalledWith('claude', { feature: 'rewrite', sends: 'document' });
   });
 
   it('runs the fallback after "Not now", and asks again next time', async () => {

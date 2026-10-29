@@ -1615,6 +1615,82 @@
   flex-shrink: 0;
 }
 
+/* ── Privacy card (ai-settings-dom.ts#privacyCard) ────────────────────────
+   A quiet note like the disclaimer: muted text, a cloud glyph, no warning. */
+
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-card {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--settings-muted, var(--mikedown-text-muted));
+  padding: 8px 10px;
+  border: 1px solid var(--settings-divider, var(--mikedown-border));
+  border-radius: var(--mikedown-radius-sm, 4px);
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-head,
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--settings-fg, inherit);
+  font-weight: 600;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 500;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-summary::-webkit-details-marker { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-summary::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  margin-left: 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  opacity: 0.7;
+}
+:is(.mikedown-root, .mikedown-portal) details[open] > .ai-privacy-summary::after { transform: rotate(45deg); }
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-summary:focus-visible {
+  outline: 1px solid var(--settings-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-glyph {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--ai-info, currentColor);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-body { margin-top: 6px; }
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-lines {
+  margin: 0;
+  padding-left: 18px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-lines li + li { margin-top: 2px; }
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-policy,
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-extra { margin: 6px 0 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-link { margin: 0; padding: 0; text-decoration: underline; }
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-link:focus-visible {
+  outline: 1px solid var(--settings-focus);
+  outline-offset: 1px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-form-privacy { margin-bottom: 10px; }
+:is(.mikedown-root, .mikedown-portal) .settings-row--check .ai-privacy-card.ai-row-note { margin-top: 6px; }
+
+/* The one-line version (first-run panel). */
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--settings-muted, var(--mikedown-text-muted));
+}
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-line .ai-privacy-glyph { margin-top: 2px; }
+:is(.mikedown-root, .mikedown-portal) .ai-privacy-line .ai-link-btn { margin: 0; padding: 0; }
+
 /* ── Toolbar first-run panel (ai-toolbar.ts) ─────────────────────────────── */
 
 :is(.mikedown-root, .mikedown-portal) .ai-first-run {

@@ -67,9 +67,11 @@ import {
   thinkingChoices,
   titleMaxTokens,
   toAiError,
+  whatIsSent,
   type AiSummaryKind,
 } from './ai';
-import type { AiError, AiErrorCopy, AiMessage, AiRouteOk, AiServedBy, AiThinkingLevel } from './ai';
+import type { AiError, AiErrorCopy, AiMessage, AiRouteOk, AiSendsScope, AiServedBy, AiThinkingLevel } from './ai';
+import type { AiServedRequest } from './ai-settings-model';
 import {
   AI_AUDIENCES,
   AI_REWRITE_VARIANTS,
@@ -1402,7 +1404,14 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     // Name the level that served ("... oMLX · Qwen3 30B, on this network. Thinking: low.").
     const level = served ? thinkingInEffect(thinking) : null;
     const levelLabel = level && thinking ? thinkingChoices(thinking.kind).find((c) => c.level === level)?.label : undefined;
-    badgeEl.title = levelLabel ? `${b.title} Thinking: ${levelLabel.toLowerCase()}.` : b.title;
+    let title = b.title;
+    if (b.where === 'cloud') {
+      // What leaves the machine, unless the host's title already says it.
+      const j = jobSends();
+      const what = whatIsSent(j.feature, j.sends);
+      if (!title.includes(what)) {title = `${title} ${served ? 'Sent' : 'Sends'} ${what}.`;}
+    }
+    badgeEl.title = levelLabel ? `${title} Thinking: ${levelLabel.toLowerCase()}.` : title;
     const glyph = el('span', 'ai-rw-badge-glyph');
     glyph.innerHTML = b.where === 'cloud' ? CLOUD : LOCAL;
     // "local · oMLX · Qwen3 30B": locality and engine never shrink, only the model name ellipsizes.
@@ -1718,11 +1727,20 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     };
   }
 
+  /** The feature and scope of the current job, for the privacy copy (consent, badge and chip tooltips). */
+  function jobSends(): { feature: string; sends: AiSendsScope } {
+    if (job === 'summary') {return { feature: 'summary', sends: 'document' };}
+    if (job === 'titles') {return { feature: 'title', sends: 'document' };}
+    return { feature: 'rewrite', sends: target?.scope === 'document' ? 'document' : 'selection' };
+  }
+
   function noteServed(outcome: AiRunOutcome): void {
-    served = outcome.result.served;
+    // The feature rides along so the sidebar chip can say what the last request sent.
+    const by: AiServedRequest = { ...outcome.result.served, ...jobSends() };
+    served = by;
     viaFallback = outcome.viaFallback;
     thinking = outcome.thinking;
-    deps.onServed(outcome.result.served, outcome.viaFallback);
+    deps.onServed(by, outcome.viaFallback);
   }
 
   function finishNote(outcome: AiRunOutcome): string {
@@ -1941,6 +1959,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       });
     deps.run({
       feature: 'rewrite',
+      ...(t.scope === 'document' ? { sends: 'document' as const } : {}),
       messages,
       maxTokens,
       temperature: v === 'fixFlow' || v === 'translate' ? 0.2 : 0.5,

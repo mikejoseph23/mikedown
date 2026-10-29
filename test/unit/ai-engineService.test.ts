@@ -332,7 +332,13 @@ describe('cloud gate, more', () => {
   it('the consent prompt is told which feature asked', async () => {
     const { service, askConsent } = setup();
     await service.complete({}, req(cloud), () => {});
-    expect(askConsent).toHaveBeenCalledWith(expect.objectContaining({ id: 'claude' }), 'rewrite');
+    expect(askConsent).toHaveBeenCalledWith(expect.objectContaining({ id: 'claude' }), 'rewrite', undefined);
+  });
+
+  it('the consent prompt is told what the request sends (whole-document Translate)', async () => {
+    const { service, askConsent } = setup();
+    await service.requestCloudConsent('claude', 'rewrite', 'document');
+    expect(askConsent).toHaveBeenCalledWith(expect.objectContaining({ id: 'claude' }), 'rewrite', 'document');
   });
 
   it('a request routed by core (no route) to a cloud default is also gated', async () => {

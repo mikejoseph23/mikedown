@@ -26,6 +26,7 @@ import type { MikeDownSettingsPatch } from '../../packages/core/src/types';
 import type {
   AiCompletionRequest,
   AiCompletionResult,
+  AiConsentAbout,
   AiEngineStatus,
   AiError,
   AiLocalServerProbe,
@@ -320,7 +321,8 @@ export class VsCodeHost implements MikeDownHost {
     discoverModels: (engineId: string) => this.aiRequest<AiEngineStatus>({ type: 'aiDiscoverModels', engineId }),
     setSecret: (engineId: string, apiKey: string | null) =>
       this.aiRequest<AiEngineStatus>({ type: 'aiSetSecret', engineId, apiKey }).then(() => undefined),
-    requestCloudConsent: (engineId: string) => this.aiRequest<boolean>({ type: 'aiRequestCloudConsent', engineId }),
+    requestCloudConsent: (engineId: string, about?: AiConsentAbout) =>
+      this.aiRequest<boolean>({ type: 'aiRequestCloudConsent', engineId, ...(about?.feature ? { feature: about.feature } : {}), ...(about?.sends ? { sends: about.sends } : {}) }),
     // The host caps each address; an abort here only stops waiting for the answer.
     detectLocalServers: (candidates: { presetId: string; baseUrl: string }[], signal: AbortSignal): Promise<AiLocalServerProbe[]> => {
       if (signal.aborted) {return Promise.reject(makeAiError('cancelled'));}

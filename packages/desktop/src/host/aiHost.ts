@@ -166,9 +166,9 @@ export function createAiHost(deps: AiHostDeps): MikeDownAiHost {
       }
     },
 
-    async requestCloudConsent(engineId) {
+    async requestCloudConsent(engineId, about) {
       try {
-        return await api.requestCloudConsent(engineId);
+        return await api.requestCloudConsent(engineId, about);
       } catch (err) {
         throw toAiError(err);
       }

@@ -309,8 +309,25 @@ export interface MikeDownAiHost {
   discoverModels?(engineId: string): Promise<AiEngineStatus>;
   /** Store (or with null, delete) an engine's key. Never part of `saveSettings`. */
   setSecret?(engineId: string, apiKey: string | null): Promise<void>;
-  /** Host UI asking to use a cloud engine in this workspace. Absent means the host decides on its own. */
-  requestCloudConsent?(engineId: string): Promise<boolean>;
+  /**
+   * Host UI asking to use a cloud engine in this workspace. Absent means the
+   * host decides on its own. `about` names the request that asked, so the
+   * dialog can say what is sent (`aiConsentText`).
+   */
+  requestCloudConsent?(engineId: string, about?: AiConsentAbout): Promise<boolean>;
+}
+
+/**
+ * What a request sends to the engine, for the privacy copy (`whatIsSent`):
+ * the selection with its neighbouring paragraphs, the whole document, or the
+ * document with its frontmatter and the workspace's tag names.
+ */
+export type AiSendsScope = 'selection' | 'document' | 'documentAndTags';
+
+/** The request behind a consent prompt. `sends` overrides the feature's own scope (whole-document Translate). */
+export interface AiConsentAbout {
+  feature?: string;
+  sends?: AiSendsScope;
 }
 
 // ── Provider adapters (host side) ───────────────────────────────────────────

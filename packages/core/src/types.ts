@@ -166,6 +166,8 @@ export interface MikeDownSettingsSectionContext {
   ): { row: HTMLElement; select: HTMLSelectElement };
   /** Close the modal without saving. */
   close(): void;
+  /** Open an external link through the host (`host.openLink`). Absent: links are plain anchors. */
+  openLink?: (href: string) => void;
 }
 
 export interface MikeDownSettingsSectionBuild {

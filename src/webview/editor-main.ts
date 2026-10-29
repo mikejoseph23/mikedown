@@ -131,8 +131,9 @@
  *         into the saved engine (mikedown.ai.engines).
  *     { type: 'aiSetSecret', requestId, engineId, apiKey: string | null }
  *         — store or delete the key in SecretStorage; answered by aiEngineStatus.
- *     { type: 'aiRequestCloudConsent', requestId, engineId } — host modal;
- *         answered by aiConsent.
+ *     { type: 'aiRequestCloudConsent', requestId, engineId, feature?, sends? }
+ *         — host modal (its words from aiConsentText: `feature` and `sends`
+ *         say what the request sends); answered by aiConsent.
  *     { type: 'aiDetectLocalServers', requestId, candidates: { presetId, baseUrl }[] }
  *         — the first-run panel and the quick-start cards look for local
  *         servers (one GET per local preset, 1.5 s cap each, never cached);

@@ -5,8 +5,7 @@
  * `setSecret` is write-only.
  */
 import type { AiCompletionResult, AiErrorCode } from '@mikedown/core';
-import type { AiLocalServerProbe } from '@mikedown/core/ai';
-import type { AiDiscoveredModel, AiWireCompletionRequest } from '@mikedown/core/ai';
+import type { AiConsentAbout, AiDiscoveredModel, AiLocalServerProbe, AiWireCompletionRequest } from '@mikedown/core/ai';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
@@ -61,7 +60,8 @@ export interface AiApi {
   testEngine(engineId: string): Promise<AiEngineInfo>;
   discoverModels(engineId: string): Promise<AiDiscoveryResult>;
   setSecret(engineId: string, apiKey: string | null): Promise<void>;
-  requestCloudConsent(engineId: string): Promise<boolean>;
+  /** `feature` and `sends` say what the request sends, for the dialog's words. */
+  requestCloudConsent(engineId: string, about?: AiConsentAbout): Promise<boolean>;
   /** Which local presets answer at their addresses (1.5 s each, nothing cached). */
   detectLocalServers(candidates: { presetId: string; baseUrl: string }[]): Promise<AiLocalServerProbe[]>;
   onToken(requestId: string, handler: (e: AiTokenEvent) => void): Promise<UnlistenFn>;
@@ -76,7 +76,8 @@ export const aiApi: AiApi = {
   testEngine: (engineId) => invoke<AiEngineInfo>('ai_test_engine', { id: engineId }),
   discoverModels: (engineId) => invoke<AiDiscoveryResult>('ai_discover_models', { id: engineId }),
   setSecret: (engineId, apiKey) => invoke<void>('ai_set_secret', { id: engineId, apiKey }),
-  requestCloudConsent: (engineId) => invoke<boolean>('ai_request_cloud_consent', { id: engineId }),
+  requestCloudConsent: (engineId, about) =>
+    invoke<boolean>('ai_request_cloud_consent', { id: engineId, feature: about?.feature ?? null, sends: about?.sends ?? null }),
   detectLocalServers: (candidates) => invoke<AiLocalServerProbe[]>('ai_detect_local_servers', { candidates }),
   onToken: (requestId, handler) => listen<AiTokenEvent>(`ai-token:${aiChannelId(requestId)}`, (e) => handler(e.payload)),
   onDone: (requestId, handler) => listen<AiDoneEvent>(`ai-done:${aiChannelId(requestId)}`, (e) => handler(e.payload)),

@@ -22,7 +22,7 @@
  * whose result is dropped, and runs as soon as it settles.
  */
 
-import { AI_ENGINE_KINDS, aiErrorCopy, isKnownEngineKind, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
+import { AI_ENGINE_KINDS, aiErrorCopy, aiProviderPolicy, isKnownEngineKind, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
 import type { AiEngineConfig, AiEngineStatus, AiLocalitySetting, AiModelConfig, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
 import {
   AI_CAPABILITY_CHIPS,
@@ -59,7 +59,7 @@ import {
   withModel,
 } from './ai-settings-model';
 import type { AutoFetchEvent, AutoFetchState, DiscoveryProblem, EngineFormPreset, ModelPickerOption } from './ai-settings-model';
-import { ICONS, button, el, keepFocus, nextId, note, switchInput } from './ai-settings-dom';
+import { ICONS, button, el, keepFocus, nextId, note, privacyCard, switchInput } from './ai-settings-dom';
 
 /** What else must re-render after a draft change made by the form. */
 export interface EngineFormRefresh {
@@ -95,6 +95,8 @@ export interface EngineFormDeps {
   announce(text: string): void;
   /** Focus the control with this `data-fk` inside the mounted form. */
   focusKey(key: string): void;
+  /** Open an external link through the host (the provider's policy). Absent: a plain anchor. */
+  openLink?: (href: string) => void;
 }
 
 export interface EngineFormController {
@@ -149,6 +151,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
   const keyResults = new Map<string, { level: 'error' | 'info'; text: string }>();
   /** Advanced folds opened while the modal is open. */
   const advancedOpen = new Set<string>();
+  /** "What is sent" disclosures opened while the modal is open. */
+  const privacyOpen = new Set<string>();
   /** What the user typed into a key field (kept across rebuilds until the modal closes). */
   const keyText = new Map<string, string>();
   /** Last key text stored per engine, so a settle that changed nothing does not store again. */
@@ -390,6 +394,17 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     wrap.dataset.family = preset.family;
     wrap.setAttribute('role', 'group');
     wrap.setAttribute('aria-label', `${engineDisplayName(engine)} settings`);
+
+    // Cloud: what happens to the text, folded at the head of the form.
+    if (preset.family === 'cloud') {
+      wrap.append(privacyCard({ policy: aiProviderPolicy(engine) }, {
+        collapsed: 'What is sent',
+        open: privacyOpen.has(id),
+        onToggle: (open) => { if (open) {privacyOpen.add(id);} else {privacyOpen.delete(id);} },
+        openLink: deps.openLink,
+        className: 'ai-form-privacy',
+      }));
+    }
 
     const sheet = el('div', 'ai-sheet');
     for (const field of fields.express) {

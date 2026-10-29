@@ -82,3 +82,7 @@ One model reply per file, for `parseLenientJson`: `{ "description", "raw", "expe
 ```
 
 Core checks `requestOverrides` (`packages/core/test/ai-thinking-dial.test.ts`); both hosts build the body for model `m` with the model's and the request's overrides and compare each `expectedBody` key (`test/unit/ai-protocol.test.ts`, `packages/desktop/src-tauri/src/commands/ai/tests.rs`).
+
+## `consent/`
+
+`consent-text.json`: the cloud consent dialog's words, from core's `privacy.ts`. `privacy`, `sendsText`, `sendsFallback`, `features` (feature id → what it sends) and `policies` (cloud preset host → policy label, URL, optional note) mirror the core tables; `cases` are `aiConsentText` inputs (`engineName`, `host`, `feature?`, `sends?`, `scopeWord`, `offerNever?`) with the `expected` `{ title, body, allow, notNow, never? }`, the policy looked up from `host`. Checked by `packages/core/test/ai-privacy.test.ts` and the Rust port (`commands/ai/consent.rs`). When the copy changes in core, regenerate the expected text from `aiConsentText` and update the Rust tables to match.

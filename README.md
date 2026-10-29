@@ -150,6 +150,17 @@ AI is optional and off until you turn on **AI features** (`mikedown.ai.enabled`)
 - **Keys and engines stay out of repos:** engines are user settings only, and API keys live in VS Code's secret storage (or an environment variable, or oMLX's own settings file), never in `settings.json`.
 - **MikeDown Desktop** has the same features. Its per-folder cloud consent is saved in the folder's `.mikedown/settings.json`, which a repo can contain, so a cloned folder can arrive with consent for an engine already recorded. Engines, keys and the `allowCloud` switch stay global, so it cannot add an endpoint.
 
+#### Privacy
+
+With a cloud engine:
+
+- Text you ask about is sent over the internet to the provider and processed on their servers.
+- API traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.
+- A local engine keeps everything on this machine or your network.
+- Your API key stays in this app's secure storage on this machine.
+
+Each cloud engine links its provider's own privacy or API data-use page: open the engine on the AI Engines page and expand **What is sent**, or choose **Read the provider's policy** in the consent prompt, which opens the page in your browser and then asks again. The prompt also says what that request sends: the selection and the paragraph around it for Rewrite, Explain and Translate, the whole document (up to what fits the model) for Summary, Titles and whole-document Translate, and the document with its frontmatter and the workspace's tag names for Properties.
+
 ### Link Navigation and Autocomplete
 
 - **Cmd+Click** (or Ctrl+Click) to follow links to files, headings, or URLs

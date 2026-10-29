@@ -16,7 +16,7 @@ export { mountAiEnginesPage } from './ai-engines-page';
 export { withSavedAiKeys } from './ai-settings-session';
 export { bestLocalServer, detectLocalServers, setUpLocalEngine } from './ai-local-setup';
 export { aiIndicatorState } from './ai-settings-model';
-export { experimentalBadge } from './ai-settings-dom';
+export { experimentalBadge, privacyCard, privacyLine } from './ai-settings-dom';
 export {
   AI_TURN_ON_PATCH, aiSetupTarget, aiToolbarMenuEntries,
   hideAiFirstRunPanel, isAiFirstRunPanelOpen, showAiFirstRunPanel,

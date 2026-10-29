@@ -19,8 +19,9 @@
 //!   discovered models with core's capability heuristics.
 //! - `ai_set_secret(id, key)`: the OS keychain (service `net.iadev.mikedown`,
 //!   account = engine id). Keys never come back out.
-//! - `ai_request_cloud_consent(id)`: a native dialog (not webview UI, so a
-//!   shared folder cannot restyle it away).
+//! - `ai_request_cloud_consent(id, feature?, sends?)`: a native dialog (not
+//!   webview UI, so a shared folder cannot restyle it away). Its words come
+//!   from `consent.rs`, the port of core's `aiConsentText`.
 //! - `ai_detect_local_servers(candidates)`: which local presets answer at
 //!   their addresses, for the setup UI (`detect.rs`). Only when asked.
 //!
@@ -32,6 +33,7 @@
 //! `ai.allowCloud` and the user's consent for the window's folder, stored as
 //! `ai.consent.<engineId>` in that folder's settings file.
 
+pub mod consent;
 pub mod detect;
 pub mod discovery;
 pub mod errors;
@@ -498,13 +500,16 @@ pub async fn ai_set_secret(state: State<'_, AiState>, id: String, api_key: Optio
 
 /// Ask the user, in a native dialog, whether this window's folder may send
 /// text to a cloud engine. Returns the stored answer without asking when there
-/// is one. "Not now" is remembered for the session only.
+/// is one. "Not now" is remembered for the session only. `feature` and
+/// `sends` (core's `AiConsentAbout`) say what the request sends.
 #[tauri::command]
 pub async fn ai_request_cloud_consent<R: Runtime>(
     app: AppHandle<R>,
     window: WebviewWindow<R>,
     state: State<'_, AiState>,
     id: String,
+    feature: Option<String>,
+    sends: Option<String>,
 ) -> Result<bool, AiError> {
     use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
@@ -527,17 +532,21 @@ pub async fn ai_request_cloud_consent<R: Runtime>(
         return Ok(answer);
     }
     let host = host_of_url(&engine.base_url).unwrap_or_else(|| engine.base_url.clone());
-    let scope = if folder.is_some() { "this folder" } else { "this session" };
-    let text = format!(
-        "{} ({host}) is a cloud engine.\n\nIf you allow it, the text you ask the AI about (for Rewrite: your selection and the paragraph around it) is sent over the internet to {host}.\n\nAllow it for {scope}?",
-        engine.display_name()
+    let scope_word = if folder.is_some() { "folder" } else { "session" };
+    let text = consent::consent_text(
+        engine.display_name(),
+        &host,
+        feature.as_deref(),
+        sends.as_deref(),
+        scope_word,
+        false,
     );
     let (tx, rx) = tokio::sync::oneshot::channel();
     app.dialog()
-        .message(text)
-        .title("Send text to a cloud AI engine?")
+        .message(text.body)
+        .title(text.title)
         .kind(MessageDialogKind::Warning)
-        .buttons(MessageDialogButtons::OkCancelCustom(format!("Allow for {scope}"), "Not now".to_string()))
+        .buttons(MessageDialogButtons::OkCancelCustom(text.allow, text.not_now))
         .parent(&window)
         .show(move |allowed| {
             let _ = tx.send(allowed);

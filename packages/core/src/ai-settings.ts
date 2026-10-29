@@ -18,13 +18,13 @@
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
-import { AI_FEATURES, AI_TASKS, getAiTask, resolveAiFeature } from './ai';
+import { AI_FEATURES, AI_TASKS, aiProviderPolicy, getAiTask, resolveAiFeature } from './ai';
 import type { AiEngineConfig, AiSettings, AiSettingsPatch } from './ai';
 import { engineDisplayName, engineKindLabel, routeLabel, taskRouteNote } from './ai-settings-model';
 import { createAiSettingsSession } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
 import type { AiEnginesPageSection } from './ai-engines-page';
-import { button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, statusBadge, switchInput } from './ai-settings-dom';
+import { button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, privacyCard, statusBadge, switchInput } from './ai-settings-dom';
 import type { MikeDownSettingsSectionBuild, MikeDownSettingsSectionContext } from './types';
 
 /** The tab asks its host to open the AI Engines page over the modal. */
@@ -101,7 +101,15 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
     session.draft.allowCloud,
   );
   cloudField.input.dataset.fk = 'ai-allow-cloud';
-  cloudField.row.append(note('info', 'Even when allowed, each cloud engine asks for your OK before its first request in each workspace or folder.', 'ai-row-note'));
+  // What happens to the text, with the policies of the cloud engines set up
+  // so far. Only promise a consent step when the host asks for one (OQ9).
+  cloudField.row.append(privacyCard(session.draft.engines.map((e) => ({ policy: aiProviderPolicy(e) })), {
+    openLink: ctx.openLink,
+    extra: session.ai.requestCloudConsent
+      ? 'Even when allowed, each cloud engine asks for your OK before its first request in each workspace or folder.'
+      : 'Once allowed, this app sends requests to cloud engines without asking again.',
+    className: 'ai-row-note',
+  }));
   cloudField.input.addEventListener('change', () => {
     session.draft = { ...session.draft, allowCloud: cloudField.input.checked };
     renderEngines();

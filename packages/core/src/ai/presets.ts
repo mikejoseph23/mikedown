@@ -49,6 +49,21 @@ export interface AiEnginePreset {
    * answer without a key.
    */
   detectPath?: string;
+  /** Cloud presets: the provider's own page on how API data is used (see `privacy.ts`). */
+  policy?: AiProviderPolicy;
+}
+
+/**
+ * A provider's official privacy or API data-use page. Only the link: what a
+ * provider does with the text is set by its terms, which change, so no claim
+ * about training or retention is made in code. URLs checked 2026-10-29.
+ */
+export interface AiProviderPolicy {
+  /** Link text ("Anthropic privacy and data use"). */
+  label: string;
+  url: string;
+  /** One extra neutral sentence, for a provider that passes requests on (OpenRouter). */
+  note?: string;
 }
 
 export interface AiPresetFamilyInfo {
@@ -152,6 +167,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'cloud',
     caption: 'API key from console.anthropic.com',
     keyHint: 'API key from console.anthropic.com',
+    policy: { label: 'Anthropic privacy and data use', url: 'https://privacy.claude.com/en/collections/10663361-commercial-customers' },
     popular: [anthropicFamily('sonnet', 'Sonnet'), anthropicFamily('opus', 'Opus'), anthropicFamily('haiku', 'Haiku')],
   },
   {
@@ -164,6 +180,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'cloud',
     caption: 'API key from platform.openai.com',
     keyHint: 'API key from platform.openai.com',
+    policy: { label: 'OpenAI API data controls', url: 'https://developers.openai.com/api/docs/guides/your-data' },
     popular: [
       { label: 'Flagship', match: /^gpt-\d+(\.\d+)?$/ },
       { label: 'Mini', match: /^gpt-\d+(\.\d+)?-mini$/ },
@@ -179,6 +196,11 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'cloud',
     caption: 'API key from openrouter.ai/keys',
     keyHint: 'API key from openrouter.ai/keys',
+    policy: {
+      label: 'OpenRouter privacy policy',
+      url: 'https://openrouter.ai/privacy',
+      note: 'OpenRouter passes each request on to the provider that serves the model, whose own terms apply as well.',
+    },
     popular: [
       { label: 'Claude Sonnet', match: /^anthropic\/claude-sonnet-\d/ },
       { label: 'GPT', match: /^openai\/gpt-\d+(\.\d+)?$/ },
@@ -196,6 +218,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'cloud',
     caption: 'API key from Google AI Studio',
     keyHint: 'API key from Google AI Studio (aistudio.google.com)',
+    policy: { label: 'Gemini API terms and data use', url: 'https://ai.google.dev/gemini-api/terms' },
     popular: [
       { label: 'Flash', match: /(^|\/)gemini-\d+(\.\d+)?-flash$/ },
       { label: 'Pro', match: /(^|\/)gemini-\d+(\.\d+)?-pro$/ },
@@ -212,6 +235,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'cloud',
     caption: 'API key from console.groq.com',
     keyHint: 'API key from console.groq.com/keys',
+    policy: { label: 'Groq: your data in GroqCloud', url: 'https://console.groq.com/docs/your-data' },
     popular: [
       { label: 'GPT-OSS', match: /^openai\/gpt-oss-\d+b$/ },
       { label: 'Llama', match: /^(meta-llama\/)?llama-\d/, exclude: /guard|prompt/ },
@@ -228,6 +252,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'cloud',
     caption: 'API key from console.mistral.ai',
     keyHint: 'API key from console.mistral.ai',
+    policy: { label: 'Mistral AI privacy policy', url: 'https://legal.mistral.ai/terms/privacy-policy/' },
     popular: [
       { label: 'Medium', match: /^mistral-medium-/, prefer: /-latest$/ },
       { label: 'Large', match: /^mistral-large-/, prefer: /-latest$/ },
@@ -244,6 +269,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'cloud',
     caption: 'API key from platform.deepseek.com',
     keyHint: 'API key from platform.deepseek.com',
+    policy: { label: 'DeepSeek privacy policy', url: 'https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html' },
     popular: [
       { label: 'Chat', match: /^deepseek-chat/ },
       { label: 'Reasoner', match: /^deepseek-reasoner/ },

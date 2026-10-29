@@ -22,6 +22,7 @@ import {
   type AiError,
   type AiLocalServerProbe,
   type AiModelConfig,
+  type AiSendsScope,
   type AiSettings,
   type ProviderAdapter,
 } from '@mikedown/core/ai';
@@ -60,8 +61,8 @@ export interface EngineServiceDeps {
   readSettings(): AiSettings;
   secrets: AiSecrets;
   consent: ConsentStore;
-  /** Host UI (a modal) asking whether this workspace may send text to a cloud engine. */
-  askConsent(engine: AiEngineConfig, feature: string | undefined): PromiseLike<boolean>;
+  /** Host UI (a modal) asking whether this workspace may send text to a cloud engine. `sends` overrides the feature's own scope. */
+  askConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): PromiseLike<boolean>;
   /** Persist `mikedown.ai.engines` (after a discovery merged models in). */
   saveEngines(engines: AiEngineConfig[]): PromiseLike<void>;
   log(line: string): void;
@@ -380,21 +381,21 @@ export class AiEngineService {
    * workspace" answer (asked now if there is none). "Not now" is not stored,
    * so the next explicit attempt asks again.
    */
-  async requestCloudConsent(engineId: string, feature?: string): Promise<boolean> {
+  async requestCloudConsent(engineId: string, feature?: string, sends?: AiSendsScope): Promise<boolean> {
     const settings = this.deps.readSettings();
     const engine = settings.engines.find((e) => e.id === engineId);
     if (!engine) {return false;}
     if (engineLocality(engine, settings.localNetworks) === 'local') {return true;}
     if (!settings.allowCloud) {return false;}
-    return this.ensureConsent(engine, feature);
+    return this.ensureConsent(engine, feature, sends);
   }
 
-  private ensureConsent(engine: AiEngineConfig, feature: string | undefined): Promise<boolean> {
+  private ensureConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<boolean> {
     if (this.deps.consent.get(engine.id) === true) {return Promise.resolve(true);}
     const pending = this.consentPrompts.get(engine.id);
     if (pending) {return pending;}
     const prompt = (async () => {
-      const granted = await this.deps.askConsent(engine, feature);
+      const granted = await this.deps.askConsent(engine, feature, sends);
       if (granted) {await this.deps.consent.grant(engine.id);}
       this.deps.log(`Consent ${engineName(engine)}: ${granted ? 'allowed for this workspace' : 'not now'}`);
       return granted;
