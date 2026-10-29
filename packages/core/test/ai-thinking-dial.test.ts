@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../src/index';
-import { parseAiSettings, thinkingOverrides } from '../src/ai';
+import { THINKING_DEFAULT_HEADROOM_TOKENS, THINKING_HEADROOM_TOKENS, THINKING_MAX_TOKENS_CAP, parseAiSettings, thinkingMaxTokens, thinkingOverrides } from '../src/ai';
 import type { AiCompletionRequest, AiCompletionResult, AiSettings, AiThinkingLevel, MikeDownAiHost } from '../src/ai';
 import { runAiCompletion, thinkingRequestOverrides, type AiRunContext, type AiRunThinking } from '../src/ai-request';
 import { clearSessionThinking, rememberSessionThinking, sessionThinkingLevel } from '../src/ai-prefs';
@@ -127,6 +127,49 @@ describe('runAiCompletion thinking', () => {
     expect(calls[0].requestOverrides).toBeUndefined();
     expect(routes).toEqual([null]);
     expect(out.thinking).toBeNull();
+  });
+});
+
+describe('reasoning headroom (T3 F2)', () => {
+  it('thinkingMaxTokens adds headroom by level, model default counting as thinking, and nothing for Off', () => {
+    expect(thinkingMaxTokens(256, 'off')).toBe(256);
+    expect(thinkingMaxTokens(256, 'low')).toBe(256 + THINKING_HEADROOM_TOKENS.low);
+    expect(thinkingMaxTokens(256, 'medium')).toBe(256 + THINKING_HEADROOM_TOKENS.medium);
+    expect(thinkingMaxTokens(256, 'high')).toBe(256 + THINKING_HEADROOM_TOKENS.high);
+    expect(thinkingMaxTokens(256, null)).toBe(256 + THINKING_DEFAULT_HEADROOM_TOKENS);
+    expect(THINKING_HEADROOM_TOKENS.low).toBeLessThan(THINKING_HEADROOM_TOKENS.medium);
+    expect(THINKING_HEADROOM_TOKENS.medium).toBeLessThan(THINKING_HEADROOM_TOKENS.high);
+  });
+
+  it('is capped, by the cap and by what is left of the context window, and never below the answer budget', () => {
+    expect(thinkingMaxTokens(6000, 'high')).toBe(THINKING_MAX_TOKENS_CAP);
+    expect(thinkingMaxTokens(12000, 'high')).toBe(12000);
+    expect(thinkingMaxTokens(256, 'high', { contextTokens: 4096, promptTokens: 1000 })).toBe(4096 - 1000 - 256);
+    expect(thinkingMaxTokens(700, 'high', { contextTokens: 2048, promptTokens: 1500 })).toBe(700);
+    expect(thinkingMaxTokens(256, 'low', { contextTokens: null })).toBe(256 + THINKING_HEADROOM_TOKENS.low);
+  });
+
+  it('runAiCompletion raises maxTokens for a model that can think, and leaves an Off request unchanged', async () => {
+    const { ai, calls } = host();
+    const sent = async (settings: AiSettings, thinking?: AiThinkingLevel): Promise<number | undefined> => {
+      await runAiCompletion(ctx(ai, settings), { ...run, maxTokens: 256, ...(thinking ? { thinking } : {}) }, {}, new AbortController().signal);
+      return calls[calls.length - 1].maxTokens;
+    };
+    expect(await sent(aiSettings(), 'off')).toBe(256);
+    expect(await sent(aiSettings('omlx', { chat_template_kwargs: { enable_thinking: false } }))).toBe(256);
+    expect(await sent(aiSettings())).toBe(256 + THINKING_DEFAULT_HEADROOM_TOKENS);
+    expect(await sent(aiSettings(), 'high')).toBe(256 + THINKING_HEADROOM_TOKENS.high);
+    expect(await sent(aiSettings('omlx', { reasoning_effort: 'low' }))).toBe(256 + THINKING_HEADROOM_TOKENS.low);
+    expect(await sent(aiSettings('claude'), 'low')).toBe(256 + THINKING_HEADROOM_TOKENS.low);
+  });
+
+  it('a tier-1 host and a request without maxTokens are unchanged', async () => {
+    const t1 = host(false);
+    await runAiCompletion(ctx(t1.ai, aiSettings()), { ...run, maxTokens: 256 }, {}, new AbortController().signal);
+    expect(t1.calls[0].maxTokens).toBe(256);
+    const t2 = host();
+    await runAiCompletion(ctx(t2.ai, aiSettings()), run, {}, new AbortController().signal);
+    expect(t2.calls[0].maxTokens).toBeUndefined();
   });
 });
 

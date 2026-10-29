@@ -132,3 +132,40 @@ export function withThinkingLevel(
   const next = level ? deepMerge(base, thinkingOverrides(kind, level, opts)) : base;
   return Object.keys(next).length > 0 ? next : undefined;
 }
+
+/**
+ * Output tokens a thinking model may spend reasoning before it answers, by
+ * level. A thinking model counts its reasoning against `max_tokens`, so an
+ * answer budget alone can be used up before the first visible word.
+ */
+export const THINKING_HEADROOM_TOKENS: Readonly<Record<AiThinkingLevel, number>> = { off: 0, low: 1024, medium: 2048, high: 4096 };
+
+/** "Model default" (no level set): the model may think, at a level we cannot see. */
+export const THINKING_DEFAULT_HEADROOM_TOKENS = THINKING_HEADROOM_TOKENS.medium;
+
+/** The most `thinkingMaxTokens` raises a request to (a larger answer budget is kept as is). */
+export const THINKING_MAX_TOKENS_CAP = 8192;
+
+export interface ThinkingBudgetOptions {
+  /** The model's context window, when known. */
+  contextTokens?: number | null;
+  /** Estimated prompt tokens; with `contextTokens`, the headroom never pushes past the window. */
+  promptTokens?: number;
+}
+
+/**
+ * The `max_tokens` to send for an answer budget of `answerTokens` on a model
+ * that can think: the answer plus reasoning headroom for the effective level
+ * (null: model default, counted as thinking). Off adds nothing. The raise is
+ * capped at `THINKING_MAX_TOKENS_CAP` and at what is left of the context
+ * window, and never goes below the answer budget.
+ */
+export function thinkingMaxTokens(answerTokens: number, level: AiThinkingLevel | null, opts: ThinkingBudgetOptions = {}): number {
+  const headroom = level ? THINKING_HEADROOM_TOKENS[level] : THINKING_DEFAULT_HEADROOM_TOKENS;
+  if (headroom <= 0) {return answerTokens;}
+  let limit = THINKING_MAX_TOKENS_CAP;
+  if (opts.contextTokens && opts.contextTokens > 0) {
+    limit = Math.min(limit, opts.contextTokens - Math.ceil(opts.promptTokens ?? 0) - 256);
+  }
+  return Math.max(answerTokens, Math.min(answerTokens + headroom, limit));
+}

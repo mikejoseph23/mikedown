@@ -12,17 +12,21 @@
  * - Thinking: a per-request level becomes the request's `requestOverrides`
  *   (the kind's thinking fields only); the host merges them over the
  *   model's own, so the request wins. Only for a routed engine whose kind
- *   has a mapping (`thinkingChoices`).
+ *   has a mapping (`thinkingChoices`). Such a model counts its reasoning
+ *   against `maxTokens`, so unless the effective level is Off the answer
+ *   budget gets reasoning headroom (`thinkingMaxTokens`).
  * - Cancellation is the caller's `AbortSignal`; the host aborts the request.
  */
 
 import {
+  CHARS_PER_TOKEN,
   isRouteUsable,
   makeAiError,
   resolveAiFeature,
   resolveRoute,
   thinkingChoices,
   thinkingLevelFrom,
+  thinkingMaxTokens,
   toAiError,
   withThinkingLevel,
   type AiThinkingLevel,
@@ -123,14 +127,40 @@ export function thinkingRequestOverrides(
 }
 
 /** The dial state and the overrides to send for `route`, or null when its kind has no mapping. */
-function routeThinking(settings: AiSettings, route: AiRouteOk, wanted: AiRunRequest['thinking']): { info: AiRunThinking; overrides?: Json } | null {
+function routeThinking(settings: AiSettings, route: AiRouteOk, wanted: AiRunRequest['thinking']): { info: AiRunThinking; overrides?: Json; contextTokens: number | null } | null {
   const engine = settings.engines.find((e) => e.id === route.engineId);
   if (!engine || thinkingChoices(engine.kind).length === 0) {return null;}
   const model = engine.models.find((m) => m.id === route.modelId);
   const configured = thinkingLevelFrom(engine.kind, model?.requestOverrides);
   const level = typeof wanted === 'function' ? wanted(engine.kind) : wanted ?? null;
   const overrides = level ? thinkingRequestOverrides(engine.kind, model?.requestOverrides, level, { local: route.isLocal }) : undefined;
-  return { info: { kind: engine.kind, configured, sent: overrides ? level : null }, ...(overrides ? { overrides } : {}) };
+  return {
+    info: { kind: engine.kind, configured, sent: overrides ? level : null },
+    ...(overrides ? { overrides } : {}),
+    contextTokens: model?.capabilities.contextTokens ?? null,
+  };
+}
+
+/** Rough prompt size in tokens (text parts only). */
+function promptTokens(messages: readonly AiMessage[]): number {
+  let chars = 0;
+  for (const m of messages) {
+    if (typeof m.content === 'string') {chars += m.content.length;} else {
+      for (const part of m.content) {if (part.type === 'text') {chars += part.text.length;}}
+    }
+  }
+  return Math.ceil(chars / CHARS_PER_TOKEN);
+}
+
+/**
+ * `maxTokens` for the request: the answer budget, plus reasoning headroom
+ * when the routed model can think and the effective level (sent, else the
+ * model's own, else model default) is not Off.
+ */
+function requestMaxTokens(req: AiRunRequest, thinking: ReturnType<typeof routeThinking>): number | undefined {
+  if (req.maxTokens === undefined || !thinking) {return req.maxTokens;}
+  const level = thinking.info.sent ?? thinking.info.configured;
+  return thinkingMaxTokens(req.maxTokens, level, { contextTokens: thinking.contextTokens, promptTokens: promptTokens(req.messages) });
 }
 
 let requestCounter = 0;
@@ -191,6 +221,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
     }
 
     const thinking = route ? routeThinking(ctx.settings(), route, req.thinking) : null;
+    const maxTokens = requestMaxTokens(req, thinking);
     events.onRoute?.(route, thinking?.info ?? null);
     let text = '';
     let gotToken = false;
@@ -202,7 +233,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
         ...(route ? { route: { engineId: route.engineId, modelId: route.modelId } } : {}),
         messages: req.messages,
         ...(req.format ? { format: req.format } : {}),
-        ...(req.maxTokens !== undefined ? { maxTokens: req.maxTokens } : {}),
+        ...(maxTokens !== undefined ? { maxTokens } : {}),
         ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
         ...(thinking?.overrides ? { requestOverrides: thinking.overrides } : {}),
       }, (delta) => {
