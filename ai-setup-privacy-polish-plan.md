@@ -593,3 +593,13 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [x] W23/W24 Consent buttons: four, with "Not now" vs "Not for this workspace" hard to tell apart, and no "Allow once". Recommended set: Don't allow · Allow once · Allow for this workspace. Fixed in `936dd68`.
 - [x] W25 BUG: OpenAI reasoning models (gpt-5.5) reject temperature 0.3 (HTTP 400 on Summarize). Fixed in `6f3038e`: reasoning models drop temperature/top_p, plus one retry without a parameter the API names as unsupported, remembered per engine and model for the session (both hosts).
 - [ ] W26 Thinking dial Off sends `reasoning_effort: "none"`, which gpt-5 and o-series reject; the retry net recovers but costs one failed request per session. Map Off to the lowest effort each model family accepts. No CHANGELOG entry yet for `6f3038e`.
+
+**2026-10-29 T4 walk, round 2 (VS Code fresh profile).** Wizard to OpenAI to Summarize works end to end; Allow once works; gpt-5.5 no longer 400s (W25 verified).
+
+- [ ] R1 Setup key step: Popular is a radio list but "Show all models (83)" expands into the full power-user list (checkboxes, capability chips, per-model Default and ctx, add-model field). In setup keep a single-choice list with search.
+- [ ] R2 Step 1 "What this means" lists all seven providers' policy links; drop the list there (the chosen provider's link is on the key step and in the consent dialog).
+- [ ] R3 Final step heading shows a focus outline box (programmatic focus); show the outline only for keyboard focus (`:focus-visible`, or no outline on the tabindex -1 heading).
+- [ ] R4 Summary popover shows raw "- " bullets instead of a rendered list.
+- [ ] R5 Popover footer engine badge "cloud · OpenAI ·gpt-5.5" is missing a space.
+- [ ] R6 Popover Thinking row has no Default option and nothing selected, while the toolbar menu shows Default selected.
+- [ ] R7 Note only: on VS Code the native modal orders buttons Don't allow · Read the provider's policy · Allow once · Allow for this workspace; the policy button lands between deny and allow.
