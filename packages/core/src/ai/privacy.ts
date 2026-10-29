@@ -11,6 +11,7 @@
 
 import { getAiFeature } from './features';
 import { hostOfUrl } from './locality';
+import { isHostEngineKind } from './schema';
 import { AI_ENGINE_PRESETS, type AiEnginePreset, type AiProviderPolicy } from './presets';
 import type { AiConsentRecord, AiSendsScope } from './types';
 
@@ -62,9 +63,28 @@ export function aiProviderPolicyForHost(host: string | null | undefined, presets
   return presets.find((p) => p.family === 'cloud' && p.policy && hostOfUrl(p.baseUrl) === h)?.policy;
 }
 
-/** The policy for an engine, matched by its base URL's host (engines do not store a preset). */
-export function aiProviderPolicy(engine: { baseUrl: string }, presets: readonly AiEnginePreset[] = AI_ENGINE_PRESETS): AiProviderPolicy | undefined {
+/**
+ * The policy for an engine, matched by its base URL's host (engines do not
+ * store a preset); a host kind with no address (`vscode-lm`) by its kind.
+ */
+export function aiProviderPolicy(engine: { baseUrl: string; kind?: string }, presets: readonly AiEnginePreset[] = AI_ENGINE_PRESETS): AiProviderPolicy | undefined {
+  if (engine.kind && isHostEngineKind(engine.kind)) {
+    return presets.find((p) => p.family === 'host' && p.kind === engine.kind && p.policy)?.policy;
+  }
   return aiProviderPolicyForHost(hostOfUrl(engine.baseUrl), presets);
+}
+
+/** The service a host kind sends text to, for the consent dialog's `host` (no URL to show). */
+const HOST_KIND_SERVICE: Readonly<Record<string, string>> = { 'vscode-lm': 'GitHub Copilot' };
+
+/**
+ * Where an engine sends text, as the consent dialog's `host`: the base URL's
+ * host ("api.anthropic.com"), the URL itself when it has none, or the
+ * service's name for a host kind ("GitHub Copilot" for `vscode-lm`).
+ */
+export function aiConsentHost(engine: { baseUrl: string; kind?: string }): string {
+  const service = engine.kind ? HOST_KIND_SERVICE[engine.kind] : undefined;
+  return service ?? hostOfUrl(engine.baseUrl) ?? engine.baseUrl;
 }
 
 /** Where a consent answer is remembered: VS Code says workspace, Desktop folder (or session without one). */

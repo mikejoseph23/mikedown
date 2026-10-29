@@ -58,7 +58,7 @@ function settingsWith(engines: AiEngineConfig[], def: AiSettings['routing']['def
 describe('presets', () => {
   it('every preset has a family, a caption and a key hint, and no model ids', () => {
     for (const p of AI_ENGINE_PRESETS) {
-      expect(['local', 'cloud']).toContain(p.family);
+      expect(['local', 'cloud', 'host']).toContain(p.family);
       expect(p.caption).not.toBe('');
       expect(p.keyHint).not.toBe('');
       expect(JSON.stringify(p)).not.toMatch(/"model"/);
@@ -67,6 +67,8 @@ describe('presets', () => {
     const groups = groupPresets(AI_ENGINE_PRESETS);
     expect(ids(groups.local)).toEqual(['omlx', 'lmstudio', 'ollama', 'llamacpp', 'vllm', 'custom']);
     expect(groups.cloud.every((p) => (p.popular ?? []).length > 0)).toBe(true);
+    // VS Code's Copilot card is kept out of the cloud cards; it shows only where the host reports it.
+    expect(ids(groups.host)).toEqual(['vscodelm']);
   });
 
   it('every cloud preset links its key page over https, and its caption no longer repeats the key hint', () => {

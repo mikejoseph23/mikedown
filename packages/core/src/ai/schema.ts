@@ -12,7 +12,7 @@
 
 import { completeCapabilities, detectCapabilities } from './capabilityHeuristics';
 import { defaultAiSettings } from './defaults';
-import { AI_ENGINE_KINDS, AI_FALLBACK_MODES } from './types';
+import { AI_ENGINE_KINDS, AI_FALLBACK_MODES, AI_HOST_ENGINE_KINDS } from './types';
 import type {
   AiApiKeyFile,
   AiCapabilitiesSource,
@@ -44,6 +44,11 @@ export { defaultAiSettings };
 
 export function isKnownEngineKind(kind: string): kind is AiEngineKind {
   return (AI_ENGINE_KINDS as readonly string[]).includes(kind);
+}
+
+/** A kind only one host runs, with no address or key (`vscode-lm`); see `AI_HOST_ENGINE_KINDS`. */
+export function isHostEngineKind(kind: string): boolean {
+  return (AI_HOST_ENGINE_KINDS as readonly string[]).includes(kind);
 }
 
 function isObject(v: unknown): v is Json {

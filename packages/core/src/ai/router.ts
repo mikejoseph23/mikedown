@@ -6,7 +6,8 @@
  * 1. The master switch and the feature must be on.
  * 2. Route = `routing.tasks[task]`, else `routing.default`.
  * 3. A candidate is usable when the engine exists, is enabled and of a known
- *    kind; the model exists, is enabled and not `missing`; the model has every
+ *    kind (a host kind such as `vscode-lm` only when the host lists a status
+ *    for it); the model exists, is enabled and not `missing`; the model has every
  *    capability the task and feature need; the engine is local, or cloud with
  *    `allowCloud` on and consent not refused; and its last probe did not fail.
  * 4. Otherwise `routing.fallback`: `none` stops, `default` tries the default
@@ -29,7 +30,7 @@
 
 import { resolveAiFeature } from './features';
 import { engineLocality } from './locality';
-import { isKnownEngineKind } from './schema';
+import { isHostEngineKind, isKnownEngineKind } from './schema';
 import { combineRequirements, getAiTask, missingCapabilities } from './tasks';
 import type { AiCapabilityRequirements } from './tasks';
 import type { AiCapabilityFlag, AiEngineConfig, AiEngineStatus, AiModelConfig, AiRoute, AiSettings } from './types';
@@ -226,11 +227,13 @@ function checkCandidate(
   const name = engineLabel(engine);
   if (!engine.enabled) {return { code: 'engineDisabled', reason: `${name} is turned off.` };}
   if (!isKnownEngineKind(engine.kind)) {return { code: 'engineUnsupported', reason: `${name} uses an engine kind this version does not support.` };}
+  // A host kind (`vscode-lm`) runs only where the host reports the engine; elsewhere it is unsupported.
+  const status = statusById.get(engine.id);
+  if (isHostEngineKind(engine.kind) && !status) {return { code: 'engineUnsupported', reason: `${name} uses an engine kind this app does not support.` };}
 
   const model = engine.models.find((m) => m.id === route.modelId);
   if (!model) {return { code: 'modelMissing', reason: `${name} has no model "${route.modelId}".` };}
   if (!model.enabled) {return { code: 'modelDisabled', reason: `${modelLabel(model)} is turned off.` };}
-  const status = statusById.get(engine.id);
   if (model.missing || status?.models.find((m) => m.id === model.id)?.missing) {
     return { code: 'modelNotListed', reason: `${name} no longer lists ${modelLabel(model)}.` };
   }

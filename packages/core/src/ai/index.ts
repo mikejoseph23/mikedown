@@ -32,3 +32,6 @@ export * from './prompts/properties';
 
 // Privacy copy (cloud engines): the card lines, what each feature sends, the consent dialog text.
 export * from './privacy';
+
+// Setup wizard (M1b): which path to offer first, the hardware hint, model size tags.
+export * from './setup';

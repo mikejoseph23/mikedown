@@ -5,7 +5,7 @@
  * `setSecret` is write-only.
  */
 import type { AiCompletionResult, AiErrorCode } from '@mikedown/core';
-import type { AiConsentAbout, AiConsentRecord, AiDiscoveredModel, AiKeySource, AiLocalServerProbe, AiWireCompletionRequest } from '@mikedown/core/ai';
+import type { AiConsentAbout, AiConsentRecord, AiDiscoveredModel, AiHardwareInfo, AiKeySource, AiLocalServerProbe, AiWireCompletionRequest } from '@mikedown/core/ai';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
@@ -71,6 +71,8 @@ export interface AiApi {
   forgetConsent(engineId: string): Promise<void>;
   /** Which local presets answer at their addresses (1.5 s each, nothing cached). */
   detectLocalServers(candidates: { presetId: string; baseUrl: string }[]): Promise<AiLocalServerProbe[]>;
+  /** Memory, CPU and GPU for the setup wizard (read once by Rust, then cached). */
+  hardwareInfo(): Promise<AiHardwareInfo>;
   onToken(requestId: string, handler: (e: AiTokenEvent) => void): Promise<UnlistenFn>;
   onDone(requestId: string, handler: (e: AiDoneEvent) => void): Promise<UnlistenFn>;
   onError(requestId: string, handler: (e: AiErrorEvent) => void): Promise<UnlistenFn>;
@@ -88,6 +90,7 @@ export const aiApi: AiApi = {
   listConsents: () => invoke<AiConsentRecord[]>('ai_list_consents'),
   forgetConsent: (engineId) => invoke<void>('ai_forget_consent', { id: engineId }),
   detectLocalServers: (candidates) => invoke<AiLocalServerProbe[]>('ai_detect_local_servers', { candidates }),
+  hardwareInfo: () => invoke<AiHardwareInfo>('ai_hardware_info'),
   onToken: (requestId, handler) => listen<AiTokenEvent>(`ai-token:${aiChannelId(requestId)}`, (e) => handler(e.payload)),
   onDone: (requestId, handler) => listen<AiDoneEvent>(`ai-done:${aiChannelId(requestId)}`, (e) => handler(e.payload)),
   onError: (requestId, handler) => listen<AiErrorEvent>(`ai-error:${aiChannelId(requestId)}`, (e) => handler(e.payload)),

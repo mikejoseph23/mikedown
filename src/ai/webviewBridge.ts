@@ -16,6 +16,8 @@ import type { AiEngineService } from './engineService';
  *   aiListConsents        { requestId }                        → aiConsents
  *   aiForgetConsent       { requestId, engineId }              → aiConsents (the list after forgetting)
  *   aiDetectLocalServers  { requestId, candidates: { presetId, baseUrl }[] } → aiEngineProbes
+ *   aiDetectHostEngines   { requestId }                        → aiHostEngines
+ *   aiHardwareInfo        { requestId }                        → aiHardware
  *
  * Host → webview:
  *   aiToken        { requestId, delta }
@@ -26,6 +28,8 @@ import type { AiEngineService } from './engineService';
  *   aiConsent      { requestId, engineId, granted: true | false | 'never' }  (false: not now; 'never': stored, answered without asking)
  *   aiConsents     { requestId, consents: AiConsentRecord[] }  (this workspace's stored answers, newest first)
  *   aiEngineProbes { requestId, probes: AiLocalServerProbe[] }  (one per candidate, in order; nothing cached)
+ *   aiHostEngines  { requestId, probes: AiHostEngineProbe[] }   (VS Code's Copilot models: how many, never a prompt)
+ *   aiHardware     { requestId, info: AiHardwareInfo | null }   (memory, CPU, Apple Silicon; read once per session)
  */
 
 export const AI_WEBVIEW_MESSAGE_TYPES: ReadonlySet<string> = new Set([
@@ -39,6 +43,8 @@ export const AI_WEBVIEW_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'aiListConsents',
   'aiForgetConsent',
   'aiDetectLocalServers',
+  'aiDetectHostEngines',
+  'aiHardwareInfo',
 ]);
 
 export function isAiWebviewMessage(message: unknown): message is { type: string } & Record<string, unknown> {
@@ -136,6 +142,16 @@ export async function handleAiMessage(
       }
       return;
     }
+    case 'aiDetectHostEngines':
+      try {
+        post({ type: 'aiHostEngines', requestId, probes: await service.detectHostEngines() });
+      } catch (err) {
+        fail(err);
+      }
+      return;
+    case 'aiHardwareInfo':
+      post({ type: 'aiHardware', requestId, info: service.hardwareInfo() });
+      return;
     case 'aiListConsents':
       post({ type: 'aiConsents', requestId, consents: service.listConsents() });
       return;

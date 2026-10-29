@@ -143,6 +143,12 @@
  *         — the first-run panel and the quick-start cards look for local
  *         servers (one GET per local preset, 1.5 s cap each, never cached);
  *         answered by aiEngineProbes.
+ *     { type: 'aiDetectHostEngines', requestId } — the setup wizard asks
+ *         whether VS Code offers GitHub Copilot models (`vscode.lm`; lists
+ *         them, sends no text); answered by aiHostEngines.
+ *     { type: 'aiHardwareInfo', requestId } — memory, CPU and Apple Silicon
+ *         for the wizard's local hint (read once per session, no GPU
+ *         probe); answered by aiHardware.
  *   Extension → Webview:
  *     { type: 'aiToken', requestId, delta }
  *     { type: 'aiDone', requestId, result: AiCompletionResult }
@@ -154,6 +160,8 @@
  *     { type: 'aiConsent', requestId, engineId, granted: true | false | 'never' }
  *     { type: 'aiConsents', requestId, consents: AiConsentRecord[] }
  *     { type: 'aiEngineProbes', requestId, probes: AiLocalServerProbe[] }
+ *     { type: 'aiHostEngines', requestId, probes: AiHostEngineProbe[] }
+ *     { type: 'aiHardware', requestId, info: AiHardwareInfo | null }
  *     { type: 'command', command: 'openAiSettings', page?: boolean } —
  *         mikedown.openAiSettings (and the AI status bar item) send
  *         `page: true`: open the full-window AI Engines page. Without `page`

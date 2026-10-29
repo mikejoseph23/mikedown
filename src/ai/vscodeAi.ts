@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
-import { AI_SETTINGS_KEYS, aiConsentText, aiProviderPolicy, hostOfUrl, parseAiSettings, serializeAiSettings, type AiEngineConfig, type AiSendsScope } from '@mikedown/core/ai';
+import { AI_SETTINGS_KEYS, aiConsentHost, aiConsentText, aiProviderPolicy, parseAiSettings, serializeAiSettings, type AiEngineConfig, type AiSendsScope } from '@mikedown/core/ai';
 import { getSettings, stableEngineIdGenerator, effectiveAiRaw } from '../settings';
 import { AiEngineService, type ConsentAnswer, type ConsentStore, type StoredConsent } from './engineService';
 import { AiSecrets } from './secrets';
+import { readHardwareInfo } from './hardware';
+import { createAdapters, type VsCodeLmApi } from './providers';
 
 /**
  * VS Code wiring for the AI layer: the engine service built on
@@ -33,7 +35,8 @@ export async function askCloudConsent(engine: AiEngineConfig, feature: string | 
   const policy = aiProviderPolicy(engine);
   const text = aiConsentText({
     engineName: engine.name || engine.id,
-    host: hostOfUrl(engine.baseUrl) ?? engine.baseUrl,
+    // "GitHub Copilot" for a vscode-lm engine, which has no address.
+    host: aiConsentHost(engine),
     feature,
     sends,
     scopeWord: 'workspace',
@@ -76,9 +79,21 @@ export function workspaceConsentStore(state: Pick<vscode.Memento, 'get' | 'updat
   };
 }
 
+/** The `vscode.lm` pieces the `vscode-lm` adapter needs (GitHub Copilot's models). */
+export function vscodeLmApi(): VsCodeLmApi {
+  return {
+    selectChatModels: (selector) => vscode.lm.selectChatModels(selector),
+    userMessage: (text) => vscode.LanguageModelChatMessage.User(text),
+    assistantMessage: (text) => vscode.LanguageModelChatMessage.Assistant(text),
+    tokenSource: () => new vscode.CancellationTokenSource(),
+  };
+}
+
 export function createVsCodeAiService(context: vscode.ExtensionContext, output: vscode.OutputChannel): AiEngineService {
   const log = (line: string) => output.appendLine(`[${timestamp()}] ${line}`);
   return new AiEngineService({
+    adapters: createAdapters({ vscodeLm: vscodeLmApi() }),
+    readHardware: () => readHardwareInfo(),
     readSettings: () => getSettings().ai,
     secrets: new AiSecrets(context.secrets, process.env, os.homedir, log),
     consent: workspaceConsentStore(context.workspaceState),

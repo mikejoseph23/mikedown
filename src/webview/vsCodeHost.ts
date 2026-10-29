@@ -31,6 +31,8 @@ import type {
   AiConsentReply,
   AiEngineStatus,
   AiError,
+  AiHardwareInfo,
+  AiHostEngineProbe,
   AiLocalServerProbe,
   MikeDownAiHost,
 } from '../../packages/core/src/ai/types';
@@ -345,6 +347,9 @@ export class VsCodeHost implements MikeDownHost {
         this.post({ type: 'aiDetectLocalServers', requestId, candidates });
       });
     },
+    // The setup wizard: VS Code's Copilot models (listed, never sent anything) and this machine's hardware.
+    detectHostEngines: () => this.aiRequest<AiHostEngineProbe[]>({ type: 'aiDetectHostEngines' }),
+    hardwareInfo: () => this.aiRequest<AiHardwareInfo | null>({ type: 'aiHardwareInfo' }),
   };
 
   private handleAiReply(message: any): boolean {
@@ -370,10 +375,17 @@ export class VsCodeHost implements MikeDownHost {
         waiter?.resolve(message.status);
         return true;
       }
-      case 'aiEngineProbes': {
+      case 'aiEngineProbes':
+      case 'aiHostEngines': {
         const waiter = this.aiWaiters.get(message.requestId);
         this.aiWaiters.delete(message.requestId);
         waiter?.resolve(Array.isArray(message.probes) ? message.probes : []);
+        return true;
+      }
+      case 'aiHardware': {
+        const waiter = this.aiWaiters.get(message.requestId);
+        this.aiWaiters.delete(message.requestId);
+        waiter?.resolve(message.info && typeof message.info === 'object' ? message.info : null);
         return true;
       }
       case 'aiConsent': {

@@ -10,8 +10,12 @@
 
 import type { AiApiKeyFile, AiEngineKind } from './types';
 
-/** Where a preset runs: your own server, or a cloud API you paste a key for. */
-export type AiPresetFamily = 'local' | 'cloud';
+/**
+ * Where a preset runs: your own server, a cloud API you paste a key for, or
+ * a model API built into the host (`host`: VS Code's GitHub Copilot models,
+ * no address and no key; shown only where the host reports it).
+ */
+export type AiPresetFamily = 'local' | 'cloud' | 'host';
 
 /**
  * One Popular slot: the newest fetched id that matches `match` (and not
@@ -51,8 +55,19 @@ export interface AiEnginePreset {
    * answer without a key.
    */
   detectPath?: string;
-  /** Cloud presets: the provider's own page on how API data is used (see `privacy.ts`). */
+  /** Cloud and host presets: the provider's own page on how API data is used (see `privacy.ts`). */
   policy?: AiProviderPolicy;
+  /**
+   * Cloud presets: the provider's official API pricing page, linked as
+   * "Pricing" beside the key link. Only the link: prices change, so no
+   * figure is stated in code. URLs checked 2026-10-29.
+   */
+  pricingUrl?: string;
+  /**
+   * Local presets: the official download or install page, for a server that
+   * is not running yet ("Install", then Look again). URLs checked 2026-10-29.
+   */
+  installUrl?: string;
 }
 
 /**
@@ -76,7 +91,11 @@ export interface AiPresetFamilyInfo {
   explainer: string;
 }
 
-/** The two quick-start groups, in display order, with the "two ways to connect" copy. */
+/**
+ * The two quick-start groups, in display order, with the "two ways to
+ * connect" copy. The `host` family is not in this list: it shows only on a
+ * host whose `detectHostEngines` reports a model (`AI_HOST_PRESET_FAMILY`).
+ */
 export const AI_PRESET_FAMILIES: readonly AiPresetFamilyInfo[] = [
   {
     family: 'local',
@@ -89,6 +108,13 @@ export const AI_PRESET_FAMILIES: readonly AiPresetFamilyInfo[] = [
     explainer: 'Paste a key from the provider. It bills your account for what you use.',
   },
 ];
+
+/** The `host` group (VS Code's built-in models), for the hosts that report one through `detectHostEngines`. */
+export const AI_HOST_PRESET_FAMILY: AiPresetFamilyInfo = {
+  family: 'host',
+  label: 'Built into VS Code',
+  explainer: 'A model VS Code already offers through your GitHub Copilot plan. No key to paste; text goes to GitHub’s Copilot service.',
+};
 
 /** Version numbers come before a dated suffix, so `-20250514` never outranks `-4-5`. */
 const anthropicFamily = (word: string, label: string): AiPopularRule => ({ label, match: new RegExp(`^claude-${word}-\\d`) });
@@ -105,6 +131,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'local',
     caption: 'MLX models on Apple silicon',
     keyHint: 'oMLX keeps its key in ~/.omlx/settings.json, which is read automatically.',
+    installUrl: 'https://omlx.ai',
   },
   {
     id: 'lmstudio',
@@ -115,6 +142,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'local',
     caption: 'The LM Studio app’s local server',
     keyHint: 'Only needed if you turned on authentication in LM Studio.',
+    installUrl: 'https://lmstudio.ai/download',
     detectPath: '/api/v0/models',
   },
   {
@@ -126,6 +154,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'local',
     caption: 'Models pulled with ollama',
     keyHint: 'Ollama needs no key.',
+    installUrl: 'https://ollama.com/download',
     detectPath: '/api/tags',
   },
   {
@@ -137,6 +166,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'local',
     caption: 'llama-server with a GGUF model',
     keyHint: 'Only needed if you started llama-server with --api-key.',
+    installUrl: 'https://github.com/ggml-org/llama.cpp/blob/master/docs/install.md',
   },
   {
     id: 'vllm',
@@ -148,6 +178,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     family: 'local',
     caption: 'vllm serve on a GPU box',
     keyHint: 'Only needed if you started vLLM with --api-key.',
+    installUrl: 'https://docs.vllm.ai/en/latest/getting_started/installation/',
   },
   {
     id: 'custom',
@@ -170,6 +201,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     caption: 'Claude models, API key from Anthropic',
     keyHint: 'Get an API key in the Claude Console',
     keyUrl: 'https://platform.claude.com/settings/keys',
+    pricingUrl: 'https://platform.claude.com/docs/en/about-claude/pricing',
     policy: { label: 'Anthropic privacy and data use', url: 'https://privacy.claude.com/en/collections/10663361-commercial-customers' },
     popular: [anthropicFamily('sonnet', 'Sonnet'), anthropicFamily('opus', 'Opus'), anthropicFamily('haiku', 'Haiku')],
   },
@@ -184,6 +216,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     caption: 'GPT models, API key from OpenAI',
     keyHint: 'Get an API key on the OpenAI platform',
     keyUrl: 'https://platform.openai.com/api-keys',
+    pricingUrl: 'https://developers.openai.com/api/docs/pricing',
     policy: { label: 'OpenAI API data controls', url: 'https://developers.openai.com/api/docs/guides/your-data' },
     popular: [
       { label: 'Flagship', match: /^gpt-\d+(\.\d+)?$/ },
@@ -201,6 +234,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     caption: 'Models from many providers with one key',
     keyHint: 'Get an API key on OpenRouter',
     keyUrl: 'https://openrouter.ai/keys',
+    pricingUrl: 'https://openrouter.ai/pricing',
     policy: {
       label: 'OpenRouter privacy policy',
       url: 'https://openrouter.ai/privacy',
@@ -224,6 +258,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     caption: 'Gemini models, API key from Google AI Studio',
     keyHint: 'Get an API key in Google AI Studio',
     keyUrl: 'https://aistudio.google.com/apikey',
+    pricingUrl: 'https://ai.google.dev/gemini-api/docs/pricing',
     policy: { label: 'Gemini API terms and data use', url: 'https://ai.google.dev/gemini-api/terms' },
     popular: [
       { label: 'Flash', match: /(^|\/)gemini-\d+(\.\d+)?-flash$/ },
@@ -242,6 +277,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     caption: 'Fast open models such as Llama and Qwen',
     keyHint: 'Get an API key in the Groq console',
     keyUrl: 'https://console.groq.com/keys',
+    pricingUrl: 'https://console.groq.com/docs/billing-faqs',
     policy: { label: 'Groq: your data in GroqCloud', url: 'https://console.groq.com/docs/your-data' },
     popular: [
       { label: 'GPT-OSS', match: /^openai\/gpt-oss-\d+b$/ },
@@ -260,6 +296,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     caption: 'Mistral models, API key from Mistral',
     keyHint: 'Get an API key in the Mistral console',
     keyUrl: 'https://console.mistral.ai/api-keys',
+    pricingUrl: 'https://mistral.ai/pricing',
     policy: { label: 'Mistral AI privacy policy', url: 'https://legal.mistral.ai/terms/privacy-policy/' },
     popular: [
       { label: 'Medium', match: /^mistral-medium-/, prefer: /-latest$/ },
@@ -278,11 +315,28 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     caption: 'DeepSeek chat and reasoning models',
     keyHint: 'Get an API key on the DeepSeek platform',
     keyUrl: 'https://platform.deepseek.com/api_keys',
+    pricingUrl: 'https://api-docs.deepseek.com/quick_start/pricing',
     policy: { label: 'DeepSeek privacy policy', url: 'https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html' },
     popular: [
       { label: 'Chat', match: /^deepseek-chat/ },
       { label: 'Reasoner', match: /^deepseek-reasoner/ },
     ],
+  },
+  {
+    id: 'vscodelm',
+    name: 'GitHub Copilot',
+    kind: 'vscode-lm',
+    baseUrl: '',
+    needsKey: false,
+    family: 'host',
+    caption: 'Copilot’s models in VS Code, no key needed',
+    keyHint: 'No key: VS Code signs in to GitHub Copilot for you. Needs a Copilot plan and the GitHub Copilot Chat extension.',
+    pricingUrl: 'https://github.com/features/copilot/plans',
+    policy: {
+      label: 'GitHub Copilot Trust Center',
+      url: 'https://copilot.github.trust.page/',
+      note: 'Text goes to GitHub’s Copilot service under your Copilot plan; individual and business plans handle data differently.',
+    },
   },
 ];
 

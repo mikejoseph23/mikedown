@@ -19,13 +19,24 @@
 /**
  * How the host talks to an engine. `openai-compatible` covers oMLX, vLLM,
  * llama.cpp server and the hosted OpenAI-style APIs (OpenRouter, Groq,
- * Gemini, Mistral, DeepSeek, xAI). A settings file written by a newer version
- * may carry a kind this one does not know; such engines are kept on save but
- * never routed (see `isKnownEngineKind`).
+ * Gemini, Mistral, DeepSeek, xAI). `vscode-lm` is a model VS Code itself
+ * offers (GitHub Copilot, through `vscode.lm`): no address, no key, VS Code
+ * host only (see `AI_HOST_ENGINE_KINDS`). A settings file written by a newer
+ * version may carry a kind this one does not know; such engines are kept on
+ * save but never routed (see `isKnownEngineKind`).
  */
-export type AiEngineKind = 'openai-compatible' | 'lmstudio' | 'ollama' | 'anthropic' | 'openai';
+export type AiEngineKind = 'openai-compatible' | 'lmstudio' | 'ollama' | 'anthropic' | 'openai' | 'vscode-lm';
 
-export const AI_ENGINE_KINDS: readonly AiEngineKind[] = ['openai-compatible', 'lmstudio', 'ollama', 'anthropic', 'openai'];
+export const AI_ENGINE_KINDS: readonly AiEngineKind[] = ['openai-compatible', 'lmstudio', 'ollama', 'anthropic', 'openai', 'vscode-lm'];
+
+/**
+ * Kinds only one host can run (no base URL, no key: the host's own model
+ * API). A host runs one only when it reports a status for the engine
+ * (`listEngines`); elsewhere such an engine is kept and never routed, the
+ * same as an unknown kind. The kind picker offers them only to an engine
+ * that already has one.
+ */
+export const AI_HOST_ENGINE_KINDS: readonly AiEngineKind[] = ['vscode-lm'];
 
 /** `auto` derives local or cloud from the base URL (see `detectLocality`). */
 export type AiLocalitySetting = 'auto' | 'local' | 'cloud';
@@ -254,6 +265,41 @@ export interface AiLocalServerProbe {
   latencyMs?: number;
 }
 
+/**
+ * A model API built into the host (VS Code's `vscode.lm`, which GitHub
+ * Copilot serves), as `detectHostEngines` found it. Nothing is saved.
+ */
+export interface AiHostEngineProbe {
+  /** The preset to add it from (`vscodelm`). */
+  presetId: string;
+  kind: AiEngineKind;
+  /** At least one chat model is available right now. */
+  ok: boolean;
+  /** Chat models available. */
+  models: number;
+  /** Why none is available, when the host knows (no Copilot extension, signed out). */
+  error?: string;
+}
+
+/**
+ * What a host can tell about this machine, for the setup wizard's "can it
+ * run models locally" hint (`recommendSetupPath`, `modelSizeHint`). A rough
+ * call, not a benchmark: VS Code reads no GPU at all.
+ */
+export interface AiHardwareInfo {
+  /** Node's `process.arch` names: `arm64`, `x64`. */
+  arch: string;
+  /** Node's `process.platform` names: `darwin`, `win32`, `linux`. */
+  platform: string;
+  totalMemoryBytes: number;
+  /** macOS on arm64: the GPU shares `totalMemoryBytes` (unified memory). */
+  appleSilicon: boolean;
+  /** CPU brand string, when the host read one ("Apple M2 Max"). */
+  cpu?: string;
+  /** A discrete GPU, when the host could read one (Desktop: NVIDIA through `nvidia-smi`; Apple Silicon reports `apple`). */
+  gpu?: { vendor: 'nvidia' | 'amd' | 'apple' | 'other'; vramBytes?: number; name?: string };
+}
+
 export type AiErrorCode =
   | 'unreachable'
   | 'auth'
@@ -309,6 +355,19 @@ export interface MikeDownAiHost {
    * own address. One result per candidate, in order. Nothing is saved.
    */
   detectLocalServers?(candidates: { presetId: string; baseUrl: string }[], signal: AbortSignal): Promise<AiLocalServerProbe[]>;
+  /**
+   * Model APIs built into the host that need no address or key (VS Code:
+   * `vscode.lm`, GitHub Copilot's models), one result per `AI_HOST_ENGINE_KINDS`
+   * kind the host runs. Lists models only; sends no text. Absent: the host
+   * has none, and the `host` preset family stays hidden.
+   */
+  detectHostEngines?(): Promise<AiHostEngineProbe[]>;
+  /**
+   * This machine's memory, CPU and (where the host can read it) GPU, for the
+   * setup wizard's local hint. Static, so hosts may answer from a cache; null
+   * when the host cannot tell.
+   */
+  hardwareInfo?(): Promise<AiHardwareInfo | null>;
   testEngine?(engineId: string): Promise<AiEngineStatus>;
   discoverModels?(engineId: string): Promise<AiEngineStatus>;
   /** Store (or with null, delete) an engine's key. Never part of `saveSettings`. */

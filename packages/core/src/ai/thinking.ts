@@ -14,6 +14,7 @@
  * - `lmstudio`: on/off only, `reasoning_effort` `none` or `medium`.
  * - `ollama`: `reasoning_effort` `none` / `low` / `medium` / `high` (its
  *   OpenAI-compatible endpoint maps it onto `think`).
+ * - `vscode-lm`: none (VS Code's language model API has no such field).
  * - `anthropic`: adaptive thinking with `output_config.effort` `low` /
  *   `medium` / `high`. No Off: current models reject `thinking: disabled`
  *   (Opus 5.5, Sonnet 5.5, Fable), so Low is the lightest setting.
@@ -54,6 +55,8 @@ export function thinkingChoices(kind: string): AiThinkingChoice[] {
       return [{ level: 'off', label: 'Off' }, { level: 'medium', label: 'On' }];
     case 'anthropic':
       return TIERS.map((level) => ({ level, label: LABELS[level] }));
+    // `vscode.lm` takes no thinking fields, so the dial hides.
+    case 'vscode-lm':
     default:
       return [];
   }

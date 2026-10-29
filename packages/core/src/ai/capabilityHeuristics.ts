@@ -124,12 +124,15 @@ export interface DetectedCapabilities {
 }
 
 /**
- * Capabilities guessed from a model id. Anthropic and OpenAI engines use
+ * Capabilities guessed from a model id. A `vscode-lm` model is a plain chat
+ * model (the endpoint gives its context window). Anthropic and OpenAI engines use
  * their static tables; any engine whose id (after a `vendor/` prefix, as on
  * OpenRouter) starts with `claude-` or a known OpenAI line does too. An id
  * nothing matches is a plain chat model with `DEFAULT_CONTEXT_TOKENS`.
  */
 export function detectCapabilities(modelId: string, kind?: AiEngineKind): DetectedCapabilities {
+  // VS Code's language models (`vendor/family`): text chat, streamed. No JSON mode, images or tools through `vscode.lm` here.
+  if (kind === 'vscode-lm') {return { capabilities: withDefaultContext({ ...BASE_CAPABILITIES }), family: 'vscode-lm' };}
   const id = modelId.trim().toLowerCase();
   const bare = id.slice(id.lastIndexOf('/') + 1);
 

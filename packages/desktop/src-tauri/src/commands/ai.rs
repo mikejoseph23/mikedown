@@ -28,6 +28,8 @@
 //!   stored answers, for the Cloud consents list on the AI tab.
 //! - `ai_detect_local_servers(candidates)`: which local presets answer at
 //!   their addresses, for the setup UI (`detect.rs`). Only when asked.
+//! - `ai_hardware_info()`: memory, CPU and GPU for the setup wizard's local
+//!   hint (`hardware.rs`). Read once, cached for the session.
 //!
 //! Engines come from the global `<app-data>/settings.json` only (`ai.engines`,
 //! OPEN-4): a folder's `.mikedown/settings.json` can never add an endpoint,
@@ -42,6 +44,7 @@ pub mod consent_store;
 pub mod detect;
 pub mod discovery;
 pub mod errors;
+pub mod hardware;
 pub mod locality;
 pub mod model;
 pub mod providers;
@@ -616,6 +619,13 @@ pub async fn ai_detect_local_servers(state: State<'_, AiState>, candidates: Vec<
     let client = state.client.clone();
     let key_for = |target: &detect::DetectTarget<'_>| detect::preset_key(target, &|n| std::env::var(n).ok());
     Ok(detect::detect_all(&client, candidates, detect::LOCAL_PRESETS, &key_for).await)
+}
+
+/// This machine's memory, CPU and GPU (core's `AiHardwareInfo`), for the
+/// setup wizard. Read on the first call, cached and logged once.
+#[tauri::command]
+pub async fn ai_hardware_info() -> Result<hardware::HardwareInfo, AiError> {
+    Ok(hardware::hardware_info().await)
 }
 
 #[cfg(test)]

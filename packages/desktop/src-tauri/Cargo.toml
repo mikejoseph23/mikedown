@@ -49,6 +49,9 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 futures-util = "0.3"
 # Cooperative cancellation of in-flight completions (watch channel + select!).
 tokio = { version = "1", features = ["sync", "macros", "time"] }
+# Total memory and the CPU brand for the AI setup wizard's local hint
+# (commands/ai/hardware.rs). Only the `system` part.
+sysinfo = { version = "0.38", default-features = false, features = ["system"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"

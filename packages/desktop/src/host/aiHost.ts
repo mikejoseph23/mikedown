@@ -20,12 +20,18 @@
  *   answers (the Cloud consents list on the AI tab).
  * - `detectLocalServers` asks Rust which local presets answer (the setup UI
  *   only); Rust caps each address, so an abort here only stops waiting.
+ * - `hardwareInfo` asks Rust for memory, CPU and GPU (the setup wizard's
+ *   local hint); null when it cannot tell.
+ * - Host kinds (`vscode-lm`, VS Code's Copilot models) do not run here: their
+ *   engines are kept in settings but left out of `listEngines`, so core's
+ *   router treats them as unsupported, and Rust skips them too.
  * - `shellEnv: false`: an app opened from the Dock does not see variables
  *   set in a shell profile, so the engine form points at the key file instead.
  */
 import type { AiCompletionRequest, AiCompletionResult, AiEngineStatus, AiError, MikeDownAiHost } from '@mikedown/core';
 import {
   engineLocality,
+  isHostEngineKind,
   makeAiError,
   mergeDiscoveredModels,
   toAiError,
@@ -69,6 +75,11 @@ function findEngine(settings: AiSettings, engineId: string): AiEngineConfig {
   const engine = settings.engines.find((e) => e.id === engineId);
   if (!engine) {throw makeAiError('modelNotFound', 'That engine is not in your AI settings.');}
   return engine;
+}
+
+/** A host kind (`vscode-lm`) has no address for Rust to reach; it runs only in VS Code. */
+function unsupportedHere(engine: AiEngineConfig, settings: AiSettings): AiEngineStatus {
+  return { ...statusFor(engine, settings), ok: false, error: `${engine.name || engine.id} runs only in the VS Code extension.` };
 }
 
 export function createAiHost(deps: AiHostDeps): MikeDownAiHost {
@@ -124,18 +135,22 @@ export function createAiHost(deps: AiHostDeps): MikeDownAiHost {
     async listEngines() {
       const settings = deps.settings();
       const infos = await api.listEngines();
-      return settings.engines.map((engine) => statusFor(engine, settings, infos.find((i) => i.engineId === engine.id)));
+      return settings.engines
+        .filter((engine) => !isHostEngineKind(engine.kind))
+        .map((engine) => statusFor(engine, settings, infos.find((i) => i.engineId === engine.id)));
     },
 
     async testEngine(engineId) {
       const settings = deps.settings();
       const engine = findEngine(settings, engineId);
+      if (isHostEngineKind(engine.kind)) {return unsupportedHere(engine, settings);}
       return statusFor(engine, settings, await api.testEngine(engineId).catch((err: unknown) => { throw toAiError(err); }));
     },
 
     async discoverModels(engineId) {
       const settings = deps.settings();
       const engine = findEngine(settings, engineId);
+      if (isHostEngineKind(engine.kind)) {return unsupportedHere(engine, settings);}
       let result;
       try {
         result = await api.discoverModels(engineId);
@@ -170,6 +185,14 @@ export function createAiHost(deps: AiHostDeps): MikeDownAiHost {
         return await Promise.race([api.detectLocalServers(candidates), aborted]);
       } catch (err) {
         throw toAiError(err);
+      }
+    },
+
+    async hardwareInfo() {
+      try {
+        return await api.hardwareInfo();
+      } catch {
+        return null;
       }
     },
 

@@ -4,6 +4,7 @@ import {
   buildAuthHeaders,
   countDetectedModels,
   engineLocality,
+  isHostEngineKind,
   isKnownEngineKind,
   isRouteUsable,
   localDetectTarget,
@@ -22,6 +23,8 @@ import {
   type AiEngineKind,
   type AiEngineStatus,
   type AiError,
+  type AiHardwareInfo,
+  type AiHostEngineProbe,
   type AiLocalServerProbe,
   type AiModelConfig,
   type AiSendsScope,
@@ -29,6 +32,7 @@ import {
   type ProviderAdapter,
 } from '@mikedown/core/ai';
 import type { AiSecrets } from './secrets';
+import { hardwareLogLine } from './hardware';
 import { createAdapters } from './providers';
 import { requestJson, resolveFetch, type FetchLike } from './providers/http';
 
@@ -48,7 +52,9 @@ import { requestJson, resolveFetch, type FetchLike } from './providers/http';
  *   any text leaves; a consent only counts while the engine still has the
  *   kind, base URL and locality it was given for;
  * - one output-channel line per request, never the prompt text;
- * - local server detection for the setup UI: asked for, never cached.
+ * - local server detection for the setup UI: asked for, never cached;
+ * - VS Code's own models (`vscode-lm`) and this machine's hardware, for the
+ *   setup wizard.
  *
  * No `vscode` import: the editor wiring passes its pieces in (vscodeAi.ts),
  * so tests run it against fakes.
@@ -90,6 +96,8 @@ export interface EngineServiceDeps {
   /** Local server detection's GETs; defaults to Node's `fetch`. */
   fetch?: FetchLike;
   now?: () => number;
+  /** This machine's hardware, for the setup wizard (hardware.ts). Absent: `hardwareInfo` answers null. */
+  readHardware?: () => AiHardwareInfo;
 }
 
 interface ProbeEntry {
@@ -134,6 +142,8 @@ export class AiEngineService {
   private readonly inFlight = new Map<object, { requestId: string; controller: AbortController }>();
   private readonly consentPrompts = new Map<string, Promise<ConsentAnswer>>();
   private readonly listeners = new Set<() => void>();
+  /** `hardwareInfo`'s answer, read once (undefined: not asked yet). */
+  private hardware: AiHardwareInfo | null | undefined;
   private knownEngines: AiEngineConfig[];
 
   constructor(private readonly deps: EngineServiceDeps) {
@@ -209,14 +219,16 @@ export class AiEngineService {
   /**
    * Every engine's status. Local, enabled engines whose last probe is stale
    * (or never ran) are probed first, briefly; cloud engines are only probed
-   * when the user asks (Test connection), never behind their back.
+   * when the user asks (Test connection), never behind their back. A
+   * `vscode-lm` engine counts as local here: its probe only asks VS Code
+   * which Copilot models it has, nothing goes over the network.
    */
   async listEngines(): Promise<AiEngineStatus[]> {
     const settings = this.deps.readSettings();
     const now = this.now();
     const stale = settings.engines.filter((engine) => {
       if (!engine.enabled || !isKnownEngineKind(engine.kind)) {return false;}
-      if (engineLocality(engine, settings.localNetworks) !== 'local') {return false;}
+      if (!isHostEngineKind(engine.kind) && engineLocality(engine, settings.localNetworks) !== 'local') {return false;}
       const entry = this.cached(engine);
       return !entry || now - entry.at > (entry.ok ? PROBE_FRESH_MS : PROBE_RETRY_MS);
     });
@@ -390,6 +402,46 @@ export class AiEngineService {
     const name = (id: string) => AI_ENGINE_PRESETS.find((p) => p.id === id)?.name ?? (id || '?');
     this.deps.log(`Detect local servers: ${outcomes.map((o) => `${name(o.probe.presetId)} ${o.note}`).join(', ') || 'nothing asked'}.`);
     return outcomes.map((o) => o.probe);
+  }
+
+  /**
+   * VS Code's own models (`vscode-lm`: GitHub Copilot) for the setup wizard:
+   * how many chat models it offers right now. Lists only; sends no text, so
+   * VS Code shows no permission prompt. One result per host kind this
+   * service has an adapter for (none in tests without the `vscode` API).
+   */
+  async detectHostEngines(): Promise<AiHostEngineProbe[]> {
+    const out: AiHostEngineProbe[] = [];
+    for (const preset of AI_ENGINE_PRESETS) {
+      if (preset.family !== 'host' || !isHostEngineKind(preset.kind)) {continue;}
+      const adapter = this.adapters.get(preset.kind);
+      if (!adapter) {continue;}
+      const probe: AiHostEngineProbe = { presetId: preset.id, kind: preset.kind, ok: false, models: 0 };
+      const engine: AiEngineConfig = { id: `detect:${preset.id}`, name: preset.name, kind: preset.kind, baseUrl: preset.baseUrl, enabled: true, locality: 'auto', discovery: 'auto', models: [] };
+      try {
+        const models = await adapter.listModels(engine, null, new AbortController().signal);
+        probe.models = models.length;
+        probe.ok = models.length > 0;
+      } catch (err) {
+        probe.error = toAiError(err).message;
+      }
+      out.push(probe);
+    }
+    this.deps.log(`Detect host engines: ${out.map((p) => `${p.presetId} ${p.ok ? `${p.models} model${p.models === 1 ? '' : 's'}` : 'none'}`).join(', ') || 'none supported'}.`);
+    return out;
+  }
+
+  /** This machine's memory and CPU (static: read once, logged once per session). Null when it cannot be read. */
+  hardwareInfo(): AiHardwareInfo | null {
+    if (this.hardware !== undefined) {return this.hardware;}
+    try {
+      this.hardware = this.deps.readHardware?.() ?? null;
+    } catch (err) {
+      this.hardware = null;
+      this.deps.log(`Hardware: could not read (${toAiError(err).message})`);
+    }
+    if (this.hardware) {this.deps.log(hardwareLogLine(this.hardware));}
+    return this.hardware;
   }
 
   // ── Consent ───────────────────────────────────────────────────────────────

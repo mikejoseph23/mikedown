@@ -88,8 +88,13 @@ export function detectLocality(baseUrl: string, localNetworks: readonly string[]
   return 'cloud';
 }
 
-/** The engine's effective locality: its pin, or `detectLocality` for `auto`. */
-export function engineLocality(engine: Pick<AiEngineConfig, 'baseUrl' | 'locality'>, localNetworks?: readonly string[]): AiLocality {
+/**
+ * The engine's effective locality: its pin, or `detectLocality` for `auto`.
+ * A `vscode-lm` engine is always cloud, whatever its pin: it has no address,
+ * and the text goes to GitHub's Copilot service.
+ */
+export function engineLocality(engine: Pick<AiEngineConfig, 'baseUrl' | 'locality'> & { kind?: string }, localNetworks?: readonly string[]): AiLocality {
+  if (engine.kind === 'vscode-lm') {return 'cloud';}
   if (engine.locality === 'local' || engine.locality === 'cloud') {return engine.locality;}
   return detectLocality(engine.baseUrl, localNetworks);
 }
@@ -99,7 +104,7 @@ export function engineLocality(engine: Pick<AiEngineConfig, 'baseUrl' | 'localit
  * private address, or local pinned on a public one). The indicator shows a
  * warning glyph for it.
  */
-export function localityMismatch(engine: Pick<AiEngineConfig, 'baseUrl' | 'locality'>, localNetworks?: readonly string[]): boolean {
-  if (engine.locality === 'auto') {return false;}
+export function localityMismatch(engine: Pick<AiEngineConfig, 'baseUrl' | 'locality'> & { kind?: string }, localNetworks?: readonly string[]): boolean {
+  if (engine.locality === 'auto' || engine.kind === 'vscode-lm') {return false;}
   return engine.locality !== detectLocality(engine.baseUrl, localNetworks);
 }

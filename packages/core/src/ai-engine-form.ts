@@ -22,7 +22,7 @@
  * whose result is dropped, and runs as soon as it settles.
  */
 
-import { AI_ENGINE_KINDS, aiErrorCopy, aiProviderPolicy, isKnownEngineKind, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
+import { AI_ENGINE_KINDS, aiErrorCopy, aiProviderPolicy, isHostEngineKind, isKnownEngineKind, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
 import type { AiEngineConfig, AiEngineStatus, AiKeySource, AiLocalitySetting, AiModelConfig, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
 import {
   AI_CAPABILITY_CHIPS,
@@ -421,8 +421,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     wrap.setAttribute('role', 'group');
     wrap.setAttribute('aria-label', `${engineDisplayName(engine)} settings`);
 
-    // Cloud: what happens to the text, folded at the head of the form.
-    if (preset.family === 'cloud') {
+    // Cloud (and Copilot, which is cloud too): what happens to the text, folded at the head of the form.
+    if (preset.family === 'cloud' || preset.family === 'host') {
       wrap.append(privacyCard({ policy: aiProviderPolicy(engine) }, {
         collapsed: 'What is sent',
         open: privacyOpen.has(id),
@@ -630,7 +630,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     head.append(label, count);
     if (ai.discoverModels) {
       const fetchBtn = button('ai-link-btn', 'Fetch models', { html: ICONS.refresh, fk: `eng:${id}:fetch` });
-      const urlBad = !!baseUrlProblem(engine.baseUrl);
+      const urlBad = !isHostEngineKind(engine.kind) && !!baseUrlProblem(engine.baseUrl);
       if (st.running) {fetchBtn.setAttribute('aria-disabled', 'true');}
       fetchBtn.disabled = engine.discovery === 'manual' || urlBad;
       if (engine.discovery === 'manual') {fetchBtn.title = 'The model list is manual for this engine (see Advanced).';}
@@ -1005,7 +1005,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       const test = button('settings-btn settings-btn--secondary', busy ? 'Testing…' : 'Test connection', { fk: `eng:${id}:test` });
       // Busy buttons stay focusable (aria-disabled) so the keyboard is not dropped mid-probe.
       if (busy) {test.setAttribute('aria-disabled', 'true');}
-      test.disabled = !!baseUrlProblem(engine.baseUrl);
+      test.disabled = !isHostEngineKind(engine.kind) && !!baseUrlProblem(engine.baseUrl);
       test.addEventListener('click', () => { void runTest(id); });
       row.append(test);
       if (deps.savesFirst(id)) {row.append(el('span', 'ai-caption', 'Testing saves this engine first, so the app can reach it.'));}
@@ -1059,7 +1059,9 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     const select = el('select', 'settings-input');
     select.id = nextId('ai-kind');
     select.dataset.fk = `eng:${id}:kind`;
+    // Host kinds (`vscode-lm`) are added from their card, never picked here.
     for (const kind of AI_ENGINE_KINDS) {
+      if (isHostEngineKind(kind) && kind !== engine.kind) {continue;}
       const o = el('option', '', AI_ENGINE_KIND_LABELS[kind]);
       o.value = kind;
       select.append(o);

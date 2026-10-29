@@ -53,6 +53,16 @@ describe('askCloudConsent', () => {
     expect(items).toEqual(['Allow for this workspace', 'Not for this workspace', 'Not now']);
   });
 
+  it('names GitHub Copilot for a vscode-lm engine, which has no address, and links its policy', async () => {
+    const copilot = { id: 'cp', name: 'GitHub Copilot', kind: 'vscode-lm', baseUrl: '', models: [] } as unknown as AiEngineConfig;
+    showWarningMessage.mockImplementation(async () => undefined);
+    await askCloudConsent(copilot, 'rewrite');
+    const [, options, ...items] = showWarningMessage.mock.calls[0];
+    expect(options.detail).toContain('is a cloud engine at GitHub Copilot.');
+    expect(options.detail).toContain('copilot.github.trust.page');
+    expect(items.map((i: { title: string }) => i.title)).toContain("Read the provider's policy");
+  });
+
   it('answers never for "Not for this workspace"', async () => {
     showWarningMessage.mockImplementation(async (_t: string, _o: unknown, ...items: Array<{ title: string }>) => items[1]);
     expect(await askCloudConsent(proxy, 'rewrite')).toBe('never');

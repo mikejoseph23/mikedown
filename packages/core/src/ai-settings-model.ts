@@ -13,12 +13,13 @@ import {
   AI_ENGINE_PRESETS,
   AI_TASKS,
   DEFAULT_CONTEXT_TOKENS,
+  aiConsentHost,
   detectCapabilities,
   detectLocality,
   engineLocality,
   generateAiId,
   getAiTask,
-  hostOfUrl,
+  isHostEngineKind,
   isKnownEngineKind,
   localityMismatch,
   mergeDiscoveredModels,
@@ -67,6 +68,7 @@ export const AI_ENGINE_KIND_LABELS: Readonly<Record<AiEngineKind, string>> = {
   ollama: 'Ollama',
   anthropic: 'Anthropic',
   openai: 'OpenAI',
+  'vscode-lm': 'GitHub Copilot (VS Code)',
 };
 
 export function engineKindLabel(kind: string): string {
@@ -150,12 +152,15 @@ export function engineFromPreset(preset: AiEnginePreset, existingIds: Iterable<s
   return engine;
 }
 
-/** Group presets for the quick-start cards by family (where they run). */
-export function groupPresets(presets: readonly AiEnginePreset[]): { local: AiEnginePreset[]; cloud: AiEnginePreset[] } {
-  const local: AiEnginePreset[] = [];
-  const cloud: AiEnginePreset[] = [];
-  for (const p of presets) {(p.family === 'local' ? local : cloud).push(p);}
-  return { local, cloud };
+/**
+ * Group presets for the quick-start cards by family (where they run). `host`
+ * presets (VS Code's Copilot models) are kept apart: they show only where
+ * the host reports one (`detectHostEngines`).
+ */
+export function groupPresets(presets: readonly AiEnginePreset[]): { local: AiEnginePreset[]; cloud: AiEnginePreset[]; host: AiEnginePreset[] } {
+  const groups: { local: AiEnginePreset[]; cloud: AiEnginePreset[]; host: AiEnginePreset[] } = { local: [], cloud: [], host: [] };
+  for (const p of presets) {groups[p.family].push(p);}
+  return groups;
 }
 
 /** Replace one engine (by id), keeping the order. */
@@ -349,10 +354,12 @@ export function engineIssues(engine: AiEngineConfig, settings: AiSettings, hasKe
   if (!isKnownEngineKind(engine.kind)) {
     issues.push({ level: 'warning', code: 'unsupportedKind', text: `This version does not support the engine kind "${String(engine.kind)}". It is kept, but never used.` });
   }
-  const urlProblem = baseUrlProblem(engine.baseUrl);
+  // A host kind (`vscode-lm`) has no address and no key.
+  const hostKind = isHostEngineKind(engine.kind);
+  const urlProblem = hostKind ? '' : baseUrlProblem(engine.baseUrl);
   if (urlProblem) {issues.push({ level: 'warning', code: 'badUrl', text: urlProblem });}
   const info = engineLocalityInfo(engine, settings.localNetworks);
-  if (info.locality === 'cloud' && !hasKey && !engine.apiKeyEnv?.trim() && !engine.apiKeyFile?.path.trim()) {
+  if (!hostKind && info.locality === 'cloud' && !hasKey && !engine.apiKeyEnv?.trim() && !engine.apiKeyFile?.path.trim()) {
     issues.push({ level: 'warning', code: 'noKey', text: 'No API key. Store one, or name the environment variable or key file that holds it.' });
   }
   if (info.mismatch) {
@@ -619,7 +626,7 @@ export interface AiIndicatorInput {
 function cloudSentNote(settings: AiSettings, served: AiServedRequest): string {
   if (served.isLocal) {return '';}
   const engine = served.engineId ? settings.engines.find((e) => e.id === served.engineId) : undefined;
-  const host = engine ? hostOfUrl(engine.baseUrl) ?? engine.baseUrl : null;
+  const host = engine ? aiConsentHost(engine) : null;
   const what = served.feature || served.sends ? whatIsSent(served.feature, served.sends) : '';
   if (host) {return what ? ` It sent text to ${host}: ${what}.` : ` It sent text to ${host}.`;}
   return what ? ` It sent ${what}.` : '';
@@ -689,6 +696,8 @@ export interface EngineFormPreset {
   keyHint: string;
   /** Where the provider makes API keys (cloud presets); the key hint links to it. */
   keyUrl?: string;
+  /** The provider's API pricing page (cloud presets), for the "Pricing" link beside the key link. */
+  pricingUrl?: string;
   popular: readonly AiPopularRule[];
 }
 
@@ -699,7 +708,18 @@ export interface EngineFormPreset {
  */
 export function enginePreset(engine: AiEngineConfig, localNetworks: readonly string[]): EngineFormPreset {
   const p = presetForEngine(engine);
-  if (p) {return { id: p.id, name: p.name, family: p.family, needsKey: p.needsKey, keyHint: p.keyHint, ...(p.keyUrl ? { keyUrl: p.keyUrl } : {}), popular: p.popular ?? [] };}
+  if (p) {
+    return {
+      id: p.id,
+      name: p.name,
+      family: p.family,
+      needsKey: p.needsKey,
+      keyHint: p.keyHint,
+      ...(p.keyUrl ? { keyUrl: p.keyUrl } : {}),
+      ...(p.pricingUrl ? { pricingUrl: p.pricingUrl } : {}),
+      popular: p.popular ?? [],
+    };
+  }
   const family: AiPresetFamily = engineLocality(engine, localNetworks) === 'local' ? 'local' : 'cloud';
   return {
     id: 'custom',
@@ -721,6 +741,10 @@ export type AdvancedField = 'kind' | 'baseUrl' | 'locality' | 'key' | 'keyEnv' |
  * otherwise the key moves under Advanced, so nothing is lost.
  */
 export function expressFields(preset: Pick<EngineFormPreset, 'id' | 'family' | 'needsKey'>): { express: ExpressField[]; advanced: AdvancedField[] } {
+  // Built into the host (VS Code's Copilot models): no address, no key, no thinking fields.
+  if (preset.family === 'host') {
+    return { express: ['name', 'models', 'defaultModel', 'enabled'], advanced: ['discovery', 'modelsTable'] };
+  }
   if (preset.family === 'cloud') {
     return {
       express: ['name', 'key', 'models', 'defaultModel', 'thinking', 'enabled'],
@@ -982,7 +1006,8 @@ const NO_FETCH = (cancelPending: boolean, fingerprint = ''): AutoFetchDecision =
  * asked). A plain save never fetches; `discovery: manual` never auto-fetches.
  */
 export function autoFetchDecision(prev: AutoFetchState | null, next: AutoFetchState): AutoFetchDecision {
-  const urlOk = !baseUrlProblem(next.baseUrl);
+  // A host engine (VS Code's Copilot models) has no address to check.
+  const urlOk = next.family === 'host' || !baseUrlProblem(next.baseUrl);
   const key = next.key.trim();
   const cloudFingerprint = fetchFingerprint('cloud', key, next.baseUrl);
   const localFingerprint = fetchFingerprint('local', key, next.baseUrl);
@@ -1062,6 +1087,10 @@ export function discoveryProblem(input: {
       : null;
   }
   const code = discoveryErrorCode(input.code, input.message);
+  // VS Code's Copilot models: no key or address to point at; the host's message says what to do.
+  if (input.family === 'host') {
+    return { kind: code === 'auth' ? 'auth' : 'other', text: input.message || `Could not list ${input.presetName}’s models.`, retry: true };
+  }
   if (code === 'auth') {
     return { kind: 'auth', text: `Key rejected by ${shortUrl(input.baseUrl)}.`, focus: 'key', retry: true };
   }

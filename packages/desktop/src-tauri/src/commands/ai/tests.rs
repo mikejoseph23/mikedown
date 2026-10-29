@@ -103,6 +103,7 @@ fn engines_and_the_cloud_switch_come_from_flat_ai_keys() {
             { "id": "omlx", "name": "oMLX", "kind": "openai-compatible", "baseUrl": "http://127.0.0.1:8000/v1",
               "models": [{ "id": "qwen", "enabled": true, "requestOverrides": { "reasoning_effort": "low" }, "futureKey": 1 }] },
             { "id": "future", "kind": "quantum", "baseUrl": "http://x" },
+            { "id": "copilot", "name": "GitHub Copilot", "kind": "vscode-lm", "baseUrl": "" },
             { "id": "nourl", "kind": "ollama" },
             { "id": "omlx", "kind": "ollama", "baseUrl": "http://dup" },
             { "id": "claude", "name": "Anthropic", "kind": "anthropic", "baseUrl": "https://api.anthropic.com", "enabled": false },
@@ -113,7 +114,7 @@ fn engines_and_the_cloud_switch_come_from_flat_ai_keys() {
     assert!(config.allow_cloud);
     assert_eq!(config.local_networks, vec!["10.0.98.0/24".to_string()]);
     let ids: Vec<&str> = config.engines.iter().map(|e| e.id.as_str()).collect();
-    assert_eq!(ids, vec!["omlx", "claude"], "unknown kinds, missing URLs and duplicate ids are skipped");
+    assert_eq!(ids, vec!["omlx", "claude"], "unknown kinds (VS Code's vscode-lm too), missing URLs and duplicate ids are skipped");
     assert_eq!(config.engines[0].models[0].request_overrides.as_ref().unwrap()["reasoning_effort"], "low");
     assert!(!config.engines[1].enabled);
     assert_eq!(config.engines[1].locality, "auto");
