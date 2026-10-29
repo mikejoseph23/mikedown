@@ -24,3 +24,6 @@ playwright-report/
 
 # Stray scratchpad copies
 packages/desktop/private/tmp/
+
+# Screenshot staging (listing-screenshots skill)
+assets/screenshots/_new/

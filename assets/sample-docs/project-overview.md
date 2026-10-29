@@ -16,7 +16,8 @@ Last updated: 2026-03-15
 
 Acme Cloud Platform is a next-generation infrastructure service that provides developers with managed compute, storage, and networking resources. This document outlines the high-level architecture and key design decisions.
 
-> **Note:** This architecture supports horizontal scaling to 10,000+ concurrent connections per region with automatic failover across three availability zones.
+> [!NOTE]
+> This architecture supports horizontal scaling to 10,000+ concurrent connections per region with automatic failover across three availability zones.
 
 ### Key Metrics
 

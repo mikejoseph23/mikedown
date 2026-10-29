@@ -34,6 +34,7 @@ RESUME.md
 docs/**
 assets/**
 !assets/screenshots/**
+assets/screenshots/_new/**
 website/**
 video/**
 .playwright-cli/**

@@ -1,0 +1,84 @@
+{
+  "window": { "x": 80, "y": 60, "width": 1200, "height": 955 },
+  "shots": [
+    {
+      "name": "dark-mode-editor", "theme": "dark", "explorer": true,
+      "open": [{ "file": "launch-plan.md" }]
+    },
+    {
+      "name": "light-mode-editor", "theme": "light", "explorer": true,
+      "open": [{ "file": "launch-plan.md" }]
+    },
+    {
+      "name": "source-mode", "theme": "dark",
+      "open": [{ "file": "launch-plan.md" }],
+      "commands": ["mikedown.toggleSourceMode"]
+    },
+    {
+      "name": "multi-doc-dark", "theme": "dark",
+      "layout": { "orientation": 0, "groups": [{ "size": 0.5 }, { "size": 0.5, "groups": [{}, {}] }] },
+      "open": [
+        { "file": "project-overview.md", "group": 1 },
+        { "file": "capacity-model.md", "group": 2 },
+        { "file": "release-notes.md", "group": 3 }
+      ]
+    },
+    {
+      "name": "multi-doc-light", "theme": "light",
+      "layout": { "orientation": 0, "groups": [{ "size": 0.5 }, { "size": 0.5, "groups": [{}, {}] }] },
+      "open": [
+        { "file": "capacity-model.md", "group": 1 },
+        { "file": "product-spec.md", "group": 2 },
+        { "file": "meeting-notes.md", "group": 3 }
+      ]
+    },
+    {
+      "name": "markdown-and-code", "theme": "dark",
+      "layout": { "orientation": 0, "groups": [{ "size": 0.5 }, { "size": 0.5 }] },
+      "open": [
+        { "file": "product-spec.md", "group": 1 },
+        { "file": "task-board.html", "group": 2, "editor": "text" }
+      ]
+    },
+    {
+      "name": "sidebar-dark", "theme": "dark",
+      "settings": { "mikedown.sidebar.visibility": "always" },
+      "open": [{ "file": "engineering-handbook.md" }]
+    },
+    {
+      "name": "sidebar-light", "theme": "light",
+      "settings": { "mikedown.sidebar.visibility": "always" },
+      "open": [{ "file": "engineering-handbook.md" }]
+    },
+    {
+      "name": "outline", "theme": "light",
+      "settings": { "mikedown.sidebar.visibility": "always", "mikedown.sidebar.position": "left", "mikedown.sidebar.width": 240 },
+      "open": [{ "file": "project-overview.md" }]
+    },
+    {
+      "name": "toolbar-dropdown", "theme": "dark",
+      "open": [{ "file": "launch-plan.md" }],
+      "prompt": "Open the Insert dropdown (the picture icon with a caret) on the MikeDown toolbar and hover Table."
+    },
+    {
+      "name": "slash-commands", "theme": "dark",
+      "open": [{ "file": "launch-plan.md" }],
+      "prompt": "Click at the end of the intro paragraph, press Enter, type /ta so the slash menu filters to Table and Task list."
+    },
+    {
+      "name": "toolbar-edit-mode", "theme": "light",
+      "open": [{ "file": "launch-plan.md" }],
+      "prompt": "Gear > Customize Toolbar… (or right-click the toolbar). Start dragging one button so the drop marker shows, or just leave edit mode open."
+    },
+    {
+      "name": "ai-rewrite", "theme": "dark", "ai": true,
+      "open": [{ "file": "launch-plan.md" }],
+      "prompt": "Add or confirm a local engine if needed (AI button > Set up). Select the intro paragraph, Cmd+Alt+K, pick Shorter, and wait for the result card with the timing footer."
+    },
+    {
+      "name": "ai-setup-wizard", "theme": "light", "ai": true,
+      "open": [{ "file": "launch-plan.md" }],
+      "prompt": "Click the AI toolbar button > Set up, and advance the wizard to the engine choice step."
+    }
+  ]
+}

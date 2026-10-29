@@ -1,0 +1,12 @@
+{
+  "name": "mikedown-shot-stager",
+  "displayName": "MikeDown screenshot stager",
+  "description": "Dev-only helper for the listing-screenshots skill. Lays out editor groups and opens files from /tmp/mdshots/shot.json, then writes /tmp/mdshots/staged.",
+  "version": "0.0.1",
+  "publisher": "mikedown-dev",
+  "private": true,
+  "engines": { "vscode": "^1.90.0" },
+  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "extensionDependencies": []
+}
