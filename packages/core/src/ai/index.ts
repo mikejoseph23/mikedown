@@ -19,3 +19,6 @@ export * from './wire';
 export * from './errors';
 export * from './presets';
 export * from './thinking';
+export * from './prompts/rewrite';
+export * from './prompts/explain';
+export * from './prompts/structureCheck';

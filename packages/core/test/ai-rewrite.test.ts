@@ -10,6 +10,7 @@ import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../sr
 import { makeAiError, parseAiSettings } from '../src/ai';
 import type { AiCompletionRequest, AiCompletionResult, AiEngineStatus, AiSettings, MikeDownAiHost } from '../src/ai';
 import {
+  AI_REWRITE_VARIANTS,
   REWRITE_SYSTEM_PROMPT,
   buildRewriteMessages,
   finalizeRewriteText,
@@ -268,8 +269,8 @@ describe('context menu entry', () => {
     const on = buildTextMenu(editor, { ...base, aiRewrite: () => ({ enabled: true, run }) });
     const sub = on[0] as ContextMenuSubmenu;
     expect(sub.label).toBe('Rewrite');
-    expect(sub.items.map((i) => ('label' in i ? i.label : '-'))).toEqual(['Shorter', 'Longer', 'Fix flow', 'Custom prompt…']);
-    (sub.items[2] as { action(): void }).action();
+    expect(sub.items.map((i) => ('label' in i ? i.label : '-'))).toEqual(AI_REWRITE_VARIANTS.map((v) => v.label));
+    (sub.items[AI_REWRITE_VARIANTS.findIndex((v) => v.id === 'fixFlow')] as { action(): void }).action();
     expect(run).toHaveBeenCalledWith('fixFlow');
 
     const off = buildTextMenu(editor, { ...base, aiRewrite: () => ({ enabled: false, reason: 'No engine.', run }) });
