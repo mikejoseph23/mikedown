@@ -24,7 +24,7 @@ MikeDown's webview editor (TipTap + CodeMirror, `src/webview/`, ~17k LOC) has no
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [M0 — Decisions and compatibility spike](#m0--decisions-and-compatibility-spike) | Opus | ✅ Complete (approved) | 10 | Gate: user approves `core-extraction-decisions.md` |
+| [M0 — Decisions and compatibility spike](#m0--decisions-and-compatibility-spike) | Opus | ✅ Complete (approved) | 10 | Gate: user approves `docs/core-extraction-decisions.md` |
 | [M1 — Workspace restructure](#m1--workspace-restructure) | Sonnet | ✅ Complete | 7 | npm workspaces, `packages/core` |
 | [M2 — Host adapter and factory](#m2--host-adapter-and-factory) | Opus | ✅ Complete | 31 | Replaces ~50 `postMessage` sites |
 | [T1 — VS Code parity tests](#t1--vs-code-parity-tests) | Sonnet | ✅ Complete (signed off) | 11 | unit + integration + hands-on; gap-fill added 9 integration tests |
@@ -190,7 +190,7 @@ Apply to every milestone below.
 
 **Recommended model:** Opus. Ambiguous decisions plus a toolchain compatibility investigation.
 
-**Goal:** settle the decisions that would otherwise be re-litigated mid-extraction, and prove the two risky assumptions before anything moves. Output is `core-extraction-decisions.md` at the MikeDown repo root; the user reviews and approves it before M1 starts.
+**Goal:** settle the decisions that would otherwise be re-litigated mid-extraction, and prove the two risky assumptions before anything moves. Output is `docs/core-extraction-decisions.md` at the MikeDown repo root; the user reviews and approves it before M1 starts.
 
 **Tasks**
 
@@ -201,9 +201,9 @@ Apply to every milestone below.
 - [x] **Feature split.** Produce the table of every host-facing message type from the `editor-main.ts` header (both directions) with its disposition: **core API**, **host adapter method**, **VS Code shell only**, or **dropped**. This table is the spec M2 implements.
 - [x] **Settings ownership.** Decide which `mikedown.*` settings the core owns (fonts, width, slash commands, spellcheck, math, mermaid, theme) versus VS Code only (image paste folder pattern, support prompt, heading-rename backlink fix, sidebar defaults). The core `MikeDownSettings` type is the owned subset; the Settings modal shows only sections whose settings the host supports.
 - [x] **Quantico Creek target screen.** Grep `quantico-creek-angular-app/src/app` for `ngx-markdown`, `markdown`, `notes`, and large `textarea` fields; list the candidate screens with route and component path; recommend the first one (one editable notes field is enough for M6).
-- [x] Write `core-extraction-decisions.md` with all of the above and a short "what would change in this plan" note for each decision. **Gate:** stop and ask the user to review the file. Do not start M1 until approved.
+- [x] Write `docs/core-extraction-decisions.md` with all of the above and a short "what would change in this plan" note for each decision. **Gate:** stop and ask the user to review the file. Do not start M1 until approved.
 
-**Review locator:** `~/git/mikedown/core-extraction-decisions.md`.
+**Review locator:** `~/git/mikedown/docs/core-extraction-decisions.md`.
 
 [Return to Top](#mikedown-core-extraction-and-angular-wrapper--planning-document)
 
@@ -286,7 +286,7 @@ Start: `cd ~/git/mikedown && npm run dev` (opens a dev VS Code on `test/workspac
 - [x] Inventory the 81 `--vscode-*` properties used across `packages/core/src/styles/*.css` (`grep -oh -- '--vscode-[a-zA-Z-]*' | sort -u`) and group them into a token set of roughly 25–35 `--mikedown-*` names (surface, surface-raised, text, text-muted, border, accent, accent-text, selection, code-bg, link, danger, scrollbar, focus-ring, shadow, radius, font-ui, font-mono …). Write the mapping table into `packages/core/src/styles/tokens.md`.
 - [x] Create `packages/core/src/styles/tokens.css`: `:root` light defaults and `[data-mikedown-theme="dark"]` dark defaults, plus `@media (prefers-color-scheme: dark)` when `theme: 'auto'`. Pick values that read well next to Angular Material's default indigo/pink and a neutral gray page: generous line height, 1px hairline borders, soft focus ring, no hard black. Reference the look of Apple Notes and Notion over VS Code.
 - [x] Rewrite every `var(--vscode-…)` in the core CSS to `var(--mikedown-…)`. Concatenate the 20 CSS files into `styles.css` at build time (order matters: editor, tables, images, codeblocks, mermaid, math, footnotes, links, findreplace, contextmenu, tablepicker, tabledrag, tasklist, linkautocomplete, toolbar-dropdown, outline-sidebar, emojipicker, slashcommands, spellcheck, settings-modal). Scope every selector under `.mikedown-root` so the styles cannot leak into a host app's page.
-- [x] Create `src/webview/vscode-theme.css` (VS Code shell only) that sets each `--mikedown-*` token from the matching `--vscode-*` variable, and load it after `styles.css` in `getHtmlForWebview`. Verify the three VS Code themes used in `manual-test-script.md` look unchanged.
+- [x] Create `src/webview/vscode-theme.css` (VS Code shell only) that sets each `--mikedown-*` token from the matching `--vscode-*` variable, and load it after `styles.css` in `getHtmlForWebview`. Verify the three VS Code themes used in `docs/_archive/manual-test-script.md` look unchanged.
 - [x] `katex.min.css`: import it from `styles.css` via the package (`@import 'katex/dist/katex.min.css'`) so consumers get it automatically; keep the VS Code shell loading its own copy (CSP).
 - [x] Settings modal and toolbar: audit spacing, icon sizes and hover states at 14px and 16px base font sizes outside VS Code (the demo page in M4 is the test bed; stub it early with a plain `index.html` if needed). Fix anything that depended on VS Code's compact density.
 - [x] `npm run compile`, tests green. Commit.
@@ -387,7 +387,7 @@ Start: `cd ~/git/lymestarter/ng-app && npm start` and the API per the LymeStarte
 
 **Recommended model:** Opus. Angular 14 compatibility work plus fitting the control into an existing Material screen.
 
-**Repo:** `~/git/quanticocreek/quantico-creek-angular-app` (Angular 14.2, TS 4.7). Read `~/git/quanticocreek/CLAUDE.md` and `agents.md` first. Target screen per `core-extraction-decisions.md` (M0).
+**Repo:** `~/git/quanticocreek/quantico-creek-angular-app` (Angular 14.2, TS 4.7). Read `~/git/quanticocreek/CLAUDE.md` and `agents.md` first. Target screen per `docs/core-extraction-decisions.md` (M0).
 
 **Tasks**
 
@@ -595,7 +595,7 @@ Newest first. Format: `**YYYY-MM-DD HH:MM** - entry`.
 
 **2026-10-22 16:26** - T1 gap-fill complete. Nine hands-on items automated in `test/integration/parityGapfill.test.ts` (table, bold, source toggle, `/date`, font persistence, sidebar pref, reopen, diff redirect, HTML export) through an env-gated webview test hook. Integration 38 to 47; unit 906 and edge 22 unchanged. Remaining hands-on: clipboard image paste, print dialog, visual checks. Summary: `.orchestrator/angular-core-extraction-plan/worker-summary-t1-gapfill.md`.
 
-**2026-10-22 15:00** - M0 complete. `@mikedown/core` scope is free. Angular 14 / TS 4.7 is compatible with `skipLibCheck` (build and runtime pass; core `.d.ts` must not expose mermaid/nspell/katex types). Angular 19 builds clean (+0.55 kB initial). Build tool tsup; tiptap-markdown stays a plain dependency. Message and settings tables written. Quantico target: KB article editor. Awaiting approval of `core-extraction-decisions.md`.
+**2026-10-22 15:00** - M0 complete. `@mikedown/core` scope is free. Angular 14 / TS 4.7 is compatible with `skipLibCheck` (build and runtime pass; core `.d.ts` must not expose mermaid/nspell/katex types). Angular 19 builds clean (+0.55 kB initial). Build tool tsup; tiptap-markdown stays a plain dependency. Message and settings tables written. Quantico target: KB article editor. Awaiting approval of `docs/core-extraction-decisions.md`.
 
 **2026-10-22 14:40** - Planning document created. Verified facts recorded in [Current state](#current-state-verified-2026-10-22): webview bundle has ~50 `postMessage` sites and one `acquireVsCodeApi` call, 81 `--vscode-*` CSS variables, TipTap 3.20 / tiptap-markdown 0.9; LymeStarter Angular is vendored via `lymetools sync` (no npm feed); Quantico Creek legacy app is Angular 14 / TS 4.7, assistant app Angular 19. `npm whoami` is not logged in (needed before M4). Playwright declined. Open gate: M0 decisions file.
 

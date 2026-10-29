@@ -25,8 +25,8 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
 ## What's Done (2026-10-28/29)
 
 1. AI marked Experimental (badge, disclaimer). There's an AI toolbar button with a first-run "Turn on and set up" panel and the setting `mikedown.ai.showToolbarButton`. AI is the last Settings nav item (`fdbde35`).
-2. `customizable-toolbar-plan.md` complete: registry, layout model `mikedown.toolbarLayout`, in-place edit mode (drag + keyboard), Toolbar settings tab. OQ3 to OQ5 closed. Font Theme (`fontPicker`) is the first optional palette item (`40bd796`).
-3. `ai-writing-features-plan.md` complete (T3 signed off): rewrite variants, Explain, Translate (incl. whole doc), reading level, thinking dial, `/summary`, `/outline`, `/title`, Properties Suggest chips. Later fixes:
+2. `docs/customizable-toolbar-plan.md` complete: registry, layout model `mikedown.toolbarLayout`, in-place edit mode (drag + keyboard), Toolbar settings tab. OQ3 to OQ5 closed. Font Theme (`fontPicker`) is the first optional palette item (`40bd796`).
+3. `docs/ai-writing-features-plan.md` complete (T3 signed off): rewrite variants, Explain, Translate (incl. whole doc), reading level, thinking dial, `/summary`, `/outline`, `/title`, Properties Suggest chips. Later fixes:
    - context submenu renamed **AI**, Expand renamed **Add detail** (`fa10690`);
    - engine badge moved to the popover footer, plus a Thinking row in the AI menu, persisted in localStorage (`5b16f39`);
    - both hosts log `· thinking <level> · max_tokens N` per request (`6424f97`);
@@ -56,7 +56,7 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
    - Desktop T4 checklist (`packages/desktop/docs/manual-test-checklist.md`);
    - re-encrypt the updater key (password was shown in chat 2026-10-24);
    - Bitbucket cap: move `~/git/rando` to GitHub;
-   - T1 hands-on in `wrappers-npm-plan.md`.
+   - T1 hands-on in `docs/wrappers-npm-plan.md`.
 7. **Follow-ups:**
    - typing directly into the frontmatter YAML block isn't undoable, so a later undo can overwrite it;
    - `--mikedown-toolbar-edit-focus` is documented in `tokens.md` but missing from `tokens.css`;
@@ -69,10 +69,10 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
 
 - `ai-setup-privacy-polish-plan.md`: **new, active** (orchestrator). 13 open questions.
 - `ai-inference-engines-plan.md`: engines layer done through T4; **M7 release prep open**; "Follow-up plans" list.
-- `ai-writing-features-plan.md`: **complete** (D1 to D18; follow-up #9 bundle split done). Archive when ready.
-- `customizable-toolbar-plan.md`: **complete**, OQs closed. Archive when ready (`/iadev:repo-markdown-cleanup`).
+- `docs/ai-writing-features-plan.md`: **complete** (D1 to D18; follow-up #9 bundle split done). Archive when ready.
+- `docs/customizable-toolbar-plan.md`: **complete**, OQs closed. Archive when ready (`/iadev:repo-markdown-cleanup`).
 - `ai-copilot-brainstorm.md`: 20 AI ideas and the top 5.
-- `wrappers-npm-plan.md`: only Mike's T1 left. `desktop-app-plan.md`: only Mike's T4. `angular-core-extraction-plan.md`: M10 open.
+- `docs/wrappers-npm-plan.md`: only Mike's T1 left. `docs/desktop-app-plan.md`: only Mike's T4. `angular-core-extraction-plan.md`: M10 open.
 - `desktop-auto-update-handson.md`: untracked and owned by another session. Leave it alone. The same goes for untracked `packages/desktop/private/`.
 
 ## Servers

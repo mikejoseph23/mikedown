@@ -31,7 +31,7 @@ vsc-extension-quickstart.md
 PLANNING.md
 TOOLBAR-MODES-PLAN.md
 RESUME.md
-installation-instructions.md
+docs/**
 assets/**
 !assets/screenshots/**
 website/**

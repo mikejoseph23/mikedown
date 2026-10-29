@@ -1,7 +1,7 @@
 # MikeDown Desktop
 
 The standalone MikeDown app: a Tauri 2 shell around `@mikedown/core`, for
-macOS and Windows. Plan: `desktop-app-plan.md` at the repo root. This package
+macOS and Windows. Plan: `docs/desktop-app-plan.md` in the repo. This package
 is private and never published; releases are the signed, notarized `.dmg`
 and the signed per-user NSIS `.exe`, built and staged by `deploy/` (see
 `deploy/README.md`).

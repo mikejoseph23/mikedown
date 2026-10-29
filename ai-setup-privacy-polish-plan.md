@@ -426,7 +426,7 @@ Worker notes: this is the milestone that edits `editor.ts` the most (`openAiTool
 - [x] `package.json#contributes.configuration`: descriptions of `mikedown.ai.allowCloud` (scope and the consent sentence), `mikedown.ai.enabled` ("turns on when setup finishes" if M1 changed it); any new key from M1 to M5 is present with schema and default; `src/settings.ts` reads it; the Settings UI shows it (three-place rule audit, one checkbox per key, list them in the summary).
 - [x] `README.md` AI section: the one-click local path, the cloud path (key, Allow cloud, consent), the Privacy subsection (from M3), the consents list (M4), the renamed Tasks page. `packages/desktop/README.md`: consent now in app data (OQ1), the Dock env-var note. `website/vscode/index.html` AI paragraph matches.
 - [x] `CHANGELOG.md` (Unreleased): one entry per user-visible change in M1 to M5, grouped Setup / Privacy / Polish.
-- [x] `ai-inference-engines-plan.md` "Follow-up plans" and `ai-writing-features-plan.md` "Follow-ups": add a line pointing at this plan for the items it absorbed (no other edits to those plans).
+- [x] `ai-inference-engines-plan.md` "Follow-up plans" and `docs/ai-writing-features-plan.md` "Follow-ups": add a line pointing at this plan for the items it absorbed (no other edits to those plans).
 - [x] `docs/` (contributor docs from `a5c54e5`): the new host methods (`detectLocalServers`, `listConsents`, `forgetConsent`), the privacy module, and the protocol messages.
 - [x] `RESUME.md`: not edited by this milestone (the session owner updates it).
 

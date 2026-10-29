@@ -27,7 +27,7 @@ from BEAST (`release.sh`), so the key never leaves the Mac.
 ## Backups (to be filled in by Mike)
 
 Nothing below is confirmed. Fill in each line when it is done, and tick the
-release blocker in `desktop-auto-update-plan.md` (U5) only after Mike confirms.
+release blocker in `../../../docs/desktop-auto-update-plan.md` (U5) only after Mike confirms.
 
 - Key file backup 1: network drive, `interapp/mikedown.key` (mounted on the Mac Studio as `/Volumes/Storage-1`), byte-identical to the live key (confirmed by Mike on 2026-10-24)
 - Key file backup 2: none (Mike ruled one copy is enough, 2026-10-24)
@@ -53,7 +53,7 @@ installed copies would reject it.
 
 ## Rotation (not built; only if the key is lost or compromised)
 
-The plan's bridge pattern, as written in `desktop-auto-update-plan.md`
+The plan's bridge pattern, as written in `../../../docs/desktop-auto-update-plan.md`
 ("Signing and key continuity"):
 
 1. Release N is signed with the old key, and it ships the new public key in

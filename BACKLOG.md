@@ -31,7 +31,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## npm packages and wrappers follow-ups
 
-Deferred in `wrappers-decisions.md` (M0 of `wrappers-npm-plan.md`).
+Deferred in `docs/wrappers-decisions.md` (M0 of `docs/wrappers-npm-plan.md`).
 
 - **Provenance via npm trusted publishing.** Publish from GitHub Actions with OIDC (`id-token: write`, npm CLI 11.5.1+, 11.21+ to move dist-tags) so every package gets a provenance statement. Builds on the M1 `ci.yml`; local publishes cannot attest.
 - **Trim the CDN bundle's code languages.** lowlight `common` instead of `all` cuts the standalone bundle from about 757 to 511 kB gzipped. Needs a core `codeLanguages` option so the language picker lists the same set.

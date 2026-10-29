@@ -18,4 +18,4 @@ vitest.config.ts
 !dist/**
 PLANNING.md
 RESUME.md
-installation-instructions.md
+docs/**

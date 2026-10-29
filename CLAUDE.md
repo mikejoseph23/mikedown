@@ -45,7 +45,7 @@ This is a VS Code custom editor extension. It compiles into **two separate bundl
 
 The repo is an npm workspace (`"workspaces": ["packages/*", "!packages/angular", "website"]`). The editor sources live in `packages/core` (`@mikedown/core`, public on npm); the VS Code extension at the root consumes them.
 
-Packages (`wrappers-decisions.md` has the reasoning):
+Packages (`docs/wrappers-decisions.md` has the reasoning):
 
 - `packages/core`: `@mikedown/core`, the framework-agnostic editor plus `bindMikeDownValue` (`@mikedown/core/binding`).
 - `packages/web-component`: `@mikedown/web-component`, the form-associated `<mikedown-editor>` (light DOM, plus a standalone CDN bundle).
@@ -102,7 +102,7 @@ Always send full document content for `update`/`edit`. The host re-applies into 
 
 ## Releasing
 
-The npm family (`@mikedown/*`, every public `packages/*` package) and the extension release independently. The `@mikedown/*` packages share one (lockstep) family version (see `wrappers-decisions.md`, Versioning) that has nothing to do with the extension's 2.x.
+The npm family (`@mikedown/*`, every public `packages/*` package) and the extension release independently. The `@mikedown/*` packages share one (lockstep) family version (see `docs/wrappers-decisions.md`, Versioning) that has nothing to do with the extension's 2.x.
 
 npm family:
 
