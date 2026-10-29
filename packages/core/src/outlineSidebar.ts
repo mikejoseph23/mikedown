@@ -188,6 +188,10 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
   let openBacklinkCb: ((item: BacklinkItem) => void) | null = null;
   let anchorFnRef: (text: string) => string = (t) => t;
   let activeAnchor = '';
+  // The heading the list last scrolled to keep in view, so the list only
+  // follows the cursor when it enters another section.
+  let followedAnchor = '';
+  let cursorSettleQueued = false;
   let lastHeadingsKey = '';
   // Outline headings the user folded, by anchor, so re-renders on edits keep
   // them. Pruned on rebuild to headings that still have descendants.
@@ -972,6 +976,33 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
 
   function updateActiveFromCursor(): void {
     if (!editorRef || !outlineListEl || sidebarEl?.hidden) {return;}
+    // Mark the row now (rows may just have been rebuilt), but leave the list's
+    // scroll to the settled cursor: a document load moves the cursor twice in
+    // one task. TipTap's setContent parks it at the end of the document, then
+    // the history reset puts it back at the start without a selectionUpdate.
+    // Following the first move scrolled the outline to its last heading.
+    activeAnchor = cursorAnchor();
+    markActive();
+    queueCursorSettle();
+  }
+
+  function queueCursorSettle(): void {
+    if (cursorSettleQueued) {return;}
+    cursorSettleQueued = true;
+    queueMicrotask(() => {
+      cursorSettleQueued = false;
+      if (!editorRef || editorRef.isDestroyed || !outlineListEl || sidebarEl?.hidden) {return;}
+      activeAnchor = cursorAnchor();
+      const row = markActive();
+      if (row && activeAnchor !== followedAnchor) {
+        followedAnchor = activeAnchor;
+        scrollActiveIntoView(row);
+      }
+    });
+  }
+
+  /** Anchor of the last heading at or before the cursor ('' above the first). */
+  function cursorAnchor(): string {
     const from = editorRef.state.selection.from;
     let currentAnchor = '';
     const seen = new Map<string, number>();
@@ -985,13 +1016,20 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
       seen.set(base, count + 1);
       if (offset <= from) {currentAnchor = anchor;}
     });
-    if (currentAnchor === activeAnchor) {return;}
-    activeAnchor = currentAnchor;
-    highlightActive();
+    return currentAnchor;
   }
 
+  /** Highlight the active heading's row and keep it in view. */
   function highlightActive(): void {
-    if (!outlineListEl) {return;}
+    const row = markActive();
+    if (!row) {return;}
+    followedAnchor = activeAnchor;
+    scrollActiveIntoView(row);
+  }
+
+  /** Toggle the active class; returns the highlighted row, if any. */
+  function markActive(): HTMLElement | null {
+    if (!outlineListEl) {return null;}
     // A heading inside a folded section lights up its nearest visible ancestor.
     const rows = outlineRows();
     const index = nearestVisibleIndex(
@@ -1004,7 +1042,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
       el?.classList.toggle('active', i === index);
       if (i === index) {activeEl = row;} // the row, so offsetTop isn't relative to it
     });
-    if (activeEl) {scrollActiveIntoView(activeEl);}
+    return activeEl;
   }
 
   function scrollActiveIntoView(el: HTMLElement): void {
@@ -1039,6 +1077,9 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     if (!editorContainer) {return;}
     const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
     if (headings.length === 0) {return;}
+    // Not laid out (hidden tab, mid-reflow): every heading would read as above
+    // the viewport and the last one would win.
+    if (editorContainer.clientHeight === 0) {return;}
     const top = editorContainer.getBoundingClientRect().top + 60;
     const seen = new Map<string, number>();
     let currentAnchor = '';

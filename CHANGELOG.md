@@ -50,6 +50,7 @@ All notable changes to MikeDown Editor are documented here.
 ### Fixed
 
 - `==highlight==` is readable in dark VS Code themes when the editor theme is Auto: a translucent amber instead of bright yellow under pale text.
+- The sidebar Outline opens at the top of the document, with the first heading highlighted, instead of scrolled to the last heading.
 
 ## [2.16.0] - 2026-10-28
 
