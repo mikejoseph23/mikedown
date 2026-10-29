@@ -8,7 +8,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeAiError, parseAiSettings, type AiEngineKind, type AiSettings, type ProviderAdapter } from '@mikedown/core/ai';
-import { AiEngineService, type EngineServiceDeps } from '../../src/ai/engineService';
+import { AiEngineService, consentFingerprint, type ConsentAnswer, type EngineServiceDeps, type StoredConsent } from '../../src/ai/engineService';
 import { createAdapters } from '../../src/ai/providers';
 import { AiSecrets, KEY_FILE_MAX_BYTES, secretKey, type SecretStore } from '../../src/ai/secrets';
 import { effectiveAiRaw, stableEngineIdGenerator } from '../../src/settings';
@@ -46,12 +46,12 @@ function fakeAdapter(kind: AiEngineKind, overrides: Partial<ProviderAdapter> = {
   };
 }
 
-function setup(raw: Record<string, unknown> = rawSettings, opts: { env?: Record<string, string>; askConsent?: boolean; adapters?: Partial<Record<AiEngineKind, Partial<ProviderAdapter>>> } = {}) {
+function setup(raw: Record<string, unknown> = rawSettings, opts: { env?: Record<string, string>; askConsent?: ConsentAnswer; adapters?: Partial<Record<AiEngineKind, Partial<ProviderAdapter>>> } = {}) {
   let settings: AiSettings = parseAiSettings(raw, { onWarning: () => {} });
   const store = memoryStore();
-  const consent = new Map<string, boolean>();
+  const consent = new Map<string, StoredConsent>();
   const log: string[] = [];
-  const askConsent = vi.fn(async () => opts.askConsent ?? true);
+  const askConsent = vi.fn(async (): Promise<ConsentAnswer> => opts.askConsent ?? 'allow');
   const saved: unknown[] = [];
   const adapters = new Map<AiEngineKind, ProviderAdapter>(
     (['openai-compatible', 'lmstudio', 'ollama', 'anthropic', 'openai'] as AiEngineKind[]).map((k) => [k, fakeAdapter(k, opts.adapters?.[k])]),
@@ -61,8 +61,9 @@ function setup(raw: Record<string, unknown> = rawSettings, opts: { env?: Record<
     secrets: new AiSecrets(store, opts.env ?? {}),
     consent: {
       get: (id) => consent.get(id),
-      grant: async (id) => { consent.set(id, true); },
+      set: async (id, record) => { consent.set(id, record); },
       forget: async (id) => { consent.delete(id); },
+      ids: () => [...consent.keys()],
     },
     askConsent,
     saveEngines: async (engines) => { saved.push(engines); },
@@ -93,17 +94,78 @@ describe('cloud gate', () => {
     await service.complete({}, req(cloud, 'a'), () => {});
     await service.complete({}, req(cloud, 'b'), () => {});
     expect(askConsent).toHaveBeenCalledTimes(1);
-    expect(consent.get('claude')).toBe(true);
+    expect(consent.get('claude')).toMatchObject({ answer: 'allow', fingerprint: expect.any(String), at: expect.any(Number) });
     expect(await service.requestCloudConsent('claude')).toBe(true);
     expect(askConsent).toHaveBeenCalledTimes(1);
   });
 
   it('"Not now" rejects with consentDenied and is not stored, so the next attempt asks again', async () => {
-    const { service, askConsent, consent } = setup(rawSettings, { askConsent: false });
+    const { service, askConsent, consent } = setup(rawSettings, { askConsent: 'notNow' });
     await expect(service.complete({}, req(cloud), () => {})).rejects.toMatchObject({ code: 'consentDenied' });
     expect(consent.has('claude')).toBe(false);
     expect(await service.requestCloudConsent('claude')).toBe(false);
     expect(askConsent).toHaveBeenCalledTimes(2);
+  });
+
+  it('"Not for this workspace" is stored, refuses without asking again and routes as a refusal', async () => {
+    const { service, askConsent, consent, log } = setup(rawSettings, { askConsent: 'never' });
+    await expect(service.complete({}, req(cloud, 'a'), () => {})).rejects.toMatchObject({ code: 'consentDenied', message: expect.stringContaining('turned off') });
+    expect(consent.get('claude')).toMatchObject({ answer: 'never' });
+    await expect(service.complete({}, req(cloud, 'b'), () => {})).rejects.toMatchObject({ code: 'consentDenied' });
+    expect(await service.requestCloudConsent('claude')).toBe('never');
+    expect(askConsent).toHaveBeenCalledTimes(1);
+    expect(service.consentState()).toEqual({ claude: false });
+    expect(log.join('\n')).toContain('refused for this workspace');
+  });
+
+  it('a stored answer for an engine that points elsewhere now counts as never asked (B4)', async () => {
+    const { service, askConsent, consent, setSettings } = setup();
+    consent.set('claude', { fingerprint: consentFingerprint(parseAiSettings(rawSettings, { onWarning: () => {} }).engines[1]), answer: 'allow', at: 1 });
+    expect(service.consentState()).toEqual({ claude: true });
+    expect(await service.requestCloudConsent('claude')).toBe(true);
+    expect(askConsent).not.toHaveBeenCalled();
+
+    setSettings({ ...rawSettings, engines: [rawSettings.engines[0], { ...rawSettings.engines[1], baseUrl: 'https://proxy.example.com' }] });
+    expect(service.consentState()).toEqual({});
+    expect(service.listConsents()).toEqual([]);
+    await service.settingsChanged();
+    expect(consent.has('claude')).toBe(false);
+    expect(await service.requestCloudConsent('claude')).toBe(true);
+    expect(askConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('adding a key or a trailing slash does not change what a consent is for', () => {
+    const [, claude] = parseAiSettings(rawSettings, { onWarning: () => {} }).engines;
+    expect(consentFingerprint({ ...claude, baseUrl: 'https://API.anthropic.com/' })).toBe(consentFingerprint(claude));
+    expect(consentFingerprint({ ...claude, apiKeyEnv: 'ANTHROPIC_API_KEY' })).toBe(consentFingerprint(claude));
+    expect(consentFingerprint({ ...claude, baseUrl: 'https://proxy.example.com' })).not.toBe(consentFingerprint(claude));
+  });
+
+  it('requestCloudConsent rejects with cloudBlocked while Allow cloud is off, and never asks', async () => {
+    const { service, askConsent } = setup({ ...rawSettings, allowCloud: false });
+    await expect(service.requestCloudConsent('claude')).rejects.toMatchObject({ code: 'cloudBlocked' });
+    expect(askConsent).not.toHaveBeenCalled();
+    expect(await service.requestCloudConsent('omlx')).toBe(true);
+  });
+
+  it('lists the stored answers newest first and forgets one, so the next attempt asks again', async () => {
+    const { service, askConsent, consent } = setup({
+      ...rawSettings,
+      engines: [...rawSettings.engines, { id: 'oai', name: 'OpenAI', kind: 'openai', baseUrl: 'https://api.openai.com/v1', models: [{ id: 'gpt' }] }],
+    });
+    expect(service.listConsents()).toEqual([]);
+    await service.requestCloudConsent('claude');
+    await service.requestCloudConsent('oai');
+    consent.get('claude')!.at = 100;
+    consent.get('oai')!.at = 200;
+    expect(service.listConsents()).toEqual([
+      { engineId: 'oai', answer: 'allow', at: 200, scope: 'workspace' },
+      { engineId: 'claude', answer: 'allow', at: 100, scope: 'workspace' },
+    ]);
+    await service.forgetConsent('claude');
+    expect(service.listConsents().map((r) => r.engineId)).toEqual(['oai']);
+    await service.requestCloudConsent('claude');
+    expect(askConsent).toHaveBeenCalledTimes(3);
   });
 
   it('local engines never ask', async () => {
@@ -244,7 +306,7 @@ describe('statuses, discovery and secrets', () => {
     const { service, store, consent, setSettings } = setup();
     expect(await service.setSecret('claude', 'sk-ant-1')).toMatchObject({ hasKey: true, keySource: 'stored' });
     expect(store.data.get('mikedown.ai.apiKey.claude')).toBe('sk-ant-1');
-    consent.set('claude', true);
+    consent.set('claude', { fingerprint: 'x', answer: 'allow', at: 1 });
     setSettings({ ...rawSettings, engines: [rawSettings.engines[0]] });
     expect(await service.settingsChanged()).toEqual(['claude']);
     expect(store.data.has('mikedown.ai.apiKey.claude')).toBe(false);

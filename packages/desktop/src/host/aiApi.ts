@@ -5,7 +5,7 @@
  * `setSecret` is write-only.
  */
 import type { AiCompletionResult, AiErrorCode } from '@mikedown/core';
-import type { AiConsentAbout, AiDiscoveredModel, AiKeySource, AiLocalServerProbe, AiWireCompletionRequest } from '@mikedown/core/ai';
+import type { AiConsentAbout, AiConsentRecord, AiDiscoveredModel, AiKeySource, AiLocalServerProbe, AiWireCompletionRequest } from '@mikedown/core/ai';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
@@ -52,6 +52,9 @@ export function aiChannelId(requestId: string): string {
   return requestId.replace(/[^A-Za-z0-9_-]/g, '_');
 }
 
+/** The native consent dialog's three answers (`Answer` in `consent_store.rs`). */
+export type AiConsentAnswer = 'allow' | 'never' | 'notNow';
+
 export interface AiApi {
   /** Starts the request; resolves with the channel id once it is running. Tokens, the result and errors arrive as events. */
   complete(request: AiWireCompletionRequest): Promise<string>;
@@ -61,7 +64,11 @@ export interface AiApi {
   discoverModels(engineId: string): Promise<AiDiscoveryResult>;
   setSecret(engineId: string, apiKey: string | null): Promise<void>;
   /** `feature` and `sends` say what the request sends, for the dialog's words. */
-  requestCloudConsent(engineId: string, about?: AiConsentAbout): Promise<boolean>;
+  requestCloudConsent(engineId: string, about?: AiConsentAbout): Promise<AiConsentAnswer>;
+  /** The window folder's stored answers (`allow` / `never`), newest first. */
+  listConsents(): Promise<AiConsentRecord[]>;
+  /** Forget the window folder's answer for an engine (stored and session). */
+  forgetConsent(engineId: string): Promise<void>;
   /** Which local presets answer at their addresses (1.5 s each, nothing cached). */
   detectLocalServers(candidates: { presetId: string; baseUrl: string }[]): Promise<AiLocalServerProbe[]>;
   onToken(requestId: string, handler: (e: AiTokenEvent) => void): Promise<UnlistenFn>;
@@ -77,7 +84,9 @@ export const aiApi: AiApi = {
   discoverModels: (engineId) => invoke<AiDiscoveryResult>('ai_discover_models', { id: engineId }),
   setSecret: (engineId, apiKey) => invoke<void>('ai_set_secret', { id: engineId, apiKey }),
   requestCloudConsent: (engineId, about) =>
-    invoke<boolean>('ai_request_cloud_consent', { id: engineId, feature: about?.feature ?? null, sends: about?.sends ?? null }),
+    invoke<AiConsentAnswer>('ai_request_cloud_consent', { id: engineId, feature: about?.feature ?? null, sends: about?.sends ?? null }),
+  listConsents: () => invoke<AiConsentRecord[]>('ai_list_consents'),
+  forgetConsent: (engineId) => invoke<void>('ai_forget_consent', { id: engineId }),
   detectLocalServers: (candidates) => invoke<AiLocalServerProbe[]>('ai_detect_local_servers', { candidates }),
   onToken: (requestId, handler) => listen<AiTokenEvent>(`ai-token:${aiChannelId(requestId)}`, (e) => handler(e.payload)),
   onDone: (requestId, handler) => listen<AiDoneEvent>(`ai-done:${aiChannelId(requestId)}`, (e) => handler(e.payload)),

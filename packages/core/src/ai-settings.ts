@@ -18,8 +18,8 @@
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
-import { AI_FEATURES, AI_TASKS, aiProviderPolicy, getAiTask, resolveAiFeature } from './ai';
-import type { AiEngineConfig, AiSettings, AiSettingsPatch } from './ai';
+import { AI_FEATURES, AI_NO_CONSENTS_TEXT, AI_TASKS, aiConsentStepNote, aiConsentSummary, aiProviderPolicy, getAiTask, resolveAiFeature, toAiError } from './ai';
+import type { AiConsentRecord, AiEngineConfig, AiSettings, AiSettingsPatch } from './ai';
 import { engineDisplayName, engineKindLabel, routeLabel, taskRouteNote } from './ai-settings-model';
 import { createAiSettingsSession } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
@@ -41,6 +41,8 @@ export interface AiSettingsSectionOptions extends AiSettingsSessionOptions {
   onSaved(draft: AiSettings): void;
   /** Open the AI Engines page. Absent: no engine list and no Manage engines… button. */
   openEnginesPage?(request: AiEnginesPageRequest): void;
+  /** A stored consent was forgotten: drop this session's copy of the answer so the next request asks again. */
+  onConsentForgotten?(engineId: string): void;
 }
 
 // ── The tab ─────────────────────────────────────────────────────────────────
@@ -105,15 +107,67 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   // so far. Only promise a consent step when the host asks for one (OQ9).
   cloudField.row.append(privacyCard(session.draft.engines.map((e) => ({ policy: aiProviderPolicy(e) })), {
     openLink: ctx.openLink,
-    extra: session.ai.requestCloudConsent
-      ? 'Even when allowed, each cloud engine asks for your OK before its first request in each workspace or folder.'
-      : 'Once allowed, this app sends requests to cloud engines without asking again.',
+    extra: aiConsentStepNote(!!session.ai.requestCloudConsent),
     className: 'ai-row-note',
   }));
   cloudField.input.addEventListener('change', () => {
     session.draft = { ...session.draft, allowCloud: cloudField.input.checked };
     renderEngines();
   });
+
+  // ── Cloud consents (only when the host stores answers it can list) ────────
+  const listConsents = session.ai.listConsents?.bind(session.ai);
+  const forgetConsent = session.ai.forgetConsent?.bind(session.ai);
+  const consentsRow = ctx.makeRow('Cloud consents', 'Cloud engines you have allowed or refused here. Forget an answer to be asked again.');
+  consentsRow.classList.add('ai-section');
+  const consentsBody = el('div', 'ai-consents');
+  consentsRow.append(consentsBody);
+
+  function engineNameFor(engineId: string): string {
+    const engine = session.draft.engines.find((e) => e.id === engineId);
+    return engine ? engineDisplayName(engine) : engineId;
+  }
+
+  function renderConsents(records: AiConsentRecord[], problem?: string): void {
+    keepFocus(consentsBody, () => {
+      consentsBody.replaceChildren();
+      if (problem) {consentsBody.append(note('error', problem));}
+      if (records.length === 0) {
+        if (!problem) {consentsBody.append(el('div', 'ai-consents-empty', AI_NO_CONSENTS_TEXT));}
+        return;
+      }
+      const list = el('ul', 'ai-consents-list');
+      list.setAttribute('aria-label', 'Cloud consents');
+      for (const record of records) {
+        const name = engineNameFor(record.engineId);
+        const item = el('li', 'ai-consent');
+        const forget = button('settings-btn settings-btn--secondary ai-consent-forget', 'Forget', { ariaLabel: `Forget the answer for ${name}`, fk: `consent-forget:${record.engineId}` });
+        forget.addEventListener('click', () => {
+          forget.disabled = true;
+          void forgetConsent?.(record.engineId).then(
+            () => {
+              opts.onConsentForgotten?.(record.engineId);
+              announce(`Forgot the answer for ${name}.`);
+              return refreshConsents();
+            },
+            (err: unknown) => refreshConsents(toAiError(err).message),
+          );
+        });
+        item.append(el('span', 'ai-consent-text', aiConsentSummary(record, name)), forget);
+        list.append(item);
+      }
+      consentsBody.append(list);
+    });
+  }
+
+  async function refreshConsents(problem?: string): Promise<void> {
+    if (!listConsents) {return;}
+    try {
+      renderConsents(await listConsents(), problem);
+    } catch (err) {
+      renderConsents([], toAiError(err).message);
+    }
+  }
 
   // ── Engines (summary) ─────────────────────────────────────────────────────
   const enginesRow = ctx.makeRow('Engines', 'Servers that run the models. Local engines keep your text on this network.');
@@ -127,6 +181,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
       session: session.fork(),
       onDone: (patch, saved) => {
         session.absorb(saved, patch);
+        cloudField.input.checked = session.draft.allowCloud;
         renderEngines();
         if (Object.keys(patch).length > 0) {announce('Engines and routing saved.');}
       },
@@ -280,6 +335,10 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
 
   if (tier === 2) {
     rows.push(cloudField.row);
+    if (listConsents && forgetConsent) {
+      rows.push(consentsRow);
+      void refreshConsents();
+    }
     if (canManage) {
       rows.push(enginesRow);
       renderEngines();

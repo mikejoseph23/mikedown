@@ -12,7 +12,7 @@
 import { getAiFeature } from './features';
 import { hostOfUrl } from './locality';
 import { AI_ENGINE_PRESETS, type AiEnginePreset, type AiProviderPolicy } from './presets';
-import type { AiSendsScope } from './types';
+import type { AiConsentRecord, AiSendsScope } from './types';
 
 /** The four lines of the privacy card, in display order. */
 export const AI_CLOUD_PRIVACY = {
@@ -23,6 +23,17 @@ export const AI_CLOUD_PRIVACY = {
   local: 'A local engine keeps everything on this machine or your network.',
   keys: "Your API key stays in this app's secure storage on this machine.",
 } as const;
+
+/**
+ * The sentence about the consent step, for the cloud privacy card: whether
+ * the host asks before a cloud engine's first request (`hostAsks`: it has
+ * `requestCloudConsent`) or sends without asking.
+ */
+export function aiConsentStepNote(hostAsks: boolean): string {
+  return hostAsks
+    ? 'Even when allowed, each cloud engine asks for your OK before its first request in each workspace or folder.'
+    : 'Once allowed, this app sends requests to cloud engines without asking again.';
+}
 
 /** What a request of each scope sends, as the object of "sends …". */
 export const AI_SENDS_TEXT: Readonly<Record<AiSendsScope, string>> = {
@@ -98,4 +109,16 @@ export function aiConsentText(input: AiConsentTextInput): AiConsentText {
     notNow: 'Not now',
     ...(input.offerNever ? { never: `Not for this ${scopeWord}` } : {}),
   };
+}
+
+/** Shown in the Cloud consents list when there is nothing stored. */
+export const AI_NO_CONSENTS_TEXT = 'No cloud engine has been allowed here.';
+
+/**
+ * One line of the Cloud consents list, without the Forget button:
+ * "Anthropic · this workspace · Allowed". A "never" answer reads "Not allowed".
+ */
+export function aiConsentSummary(record: Pick<AiConsentRecord, 'answer' | 'scope'>, engineName: string): string {
+  const where = record.scope === 'folder' ? 'this folder' : 'this workspace';
+  return `${engineName} \u00b7 ${where} \u00b7 ${record.answer === 'allow' ? 'Allowed' : 'Not allowed'}`;
 }

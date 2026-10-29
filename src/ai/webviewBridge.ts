@@ -12,7 +12,9 @@ import type { AiEngineService } from './engineService';
  *   aiTestEngine          { requestId, engineId }              → aiEngineStatus
  *   aiDiscoverModels      { requestId, engineId }              → aiEngineStatus
  *   aiSetSecret           { requestId, engineId, apiKey }      → aiEngineStatus (hasKey)
- *   aiRequestCloudConsent { requestId, engineId, feature?, sends? } → aiConsent
+ *   aiRequestCloudConsent { requestId, engineId, feature?, sends? } → aiConsent, or aiError (cloudBlocked while Allow cloud is off)
+ *   aiListConsents        { requestId }                        → aiConsents
+ *   aiForgetConsent       { requestId, engineId }              → aiConsents (the list after forgetting)
  *   aiDetectLocalServers  { requestId, candidates: { presetId, baseUrl }[] } → aiEngineProbes
  *
  * Host → webview:
@@ -21,7 +23,8 @@ import type { AiEngineService } from './engineService';
  *   aiError        { requestId, code, message }   (also answers a failed test/discover/setSecret/consent)
  *   aiEngines      { engines: AiEngineStatus[] }  (reply to aiListEngines, and pushed after a settings or status change)
  *   aiEngineStatus { requestId, status }
- *   aiConsent      { requestId, engineId, granted }
+ *   aiConsent      { requestId, engineId, granted: true | false | 'never' }  (false: not now; 'never': stored, answered without asking)
+ *   aiConsents     { requestId, consents: AiConsentRecord[] }  (this workspace's stored answers, newest first)
  *   aiEngineProbes { requestId, probes: AiLocalServerProbe[] }  (one per candidate, in order; nothing cached)
  */
 
@@ -33,6 +36,8 @@ export const AI_WEBVIEW_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'aiDiscoverModels',
   'aiSetSecret',
   'aiRequestCloudConsent',
+  'aiListConsents',
+  'aiForgetConsent',
   'aiDetectLocalServers',
 ]);
 
@@ -125,10 +130,22 @@ export async function handleAiMessage(
       try {
         const granted = await service.requestCloudConsent(engineId, typeof message.feature === 'string' ? message.feature : undefined, sendsScope(message.sends));
         post({ type: 'aiConsent', requestId, engineId, granted });
-      } catch {
-        post({ type: 'aiConsent', requestId, engineId, granted: false });
+      } catch (err) {
+        // cloudBlocked and friends reach the webview as an error, not as a quiet "no".
+        fail(err);
       }
       return;
     }
+    case 'aiListConsents':
+      post({ type: 'aiConsents', requestId, consents: service.listConsents() });
+      return;
+    case 'aiForgetConsent':
+      try {
+        await service.forgetConsent(str(message.engineId));
+        post({ type: 'aiConsents', requestId, consents: service.listConsents() });
+      } catch (err) {
+        fail(err);
+      }
+      return;
   }
 }

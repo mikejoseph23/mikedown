@@ -766,7 +766,8 @@
         "mikedown.ai.allowCloud": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Allow AI engines whose address is not local (cloud APIs). Even when on, MikeDown asks once per workspace before it sends text to a cloud engine. A workspace can turn this off but not on. Edit it in the MikeDown Settings modal (toolbar gear, AI tab)."
+          "scope": "machine",
+          "markdownDescription": "Allow AI engines whose address is not local (cloud APIs). Even when on, MikeDown asks once per workspace before it sends text to a cloud engine. User settings only, so a repository cannot turn cloud on for you. Edit it in the MikeDown Settings modal (toolbar gear, AI tab)."
         },
         "mikedown.ai.engines": {
           "type": "array",

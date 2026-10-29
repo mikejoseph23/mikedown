@@ -7,7 +7,9 @@
  *   current settings, the last engine statuses and this session's consent.
  * - Consent: a grant is remembered for the session (the host persists it
  *   too). A refusal ("Not now") only applies to the request that asked, so
- *   the fallback runs now and the next explicit attempt asks again.
+ *   the fallback runs now and the next explicit attempt asks again. A
+ *   `'never'` reply ("Not for this workspace") is also kept for the session as
+ *   a refusal, so the menu entries disable with the router's reason.
  * - A tier-1 host (no `listEngines`) routes by itself: no route is sent.
  * - Thinking: a per-request level becomes the request's `requestOverrides`
  *   (the kind's thinking fields only); the host merges them over the
@@ -220,11 +222,17 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
       const resolved = resolveRoute(ctx.settings(), withFailures(ctx.statuses(), failed), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
       if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
       if (resolved.needsConsent) {
-        const granted = ctx.ai.requestCloudConsent
+        const reply = ctx.ai.requestCloudConsent
           ? await ctx.ai.requestCloudConsent(resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}) })
           : true;
         if (signal.aborted) {throw makeAiError('cancelled');}
-        if (granted) {ctx.consent[resolved.engineId] = true;} else {refused[resolved.engineId] = false;}
+        if (reply === true) {ctx.consent[resolved.engineId] = true;}
+        else {
+          refused[resolved.engineId] = false;
+          // "Not for this workspace": the host will not ask again, so the menu entries
+          // disable with the router's reason for the rest of the session.
+          if (reply === 'never') {ctx.consent[resolved.engineId] = false;}
+        }
         continue;
       }
       route = resolved;
@@ -289,9 +297,10 @@ export function aiFeatureAvailability(
   if (!ai || !settings.enabled) {return { state: 'hidden' };}
   if (!resolveAiFeature(settings.features, feature).enabled) {return { state: 'hidden' };}
   if (!isTier2(ai)) {return { state: 'enabled' };}
-  // Only grants count here: a refused engine is asked again on the next attempt.
-  const grants: Record<string, boolean> = {};
-  for (const [id, v] of Object.entries(consent)) {if (v === true) {grants[id] = true;}}
-  const r = resolveRoute(settings, statuses, grants, { feature });
+  // Grants and "never" answers count here (a "Not now" is never written to the
+  // session, so the engine is asked again on the next attempt).
+  const answers: Record<string, boolean> = {};
+  for (const [id, v] of Object.entries(consent)) {if (typeof v === 'boolean') {answers[id] = v;}}
+  const r = resolveRoute(settings, statuses, answers, { feature });
   return isRouteUsable(r) ? { state: 'enabled' } : { state: 'disabled', reason: r.reason };
 }

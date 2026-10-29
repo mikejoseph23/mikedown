@@ -27,6 +27,8 @@ import type {
   AiCompletionRequest,
   AiCompletionResult,
   AiConsentAbout,
+  AiConsentRecord,
+  AiConsentReply,
   AiEngineStatus,
   AiError,
   AiLocalServerProbe,
@@ -322,7 +324,9 @@ export class VsCodeHost implements MikeDownHost {
     setSecret: (engineId: string, apiKey: string | null) =>
       this.aiRequest<AiEngineStatus>({ type: 'aiSetSecret', engineId, apiKey }).then(() => undefined),
     requestCloudConsent: (engineId: string, about?: AiConsentAbout) =>
-      this.aiRequest<boolean>({ type: 'aiRequestCloudConsent', engineId, ...(about?.feature ? { feature: about.feature } : {}), ...(about?.sends ? { sends: about.sends } : {}) }),
+      this.aiRequest<AiConsentReply>({ type: 'aiRequestCloudConsent', engineId, ...(about?.feature ? { feature: about.feature } : {}), ...(about?.sends ? { sends: about.sends } : {}) }),
+    listConsents: () => this.aiRequest<AiConsentRecord[]>({ type: 'aiListConsents' }),
+    forgetConsent: (engineId: string) => this.aiRequest<AiConsentRecord[]>({ type: 'aiForgetConsent', engineId }).then(() => undefined),
     // The host caps each address; an abort here only stops waiting for the answer.
     detectLocalServers: (candidates: { presetId: string; baseUrl: string }[], signal: AbortSignal): Promise<AiLocalServerProbe[]> => {
       if (signal.aborted) {return Promise.reject(makeAiError('cancelled'));}
@@ -375,7 +379,13 @@ export class VsCodeHost implements MikeDownHost {
       case 'aiConsent': {
         const waiter = this.aiWaiters.get(message.requestId);
         this.aiWaiters.delete(message.requestId);
-        waiter?.resolve(!!message.granted);
+        waiter?.resolve(message.granted === 'never' ? 'never' : !!message.granted);
+        return true;
+      }
+      case 'aiConsents': {
+        const waiter = this.aiWaiters.get(message.requestId);
+        this.aiWaiters.delete(message.requestId);
+        waiter?.resolve(Array.isArray(message.consents) ? message.consents : []);
         return true;
       }
       case 'aiEngines': {

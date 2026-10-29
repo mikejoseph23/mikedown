@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import { AI_SETTINGS_KEYS, aiConsentText, aiProviderPolicy, hostOfUrl, parseAiSettings, serializeAiSettings, type AiEngineConfig, type AiSendsScope } from '@mikedown/core/ai';
 import { getSettings, stableEngineIdGenerator, effectiveAiRaw } from '../settings';
-import { AiEngineService } from './engineService';
+import { AiEngineService, type ConsentAnswer, type ConsentStore, type StoredConsent } from './engineService';
 import { AiSecrets } from './secrets';
 
 /**
@@ -14,7 +14,7 @@ import { AiSecrets } from './secrets';
 const CONSENT_PREFIX = 'mikedown.ai.consent.';
 
 /** Keys that live in user settings only (OPEN-3). */
-const USER_ONLY_KEYS = new Set(['engines', 'localNetworks']);
+const USER_ONLY_KEYS = new Set(['engines', 'localNetworks', 'allowCloud']);
 
 function timestamp(): string {
   const d = new Date();
@@ -25,10 +25,11 @@ function timestamp(): string {
 /**
  * The consent modal: host UI, so a workspace cannot restyle or skip it. The
  * words come from core's `aiConsentText` (Desktop renders the same ones).
- * "Read the provider's policy" opens the policy in the browser and asks
- * again, until the answer is Allow or Not now.
+ * Three answers: Allow and "Not for this workspace" are stored; Not now (or
+ * closing the dialog) is not. "Read the provider's policy" opens the policy
+ * in the browser and asks again.
  */
-export async function askCloudConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<boolean> {
+export async function askCloudConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<ConsentAnswer> {
   const policy = aiProviderPolicy(engine);
   const text = aiConsentText({
     engineName: engine.name || engine.id,
@@ -37,19 +38,42 @@ export async function askCloudConsent(engine: AiEngineConfig, feature: string | 
     sends,
     scopeWord: 'workspace',
     policy,
+    offerNever: true,
   });
   const allow: vscode.MessageItem = { title: text.allow };
+  const never: vscode.MessageItem = { title: text.never ?? 'Not for this workspace' };
   const notNow: vscode.MessageItem = { title: text.notNow, isCloseAffordance: true };
   const readPolicy: vscode.MessageItem = { title: 'Read the provider\'s policy' };
-  const items = policy ? [allow, readPolicy, notNow] : [allow, notNow];
+  const items = policy ? [allow, never, readPolicy, notNow] : [allow, never, notNow];
   for (;;) {
     const pick = await vscode.window.showWarningMessage(text.title, { modal: true, detail: text.body }, ...items);
     if (pick === readPolicy && policy) {
       await vscode.env.openExternal(vscode.Uri.parse(policy.url));
       continue;
     }
-    return pick === allow;
+    return pick === allow ? 'allow' : pick === never ? 'never' : 'notNow';
   }
+}
+
+/**
+ * Consent answers in `workspaceState`, one key per engine. An older version
+ * stored a bare `true`; with no fingerprint it cannot be matched to an engine,
+ * so it counts as "never asked" and is replaced by the next answer.
+ */
+export function workspaceConsentStore(state: Pick<vscode.Memento, 'get' | 'update' | 'keys'>): ConsentStore {
+  return {
+    get: (id) => {
+      const raw = state.get<unknown>(`${CONSENT_PREFIX}${id}`);
+      if (typeof raw !== 'object' || raw === null) {return undefined;}
+      const r = raw as Partial<StoredConsent>;
+      return typeof r.fingerprint === 'string' && (r.answer === 'allow' || r.answer === 'never') && typeof r.at === 'number'
+        ? { fingerprint: r.fingerprint, answer: r.answer, at: r.at }
+        : undefined;
+    },
+    set: (id, record) => state.update(`${CONSENT_PREFIX}${id}`, record),
+    forget: (id) => state.update(`${CONSENT_PREFIX}${id}`, undefined),
+    ids: () => state.keys().filter((k) => k.startsWith(CONSENT_PREFIX)).map((k) => k.slice(CONSENT_PREFIX.length)),
+  };
 }
 
 export function createVsCodeAiService(context: vscode.ExtensionContext, output: vscode.OutputChannel): AiEngineService {
@@ -57,11 +81,7 @@ export function createVsCodeAiService(context: vscode.ExtensionContext, output: 
   return new AiEngineService({
     readSettings: () => getSettings().ai,
     secrets: new AiSecrets(context.secrets, process.env, os.homedir, log),
-    consent: {
-      get: (id) => context.workspaceState.get<boolean>(`${CONSENT_PREFIX}${id}`),
-      grant: (id) => context.workspaceState.update(`${CONSENT_PREFIX}${id}`, true),
-      forget: (id) => context.workspaceState.update(`${CONSENT_PREFIX}${id}`, undefined),
-    },
+    consent: workspaceConsentStore(context.workspaceState),
     askConsent: askCloudConsent,
     saveEngines: (engines) => vscode.workspace.getConfiguration('mikedown').update('ai.engines', JSON.parse(JSON.stringify(engines)), vscode.ConfigurationTarget.Global),
     log,
@@ -111,7 +131,7 @@ export async function saveAiSettingsPatch(patch: Record<string, unknown>): Promi
   for (const key of keys) {
     const inspected = config.inspect(`ai.${key}`);
     let target = vscode.ConfigurationTarget.Global;
-    if (!USER_ONLY_KEYS.has(key) && key !== 'allowCloud') {
+    if (!USER_ONLY_KEYS.has(key)) {
       if (inspected?.workspaceFolderValue !== undefined) {target = vscode.ConfigurationTarget.WorkspaceFolder;}
       else if (inspected?.workspaceValue !== undefined) {target = vscode.ConfigurationTarget.Workspace;}
     }

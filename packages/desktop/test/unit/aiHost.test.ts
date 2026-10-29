@@ -26,7 +26,9 @@ function createFakeApi() {
     testEngine: vi.fn(async (id: string): Promise<AiEngineInfo> => ({ engineId: id, ok: true, isLocal: true, hasKey: false, latencyMs: 12 })),
     discoverModels: vi.fn(),
     setSecret: vi.fn(async () => undefined),
-    requestCloudConsent: vi.fn(async () => true),
+    requestCloudConsent: vi.fn(async (): Promise<'allow' | 'never' | 'notNow'> => 'allow'),
+    listConsents: vi.fn(async () => [] as unknown[]),
+    forgetConsent: vi.fn(async (_id: string) => undefined),
     onToken: vi.fn(async (id: string, h: Handler<AiTokenEvent>) => add(tokens, id, h)),
     onDone: vi.fn(async (id: string, h: Handler<AiDoneEvent>) => add(dones, id, h)),
     onError: vi.fn(async (id: string, h: Handler<AiErrorEvent>) => add(errors, id, h)),
@@ -241,8 +243,25 @@ describe('aiHost registry methods', () => {
     await host.setSecret?.('e1', null);
     expect(api.setSecret.mock.calls).toEqual([['e1', 'sk-123'], ['e1', null]]);
     expect(await host.requestCloudConsent?.('e1')).toBe(true);
+    api.requestCloudConsent.mockResolvedValueOnce('notNow');
+    expect(await host.requestCloudConsent?.('e1')).toBe(false);
+    api.requestCloudConsent.mockResolvedValueOnce('never');
+    expect(await host.requestCloudConsent?.('e1')).toBe('never');
     api.setSecret.mockRejectedValueOnce({ code: 'unknown', message: 'The keychain refused the change: locked' });
     await expect(host.setSecret?.('e1', 'x')).rejects.toMatchObject({ message: expect.stringContaining('locked') });
+  });
+});
+
+describe('cloud consents', () => {
+  it('lists and forgets the stored answers through the commands, with typed errors', async () => {
+    const { host, api } = setup();
+    const records = [{ engineId: 'claude', answer: 'allow', at: 1, scope: 'folder' }];
+    api.listConsents.mockResolvedValueOnce(records);
+    expect(await host.listConsents?.()).toEqual(records);
+    await host.forgetConsent?.('claude');
+    expect(api.forgetConsent).toHaveBeenCalledWith('claude');
+    api.forgetConsent.mockRejectedValueOnce({ code: 'unknown', message: 'could not write' });
+    await expect(host.forgetConsent?.('claude')).rejects.toMatchObject({ code: 'unknown' });
   });
 });
 
@@ -266,7 +285,7 @@ describe('TauriHost.ai', () => {
   it('is a tier 2 host when the app wires the engine registry', async () => {
     const host = await makeHost(true);
     expect(host.ai).toBeDefined();
-    for (const method of ['complete', 'listEngines', 'testEngine', 'discoverModels', 'setSecret', 'requestCloudConsent'] as const) {
+    for (const method of ['complete', 'listEngines', 'testEngine', 'discoverModels', 'setSecret', 'requestCloudConsent', 'listConsents', 'forgetConsent'] as const) {
       expect(typeof host.ai?.[method]).toBe('function');
     }
   });

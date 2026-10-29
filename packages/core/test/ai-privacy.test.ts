@@ -8,6 +8,9 @@ import {
   AI_FEATURES,
   AI_SENDS_FALLBACK,
   AI_SENDS_TEXT,
+  AI_NO_CONSENTS_TEXT,
+  aiConsentStepNote,
+  aiConsentSummary,
   aiConsentText,
   aiProviderPolicy,
   aiProviderPolicyForHost,
@@ -176,5 +179,20 @@ describe('disclaimer and indicator', () => {
     expect(s.title).toContain('It sent text to api.anthropic.com: the whole document, up to what fits the model.');
     const local = aiIndicatorState({ settings, statuses: [], tier: 2, served: { ...served, isLocal: true }, viaFallback: false })!;
     expect(local.title).not.toContain('It sent');
+  });
+});
+
+describe('consent list copy', () => {
+  it('summarises a stored answer and says whether the host asks', () => {
+    expect(aiConsentSummary({ answer: 'allow', scope: 'workspace' }, 'Anthropic')).toBe('Anthropic · this workspace · Allowed');
+    expect(aiConsentSummary({ answer: 'never', scope: 'folder' }, 'OpenAI')).toBe('OpenAI · this folder · Not allowed');
+    expect(AI_NO_CONSENTS_TEXT).toBe('No cloud engine has been allowed here.');
+    expect(aiConsentStepNote(true)).toContain('asks for your OK');
+    expect(aiConsentStepNote(false)).toContain('without asking');
+  });
+
+  it('the consent text offers the third button on request', () => {
+    const t = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', scopeWord: 'workspace', offerNever: true });
+    expect(t.never).toBe('Not for this workspace');
   });
 });

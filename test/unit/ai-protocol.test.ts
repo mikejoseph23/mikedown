@@ -114,7 +114,7 @@ describe('host bridge', () => {
   }
 
   it('recognises exactly the seven webview messages', () => {
-    for (const type of ['aiComplete', 'aiCancel', 'aiListEngines', 'aiTestEngine', 'aiDiscoverModels', 'aiSetSecret', 'aiRequestCloudConsent']) {
+    for (const type of ['aiComplete', 'aiCancel', 'aiListEngines', 'aiTestEngine', 'aiDiscoverModels', 'aiSetSecret', 'aiRequestCloudConsent', 'aiListConsents', 'aiForgetConsent']) {
       expect(isAiWebviewMessage({ type })).toBe(true);
     }
     expect(isAiWebviewMessage({ type: 'aiToken' })).toBe(false);
@@ -228,7 +228,7 @@ describe('VsCodeHost ai group, correlation', () => {
 
   it('every ai reply type is claimed by handleReply', () => {
     const { host } = setup();
-    for (const type of ['aiToken', 'aiDone', 'aiError', 'aiEngineStatus', 'aiConsent', 'aiEngines']) {
+    for (const type of ['aiToken', 'aiDone', 'aiError', 'aiEngineStatus', 'aiConsent', 'aiConsents', 'aiEngines']) {
       expect(host.handleReply({ type, requestId: 'none', engines: [] })).toBe(true);
     }
   });
@@ -304,7 +304,7 @@ describe('host bridge, errors and ordering', () => {
     expect(posted).toEqual([{ type: 'aiError', requestId: 'req-1', code: 'unknown', message: expect.stringContaining('boom') }]);
   });
 
-  it('a failing test, discover or setSecret request answers aiError with the same requestId; a failing consent answers denied', async () => {
+  it('a failing test, discover, setSecret or consent request answers aiError with the same requestId', async () => {
     const posted: any[] = [];
     const fail = async () => { throw { code: 'unknown', message: 'That engine is no longer in the AI settings.' }; };
     const service = { testEngine: fail, discoverModels: fail, setSecret: fail, requestCloudConsent: fail } as unknown as AiEngineService;
@@ -317,8 +317,46 @@ describe('host bridge, errors and ordering', () => {
       { type: 'aiError', requestId: 't', code: 'unknown', message: 'That engine is no longer in the AI settings.' },
       { type: 'aiError', requestId: 'd', code: 'unknown', message: 'That engine is no longer in the AI settings.' },
       { type: 'aiError', requestId: 's', code: 'unknown', message: 'That engine is no longer in the AI settings.' },
-      { type: 'aiConsent', requestId: 'c', engineId: 'x', granted: false },
+      { type: 'aiError', requestId: 'c', code: 'unknown', message: 'That engine is no longer in the AI settings.' },
     ]);
+  });
+
+  it('consent: never reaches the webview as "never", cloudBlocked as an error, and the list and forget messages answer aiConsents', async () => {
+    const posted: any[] = [];
+    const records = [{ engineId: 'claude', answer: 'allow', at: 1, scope: 'workspace' }];
+    const forgetConsent = vi.fn(async () => {});
+    const requestCloudConsent = vi.fn()
+      .mockResolvedValueOnce('never')
+      .mockRejectedValueOnce({ code: 'cloudBlocked', message: 'Allow cloud is off.' });
+    const service = { requestCloudConsent, listConsents: () => records, forgetConsent } as unknown as AiEngineService;
+    const post = (m: unknown) => posted.push(m);
+    await handleAiMessage(service, {}, { type: 'aiRequestCloudConsent', requestId: 'c1', engineId: 'claude' }, post);
+    await handleAiMessage(service, {}, { type: 'aiRequestCloudConsent', requestId: 'c2', engineId: 'claude' }, post);
+    await handleAiMessage(service, {}, { type: 'aiListConsents', requestId: 'l' }, post);
+    await handleAiMessage(service, {}, { type: 'aiForgetConsent', requestId: 'f', engineId: 'claude' }, post);
+    expect(forgetConsent).toHaveBeenCalledWith('claude');
+    expect(posted).toEqual([
+      { type: 'aiConsent', requestId: 'c1', engineId: 'claude', granted: 'never' },
+      { type: 'aiError', requestId: 'c2', code: 'cloudBlocked', message: 'Allow cloud is off.' },
+      { type: 'aiConsents', requestId: 'l', consents: records },
+      { type: 'aiConsents', requestId: 'f', consents: records },
+    ]);
+  });
+
+  it('the webview host resolves the consent replies', async () => {
+    const { host, posted, ai } = setup();
+    const never = ai.requestCloudConsent!('claude');
+    const list = ai.listConsents!();
+    const forget = ai.forgetConsent!('claude');
+    const [n, l, f] = posted.slice(-3);
+    expect([n.type, l.type, f.type]).toEqual(['aiRequestCloudConsent', 'aiListConsents', 'aiForgetConsent']);
+    expect(f.engineId).toBe('claude');
+    host.handleReply({ type: 'aiConsent', requestId: n.requestId, engineId: 'claude', granted: 'never' });
+    host.handleReply({ type: 'aiConsents', requestId: l.requestId, consents: [{ engineId: 'claude', answer: 'never', at: 1, scope: 'workspace' }] });
+    host.handleReply({ type: 'aiConsents', requestId: f.requestId, consents: [] });
+    expect(await never).toBe('never');
+    expect(await list).toEqual([{ engineId: 'claude', answer: 'never', at: 1, scope: 'workspace' }]);
+    await expect(forget).resolves.toBeUndefined();
   });
 
   it('a malformed aiComplete answers aiError instead of calling the service', async () => {
@@ -377,8 +415,8 @@ describe('per-request requestOverrides (thinking dial), end to end', () => {
     const service = new AiEngineService({
       readSettings: () => settings,
       secrets: new AiSecrets({ get: async (k) => store.get(k), store: async (k, v) => { store.set(k, v); }, delete: async (k) => { store.delete(k); } }, { K: 'k' }),
-      consent: { get: () => true, grant: async () => {}, forget: async () => {} },
-      askConsent: async () => true,
+      consent: { get: () => undefined, set: async () => {}, forget: async () => {}, ids: () => [] },
+      askConsent: async () => 'allow' as const,
       saveEngines: async () => {},
       log: () => {},
       adapters: createAdapters({ fetch }),

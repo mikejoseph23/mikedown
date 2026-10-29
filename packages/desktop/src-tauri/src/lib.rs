@@ -190,6 +190,8 @@ pub fn run() {
             commands::ai::ai_discover_models,
             commands::ai::ai_set_secret,
             commands::ai::ai_request_cloud_consent,
+            commands::ai::ai_list_consents,
+            commands::ai::ai_forget_consent,
             commands::ai::ai_detect_local_servers,
         ])
         .build(tauri::generate_context!())

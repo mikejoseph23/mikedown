@@ -326,7 +326,33 @@ export interface MikeDownAiHost {
    * host decides on its own. `about` names the request that asked, so the
    * dialog can say what is sent (`aiConsentText`).
    */
-  requestCloudConsent?(engineId: string, about?: AiConsentAbout): Promise<boolean>;
+  requestCloudConsent?(engineId: string, about?: AiConsentAbout): Promise<AiConsentReply>;
+  /**
+   * The cloud consents stored for this workspace or folder, for the Cloud
+   * consents list on the AI tab. Only `allow` and `never` are stored; a
+   * "Not now" lives for the session and is not listed.
+   */
+  listConsents?(): Promise<AiConsentRecord[]>;
+  /** Forget the stored answer for an engine, so the next request asks again. */
+  forgetConsent?(engineId: string): Promise<void>;
+}
+
+/**
+ * What `requestCloudConsent` resolves to: `true` allowed, `false` not now
+ * (asked again next time), `'never'` the user said not for this workspace
+ * (stored; the host answers it without asking from then on). A host that
+ * only knows allow and not now keeps returning booleans.
+ */
+export type AiConsentReply = boolean | 'never';
+
+/** One stored cloud consent answer (`MikeDownAiHost.listConsents`). */
+export interface AiConsentRecord {
+  engineId: string;
+  answer: 'allow' | 'never';
+  /** Unix milliseconds. */
+  at: number;
+  /** What the answer covers: VS Code's workspace, Desktop's folder. */
+  scope: 'workspace' | 'folder';
 }
 
 /**

@@ -100,7 +100,7 @@ import {
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS } from './hotkeys';
 import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
-import type { AiEngineStatus, AiMessage, AiRouteOk, AiServedBy, AiSettings, AiSettingsPatch, AiSummaryKind, MikeDownAiHost } from './ai';
+import type { AiEngineStatus, AiMessage, AiRouteOk, AiSendsScope, AiServedBy, AiSettings, AiSettingsPatch, AiSummaryKind, MikeDownAiHost } from './ai';
 // The AI UI loads on demand (ai-lite.ts); only types and the light helpers are imported here.
 import { aiHostTier, aiToolbarButtonMode, loadAiUi, loadedAiUi, type AiUi } from './ai-lite';
 import { defaultAiSettings } from './ai/defaults';
@@ -1654,7 +1654,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // Built after the core rows so a section can be placed after a specific
     // core row. Each section returns rows plus an optional collect() whose
     // values join the saveSettings patch.
-    const sectionCtx: MikeDownSettingsSectionContext = settingsSectionContext(() => closeSettingsModal());
+    const sectionCtx: MikeDownSettingsSectionContext = settingsSectionContext(() => closeSettingsModal(), (href) => openLinkViaHost(href));
     // The AI tab is core's own section, built only for a host with an `ai`
     // group. Listed after the host's sections and placed last in the nav,
     // below any host tab (About, App).
@@ -1665,6 +1665,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       panelClassName: 'settings-panel--ai',
       build: (ctx) => ui.buildAiSettingsSection(ctx, {
         ...aiSessionOptions(aiHost),
+        // A forgotten consent is asked again: drop this session's copy of the answer too.
+        onConsentForgotten: (engineId) => { delete aiConsent[engineId]; },
         onSaved: (saved) => {
           currentAiSettings = saved;
           renderAiIndicator();
@@ -2401,7 +2403,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       closeAiEnginesPage();
       restoreFocus(opener);
     };
-    const handle = ui.mountAiEnginesPage(frame, settingsSectionContext(finish), {
+    const handle = ui.mountAiEnginesPage(frame, settingsSectionContext(finish, (href) => openLinkViaHost(href)), {
       ...(o.session ?? aiSessionOptions(ai)),
       initial: o.initial,
       ...(o.turnOnWhenDone ? { turnOnWhenDone: true } : {}),
@@ -4224,7 +4226,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   /** The engine badge for a request: the route about to be used, or who served it. */
-  function aiBadge(route: AiRouteOk | null, served: AiServedBy | null, viaFallback: boolean): AiRewriteBadge | null {
+  function aiBadge(route: AiRouteOk | null, served: AiServedBy | null, viaFallback: boolean, about?: { feature?: string; sends?: AiSendsScope }): AiRewriteBadge | null {
     const by: AiServedBy | null = served ?? (route ? {
       engineId: route.engineId,
       engineName: currentAiSettings.engines.find((e) => e.id === route.engineId)?.name ?? route.engineId,
@@ -4237,9 +4239,20 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     return {
       where: by.isLocal ? 'local' : 'cloud',
       text: s.text.replace(/^AI: /, ''),
-      title: served ? s.title.replace(/ Click to open AI settings\.$/, '') : `Sending to ${s.text.replace(/^AI: (local|cloud) · /, '')}.`,
+      title: served ? s.title.replace(/ Click to open AI settings\.$/, '') : aiPendingBadgeTitle(aiUi, by, s.text.replace(/^AI: (local|cloud) · /, ''), about),
       fallback: viaFallback,
     };
+  }
+
+  /**
+   * The badge tooltip before the first token. A cloud engine's names its host
+   * and what the request sends, like the one after a request does.
+   */
+  function aiPendingBadgeTitle(ui: AiUi, by: AiServedBy, label: string, about?: { feature?: string; sends?: AiSendsScope }): string {
+    if (by.isLocal) {return `Sending to ${label}.`;}
+    const engine = currentAiSettings.engines.find((e) => e.id === by.engineId);
+    const host = engine ? ui.hostOfUrl(engine.baseUrl) ?? engine.baseUrl : null;
+    return `Sending to ${label}${host ? ` at ${host}` : ''}. Sends ${ui.whatIsSent(about?.feature, about?.sends)}.`;
   }
 
   /** The whole body (frontmatter left out and untouched) as a rewrite target. */

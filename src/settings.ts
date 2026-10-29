@@ -185,7 +185,9 @@ export interface InspectedValue<T = unknown> {
  * - `engines` and `localNetworks` come from user settings only, so a
  *   repository can neither add an endpoint nor make a cloud host count as
  *   local. package.json scopes them `machine`; this is the second fence.
- * - `allowCloud` can be turned off by a workspace but never on.
+ * - `allowCloud` comes from user settings (package.json scopes it `machine`);
+ *   a stale workspace value of `false` still counts, so a workspace can never
+ *   turn cloud on.
  * - `enabled`, `routing`, `features` and `showToolbarButton` follow the
  *   normal precedence.
  *

@@ -135,60 +135,48 @@ fn missing_or_broken_settings_mean_no_engines_and_no_cloud() {
 
 // ── Cloud gate and consent ──────────────────────────────────────────────────
 
+fn cloud_engine(id: &str, url: &str) -> EngineConfig {
+    serde_json::from_value(json!({ "id": id, "kind": "openai", "baseUrl": url })).unwrap()
+}
+
 #[test]
 fn the_cloud_gate_needs_both_the_switch_and_consent() {
+    use super::consent_store::Answer;
     assert!(cloud_gate(Locality::Local, false, None).is_ok());
-    assert_eq!(cloud_gate(Locality::Cloud, false, Some(true)).unwrap_err().code, ErrorCode::CloudBlocked);
+    assert_eq!(cloud_gate(Locality::Cloud, false, Some(Answer::Allow)).unwrap_err().code, ErrorCode::CloudBlocked);
     assert_eq!(cloud_gate(Locality::Cloud, true, None).unwrap_err().code, ErrorCode::ConsentDenied);
-    assert_eq!(cloud_gate(Locality::Cloud, true, Some(false)).unwrap_err().code, ErrorCode::ConsentDenied);
-    assert!(cloud_gate(Locality::Cloud, true, Some(true)).is_ok());
+    assert_eq!(cloud_gate(Locality::Cloud, true, Some(Answer::NotNow)).unwrap_err().code, ErrorCode::ConsentDenied);
+    assert_eq!(cloud_gate(Locality::Cloud, true, Some(Answer::Never)).unwrap_err().code, ErrorCode::ConsentDenied);
+    assert!(cloud_gate(Locality::Cloud, true, Some(Answer::Allow)).is_ok());
 }
 
 #[test]
-fn consent_is_stored_per_folder_and_engine_beside_other_settings() {
-    let dir = temp_dir("consent");
-    assert!(!read_folder_consent(&dir, "claude"));
-    write_folder_consent(&dir, "claude").unwrap();
-    assert!(read_folder_consent(&dir, "claude"));
-    assert!(!read_folder_consent(&dir, "openai"), "another engine is not covered");
-
-    // Existing keys survive.
-    std::fs::write(dir.join(".mikedown/settings.json"), "{\n  \"versioning.keep\": 10,\n  \"ai.consent.claude\": true\n}\n").unwrap();
-    write_folder_consent(&dir, "openai").unwrap();
-    let text = std::fs::read_to_string(dir.join(".mikedown/settings.json")).unwrap();
-    let json: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(json["versioning.keep"], 10);
-    assert_eq!(json["ai.consent.claude"], true);
-    assert_eq!(json["ai.consent.openai"], true);
-    std::fs::remove_dir_all(&dir).unwrap();
-}
-
-#[test]
-fn a_damaged_folder_settings_file_is_not_overwritten_by_consent() {
-    let dir = temp_dir("consent-damaged");
-    std::fs::create_dir_all(dir.join(".mikedown")).unwrap();
-    std::fs::write(dir.join(".mikedown/settings.json"), "{ broken").unwrap();
-    assert!(write_folder_consent(&dir, "claude").is_err());
-    assert_eq!(std::fs::read_to_string(dir.join(".mikedown/settings.json")).unwrap(), "{ broken");
-    assert!(!read_folder_consent(&dir, "claude"));
-    std::fs::remove_dir_all(&dir).unwrap();
-}
-
-#[test]
-fn a_session_answer_beats_the_file_and_a_decline_is_remembered() {
+fn a_session_answer_beats_the_store_and_a_decline_is_remembered() {
+    use super::consent_store::Answer;
+    let base = temp_dir("consent-session-base");
     let dir = temp_dir("consent-session");
     let state = AiState::with_store(Arc::new(MemoryStore::default()));
-    assert_eq!(state.consent_state(Some(&dir), "claude"), None);
-    state.remember_consent(Some(&dir), "claude", false);
-    assert_eq!(state.consent_state(Some(&dir), "claude"), Some(false));
-    // Another folder, and a lone-file window, are asked separately.
-    assert_eq!(state.consent_state(None, "claude"), None);
-    state.remember_consent(None, "claude", true);
-    assert_eq!(state.consent_state(None, "claude"), Some(true));
-    // A grant stored in the folder file counts without a session answer.
-    write_folder_consent(&dir, "openai").unwrap();
-    assert_eq!(state.consent_state(Some(&dir), "openai"), Some(true));
+    let claude = cloud_engine("claude", "https://api.anthropic.com/v1");
+    assert_eq!(state.consent_state(&base, Some(&dir), &claude), None);
+    state.remember_consent(&base, Some(&dir), &claude, Answer::NotNow);
+    assert_eq!(state.consent_state(&base, Some(&dir), &claude), Some(Answer::NotNow));
+    assert!(!consent_store::store_path(&base).exists(), "Not now is not stored");
+    // A lone-file window is asked separately, and its answers last for the session.
+    assert_eq!(state.consent_state(&base, None, &claude), None);
+    state.remember_consent(&base, None, &claude, Answer::Allow);
+    assert_eq!(state.consent_state(&base, None, &claude), Some(Answer::Allow));
+    assert!(!consent_store::store_path(&base).exists());
+    // Allow and Never in a folder window are stored, and a fresh state sees them.
+    let openai = cloud_engine("openai", "https://api.openai.com/v1");
+    state.remember_consent(&base, Some(&dir), &openai, Answer::Never);
+    let fresh = AiState::with_store(Arc::new(MemoryStore::default()));
+    assert_eq!(fresh.consent_state(&base, Some(&dir), &openai), Some(Answer::Never));
+    // An engine that now points elsewhere is not covered, in the session or the store.
+    let moved = cloud_engine("openai", "https://other.example.com/v1");
+    assert_eq!(state.consent_state(&base, Some(&dir), &moved), None);
+    assert_eq!(fresh.consent_state(&base, Some(&dir), &moved), None);
     std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
 }
 
 #[test]

@@ -131,9 +131,14 @@
  *         into the saved engine (mikedown.ai.engines).
  *     { type: 'aiSetSecret', requestId, engineId, apiKey: string | null }
  *         — store or delete the key in SecretStorage; answered by aiEngineStatus.
+ *     { type: 'aiListConsents', requestId }
+ *         — the stored cloud consents of this workspace; answered by aiConsents.
+ *     { type: 'aiForgetConsent', requestId, engineId }
+ *         — forget one stored answer; answered by aiConsents (the list after).
  *     { type: 'aiRequestCloudConsent', requestId, engineId, feature?, sends? }
  *         — host modal (its words from aiConsentText: `feature` and `sends`
- *         say what the request sends); answered by aiConsent.
+ *         say what the request sends); answered by aiConsent, or by aiError
+ *         (cloudBlocked) while Allow cloud is off.
  *     { type: 'aiDetectLocalServers', requestId, candidates: { presetId, baseUrl }[] }
  *         — the first-run panel and the quick-start cards look for local
  *         servers (one GET per local preset, 1.5 s cap each, never cached);
@@ -146,7 +151,8 @@
  *     { type: 'aiEngines', engines: AiEngineStatus[] } — the listEngines reply,
  *         also pushed after a settings change, probe or discovery.
  *     { type: 'aiEngineStatus', requestId, status: AiEngineStatus }
- *     { type: 'aiConsent', requestId, engineId, granted }
+ *     { type: 'aiConsent', requestId, engineId, granted: true | false | 'never' }
+ *     { type: 'aiConsents', requestId, consents: AiConsentRecord[] }
  *     { type: 'aiEngineProbes', requestId, probes: AiLocalServerProbe[] }
  *     { type: 'command', command: 'openAiSettings', page?: boolean } —
  *         mikedown.openAiSettings (and the AI status bar item) send

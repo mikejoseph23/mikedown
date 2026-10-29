@@ -10,6 +10,7 @@ export {
   headingsOutline, isRouteUsable, jsonRepairMessages, makeAiError, parseAiSettings,
   parsePropertySuggestions, propertiesMaxTokens, renderHeadingOutline, resolveRoute, rewriteVisibleText, thinkingChoices, toAiError,
 } from './ai';
+export { hostOfUrl, whatIsSent } from './ai';
 export { loadThinkingLevel, rememberThinkingLevel, thinkingLevelFor } from './ai-prefs';
 export { buildAiSettingsSection } from './ai-settings';
 export { mountAiEnginesPage } from './ai-engines-page';

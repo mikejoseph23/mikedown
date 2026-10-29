@@ -915,7 +915,7 @@ export interface AiRewriteBadge {
 export interface AiRewritePopoverDeps {
   run(req: AiRunRequest, events: AiRunEvents, signal: AbortSignal): Promise<AiRunOutcome>;
   /** Footer badge for the route about to serve (before the result) or what served. */
-  badge(route: AiRouteOk | null, served: AiServedBy | null, viaFallback: boolean): AiRewriteBadge | null;
+  badge(route: AiRouteOk | null, served: AiServedBy | null, viaFallback: boolean, about?: { feature?: string; sends?: AiSendsScope }): AiRewriteBadge | null;
   onServed(served: AiServedBy, viaFallback: boolean): void;
   openSettings(): void;
   /** The whole body as a target (Translate's "Whole document"); absent hides the toggle. */
@@ -1396,7 +1396,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
 
   function renderBadge(): void {
     renderThinking();
-    const b = deps.badge(route, served, served ? viaFallback : route?.viaFallback ?? false);
+    const b = deps.badge(route, served, served ? viaFallback : route?.viaFallback ?? false, jobSends());
     badgeEl.hidden = !b;
     if (!b) {return;}
     badgeEl.dataset.where = b.where ?? '';

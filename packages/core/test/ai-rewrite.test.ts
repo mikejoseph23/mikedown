@@ -187,6 +187,21 @@ describe('runAiCompletion', () => {
     expect(requestCloudConsent).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps a "never" answer for the session, runs the fallback and does not ask again', async () => {
+    const requestCloudConsent = vi.fn(async () => 'never' as const);
+    const { ai, calls } = fakeHost([answer('local')], { requestCloudConsent });
+    const s = aiSettings({ routing: { default: { engineId: 'omlx', modelId: 'qwen' }, fallback: 'anyLocal', tasks: { rewrite: { engineId: 'claude', modelId: 'sonnet' } } } });
+    const consent: Record<string, boolean | undefined> = {};
+    const out = await runAiCompletion(ctx(ai, s, [], consent), req, {}, new AbortController().signal);
+    expect(calls[0].req.route?.engineId).toBe('omlx');
+    expect(out.viaFallback).toBe(true);
+    expect(consent).toEqual({ claude: false });
+    // The router now refuses the engine on its own: no second prompt.
+    const onlyCloud = aiSettings({ routing: { default: { engineId: 'claude', modelId: 'sonnet' }, fallback: 'none', tasks: {} } });
+    await expect(runAiCompletion(ctx(ai, onlyCloud, [], consent), req, {}, new AbortController().signal)).rejects.toMatchObject({ code: 'consentDenied' });
+    expect(requestCloudConsent).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects with consentDenied when "Not now" leaves nothing to fall back to', async () => {
     const { ai, calls } = fakeHost([answer('x')], { requestCloudConsent: async () => false });
     const s = aiSettings({ routing: { default: { engineId: 'claude', modelId: 'sonnet' }, fallback: 'none', tasks: {} } });
@@ -262,6 +277,12 @@ describe('aiFeatureAvailability', () => {
     const down: AiEngineStatus[] = [{ engineId: 'omlx', ok: false, isLocal: true, hasKey: false, models: [] }];
     expect(aiFeatureAvailability(ai, s, down, {}, 'rewrite')).toEqual({ state: 'disabled', reason: expect.stringContaining('oMLX failed its last connection test') });
     expect(aiFeatureAvailability(ai, s, [], {}, 'rewrite')).toEqual({ state: 'enabled' });
+  });
+
+  it('disables with the router\'s reason after a "never" answer, but not after nothing was recorded', () => {
+    const s = aiSettings({ routing: { default: { engineId: 'claude', modelId: 'sonnet' }, fallback: 'none', tasks: {} } });
+    expect(aiFeatureAvailability(ai, s, [], {}, 'rewrite')).toEqual({ state: 'enabled' });
+    expect(aiFeatureAvailability(ai, s, [], { claude: false }, 'rewrite')).toEqual({ state: 'disabled', reason: expect.stringContaining('was not allowed') });
   });
 
   it('is enabled for a tier-1 host whatever the registry says', () => {

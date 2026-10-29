@@ -14,7 +14,7 @@ vi.mock('vscode', () => ({
 }));
 
 import { aiConsentText, aiProviderPolicyForHost, type AiEngineConfig } from '@mikedown/core/ai';
-import { askCloudConsent } from '../../src/ai/vscodeAi';
+import { askCloudConsent, workspaceConsentStore } from '../../src/ai/vscodeAi';
 
 const anthropic = { id: 'claude', name: 'Anthropic', kind: 'anthropic', baseUrl: 'https://api.anthropic.com', models: [] } as unknown as AiEngineConfig;
 const proxy = { id: 'p', name: 'Proxy', kind: 'openai-compatible', baseUrl: 'https://llm.example.com/v1', models: [] } as unknown as AiEngineConfig;
@@ -27,19 +27,19 @@ describe('askCloudConsent', () => {
 
   it('renders aiConsentText in a modal, with the policy button for a known provider', async () => {
     showWarningMessage.mockImplementation(async (_t: string, _o: unknown, ...items: Array<{ title: string }>) => items[0]);
-    expect(await askCloudConsent(anthropic, 'summary')).toBe(true);
-    const expected = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', feature: 'summary', scopeWord: 'workspace', policy: aiProviderPolicyForHost('api.anthropic.com') });
+    expect(await askCloudConsent(anthropic, 'summary')).toBe('allow');
+    const expected = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', feature: 'summary', scopeWord: 'workspace', policy: aiProviderPolicyForHost('api.anthropic.com'), offerNever: true });
     const [title, options, ...items] = showWarningMessage.mock.calls[0];
     expect(title).toBe(expected.title);
     expect(options).toEqual({ modal: true, detail: expected.body });
-    expect(items.map((i: { title: string }) => i.title)).toEqual(['Allow for this workspace', "Read the provider's policy", 'Not now']);
+    expect(items.map((i: { title: string }) => i.title)).toEqual(['Allow for this workspace', 'Not for this workspace', "Read the provider's policy", 'Not now']);
   });
 
   it('"Read the provider\'s policy" opens it and asks again until an answer', async () => {
     showWarningMessage
-      .mockImplementationOnce(async (_t: string, _o: unknown, ...items: Array<{ title: string }>) => items[1])
+      .mockImplementationOnce(async (_t: string, _o: unknown, ...items: Array<{ title: string }>) => items[2])
       .mockImplementationOnce(async () => undefined);
-    expect(await askCloudConsent(anthropic, 'rewrite', 'document')).toBe(false);
+    expect(await askCloudConsent(anthropic, 'rewrite', 'document')).toBe('notNow');
     expect(openExternal).toHaveBeenCalledTimes(1);
     expect(String((openExternal.mock.calls[0] as unknown[])[0])).toContain('privacy.claude.com');
     expect(showWarningMessage).toHaveBeenCalledTimes(2);
@@ -48,8 +48,24 @@ describe('askCloudConsent', () => {
 
   it('has no policy button for an engine no preset knows', async () => {
     showWarningMessage.mockImplementation(async () => undefined);
-    expect(await askCloudConsent(proxy, 'rewrite')).toBe(false);
+    expect(await askCloudConsent(proxy, 'rewrite')).toBe('notNow');
     const items = showWarningMessage.mock.calls[0].slice(2).map((i: { title: string }) => i.title);
-    expect(items).toEqual(['Allow for this workspace', 'Not now']);
+    expect(items).toEqual(['Allow for this workspace', 'Not for this workspace', 'Not now']);
+  });
+
+  it('answers never for "Not for this workspace"', async () => {
+    showWarningMessage.mockImplementation(async (_t: string, _o: unknown, ...items: Array<{ title: string }>) => items[1]);
+    expect(await askCloudConsent(proxy, 'rewrite')).toBe('never');
+  });
+
+  it('stores allow and never with the engine fingerprint, ignores an old bare true, and lists its keys', () => {
+    const data = new Map<string, unknown>([['mikedown.ai.consent.old', true], ['other', 1]]);
+    const store = workspaceConsentStore({ get: (k: string) => data.get(k) as never, update: async (k: string, v: unknown) => { if (v === undefined) {data.delete(k);} else {data.set(k, v);} }, keys: () => [...data.keys()] });
+    expect(store.get('old')).toBeUndefined();
+    void store.set('claude', { fingerprint: 'f', answer: 'never', at: 5 });
+    expect(store.get('claude')).toEqual({ fingerprint: 'f', answer: 'never', at: 5 });
+    expect(store.ids().sort()).toEqual(['claude', 'old']);
+    void store.forget('claude');
+    expect(store.get('claude')).toBeUndefined();
   });
 });

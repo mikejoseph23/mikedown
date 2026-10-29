@@ -129,7 +129,7 @@ Any new `mikedown.*` setting must be added in **three places**:
 2. `src/settings.ts` (reader).
 3. The in-editor Settings modal in `packages/core/src/editor-main.ts#showSettingsModal` — the toolbar gear button is the primary UX, the VS Code settings UI is secondary.
 
-Secrets never go in settings (any scope, any host). API keys are written with `host.ai.setSecret` (SecretStorage in VS Code, the OS keychain on Desktop), and settings only name where to look (`apiKeyEnv`, `apiKeyFile`). `mikedown.ai.engines` stays machine scope (never workspace), so a repo cannot point MikeDown at an endpoint.
+Secrets never go in settings (any scope, any host). API keys are written with `host.ai.setSecret` (SecretStorage in VS Code, the OS keychain on Desktop), and settings only name where to look (`apiKeyEnv`, `apiKeyFile`). `mikedown.ai.engines` and `mikedown.ai.allowCloud` stay machine scope (never workspace), so a repo cannot point MikeDown at an endpoint.
 
 ## Repo conventions
 

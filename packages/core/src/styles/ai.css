@@ -557,6 +557,29 @@
   color: var(--settings-muted);
 }
 
+/* Cloud consents list on the AI tab: one line per stored answer. */
+:is(.mikedown-root, .mikedown-portal) .ai-consents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-consent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--settings-fg);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-consent-text { min-width: 0; overflow-wrap: anywhere; }
+:is(.mikedown-root, .mikedown-portal) .ai-consents-empty {
+  font-size: 12px;
+  color: var(--settings-muted);
+}
+
 /* ── Express engine form (ai-engine-form.ts) ─────────────────────────────── */
 
 /* One calm column like a macOS "Add Account" sheet: labels on the left,

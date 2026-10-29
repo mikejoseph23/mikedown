@@ -14,7 +14,10 @@
  *   saved engine with core's heuristics (new cloud models start off) and
  *   persists the result.
  * - `setSecret` and `requestCloudConsent` are plain commands; the key goes in
- *   and never comes back.
+ *   and never comes back. The native dialog has three answers: `allow` is
+ *   `true`, `notNow` is `false`, `never` stays `'never'` (stored by Rust).
+ * - `listConsents` / `forgetConsent` read and drop the window folder's stored
+ *   answers (the Cloud consents list on the AI tab).
  * - `detectLocalServers` asks Rust which local presets answer (the setup UI
  *   only); Rust caps each address, so an abort here only stops waiting.
  * - `shellEnv: false`: an app opened from the Dock does not see variables
@@ -172,7 +175,24 @@ export function createAiHost(deps: AiHostDeps): MikeDownAiHost {
 
     async requestCloudConsent(engineId, about) {
       try {
-        return await api.requestCloudConsent(engineId, about);
+        const answer = await api.requestCloudConsent(engineId, about);
+        return answer === 'allow' ? true : answer === 'never' ? 'never' : false;
+      } catch (err) {
+        throw toAiError(err);
+      }
+    },
+
+    async listConsents() {
+      try {
+        return await api.listConsents();
+      } catch (err) {
+        throw toAiError(err);
+      }
+    },
+
+    async forgetConsent(engineId) {
+      try {
+        await api.forgetConsent(engineId);
       } catch (err) {
         throw toAiError(err);
       }

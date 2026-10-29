@@ -19,9 +19,13 @@
 //!   discovered models with core's capability heuristics.
 //! - `ai_set_secret(id, key)`: the OS keychain (service `net.iadev.mikedown`,
 //!   account = engine id). Keys never come back out.
-//! - `ai_request_cloud_consent(id, feature?, sends?)`: a native dialog (not
-//!   webview UI, so a shared folder cannot restyle it away). Its words come
-//!   from `consent.rs`, the port of core's `aiConsentText`.
+//! - `ai_request_cloud_consent(id, feature?, sends?)`: a native dialog with
+//!   three answers (Allow / Not for this folder / Not now), not webview UI,
+//!   so a shared folder cannot restyle it away. Its words come from
+//!   `consent.rs`, the port of core's `aiConsentText`. Resolves to `allow`,
+//!   `never` or `notNow`.
+//! - `ai_list_consents()` and `ai_forget_consent(id)`: the window folder's
+//!   stored answers, for the Cloud consents list on the AI tab.
 //! - `ai_detect_local_servers(candidates)`: which local presets answer at
 //!   their addresses, for the setup UI (`detect.rs`). Only when asked.
 //!
@@ -30,10 +34,11 @@
 //! flip `ai.allowCloud` or redefine `ai.localNetworks`. The webview names a
 //! route (engine id, model id); this module looks both up itself and runs the
 //! cloud gate again (defence in depth): a cloud engine needs the global
-//! `ai.allowCloud` and the user's consent for the window's folder, stored as
-//! `ai.consent.<engineId>` in that folder's settings file.
+//! `ai.allowCloud` and the user's consent for the window's folder, stored in
+//! `<app-data>/ai-consent.json` (`consent_store.rs`), never in the folder.
 
 pub mod consent;
+pub mod consent_store;
 pub mod detect;
 pub mod discovery;
 pub mod errors;
@@ -54,6 +59,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use tokio::sync::watch;
 
+use self::consent_store::Answer;
 use self::errors::{AiError, ErrorCode};
 use self::locality::{default_local_networks, engine_locality, host_of_url, Locality};
 use self::model::{
@@ -61,7 +67,7 @@ use self::model::{
 };
 use self::secrets::{resolve_key_with_file, KeyLookup, KeySource, KeychainStore, SecretStore};
 use super::multiwindow::WindowRegistry;
-use super::settings::{read_settings, settings_path, write_settings};
+use super::settings::{read_settings, settings_path};
 
 // ── Settings the Rust side needs ────────────────────────────────────────────
 
@@ -118,49 +124,23 @@ fn load_config<R: Runtime>(app: &AppHandle<R>) -> Result<AiConfig, AiError> {
 
 // ── Cloud gate and consent ──────────────────────────────────────────────────
 
-fn consent_key(engine_id: &str) -> String {
-    format!("ai.consent.{engine_id}")
-}
-
-/// Whether `<folder>/.mikedown/settings.json` records consent for the engine.
-pub fn read_folder_consent(folder: &Path, engine_id: &str) -> bool {
-    let Ok(file) = settings_path(folder, "folder", Some(folder)) else { return false };
-    let Ok(read) = read_settings(&file) else { return false };
-    let Some(Value::Object(map)) = read.text.as_deref().and_then(|t| serde_json::from_str::<Value>(t).ok()) else {
-        return false;
-    };
-    map.get(&consent_key(engine_id)) == Some(&Value::Bool(true))
-}
-
-/// Record consent in the folder's settings file, keeping every other key. A
-/// file that is not a JSON object is left alone (the settings banner owns
-/// repairing it).
-pub fn write_folder_consent(folder: &Path, engine_id: &str) -> Result<(), String> {
-    let file = settings_path(folder, "folder", Some(folder))?;
-    let read = read_settings(&file)?;
-    let mut map = match read.text.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
-        None => serde_json::Map::new(),
-        Some(text) => match serde_json::from_str::<Value>(text) {
-            Ok(Value::Object(map)) => map,
-            _ => return Err("this folder's settings file is damaged, so the choice was not saved".to_string()),
-        },
-    };
-    map.insert(consent_key(engine_id), Value::Bool(true));
-    let text = format!("{}\n", serde_json::to_string_pretty(&Value::Object(map)).map_err(|e| e.to_string())?);
-    write_settings(&file, &text).map(|_| ())
-}
-
-/// The cloud gate. `consent`: Some(true) granted, Some(false) declined this
-/// session, None never asked.
-pub fn cloud_gate(locality: Locality, allow_cloud: bool, consent: Option<bool>) -> Result<(), AiError> {
+/// The cloud gate. `consent`: the stored or session answer for this folder
+/// and engine, None when never asked.
+pub fn cloud_gate(locality: Locality, allow_cloud: bool, consent: Option<Answer>) -> Result<(), AiError> {
     if locality == Locality::Local {
         return Ok(());
     }
     if !allow_cloud {
         return Err(AiError::new(ErrorCode::CloudBlocked, "Cloud engines are turned off (Allow cloud in AI settings)."));
     }
-    if consent != Some(true) {
-        return Err(AiError::new(ErrorCode::ConsentDenied, "Sending text to this cloud engine has not been allowed for this folder."));
+    match consent {
+        Some(Answer::Allow) => {}
+        Some(Answer::Never) => {
+            return Err(AiError::new(ErrorCode::ConsentDenied, "Sending text to this cloud engine was turned off for this folder."));
+        }
+        _ => {
+            return Err(AiError::new(ErrorCode::ConsentDenied, "Sending text to this cloud engine has not been allowed for this folder."));
+        }
     }
     Ok(())
 }
@@ -195,8 +175,11 @@ pub struct AiState {
     secrets: Arc<dyn SecretStore>,
     inflight: Mutex<HashMap<String, Inflight>>,
     probes: Mutex<HashMap<String, CachedProbe>>,
-    /// (folder or "", engine id) to the answer given this session.
-    consent: Mutex<HashMap<(String, String), bool>>,
+    /// (folder or "", engine id) to the engine's fingerprint and the answer
+    /// given this session (a "Not now" lives only here).
+    consent: Mutex<HashMap<(String, String), (String, Answer)>>,
+    /// Serialises reads and writes of the consent file.
+    consent_io: Mutex<()>,
     /// One consent dialog at a time.
     consent_dialog: tokio::sync::Mutex<()>,
     /// The last key-file problem logged per engine, so status polls say it once.
@@ -215,6 +198,7 @@ impl AiState {
             inflight: Mutex::new(HashMap::new()),
             probes: Mutex::new(HashMap::new()),
             consent: Mutex::new(HashMap::new()),
+            consent_io: Mutex::new(()),
             consent_dialog: tokio::sync::Mutex::new(()),
             key_file_logged: Mutex::new(HashMap::new()),
         }
@@ -246,15 +230,32 @@ impl AiState {
         (folder.map(|f| f.to_string_lossy().into_owned()).unwrap_or_default(), engine_id.to_string())
     }
 
-    fn consent_state(&self, folder: Option<&Path>, engine_id: &str) -> Option<bool> {
-        if let Some(answer) = self.consent.lock().unwrap().get(&Self::session_key(folder, engine_id)) {
-            return Some(*answer);
+    /// The answer that holds for this folder and engine: this session's, then
+    /// the stored one. Either counts only while the engine's fingerprint
+    /// still matches.
+    fn consent_state(&self, base: &Path, folder: Option<&Path>, engine: &EngineConfig) -> Option<Answer> {
+        let print = consent_store::fingerprint(engine);
+        if let Some((seen, answer)) = self.consent.lock().unwrap().get(&Self::session_key(folder, &engine.id)) {
+            if *seen == print {
+                return Some(*answer);
+            }
         }
-        folder.filter(|f| read_folder_consent(f, engine_id)).map(|_| true)
+        let folder = folder?;
+        let _io = self.consent_io.lock().unwrap();
+        consent_store::lookup(base, folder, engine)
     }
 
-    fn remember_consent(&self, folder: Option<&Path>, engine_id: &str, granted: bool) {
-        self.consent.lock().unwrap().insert(Self::session_key(folder, engine_id), granted);
+    /// Keep an answer for the session and, for `allow` and `never` in a
+    /// folder window, in the app-data store.
+    fn remember_consent(&self, base: &Path, folder: Option<&Path>, engine: &EngineConfig, answer: Answer) {
+        self.consent.lock().unwrap().insert(Self::session_key(folder, &engine.id), (consent_store::fingerprint(engine), answer));
+        if let (Some(folder), true) = (folder, answer.is_stored()) {
+            let _io = self.consent_io.lock().unwrap();
+            if let Err(why) = consent_store::record(base, folder, engine, answer) {
+                // The answer still holds for this session.
+                eprintln!("[mikedown ai] could not store consent for {}: {why}", folder.display());
+            }
+        }
     }
 
     async fn key_for(&self, engine: &EngineConfig) -> (Option<String>, Option<String>) {
@@ -326,6 +327,10 @@ pub fn cancel_window<R: Runtime>(app: &AppHandle<R>, label: &str) {
     }
 }
 
+fn data_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, AiError> {
+    app.path().app_data_dir().map_err(|e| AiError::unknown(e.to_string()))
+}
+
 fn window_folder<R: Runtime>(app: &AppHandle<R>, label: &str) -> Option<PathBuf> {
     app.try_state::<WindowRegistry>()?.folder_of(label)
 }
@@ -365,7 +370,8 @@ pub async fn ai_complete<R: Runtime>(
 
     let locality = engine_locality(&engine.locality, &engine.base_url, &config.local_networks);
     let folder = window_folder(&app, &label);
-    cloud_gate(locality, config.allow_cloud, state.consent_state(folder.as_deref(), &engine.id))?;
+    let consent = if locality == Locality::Local { None } else { state.consent_state(&data_dir(&app)?, folder.as_deref(), &engine) };
+    cloud_gate(locality, config.allow_cloud, consent)?;
 
     let (api_key, _keychain_problem) = state.key_for(&engine).await;
     let served = ServedBy {
@@ -500,8 +506,10 @@ pub async fn ai_set_secret(state: State<'_, AiState>, id: String, api_key: Optio
 
 /// Ask the user, in a native dialog, whether this window's folder may send
 /// text to a cloud engine. Returns the stored answer without asking when there
-/// is one. "Not now" is remembered for the session only. `feature` and
-/// `sends` (core's `AiConsentAbout`) say what the request sends.
+/// is one. Three answers: Allow and "Not for this folder" are stored (in
+/// app data, with the engine's fingerprint); "Not now" (or closing the
+/// dialog) is remembered for the session only. `feature` and `sends` (core's
+/// `AiConsentAbout`) say what the request sends.
 #[tauri::command]
 pub async fn ai_request_cloud_consent<R: Runtime>(
     app: AppHandle<R>,
@@ -510,25 +518,26 @@ pub async fn ai_request_cloud_consent<R: Runtime>(
     id: String,
     feature: Option<String>,
     sends: Option<String>,
-) -> Result<bool, AiError> {
-    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+) -> Result<Answer, AiError> {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult};
 
     let config = load_config(&app)?;
     let engine = find_engine(&config, &id)?.clone();
     if engine_locality(&engine.locality, &engine.base_url, &config.local_networks) == Locality::Local {
-        return Ok(true);
+        return Ok(Answer::Allow);
     }
     if !config.allow_cloud {
         return Err(AiError::new(ErrorCode::CloudBlocked, "Cloud engines are turned off (Allow cloud in AI settings)."));
     }
+    let base = data_dir(&app)?;
     let folder = window_folder(&app, window.label());
-    if let Some(answer) = state.consent_state(folder.as_deref(), &engine.id) {
+    if let Some(answer) = state.consent_state(&base, folder.as_deref(), &engine) {
         return Ok(answer);
     }
 
     // One dialog at a time; a second request that waited sees the first answer.
     let _turn = state.consent_dialog.lock().await;
-    if let Some(answer) = state.consent_state(folder.as_deref(), &engine.id) {
+    if let Some(answer) = state.consent_state(&base, folder.as_deref(), &engine) {
         return Ok(answer);
     }
     let host = host_of_url(&engine.base_url).unwrap_or_else(|| engine.base_url.clone());
@@ -539,30 +548,63 @@ pub async fn ai_request_cloud_consent<R: Runtime>(
         feature.as_deref(),
         sends.as_deref(),
         scope_word,
-        false,
+        true,
     );
+    let never_label = text.never.clone().unwrap_or_default();
+    let allow_label = text.allow.clone();
     let (tx, rx) = tokio::sync::oneshot::channel();
     app.dialog()
         .message(text.body)
         .title(text.title)
         .kind(MessageDialogKind::Warning)
-        .buttons(MessageDialogButtons::OkCancelCustom(text.allow, text.not_now))
+        .buttons(MessageDialogButtons::YesNoCancelCustom(text.allow, never_label.clone(), text.not_now))
         .parent(&window)
-        .show(move |allowed| {
-            let _ = tx.send(allowed);
+        .show_with_result(move |result| {
+            let _ = tx.send(result);
         });
-    let granted = rx.await.unwrap_or(false);
-    state.remember_consent(folder.as_deref(), &engine.id, granted);
-    if granted {
-        if let Some(dir) = folder.as_deref() {
-            let saved = super::fs::ensure_allowed(&app, dir).map_err(|e| e.to_string()).and_then(|_| write_folder_consent(dir, &engine.id));
-            if let Err(why) = saved {
-                // The answer still holds for this session.
-                eprintln!("[mikedown ai] could not store consent for {}: {why}", dir.display());
-            }
-        }
+    let answer = match rx.await {
+        Ok(MessageDialogResult::Custom(label)) if label == allow_label => Answer::Allow,
+        Ok(MessageDialogResult::Custom(label)) if label == never_label => Answer::Never,
+        Ok(MessageDialogResult::Yes) => Answer::Allow,
+        Ok(MessageDialogResult::No) => Answer::Never,
+        // "Not now", a closed dialog, an unknown label.
+        _ => Answer::NotNow,
+    };
+    state.remember_consent(&base, folder.as_deref(), &engine, answer);
+    Ok(answer)
+}
+
+/// The stored cloud consents for this window's folder, newest first. A window
+/// with no folder has none (its answers last for the session).
+#[tauri::command]
+pub async fn ai_list_consents<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    state: State<'_, AiState>,
+) -> Result<Vec<consent_store::ListedConsent>, AiError> {
+    let Some(folder) = window_folder(&app, window.label()) else { return Ok(Vec::new()) };
+    let base = data_dir(&app)?;
+    let _io = state.consent_io.lock().unwrap();
+    Ok(consent_store::list(&base, &folder))
+}
+
+/// Forget this window's folder's answer for an engine (stored and session),
+/// so the next request asks again.
+#[tauri::command]
+pub async fn ai_forget_consent<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    state: State<'_, AiState>,
+    id: String,
+) -> Result<(), AiError> {
+    let folder = window_folder(&app, window.label());
+    state.consent.lock().unwrap().remove(&AiState::session_key(folder.as_deref(), &id));
+    if let Some(folder) = folder {
+        let base = data_dir(&app)?;
+        let _io = state.consent_io.lock().unwrap();
+        consent_store::forget(&base, &folder, &id).map_err(AiError::unknown)?;
     }
-    Ok(granted)
+    Ok(())
 }
 
 /// Look for local model servers (the first-run panel and the quick-start

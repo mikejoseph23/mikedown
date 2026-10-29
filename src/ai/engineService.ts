@@ -15,6 +15,8 @@ import {
   toAiError,
   type AiCompletionRequest,
   type AiCompletionResult,
+  type AiConsentRecord,
+  type AiConsentReply,
   type AiConsentState,
   type AiEngineConfig,
   type AiEngineKind,
@@ -42,7 +44,9 @@ import { requestJson, resolveFetch, type FetchLike } from './providers/http';
  *   one, and closing the panel aborts whatever is running;
  * - the cloud gate, enforced here as well as in core's router (defence in
  *   depth): a cloud engine is refused with `cloudBlocked` while Allow cloud
- *   is off, and needs a stored per-workspace consent before any text leaves;
+ *   is off, and needs a stored per-workspace consent (Allow, or Never) before
+ *   any text leaves; a consent only counts while the engine still has the
+ *   kind, base URL and locality it was given for;
  * - one output-channel line per request, never the prompt text;
  * - local server detection for the setup UI: asked for, never cached.
  *
@@ -50,11 +54,27 @@ import { requestJson, resolveFetch, type FetchLike } from './providers/http';
  * so tests run it against fakes.
  */
 
-/** Per-workspace consent answers, stored as `mikedown.ai.consent.<engineId>`. Only "Allow" is persisted. */
+/**
+ * A stored consent answer: `allow` or `never`, with the fingerprint of the
+ * engine it was given for and when. "Not now" is never stored.
+ */
+export interface StoredConsent {
+  fingerprint: string;
+  answer: 'allow' | 'never';
+  /** Unix milliseconds. */
+  at: number;
+}
+
+/** The three answers of the consent modal. */
+export type ConsentAnswer = 'allow' | 'never' | 'notNow';
+
+/** Per-workspace consent answers, stored as `mikedown.ai.consent.<engineId>`. */
 export interface ConsentStore {
-  get(engineId: string): boolean | undefined;
-  grant(engineId: string): PromiseLike<void>;
+  get(engineId: string): StoredConsent | undefined;
+  set(engineId: string, record: StoredConsent): PromiseLike<void>;
   forget(engineId: string): PromiseLike<void>;
+  /** Engine ids with a stored answer. */
+  ids(): string[];
 }
 
 export interface EngineServiceDeps {
@@ -62,7 +82,7 @@ export interface EngineServiceDeps {
   secrets: AiSecrets;
   consent: ConsentStore;
   /** Host UI (a modal) asking whether this workspace may send text to a cloud engine. `sends` overrides the feature's own scope. */
-  askConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): PromiseLike<boolean>;
+  askConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): PromiseLike<ConsentAnswer>;
   /** Persist `mikedown.ai.engines` (after a discovery merged models in). */
   saveEngines(engines: AiEngineConfig[]): PromiseLike<void>;
   log(line: string): void;
@@ -92,6 +112,14 @@ function fingerprint(engine: AiEngineConfig): string {
   return [engine.kind, engine.baseUrl, engine.apiKeyEnv ?? '', engine.apiKeyFile ? `${engine.apiKeyFile.path}\u0001${engine.apiKeyFile.jsonPath}` : '', engine.locality].join('\u0000');
 }
 
+/**
+ * What a consent answer is for: where the text goes (kind, base URL,
+ * locality). Not the key source, so adding a key does not ask again.
+ */
+export function consentFingerprint(engine: AiEngineConfig): string {
+  return [engine.kind, engine.baseUrl.trim().replace(/\/+$/, '').toLowerCase(), engine.locality].join('\u0000');
+}
+
 function engineName(engine: AiEngineConfig): string {
   return engine.name || engine.id;
 }
@@ -104,7 +132,7 @@ export class AiEngineService {
   /** `loaded` per model id, from the last discovery (LM Studio, Ollama report it). */
   private readonly loaded = new Map<string, Map<string, boolean>>();
   private readonly inFlight = new Map<object, { requestId: string; controller: AbortController }>();
-  private readonly consentPrompts = new Map<string, Promise<boolean>>();
+  private readonly consentPrompts = new Map<string, Promise<ConsentAnswer>>();
   private readonly listeners = new Set<() => void>();
   private knownEngines: AiEngineConfig[];
 
@@ -366,39 +394,70 @@ export class AiEngineService {
 
   // ── Consent ───────────────────────────────────────────────────────────────
 
-  /** Granted consents, for the host-side router (requests that come without a route). */
+  /** The stored answer for an engine, if it still describes the engine as it is now. */
+  private storedConsent(engine: AiEngineConfig): StoredConsent | undefined {
+    const record = this.deps.consent.get(engine.id);
+    return record && record.fingerprint === consentFingerprint(engine) ? record : undefined;
+  }
+
+  /** Stored consents (`true` allowed, `false` never), for the host-side router (requests that come without a route). */
   consentState(settings: AiSettings = this.deps.readSettings()): AiConsentState {
     const state: Record<string, boolean> = {};
     for (const engine of settings.engines) {
-      if (this.deps.consent.get(engine.id) === true) {state[engine.id] = true;}
+      const record = this.storedConsent(engine);
+      if (record) {state[engine.id] = record.answer === 'allow';}
     }
     return state;
   }
 
   /**
-   * True when this workspace may send text to the engine: local engines
-   * always, cloud engines only with Allow cloud on and an "Allow for this
-   * workspace" answer (asked now if there is none). "Not now" is not stored,
-   * so the next explicit attempt asks again.
+   * The stored answers, newest first, for the Cloud consents list. Answers
+   * for engines that are gone or point somewhere else now are not listed.
    */
-  async requestCloudConsent(engineId: string, feature?: string, sends?: AiSendsScope): Promise<boolean> {
+  listConsents(): AiConsentRecord[] {
+    const out: AiConsentRecord[] = [];
+    for (const engine of this.deps.readSettings().engines) {
+      const record = this.storedConsent(engine);
+      if (record) {out.push({ engineId: engine.id, answer: record.answer, at: record.at, scope: 'workspace' });}
+    }
+    return out.sort((a, b) => b.at - a.at);
+  }
+
+  /** Forget the stored answer, so the next request asks again. */
+  async forgetConsent(engineId: string): Promise<void> {
+    await this.deps.consent.forget(engineId);
+    this.deps.log(`Consent ${engineId}: forgotten`);
+  }
+
+  /**
+   * True (allowed), false ("Not now") or `'never'` for a cloud engine in
+   * this workspace; local engines are always true. Rejects with
+   * `cloudBlocked` while Allow cloud is off, like Desktop. A stored answer is
+   * returned without asking; "Not now" is not stored, so the next explicit
+   * attempt asks again.
+   */
+  async requestCloudConsent(engineId: string, feature?: string, sends?: AiSendsScope): Promise<AiConsentReply> {
     const settings = this.deps.readSettings();
     const engine = settings.engines.find((e) => e.id === engineId);
     if (!engine) {return false;}
     if (engineLocality(engine, settings.localNetworks) === 'local') {return true;}
-    if (!settings.allowCloud) {return false;}
-    return this.ensureConsent(engine, feature, sends);
+    if (!settings.allowCloud) {throw makeAiError('cloudBlocked', `${engineName(engine)} is a cloud engine and Allow cloud is off.`);}
+    const answer = await this.ensureConsent(engine, feature, sends);
+    return answer === 'allow' ? true : answer === 'never' ? 'never' : false;
   }
 
-  private ensureConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<boolean> {
-    if (this.deps.consent.get(engine.id) === true) {return Promise.resolve(true);}
+  private ensureConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<ConsentAnswer> {
+    const stored = this.storedConsent(engine);
+    if (stored) {return Promise.resolve(stored.answer);}
     const pending = this.consentPrompts.get(engine.id);
     if (pending) {return pending;}
-    const prompt = (async () => {
-      const granted = await this.deps.askConsent(engine, feature, sends);
-      if (granted) {await this.deps.consent.grant(engine.id);}
-      this.deps.log(`Consent ${engineName(engine)}: ${granted ? 'allowed for this workspace' : 'not now'}`);
-      return granted;
+    const prompt = (async (): Promise<ConsentAnswer> => {
+      const answer = await this.deps.askConsent(engine, feature, sends);
+      if (answer !== 'notNow') {
+        await this.deps.consent.set(engine.id, { fingerprint: consentFingerprint(engine), answer, at: this.now() });
+      }
+      this.deps.log(`Consent ${engineName(engine)}: ${answer === 'allow' ? 'allowed for this workspace' : answer === 'never' ? 'refused for this workspace' : 'not now'}`);
+      return answer;
     })();
     this.consentPrompts.set(engine.id, prompt);
     void prompt.finally(() => this.consentPrompts.delete(engine.id));
@@ -445,8 +504,11 @@ export class AiEngineService {
 
       if (!isLocal) {
         if (!settings.allowCloud) {throw makeAiError('cloudBlocked', `${engineName(engine)} is a cloud engine and Allow cloud is off.`);}
-        if (!(await this.ensureConsent(engine, req.feature))) {
-          throw makeAiError('consentDenied', `Sending text to ${engineName(engine)} was not allowed for this workspace.`);
+        const answer = await this.ensureConsent(engine, req.feature);
+        if (answer !== 'allow') {
+          throw makeAiError('consentDenied', answer === 'never'
+            ? `Sending text to ${engineName(engine)} was turned off for this workspace.`
+            : `Sending text to ${engineName(engine)} was not allowed for this workspace.`);
         }
       }
       const adapter = this.adapters.get(engine.kind);
@@ -521,8 +583,8 @@ export class AiEngineService {
 
   /**
    * `mikedown.ai.*` changed: delete the keys (and this workspace's consent)
-   * of engines that are gone, and forget probe results that no longer
-   * describe the engine.
+   * of engines that are gone, forget consents and probe results that no
+   * longer describe the engine (it points somewhere else now).
    */
   async settingsChanged(): Promise<string[]> {
     const engines = this.deps.readSettings().engines;
@@ -531,6 +593,14 @@ export class AiEngineService {
       this.probes.delete(id);
       this.loaded.delete(id);
       await this.deps.consent.forget(id);
+    }
+    for (const id of this.deps.consent.ids()) {
+      const engine = engines.find((e) => e.id === id);
+      const record = this.deps.consent.get(id);
+      if (engine && record && record.fingerprint !== consentFingerprint(engine)) {
+        await this.deps.consent.forget(id);
+        this.deps.log(`Consent ${engineName(engine)}: forgotten, the engine changed`);
+      }
     }
     for (const engine of engines) {
       const entry = this.probes.get(engine.id);
