@@ -798,7 +798,8 @@ export function expressFields(preset: Pick<EngineFormPreset, 'id' | 'family' | '
 /**
  * The setup wizard's compact form (W12, W13): the key, the URL on local
  * servers and one model. Name, Default model, Thinking and Enabled stay on
- * the full Engines page. `key` brings a local server's key out of Advanced
+ * the full Engines page, and so does the models table (setup is one single
+ * choice, never per-model settings). `key` brings a local server's key out of Advanced
  * (it rejected the request without one, or already has one).
  */
 export function setupFields(preset: Pick<EngineFormPreset, 'id' | 'family' | 'needsKey'>, o: { key?: boolean } = {}): { express: ExpressField[]; advanced: AdvancedField[] } {
@@ -806,9 +807,9 @@ export function setupFields(preset: Pick<EngineFormPreset, 'id' | 'family' | 'ne
   const kept = express.filter((f) => f === 'key' || f === 'baseUrl' || f === 'models');
   if (o.key && preset.family === 'local' && !kept.includes('key')) {
     kept.splice(kept.indexOf('models'), 0, 'key');
-    return { express: kept, advanced: advanced.filter((f) => f !== 'key') };
+    return { express: kept, advanced: advanced.filter((f) => f !== 'key' && f !== 'modelsTable') };
   }
-  return { express: kept, advanced };
+  return { express: kept, advanced: advanced.filter((f) => f !== 'modelsTable') };
 }
 
 export interface ModelPickerOption {

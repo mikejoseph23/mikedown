@@ -717,8 +717,11 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     const chosen = () => (setup ? engineDefaultModelId(deps.getDraft(), id) : null);
     const chosenAtBuild = chosen();
     const collapsed = setup && popularIds.length > 0 && !showAll.has(id) && (!chosenAtBuild || popularIds.includes(chosenAtBuild));
+    // Setup has no models table to add an id in, so an empty list (a server that lists nothing) gets the field.
     const showInput = setup
-      ? !collapsed && engine.models.length > 0 && (engine.models.length > FILTER_THRESHOLD || typeOpen.has(id) || !!pickerFilter.get(id))
+      ? !collapsed && (engine.models.length > 0
+        ? engine.models.length > FILTER_THRESHOLD || typeOpen.has(id) || !!pickerFilter.get(id)
+        : !keyless && !st.running)
       : engine.models.length > FILTER_THRESHOLD || engine.models.length === 0 || typeOpen.has(id) || !!pickerFilter.get(id);
     // Local models by how they suit this machine, when the host said what it is (a hint, never a gate).
     const sizeOf = preset.family === 'local' && deps.modelSize ? (modelId: string) => deps.modelSize?.(modelId) : null;

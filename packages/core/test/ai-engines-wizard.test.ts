@@ -246,6 +246,29 @@ describe('setup wizard: step 2, cloud', () => {
     expect(m.c.querySelector('.ai-form .ai-form-privacy')).toBeNull();
   });
 
+  it('step 1 lists no provider policy links, and says the consent step once', async () => {
+    const m = mount({ host: { detectLocalServers: servers(), requestCloudConsent: async () => true } });
+    await flush();
+    const card = m.c.querySelector('.ai-wizard .ai-cloud-access-privacy')!;
+    expect(card.querySelectorAll('li')).toHaveLength(4);
+    expect(card.querySelector('a, .ai-privacy-policy')).toBeNull();
+    // The line above the disclosure already says MikeDown asks first.
+    expect(card.querySelector('.ai-privacy-extra')).toBeNull();
+    // A host that never asks keeps its sentence: nothing above says it.
+    const quiet = mount({ host: { detectLocalServers: servers() } });
+    await flush();
+    expect(text(quiet.c.querySelector('.ai-wizard .ai-cloud-access-privacy .ai-privacy-extra'))).toBe(aiConsentStepNote(false));
+  });
+
+  it('the OpenRouter key note carries the pass-through caveat, and OpenAI\'s has none', async () => {
+    const m = mount({ host: { detectLocalServers: servers() } });
+    await flush();
+    click(q(m.c, 'wiz:card:openrouter'));
+    expect(text(m.c.querySelector('.ai-wizard-subscription'))).toContain('passes each request on to the provider');
+    click(q(m.c, 'wiz:card:openai'));
+    expect(text(m.c.querySelector('.ai-wizard-subscription'))).not.toContain('passes each request on');
+  });
+
   it('a key, then the models, then Continue; Back walks back through the steps', async () => {
     const m = mount({
       host: { detectLocalServers: servers() },
@@ -382,6 +405,18 @@ describe('setup wizard: step 2, the compact form', () => {
     // The whole list is long enough to search.
     expect(q(m.c, `eng:${id}:pick`)).not.toBeNull();
     expect(q(m.c, `eng:${id}:show-all`)!.textContent).toBe('Show popular only');
+  });
+
+  it('Show all models stays a single choice: no checkboxes, chips or per-model settings, even under Advanced', async () => {
+    const { m, id } = await openAiWithKey();
+    click(q(m.c, `eng:${id}:show-all`));
+    click(q(m.c, `eng:${id}:advanced`));
+    const form = m.c.querySelector<HTMLElement>('.ai-form--setup')!;
+    expect(form.querySelector('.ai-listbox')!.getAttribute('aria-multiselectable')).toBe('false');
+    expect(form.querySelector('.ai-models, .ai-model-list, .ai-model-add, .ai-default-select')).toBeNull();
+    expect(form.querySelector('input[type="checkbox"]')).toBeNull();
+    click(m.c.querySelector('.ai-wizard .ai-option[data-model-id="gpt-5-mini"]'));
+    expect(chosenIds(m.c)).toEqual(['gpt-5-mini']);
   });
 
   it('choosing a model makes it the default and the only model the wizard picked', async () => {

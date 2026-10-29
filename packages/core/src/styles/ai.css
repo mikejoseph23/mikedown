@@ -1934,12 +1934,8 @@
   color: var(--settings-fg);
   overflow-wrap: anywhere;
 }
-:is(.mikedown-root, .mikedown-portal) .ai-wizard-title:focus { outline: none; }
-:is(.mikedown-root, .mikedown-portal) .ai-wizard-title:focus-visible {
-  outline: 1px solid var(--settings-focus);
-  outline-offset: 2px;
-  border-radius: 2px;
-}
+/* tabindex -1: only code moves focus here (for screen readers), so no ring, even where :focus-visible would match. */
+:is(.mikedown-root, .mikedown-portal) .ai-wizard-title:is(:focus, :focus-visible) { outline: none; }
 :is(.mikedown-root, .mikedown-portal) .ai-wizard-lede {
   margin: 0;
   max-width: 540px;

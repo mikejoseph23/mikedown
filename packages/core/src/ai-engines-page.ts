@@ -45,7 +45,7 @@
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
-import { AI_ENGINE_PRESETS, AI_HOST_PRESET_FAMILY, AI_PRESET_FAMILIES, modelSizeHint } from './ai';
+import { AI_ENGINE_PRESETS, AI_HOST_PRESET_FAMILY, AI_PRESET_FAMILIES, aiProviderPolicy, modelSizeHint } from './ai';
 import { AI_DETECT_LOOKING, AI_DETECT_NONE, detectLocalServers, hostEngineAvailability, setupHardware } from './ai-local-setup';
 import type { AiEngineConfig, AiEnginePreset, AiEngineStatus, AiHardwareInfo, AiLocalServerProbe, AiPresetFamilyInfo, AiRoute, AiSettings, AiSettingsPatch } from './ai';
 import {
@@ -203,7 +203,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     focusKey,
     openLink: ctx.openLink,
     // In the wizard, the subscription vs API key note sits over a cloud key field.
-    keyNote: (_engine, preset) => (wizard && preset.family === 'cloud' ? subscriptionNote(preset, ctx.openLink) : null),
+    keyNote: (engine, preset) => (wizard && preset.family === 'cloud' ? subscriptionNote(preset, ctx.openLink, aiProviderPolicy(engine)?.note) : null),
     modelSize: (modelId) => (hardware ? modelSizeHint(modelId, hardware) : undefined),
   });
 

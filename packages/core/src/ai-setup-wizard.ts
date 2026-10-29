@@ -68,7 +68,12 @@ export const AI_SUBSCRIPTION_NOTE =
   'An API key is billed separately by the provider, per use.';
 
 /** The subscription vs API key note with the preset's key and pricing links. */
-export function subscriptionNote(preset: Pick<EngineFormPreset, 'name' | 'keyUrl' | 'pricingUrl'>, openLink?: (href: string) => void): HTMLElement {
+export function subscriptionNote(
+  preset: Pick<EngineFormPreset, 'name' | 'keyUrl' | 'pricingUrl'>,
+  openLink?: (href: string) => void,
+  /** The provider's own caveat (OpenRouter passes requests on to the model's provider), when it has one. */
+  providerNote?: string,
+): HTMLElement {
   const box = el('div', 'ai-wizard-subscription');
   box.append(el('p', 'ai-wizard-subscription-text', AI_SUBSCRIPTION_NOTE));
   if (preset.keyUrl || preset.pricingUrl) {
@@ -79,6 +84,7 @@ export function subscriptionNote(preset: Pick<EngineFormPreset, 'name' | 'keyUrl
     if (preset.pricingUrl) {links.append(hostLink('Pricing', preset.pricingUrl, openLink, 'ai-wizard-link'));}
     box.append(links);
   }
+  if (providerNote) {box.append(el('p', 'ai-wizard-subscription-links', providerNote));}
   return box;
 }
 
@@ -463,12 +469,14 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
       el('p', 'ai-wizard-cloud-line', ai.requestCloudConsent
         ? 'Choosing a provider turns on cloud engines; MikeDown still asks before the first request in each workspace.'
         : 'Choosing a provider turns on cloud engines.'),
-      privacyCard(groups.cloud, {
+      // No policy links here: the chosen provider's note and the consent dialog carry its own.
+      privacyCard(null, {
         collapsed: 'What this means',
         open: cloudPrivacyOpen,
         onToggle: (open) => { cloudPrivacyOpen = open; },
         openLink: ctx.openLink,
-        extra: aiConsentStepNote(!!ai.requestCloudConsent),
+        // The line above already says the host asks first.
+        ...(ai.requestCloudConsent ? {} : { extra: aiConsentStepNote(false) }),
         className: 'ai-cloud-access-privacy',
       }),
     );
