@@ -277,7 +277,7 @@ export const AI_ENGINE_PRESETS: readonly AiEnginePreset[] = [
     caption: 'Fast open models such as Llama and Qwen',
     keyHint: 'Get an API key in the Groq console',
     keyUrl: 'https://console.groq.com/keys',
-    pricingUrl: 'https://console.groq.com/docs/billing-faqs',
+    pricingUrl: 'https://console.groq.com/docs/models',
     policy: { label: 'Groq: your data in GroqCloud', url: 'https://console.groq.com/docs/your-data' },
     popular: [
       { label: 'GPT-OSS', match: /^openai\/gpt-oss-\d+b$/ },
