@@ -17,6 +17,7 @@ import {
   applyDiscoveryForFamily,
   autoFetchDecision,
   autoPickDefault,
+  chooseSetupModel,
   discoveryProblem,
   engineDefaultModelId,
   enginePreset,
@@ -28,6 +29,7 @@ import {
   setEngineDefaultModel,
   setModelPicked,
   setModelThinking,
+  setupFields,
 } from '../src/ai-settings-model';
 import type { AutoFetchState } from '../src/ai-settings-model';
 
@@ -106,6 +108,20 @@ describe('expressFields', () => {
     expect(lms.advanced).toEqual(['kind', 'locality', 'key', 'keyEnv', 'keyFile', 'discovery', 'modelsTable']);
 
     expect(expressFields(preset('custom')).express).toContain('key');
+  });
+
+  it('setup mode keeps the key, the local URL and the models; a local key comes out of Advanced when asked', () => {
+    expect(setupFields(preset('openai')).express).toEqual(['key', 'models']);
+    expect(setupFields(preset('omlx')).express).toEqual(['baseUrl', 'key', 'models']);
+    expect(setupFields(preset('vscodelm')).express).toEqual(['models']);
+    const lms = setupFields(preset('lmstudio'));
+    expect(lms.express).toEqual(['baseUrl', 'models']);
+    expect(lms.advanced).toContain('key');
+    const lmsKey = setupFields(preset('lmstudio'), { key: true });
+    expect(lmsKey.express).toEqual(['baseUrl', 'key', 'models']);
+    expect(lmsKey.advanced).not.toContain('key');
+    // A cloud form already has its key in front.
+    expect(setupFields(preset('openai'), { key: true }).express).toEqual(['key', 'models']);
   });
 });
 
@@ -261,6 +277,16 @@ describe('Default model', () => {
     expect(both.routing.default).toEqual({ engineId: 'e1', modelId: 'a' });
     expect(setModelPicked(both, 'e1', 'a', false).routing.default).toEqual({ engineId: 'e1', modelId: 'b' });
     expect(setModelPicked(setModelPicked(both, 'e1', 'b', false), 'e1', 'a', false).routing.default).toBeNull();
+  });
+
+  it('the setup choice is the default and replaces only the model the form chose before', () => {
+    const e = engine({ models: [model('a', { enabled: true }), model('b'), model('mine', { enabled: true })] });
+    const chosen = chooseSetupModel(settingsWith([e], { engineId: 'e1', modelId: 'a' }), 'e1', 'b', 'a');
+    expect(chosen.routing.default).toEqual({ engineId: 'e1', modelId: 'b' });
+    expect(chosen.engines[0].models.map((m) => [m.id, m.enabled])).toEqual([['b', true], ['a', false], ['mine', true]]);
+    // Choosing the same model again, or with nothing chosen before, turns nothing off.
+    expect(chooseSetupModel(chosen, 'e1', 'b', 'b').engines[0].models.filter((m) => m.enabled).map((m) => m.id)).toEqual(['b', 'mine']);
+    expect(chooseSetupModel(settingsWith([e]), 'e1', 'b').engines[0].models.filter((m) => m.enabled).map((m) => m.id)).toEqual(['b', 'a', 'mine']);
   });
 });
 

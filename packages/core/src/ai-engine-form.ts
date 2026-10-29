@@ -32,6 +32,7 @@ import {
   autoFetchDecision,
   autoPickDefault,
   baseUrlProblem,
+  chooseSetupModel,
   defaultRouteForEngine,
   discoveryProblem,
   engineDefaultModelId,
@@ -55,6 +56,7 @@ import {
   setModelContextTokens,
   setModelPicked,
   setModelThinking,
+  setupFields,
   toggleModelCapability,
   withEngine,
   withModel,
@@ -112,8 +114,12 @@ export interface EngineFormController {
    * The form for one engine. Rebuilt on every render; state lives in the
    * controller. `privacy: false` leaves out the "What is sent" card (the
    * setup wizard's cloud step already shows "What this means" above it).
+   * `setup: true` is the wizard's compact form (`setupFields`): no Name,
+   * Default model or Enabled, the key note's link instead of the key hint,
+   * no Test connection, and a single choice of model that is the default,
+   * from the Popular group with the rest behind "Show all models".
    */
-  build(engineId: string, opts?: { privacy?: boolean }): HTMLElement;
+  build(engineId: string, opts?: FormBuildOptions): HTMLElement;
   /**
    * The form was just opened: fetch models when design call 3 says so, and
    * return the `data-fk` to focus (key for a new cloud engine, URL for a new
@@ -126,6 +132,11 @@ export interface EngineFormController {
   forget(engineId: string): void;
   /** Stop every timer (the modal closed). */
   dispose(): void;
+}
+
+export interface FormBuildOptions {
+  privacy?: boolean;
+  setup?: boolean;
 }
 
 /** More models than this and the picker gets a filter field. */
@@ -188,6 +199,10 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
   /** Engines whose "type a model id" field was opened (small lists hide it). */
   const typeOpen = new Set<string>();
   const openOverrides = new Set<string>();
+  /** Setup form: engines whose "Show all models" is open. */
+  const showAll = new Set<string>();
+  /** The model this form picked last per engine (the auto-pick or a setup choice), which a new setup choice replaces. */
+  const formPicked = new Map<string, string>();
   const overrideErrors = new Map<string, { text: string; error: string }>();
 
   const getEngine = (id: string) => deps.getDraft().engines.find((e) => e.id === id);
@@ -303,7 +318,10 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         // (Copilot's models arrive unpicked too, and have no Popular rules: the host's first).
         if ((preset.family === 'cloud' || preset.family === 'host') && !hadPick) {
           picked = autoPickDefault(preset, merged.models) ?? (preset.family === 'host' ? firstChatModelId(merged.models) : null);
-          if (picked) {draft = setEngineDefaultModel(draft, id, picked);}
+          if (picked) {
+            draft = setEngineDefaultModel(draft, id, picked);
+            formPicked.set(id, picked);
+          }
         }
         // The first engine that can chat becomes the default route, so it works without a trip to the star.
         if (!draft.routing.default) {
@@ -437,14 +455,18 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
 
   // ── The form ──────────────────────────────────────────────────────────────
 
-  function build(id: string, opts: { privacy?: boolean } = {}): HTMLElement {
+  function build(id: string, opts: FormBuildOptions = {}): HTMLElement {
     const engine = getEngine(id);
     const wrap = el('div', 'ai-form');
     wrap.id = `ai-engine-editor-${id}`;
     if (!engine) {return wrap;}
     const preset = presetOf(engine);
-    const fields = expressFields(preset);
+    const setup = !!opts.setup;
+    const fields = setup
+      ? setupFields(preset, { key: fetchState(id).problem?.kind === 'auth' || deps.hasKey(id) })
+      : expressFields(preset);
     wrap.dataset.family = preset.family;
+    if (setup) {wrap.classList.add('ai-form--setup');}
     wrap.setAttribute('role', 'group');
     wrap.setAttribute('aria-label', `${engineDisplayName(engine)} settings`);
 
@@ -462,15 +484,17 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
 
     const sheet = el('div', 'ai-sheet');
     for (const field of fields.express) {
-      const row = buildExpressField(engine, preset, field);
+      // The note's "Get a key" line replaces the hint under the field (W11).
+      const keyNote = field === 'key' && ai.setSecret ? deps.keyNote?.(engine, preset) ?? null : null;
+      const row = field === 'key' ? buildKey(engine, preset, { hint: !keyNote }) : buildExpressField(engine, preset, field, setup);
       if (!row) {continue;}
-      if (field === 'key') {
-        const keyNote = deps.keyNote?.(engine, preset);
-        if (keyNote) {sheet.append(keyNote);}
-      }
+      if (keyNote) {sheet.append(keyNote);}
       sheet.append(row);
     }
-    wrap.append(sheet, buildActions(engine), ...buildAdvanced(engine, preset, fields.advanced));
+    wrap.append(sheet);
+    // Setup: a model list that loads is the test, so no Test connection.
+    if (!setup) {wrap.append(buildActions(engine));}
+    wrap.append(...buildAdvanced(engine, preset, fields.advanced));
     return wrap;
   }
 
@@ -488,12 +512,12 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     return row;
   }
 
-  function buildExpressField(engine: AiEngineConfig, preset: EngineFormPreset, field: string): HTMLElement | null {
+  function buildExpressField(engine: AiEngineConfig, preset: EngineFormPreset, field: string, setup: boolean): HTMLElement | null {
     switch (field) {
       case 'name': return buildName(engine);
       case 'key': return buildKey(engine, preset);
       case 'baseUrl': return buildUrl(engine, preset, 'express');
-      case 'models': return buildModelsPicker(engine, preset);
+      case 'models': return buildModelsPicker(engine, preset, setup);
       case 'defaultModel': return buildDefaultModel(engine);
       case 'enabled': return buildEnabled(engine);
       default: return null; // `thinking` sits next to Default model.
@@ -514,7 +538,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
 
   // ── API key ───────────────────────────────────────────────────────────────
 
-  function buildKey(engine: AiEngineConfig, preset: EngineFormPreset): HTMLElement | null {
+  /** `hint: false` leaves out the key hint (the key note above the field has the link). */
+  function buildKey(engine: AiEngineConfig, preset: EngineFormPreset, o: { hint?: boolean } = {}): HTMLElement | null {
     if (!ai.setSecret) {return null;}
     const id = engine.id;
     const has = deps.hasKey(id);
@@ -580,12 +605,14 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     } else if (has) {
       caption.innerHTML = `<span class="ai-key-state">${ICONS.check}<span>Stored</span></span>`;
       caption.append(' in the system’s secure storage. Paste a new key to replace it.');
+    } else if (o.hint === false) {
+      // The note above carries the key link.
     } else if (preset.keyUrl) {
       caption.append(hostLink(preset.keyHint, preset.keyUrl, deps.openLink, 'ai-key-link'));
     } else {
       caption.textContent = preset.keyHint;
     }
-    return sheetRow('API key', line, { forId: input.id, caption, className: 'ai-key-row' });
+    return sheetRow('API key', line, { forId: input.id, caption: caption.childNodes.length > 0 ? caption : undefined, className: 'ai-key-row' });
   }
 
   async function clearKey(id: string): Promise<void> {
@@ -642,16 +669,23 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
 
   // ── Models picker ─────────────────────────────────────────────────────────
 
-  function buildModelsPicker(engine: AiEngineConfig, preset: EngineFormPreset): HTMLElement {
+  /**
+   * `setup`: one model, which is the default (W16); cloud engines show the
+   * Popular group with the rest behind "Show all models" (W15); nothing until
+   * a key exists, and no typing an id before there are models (W13).
+   */
+  function buildModelsPicker(engine: AiEngineConfig, preset: EngineFormPreset, setup = false): HTMLElement | null {
     const id = engine.id;
     const st = fetchState(id);
+    const keyless = preset.family === 'cloud' && !deps.hasKey(id) && !(keyText.get(id) ?? '').trim();
+    if (setup && keyless && engine.models.length === 0 && !st.running && !st.problem) {return null;}
     const box = el('div', 'ai-picker');
     const labelId = nextId('ai-models-label');
     const listId = nextId('ai-models-list');
 
     // Head: label with a spinner while fetching, the count, Fetch models.
     const head = el('div', 'ai-picker-head');
-    const label = el('span', 'ai-picker-label', 'Models');
+    const label = el('span', 'ai-picker-label', setup ? 'Model' : 'Models');
     label.id = labelId;
     if (st.running) {
       const spin = el('span', 'ai-spinner');
@@ -659,9 +693,11 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       label.append(spin);
       box.setAttribute('aria-busy', 'true');
     }
-    const count = el('span', 'ai-models-count', st.running ? 'Fetching…' : modelCountLine(engine));
+    // Setup has no "N picked": one model is chosen, and Show all models carries the count.
+    const countLine = (e: AiEngineConfig) => (st.running ? 'Fetching…' : setup ? '' : modelCountLine(e));
+    const count = el('span', 'ai-models-count', countLine(engine));
     head.append(label, count);
-    if (ai.discoverModels) {
+    if (ai.discoverModels && !(setup && keyless)) {
       // "Fetch models" the first time; once there is a list, it refreshes it.
       const fetchBtn = button('ai-link-btn', engine.models.length > 0 ? 'Refresh models' : 'Fetch models', { html: ICONS.refresh, fk: `eng:${id}:fetch` });
       const urlBad = !isHostEngineKind(engine.kind) && !!baseUrlProblem(engine.baseUrl);
@@ -676,8 +712,14 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     box.append(head);
 
     const listed = engine.models.filter((m) => !m.missing).length;
-    const showInput = engine.models.length > FILTER_THRESHOLD || engine.models.length === 0 || typeOpen.has(id) || !!pickerFilter.get(id);
     const popularIds = preset.family === 'cloud' ? popularModels(preset, engine.models).map((m) => m.id) : [];
+    // Setup: the chosen model is the Default model; Popular only, unless the choice is not in it.
+    const chosen = () => (setup ? engineDefaultModelId(deps.getDraft(), id) : null);
+    const chosenAtBuild = chosen();
+    const collapsed = setup && popularIds.length > 0 && !showAll.has(id) && (!chosenAtBuild || popularIds.includes(chosenAtBuild));
+    const showInput = setup
+      ? !collapsed && engine.models.length > 0 && (engine.models.length > FILTER_THRESHOLD || typeOpen.has(id) || !!pickerFilter.get(id))
+      : engine.models.length > FILTER_THRESHOLD || engine.models.length === 0 || typeOpen.has(id) || !!pickerFilter.get(id);
     // Local models by how they suit this machine, when the host said what it is (a hint, never a gate).
     const sizeOf = preset.family === 'local' && deps.modelSize ? (modelId: string) => deps.modelSize?.(modelId) : null;
 
@@ -706,7 +748,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     const list = el('ul', 'ai-listbox');
     list.id = listId;
     list.setAttribute('role', 'listbox');
-    list.setAttribute('aria-multiselectable', 'true');
+    list.setAttribute('aria-multiselectable', String(!setup));
+    if (setup) {list.classList.add('ai-listbox--single');}
     list.setAttribute('aria-labelledby', labelId);
     // Without the text field the list takes focus itself.
     if (!input) {
@@ -736,11 +779,11 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     }
 
     function renderList(): void {
-      const filter = pickerFilter.get(id) ?? '';
+      const filter = collapsed ? '' : pickerFilter.get(id) ?? '';
       const current = getEngine(id) ?? engine;
       const all = modelPickerOptions(current, deps.statuses.get(id), filter);
       const popular = all.filter((o) => popularIds.includes(o.id)).sort((a, b) => popularIds.indexOf(a.id) - popularIds.indexOf(b.id));
-      const rest = all.filter((o) => !popularIds.includes(o.id));
+      const rest = collapsed ? [] : all.filter((o) => !popularIds.includes(o.id));
       const sizes = sizeOf ? new Map(rest.map((o) => [o.id, sizeOf(o.id)])) : null;
       const sized = !!sizes && [...sizes.values()].some((t) => t !== undefined);
       const bySize = (tag: AiModelSizeTag | undefined) => rest.filter((o) => sizes?.get(o.id) === tag);
@@ -777,9 +820,9 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
           ? `No model matches “${filter.trim()}”. Press Enter to add it by id.`
           : st.running
             ? 'Fetching models…'
-            : preset.family === 'cloud' && !deps.hasKey(id) && !(keyText.get(id) ?? '').trim()
+            : keyless
               ? 'Paste your key and the models appear here.'
-              : 'No models yet. Fetch them from the server, or type an id.';
+              : setup ? 'No models yet. Fetch them from the server.' : 'No models yet. Fetch them from the server, or type an id.';
         list.append(empty);
       }
       setActive(Math.min(active, options.length - 1));
@@ -789,10 +832,11 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       const li = el('li', 'ai-option');
       li.id = optionId(i);
       li.setAttribute('role', 'option');
-      li.setAttribute('aria-selected', String(o.enabled));
+      const on = setup ? o.id === chosen() : o.enabled;
+      li.setAttribute('aria-selected', String(on));
       li.dataset.modelId = o.id;
       li.classList.toggle('is-missing', o.missing);
-      li.classList.toggle('is-on', o.enabled);
+      li.classList.toggle('is-on', on);
       const check = el('span', 'ai-option-check');
       check.setAttribute('aria-hidden', 'true');
       check.innerHTML = ICONS.check;
@@ -823,9 +867,23 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       li.addEventListener('mousedown', (e) => e.preventDefault());
       li.addEventListener('click', () => {
         active = i;
-        toggle(o.id);
+        pick(o.id);
       });
       return li;
+    }
+
+    /** Toggle a model, or in setup choose it. */
+    function pick(modelId: string): void {
+      if (setup) {choose(modelId);} else {toggle(modelId);}
+    }
+
+    function choose(modelId: string): void {
+      const model = getEngine(id)?.models.find((m) => m.id === modelId);
+      if (!model || chosen() === modelId) {return;}
+      deps.setDraft(chooseSetupModel(deps.getDraft(), id, modelId, formPicked.get(id)), { head: true, list: true, routing: true });
+      formPicked.set(id, modelId);
+      deps.announce(`${modelDisplayName(model)} chosen.`);
+      refreshAfterPick();
     }
 
     function toggle(modelId: string): void {
@@ -842,7 +900,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     function refreshAfterPick(): void {
       const scroll = list.scrollTop;
       const current = getEngine(id) ?? engine;
-      count.textContent = modelCountLine(current);
+      count.textContent = countLine(current);
       renderList();
       list.scrollTop = scroll;
       const form = box.closest('.ai-form');
@@ -857,7 +915,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       if (!current) {return;}
       const exact = current.models.find((m) => m.id === text);
       if (exact) {
-        if (!exact.enabled) {toggle(exact.id);}
+        if (setup) {choose(exact.id);} else if (!exact.enabled) {toggle(exact.id);}
         return;
       }
       const r = addManualModel(current, text);
@@ -868,6 +926,11 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       let next = withEngine(deps.getDraft(), r.engine);
       // Like a pick: with no default route yet, a typed chat model becomes it.
       if (!next.routing.default && r.model.capabilities.chat && r.engine.enabled) {next = setEngineDefaultModel(next, id, r.model.id);}
+      // Setup: a typed id is the choice.
+      if (setup) {
+        next = chooseSetupModel(next, id, r.model.id, formPicked.get(id));
+        formPicked.set(id, r.model.id);
+      }
       deps.setDraft(next, { head: true, list: !deps.getDraft().routing.default && !!next.routing.default, routing: true });
       pickerFilter.delete(id);
       // Keep the field after a typed id, even on a short list, so the next one can follow.
@@ -892,7 +955,7 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       } else if (e.key === 'Enter' || (e.key === ' ' && !input)) {
         e.preventDefault();
         const typed = input?.value.trim() ?? '';
-        if (active >= 0 && options[active]) {toggle(options[active].id);} else if (typed) {addTyped(typed);}
+        if (active >= 0 && options[active]) {pick(options[active].id);} else if (typed) {addTyped(typed);}
       } else if (e.key === 'Escape') {
         // Clear the filter or the highlight first; only a calm field lets Escape close the modal.
         if (input?.value) {
@@ -923,8 +986,24 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     }
     renderList();
 
-    // Small lists hide the field; typing an id is one click away.
-    if (!input) {
+    // The rest of a cloud provider's list, in setup.
+    if (setup && popularIds.length > 0 && (collapsed || showAll.has(id))) {
+      const more = button('ai-link-btn ai-show-all', collapsed ? `Show all models (${listed})` : 'Show popular only', { fk: `eng:${id}:show-all` });
+      more.setAttribute('aria-expanded', String(!collapsed));
+      more.setAttribute('aria-controls', listId);
+      more.addEventListener('click', () => {
+        if (collapsed) {showAll.add(id);} else {
+          showAll.delete(id);
+          pickerFilter.delete(id);
+        }
+        deps.refresh(id, { form: true });
+        deps.focusKey(`eng:${id}:show-all`);
+      });
+      box.append(more);
+    }
+
+    // Small lists hide the field; typing an id is one click away (in setup, once the whole list shows).
+    if (!input && (!setup || (!collapsed && engine.models.length > 0))) {
       const typeBtn = button('ai-link-btn ai-type-btn', 'Type a model id…', { fk: `eng:${id}:type-open` });
       typeBtn.addEventListener('click', () => {
         typeOpen.add(id);
@@ -1492,6 +1571,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       for (const map of [fetches, keyText, keyStored, keyTimers, pickerFilter, results] as Array<Map<string, unknown>>) {map.delete(id);}
       advancedOpen.delete(id);
       typeOpen.delete(id);
+      showAll.delete(id);
+      formPicked.delete(id);
     },
     dispose() {
       for (const st of fetches.values()) {

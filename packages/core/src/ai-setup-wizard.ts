@@ -9,11 +9,11 @@
  *    "Connect a cloud provider" under it; otherwise the cloud provider cards
  *    lead, with Allow cloud and the privacy card. Local always sits under
  *    **Advanced: run models on this machine**, with the hardware line.
- * 2. **Connect.** Cloud: the provider cards and the Express form inline, with
- *    the subscription vs API key note above the key field. Local: the
- *    detected servers (Install links for the ones not running, Look again)
- *    and the form, whose picker groups models by size. Copilot: the form, when
- *    the one-click path could not finish.
+ * 2. **Connect.** Cloud: the provider cards and the engine form's setup mode
+ *    inline (the subscription vs API key note, the key, then one model from
+ *    the Popular group). Local: the detected servers (Install links for the
+ *    ones not running, Look again) and the form, whose picker groups models
+ *    by size. Copilot: the form, when the one-click path could not finish.
  * 3. **Done.** "Ready: <engine> · <model> · <Local | Cloud>", the privacy
  *    line for where the text goes, and Done.
  *
@@ -528,9 +528,13 @@ export function createSetupWizard(deps: SetupWizardDeps): SetupWizard {
     return holder;
   }
 
-  /** The engine form; on the cloud step "What this means" above already says what is sent, so the form's card is left out. */
+  /**
+   * The engine form in its setup mode (the key, then one model that is the
+   * default). On the cloud step "What this means" above already says what is
+   * sent, so the form's card is left out.
+   */
   function buildForm(id: string): HTMLElement {
-    return form.build(id, { privacy: step !== 'cloud' });
+    return form.build(id, { privacy: step !== 'cloud', setup: true });
   }
 
   function footer(o: { label: string; fk: string; ready: boolean; hint?: string; onClick(): void }): HTMLElement {

@@ -323,6 +323,121 @@ describe('setup wizard: step 2, cloud', () => {
   });
 });
 
+describe('setup wizard: step 2, the compact form', () => {
+  /** OpenAI's listing: two Popular models among many dated snapshots. */
+  const OPENAI_IDS = ['gpt-5', 'gpt-5-mini', 'gpt-5-2025-08-07', 'gpt-5-mini-2025-08-07', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4o-2024-08-06', 'o3', 'o4-mini'];
+
+  async function openAiWithKey(): Promise<{ m: Mounted; id: string }> {
+    const m = mount({
+      host: { detectLocalServers: servers() },
+      discover: async (engineId) => listing(engineId, OPENAI_IDS, { isLocal: false, hasKey: true }),
+    });
+    await flush();
+    click(q(m.c, 'wiz:card:openai'));
+    const id = addedId(m.c);
+    const key = q<HTMLInputElement>(m.c, `eng:${id}:key`)!;
+    key.value = 'sk-test';
+    key.dispatchEvent(new Event('input', { bubbles: true }));
+    key.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flush(8);
+    return { m, id };
+  }
+
+  const optionIds = (c: HTMLElement) => Array.from(c.querySelectorAll<HTMLElement>('.ai-wizard .ai-option')).map((o) => o.dataset.modelId);
+  const chosenIds = (c: HTMLElement) => Array.from(c.querySelectorAll<HTMLElement>('.ai-wizard .ai-option[aria-selected="true"]')).map((o) => o.dataset.modelId);
+
+  it('before a key: the note, then the key field, and nothing else of the form', async () => {
+    const m = mount({ host: { detectLocalServers: servers() } });
+    await flush();
+    click(q(m.c, 'wiz:card:openai'));
+    const id = addedId(m.c);
+    const sheet = m.c.querySelector<HTMLElement>('.ai-form--setup .ai-sheet')!;
+    // The note leads the sheet (no Name above it) and sits right on the key field.
+    expect(sheet.firstElementChild?.classList.contains('ai-wizard-subscription')).toBe(true);
+    expect(sheet.firstElementChild?.nextElementSibling?.classList.contains('ai-key-row')).toBe(true);
+    // One key link: the note's, not the preset's hint under the field.
+    expect(m.c.querySelector('.ai-form .ai-key-link')).toBeNull();
+    expect(Array.from(m.c.querySelectorAll('.ai-form a')).map((a) => a.textContent)).toEqual(['OpenAI API keys', 'Pricing']);
+    for (const fk of ['name', 'enabled', 'default-model', 'thinking', 'test', 'fetch', 'pick', 'type-open']) {
+      expect(q(m.c, `eng:${id}:${fk}`), fk).toBeNull();
+    }
+    expect(m.c.querySelector('.ai-form .ai-picker')).toBeNull();
+  });
+
+  it('after the key: the Popular models only, one chosen, the rest behind Show all models', async () => {
+    const { m, id } = await openAiWithKey();
+    expect(optionIds(m.c)).toEqual(['gpt-5', 'gpt-5-mini']);
+    expect(chosenIds(m.c)).toEqual(['gpt-5']);
+    const list = m.c.querySelector<HTMLElement>('.ai-wizard .ai-listbox')!;
+    expect(list.getAttribute('aria-multiselectable')).toBe('false');
+    expect(q(m.c, `eng:${id}:default-model`)).toBeNull();
+    expect(q(m.c, `eng:${id}:pick`)).toBeNull();
+    const more = q(m.c, `eng:${id}:show-all`)!;
+    expect(more.textContent).toBe(`Show all models (${OPENAI_IDS.length})`);
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+
+    click(more);
+    expect(optionIds(m.c)).toHaveLength(OPENAI_IDS.length);
+    expect(Array.from(m.c.querySelectorAll('.ai-wizard .ai-listbox-heading')).map((h) => h.textContent)).toEqual(['Popular', 'All models']);
+    // The whole list is long enough to search.
+    expect(q(m.c, `eng:${id}:pick`)).not.toBeNull();
+    expect(q(m.c, `eng:${id}:show-all`)!.textContent).toBe('Show popular only');
+  });
+
+  it('choosing a model makes it the default and the only model the wizard picked', async () => {
+    const { m } = await openAiWithKey();
+    click(m.c.querySelector('.ai-wizard .ai-option[data-model-id="gpt-5-mini"]'));
+    expect(chosenIds(m.c)).toEqual(['gpt-5-mini']);
+    click(q(m.c, 'wiz:continue'));
+    expect(title(m.c)).toBe('Ready: OpenAI · gpt-5-mini · Cloud');
+    click(q(m.c, 'wiz:done'));
+    const saved = (m.onDone.mock.calls[0] as [unknown, AiSettings])[1];
+    expect(saved.engines[0].models.filter((x) => x.enabled).map((x) => x.id)).toEqual(['gpt-5-mini']);
+    expect(saved.routing.default?.modelId).toBe('gpt-5-mini');
+  });
+
+  it('a key found in a variable fetches the models without a key typed', async () => {
+    const m = mount({
+      host: {
+        detectLocalServers: servers(),
+        listEngines: vi.fn(async (): Promise<AiEngineStatus[]> => {
+          const id = document.querySelector<HTMLElement>('.ai-wizard .ai-form')?.id.replace('ai-engine-editor-', '');
+          return id ? [{ ...listing(id, [], { isLocal: false }), ok: null, hasKey: true, keySource: 'env' }] : [];
+        }),
+      },
+      discover: async (engineId) => listing(engineId, OPENAI_IDS, { isLocal: false, hasKey: true, keySource: 'env' }),
+    });
+    await flush();
+    click(q(m.c, 'wiz:card:openai'));
+    await flush(10);
+    const id = addedId(m.c);
+    expect(m.ai.setSecret).not.toHaveBeenCalled();
+    expect(text(m.c.querySelector('.ai-key-caption'))).toContain('OPENAI_API_KEY');
+    expect(chosenIds(m.c)).toEqual(['gpt-5']);
+    expect(q(m.c, 'wiz:continue')!.getAttribute('aria-disabled')).toBeNull();
+    expect(q(m.c, `eng:${id}:name`)).toBeNull();
+  });
+
+  it('a local server: the address and its models, no key field, no Name or Enabled', async () => {
+    const m = mount({
+      host: { detectLocalServers: servers({ lmstudio: 2 }), hardwareInfo: async () => MAC_32 },
+      discover: async (engineId) => listing(engineId, ['qwen3-8b', 'llama-3.3-70b']),
+    });
+    await flush();
+    click(q(m.c, 'wiz:advanced'));
+    click(q(m.c, 'wiz:local'));
+    click(q(m.c, 'wiz:card:lmstudio'));
+    await flush(8);
+    const id = addedId(m.c);
+    expect(q(m.c, `eng:${id}:url`)).not.toBeNull();
+    for (const fk of ['key', 'name', 'enabled', 'default-model', 'test']) {
+      expect(q(m.c, `eng:${id}:${fk}`), fk).toBeNull();
+    }
+    expect(text(m.c.querySelector('[data-model-id="qwen3-8b"] .ai-tag--size'))).toBe('fits');
+    expect(m.c.querySelector('.ai-wizard .ai-listbox')!.getAttribute('aria-multiselectable')).toBe('false');
+  });
+});
+
 describe('setup wizard: step 2, local', () => {
   it('lists the servers, with Install links for the ones not running, and Look again', async () => {
     const m = mount({ host: { detectLocalServers: servers({ ollama: 2 }), hardwareInfo: async () => MAC_32 } });

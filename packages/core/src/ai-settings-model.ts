@@ -795,6 +795,22 @@ export function expressFields(preset: Pick<EngineFormPreset, 'id' | 'family' | '
   };
 }
 
+/**
+ * The setup wizard's compact form (W12, W13): the key, the URL on local
+ * servers and one model. Name, Default model, Thinking and Enabled stay on
+ * the full Engines page. `key` brings a local server's key out of Advanced
+ * (it rejected the request without one, or already has one).
+ */
+export function setupFields(preset: Pick<EngineFormPreset, 'id' | 'family' | 'needsKey'>, o: { key?: boolean } = {}): { express: ExpressField[]; advanced: AdvancedField[] } {
+  const { express, advanced } = expressFields(preset);
+  const kept = express.filter((f) => f === 'key' || f === 'baseUrl' || f === 'models');
+  if (o.key && preset.family === 'local' && !kept.includes('key')) {
+    kept.splice(kept.indexOf('models'), 0, 'key');
+    return { express: kept, advanced: advanced.filter((f) => f !== 'key') };
+  }
+  return { express: kept, advanced };
+}
+
 export interface ModelPickerOption {
   id: string;
   /** Display name (label or id). */
@@ -982,6 +998,18 @@ export function setModelPicked(settings: AiSettings, engineId: string, modelId: 
   if (enabled || def?.engineId !== engineId || def.modelId !== modelId) {return next;}
   const replacement = next.engines.find((e) => e.id === engineId)?.models.find((m) => m.enabled && !m.missing);
   return { ...next, routing: { ...next.routing, default: replacement ? { ...def, modelId: replacement.id } : null } };
+}
+
+/**
+ * The setup form's single choice (W16): the chosen model becomes the engine's
+ * Default model, and the one the form chose before it (`previous`, its own
+ * earlier pick or the auto-pick) is turned off, so setup leaves one model
+ * picked. Models picked elsewhere are left alone.
+ */
+export function chooseSetupModel(settings: AiSettings, engineId: string, modelId: string, previous?: string | null): AiSettings {
+  const next = setEngineDefaultModel(settings, engineId, modelId);
+  if (next === settings || !previous || previous === modelId) {return next;}
+  return setModelPicked(next, engineId, previous, false);
 }
 
 /** Set (or with null, clear) a model's thinking level inside its `requestOverrides`. */

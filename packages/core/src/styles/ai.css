@@ -707,7 +707,8 @@
   outline: 1px solid var(--settings-focus);
   outline-offset: 1px;
 }
-:is(.mikedown-root, .mikedown-portal) .ai-type-btn { align-self: flex-start; margin-top: 2px; }
+:is(.mikedown-root, .mikedown-portal) .ai-type-btn,
+:is(.mikedown-root, .mikedown-portal) .ai-show-all { align-self: flex-start; margin-top: 2px; }
 
 /* Models picker: a head line, the combobox field, then the inline listbox. */
 :is(.mikedown-root, .mikedown-portal) .ai-picker {
@@ -815,6 +816,13 @@
   border-color: var(--mikedown-accent, #3f51b5);
   background: var(--mikedown-accent, #3f51b5);
   color: var(--mikedown-accent-text, #fff);
+}
+/* Single choice (the setup form): a radio dot instead of a check. */
+:is(.mikedown-root, .mikedown-portal) .ai-listbox--single .ai-option-check { border-radius: 50%; }
+:is(.mikedown-root, .mikedown-portal) .ai-listbox--single .ai-option-check svg { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-listbox--single .ai-option.is-on .ai-option-check {
+  background: var(--mikedown-accent-text, #fff);
+  border-width: 4.5px;
 }
 :is(.mikedown-root, .mikedown-portal) .ai-option-names {
   display: flex;
@@ -2093,14 +2101,16 @@
   flex-direction: column;
   gap: 10px;
 }
+/* Normal text on a faint accent tint, so it reads in light and dark themes alike. */
 :is(.mikedown-root, .mikedown-portal) .ai-wizard-subscription {
   margin-left: 126px;
   padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--mikedown-accent, #3f51b5) 30%, transparent);
   border-radius: var(--mikedown-radius-sm, 4px);
-  background: var(--ai-tile-bg);
+  background: color-mix(in srgb, var(--mikedown-accent, #3f51b5) 7%, transparent);
   font-size: 12px;
   line-height: 1.5;
-  color: var(--settings-muted);
+  color: var(--settings-fg);
 }
 :is(.mikedown-root, .mikedown-portal) .ai-wizard-subscription-text { margin: 0; }
 :is(.mikedown-root, .mikedown-portal) .ai-wizard-subscription-links { margin: 4px 0 0; }
