@@ -21,3 +21,6 @@ playwright-report/
 
 # npm auth (never commit tokens)
 .npmrc
+
+# Stray scratchpad copies
+packages/desktop/private/tmp/
