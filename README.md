@@ -143,7 +143,12 @@ Type `/toc`, choose **Insert > Table of Contents**, or type `[toc]` on its own l
 
 ### AI Writing Help *(experimental, off by default)*
 
-Turn on **AI features** (`mikedown.ai.enabled`) and pick an engine in the AI tab of the Settings modal. Then rewrite the selection to be shorter, longer or with more detail, simpler, more formal or more casual, at a chosen reading level, or translate it into another language (or the whole document). Explain a selection in plain words, summarize the document with `/summary` (a TL;DR callout or an outline), or get three title ideas with `/title`. The Properties panel can suggest tags, a title and a description. Each AI edit is one undo step, and a warning appears when a tone or translation rewrite could change the document's structure.
+AI is optional and off until you turn on **AI features** (`mikedown.ai.enabled`). Then pick an engine in the AI tab of the Settings modal (or the AI button on the toolbar), and rewrite the selection to be shorter, longer or with more detail, simpler, more formal or more casual, at a chosen reading level, or translate it into another language (or the whole document). Explain a selection in plain words, summarize the document with `/summary` (a TL;DR callout or an outline), or get three title ideas with `/title`. The Properties panel can suggest tags, a title and a description. Each AI edit is one undo step, and a warning appears when a tone or translation rewrite could change the document's structure.
+
+- **Engines:** local first: oMLX, LM Studio, Ollama, llama.cpp server, vLLM, or any OpenAI-compatible server. Cloud engines are Anthropic, OpenAI, OpenRouter, Google Gemini, Groq, Mistral and DeepSeek. Add, test and route them on the AI Engines page (AI tab, **Manage engines**). Ollama is tested against recorded responses only.
+- **Cloud is opt-in:** a cloud engine is never used until `mikedown.ai.allowCloud` is on *and* you allow it for the workspace the first time it would run. The prompt names the engine and what is sent.
+- **Keys and engines stay out of repos:** engines are user settings only, and API keys live in VS Code's secret storage (or an environment variable, or oMLX's own settings file), never in `settings.json`.
+- **MikeDown Desktop** has the same features. Its per-folder cloud consent is saved in the folder's `.mikedown/settings.json`, which a repo can contain, so a cloned folder can arrive with consent for an engine already recorded. Engines, keys and the `allowCloud` switch stay global, so it cannot add an endpoint.
 
 ### Link Navigation and Autocomplete
 

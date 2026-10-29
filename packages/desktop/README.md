@@ -249,6 +249,11 @@ are ports of `packages/core/src/ai/` and run against the shared
   folder (`ai.consent.<engineId>` in that folder's settings file; a window
   with no folder remembers it for the session). The Rust side checks this
   itself, whatever the webview asks for.
+  That consent lives in the folder's `.mikedown/settings.json`, which a repo
+  can contain, so a cloned folder can arrive with consent for an engine id
+  already recorded. It cannot send anything anywhere new (the engine, its URL
+  and `ai.allowCloud` are global), but look at a folder's file before trusting
+  it.
 
 ### Disk, scope and native window state
 
