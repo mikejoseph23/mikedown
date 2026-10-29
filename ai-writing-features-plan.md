@@ -96,6 +96,7 @@ Open questions resolved 2026-10-28 (OQ1 to OQ8, by the orchestrator on Mike's ti
 | D15 | Slash entries when the feature is disabled (OQ6) | **Hide the `ai` slash group whenever availability is not `available`.** `slashcommands.ts` has no disabled-entry rendering (`setSlashDisableHandler` is the "Turn off slash commands" row, unrelated), and a greyed slash row is a poor place for a router reason. The reason surfaces where it already has a home: the AI toolbar menu entries (`{ enabled: false; hint }`) and the Properties Suggest tooltip. No new slash menu feature in this plan. |
 | D16 | Repair retry cost (OQ7) | **One retry, JSON tasks only** (`title`, `frontmatter`); never for `summarize` or rewrite variants. While it runs the popover footer or chips row reads "Fixing the answer format…"; the retry is abortable like the first request. |
 | D17 | Language list (OQ8) | **Fixed list of twelve**, in this order: English, Spanish, French, German, Portuguese, Italian, Dutch, Japanese, Chinese (Simplified), Korean, Arabic, Hindi, then "Other…" (free text, stored as typed). Up to three recent choices float to the top, deduplicated from the list below. |
+| D18 | Selection bubble (Mike, during T3) | **Removed.** Redundant with right-click > Rewrite, the AI toolbar menu ("Rewrite selection…") and Cmd+Option+K, and it covered text. Rewrite entry points are now those three (supersedes the bubble in D1). |
 
 [Return to Top](#ai-writing-features-plan)
 
@@ -350,7 +351,7 @@ Setup: oMLX running at `http://127.0.0.1:8000/v1` with a 7B+ instruct model enab
 
 Checklist, in each host:
 
-- [ ] Select a paragraph → bubble → Rewrite → Tone → Formal: preview streams, engine badge says local, Accept replaces, one `Cmd+Z` restores.
+- [ ] Select a paragraph → right-click → Rewrite → Tone → Formal (the selection bubble was removed, see D18): preview streams, engine badge says local, Accept replaces, one `Cmd+Z` restores.
 - [ ] Same selection → Audience → Grade 8: picker remembers Grade 8 on the second use.
 - [ ] Selection with a link → Translate → Spanish: link URL unchanged; the structure warning does not appear (or appears and is accurate).
 - [ ] Translate → Whole document: frontmatter unchanged, body translated, one undo restores.
@@ -359,7 +360,7 @@ Checklist, in each host:
 - [ ] `/summary` in an empty paragraph: TL;DR streams; toggle to Outline; Insert; undo restores `/summary`.
 - [ ] `/title` on a document with `title:` in frontmatter: three candidates, pick one, Properties sidebar updates; undo.
 - [ ] Properties → Suggest: chips appear; a known workspace tag has no "new" mark; apply one tag and the description; undo each.
-- [ ] Turn AI off in Settings: bubble items, `ai` slash group, Suggest button and the AI menu entries disappear; turn it on with no usable route: the `ai` slash group stays hidden, the AI menu entries and the Suggest button are disabled with a reason (D15).
+- [ ] Turn AI off in Settings: context menu Rewrite items, `ai` slash group, Suggest button and the AI menu entries disappear; turn it on with no usable route: the `ai` slash group stays hidden, the AI menu entries and the Suggest button are disabled with a reason (D15).
 - [ ] Source mode: Formal and Translate on a CM selection; Explain's Insert below; AI menu Summarize inserts at the cursor line.
 
 Sign-off: Mike records the result (pass, or the list of failures) in the Progress Log; failures become gap-fill prompts.
@@ -463,5 +464,7 @@ When a milestone comes back incomplete, the follow-up prompt follows the origina
 **2026-10-28 22:10** - T3 findings gap fill done (Opus, 14 min): F1 `serializeRange` keeps inline marks in rich-mode passages and context (`bf497e4`); F2 `thinkingMaxTokens` adds reasoning headroom (low 1024, med 2048, high 4096, default 2048, cap 8192, bounded by the context window) in `runAiCompletion` (`3a08750`); F2b/F3 length-limit notes and `aiLengthLimitCopy`, `finalizeSummary(..., cutOff)` drops a trailing fragment (`589ccd8`); F4 hints on their own line, one router reason for all AI menu entries (`0939c13`); F6 chips cleared when Suggest becomes unavailable (`998d581`); F7 popover title ellipsizes before the badge and dial (`37430d0`). `test:unit` 2793, `test:edge` 22, `test:packages` 79 (web component 866.7 kB), lint 0 errors, both tsconfigs clean. Re-run of the browser pass next.
 
 **2026-10-28 22:30** - T3 automated re-run (Opus) at `80e7dd2`: 11 of 11 checklist rows and 7 of 7 fixed findings pass in the browser harness against oMLX; F2: 40 natural calls at default and High thinking, 0 empty or cut. Minor observations: O1 after a length cut the `/summary` preview shows the raw text while Insert shows the finalized text (last word dropped, "…"); O2 at High with a long title the badge shrinks to "local · o…" (details in the tooltip). Still for Mike: thinking fields in the VS Code output channel and the Desktop log, Desktop Format > AI menu, and the sign-off. Checklist boxes left for Mike's pass.
+
+**2026-10-28 22:45** - Mike's hands-on findings and decisions. Test connection looked greyed: a forced editor theme kept the VS Code theme's secondary button colours (pale text on a light page); `src/webview/vscode-theme.css` now sets them for forced light and dark (`2e6e6de`, Sonnet; cause inferred from the screenshot, to confirm in a VS Code dev host). O1 summary preview now equals the inserted text after a cut, O2 badge keeps "local · oMLX" and only the model ellipsizes (`41f7766`, Sonnet; O2 checked on a header replica). The bubble's hover was see-through (fix `39f6369`, reverted `ac64daf`); Mike then removed the selection bubble entirely (D18): `056626f` (Sonnet) deletes `createAiRewriteBubble`, its `editor.ts` wiring and CSS, adds a "no selection bubble" test and a CHANGELOG line; web component 882.5 kB. `test:unit` 2797, `test:edge` 22, `test:packages` 79, lint 0 errors, both tsconfigs clean. T3 checklist rows that named the bubble now use the context menu. Still for Mike: confirm Test connection in VS Code, the three host-only checks, sign-off.
 
 [Return to Top](#ai-writing-features-plan)
