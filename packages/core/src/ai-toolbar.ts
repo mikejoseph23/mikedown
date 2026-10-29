@@ -5,7 +5,7 @@
  * The button shows only for a host with an AI adapter (`host.ai` and the
  * `ai` feature) and while `ai.showToolbarButton` is on. With AI off, a click
  * opens the first-run panel: the title, one line of what AI does, the
- * Experimental badge and disclaimer, and Cancel plus one primary button. On
+ * Experimental badge and disclaimer, and Cancel plus one primary button. The disclaimer is one sentence with the full notice behind a link. On
  * a host that can look for local servers (`host.ai.detectLocalServers`) the
  * panel looks while it is open: a running server makes the primary button
  * "Use LM Studio" (one click: engine, models, default route, AI on) with
@@ -23,8 +23,8 @@
 
 import type { AiSettings, AiThinkingChoice, AiThinkingLevel } from './ai';
 import type { AiHostTier } from './ai-settings-model';
-import { button, el, experimentalBadge, experimentalDisclaimer, nextId, privacyLine } from './ai-settings-dom';
-import { AI_DETECT_LOOKING, AI_DETECT_NONE } from './ai-local-setup';
+import { AI_EXPERIMENTAL_DISCLAIMER, button, el, experimentalBadge, nextId, privacyLine } from './ai-settings-dom';
+import { AI_DETECT_LOOKING } from './ai-local-setup';
 import { getPortal } from './portal';
 import type { ToolbarDropdownEntry } from './toolbar-dropdown';
 
@@ -86,6 +86,8 @@ export interface AiToolbarMenuInput {
   onSuggestTitles?(): void;
   onSuggestProperties?(): void;
   onManage(): void;
+  /** "Look again" under the status row: retest the engine the menu is waiting on. Absent: no such row. */
+  onRetest?(): void;
 }
 
 export interface AiToolbarThinkingRow {
@@ -117,6 +119,37 @@ function thinkingRowEntry(row: AiToolbarThinkingRow): ToolbarDropdownEntry {
   };
 }
 
+/** The per-item hint that differs by selection, so it never counts as one shared reason. */
+const SELECT_TEXT_HINT = 'Select text first';
+
+const UNREACHABLE_REASON = /could not reach|no answer|timed out|ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|fetch failed|connection refused/i;
+
+/**
+ * A short status line for a reason shared by several disabled items: "oMLX
+ * isn't reachable" with the full reason as its muted second line, or the
+ * reason as is when it has no better short form.
+ */
+export function aiMenuStatusLine(reason: string): { label: string; detail?: string } {
+  const failed = /^(.+?) failed its last connection test/.exec(reason);
+  if (!failed) {return { label: reason };}
+  return UNREACHABLE_REASON.test(reason)
+    ? { label: `${failed[1]} isn't reachable`, detail: reason }
+    : { label: `${failed[1]} failed its last connection test`, detail: reason.slice(failed[0].length).replace(/^[:.\s]+/, '') || undefined };
+}
+
+/** The reason two or more disabled items share (not "Select text first"), or null. */
+function sharedDisabledReason(states: readonly AiToolbarEntryState[]): string | null {
+  const counts = new Map<string, number>();
+  for (const state of states) {
+    if (state && !state.enabled && state.hint !== SELECT_TEXT_HINT) {counts.set(state.hint, (counts.get(state.hint) ?? 0) + 1);}
+  }
+  let best: string | null = null;
+  for (const [hint, n] of counts) {
+    if (n >= 2 && (best === null || n > counts.get(best)!)) {best = hint;}
+  }
+  return best;
+}
+
 /**
  * The AI menu: one flat list, the same as the context menu's `AI` submenu
  * and the commands (U1): the selection actions, the document actions, the
@@ -127,6 +160,17 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
   const separate = (): void => {
     if (entries.length > 0 && entries[entries.length - 1].type !== 'separator') {entries.push({ type: 'separator' });}
   };
+  // A reason several items share (an engine that cannot be reached) shows once
+  // as a status row on top; the items just grey out.
+  const shared = sharedDisabledReason([input.rewrite, input.explain, input.translate, input.summarize, input.titles, input.properties]);
+  if (shared) {
+    const { label, detail } = aiMenuStatusLine(shared);
+    entries.push({ type: 'action', id: 'ai-status', label, hint: detail, isDisabled: () => true, action: () => {} });
+    if (input.onRetest) {
+      entries.push({ type: 'action', id: 'ai-retest', label: 'Look again', action: () => input.onRetest?.() });
+    }
+    entries.push({ type: 'separator' });
+  }
   const add = (id: string, label: string, icon: string | undefined, state: AiToolbarEntryState | undefined, run: () => void): void => {
     if (!state) {return;}
     entries.push({
@@ -134,7 +178,7 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
       id,
       label,
       icon: icon ?? input.icons.rewrite,
-      hint: state.enabled ? undefined : state.hint,
+      hint: state.enabled || state.hint === shared ? undefined : state.hint,
       isDisabled: () => !state.enabled,
       action: run,
     });
@@ -193,8 +237,11 @@ export interface AiFirstRunPanelHandle {
 /** The one line of verbs under the title (U9). */
 export const AI_FIRST_RUN_VERBS = 'Rewrite, translate, explain, summarize, suggest titles and tags.';
 
-/** Local vs cloud in one line, under the disclaimer (U9). */
-export const AI_FIRST_RUN_WHERE = 'Local engines keep your text here; cloud engines send it to the provider.';
+/** The panel's disclaimer in one sentence; "Read the full notice" reveals `AI_EXPERIMENTAL_DISCLAIMER`. */
+export const AI_FIRST_RUN_NOTICE = 'AI features are experimental, and AI output can be wrong, so review it.';
+
+/** When no local server answered: lead with connecting a provider, local is the advanced option. */
+export const AI_FIRST_RUN_NONE = 'Connect a provider you already use. Running models on this machine is under Advanced.';
 
 /** "LM Studio is running on this computer, 3 models." */
 export function aiDetectFoundText(name: string, models?: number): string {
@@ -236,10 +283,15 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
   title.id = titleId;
   head.append(title, experimentalBadge());
   const verbs = el('p', 'ai-first-run-verbs', AI_FIRST_RUN_VERBS);
-  const text = experimentalDisclaimer();
+  const text = el('p', 'ai-disclaimer ai-first-run-notice', `${AI_FIRST_RUN_NOTICE} `);
   text.id = textId;
-  // Gives way to the privacy line with "Learn more" when a server was found (it says the same, with a link).
-  const where = el('p', 'ai-first-run-where', AI_FIRST_RUN_WHERE);
+  const notice = button('ai-link-btn ai-first-run-notice-toggle', 'Read the full notice', { fk: 'ai-first-run:notice' });
+  notice.setAttribute('aria-expanded', 'false');
+  text.append(notice);
+  const fullNotice = el('p', 'ai-disclaimer ai-first-run-notice-full', AI_EXPERIMENTAL_DISCLAIMER);
+  fullNotice.id = nextId('ai-first-run-notice-full');
+  fullNotice.hidden = true;
+  notice.setAttribute('aria-controls', fullNotice.id);
 
   // Detection and setup progress: one quiet line, read out as it changes.
   const status = el('div', 'ai-first-run-status');
@@ -257,7 +309,7 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
   const privacy = privacyLine(() => setUp());
   privacy.hidden = true;
   const learnMore = privacy.querySelector<HTMLButtonElement>('button')!;
-  panel.append(head, verbs, text, where, status, privacy, actions);
+  panel.append(head, verbs, text, fullNotice, status, privacy, actions);
 
   let found: Extract<AiFirstRunDetection, { kind: 'found' }> | null = null;
   let busy = false;
@@ -301,7 +353,7 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
       if (!busy) {close(true);}
     } else if (e.key === 'Tab') {
       // Keep Tab on the panel's buttons.
-      const order = [learnMore, other, cancel, primary].filter((b) => !b.hidden && !b.closest('[hidden]') && !b.disabled);
+      const order = [notice, learnMore, other, cancel, primary].filter((b) => !b.hidden && !b.closest('[hidden]') && !b.disabled);
       if (order.length === 0) {return;}
       e.preventDefault();
       const at = order.indexOf(document.activeElement as HTMLButtonElement);
@@ -318,7 +370,7 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
   async function useLocal(server: Extract<AiFirstRunDetection, { kind: 'found' }>): Promise<void> {
     if (!opts.onUseLocal) {return;}
     busy = true;
-    for (const b of [learnMore, other, cancel, primary]) {b.disabled = true;}
+    for (const b of [notice, learnMore, other, cancel, primary]) {b.disabled = true;}
     setStatus('working', `Setting up ${server.name}…`);
     try {
       await opts.onUseLocal(server.presetId);
@@ -329,16 +381,21 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
       if (closed) {return;}
       // Back to the plain panel: setup the long way is one click away.
       found = null;
-      for (const b of [learnMore, other, cancel, primary]) {b.disabled = false;}
+      for (const b of [notice, learnMore, other, cancel, primary]) {b.disabled = false;}
       other.hidden = true;
       privacy.hidden = true;
-      where.hidden = false;
       primary.textContent = setUpLabel;
       setStatus('error', err instanceof Error && err.message ? err.message : `${server.name} could not be set up.`);
       primary.focus({ preventScroll: true });
     }
   }
 
+  notice.addEventListener('click', () => {
+    fullNotice.hidden = !fullNotice.hidden;
+    notice.setAttribute('aria-expanded', String(!fullNotice.hidden));
+    notice.textContent = fullNotice.hidden ? 'Read the full notice' : 'Hide the full notice';
+    position(panel, anchor);
+  });
   cancel.addEventListener('click', () => close(true));
   other.addEventListener('click', () => setUp());
   primary.addEventListener('click', () => {
@@ -357,10 +414,9 @@ export function showAiFirstRunPanel(opts: AiFirstRunPanelOptions): AiFirstRunPan
           primary.textContent = `Use ${result.name}`;
           other.hidden = false;
           privacy.hidden = false;
-          where.hidden = true;
           setStatus('found', aiDetectFoundText(result.name, result.models));
         } else if (result.kind === 'none') {
-          setStatus('none', AI_DETECT_NONE);
+          setStatus('none', AI_FIRST_RUN_NONE);
         } else {
           setStatus('hidden');
         }

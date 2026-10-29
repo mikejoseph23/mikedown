@@ -1816,17 +1816,9 @@
   font-size: 12.5px;
   line-height: 1.45;
 }
-/* Local vs cloud: one quiet line under the disclaimer, dropped when the window is short. */
-:is(.mikedown-root, .mikedown-portal) .ai-first-run-where {
-  margin: 6px 0 0;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--settings-muted);
-}
-:is(.mikedown-root, .mikedown-portal) .ai-first-run-where[hidden] { display: none; }
-@media (max-height: 420px) {
-  :is(.mikedown-root, .mikedown-portal) .ai-first-run-where { display: none; }
-}
+/* The disclaimer: one sentence, the full notice behind a link. */
+:is(.mikedown-root, .mikedown-portal) .ai-first-run .ai-first-run-notice-toggle { margin-left: 2px; }
+:is(.mikedown-root, .mikedown-portal) .ai-first-run .ai-first-run-notice-full[hidden] { display: none; }
 /* Detection and setup progress: text-sized, never louder than the copy. */
 :is(.mikedown-root, .mikedown-portal) .ai-first-run-status {
   --ai-ok: var(--mikedown-success, #2e7d32);
@@ -2164,3 +2156,13 @@
   color: var(--settings-muted);
 }
 :is(.mikedown-root, .mikedown-portal) .ai-wizard-privacy .ai-privacy-glyph { margin-top: 3px; }
+
+/* ── Setup wizard: cloud statement and hidden disclaimer (ai-setup-wizard.ts) ── */
+
+:is(.mikedown-root, .mikedown-portal) .ai-page-disclaimer[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-wizard-cloud-line {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--settings-muted, var(--mikedown-text-muted));
+}

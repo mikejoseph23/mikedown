@@ -4,7 +4,7 @@ import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle, type MikeDow
 import { defaultAiSettings, parseAiSettings } from '../src/ai';
 import type { AiSettings, MikeDownAiHost } from '../src/ai';
 import { AI_EXPERIMENTAL_DISCLAIMER } from '../src/ai-settings-dom';
-import { aiSetupTarget, aiToolbarButtonMode, aiToolbarMenuEntries, hideAiFirstRunPanel, showAiFirstRunPanel } from '../src/ai-toolbar';
+import { aiMenuStatusLine, aiSetupTarget, aiToolbarButtonMode, aiToolbarMenuEntries, hideAiFirstRunPanel, showAiFirstRunPanel } from '../src/ai-toolbar';
 import { hideToolbarDropdown } from '../src/toolbar-dropdown';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
@@ -67,6 +67,47 @@ describe('aiToolbarMenuEntries', () => {
     expect(actions[0].isDisabled?.()).toBe(true);
     expect(actions[0].hint).toBe('Select text first');
     expect(actions[1].isDisabled?.()).toBeFalsy();
+  });
+
+  it('one reason shared by several items shows once as a status row, not under each item', () => {
+    const reason = 'oMLX failed its last connection test: Could not reach http://127.0.0.1:8000 (ECONNREFUSED).';
+    const off = { enabled: false as const, hint: reason };
+    const retest = vi.fn();
+    const entries = aiToolbarMenuEntries({
+      ...base, rewrite: off, explain: off, translate: off, summarize: off, titles: off, properties: off, canManageEngines: true, onRetest: retest,
+    });
+    const actions = entries.filter((e) => e.type === 'action');
+    expect(actions.map((e) => e.label)).toEqual([
+      "oMLX isn't reachable", 'Look again', 'Rewrite selection', 'Explain selection', 'Translate…',
+      'Summarize document…', 'Suggest titles…', 'Suggest properties', 'Manage engines…',
+    ]);
+    expect(actions[0]).toMatchObject({ id: 'ai-status', hint: reason });
+    expect(actions[0].isDisabled?.()).toBe(true);
+    expect(actions.filter((e) => e.hint === reason)).toHaveLength(1);
+    expect(actions.slice(2, 8).every((e) => e.isDisabled?.() && !e.hint)).toBe(true);
+    actions[1].action();
+    expect(retest).toHaveBeenCalledOnce();
+  });
+
+  it('per-item reasons stay when items differ', () => {
+    const entries = aiToolbarMenuEntries({
+      ...base,
+      rewrite: { enabled: false, hint: 'Select text first' },
+      explain: { enabled: false, hint: 'Select text first' },
+      translate: { enabled: true },
+      canManageEngines: true,
+    });
+    const actions = entries.filter((e) => e.type === 'action');
+    expect(actions.map((e) => e.id)).toEqual(['ai-rewrite', 'ai-explain', 'ai-translate', 'ai-manage']);
+    expect(actions[0].hint).toBe('Select text first');
+    expect(actions[1].hint).toBe('Select text first');
+  });
+
+  it('a shared failure that is not a network one keeps its error as the detail', () => {
+    expect(aiMenuStatusLine('LM Studio failed its last connection test: 401 Unauthorized')).toEqual({
+      label: 'LM Studio failed its last connection test', detail: '401 Unauthorized',
+    });
+    expect(aiMenuStatusLine('No model is set for this task.')).toEqual({ label: 'No model is set for this task.' });
   });
 
   it('a read-only editor leaves Rewrite out; a tier-1 host gets AI settings…', () => {

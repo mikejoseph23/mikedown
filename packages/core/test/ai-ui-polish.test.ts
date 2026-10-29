@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../src/index';
 import { aiErrorCopy, makeAiError, parseAiSettings } from '../src/ai';
 import type { AiCompletionRequest, AiCompletionResult, AiEngineStatus, AiSettings, MikeDownAiHost } from '../src/ai';
-import { AI_FIRST_RUN_WHERE, hideAiFirstRunPanel, showAiFirstRunPanel } from '../src/ai-toolbar';
+import { AI_FIRST_RUN_NOTICE, hideAiFirstRunPanel, showAiFirstRunPanel } from '../src/ai-toolbar';
+import { AI_EXPERIMENTAL_DISCLAIMER } from '../src/ai-settings-dom';
 import { hideToolbarDropdown } from '../src/toolbar-dropdown';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
@@ -149,10 +150,13 @@ describe('the AI menu with a Copilot route (U1)', () => {
     await settle();
     const items = await openMenu(el);
     const byId = (id: string) => items.find((i) => i.dataset.tddId === id)!;
+    // The reason shows once, in the status row; the entries only grey out.
+    expect(byId('ai-status').querySelector('.tdd-item-label')?.textContent).toMatch(/GitHub Copilot uses an engine kind this app does not support/);
     for (const id of ['ai-rewrite', 'ai-explain', 'ai-translate', 'ai-summarize', 'ai-titles']) {
       expect(byId(id).getAttribute('aria-disabled'), id).toBe('true');
-      expect(byId(id).querySelector('.tdd-item-hint')?.textContent, id).toMatch(/GitHub Copilot uses an engine kind this app does not support/);
+      expect(byId(id).querySelector('.tdd-item-hint'), id).toBeNull();
     }
+    expect(items.filter((i) => /uses an engine kind/.test(i.textContent ?? ''))).toHaveLength(1);
   });
 
   it('a host that reports Copilot: the entries run, and there is no Thinking row (Copilot has no levels)', async () => {
@@ -168,8 +172,8 @@ describe('the AI menu with a Copilot route (U1)', () => {
   });
 });
 
-describe('first-run panel: local vs cloud (U9)', () => {
-  it('says it in one line under the disclaimer, and gives way to the privacy line when a server is found', async () => {
+describe('first-run panel: one-sentence notice', () => {
+  it('has no repeated local vs cloud line, and the full notice sits behind a toggle', async () => {
     const anchor = document.createElement('button');
     document.body.appendChild(anchor);
     let found!: (r: { kind: 'found'; presetId: string; name: string }) => void;
@@ -179,14 +183,22 @@ describe('first-run panel: local vs cloud (U9)', () => {
       detect: () => new Promise((resolve) => { found = resolve; }),
       onUseLocal: vi.fn(async () => {}),
     });
-    const where = handle.element.querySelector<HTMLElement>('.ai-first-run-where')!;
-    expect(where.textContent).toBe(AI_FIRST_RUN_WHERE);
-    expect(where.hidden).toBe(false);
-    expect(where.previousElementSibling?.classList.contains('ai-disclaimer')).toBe(true);
+    const panel = handle.element;
+    expect(panel.textContent).not.toContain('Local engines keep your text here');
+    expect(panel.querySelector('.ai-first-run-notice')!.textContent).toContain(AI_FIRST_RUN_NOTICE);
+    const full = panel.querySelector<HTMLElement>('.ai-first-run-notice-full')!;
+    const toggle = panel.querySelector<HTMLButtonElement>('[data-fk="ai-first-run:notice"]')!;
+    expect(full.textContent).toBe(AI_EXPERIMENTAL_DISCLAIMER);
+    expect(full.hidden).toBe(true);
+    toggle.click();
+    expect(full.hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    toggle.click();
+    expect(full.hidden).toBe(true);
+    expect(panel.querySelector<HTMLElement>('.ai-privacy-line')!.hidden).toBe(true);
     found({ kind: 'found', presetId: 'lmstudio', name: 'LM Studio' });
     await settle();
-    expect(where.hidden).toBe(true);
-    expect(handle.element.querySelector<HTMLElement>('.ai-privacy-line')!.hidden).toBe(false);
+    expect(panel.querySelector<HTMLElement>('.ai-privacy-line')!.hidden).toBe(false);
     handle.close();
     anchor.remove();
   });

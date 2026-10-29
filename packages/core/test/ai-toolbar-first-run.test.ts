@@ -11,8 +11,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle } from '../src/index';
 import { parseAiSettings, serializeAiSettings } from '../src/ai';
 import type { AiEngineStatus, AiLocalServerProbe, AiSettings, MikeDownAiHost } from '../src/ai';
-import { AI_DETECT_LOOKING, AI_DETECT_NONE } from '../src/ai-local-setup';
-import { aiDetectFoundText, hideAiFirstRunPanel, showAiFirstRunPanel, type AiFirstRunDetection } from '../src/ai-toolbar';
+import { AI_DETECT_LOOKING } from '../src/ai-local-setup';
+import { AI_FIRST_RUN_NONE, aiDetectFoundText, hideAiFirstRunPanel, showAiFirstRunPanel, type AiFirstRunDetection } from '../src/ai-toolbar';
 import { hideToolbarDropdown } from '../src/toolbar-dropdown';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
@@ -82,10 +82,10 @@ describe('first-run panel states (detect promise)', () => {
     expect(p.primary.textContent).toBe('Use Ollama');
   });
 
-  it('none found: the "No local AI server found…" line, the plain "Set up" button, no other way', async () => {
+  it('none found: the cloud-first line, the plain "Set up" button, no other way', async () => {
     const p = open({ detect: async () => ({ kind: 'none' }), onUseLocal: async () => {} });
     await tick();
-    expect(p.status().textContent).toBe(AI_DETECT_NONE);
+    expect(p.status().textContent).toBe(AI_FIRST_RUN_NONE);
     expect(p.status().dataset.state).toBe('none');
     expect(p.primary.textContent).toBe('Set up');
     expect(p.other.hidden).toBe(true);
@@ -252,7 +252,7 @@ describe('first-run panel in the editor, with a host that finds local servers', 
   it('offers "Set up" with the none-found line when nothing answers', async () => {
     const t = mountWithHost({ probes: PROBES.map((p) => ({ ...p, ok: false, models: undefined })) });
     t.button.click();
-    await vi.waitFor(() => expect(t.panel()!.querySelector('.ai-first-run-status')!.textContent).toBe(AI_DETECT_NONE));
+    await vi.waitFor(() => expect(t.panel()!.querySelector('.ai-first-run-status')!.textContent).toBe(AI_FIRST_RUN_NONE));
     expect(t.primary()!.textContent).toBe('Set up');
   });
 
