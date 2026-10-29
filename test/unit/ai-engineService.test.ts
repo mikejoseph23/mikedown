@@ -839,3 +839,167 @@ describe('consent answers and fingerprints (T2)', () => {
     expect(consent.get('claude')!.at).toBeGreaterThanOrEqual(before);
   });
 });
+
+describe('detectLocalServers (T1)', () => {
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+  /** A fetch that answers per URL, remembers every request, and hangs (until aborted) for a URL it has no answer for. */
+  function fakeFetch(routes: Record<string, (init: RequestInit | undefined) => Response | Promise<Response>>) {
+    const calls: Array<{ url: string; headers: Record<string, string> }> = [];
+    const fetch = vi.fn((url: string, init?: RequestInit) => {
+      calls.push({ url, headers: { ...(init?.headers as Record<string, string> | undefined) } });
+      const route = routes[url];
+      if (route) {return Promise.resolve(route(init));}
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), { once: true });
+      });
+    });
+    return { fetch, calls };
+  }
+
+  function service(fetch: EngineServiceDeps['fetch'], opts: { env?: Record<string, string>; now?: () => number } = {}) {
+    const log: string[] = [];
+    const settings = parseAiSettings({ enabled: true, engines: [] }, { onWarning: () => {} });
+    const svc = new AiEngineService({
+      readSettings: () => settings,
+      // A home with no ~/.omlx, so a developer's real oMLX key file never answers for the test.
+      secrets: new AiSecrets(memoryStore(), opts.env ?? {}, () => path.join(os.tmpdir(), 'mikedown-no-such-home')),
+      consent: { get: () => undefined, set: async () => {}, forget: async () => {}, ids: () => [] },
+      askConsent: async () => 'allow',
+      saveEngines: async () => {},
+      log: (l) => log.push(l),
+      adapters: new Map(),
+      fetch,
+      now: opts.now,
+    });
+    return { svc, log };
+  }
+
+  const LMS = { presetId: 'lmstudio', baseUrl: 'http://127.0.0.1:1234/v1' };
+  const OLLAMA = { presetId: 'ollama', baseUrl: 'http://127.0.0.1:11434/v1' };
+  const OMLX = { presetId: 'omlx', baseUrl: 'http://127.0.0.1:8000/v1' };
+  const LMS_URL = 'http://127.0.0.1:1234/api/v0/models';
+  const OLLAMA_URL = 'http://127.0.0.1:11434/api/tags';
+  const OMLX_URL = 'http://127.0.0.1:8000/v1/models';
+
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('asks each address its own native list in parallel, counts the models, and logs one line', async () => {
+    const { fetch, calls } = fakeFetch({
+      [LMS_URL]: () => json({ data: [{ id: 'a', type: 'llm' }, { id: 'b', type: 'vlm' }, { id: 'e', type: 'embeddings' }] }),
+      [OLLAMA_URL]: () => json({ models: [{ name: 'llama3' }] }),
+      [OMLX_URL]: () => Promise.reject(new TypeError('fetch failed')),
+    });
+    let t = 1000;
+    const { svc, log } = service(fetch, { now: () => (t += 7) });
+    const probes = await svc.detectLocalServers([OMLX, LMS, OLLAMA]);
+    expect(probes).toEqual([
+      { ...OMLX, ok: false },
+      { ...LMS, ok: true, models: 2, latencyMs: expect.any(Number) },
+      { ...OLLAMA, ok: true, models: 1, latencyMs: expect.any(Number) },
+    ]);
+    expect(calls.map((c) => c.url).sort()).toEqual([LMS_URL, OLLAMA_URL, OMLX_URL].sort());
+    // A GET that carries no key to a server that did not ask for one.
+    expect(calls.every((c) => !('authorization' in c.headers))).toBe(true);
+    expect(log).toEqual(['Detect local servers: oMLX no answer, LM Studio ok (2 models), Ollama ok (1 model).']);
+  });
+
+  it('gives up on an address after 1.5 s, not before, and answers the rest on time', async () => {
+    vi.useFakeTimers();
+    const { fetch } = fakeFetch({ [LMS_URL]: () => json({ data: [{ id: 'a' }] }) });
+    const { svc, log } = service(fetch);
+    let done = false;
+    const run = svc.detectLocalServers([LMS, OLLAMA]).then((p) => { done = true; return p; });
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    const probes = await run;
+    expect(probes[0]).toMatchObject({ presetId: 'lmstudio', ok: true, models: 1 });
+    expect(probes[1]).toEqual({ ...OLLAMA, ok: false });
+    expect(log).toEqual(['Detect local servers: LM Studio ok (1 model), Ollama no answer.']);
+  });
+
+  it('never caches: every call asks again and reports what is there now', async () => {
+    let up = false;
+    const { fetch, calls } = fakeFetch({ [OLLAMA_URL]: () => (up ? json({ models: [{ name: 'a' }, { name: 'b' }] }) : Promise.reject(new TypeError('fetch failed'))) });
+    const { svc, log } = service(fetch);
+    expect((await svc.detectLocalServers([OLLAMA]))[0].ok).toBe(false);
+    up = true;
+    expect((await svc.detectLocalServers([OLLAMA]))[0]).toMatchObject({ ok: true, models: 2 });
+    expect(calls).toHaveLength(2);
+    expect(log).toEqual(['Detect local servers: Ollama no answer.', 'Detect local servers: Ollama ok (2 models).']);
+    // Nor does it touch the engine status cache.
+    expect(await svc.listEngines()).toEqual([]);
+  });
+
+  it('counts a server that answers with a body of another shape as running, without a count', async () => {
+    const { fetch } = fakeFetch({ [OLLAMA_URL]: () => json({ hello: 'world' }) });
+    const { svc, log } = service(fetch);
+    const [probe] = await svc.detectLocalServers([OLLAMA]);
+    expect(probe).toMatchObject({ ok: true });
+    expect(probe).not.toHaveProperty('models');
+    expect(log[0]).toBe('Detect local servers: Ollama ok.');
+  });
+
+  it('retries a 401 once with the preset\'s own key (oMLX), and a server that stays shut says it needs a key', async () => {
+    const authed = fakeFetch({
+      [OMLX_URL]: (init) => ((init?.headers as Record<string, string>).authorization === 'Bearer sk-omlx' ? json({ data: [{ id: 'qwen' }] }) : json({ error: 'no key' }, 401)),
+    });
+    const withKey = service(authed.fetch, { env: { OMLX_API_KEY: 'sk-omlx' } });
+    expect((await withKey.svc.detectLocalServers([OMLX]))[0]).toMatchObject({ ok: true, models: 1 });
+    expect(authed.calls).toHaveLength(2);
+    expect(authed.calls[0].headers.authorization).toBeUndefined();
+    expect(authed.calls[1].headers.authorization).toBe('Bearer sk-omlx');
+    expect(withKey.log).toEqual(['Detect local servers: oMLX ok (1 model).']);
+
+    const shut = fakeFetch({ [OMLX_URL]: () => json({ error: 'no key' }, 401) });
+    const noKey = service(shut.fetch);
+    expect((await noKey.svc.detectLocalServers([OMLX]))[0]).toEqual({ ...OMLX, ok: false });
+    expect(shut.calls).toHaveLength(1);
+    expect(noKey.log).toEqual(['Detect local servers: oMLX needs a key.']);
+  });
+
+  it('sends a key only to the preset\'s own address, never to another host that asks', async () => {
+    const elsewhere = { presetId: 'omlx', baseUrl: 'http://10.0.0.5:8000/v1' };
+    const { fetch, calls } = fakeFetch({ 'http://10.0.0.5:8000/v1/models': () => json({ error: 'no key' }, 401) });
+    const { svc } = service(fetch, { env: { OMLX_API_KEY: 'sk-omlx' } });
+    expect((await svc.detectLocalServers([elsewhere]))[0].ok).toBe(false);
+    expect(calls).toHaveLength(1);
+    expect(JSON.stringify(calls)).not.toContain('sk-omlx');
+  });
+
+  it('refuses anything that is not a known local preset at an http address, without a request', async () => {
+    const { fetch } = fakeFetch({});
+    const { svc, log } = service(fetch);
+    const probes = await svc.detectLocalServers([
+      { presetId: 'anthropic', baseUrl: 'https://api.anthropic.com' },
+      { presetId: 'custom', baseUrl: 'http://127.0.0.1:8000/v1' },
+      { presetId: 'ollama', baseUrl: 'file:///etc/passwd' },
+      { presetId: 'ollama' },
+      'junk',
+      null,
+      42,
+    ]);
+    expect(probes.map((p) => p.ok)).toEqual(Array(7).fill(false));
+    expect(fetch).not.toHaveBeenCalled();
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatch(/^Detect local servers: Anthropic not a local preset, /);
+  });
+
+  it('looks at no more than 32 candidates, and an empty list asks nothing', async () => {
+    const { fetch } = fakeFetch({ [OLLAMA_URL]: () => json({ models: [] }) });
+    const { svc, log } = service(fetch);
+    expect(await svc.detectLocalServers(Array.from({ length: 40 }, () => OLLAMA))).toHaveLength(32);
+    expect(await svc.detectLocalServers([])).toEqual([]);
+    expect(log[1]).toBe('Detect local servers: nothing asked.');
+  });
+});
+
+describe('key source in the engine list (B1, T1)', () => {
+  it('names a key found in the engine\'s variable as env, and never sends the key itself', async () => {
+    const { service } = setup(rawSettings, { env: { OMLX_API_KEY: 'from-env' } });
+    const omlx = (await service.listEngines()).find((s) => s.engineId === 'omlx');
+    expect(omlx).toMatchObject({ hasKey: true, keySource: 'env' });
+    expect(JSON.stringify(omlx)).not.toContain('from-env');
+  });
+});

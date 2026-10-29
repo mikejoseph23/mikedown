@@ -218,4 +218,111 @@ mod tests {
         assert!(info.total_memory_bytes > 0);
         assert!(!info.platform.is_empty());
     }
+
+    #[test]
+    fn the_log_line_names_the_card_or_says_none_was_found() {
+        let mut info = HardwareInfo {
+            arch: "x64".into(),
+            platform: "linux".into(),
+            total_memory_bytes: 64 * 1024 * 1024 * 1024,
+            apple_silicon: false,
+            cpu: Some("AMD Ryzen 9".into()),
+            gpu: Some(GpuInfo { vendor: "nvidia".into(), vram_bytes: Some(24 * 1024 * 1024 * 1024), name: Some("NVIDIA GeForce RTX 4090".into()) }),
+        };
+        assert_eq!(log_line(&info), "Hardware: linux x64, AMD Ryzen 9, 64 GB, NVIDIA GeForce RTX 4090 (24 GB)");
+        info.gpu = None;
+        info.cpu = None;
+        assert_eq!(log_line(&info), "Hardware: linux x64, 64 GB, no GPU found");
+    }
+
+    // ── nvidia-smi on the PATH ──────────────────────────────────────────────
+    //
+    // `PATH` is process-wide and other tests start programs, so each case runs
+    // in a copy of this test binary with its own PATH (the parent tests below
+    // spawn it); the child test does nothing in a normal run.
+
+    /// The child half: reads the GPU with whatever PATH this process was given and checks the expectation named in the environment.
+    #[tokio::test]
+    async fn child_reads_nvidia_smi_from_the_path() {
+        let Ok(expect) = std::env::var("MIKEDOWN_T1_NVIDIA_EXPECT") else { return };
+        let gpu = nvidia_gpu().await;
+        match expect.as_str() {
+            "none" => assert_eq!(gpu, None),
+            "rtx4090" => {
+                let gpu = gpu.expect("a card");
+                assert_eq!(gpu.vendor, "nvidia");
+                assert_eq!(gpu.name.as_deref(), Some("NVIDIA GeForce RTX 4090"));
+                assert_eq!(gpu.vram_bytes, Some(24564 * 1024 * 1024));
+            }
+            other => panic!("unknown expectation {other}"),
+        }
+    }
+
+    #[cfg(unix)]
+    mod with_nvidia_smi {
+        use std::os::unix::fs::PermissionsExt;
+        use std::path::{Path, PathBuf};
+        use std::process::Command;
+        use std::time::{Duration, Instant};
+
+        /// A folder to use as the whole PATH, with `nvidia-smi` as `script` (none: the folder is empty).
+        fn path_with(tag: &str, script: Option<&str>) -> PathBuf {
+            let dir = std::env::temp_dir().join(format!("mikedown-t1-nvidia-{}-{tag}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            if let Some(body) = script {
+                let file = dir.join("nvidia-smi");
+                std::fs::write(&file, body).unwrap();
+                std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
+            }
+            dir
+        }
+
+        /// This binary, running only the child test, with `path` as its PATH.
+        fn run_child(path: &Path, expect: &str) -> (bool, String, Duration) {
+            let started = Instant::now();
+            let out = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "commands::ai::hardware::tests::child_reads_nvidia_smi_from_the_path", "--nocapture", "--test-threads=1"])
+                .env("PATH", path)
+                .env("MIKEDOWN_T1_NVIDIA_EXPECT", expect)
+                .output()
+                .unwrap();
+            let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            // "1 passed" proves the child test really ran and was not filtered out.
+            (out.status.success() && text.contains("1 passed"), text, started.elapsed())
+        }
+
+        /// What `nvidia-smi` prints for two cards, after checking it was called the way `nvidia_gpu` should call it.
+        const TWO_CARDS: &str = "#!/bin/sh\n[ \"$1\" = \"--query-gpu=name,memory.total\" ] && [ \"$2\" = \"--format=csv,noheader\" ] || exit 2\necho \"NVIDIA GeForce RTX 3060, 12288 MiB\"\necho \"NVIDIA GeForce RTX 4090, 24564 MiB\"\n";
+
+        #[test]
+        fn an_nvidia_smi_on_the_path_is_asked_for_name_and_memory_and_the_largest_card_wins() {
+            let (ok, text, _) = run_child(&path_with("present", Some(TWO_CARDS)), "rtx4090");
+            assert!(ok, "{text}");
+        }
+
+        #[test]
+        fn no_nvidia_smi_on_the_path_is_no_gpu_not_an_error() {
+            let (ok, text, _) = run_child(&path_with("absent", None), "none");
+            assert!(ok, "{text}");
+        }
+
+        #[test]
+        fn an_nvidia_smi_that_fails_or_prints_junk_is_no_gpu() {
+            let failing = "#!/bin/sh\necho \"NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver.\"\nexit 9\n";
+            let (ok, text, _) = run_child(&path_with("failing", Some(failing)), "none");
+            assert!(ok, "{text}");
+            // Exit 0 with nothing it can read.
+            let junk = "#!/bin/sh\necho \"No devices were found\"\n";
+            let (ok, text, _) = run_child(&path_with("junk", Some(junk)), "none");
+            assert!(ok, "{text}");
+        }
+
+        #[test]
+        fn an_nvidia_smi_that_hangs_costs_the_hint_after_three_seconds_and_nothing_more() {
+            let (ok, text, elapsed) = run_child(&path_with("hang", Some("#!/bin/sh\nexec /bin/sleep 20\n")), "none");
+            assert!(ok, "{text}");
+            assert!(elapsed >= Duration::from_secs(3) && elapsed < Duration::from_secs(15), "took {elapsed:?}");
+        }
+    }
 }

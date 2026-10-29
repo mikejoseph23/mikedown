@@ -356,3 +356,129 @@ async fn test_and_discover_report_status_and_remember_it_for_the_engine_list() {
     assert_eq!(ai_test_engine(app.clone(), h.state(), "nope".into()).await.unwrap_err().code, ErrorCode::ModelNotFound);
     assert_eq!(ai_discover_models(app, h.state(), "nope".into()).await.unwrap_err().code, ErrorCode::ModelNotFound);
 }
+
+// ── Setup wizard commands (T1) ──────────────────────────────────────────────
+
+fn candidate(preset: &str, base_url: &str) -> detect::DetectCandidate {
+    detect::DetectCandidate { preset_id: preset.into(), base_url: base_url.into() }
+}
+
+/// An address nothing listens on.
+async fn dead_url() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/v1", listener.local_addr().unwrap());
+    drop(listener);
+    url
+}
+
+/// A server that accepts connections and never says a word.
+async fn silent_server() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move {
+        let mut held = Vec::new();
+        loop {
+            let Ok((socket, _)) = listener.accept().await else { return };
+            held.push(socket);
+        }
+    });
+    url
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn ai_detect_local_servers_answers_one_probe_per_candidate_in_order_and_asks_again_every_time() {
+    let (lms, seen) = serve(|_| Reply::Json(200, json!({ "data": [{ "id": "a", "type": "llm" }, { "id": "e", "type": "embeddings" }] }))).await;
+    let dead = dead_url().await;
+    let h = Harness::new("detect-order", settings_for(&format!("{lms}/v1"), json!({})));
+    let lms_url = format!("{lms}/v1");
+
+    let probes = ai_detect_local_servers(h.state(), vec![candidate("ollama", &dead), candidate("lmstudio", &lms_url)]).await.unwrap();
+    let wire = serde_json::to_value(&probes).unwrap();
+    // Core's AiLocalServerProbe, camelCase; a silent address carries no models or latency.
+    assert_eq!(wire[0], json!({ "presetId": "ollama", "baseUrl": dead, "ok": false }));
+    assert_eq!((wire[1]["presetId"].clone(), wire[1]["ok"].clone(), wire[1]["models"].clone()), (json!("lmstudio"), json!(true), json!(1)));
+    assert!(wire[1]["latencyMs"].is_u64());
+    assert_eq!(seen.lock().unwrap()[0].path, "/api/v0/models");
+    assert_eq!(seen.lock().unwrap()[0].method, "GET");
+
+    // Nothing is remembered: a second look is a second request.
+    ai_detect_local_servers(h.state(), vec![candidate("lmstudio", &lms_url)]).await.unwrap();
+    assert_eq!(seen.lock().unwrap().len(), 2);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn ai_detect_local_servers_caps_a_silent_address_at_the_timeout_and_answers_the_others_meanwhile() {
+    let silent = silent_server().await;
+    let (fast, _) = serve(|_| Reply::Json(200, json!({ "models": [{ "name": "llama3" }] }))).await;
+    let h = Harness::new("detect-timeout", settings_for(&format!("{fast}/v1"), json!({})));
+
+    let started = std::time::Instant::now();
+    let probes = ai_detect_local_servers(
+        h.state(),
+        vec![candidate("lmstudio", &format!("{silent}/v1")), candidate("ollama", &format!("{fast}/v1"))],
+    )
+    .await
+    .unwrap();
+    let elapsed = started.elapsed();
+
+    assert!(!probes[0].ok && probes[0].models.is_none() && probes[0].latency_ms.is_none());
+    assert!(probes[1].ok && probes[1].models == Some(1));
+    // Both ran at once, so the whole look took one cap, not two, and not the 30 s a stuck server would hold.
+    assert!(elapsed >= detect::DETECT_TIMEOUT - Duration::from_millis(100), "gave up too early: {elapsed:?}");
+    assert!(elapsed < detect::DETECT_TIMEOUT + Duration::from_millis(1200), "waited too long: {elapsed:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn ai_detect_local_servers_makes_no_request_for_what_is_not_a_local_preset_and_looks_at_32_at_most() {
+    let (fast, seen) = serve(|_| Reply::Json(200, json!({ "models": [] }))).await;
+    let h = Harness::new("detect-refuse", settings_for(&format!("{fast}/v1"), json!({})));
+
+    let refused = ai_detect_local_servers(
+        h.state(),
+        vec![
+            candidate("anthropic", "https://api.anthropic.com"),
+            candidate("custom", &format!("{fast}/v1")),
+            candidate("ollama", "file:///etc/passwd"),
+            candidate("ollama", "http://"),
+            candidate("", ""),
+        ],
+    )
+    .await
+    .unwrap();
+    assert_eq!(refused.iter().map(|p| p.preset_id.as_str()).collect::<Vec<_>>(), vec!["anthropic", "custom", "ollama", "ollama", ""]);
+    assert!(refused.iter().all(|p| !p.ok));
+    assert!(seen.lock().unwrap().is_empty());
+
+    let many = (0..40).map(|_| candidate("ollama", &format!("{fast}/v1"))).collect();
+    assert_eq!(ai_detect_local_servers(h.state(), many).await.unwrap().len(), 32);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn ai_detect_local_servers_does_not_send_a_key_to_a_server_that_did_not_ask_for_one() {
+    // The first GET carries no key at all, whatever the preset could supply.
+    let (omlx, seen) = serve(|_| Reply::Json(200, json!({ "data": [{ "id": "m" }] }))).await;
+    let h = Harness::new("detect-nokey", settings_for(&format!("{omlx}/v1"), json!({})));
+    let probes = ai_detect_local_servers(h.state(), vec![candidate("omlx", &format!("{omlx}/v1"))]).await.unwrap();
+    assert!(probes[0].ok);
+    let requests = seen.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    assert!(!requests[0].headers.contains_key("authorization"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn ai_hardware_info_answers_cores_shape_and_the_same_answer_every_time() {
+    let first = ai_hardware_info().await.unwrap();
+    let wire = serde_json::to_value(&first).unwrap();
+    for key in ["arch", "platform", "totalMemoryBytes", "appleSilicon"] {
+        assert!(wire.get(key).is_some(), "missing {key}");
+    }
+    assert!(wire["totalMemoryBytes"].as_u64().unwrap() > 0);
+    assert!(["darwin", "win32", "linux"].contains(&wire["platform"].as_str().unwrap()));
+    assert_eq!(first.apple_silicon, cfg!(all(target_os = "macos", target_arch = "aarch64")));
+    if first.apple_silicon {
+        // The GPU shares the memory, so the card reads as the whole of it.
+        let gpu = first.gpu.clone().expect("apple gpu");
+        assert_eq!((gpu.vendor.as_str(), gpu.vram_bytes), ("apple", Some(first.total_memory_bytes)));
+    }
+    assert_eq!(ai_hardware_info().await.unwrap(), first);
+}

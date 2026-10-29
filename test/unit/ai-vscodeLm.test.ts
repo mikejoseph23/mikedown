@@ -152,3 +152,126 @@ describe('engine service: setup wizard methods', () => {
     expect((await none.svc.detectHostEngines())[0]).toMatchObject({ ok: false, models: 0 });
   });
 });
+
+describe('vscode-lm adapter (T1)', () => {
+  const signal = () => new AbortController().signal;
+
+  /** A fake api that records what the token source and the selector saw. */
+  function spyApi(models: VsCodeLmModel[]) {
+    const selectors: Array<{ vendor?: string; family?: string }> = [];
+    let disposed = 0;
+    let cancelled = 0;
+    const base = fakeApi(models);
+    const api: VsCodeLmApi = {
+      selectChatModels: async (selector) => { selectors.push(selector); return base.selectChatModels(selector); },
+      userMessage: base.userMessage,
+      assistantMessage: base.assistantMessage,
+      tokenSource: () => ({ token: {}, cancel: () => { cancelled++; }, dispose: () => { disposed++; } }),
+    };
+    return { api, selectors, counts: () => ({ disposed, cancelled }) };
+  }
+
+  it('lists only Copilot\'s models, one per family, and asks VS Code for that vendor', async () => {
+    const { api, selectors } = spyApi([lmModel('gpt-4o'), { ...lmModel('someone-elses'), vendor: 'other-ext' }, lmModel('claude-sonnet-4')]);
+    const models = await createVsCodeLmAdapter(api).listModels(engine, null, signal());
+    expect(models.map((m) => m.id)).toEqual(['copilot/gpt-4o', 'copilot/claude-sonnet-4']);
+    expect(selectors).toEqual([{ vendor: 'copilot' }]);
+  });
+
+  it('a model without a known context window is listed without contextTokens', async () => {
+    const [m] = await createVsCodeLmAdapter(fakeApi([{ ...lmModel('gpt-4o'), maxInputTokens: 0 }])).listModels(engine, null, signal());
+    expect(m.capabilities).toEqual({ chat: true, stream: true });
+  });
+
+  it('sends system and user text as user messages, assistant turns as assistant, joins text parts and drops empty ones and images', async () => {
+    const seen: unknown[][] = [];
+    const adapter = createVsCodeLmAdapter(fakeApi([lmModel('gpt-4o', { seen })]));
+    await adapter.complete(engine, null, model, {
+      requestId: 'r', feature: 'rewrite', task: 'rewrite',
+      messages: [
+        { role: 'system', content: 'Be brief.' },
+        { role: 'user', content: [{ type: 'text', text: 'Fix' }, { type: 'image', url: 'data:image/png;base64,AA==' } as never, { type: 'text', text: 'this.' }] },
+        { role: 'assistant', content: 'Sure.' },
+        { role: 'user', content: '' },
+        { role: 'user', content: 'Thanks.' },
+      ],
+    }, () => {}, signal());
+    expect(seen[0]).toEqual([
+      { role: 'user', text: 'Be brief.' },
+      { role: 'user', text: 'Fix\nthis.' },
+      { role: 'assistant', text: 'Sure.' },
+      { role: 'user', text: 'Thanks.' },
+    ]);
+  });
+
+  it('reads a model id without a vendor as a Copilot family', async () => {
+    const { api, selectors } = spyApi([lmModel('gpt-4o')]);
+    const result = await createVsCodeLmAdapter(api).complete(engine, null, { ...model, id: 'gpt-4o' }, request, () => {}, signal());
+    expect(result.text).toBe('Hello');
+    expect(selectors).toEqual([{ vendor: 'copilot', family: 'gpt-4o' }]);
+  });
+
+  it('an error thrown while the text streams is mapped like one thrown by sendRequest', async () => {
+    const failing: VsCodeLmModel = {
+      ...lmModel('gpt-4o'),
+      sendRequest: async () => ({
+        text: (async function* () {
+          yield 'par';
+          throw { code: 'NoPermissions', message: 'denied' };
+        })(),
+      }),
+    };
+    const tokens: string[] = [];
+    await expect(createVsCodeLmAdapter(fakeApi([failing])).complete(engine, null, model, request, (d) => tokens.push(d), signal())).rejects.toMatchObject({ code: 'auth' });
+    expect(tokens).toEqual(['par']);
+  });
+
+  it('an error that looks like a quota refusal is a rate limit, whatever its code', async () => {
+    const adapter = createVsCodeLmAdapter(fakeApi([lmModel('gpt-4o', { fail: { code: 'Blocked', message: 'Monthly quota exceeded' } })]));
+    await expect(adapter.complete(engine, null, model, request, () => {}, signal())).rejects.toMatchObject({ code: 'rateLimited' });
+  });
+
+  it('cancel: aborting cancels VS Code\'s token and ends as cancelled, keeping what had streamed out of the result; the source is always disposed', async () => {
+    const { api, counts } = spyApi([lmModel('gpt-4o', { chunks: ['a', 'b', 'c'] })]);
+    const controller = new AbortController();
+    const tokens: string[] = [];
+    const run = createVsCodeLmAdapter(api).complete(engine, null, model, request, (d) => { tokens.push(d); controller.abort(); }, controller.signal);
+    await expect(run).rejects.toMatchObject({ code: 'cancelled' });
+    expect(tokens).toEqual(['a']);
+    expect(counts()).toEqual({ cancelled: 1, disposed: 1 });
+  });
+
+  it('an already-aborted request never asks VS Code anything', async () => {
+    const { api, selectors } = spyApi([lmModel('gpt-4o')]);
+    const gone = new AbortController();
+    gone.abort();
+    await expect(createVsCodeLmAdapter(api).complete(engine, null, model, request, () => {}, gone.signal)).rejects.toMatchObject({ code: 'cancelled' });
+    expect(selectors).toEqual([]);
+  });
+
+  it('disposes the token source after a success and after a failure', async () => {
+    const ok = spyApi([lmModel('gpt-4o')]);
+    await createVsCodeLmAdapter(ok.api).complete(engine, null, model, request, () => {}, signal());
+    expect(ok.counts()).toEqual({ cancelled: 0, disposed: 1 });
+    const bad = spyApi([lmModel('gpt-4o', { fail: { code: 'NoPermissions', message: 'x' } })]);
+    await expect(createVsCodeLmAdapter(bad.api).complete(engine, null, model, request, () => {}, signal())).rejects.toMatchObject({ code: 'auth' });
+    expect(bad.counts()).toEqual({ cancelled: 0, disposed: 1 });
+  });
+
+  it('NoPermissions says what to do, in words a user can follow', () => {
+    expect(vscodeLmError({ code: 'NoPermissions' }).message).toBe('Allow MikeDown to use Copilot in the VS Code prompt.');
+  });
+
+  it('a throw while listing is mapped, and a probe turns it into a failed result instead of throwing', async () => {
+    const api: VsCodeLmApi = { ...fakeApi([]), selectChatModels: async () => { throw { code: 'NoPermissions', message: 'denied' }; } };
+    const adapter = createVsCodeLmAdapter(api);
+    await expect(adapter.listModels(engine, null, signal())).rejects.toMatchObject({ code: 'auth' });
+    expect(await adapter.probe(engine, null, signal())).toMatchObject({ ok: false, error: { code: 'auth' } });
+  });
+
+  it('cancellations VS Code reports by name map to cancelled', () => {
+    expect(vscodeLmError({ name: 'Canceled', message: 'Canceled' }).code).toBe('cancelled');
+    expect(vscodeLmError(Object.assign(new Error('x'), { name: 'AbortError' })).code).toBe('cancelled');
+    expect(vscodeLmError(new Error('x'), (() => { const c = new AbortController(); c.abort(); return c.signal; })()).code).toBe('cancelled');
+  });
+});
