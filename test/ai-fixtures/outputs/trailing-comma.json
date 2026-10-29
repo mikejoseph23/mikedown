@@ -1,0 +1,14 @@
+{
+  "description": "A trailing comma after the last array item and after the last key.",
+  "raw": "{\n  \"titles\": [\n    \"Moving the Team to a Four-Day Week\",\n    \"What We Learned From a Four-Day Week Pilot\",\n    \"Four Days, Same Output: Notes From the Pilot\",\n  ],\n}",
+  "expected": {
+    "ok": true,
+    "value": {
+      "titles": [
+        "Moving the Team to a Four-Day Week",
+        "What We Learned From a Four-Day Week Pilot",
+        "Four Days, Same Output: Notes From the Pilot"
+      ]
+    }
+  }
+}

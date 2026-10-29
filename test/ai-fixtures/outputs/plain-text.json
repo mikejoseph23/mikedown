@@ -1,0 +1,7 @@
+{
+  "description": "No JSON at all: the model ignored the format.",
+  "raw": "I'd call it \"Moving the Team to a Four-Day Week\", or maybe \"What We Learned From a Four-Day Week Pilot\". Which one fits your readers better?",
+  "expected": {
+    "ok": false
+  }
+}

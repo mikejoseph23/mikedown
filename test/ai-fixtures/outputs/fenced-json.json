@@ -1,0 +1,14 @@
+{
+  "description": "Gemma-style reply: a json code fence with a sentence before and after it.",
+  "raw": "Here are three title options:\n\n```json\n{\n  \"titles\": [\n    \"Moving the Team to a Four-Day Week\",\n    \"What We Learned From a Four-Day Week Pilot\",\n    \"Four Days, Same Output: Notes From the Pilot\"\n  ]\n}\n```\n\nLet me know if you want a different tone.",
+  "expected": {
+    "ok": true,
+    "value": {
+      "titles": [
+        "Moving the Team to a Four-Day Week",
+        "What We Learned From a Four-Day Week Pilot",
+        "Four Days, Same Output: Notes From the Pilot"
+      ]
+    }
+  }
+}

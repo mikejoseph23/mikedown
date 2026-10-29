@@ -1,0 +1,14 @@
+{
+  "description": "Reasoning model: a closed think block (which mentions a brace), then the object.",
+  "raw": "<think>\nThe user wants three titles. The doc is about a {four-day week} pilot. Keep them under 80 chars.\n</think>\n\n{\"titles\": [\"Moving the Team to a Four-Day Week\", \"What We Learned From a Four-Day Week Pilot\", \"Four Days, Same Output: Notes From the Pilot\"]}",
+  "expected": {
+    "ok": true,
+    "value": {
+      "titles": [
+        "Moving the Team to a Four-Day Week",
+        "What We Learned From a Four-Day Week Pilot",
+        "Four Days, Same Output: Notes From the Pilot"
+      ]
+    }
+  }
+}

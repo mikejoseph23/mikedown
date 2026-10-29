@@ -56,7 +56,7 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
     defaultEnabled: true,
     defaultTask: 'summarize',
     requires: { chat: true },
-    status: 'planned',
+    status: 'available',
   },
   {
     id: 'frontmatter',
@@ -64,8 +64,17 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
     description: 'Suggest a title, tags and other properties.',
     defaultEnabled: true,
     defaultTask: 'structure',
-    requires: { chat: true, json: true },
-    status: 'planned',
+    requires: { chat: true },
+    status: 'available',
+  },
+  {
+    id: 'title',
+    label: 'Suggest titles',
+    description: 'Offer a few titles for the document.',
+    defaultEnabled: true,
+    defaultTask: 'structure',
+    requires: { chat: true },
+    status: 'available',
   },
   {
     id: 'altText',

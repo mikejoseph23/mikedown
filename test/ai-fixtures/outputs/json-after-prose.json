@@ -1,0 +1,14 @@
+{
+  "description": "Prose first (with a bracket pair that is not JSON), then the object, then a closing remark.",
+  "raw": "Sure! Based on the headings [Pilot, Results, Next steps] I would suggest the following.\n\n{\"titles\": [\"Moving the Team to a Four-Day Week\", \"What We Learned From a Four-Day Week Pilot\", \"Four Days, Same Output: Notes From the Pilot\"]}\n\nHope that helps!",
+  "expected": {
+    "ok": true,
+    "value": {
+      "titles": [
+        "Moving the Team to a Four-Day Week",
+        "What We Learned From a Four-Day Week Pilot",
+        "Four Days, Same Output: Notes From the Pilot"
+      ]
+    }
+  }
+}

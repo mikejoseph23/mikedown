@@ -60,3 +60,7 @@ One endpoint response per file: `request` (method and URL, informational), `resp
 ```
 
 A usable result is matched on `engineId`, `modelId`, `viaFallback`, `isLocal`, `needsConsent` (and `task` in some); an unusable one on `unusable` (the `AiUnusableCode`). Every scenario uses the plan's example registry (oMLX default, Gemma on LM Studio for `vision`, MiniMax for `structure`, Claude for `notes`) with one or two changes.
+
+## `outputs/`
+
+One model reply per file, for `parseLenientJson`: `{ "description", "raw", "expected": { "ok", "value" } }`. `raw` is the reply exactly as a local model might send it (clean JSON, in a fence, after prose, behind a `<think>` block, trailing comma, single quotes, unquoted key, plain text, cut off). `expected.value` is the parsed object; `ok: false` files have no `value`.

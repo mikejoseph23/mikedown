@@ -16,13 +16,19 @@ export interface AiTaskDefinition {
   label: string;
   description: string;
   requires: AiCapabilityRequirements;
+  /**
+   * Nice to have, never a gate: the router tries candidates that meet these
+   * first and still uses one that does not (a model without JSON mode, a
+   * small context window).
+   */
+  prefers?: AiCapabilityRequirements;
   /** At least one of these flags must be true (ghost text: a FIM model, or a chat model with a continue prompt). */
   requiresAny?: AiCapabilityFlag[];
   /** Served by a host method rather than a model completion. */
   hostMethod?: 'embed' | 'transcribe';
 }
 
-/** Minimum context for `summarize` ("large context"). */
+/** The "comfortable" context for `summarize`: preferred by the router, and the point below which the UI may warn. Not a gate. */
 export const SUMMARIZE_MIN_CONTEXT_TOKENS = 32768;
 
 export const AI_TASKS: readonly AiTaskDefinition[] = [
@@ -48,14 +54,16 @@ export const AI_TASKS: readonly AiTaskDefinition[] = [
   {
     id: 'summarize',
     label: 'Summarize',
-    description: 'Summaries and "what changed". Needs a large context window.',
-    requires: { chat: true, contextTokens: SUMMARIZE_MIN_CONTEXT_TOKENS },
+    description: 'Summaries and "what changed". Works best with a large context window; long documents are cut and labelled.',
+    requires: { chat: true },
+    prefers: { contextTokens: SUMMARIZE_MIN_CONTEXT_TOKENS },
   },
   {
     id: 'structure',
     label: 'Structure',
-    description: 'Frontmatter and tags, Mermaid, tables, code, titles, paste cleanup.',
-    requires: { chat: true, json: true },
+    description: 'Frontmatter and tags, Mermaid, tables, code, titles, paste cleanup. Prefers a model with JSON output.',
+    requires: { chat: true },
+    prefers: { json: true },
   },
   {
     id: 'notes',

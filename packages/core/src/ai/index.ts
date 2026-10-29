@@ -22,3 +22,10 @@ export * from './thinking';
 export * from './prompts/rewrite';
 export * from './prompts/explain';
 export * from './prompts/structureCheck';
+
+// Document understanding (M4): lenient JSON, document budget, summary, title and properties prompts.
+export * from './json';
+export * from './documentBudget';
+export * from './prompts/summary';
+export * from './prompts/title';
+export * from './prompts/properties';

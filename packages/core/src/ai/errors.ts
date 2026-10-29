@@ -55,6 +55,11 @@ export const AI_ERROR_COPY: Readonly<Record<AiErrorCode, AiErrorCopy>> = {
     title: 'Cancelled',
     message: 'The request was cancelled.',
   },
+  badOutput: {
+    title: 'No usable answer',
+    message: 'The model did not return a usable answer. Try again or pick another model.',
+    action: 'retry',
+  },
   unknown: {
     title: 'Something went wrong',
     message: 'The AI request failed.',

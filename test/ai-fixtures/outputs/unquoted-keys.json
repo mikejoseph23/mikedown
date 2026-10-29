@@ -1,0 +1,13 @@
+{
+  "description": "An unquoted key.",
+  "raw": "{ titles: [\"Moving the Team to a Four-Day Week\", \"Four Days, Same Output\"] }",
+  "expected": {
+    "ok": true,
+    "value": {
+      "titles": [
+        "Moving the Team to a Four-Day Week",
+        "Four Days, Same Output"
+      ]
+    }
+  }
+}

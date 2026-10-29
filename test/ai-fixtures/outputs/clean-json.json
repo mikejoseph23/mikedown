@@ -1,0 +1,14 @@
+{
+  "description": "Reply from a model with a JSON mode: the object and nothing else.",
+  "raw": "{\"titles\": [\"Moving the Team to a Four-Day Week\", \"What We Learned From a Four-Day Week Pilot\", \"Four Days, Same Output: Notes From the Pilot\"]}",
+  "expected": {
+    "ok": true,
+    "value": {
+      "titles": [
+        "Moving the Team to a Four-Day Week",
+        "What We Learned From a Four-Day Week Pilot",
+        "Four Days, Same Output: Notes From the Pilot"
+      ]
+    }
+  }
+}

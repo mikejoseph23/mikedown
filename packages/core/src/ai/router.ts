@@ -15,6 +15,12 @@
  *    route to a cloud engine unless the mode is `any`.
  * 5. The result names the pair and whether a fallback served it.
  *
+ * A task may also `prefers` capabilities (JSON output for `structure`, a big
+ * context for `summarize`). That is never a rejection reason. The chosen
+ * route is honoured as is; when a fallback has several usable candidates in
+ * the same tier (the default route and the local engines, then the cloud
+ * ones), those meeting the preference come first, in registry order.
+ *
  * Consent: a cloud candidate nobody has asked about yet is usable with
  * `needsConsent: true`; the caller asks (`host.ai.requestCloudConsent`),
  * records the answer and resolves again. A refusal (`false`) makes the
@@ -124,6 +130,7 @@ export function resolveRoute(
   const taskDef = getAiTask(task);
   const requires: AiCapabilityRequirements = combineRequirements(taskDef?.requires ?? {}, feature.requires);
   const requiresAny = taskDef?.requiresAny;
+  const prefers = taskDef?.prefers;
   const statusById = new Map(statuses.map((s) => [s.engineId, s]));
 
   const check = (route: AiRoute): Candidate | Rejection => checkCandidate(settings, statusById, consent, route, requires, requiresAny);
@@ -155,35 +162,51 @@ export function resolveRoute(
     const tried = new Set<string>();
     if (primary) {tried.add(routeKey(primary));}
 
+    // Tier one is the default route plus the local engines; the cloud ones come after.
+    const tier: Candidate[] = [];
     const def = settings.routing.default;
     if (def && !tried.has(routeKey(def))) {
       tried.add(routeKey(def));
       const c = check(def);
-      if (!('code' in c) && allowsCloud(c)) {return ok(c, true, rejection.reason);}
+      if (!('code' in c) && allowsCloud(c)) {tier.push(c);}
     }
-    if (mode === 'default') {return { unusable: rejection.code, reason: rejection.reason, task };}
+    if (mode === 'default') {
+      const only = preferFirst(tier, prefers);
+      return only ? ok(only, true, rejection.reason) : { unusable: rejection.code, reason: rejection.reason, task };
+    }
 
-    const scan = (wantLocal: boolean): Candidate | null => {
+    const scan = (wantLocal: boolean): Candidate[] => {
+      const found: Candidate[] = [];
       for (const engine of settings.engines) {
         for (const model of engine.models) {
           const route = { engineId: engine.id, modelId: model.id };
           if (tried.has(routeKey(route))) {continue;}
           const c = check(route);
           if ('code' in c || c.isLocal !== wantLocal) {continue;}
-          return c;
+          found.push(c);
         }
       }
-      return null;
+      return found;
     };
 
-    const local = scan(true);
-    if (local) {return ok(local, true, rejection.reason);}
+    const pick = preferFirst([...tier, ...scan(true)], prefers);
+    if (pick) {return ok(pick, true, rejection.reason);}
     if (mode === 'any') {
-      const cloud = scan(false);
+      const cloud = preferFirst(scan(false), prefers);
       if (cloud) {return ok(cloud, true, rejection.reason);}
     }
     return { unusable: rejection.code, reason: rejection.reason, task };
   }
+}
+
+/** The first candidate that meets `prefers`, else the first one; null when there are none. */
+function preferFirst(candidates: readonly Candidate[], prefers: AiCapabilityRequirements | undefined): Candidate | null {
+  if (candidates.length === 0) {return null;}
+  if (prefers) {
+    const match = candidates.find((c) => missingCapabilities(c.model.capabilities, prefers).length === 0);
+    if (match) {return match;}
+  }
+  return candidates[0];
 }
 
 function routeKey(r: AiRoute): string {

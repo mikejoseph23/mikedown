@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   SUMMARIZE_MIN_CONTEXT_TOKENS,
+  getAiFeature,
   isRouteUsable,
   parseAiSettings,
   resolveRoute,
@@ -217,23 +218,35 @@ describe('capability gating', () => {
     expect(r.reason).toContain('vision');
   });
 
-  it('summarize needs SUMMARIZE_MIN_CONTEXT_TOKENS; an unknown (null) window counts as 8192', () => {
+  it('summarize needs only chat: a small or unknown context window is still usable (a preference, not a gate)', () => {
     expect(SUMMARIZE_MIN_CONTEXT_TOKENS).toBe(32768);
     const route = { default: { engineId: 'omlx', modelId: 'main' }, fallback: 'none' };
-    const small = registry({ omlx: { models: [model('main', { contextTokens: 8192 })] }, routing: route });
-    expect(unusable(rewrite(small, [], {}, { task: 'summarize' })).unusable).toBe('capability');
-    const unknown = registry({ omlx: { models: [model('main', { contextTokens: null })] }, routing: route });
-    expect(unusable(rewrite(unknown, [], {}, { task: 'summarize' })).unusable).toBe('capability');
-    const exact = registry({ omlx: { models: [model('main', { contextTokens: 32768 })] }, routing: route });
-    expect(isRouteUsable(rewrite(exact, [], {}, { task: 'summarize' }))).toBe(true);
+    for (const contextTokens of [8192, null, 32768]) {
+      const s = registry({ omlx: { models: [model('main', { contextTokens })] }, routing: route });
+      expect(isRouteUsable(rewrite(s, [], {}, { task: 'summarize' })), String(contextTokens)).toBe(true);
+    }
+    const noChat = registry({ omlx: { models: [model('main', { chat: false })] }, routing: route });
+    expect(unusable(rewrite(noChat, [], {}, { task: 'summarize' })).unusable).toBe('capability');
   });
 
-  it('structure and notes need JSON output', () => {
+  it('structure needs chat only; notes and review still need JSON output', () => {
     const noJson = registry({ omlx: { models: [model('main', { json: false })] }, routing: { default: { engineId: 'omlx', modelId: 'main' }, fallback: 'none' } });
-    for (const task of ['structure', 'notes', 'review']) {
+    expect(isRouteUsable(rewrite(noJson, [], {}, { task: 'structure' }))).toBe(true);
+    for (const task of ['notes', 'review']) {
       expect(unusable(rewrite(noJson, [], {}, { task })).unusable, task).toBe('capability');
     }
     expect(isRouteUsable(rewrite(noJson, [], {}, { task: 'rewrite' }))).toBe(true);
+  });
+
+  it('the summary, frontmatter and title features are available and route on chat alone', () => {
+    const noJson = registry({
+      omlx: { models: [model('main', { json: false, contextTokens: 8192 })] },
+      routing: { default: { engineId: 'omlx', modelId: 'main' }, fallback: 'none' },
+    });
+    for (const feature of ['summary', 'frontmatter', 'title']) {
+      expect(getAiFeature(feature)?.status, feature).toBe('available');
+      expect(isRouteUsable(rewrite(noJson, [], {}, { feature })), feature).toBe(true);
+    }
   });
 
   it('rewrite needs chat and streaming', () => {
@@ -464,5 +477,50 @@ describe('purity', () => {
     const b = rewrite(s, statuses, consent);
     expect(a).toEqual(b);
     expect(JSON.stringify([s, statuses, consent])).toBe(before);
+  });
+});
+
+// ── Preferences order fallback candidates, never reject ─────────────────────
+
+describe('task preferences (structure prefers JSON)', () => {
+  const lost = { engineId: 'omlx', modelId: 'gone' };
+  const structure = (over: Over = {}) =>
+    registry({ ...over, routing: { default: { engineId: 'omlx', modelId: 'main' }, fallback: 'anyLocal', tasks: { structure: lost }, ...over.routing } });
+
+  it('a fallback picks the JSON model first when two candidates qualify', () => {
+    const s = structure({ omlx: { models: [model('main', { json: false }), model('second', { json: true })] } });
+    const r = ok(rewrite(s, [], {}, { feature: 'title' }));
+    expect(r).toMatchObject({ engineId: 'omlx', modelId: 'second', viaFallback: true });
+  });
+
+  it('without a JSON model the first candidate in order still serves', () => {
+    const s = structure({
+      omlx: { models: [model('main', { json: false }), model('second', { json: false })] },
+      lms: { models: [model('gemma', { json: false })] },
+    });
+    expect(ok(rewrite(s, [], {}, { feature: 'title' }))).toMatchObject({ modelId: 'main', viaFallback: true });
+  });
+
+  it('the preferred model can be on a later engine', () => {
+    const s = structure({ omlx: { models: [model('main', { json: false }), model('second', { json: false })] } });
+    expect(ok(rewrite(s, [], {}, { feature: 'title' }))).toMatchObject({ engineId: 'lms', modelId: 'gemma' });
+  });
+
+  it('a usable chosen route is kept even when another model has JSON', () => {
+    const s = registry({
+      omlx: { models: [model('main', { json: false }), model('second', { json: true })] },
+      routing: { tasks: { structure: { engineId: 'omlx', modelId: 'main' } } },
+    });
+    expect(ok(rewrite(s, [], {}, { feature: 'title' }))).toMatchObject({ modelId: 'main', viaFallback: false });
+  });
+
+  it('preferring JSON never moves a local route to the cloud', () => {
+    const s = structure({
+      settings: { allowCloud: true },
+      omlx: { models: [model('main', { json: false })] },
+      lms: { models: [model('gemma', { json: false })] },
+    });
+    const r = ok(rewrite(s, [], {}, { feature: 'title' }));
+    expect(r.isLocal).toBe(true);
   });
 });

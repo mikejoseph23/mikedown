@@ -1,0 +1,14 @@
+{
+  "description": "Python-flavoured reply: single-quoted keys and strings, one with an escaped apostrophe.",
+  "raw": "{'titles': ['Moving the Team to a Four-Day Week', 'What We Learned From a Four-Day Week Pilot', 'Why We\\'re Keeping the Four-Day Week']}",
+  "expected": {
+    "ok": true,
+    "value": {
+      "titles": [
+        "Moving the Team to a Four-Day Week",
+        "What We Learned From a Four-Day Week Pilot",
+        "Why We're Keeping the Four-Day Week"
+      ]
+    }
+  }
+}

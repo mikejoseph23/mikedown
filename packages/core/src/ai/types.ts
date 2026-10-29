@@ -234,6 +234,7 @@ export type AiErrorCode =
   | 'cloudBlocked'
   | 'consentDenied'
   | 'cancelled'
+  | 'badOutput'
   | 'unknown';
 
 export const AI_ERROR_CODES: readonly AiErrorCode[] = [
@@ -245,6 +246,7 @@ export const AI_ERROR_CODES: readonly AiErrorCode[] = [
   'cloudBlocked',
   'consentDenied',
   'cancelled',
+  'badOutput',
   'unknown',
 ];
 
