@@ -30,7 +30,7 @@ Defaults applied by the planning skill: incremental testing (a test milestone af
 | [M3 Privacy copy and provider policy links](#m3-privacy-copy-and-provider-policy-links) | Opus | ✅ Done | 16 | `f5b48a7` (cherry-picked from worktree); openLink and panel wiring passed to M2/M4 |
 | [M4 Consent flow hardening](#m4-consent-flow-hardening) | Sonnet | ✅ Done | 15 | `e73e2c2` (cherry-picked from worktree) |
 | [T2 Privacy and consent tests](#t2-privacy-and-consent-tests) | Sonnet | ✅ Done | 6 | Unit, host, cargo |
-| [M5 UI polish: surfaces, naming, states, keyboard](#m5-ui-polish-surfaces-naming-states-keyboard) | Opus | 🔄 In Progress | — | Context menu, toolbar menu, popover, sidebar, commands |
+| [M5 UI polish: surfaces, naming, states, keyboard](#m5-ui-polish-surfaces-naming-states-keyboard) | Opus | ✅ Done | 18 | Context menu, toolbar menu, popover, sidebar, commands |
 | [M6 Docs, settings sync, release notes](#m6-docs-settings-sync-release-notes) | Sonnet | ⬜ Not Started | — | README, CHANGELOG, Desktop README, package.json descriptions |
 | [T3 Hands-on sign-off](#t3-hands-on-sign-off) | Sonnet | ⬜ Not Started | — | VS Code and Desktop, Mike signs off |
 | [T4 Fresh-user onboarding walk (Mike)](#t4-fresh-user-onboarding-walk-mike) | Mike | ⬜ Not Started | — | Clean slate, OpenAI, Anthropic, DeepSeek, then local; before the release |
@@ -383,35 +383,35 @@ Fixes F9, U1 to U9. Depends on OQ7, OQ8, OQ10 (defaults: same list everywhere; n
 
 Same list everywhere (U1, OQ7):
 
-- [ ] `ai-toolbar.ts#aiToolbarMenuEntries`: one flat list in this order: Rewrite selection, Explain selection, Translate…, separator, Summarize document…, Suggest titles…, Suggest properties, separator, Thinking row (move it to the bottom, where it reads as a setting), separator, Manage engines… / AI settings…. Selection entries disabled with "Select text first"; each entry carries the router's reason when disabled (already the pattern).
-- [ ] `contextmenu.ts#buildAiRewriteEntries`: the `AI` submenu gains, after the rewrite groups, a separator and "Summarize document…", "Suggest titles…"; with an empty selection the submenu shows only those two (today the whole entry is omitted). `editor.ts` passes `summarize` and `titles` callbacks into `ContextMenuActions.aiRewrite`.
-- [ ] Desktop menus and VS Code commands already have all six; make the labels match the toolbar words (VS Code `package.json#contributes.commands` titles, Desktop menu items), and add `mikedown.ai.suggestProperties` to the Desktop menu if missing.
+- [x] `ai-toolbar.ts#aiToolbarMenuEntries`: one flat list in this order: Rewrite selection, Explain selection, Translate…, separator, Summarize document…, Suggest titles…, Suggest properties, separator, Thinking row (move it to the bottom, where it reads as a setting), separator, Manage engines… / AI settings…. Selection entries disabled with "Select text first"; each entry carries the router's reason when disabled (already the pattern).
+- [x] `contextmenu.ts#buildAiRewriteEntries`: the `AI` submenu gains, after the rewrite groups, a separator and "Summarize document…", "Suggest titles…"; with an empty selection the submenu shows only those two (today the whole entry is omitted). `editor.ts` passes `summarize` and `titles` callbacks into `ContextMenuActions.aiRewrite`.
+- [x] Desktop menus and VS Code commands already have all six; make the labels match the toolbar words (VS Code `package.json#contributes.commands` titles, Desktop menu items), and add `mikedown.ai.suggestProperties` to the Desktop menu if missing.
 
 Naming (U3, OQ10):
 
-- [ ] "Routing" → **Tasks** on the Engines page nav, title ("Which model does what") and the AI tab's "Change…" target; `ai-routing-section.ts` keeps its file name. The chip's "AI: no route" → "AI: no model chosen". Star tooltip "Use this engine by default". "Fetch models" → "Refresh models" once a list exists (first time stays "Fetch models"). "Model default" → "Default".
-- [ ] Length group: keep both Longer and Add detail only if they produce different prompts (they do: `expand` vs `longer`); make the labels explain it: "Longer" and "Add detail (facts and examples)" as the tooltip, not the label.
+- [x] "Routing" → **Tasks** on the Engines page nav, title ("Which model does what") and the AI tab's "Change…" target; `ai-routing-section.ts` keeps its file name. The chip's "AI: no route" → "AI: no model chosen". Star tooltip "Use this engine by default". "Fetch models" → "Refresh models" once a list exists (first time stays "Fetch models"). "Model default" → "Default".
+- [x] Length group: keep both Longer and Add detail only if they produce different prompts (they do: `expand` vs `longer`); make the labels explain it: "Longer" and "Add detail (facts and examples)" as the tooltip, not the label.
 
 Error and loading states (F9, U5, U6):
 
-- [ ] `AiErrorCopy.action` gains `'openEngine'`; the popover's **Open AI settings** button becomes **Open <engine name>** for `unreachable`, `auth` and `modelNotFound` when the error carries the route, and opens the Engines page on that engine (`deps.openSettings(engineId?)` → `showAiEnginesPage({ initial: { engineId } })`). `auth` copy names the engine: "Anthropic refused the API key."
-- [ ] Sidebar Suggest button: a running state (the sparkle pulses or is replaced by the existing spinner) and `aria-busy`; the disabled reason also goes into the chips row as text so keyboard users can read it.
-- [ ] Toolbar AI button: while a request is running anywhere in this editor, the button gets a subtle running state (the same pulse); no new layout.
+- [x] `AiErrorCopy.action` gains `'openEngine'`; the popover's **Open AI settings** button becomes **Open <engine name>** for `unreachable`, `auth` and `modelNotFound` when the error carries the route, and opens the Engines page on that engine (`deps.openSettings(engineId?)` → `showAiEnginesPage({ initial: { engineId } })`). `auth` copy names the engine: "Anthropic refused the API key."
+- [x] Sidebar Suggest button: a running state (the sparkle pulses or is replaced by the existing spinner) and `aria-busy`; the disabled reason also goes into the chips row as text so keyboard users can read it.
+- [x] Toolbar AI button: while a request is running anywhere in this editor, the button gets a subtle running state (the same pulse); no new layout.
 
 Settings modal AI tab (U8):
 
-- [ ] Reorder: intro, master switch, Engines summary (with the default model line), Allow cloud (+ consents from M4), toolbar button switch, Features (task pickers folded under an "Advanced: task per feature" disclosure).
+- [x] Reorder: intro, master switch, Engines summary (with the default model line), Allow cloud (+ consents from M4), toolbar button switch, Features (task pickers folded under an "Advanced: task per feature" disclosure).
 
 First-run panel (U9) and chip (U7):
 
-- [ ] The verbs line from M1 stays; add "Local engines keep your text here; cloud engines send it to the provider." under the disclaimer when space allows (one line).
-- [ ] `openAiFromChip`: the tooltip says what it opens ("Click to choose a model" when `tone === 'none'`, "Click for AI settings" otherwise).
+- [x] The verbs line from M1 stays; add "Local engines keep your text here; cloud engines send it to the provider." under the disclaimer when space allows (one line).
+- [x] `openAiFromChip`: the tooltip says what it opens ("Click to choose a model" when `tone === 'none'`, "Click for AI settings" otherwise).
 
 Keyboard (U2, OQ8):
 
-- [ ] Thinking dial (popover and toolbar row): arrow keys move between segments and the live region announces "Thinking: High"; `role="radiogroup"` with `aria-checked` if not already.
-- [ ] VS Code: no new default keybindings; make sure each `mikedown.ai.*` command has a `when` of `mikedown.editorActive` so the palette shows them only in MikeDown. Desktop: menu items get mnemonics where the platform supports them.
-- [ ] Every new or renamed string is reflected in `test/` and `packages/core/test/` expectations (run the suites; fix labels in tests, not behaviour).
+- [x] Thinking dial (popover and toolbar row): arrow keys move between segments and the live region announces "Thinking: High"; `role="radiogroup"` with `aria-checked` if not already.
+- [x] VS Code: no new default keybindings; make sure each `mikedown.ai.*` command has a `when` of `mikedown.editorActive` so the palette shows them only in MikeDown. Desktop: menu items get mnemonics where the platform supports them.
+- [x] Every new or renamed string is reflected in `test/` and `packages/core/test/` expectations (run the suites; fix labels in tests, not behaviour).
 
 Worker notes: this is the milestone that edits `editor.ts` the most (`openAiToolbar`, context menu actions, `openAiFromChip`, popover deps). Runs after M1 and M4 have merged. Apply genuine front-end craft: spacing and rhythm match the existing Engines page and popover (quiet notes, 10 px glyphs, `settings-btn` variants), no new colours outside `tokens.css`, transitions only where the page already has them.
 
@@ -527,6 +527,8 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 ---
 
 ## Progress Log / Notes
+
+**2026-10-29 09:05** - M5 done (`d5cb623`, 18 min). One action list on the toolbar menu and the context menu `AI` submenu (OQ7), Tasks naming and the other OQ10 renames, Open <engine> on engine errors (F9), running states, AI tab reorder, chip tooltip, dial keyboard and announcements, `when` clauses on the VS Code commands, Desktop menu labels and mnemonics, one privacy disclosure in the wizard's cloud step, Copilot in the lists. Main tree: lint 0 errors, test:unit 3123, test:edge 22, test:packages 83 (817 of 850 kB), Desktop 572, cargo green. Behaviour choices flagged to Mike: Translate in the toolbar menu works with no selection (whole document, like the command); the disabled Suggest shows its reason only after a press; Desktop Rewrite Selection is a visible menu item with its chord; on the thinking dial, arrow keys move focus without re-running, a pick re-runs. `AiError.engineId` / `AiRouteUnusable.engineId` added to public types (additive). The summary's "Strings for M6" table feeds M6. Not checked visually (T3).
 
 **2026-10-29 08:55** - M1b-b done (`d2b18e5`, 34 min). Wizard section on the Engines page (`ai-setup-wizard.ts`), three steps with step dots, Copilot card on VS Code (also on the Add engine cards), subscription vs API key note, Install links, size tags, Step 3 model select; extras: `aiConsentStepNote` on the cloud group, Copilot privacy card variant, `aiPendingBadgeTitle` via `aiConsentHost`, Copilot consent wording, Desktop prunes `ai-consent.json` on engine delete. Wizard tests `packages/core/test/ai-engines-wizard.test.ts` (27). Main tree: lint 0 errors, test:unit 3104, test:edge 22, test:packages 83 (web component 816 of 850 kB), Desktop 571, cargo 235+26+7. Decisions taken by the worker (flag to Mike): the wizard opens only when there are no engines (with engines but AI off, Set up opens the engine form); picking a cloud provider or Copilot in the wizard turns Allow cloud on in the draft (saved at Done; consent still asks per engine). Not checked visually (T3). M5: the cloud step shows two privacy disclosures; fold one. The NVIDIA sizing fix from T1 landed as `28340fd`: above the local threshold the smallest band fits up to 8B (Apple Silicon 16 GB, NVIDIA 8 to 24 GB); the `it.fails` test is a normal test now.
 
