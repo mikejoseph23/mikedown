@@ -2,145 +2,125 @@
 
 ## Project Overview
 
-MikeDown is a WYSIWYG markdown editor (TipTap/ProseMirror) in an npm workspace. One editor core, `packages/core` (`@mikedown/core`), is shipped through several consumers:
+MikeDown is a WYSIWYG markdown editor (TipTap/ProseMirror) in an npm workspace. One editor core, `packages/core` (`@mikedown/core`), ships through:
 
 - the VS Code extension (`src/`, thin shell `src/webview/editor-main.ts`);
-- **MikeDown Desktop**, a Tauri 2 app at `packages/desktop/` (macOS, Windows, Linux preview);
-- the npm family `@mikedown/core`, `web-component`, `react`, `vue`, `angular` (all public on npm, lockstep versions, independent of the extension's 2.x);
-- downstream apps LymeStarter (`develop`) and Quantico Creek (`master`), now on the published packages.
+- **MikeDown Desktop**, Tauri 2 at `packages/desktop/` (macOS, Windows, Linux preview);
+- the npm family `@mikedown/core`, `web-component`, `react`, `vue`, `angular` (public, lockstep versions, independent of the extension's 2.x);
+- downstream apps LymeStarter and Quantico Creek.
 
-Desktop contains no editor logic. See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside a PM transaction; the three-place settings rule; the `tiptap-markdown` ES alias) and the release steps.
+See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside a PM transaction; the three-place Settings rule; the `tiptap-markdown` ES alias) and the release steps.
 
 ## Current Status
 
-**Everything shipped is published and deployed. New: experimental AI engines are built and signed off on the local `develop` branch (kept out of `main` for polish). Left: polish/more AI features, Mike's hands-on work, one Marketplace upload.**
+**Work happens on `develop` (pushed, `origin/develop` = `764eaf9`, 2 newer local commits). It carries the experimental AI features (engines, rewrite family, /summary, /title, Properties Suggest), the customizable toolbar and the AI bundle split. All plans are signed off. Nothing from `develop` is released or merged to `main`.**
 
-- **AI inference engines (`develop`, local only, unpushed):** `develop` = `main` + 37 commits (tip `4019204`). Configurable engines (oMLX, LM Studio, Ollama, OpenAI-compatible, Anthropic, OpenAI; any combination), model capabilities, per-task routing with fallback, cloud consent gate, Express engine form + full-window AI Engines page, selection rewrite (`Cmd+Option+K`) as the proof feature, across VS Code, Desktop and the npm wrappers. Off by default. T4 hands-on signed off 2026-10-25 for VS Code and Desktop. All AI worktrees and branches removed. The main folder stays checked out on `main` because three other orchestrator sessions are registered there.
+- **Released:** VS Code 2.16.0 (tag `v2.16.0`, TOC features; confirm the Marketplace upload), npm family 0.2.0, Desktop 0.3.0, site `0.3.0-site.3`.
+- **`main`:** 1 unpushed commit (`f09fdb2`, backlog cleanup), already merged into `develop`.
+- **`develop` unpushed:** `e1032e9` (AI bundle split) and `b27cf29` (plan log). Push with Mike's OK.
+- **The main folder is checked out on `develop`.** No orchestrator sessions are registered (`.orchestrator/active-sessions.json` is `[]`).
+- Off by default: everything AI sits behind `mikedown.ai.enabled`, labelled Experimental with one shared disclaimer (`AI_EXPERIMENTAL_DISCLAIMER`).
 
-- **npm:** all five `@mikedown/*` packages are at 0.2.0 on `latest` (tag `npm-v0.2.0`; core 0.1.0 is tagged `core-v0.1.0`).
-- **Website** `https://www.iadev.net/mikedown/`: Desktop download page, `/vscode/`, and `/developers/` with a live demo per wrapper. It's deployed through LymeDeploy, now at site release `0.3.0-site.3`.
-- **Desktop 0.3.0** is live (document sidebar, serializer fixes, Linux AppImage preview). Self-update is proven on macOS and Windows, and the updater key is backed up. Desktop still pins core `0.1.0` exactly.
-- **VS Code 2.15.0** is built (`mikedown-editor-2.15.0.vsix` in the repo root, untracked; tag `v2.15.0`) but **not uploaded to the Marketplace yet**.
-- **Core accessibility fixes** (contrast, checkbox names, toolbar names, More ⋯ overflow menu, table toolbar on focus) are under `CHANGELOG.md` `[Unreleased]`. They're in npm 0.2.0 but not in the 2.15.0 vsix.
-- **Table checkbox save fix** (`39be7b4`, 2026-10-25, **unpushed**): toggling a `[ ]`/`[x]` in a table cell used to save `\\[x\\]` in every host. Fixed in `packages/core/src/markdownEscape.ts` and tested (`packages/core/test/tablecheckbox.test.ts`). Rendering already worked in web and desktop. It goes out with the next release (npm core, then the Desktop pin bump, then the extension).
-- CI (`.github/workflows/ci.yml`) is green. `main` has 4 unpushed commits (`39be7b4`, `f70bda1`, `67c638c`, `ba176bd`); `develop` has never been pushed.
+## What's Done (2026-10-28/29)
+
+1. AI marked Experimental (badge, disclaimer). There's an AI toolbar button with a first-run "Turn on and set up" panel and the setting `mikedown.ai.showToolbarButton`. AI is the last Settings nav item (`fdbde35`).
+2. `customizable-toolbar-plan.md` complete: registry, layout model `mikedown.toolbarLayout`, in-place edit mode (drag + keyboard), Toolbar settings tab. OQ3 to OQ5 closed. Font Theme (`fontPicker`) is the first optional palette item (`40bd796`).
+3. `ai-writing-features-plan.md` complete (T3 signed off): rewrite variants, Explain, Translate (incl. whole doc), reading level, thinking dial, `/summary`, `/outline`, `/title`, Properties Suggest chips. Later fixes:
+   - context submenu renamed **AI**, Expand renamed **Add detail** (`fa10690`);
+   - engine badge moved to the popover footer, plus a Thinking row in the AI menu, persisted in localStorage (`5b16f39`);
+   - both hosts log `· thinking <level> · max_tokens N` per request (`6424f97`);
+   - selection bubble removed (`056626f`);
+   - Properties chip padding, frontmatter block overlap and empty `tags: []` fixed (`27272ed`).
+4. AI bundle split (`e1032e9`): `editor.ts` lazy-loads `ai-ui.ts` when `host.ai` exists.
+   - The standalone web component is 863 → 814 kB, plus a 56 kB AI chunk; its budget is back to 850 kB.
+   - Core main is 223 → 154 kB.
+   - VS Code and vitest import `ai-ui-eager.ts`, so AI stays synchronous there.
 
 ## What's Next
 
-0. **AI features (on `develop`):** live plan is `ai-inference-engines-plan.md` **on `develop`** (the copy on `main` is stale). Everything through T4 is done; open:
-   - polish: style "Manage engines…" on the AI summary tab as a button (it reads as plain text); fix AI tab copy "per workspace" (Desktop consent is per folder);
-   - M7 release prep (Haiku): CHANGELOG, README, `website/vscode/` AI section, CLAUDE.md architecture lines, version bumps, dry runs. Gated: Desktop dist `vite build` fails until a core version with `./ai` is published and the Desktop core pin (0.1.0) is bumped;
-   - M7 loose ends: repo-writable Desktop consent file `.mikedown/settings.json` needs a docs line; Ollama adapter is fixture-tested only; rewrite prompt helpers and `mountAiEnginesPage` aren't exported from core; Anthropic `max_tokens` 4096 may truncate at High thinking; oMLX key caption can't tell key file from stored key (needs `keySource`); lint warnings 1066 → 1102 not investigated;
-   - more AI features: see the plan's Follow-up plans list and `ai-copilot-brainstorm.md` (top 5: rewrite, ghost text, chat with this doc, tag/summary/title suggestions, image alt text);
-   - when ready: decide when `develop` merges to `main`; switch the main folder to `develop` once the other sessions finish (`git switch develop`).
-1. **Mike:** upload the 2.15.0 vsix to the Marketplace, then do the T1 hands-on in `wrappers-npm-plan.md`:
-   - the Extensions panel shows 2.15.0;
-   - edit and save a `.md` file in `test/workspace/`;
-   - the zoom `[−] 15 [+]` control works;
-   - a `> [!NOTE]` callout isn't duplicated after Cmd+/.
+1. **Push** `develop` (2 commits), after Mike's OK.
+2. **Fix the `wc-vite` consumer build:** `packages/web-component/src/element.ts` uses `MikeDownAiHost` without importing it (found by the bundle-split worker; it predates the split). Then run `npm run test:consumers`.
+3. **Hand-check the website demos' AI** with the lazy chunk (`npm run build:site && npm run preview -w website`, then open `/mikedown/developers/`).
+4. **AI release prep** (M7 in `ai-inference-engines-plan.md`, all 4 boxes open):
+   - docs audit/top-up (CHANGELOG, README, `website/vscode/`); the writing plan's M7 already added much of this;
+   - `CLAUDE.md` AI architecture lines, plus "secrets never in settings; use `setSecret`";
+   - release order: `npm run version:npm -- 0.3.0` (minor), `test:packages`, `release:npm` dry run, Mike publishes, then bump the Desktop core pin off `0.1.0` (this unblocks the Desktop dist `vite build`), then `npm run vsix:minor`;
+   - loose ends:
+     - a docs line for the repo-writable Desktop consent file `.mikedown/settings.json`;
+     - export the rewrite helpers and `mountAiEnginesPage` from core;
+     - an oMLX `keySource` caption;
+     - Ollama is tested against fixtures only;
+     - lint warnings went from 1066 to 1102;
+     - confirm Anthropic `max_tokens` truncation is fixed by the thinking headroom.
 
-   Then close the plan: archive `.orchestrator/wrappers-npm-plan/processed/` into `docs/_archive/`, and remove the plan's entry from `.orchestrator/active-sessions.json`.
-2. **Mike:** on npmjs.com, set each `@mikedown/*` package to "Require two-factor authentication and disallow tokens". The settings page needs his security key.
-3. **Favicon:** done and live (site release `0.3.0-site.3`, 2026-10-24). The next site release is `--site-n 4`.
-4. **Mike:** run the Desktop T4 checklist (`packages/desktop/docs/manual-test-checklist.md`, 82 checks) on both OSes, then log it in `desktop-app-plan.md`.
-5. **Re-encrypt the updater key** with a new password (same key, so installs keep working). The current password was shown in chat on 2026-10-24. Then update the Keychain item `mikedown-updater-key` and the LastPass "MikeDown Note".
-6. **Bitbucket is near its 1 GB workspace cap.** The plan is to move `~/git/rando` to private GitHub; it's queued in `~/Desktop/RESUME.md`.
-7. **Follow-ups:**
-   - **Extension:** the next release ships the `[Unreleased]` accessibility fixes and the table checkbox save fix.
-   - **Desktop:**
-     - the desktop-app session moves the core pin off `0.1.0`;
-     - the release notes link may open two tabs;
-     - the corner "is available" notice persists while the window is open;
-     - the last heading isn't highlighted on outline click;
-     - dead `#editor` CSS rules;
-     - check whether core settings leak between panes.
-   - **LymeStarter:** `lymetools scaffold app` reports a missing `about` route (this predates the wrappers work).
-   - **LymeDeploy:** the PMO-PROD-VM agent has been offline for about 40 h.
-   - **Repo cleanup:** prune `.claude/worktrees/` (old desktop and linux-appimage agent worktrees).
-   - **Tests:** a flaky unit test failed once during T1 and was never identified.
-   - **Toolbar:** Firefox-style customizable toolbar is in `BACKLOG.md` (Nice-to-have).
+   Suggested: one Sonnet worker for the docs and loose ends, then Mike runs the publish.
+5. **Decide when `develop` merges to `main`.** Probably right after the AI release prep.
+6. **Next AI features**, from the AI engines plan's "Follow-up plans" and `ai-copilot-brainstorm.md`: ghost text, chat with this document, alt text for images. The writing plan's follow-ups include a per-model benchmark on the AI Engines page.
+7. **Mike's older items:**
+   - npm 2FA "disallow tokens" setting on each `@mikedown/*` package;
+   - Desktop T4 checklist (`packages/desktop/docs/manual-test-checklist.md`);
+   - re-encrypt the updater key (password was shown in chat 2026-10-24);
+   - Bitbucket cap: move `~/git/rando` to GitHub;
+   - T1 hands-on in `wrappers-npm-plan.md`.
+8. **Follow-ups:**
+   - typing directly into the frontmatter YAML block isn't undoable, so a later undo can overwrite it;
+   - `--mikedown-toolbar-edit-focus` is documented in `tokens.md` but missing from `tokens.css`;
+   - dead `buildToolbar` in `editor.ts`;
+   - the Angular wrapper's Reset stores `toolbarLayout: null`, which overrides the app's preset;
+   - Desktop: the release notes link opens two tabs, the "is available" notice persists, and the last outline heading isn't highlighted;
+   - prune `.claude/worktrees/`.
 
 ## Planning Docs
 
-- `ai-inference-engines-plan.md`: **active, live copy on `develop`.** M1 to M6, M3b/c/d, M4b, T1 to T4 done; M7 and polish open.
-- `ai-copilot-brainstorm.md`: 20 AI feature ideas, architecture constraints, top 5 picks.
-- `wrappers-npm-plan.md`: **active.** Everything is complete except T1 (Mike); M10 Svelte is deferred.
-- `wrappers-decisions.md`: approved M0 decisions (versioning, peers, Angular floor 17, ARIA).
-- `desktop-app-plan.md`: only Mike's T4 hands-on is left.
-- `desktop-auto-update-plan.md`: complete (U5 key backup and T2 signed off 2026-10-24).
-- `desktop-auto-update-handson.md`: uncommitted and owned by another session. Leave it alone.
-- `angular-core-extraction-plan.md`: only M10 (Quantico Creek API) is open.
-- Others:
-  - `core-extraction-decisions.md`;
-  - `slash-commands-planning.md` (complete);
-  - `manual-test-script.md`;
-  - `hands-on-remaining.md`;
-  - `PLANNING.md` (reserved).
+- `ai-inference-engines-plan.md`: engines layer done through T4; **M7 release prep open**; "Follow-up plans" list.
+- `ai-writing-features-plan.md`: **complete** (D1 to D18; follow-up #9 bundle split done). Archive when ready.
+- `customizable-toolbar-plan.md`: **complete**, OQs closed. Archive when ready (`/iadev:repo-markdown-cleanup`).
+- `ai-copilot-brainstorm.md`: 20 AI ideas and the top 5.
+- `wrappers-npm-plan.md`: only Mike's T1 left. `desktop-app-plan.md`: only Mike's T4. `angular-core-extraction-plan.md`: M10 open.
+- `desktop-auto-update-handson.md`: untracked and owned by another session. Leave it alone. The same goes for untracked `packages/desktop/private/`.
 
 ## Servers
 
-- **Desktop dev:** `npm run dev:desktop`. Needs `export PATH="$HOME/.cargo/bin:$PATH"`.
-- **Site:** `npm run dev:site` (port 5180), or `npm run build:site && npm run preview -w website` (`http://localhost:5180/mikedown/`).
-- **Core demo:** `npm run demo:core`, then open `/demo/`.
-- **Production:**
-  - IIS on iadev-prod, folder `C:\WebApps\Downloads\mikedown`.
-  - Published by LymeDeploy project `mikedown-downloads` through `packages/desktop/deploy/pack-for-lymedeploy.sh` (`--site` for site-only releases).
-  - Cloudflare doesn't cache `/mikedown/`, so no purge is needed.
-- **Windows build:** BEAST (`192.168.50.39`), Scheduled Task `MikeDownRemoteBuild`. It clones from GitHub, so push first. Test box: DevBox1 (`192.168.50.42`).
-- **Linux build:** Docker linux/amd64 (`packages/desktop/deploy/linux/`). `release.sh` builds it by default; `--no-linux` skips it.
+- **VS Code dev host:** `npm run dev` (after code changes: `npm run compile`, then Cmd+R in the dev host). The AI output channel is **MikeDown AI**.
+- **Desktop dev:** `npm run dev` in `packages/desktop` (needs `export PATH="$HOME/.cargo/bin:$PATH"`). AI log lines start with `[mikedown ai]` on stderr.
+- **Site:** `npm run dev:site` (port 5180, base `/mikedown/`).
+- **AI browser harness** (untracked, keep it): `packages/core/demo/ai-handson/`. Run `npm run build -w packages/core`, then from `packages/core` run `npx vite . --port 5198 --strictPort --config demo/ai-handson/vite.config.mjs` (needs `OMLX_API_KEY`).
+- **AI engines:**
+  - oMLX at `http://127.0.0.1:8000/v1` (key in `OMLX_API_KEY` and `~/.omlx/settings.json`; never print it);
+  - LM Studio on `:1234` (no chat model loaded);
+  - Ollama is not running.
+- **Production:** IIS on iadev-prod via LymeDeploy project `mikedown-downloads` (`packages/desktop/deploy/pack-for-lymedeploy.sh`, `--site` for site-only releases; next is `--site-n 4`).
 
 ## Key File Paths
 
-- `packages/core/`: the editor. Tests are in `packages/core/test/`; `src/binding.ts` holds `bindMikeDownValue`, which every wrapper uses.
-- `packages/web-component`, `react`, `vue`: the wrappers, in the root workspace. `packages/angular` is outside the root workspace, has its own lockfile, and publishes from `dist/`.
-- `website/`: the site (`shared/` shell, `mikedown-desktop/`, `vscode/`, `developers/`, `developers-angular/`). After editing `shared/`, run `npm run sync:shell -w website`.
-- `scripts/version-npm.mjs`, `scripts/release-npm.mjs`: npm family versioning and publishing (see `CLAUDE.md`, Releasing).
-- `packages/desktop/deploy/`:
-  - `release.sh`, `pack-for-lymedeploy.sh`, `key-runbook.md`, `release-notes/`;
-  - `lib/release-lib.js` (core pin gates), `stage-site.js`, `verify-site.js`.
-- `.orchestrator/wrappers-npm-plan/`, `.orchestrator/ai-inference-engines-plan/`: orchestrator state, prompts and processed summaries (gitignored).
-- AI (on `develop`): `packages/core/src/ai/` (contracts, router, presets, thinking), `packages/core/src/ai-settings*.ts`, `ai-engine-form.ts`, `ai-engines-page.ts`, `ai-rewrite.ts`, `ai-request.ts`; `src/ai/` (VS Code host adapters, SecretStorage); `packages/desktop/src-tauri/src/commands/ai.rs` + `commands/ai/`; `packages/desktop/src/host/aiHost.ts`; `test/ai-fixtures/`, `test/live/ai-live.test.ts` (`MIKEDOWN_AI_LIVE=1 npm run test:ai-live`).
+- `packages/core/src/`:
+  - `editor.ts`: main editor; toolbar in `buildCondensedToolbar`; lazy AI import.
+  - `ai/`: contracts, router, presets, `thinking.ts`, prompts, `documentBudget.ts`.
+  - `ai-lite.ts` (loader, kept in the main chunk), `ai-ui.ts` (the lazy AI chunk), `ai-ui-eager.ts` (eager entry for VS Code and vitest). Self-hosting the standalone web component needs every `dist/mikedown-editor.*.js` file.
+  - `ai-rewrite.ts` (popover), `ai-toolbar.ts`, `ai-prefs.ts`, `ai-settings*.ts`, `ai-engines-page.ts`.
+  - `toolbar-ids.ts`, `toolbar-layout.ts`, `toolbar-registry.ts`, `toolbar-customize.ts`.
+  - `outlineSidebar.ts` (Properties + Suggest), `frontmatterHistory.ts`.
+- `src/ai/engineService.ts`: VS Code host (logging in `logRequest`).
+- `packages/desktop/src-tauri/src/commands/ai.rs` + `commands/ai/` (`request_log.rs`); `packages/desktop/src/host/aiHost.ts`.
+- `test/packages/web-component-shape.test.ts`: bundle budget (850 kB).
+- `.orchestrator/<plan>/`: orchestrator state and processed worker summaries (gitignored).
 
-## Recent Git Log
+## Recent Git Log (`develop`)
 
-`main`:
-
-- `ba176bd` Add AI copilot brainstorm and inference engines plan (unpushed)
-- `67c638c` Expand the customizable toolbar backlog item with drag, add/remove and separators (unpushed)
-- `f70bda1` Update RESUME for the table checkbox save fix (unpushed)
-- `39be7b4` Keep table-cell checkboxes unescaped when serializing (unpushed)
-- `95deb11` Add a favicon and apple-touch-icon to every site page
-
-`develop` (local only):
-
-- `4019204` Record T4 sign-off in the AI engines plan
-- `3536b57` Give the demo stub host a cloud engine with a provider-shaped model list
-- `1e554fb` Test the Express engine form, the AI Engines page and the summary tab
+- `b27cf29` Log the AI bundle split in the AI writing features plan
+- `e1032e9` Load the AI UI on demand so editors without host.ai never ship it
+- `764eaf9` Log the Properties sidebar fixes in the AI writing features plan
+- `27272ed` Fix Properties chip layout, frontmatter block overlap and empty tags after removal
+- `0ca8c21` Record the T3 sign-off in the AI writing features plan
+- `5b16f39` Move the AI engine badge to the popover footer and set the thinking level from the AI menu
+- `fa10690` Rename the context menu Rewrite submenu to AI and the Expand variant to Add detail
 
 ## Any Other Notes
 
-- **Desktop release flow:**
-  1. `release.sh <v> --notes-file release-notes/<v>.md --yes`. It exits 10 until the bump commit is pushed; push with Mike's OK, then re-run with `--no-bump`.
-  2. `pack-for-lymedeploy.sh --version <v>`.
-  3. Tag `desktop-v<v>`.
-- **Mac release builds are slow on purpose.** A universal build compiles twice with LTO and `codegen-units = 1`, then waits on notarization. Keep those settings.
-- **1.0 criteria:**
-  - both hands-on passes signed off;
-  - a real update in the wild (done);
-  - a few weeks of daily use with no data loss;
-  - the key backed up (done);
-  - recommendable without caveats.
-- **npm publishes are Mike's** (user `interapp`, 2FA through a security key). Brand-new package names can take 20+ minutes to appear on the registry.
-- **Cloudflare Email Obfuscation** rewrites `name@1.2.3` text in served HTML. Code samples are protected by `website/developers/common/samples.js`; hand-written HTML is not.
-- **IIS MIME types:** `.woff2`, `.svg`, `.mjs` and `.webmanifest` are unconfirmed on iadev-prod. Never add a `mimeMap` for a type that's already mapped machine-wide, because that returns 500 for the whole folder.
-- **Running tests:**
-  - `test:integration` fails in worktrees (the IPC socket path is too long), so run it in the main tree.
-  - A fresh tree needs `npm run build:core` before `test:unit`.
-  - Bare `vitest run` picks up the integration files. Use `npm run test:unit`, `test:edge` or `test:integration`.
-  - Local Node 22.20 is too old for Angular CLI 22, so the `angular-latest` consumer target is skipped.
-- **Opening a file in Desktop dev:** run `npm run dev -- -- -- <path>` in `packages/desktop` (three `--`). With two, tauri's cargo flags reach the app, and it tries to open a file called `always`. Close any installed MikeDown first, or single-instance hands the file to it.
-- **Dev host:** after `npm run compile`, press Cmd+R in the dev host.
-- **Mac updates:** `/Applications` isn't writable by Mike's day account, so they prompt for `macadmin`. Windows is a per-user NSIS install with no admin prompt.
-- **Orchestrator:** workers are Agent-tool subagents, and only the orchestrator ticks plan checkboxes.
-- **AI dev:** oMLX `http://127.0.0.1:8000/v1` (key in `OMLX_API_KEY` and `~/.omlx/settings.json`; never print it), LM Studio `:1234`, Ollama not running. Test from `develop` (`npm run dev`), not `main`. Never run machine-wide `pkill`; kill by PID.
-- **Spell check** defaults **off**. Don't ask mzenker-PSS for a review a third time.
+- **Commits:** no AI attribution of any kind. A PreToolUse hook blocks any Bash command whose text contains the attribution strings, even a grep, so search with patterns like `cl[a]ude`.
+- **Workers:** use Agent-tool subagents (Mike prefers them over clipboard prompts). With several working in one tree, have each commit only its own paths (`git commit -- <paths>`). Never run two workers that edit `editor.ts` at once.
+- **Worktrees:** they start from a stale commit (`git reset --hard <develop sha>`), need `npm run build:core` before `test:unit`, and can't run `test:integration`.
+- **Tests:** use `npm run test:unit`, `test:edge` and `test:integration`; bare `vitest run` picks up the integration files. `supportCard` failed once in a full run but passes alone (possibly the known flaky test).
+- **Thinking level:** "Model default" sends no thinking fields and is budgeted as Medium (2048 headroom). Off becomes Low on Anthropic; LM Studio is on/off only.
+- **Teammate idle notifications** often repeat a finished worker's report, so check before reprocessing.
+- Never run machine-wide `pkill`; kill by PID. Mac updates prompt for `macadmin`.
