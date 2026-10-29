@@ -203,7 +203,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     focusKey,
     openLink: ctx.openLink,
     // In the wizard, the subscription vs API key note sits over a cloud key field.
-    keyNote: (engine, preset) => (wizard && preset.family === 'cloud' ? subscriptionNote(preset, ctx.openLink, aiProviderPolicy(engine)?.note) : null),
+    keyNote: (engine, preset) => (wizard && preset.family === 'cloud' ? subscriptionNote(preset, ctx.openLink, aiProviderPolicy(engine)) : null),
     modelSize: (modelId) => (hardware ? modelSizeHint(modelId, hardware) : undefined),
   });
 

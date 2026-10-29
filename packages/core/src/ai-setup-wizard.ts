@@ -71,20 +71,25 @@ export const AI_SUBSCRIPTION_NOTE =
 export function subscriptionNote(
   preset: Pick<EngineFormPreset, 'name' | 'keyUrl' | 'pricingUrl'>,
   openLink?: (href: string) => void,
-  /** The provider's own caveat (OpenRouter passes requests on to the model's provider), when it has one. */
-  providerNote?: string,
+  /** The provider's data policy: its link joins the key and pricing links, and its caveat (OpenRouter passes requests on) follows. */
+  policy?: Pick<AiProviderPolicy, 'url' | 'note'>,
 ): HTMLElement {
   const box = el('div', 'ai-wizard-subscription');
   box.append(el('p', 'ai-wizard-subscription-text', AI_SUBSCRIPTION_NOTE));
-  if (preset.keyUrl || preset.pricingUrl) {
-    const links = el('p', 'ai-wizard-subscription-links');
-    links.append('Get a key: ');
-    if (preset.keyUrl) {links.append(hostLink(`${preset.name} API keys`, preset.keyUrl, openLink, 'ai-wizard-link'));}
-    if (preset.keyUrl && preset.pricingUrl) {links.append(el('span', 'ai-wizard-sep', ' · '));}
-    if (preset.pricingUrl) {links.append(hostLink('Pricing', preset.pricingUrl, openLink, 'ai-wizard-link'));}
-    box.append(links);
+  const links: [string, string][] = [];
+  if (preset.keyUrl) {links.push([`${preset.name} API keys`, preset.keyUrl]);}
+  if (preset.pricingUrl) {links.push(['Pricing', preset.pricingUrl]);}
+  if (policy?.url) {links.push(['Privacy', policy.url]);}
+  if (links.length > 0) {
+    const line = el('p', 'ai-wizard-subscription-links');
+    line.append('Get a key: ');
+    links.forEach(([label, url], i) => {
+      if (i > 0) {line.append(el('span', 'ai-wizard-sep', ' · '));}
+      line.append(hostLink(label, url, openLink, 'ai-wizard-link'));
+    });
+    box.append(line);
   }
-  if (providerNote) {box.append(el('p', 'ai-wizard-subscription-links', providerNote));}
+  if (policy?.note) {box.append(el('p', 'ai-wizard-subscription-links', policy.note));}
   return box;
 }
 

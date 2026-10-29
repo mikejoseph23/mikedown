@@ -380,7 +380,7 @@ describe('setup wizard: step 2, the compact form', () => {
     expect(sheet.firstElementChild?.nextElementSibling?.classList.contains('ai-key-row')).toBe(true);
     // One key link: the note's, not the preset's hint under the field.
     expect(m.c.querySelector('.ai-form .ai-key-link')).toBeNull();
-    expect(Array.from(m.c.querySelectorAll('.ai-form a')).map((a) => a.textContent)).toEqual(['OpenAI API keys', 'Pricing']);
+    expect(Array.from(m.c.querySelectorAll('.ai-form a')).map((a) => a.textContent)).toEqual(['OpenAI API keys', 'Pricing', 'Privacy']);
     for (const fk of ['name', 'enabled', 'default-model', 'thinking', 'test', 'fetch', 'pick', 'type-open']) {
       expect(q(m.c, `eng:${id}:${fk}`), fk).toBeNull();
     }
