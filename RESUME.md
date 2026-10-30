@@ -13,6 +13,8 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
 
 ## Current Status
 
+**Revisit soon: `desktop-site-redesign-plan.md`.** The Desktop download page gets an AI section, a fuller feature tour, and a comparison chart across Desktop, VS Code, the web component and the wrappers. It ships as a site-only release after Desktop 0.4.0.
+
 **`develop` is 51 commits ahead of `origin/develop`, so push with Mike's OK. Working tree clean. The AI setup, privacy and polish plan is implemented, and the VS Code half of the fresh-user walk (T4) has passed. Nothing from `develop` is released or merged to `main`.**
 
 - **Released:** VS Code 2.16.0, npm family 0.2.0, Desktop 0.3.0, site `0.3.0-site.3`.

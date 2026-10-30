@@ -4,6 +4,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 
 ## Features
 
+- **Desktop site redesign (do soon).** AI section, full feature tour and a where-is-each-feature comparison chart. Plan: `desktop-site-redesign-plan.md`. Ships as a site-only release after Desktop 0.4.0. _From the 2026-10-30 session._
 - **Definition lists** — `term\n: definition` (pandoc / PHP Markdown Extra).
 - **Custom containers** — `:::note ... :::` style (VuePress / MkDocs).
 - **Image captions** — render alt text or title as a `<figcaption>` under images.
