@@ -80,7 +80,8 @@ export function parseLmStudioModels(body: unknown): AiDiscoveredModel[] {
  * `loaded` and `model_type` (`llm`, `vlm`, `embedding`, or a non-text type
  * such as `audio_stt` or `markitdown`, which can neither chat nor embed),
  * `model_context_length`, `estimated_size` (bytes) and `config_model_type`
- * (a `moe` in it marks a mixture of experts).
+ * (a `moe` in it marks a mixture of experts; one ending `_mtp` is a
+ * speculative-decoding drafter, not a chat model, though it says `llm`).
  */
 export function parseOmlxModelStatus(body: unknown): AiDiscoveredModel[] {
   const out: AiDiscoveredModel[] = [];
@@ -94,6 +95,9 @@ export function parseOmlxModelStatus(body: unknown): AiDiscoveredModel[] {
     } else if (m.model_type === 'embedding' || m.model_type === 'embeddings') {
       Object.assign(caps, { chat: false, stream: false, vision: false, tools: false, json: false, embed: true });
     } else if (typeof m.model_type === 'string') {
+      Object.assign(caps, { chat: false, stream: false, vision: false, tools: false, json: false, embed: false });
+    }
+    if (drafterArch(m.config_model_type)) {
       Object.assign(caps, { chat: false, stream: false, vision: false, tools: false, json: false, embed: false });
     }
     const ctx = positiveInt(m.model_context_length);

@@ -2304,7 +2304,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       return;
     }
     // Hosts send parsed settings; parsing again is cheap and keeps a sloppy host safe.
+    const before = currentAiSettings;
     currentAiSettings = ui.parseAiSettings(raw, { onWarning: () => { /* the host already warned */ } });
+    // A new default or route: the chip shows where the next request goes, not the last one.
+    if (aiServed && ui.aiNextRouteChanged(before, currentAiSettings, aiStatuses)) {aiServed = null;}
     for (const waiter of [...aiSettingsWaiters]) {waiter(currentAiSettings);}
     renderAiIndicator();
     refreshAiToolbarButton();

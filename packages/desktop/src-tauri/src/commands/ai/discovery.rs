@@ -119,8 +119,10 @@ pub fn parse_lmstudio_models(body: &Value) -> Vec<DiscoveredModel> {
 
 /// oMLX `GET {base}/models/status`: `loaded`, `model_type` (`llm`, `vlm`,
 /// `embedding`, or a non-text type such as `audio_stt` or `markitdown`,
-/// which can neither chat nor embed), `model_context_length` and
-/// `estimated_size` (bytes).
+/// which can neither chat nor embed), `model_context_length`,
+/// `estimated_size` (bytes) and `config_model_type` (a `moe` in it marks a
+/// mixture of experts; one ending `_mtp` is a speculative-decoding drafter,
+/// not a chat model, though it says `llm`).
 pub fn parse_omlx_model_status(body: &Value) -> Vec<DiscoveredModel> {
     let mut out = Vec::new();
     for m in data_array(body, "models") {
@@ -147,6 +149,14 @@ pub fn parse_omlx_model_status(body: &Value) -> Vec<DiscoveredModel> {
                 caps.embed = Some(embed);
             }
             None => {}
+        }
+        if drafter_arch(m.get("config_model_type")) {
+            caps.chat = Some(false);
+            caps.stream = Some(false);
+            caps.vision = Some(false);
+            caps.tools = Some(false);
+            caps.json = Some(false);
+            caps.embed = Some(false);
         }
         caps.context_tokens = positive_int(m.get("model_context_length"));
         let source = if caps == PartialCapabilities::default() { DiscoverySource::Heuristic } else { DiscoverySource::Endpoint };
@@ -397,6 +407,13 @@ mod tests {
     fn lmstudio_mtp_drafters_are_not_chat_models_and_keep_their_true_size() {
         let f = fixture("lmstudio-mtp-drafters.json");
         let models = with_model_sizes(parse_lmstudio_models(&f["response"]), &parse_model_sizes(&f["v1Response"]));
+        assert_eq!(as_json(&models), f["expected"]);
+    }
+
+    #[test]
+    fn omlx_mtp_drafters_are_not_chat_models() {
+        let f = fixture("omlx-mtp-drafters.json");
+        let models = with_model_status(parse_openai_model_list(&f["listed"]), &parse_omlx_model_status(&f["response"]));
         assert_eq!(as_json(&models), f["expected"]);
     }
 

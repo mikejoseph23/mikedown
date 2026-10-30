@@ -78,6 +78,11 @@ describe('discovery fixtures', () => {
     expect(withModelStatus(parseOpenAiModelList(fx.listed), parseOmlxModelStatus(fx.response))).toEqual(fx.expected);
   });
 
+  it('oMLX MTP drafters (config_model_type ending _mtp) are not chat models', () => {
+    const fx = load('discovery/omlx-mtp-drafters.json');
+    expect(withModelStatus(parseOpenAiModelList(fx.listed), parseOmlxModelStatus(fx.response))).toEqual(fx.expected);
+  });
+
   it('Ollama /api/tags then /api/show', () => {
     const tags = load('discovery/ollama-api-tags.json');
     const show = load('discovery/ollama-api-show.json');

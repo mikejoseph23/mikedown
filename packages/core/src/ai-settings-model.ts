@@ -683,6 +683,24 @@ function servedLabels(settings: AiSettings, served: AiServedBy): { engine: strin
 export const AI_CHIP_CLICK_SETTINGS = 'Click for AI settings.';
 export const AI_CHIP_CLICK_CHOOSE = 'Click to choose a model.';
 
+/** The task the chip previews when nothing has been sent yet. */
+function indicatorTask(): string {
+  return getAiTask('rewrite') ? 'rewrite' : AI_TASKS[0].id;
+}
+
+/**
+ * Whether a settings change moved where the next request goes (a new default
+ * engine or model, a task route). The chip drops its "last served" label
+ * when it did, so it previews the new route, like the VS Code status bar.
+ */
+export function aiNextRouteChanged(before: AiSettings, after: AiSettings, statuses: readonly AiEngineStatus[]): boolean {
+  const key = (s: AiSettings): string | null => {
+    const r = previewTaskRoute(s, statuses, indicatorTask());
+    return 'unusable' in r ? null : `${r.engineId}\n${r.modelId}`;
+  };
+  return key(before) !== key(after);
+}
+
 export function aiIndicatorState(input: AiIndicatorInput): AiIndicatorState | null {
   const { settings, statuses, tier, served, viaFallback } = input;
   if (!settings.enabled) {
@@ -700,7 +718,7 @@ export function aiIndicatorState(input: AiIndicatorInput): AiIndicatorState | nu
   if (tier === 1) {
     return { text: 'AI: on', tone: 'on', title: `AI features are on. ${AI_CHIP_CLICK_SETTINGS}`, fallback: false, warn: false };
   }
-  const r = previewTaskRoute(settings, statuses, getAiTask('rewrite') ? 'rewrite' : AI_TASKS[0].id);
+  const r = previewTaskRoute(settings, statuses, indicatorTask());
   if ('unusable' in r) {
     return { text: 'AI: no model chosen', tone: 'none', title: `${r.reason} ${AI_CHIP_CLICK_CHOOSE}`, fallback: false, warn: false };
   }

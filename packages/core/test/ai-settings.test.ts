@@ -778,6 +778,21 @@ describe('AI indicator chip', () => {
     expect(document.querySelector<HTMLElement>('.settings-tab[aria-selected="true"]')?.dataset.tabId).toBe('ai');
   });
 
+  it('drops the served label when a settings change moves the route, keeps it otherwise', () => {
+    class Host extends NoopHost { ai = tier2(); }
+    const handle = mount(new Host(), settings());
+    const chip = document.querySelector<HTMLButtonElement>('[data-testid="sidebar-ai-chip"]')!;
+    handle.setAiServed({ engineId: 'omlx', engineName: 'oMLX', modelId: 'qwen3.8-flash', isLocal: true });
+    expect(chip.textContent).toBe('AI: local · oMLX · Qwen Flash');
+    // A change that keeps the route keeps the served label.
+    handle.updateSettings({ ai: settings({ showToolbarButton: false }) });
+    expect(chip.title).toMatch(/^Last request served by oMLX/);
+    // A new default engine: the chip previews it straight away.
+    handle.updateSettings({ ai: settings({ routing: { default: { engineId: 'lms', modelId: 'gemma-4-26b' }, fallback: 'anyLocal', tasks: {} } }) });
+    expect(chip.textContent).toBe('AI: local · LM Studio · gemma-4-26b');
+    expect(chip.title).toMatch(/^Requests go to /);
+  });
+
   it('opens the page on routing when nothing can be routed', () => {
     class Host extends NoopHost { ai = tier2(); }
     mount(new Host(), settings({ routing: { default: null, fallback: 'none', tasks: {} } }));
