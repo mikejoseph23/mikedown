@@ -32,7 +32,7 @@ Defaults applied by the planning skill: incremental verification (acceptance che
 |---|---|---|---|---|
 | [M1 Comparison matrix: data and Mike's review](#m1-comparison-matrix-data-and-mikes-review) | Sonnet (audit done here), Mike | ✅ Done | — | Mike accepted every recommendation 2026-10-30 |
 | [M2 Compare page](#m2-compare-page) | Opus | 🔄 In Progress | — | `website/compare/`, Vite input, site gate, link test |
-| [M3 Desktop page: feature tour and AI section](#m3-desktop-page-feature-tour-and-ai-section) | Opus | 🔄 In Progress | — | Inline CSS only; markers and script untouched. Compare teaser moved to M5 |
+| [M3 Desktop page: feature tour and AI section](#m3-desktop-page-feature-tour-and-ai-section) | Opus | ✅ Done | 6 | `586d787`. Compare teaser moved to M5; AI figures go in M4 |
 | [M4 AI screenshots](#m4-ai-screenshots) | Mike (Sonnet for the page edits) | ⬜ Not Started | — | 2 or 3 PNGs from Desktop with a local engine |
 | [M5 Links from the VS Code and Developers pages](#m5-links-from-the-vs-code-and-developers-pages) | Sonnet | ⬜ Not Started | — | Bands, footer, maybe the nav (OQ2) |
 | [M6 Site-only publish and verification](#m6-site-only-publish-and-verification) | Sonnet, Mike for the real publish | ⬜ Not Started | — | `0.4.0-site.1`, after Desktop 0.4.0 is live |
@@ -259,22 +259,22 @@ Acceptance: `npm run build:site` emits `website/dist/compare/index.html`; the we
 
 Section order after this milestone: Hero (unchanged apart from OQ3), Feature tour, AI, Screenshots, Compare teaser, Also for VS Code, Install, Release notes, Privacy.
 
-- [ ] Replace the three cards with a **feature tour**: six groups, each a heading, two or three sentences and a short list. Reuse the existing `.grid` and `.card` styles where they fit; add inline CSS for a two-column "group" layout that stacks at 720 px. Copy sources: `packages/desktop/deploy/release-notes/0.2.0.md` to `0.4.0.md`, the module headers in `packages/desktop/src` and `src-tauri/src/commands`, and the matrix notes.
+- [x] Replace the three cards with a **feature tour**: six groups, each a heading, two or three sentences and a short list. Reuse the existing `.grid` and `.card` styles where they fit; add inline CSS for a two-column "group" layout that stacks at 720 px. Copy sources: `packages/desktop/deploy/release-notes/0.2.0.md` to `0.4.0.md`, the module headers in `packages/desktop/src` and `src-tauri/src/commands`, and the matrix notes.
   - **Writing:** WYSIWYG with a source mode toggle, tables, callouts, math, Mermaid, emoji, footnotes, slash commands, find and replace, spellcheck (dictionaries included), outline, properties, backlinks, wikilinks and tags, light and dark.
   - **Files and folders:** the file tree, tabs, split panes each with their own tabs and sidebar, folder-wide search (plain text, case and whole-word options), image paste saved next to the note, external change detection, hot-exit backups.
   - **Version history:** a snapshot on every save inside an open folder in `.mikedown/versions/`, side-by-side diff, one-click restore, pruning by count and size (C5 wording).
   - **Export:** standalone HTML, print, PDF through the system print dialog (C6 wording), copy as rich text.
   - **Multi-window:** as many windows as folders; New Window from File, from the Dock icon's menu on macOS and from the taskbar's right-click menu on Windows; Open Containing Folder on a file from outside the open folder opens that folder in its own window; files from the OS land in the window that already has their folder.
   - **AI (experimental):** one card that points down to the AI section.
-- [ ] Add the **AI section** (`id="ai"`), with an Experimental badge (match the shell's accent tokens; the apps use the same word). Four short blocks:
+- [x] Add the **AI section** (`id="ai"`), with an Experimental badge (match the shell's accent tokens; the apps use the same word). Four short blocks:
   - What it does: rewrite a selection (length, tone, audience), explain, translate, summarize, suggest a title and properties; every AI edit is one undo step.
   - Off until you turn it on: nothing is visible and nothing is sent until you set up an engine (wording from the 0.4.0 notes).
   - Local first: Desktop finds a server you already run (oMLX, LM Studio, Ollama and others) and sets it up in one click; a local engine keeps everything on your machine or your network (`AI_CLOUD_PRIVACY.local`).
   - Cloud, opt in: Anthropic, OpenAI and other providers are available after you turn on cloud engines; the first request in a folder asks you and says what it sends; keys stay in your system keychain; each provider's policy is linked where you add the engine. End with a link to `#privacy`. No retention or training claims.
-- [ ] Add the screenshot figures for M4's images to the Screenshots section (placeholders are not allowed in a commit; M3 lands the markup only when M4's PNGs exist, otherwise M4 adds the figures).
+- Screenshot figures: deferred to M4 (no PNGs yet; they go at the end of the AI section or under Screenshots). Was: Add the screenshot figures for M4's images to the Screenshots section (placeholders are not allowed in a commit; M3 lands the markup only when M4's PNGs exist, otherwise M4 adds the figures).
 - Compare teaser: moved to M5 (orchestrator, 2026-10-30) so M3 can run beside M2 without a link to an unbuilt page.
-- [ ] Update `<meta name="description">` and the header comment of the page if the section list changes.
-- [ ] Keep every constraint in [Audit: Desktop page constraints](#audit-desktop-page-constraints). Run `npm run check:shell -w website` after editing.
+- [x] Update `<meta name="description">` and the header comment of the page if the section list changes.
+- [x] Keep every constraint in [Audit: Desktop page constraints](#audit-desktop-page-constraints). Run `npm run check:shell -w website` after editing.
 
 Acceptance: `npm run dev:site` at `/mikedown/` passes 360 px, light and dark, no horizontal scroll; `npm run build:site` passes (`check:shell` included); `node packages/desktop/deploy/render-page.js --in website/mikedown-desktop/index.html --out /tmp/x.html --version 0.4.0` runs with and without `--linux` and both outputs are free of `@@LINUX`; the website vitest run passes; the dry-run pack passes.
 
@@ -350,3 +350,5 @@ Nothing here touches `packages/core`, `src/` or the Desktop app, so it can run b
 **2026-10-30** - Plan written from a code audit (no page changes yet). Findings that shape the work: the web component and all three wrappers accept an AI host today (`ai` property or input, `host.ai`), so the chart says "Host must provide", not "No" (C1 for Mike); the site package gate (`lib/site-checks.js`) only allows `vscode/`, `developers/` and `site-assets/` at the top level, so a compare page needs that list and its test extended; the desktop page's image check only recognises bare `.png` names in `src=`; the shell header and footer on the desktop page are regenerated by `sync:shell`, so a nav change is a four-page change. Nothing committed beyond this plan and the pointers in `RESUME.md` and `BACKLOG.md`.
 
 **2026-10-30** - M1 done: Mike accepted every recommendation for C1 to C11 and OQ1 to OQ7. Code checks by the orchestrator: Vue has no `spellcheckDictionaryUrl` (React and Angular do), `setBacklinks` is public on `MikeDownEditorHandle`, the Angular `ai` input shipped in 0.3.0. The compare teaser moved from M3 to M5 so M2 and M3 run in parallel. M2 and M3 dispatched on Opus in worktrees.
+
+**2026-10-30 14:57** - M3 done (`586d787`, 6 min, Opus): six-group feature tour and the AI section with an Experimental badge. Checked: `check:shell`, `build:site` and the website vitest run (34) pass in the main tree after the merge; `render-page.js` with and without `--linux` leaves no `@@LINUX`; dry-run pack passes; 360 and 1280 px, light and dark, no horizontal scroll (headless Chromium, Chrome extension was not connected). Copy differs from the brief in three places, all to match the code: no "copy as rich text" in Export (Desktop doesn't have it), no "nothing is visible" before AI setup (the toolbar shows an AI setup button), version history says "newest 25 snapshots per file" and that oversized files are skipped. No AI figures yet (M4).
