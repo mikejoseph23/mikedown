@@ -51,6 +51,7 @@ All notable changes to MikeDown Editor are documented here.
 - Tables: **Move Row Up**, **Move Row Down**, **Move Column Left** and **Move Column Right** in the right-click menu, the keyboard and touch way to reorder. Each is one undo step and keeps the cursor in the moved cell; they are greyed at the edges, and the header row stays first.
 - Tables: a faint **+** appears at the right of the header row and under the last row when the pointer is over a table; clicking adds a column or a row at the end and keeps the cursor in the table. It hides while you type and in source mode.
 - Tables: copying a table, or cells of one, puts a markdown pipe table on the clipboard as plain text, so it pastes into Slack, a terminal or a commit message as a table (spreadsheets still get the cells). **Copy Table as Markdown** in the right-click menu copies the whole table.
+- Tables: a new setting, `mikedown.tables.padColumns` (off by default; also in the Settings modal under Markdown as **Align table columns**, and in MikeDown Desktop), pads every cell to its column's widest cell and the delimiter row to match, keeping the alignment colons, so the pipes line up in the source. Wide characters and emoji count as two columns. It changes the file text only, on the next edit of a table; copied tables are padded too. With it off, tables are written exactly as before.
 
 ### Changed
 

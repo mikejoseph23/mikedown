@@ -23,6 +23,7 @@ export interface MikeDownSettings {
   };
   headingNumbering: HeadingNumbering;
   tocStyle: 'list' | 'placeholder';
+  tables: { padColumns: boolean };
   normalizationStyle: {
     boldMarker: '**' | '__';
     italicMarker: '*' | '_';
@@ -118,6 +119,7 @@ export function getSettings(): MikeDownSettings {
     },
     headingNumbering: parseHeadingNumbering(config.get<string>('headingNumbering', 'off')),
     tocStyle: config.get<string>('tocStyle', 'list') === 'placeholder' ? 'placeholder' : 'list',
+    tables: { padColumns: config.get<boolean>('tables.padColumns', false) },
     normalizationStyle: {
       boldMarker: config.get<'**' | '__'>('normalizationStyle.boldMarker', '**'),
       italicMarker: config.get<'*' | '_'>('normalizationStyle.italicMarker', '*'),

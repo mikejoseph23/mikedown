@@ -50,6 +50,8 @@ export interface MikeDownSettings {
   tagsEnabled: boolean;
   /** What Insert > Table of Contents creates (existing TOCs keep their style). */
   tocStyle: 'list' | 'placeholder';
+  /** Pad Markdown table cells to a common column width when saving. */
+  tablePadColumns: boolean;
   markdownNormalization: 'preserve' | 'normalize';
   normalizationStyle: NormalizationStyle;
   // Spelling

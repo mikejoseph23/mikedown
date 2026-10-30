@@ -1373,6 +1373,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         { value: 'placeholder', label: '[toc] placeholder line' },
       ],
     );
+    const tablePadField = makeCheckboxRow(
+      'Align table columns',
+      'Pad every cell of a Markdown table to its column\'s width, so the pipes line up in the source. Changes the file text only; the table looks the same here.',
+      currentTablePadColumns,
+    );
     const linkClickField = makeSelectRow<'navigateCurrentTab' | 'openNewTab' | 'showContextMenu'>(
       'Link click behavior',
       'What happens when you Cmd/Ctrl+click a link in the editor.',
@@ -1779,6 +1784,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         renderMath: mathField.input.checked,
         tagsEnabled: tagsField.input.checked,
         tocStyle: tocStyleField.select.value as TocStyle,
+        tablePadColumns: tablePadField.input.checked,
         linkClickBehavior: linkClickField.select.value as MikeDownSettings['linkClickBehavior'],
         headingNumbering: headingNumberingField.select.value as MikeDownSettings['headingNumbering'],
         slashCommandsEnabled: slashCommandsEnabledField.input.checked,
@@ -1807,6 +1813,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       setMathRenderingEnabled(features.math && currentRenderMath);
       currentTagsEnabled = tagsField.input.checked;
       applyTocStyle(parseTocStyle(tocStyleField.select.value));
+      applyTablePadColumns(tablePadField.input.checked);
       currentLinkClickBehavior = linkClickField.select.value as typeof currentLinkClickBehavior;
       applyHeadingNumbering(parseHeadingNumbering(headingNumberingField.select.value));
       currentSlashCommandsEnabled = slashCommandsEnabledField.input.checked;
@@ -1875,6 +1882,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         ...(features.math ? [{ key: 'renderMath', row: mathField.row }] : []),
         { key: 'tagsEnabled', row: tagsField.row },
         { key: 'tocStyle', row: tocStyleField.row },
+        { key: 'tablePadColumns', row: tablePadField.row },
         { key: 'markdownNormalization', row: normalizationField.row },
         { key: 'normalizationStyle.boldMarker', row: boldMarkerField.row },
         { key: 'normalizationStyle.italicMarker', row: italicMarkerField.row },
@@ -2208,6 +2216,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   // Table of contents (#11): wired next to the TOC sync in initEditor.
   let refreshTocAfterLoad: () => void = () => {};
   let currentTocStyle: TocStyle = 'list';
+  let currentTablePadColumns = false;
   let documentIsNumbered: () => boolean = () => false;
 
   /**
@@ -2217,6 +2226,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function applyHeadingNumbering(mode: HeadingNumbering): void {
     currentHeadingNumbering = mode;
     refreshToolbarAvailability();
+  }
+
+  /** Apply `mikedown.tables.padColumns`: whether the table serializer pads cells. */
+  function applyTablePadColumns(on: boolean): void {
+    if (currentTablePadColumns === on) {return;}
+    currentTablePadColumns = on;
+    (editor.storage as unknown as Record<string, { padColumns: boolean }>).table.padColumns = on;
   }
 
   /** Apply `mikedown.tocStyle`: what inserting a table of contents creates. */
@@ -7012,6 +7028,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     }
     if (typeof patch.tocStyle === 'string') {
       applyTocStyle(parseTocStyle(patch.tocStyle));
+    }
+    if (typeof patch.tablePadColumns === 'boolean') {
+      applyTablePadColumns(patch.tablePadColumns);
     }
     if (
       typeof patch.slashCommandsEnabled === 'boolean'

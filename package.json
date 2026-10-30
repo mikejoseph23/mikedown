@@ -579,6 +579,11 @@
           "default": "list",
           "description": "What Insert > Table of Contents (and /toc) adds. Existing tables of contents keep their style, and both styles are always recognized when a file is opened."
         },
+        "mikedown.tables.padColumns": {
+          "type": "boolean",
+          "default": false,
+          "description": "Pad every cell of a Markdown table to its column's widest cell (wide characters and emoji count as two columns), so the pipes line up in the source. Alignment colons are kept. Off writes each cell as is. Only the file text changes; the table looks the same in the editor."
+        },
         "mikedown.normalizationStyle.boldMarker": {
           "type": "string",
           "enum": [

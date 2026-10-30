@@ -27,6 +27,7 @@ import { selectionCell, TableMap } from '@tiptap/pm/tables';
 import { Table } from '@tiptap/extension-table';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
+import { padTableRows } from './table-pad';
 
 export type ColumnAlign = 'left' | 'center' | 'right';
 
@@ -125,15 +126,64 @@ function serializeTableAsHTML(node: PMNode, parent: PMNode | Fragment): string {
   return html;
 }
 
+/**
+ * Render each cell of a pipe table to its markdown text, for padding. Runs
+ * before any real output: the sentinel keeps the cell off the start of a line
+ * (so it escapes the way it will in the table), and `out` is restored after.
+ */
+function renderCellTexts(state: any, node: PMNode): string[][] {
+  const start = state.out.length;
+  const rows: string[][] = [];
+  node.forEach((row: PMNode) => {
+    const cells: string[] = [];
+    row.forEach((col: PMNode) => {
+      state.out += '| ';
+      const cellStart = state.out.length;
+      col.forEach((paragraph: PMNode, _p: number, k: number) => {
+        if (k) {state.write('<br>');}
+        if (paragraph.textContent.trim()) {state.renderInline(paragraph);}
+      });
+      cells.push(escapeCellPipes(state.out.slice(cellStart)));
+      state.out = state.out.slice(0, start);
+    });
+    rows.push(cells);
+  });
+  return rows;
+}
+
 export const TableAligned = Table.extend({
   addStorage() {
+    // `padColumns` mirrors `mikedown.tables.padColumns`; the editor sets it
+    // through `editor.storage.table.padColumns`. (tiptap builds a fresh
+    // storage object per read, so `serialize` reaches the live one through
+    // the `this.editor` tiptap-markdown binds.)
     return {
       ...this.parent?.(),
+      padColumns: false,
       markdown: {
-        serialize(state: any, node: PMNode, parent: PMNode | Fragment) {
+        serialize(this: { editor?: Editor }, state: any, node: PMNode, parent: PMNode | Fragment) {
           if (!isMarkdownSerializable(node)) {
             state.write(serializeTableAsHTML(node, parent));
             if (node.isBlock) {state.closeBlock(node);}
+            return;
+          }
+          if ((this.editor?.storage as { table?: { padColumns?: boolean } } | undefined)?.table?.padColumns) {
+            // Flush the pending block break (and any quote/list prefix) first,
+            // so the cell pass below sees the same line context as the output.
+            state.write();
+            // `inTable` makes hard breaks write `<br>`.
+            state.inTable = true;
+            const rows = renderCellTexts(state, node);
+            const aligns: Array<string | null> = [];
+            (node.firstChild as PMNode).forEach((col: PMNode) =>
+              aligns.push((col.attrs.textAlign as string | null) ?? null),
+            );
+            for (const line of padTableRows(rows, aligns)) {
+              state.write(line);
+              state.ensureNewLine();
+            }
+            state.closeBlock(node);
+            state.inTable = false;
             return;
           }
           state.inTable = true;
