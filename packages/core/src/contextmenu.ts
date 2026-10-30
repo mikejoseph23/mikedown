@@ -3,6 +3,7 @@ import { hideTableToolbar } from './tablepicker';
 import { setColumnAlign } from './table-align';
 import { selectTable, showTablePickerAtCursor } from './table-commands';
 import { copyTableAsMarkdown } from './table-clipboard';
+import { canMove, moveInTable, type MoveDirection } from './table-structure';
 import { getPortal } from './portal';
 import type { AiRewriteVariant } from './ai/prompts/rewrite';
 import type { AiRewriteMenuGroup } from './ai-rewrite';
@@ -477,6 +478,28 @@ export function buildLinkMenu(editor: Editor, href: string, actions?: ContextMen
   ];
 }
 
+/**
+ * Move Row Up / Down and Move Column Left / Right: the keyboard and touch
+ * equivalent of the drag handles. Greyed at the edges; the header row cannot
+ * move, and no row moves above it.
+ */
+function tableMoveEntries(editor: Editor): ContextMenuItem[] {
+  const entry = (label: string, dir: MoveDirection, why: string): ContextMenuItem => {
+    const ok = canMove(editor, dir);
+    return {
+      label,
+      action: () => { moveInTable(editor, dir); },
+      ...(ok ? {} : { disabled: true, title: why }),
+    };
+  };
+  return [
+    entry('Move Row Up', 'up', 'This row cannot move up (the header row stays first)'),
+    entry('Move Row Down', 'down', 'This row cannot move down'),
+    entry('Move Column Left', 'left', 'This column cannot move left'),
+    entry('Move Column Right', 'right', 'This column cannot move right'),
+  ];
+}
+
 export function buildTableMenu(editor: Editor): ContextMenuEntry[] {
   return [
     { label: 'Insert Row Above', action: () => editor.chain().focus().addRowBefore().run() },
@@ -486,6 +509,8 @@ export function buildTableMenu(editor: Editor): ContextMenuEntry[] {
     { label: 'Insert Column Left', action: () => editor.chain().focus().addColumnBefore().run() },
     { label: 'Insert Column Right', action: () => editor.chain().focus().addColumnAfter().run() },
     { label: 'Remove Column', action: () => editor.chain().focus().deleteColumn().run() },
+    { separator: true },
+    ...tableMoveEntries(editor),
     { separator: true },
     { label: 'Align Column Left', action: () => setColumnAlign(editor, 'left') },
     { label: 'Align Column Center', action: () => setColumnAlign(editor, 'center') },

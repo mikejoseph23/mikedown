@@ -188,15 +188,16 @@ describe('Pasting a plain-text table', () => {
     expect(md).toContain('| y1 | y2 | 6 |');
   });
 
-  it('is undone in one step', () => {
-    const before = 'Intro\n';
-    const h = mount(before);
+  it('is undone to the pasted text first, then removed (see table-paste-undo.test.ts)', () => {
+    const h = mount('Intro\n');
     const initial = h.getMarkdown();
     placeCursor(h, 6);
     paste(h, { 'text/plain': '| A | B |\n| - | - |\n| 1 | 2 |' });
     expect(countTables(h)).toBe(1);
     undo(h.tiptap.view.state, h.tiptap.view.dispatch);
     expect(countTables(h)).toBe(0);
+    expect(h.tiptap.state.doc.textContent).toContain('| A | B |');
+    undo(h.tiptap.view.state, h.tiptap.view.dispatch);
     expect(h.getMarkdown()).toBe(initial);
   });
 

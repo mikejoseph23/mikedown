@@ -1,16 +1,43 @@
 import { Editor } from '@tiptap/core';
 import { setColumnAlign, getColumnAlign } from './table-align';
 import { getPortal } from './portal';
+import { boxIntersectsViewport, computeToolbarPosition, type Box } from './table-geometry';
 
 // ================================================================
 // TABLE GRID PICKER
 // ================================================================
 
 let pickerEl: HTMLElement | null = null;
-let pickerHoverRows = 1;
-let pickerHoverCols = 1;
+let pickerHoverRows = 3;
+let pickerHoverCols = 3;
 const PICKER_ROWS = 8;
 const PICKER_COLS = 10;
+/** The size the grid starts on, and the manual inputs' default. */
+const PICKER_DEFAULT = 3;
+
+/**
+ * The grid size after an arrow key, kept inside the grid (1 up to `maxRows` by
+ * `maxCols`). Null for any other key. Home and End jump to the first and last
+ * column, so a keyboard user never needs more than a few presses.
+ */
+export function moveGridSize(
+  rows: number,
+  cols: number,
+  key: string,
+  maxRows: number = PICKER_ROWS,
+  maxCols: number = PICKER_COLS
+): { rows: number; cols: number } | null {
+  const clampTo = (n: number, max: number): number => Math.max(1, Math.min(max, n));
+  switch (key) {
+    case 'ArrowUp': return { rows: clampTo(rows - 1, maxRows), cols };
+    case 'ArrowDown': return { rows: clampTo(rows + 1, maxRows), cols };
+    case 'ArrowLeft': return { rows, cols: clampTo(cols - 1, maxCols) };
+    case 'ArrowRight': return { rows, cols: clampTo(cols + 1, maxCols) };
+    case 'Home': return { rows, cols: 1 };
+    case 'End': return { rows, cols: maxCols };
+    default: return null;
+  }
+}
 
 interface AnchorRect {
   left: number;
@@ -55,15 +82,20 @@ export function showTableGridPicker(
   pickerEl.setAttribute('role', 'dialog');
   pickerEl.setAttribute('aria-label', 'Insert table');
 
-  // Grid
+  // Grid. Focusable, so the arrow keys pick the size; the cells are for the mouse.
   const grid = document.createElement('div');
   grid.className = 'tp-grid';
+  grid.tabIndex = 0;
+  grid.setAttribute('role', 'group');
+  grid.setAttribute('aria-label', 'Table size: arrow keys change it, Enter inserts');
+  grid.setAttribute('aria-describedby', 'tp-dimension-label');
   grid.style.gridTemplateColumns = `repeat(${PICKER_COLS}, 1fr)`;
 
   for (let r = 1; r <= PICKER_ROWS; r++) {
     for (let c = 1; c <= PICKER_COLS; c++) {
       const cell = document.createElement('div');
       cell.className = 'tp-cell';
+      cell.setAttribute('aria-hidden', 'true');
       cell.dataset.row = String(r);
       cell.dataset.col = String(c);
       cell.addEventListener('mouseenter', () => {
@@ -84,7 +116,9 @@ export function showTableGridPicker(
   const label = document.createElement('div');
   label.className = 'tp-label';
   label.id = 'tp-dimension-label';
-  label.textContent = '1 × 1';
+  // Announced as the size changes; "rows by columns" reads better than the symbol.
+  label.setAttribute('aria-live', 'polite');
+  label.textContent = `${PICKER_DEFAULT} × ${PICKER_DEFAULT}`;
 
   // Manual input row
   const manualRow = document.createElement('div');
@@ -94,7 +128,7 @@ export function showTableGridPicker(
   rowInput.type = 'number';
   rowInput.min = '1';
   rowInput.max = '50';
-  rowInput.value = '3';
+  rowInput.value = String(PICKER_DEFAULT);
   rowInput.placeholder = 'Rows';
   rowInput.className = 'tp-input';
   rowInput.setAttribute('aria-label', 'Number of rows');
@@ -103,20 +137,27 @@ export function showTableGridPicker(
   colInput.type = 'number';
   colInput.min = '1';
   colInput.max = '20';
-  colInput.value = '3';
+  colInput.value = String(PICKER_DEFAULT);
   colInput.placeholder = 'Cols';
   colInput.className = 'tp-input';
   colInput.setAttribute('aria-label', 'Number of columns');
 
-  const okBtn = document.createElement('button');
-  okBtn.textContent = 'OK';
-  okBtn.className = 'tp-ok';
-  okBtn.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    const r2 = Math.max(1, Math.min(50, parseInt(rowInput.value || '3', 10) || 3));
-    const c2 = Math.max(1, Math.min(20, parseInt(colInput.value || '3', 10) || 3));
+  const commitManual = (): void => {
+    const r2 = Math.max(1, Math.min(50, parseInt(rowInput.value || String(PICKER_DEFAULT), 10) || PICKER_DEFAULT));
+    const c2 = Math.max(1, Math.min(20, parseInt(colInput.value || String(PICKER_DEFAULT), 10) || PICKER_DEFAULT));
     commitTable(editor, r2, c2, opts);
     hideTableGridPicker();
+  };
+
+  const okBtn = document.createElement('button');
+  okBtn.type = 'button';
+  okBtn.textContent = 'OK';
+  okBtn.className = 'tp-ok';
+  // The click does the work so Enter and Space on the focused button do too.
+  okBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  okBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    commitManual();
   });
 
   manualRow.appendChild(rowInput);
@@ -144,18 +185,55 @@ export function showTableGridPicker(
   pickerEl.style.left = `${Math.max(4, left)}px`;
   pickerEl.style.top = `${Math.max(4, top)}px`;
 
-  pickerHoverRows = 1;
-  pickerHoverCols = 1;
+  pickerHoverRows = PICKER_DEFAULT;
+  pickerHoverCols = PICKER_DEFAULT;
   updateGridHighlight();
 
-  // Keyboard support
+  // Keyboard: arrows size the grid, Enter inserts, Escape closes and puts the
+  // cursor back where it was, Tab walks grid > rows > columns > OK and wraps.
+  const tabStops: HTMLElement[] = [grid, rowInput, colInput, okBtn];
   pickerEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {hideTableGridPicker();}
-    if (e.key === 'Enter' && document.activeElement !== rowInput && document.activeElement !== colInput) {
-      commitTable(editor, pickerHoverRows, pickerHoverCols, opts);
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
       hideTableGridPicker();
+      if (!editor.isDestroyed) {editor.chain().focus().run();}
+      return;
+    }
+    const target = e.target as HTMLElement;
+    if (e.key === 'Tab') {
+      // Wrap at the ends so Tab never leaves the picker; the order between is the browser's own.
+      const at = tabStops.indexOf(target);
+      if (e.shiftKey && at === 0) {
+        e.preventDefault();
+        tabStops[tabStops.length - 1].focus();
+      } else if (!e.shiftKey && at === tabStops.length - 1) {
+        e.preventDefault();
+        tabStops[0].focus();
+      }
+      return;
+    }
+    if (target === grid) {
+      const moved = moveGridSize(pickerHoverRows, pickerHoverCols, e.key);
+      if (moved) {
+        e.preventDefault();
+        pickerHoverRows = moved.rows;
+        pickerHoverCols = moved.cols;
+        updateGridHighlight();
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        commitTable(editor, pickerHoverRows, pickerHoverCols, opts);
+        hideTableGridPicker();
+      }
+      return;
+    }
+    if (e.key === 'Enter' && (target === rowInput || target === colInput)) {
+      e.preventDefault();
+      commitManual();
     }
   });
+
+  grid.focus({ preventScroll: true });
 }
 
 function updateGridHighlight(): void {
@@ -190,6 +268,7 @@ export function hideTableGridPicker(): void {
 
 let tableToolbarEl: HTMLElement | null = null;
 let tableToolbarAnchor: HTMLElement | null = null;
+let tableToolbarEditor: Editor | null = null;
 let tableToolbarScrollHandler: (() => void) | null = null;
 let tableTooltipEl: HTMLElement | null = null;
 
@@ -336,15 +415,17 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
 
   getPortal().appendChild(tableToolbarEl);
   tableToolbarAnchor = tableEl;
+  tableToolbarEditor = editor;
   positionTableToolbar(tableEl);
 
   // Reposition (or hide) on scroll/resize so the toolbar stays anchored to the
-  // table instead of floating in the viewport while the user scrolls.
+  // table instead of floating in the viewport while the user scrolls. It stays
+  // while any part of the table shows: on a table taller than the window it
+  // moves to the cursor's row.
   tableToolbarScrollHandler = () => {
     if (!tableToolbarAnchor) {return;}
     const rect = tableToolbarAnchor.getBoundingClientRect();
-    const vh = window.innerHeight;
-    if (rect.bottom < 0 || rect.top > vh) {
+    if (!boxIntersectsViewport(rect, window.innerWidth, window.innerHeight)) {
       if (tableToolbarEl) {tableToolbarEl.style.visibility = 'hidden';}
     } else {
       if (tableToolbarEl) {tableToolbarEl.style.visibility = '';}
@@ -355,18 +436,33 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
   window.addEventListener('resize', tableToolbarScrollHandler);
 }
 
+/** The viewport box of the table row the cursor is in, or null. */
+function cursorRowBox(editor: Editor): Box | null {
+  try {
+    const { $from } = editor.state.selection;
+    for (let d = $from.depth; d > 0; d--) {
+      if ($from.node(d).type.name !== 'tableRow') {continue;}
+      const dom = editor.view.nodeDOM($from.before(d));
+      if (dom instanceof HTMLElement) {return dom.getBoundingClientRect();}
+      return null;
+    }
+  } catch {
+    // The view is mid-update; the table box alone is enough.
+  }
+  return null;
+}
+
 function positionTableToolbar(tableEl: HTMLElement): void {
   if (!tableToolbarEl) {return;}
-  const rect = tableEl.getBoundingClientRect();
   const tbRect = tableToolbarEl.getBoundingClientRect();
-  const vw = window.innerWidth;
-
-  let left = rect.left;
-  let top = rect.top - tbRect.height - 6;
-  if (top < 4) {top = rect.bottom + 6;}
-  if (left + tbRect.width > vw - 8) {left = vw - tbRect.width - 8;}
-  tableToolbarEl.style.left = `${Math.max(4, left)}px`;
-  tableToolbarEl.style.top = `${Math.max(4, top)}px`;
+  const pos = computeToolbarPosition({
+    table: tableEl.getBoundingClientRect(),
+    row: tableToolbarEditor ? cursorRowBox(tableToolbarEditor) : null,
+    toolbar: { width: tbRect.width, height: tbRect.height },
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+  });
+  tableToolbarEl.style.left = `${pos.left}px`;
+  tableToolbarEl.style.top = `${pos.top}px`;
 }
 
 export function hideTableToolbar(): void {
@@ -376,6 +472,7 @@ export function hideTableToolbar(): void {
     tableToolbarScrollHandler = null;
   }
   tableToolbarAnchor = null;
+  tableToolbarEditor = null;
   hideTableTooltip();
   toolbarButtons = [];
   if (tableToolbarEl) {

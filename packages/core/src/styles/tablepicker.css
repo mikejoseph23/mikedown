@@ -23,6 +23,12 @@
   margin-bottom: 8px;
 }
 
+:is(.mikedown-root, .mikedown-portal) .tp-grid:focus-visible,
+:is(.mikedown-root, .mikedown-portal) .tp-ok:focus-visible {
+  outline: 2px solid var(--mikedown-focus-ring, #007fd4);
+  outline-offset: 2px;
+}
+
 :is(.mikedown-root, .mikedown-portal) .tp-cell {
   width: 18px;
   height: 18px;

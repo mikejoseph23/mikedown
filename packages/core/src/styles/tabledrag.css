@@ -6,28 +6,38 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  font-size: 10px;
-  color: var(--mikedown-text);
+  width: 18px;
+  height: 18px;
+  /* The grip icon is drawn in currentColor: muted text works on both themes,
+     and the raised surface plus an edge keep it visible on a page-coloured
+     background. */
+  color: var(--mikedown-text-muted, var(--mikedown-text));
   opacity: 0;
   cursor: grab;
-  border-radius: 3px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--mikedown-text-muted, #888) 40%, transparent);
+  box-sizing: border-box;
   user-select: none;
-  background: var(--mikedown-surface-raised, transparent);
-  transition: opacity 0.15s ease, background 0.1s ease;
+  background: var(--mikedown-surface-raised, var(--mikedown-surface, transparent));
+  transition: opacity 0.15s ease, background 0.1s ease, color 0.1s ease;
+  pointer-events: none;
+}
+
+:is(.mikedown-root, .mikedown-portal) .td-handle svg {
+  display: block;
   pointer-events: none;
 }
 
 /* Handles are on document.body, not siblings of the table, so we use a
    class toggled by JS instead of a sibling combinator. */
 :is(.mikedown-root, .mikedown-portal) .td-handles-visible .td-handle {
-  opacity: 0.5;
+  opacity: 0.85;
   pointer-events: auto;
 }
 
 :is(.mikedown-root, .mikedown-portal) .td-handles-visible .td-handle:hover {
   opacity: 1;
+  color: var(--mikedown-text);
   background: var(--mikedown-hover, rgba(90,93,94,0.31));
 }
 
@@ -62,4 +72,46 @@ body.td-dragging :is(.mikedown-root, .mikedown-portal) * {
 
 :is(.mikedown-root, .mikedown-portal) .td-drop-line-col {
   width: 2px;
+}
+
+/* Hover "+" strips: add a column (right of the header row) or a row (under
+   the last row). They exist only while the pointer is over or near a table. */
+:is(.mikedown-root, .mikedown-portal) .td-add {
+  position: fixed;
+  z-index: 898;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  color: var(--mikedown-text-muted, var(--mikedown-text));
+  background: color-mix(in srgb, var(--mikedown-text-muted, #888) 12%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--mikedown-text-muted, #888) 45%, transparent);
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.8;
+  animation: mikedown-td-add-in 0.12s ease-out;
+  transition: background 0.1s ease, color 0.1s ease, opacity 0.1s ease;
+}
+
+:is(.mikedown-root, .mikedown-portal) .td-add:hover {
+  opacity: 1;
+  color: var(--mikedown-accent-text, #fff);
+  background: var(--mikedown-accent, #0e639c);
+  border-style: solid;
+  border-color: var(--mikedown-accent, #0e639c);
+}
+
+@keyframes mikedown-td-add-in {
+  from { opacity: 0; }
+  to { opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.mikedown-root, .mikedown-portal) .td-add { animation: none; }
+}
+
+/* No strips while a row or column is being dragged. */
+body.td-dragging :is(.mikedown-root, .mikedown-portal) .td-add {
+  display: none;
 }

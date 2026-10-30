@@ -1,5 +1,7 @@
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
+import { Plugin, PluginKey, Selection, type EditorState, type Transaction } from '@tiptap/pm/state';
+import { closeHistory } from '@tiptap/pm/history';
+import { insertPlainText } from './plainpaste';
 import { DOMParser as PMDOMParser, Fragment, Slice as PMSlice } from '@tiptap/pm/model';
 import { handlePaste as handleTablePaste, isInTable } from '@tiptap/pm/tables';
 import type { EditorView } from '@tiptap/pm/view';
@@ -85,13 +87,46 @@ export function pasteTextTable(editor: Editor, view: EditorView, event: Clipboar
   if ($from.parent.type.spec.code) {return false;}
   if ((view as unknown as { input?: { shiftKey?: boolean } }).input?.shiftKey) {return false;}
   const inTable = isInTable(view.state);
-  const table = detectTextTable(event.clipboardData?.getData('text/plain') ?? '', { singleRow: inTable });
+  const text = event.clipboardData?.getData('text/plain') ?? '';
+  const table = detectTextTable(text, { singleRow: inTable });
   if (!table) {return false;}
   const node = textTableToNode(editor, table);
   if (!node) {return false;}
   const slice = new PMSlice(Fragment.from(node), 0, 0);
   if (inTable) {return pasteTableIntoTable(view, event, slice);}
-  view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+  return pasteTableWithUndoToText(view, text, slice);
+}
+
+/**
+ * Insert the table outside a table so that one undo turns it back into the
+ * pasted text (what paste without formatting would have made) and a second
+ * undo removes the text. Two history events: the plain text first, then a
+ * transaction that swaps it for the table. The swap restores the document as it
+ * was before the paste and then does what a single-step paste would have done,
+ * so the result is the same as pasting the table directly.
+ */
+function pasteTableWithUndoToText(view: EditorView, text: string, slice: PMSlice): boolean {
+  const before = view.state;
+  // Close the history first so the text is not merged into typing just before it.
+  view.dispatch(closeHistory(before.tr));
+  insertPlainText(view, text);
+
+  const after = view.state;
+  const start = before.doc.content.findDiffStart(after.doc.content);
+  const end = before.doc.content.findDiffEnd(after.doc.content);
+  const tr = closeHistory(after.tr);
+  if (start !== null && end) {
+    let { a: endBefore, b: endAfter } = end;
+    // The changed ranges can overlap when the pasted text repeats its surroundings.
+    const overlap = start - Math.min(endBefore, endAfter);
+    if (overlap > 0) {
+      endBefore += overlap;
+      endAfter += overlap;
+    }
+    tr.replace(start, endAfter, before.doc.slice(start, endBefore));
+    tr.setSelection(Selection.fromJSON(tr.doc, before.selection.toJSON()));
+  }
+  view.dispatch(tr.replaceSelection(slice).scrollIntoView());
   return true;
 }
 
