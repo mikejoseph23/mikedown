@@ -2,7 +2,7 @@
   "name": "mikedown-editor",
   "displayName": "MikeDown Editor",
   "description": "A true WYSIWYG Markdown editor for VS Code — edit markdown visually, right in your editor tabs.",
-  "version": "2.16.0",
+  "version": "2.17.0",
   "license": "MIT",
   "preview": false,
   "publisher": "interapp",
@@ -829,10 +829,19 @@
                 "type": "object",
                 "description": "A JSON file in your home folder to read the API key from when none is stored and the environment variable is unset, for example oMLX's ~/.omlx/settings.json with jsonPath auth.api_key.",
                 "properties": {
-                  "path": { "type": "string", "description": "File path; may start with ~/." },
-                  "jsonPath": { "type": "string", "description": "Dotted path to a string value in the file, for example auth.api_key." }
+                  "path": {
+                    "type": "string",
+                    "description": "File path; may start with ~/."
+                  },
+                  "jsonPath": {
+                    "type": "string",
+                    "description": "Dotted path to a string value in the file, for example auth.api_key."
+                  }
                 },
-                "required": ["path", "jsonPath"]
+                "required": [
+                  "path",
+                  "jsonPath"
+                ]
               },
               "discovery": {
                 "type": "string",

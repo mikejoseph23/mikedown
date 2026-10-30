@@ -4,6 +4,8 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-10-30
+
 ### Added
 
 - MikeDown Desktop: **New Window** from the Dock icon's menu on macOS and from the taskbar jump list on Windows (right-click the icon), alongside File > New Window.
