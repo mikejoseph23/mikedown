@@ -624,7 +624,7 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [ ] Q1 Engine form: Done with 0 models picked is not blocked; LM Studio saved with no enabled models.
 - [ ] Q2 Ticking "Enable AI features" in the gear Settings AI tab, then "Add engine…" and finishing on the Engines page, leaves `mikedown.ai.enabled` false (engines and routing are saved).
 - [ ] Q3 The first engine becomes default automatically, so its header button reads "Default" and clicking it turns the default off ("No default model").
-- [ ] Q4 LM Studio sizes are wrong for MTP variants (qwen3.8-27b-mtp@8bit shows 0.4 GB, @4bit 0.2 GB, tagged "fits").
+- [x] Q4 LM Studio sizes are wrong for MTP variants (qwen3.8-27b-mtp@8bit shows 0.4 GB, @4bit 0.2 GB, tagged "fits"). Fixed in c46abed: the sizes were true (these repos are only the MTP draft head, 0.45 GB / 0.25 GB); the drafters are now marked not-chat so they are not offered or tagged "fits".
 - [ ] Q5 oMLX model list differs on reopen: first open groups under "Runs well on this machine" with "fits" tags, reopen is flat; GLM-5.3-4bit (409 GB) tagged "MoE · fast".
 - [ ] Q6 Rewrite "Shorter" on LM Studio qwen3.8-27b with Thinking Default ends in "No room left to answer" (thinking eats the budget).
 - [ ] Q7 Status bar engine badge stays on the old engine after changing the default, until a request runs.
