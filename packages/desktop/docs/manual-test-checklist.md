@@ -48,6 +48,7 @@ Also have handy: a markdown file with a task list, an image file (PNG), a read-o
 - [ ] With the app running, double-click a second `.md` from another folder: new lone-file window (or focus if already open). Double-click a file inside an open window's folder: that window focuses and opens a tab.
 - [ ] Type, bold, add a table, paste an image (screenshot), toggle source (`Mod+/`), save, close, reopen: content intact, not dirty. Pasting an image into Untitled prompts "Save the document first"; Cancel drops the paste.
 - [ ] Lone file > File > Open Containing Folder: window reopens on the parent folder with the file still active and the tree visible.
+- [ ] Folder window with a tab from outside the folder > Open Containing Folder: the tab moves to a new window on its folder (or to the window that already has that folder); this window keeps its folder. With unsaved changes it asks first.
 - [ ] (macOS) Edited dot in the close button when dirty; title-bar proxy icon draggable.
 - [ ] Open `latin1-crlf.md`: opens read-only in source mode with a plain-language notice; no transcoding, file untouched on disk.
 - [ ] Open a read-only file: lock badge on the tab; `Mod+S` offers Save As with the OS reason in plain words.

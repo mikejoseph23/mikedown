@@ -163,6 +163,7 @@ pub fn run() {
             commands::appdata::session_list,
             commands::multiwindow::report_window_state,
             commands::multiwindow::new_window,
+            commands::multiwindow::open_folder_window,
             commands::multiwindow::window_count,
             commands::multiwindow::quit_reply,
             commands::multiwindow::request_quit_cmd,

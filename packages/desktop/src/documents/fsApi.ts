@@ -200,6 +200,8 @@ export interface WindowsApi {
   reportState(folder: string | null, files: string[]): Promise<void>;
   /** Open another window; `paths` reach it through its launch queue. Resolves with its label. */
   newWindow(opts?: { label?: string; paths?: string[] }): Promise<string>;
+  /** Show `file` in the window that has `dir` open, or in a new window on `dir`. Resolves with its label. */
+  openFolderWindow(dir: string, file: string): Promise<string>;
   windowCount(): Promise<number>;
   /** Cmd+Q / Exit: start the quit handshake (every window gets `onQuitRequested`). */
   requestQuit(): Promise<void>;
@@ -213,6 +215,7 @@ export interface WindowsApi {
 export const windowsApi: WindowsApi = {
   reportState: (folder, files) => invoke<void>('report_window_state', { folder, files }),
   newWindow: (opts) => invoke<string>('new_window', { label: opts?.label ?? null, paths: opts?.paths ?? [] }),
+  openFolderWindow: (dir, file) => invoke<string>('open_folder_window', { dir, file }),
   windowCount: () => invoke<number>('window_count'),
   requestQuit: () => invoke<void>('request_quit_cmd'),
   onQuitRequested: (handler) => listen('mikedown:quit-requested', () => handler()),

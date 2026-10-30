@@ -53,8 +53,8 @@ export interface DocumentControllerDeps {
   dialogs: Dialogs;
   path: PathOps;
   isMac: boolean;
-  /** Open Containing Folder: reopen the window on this folder, keeping the file (M3). */
-  openFolder?(dir: string): void;
+  /** Open Containing Folder for this saved file (M3; see `openContainingFolder` in main.ts). */
+  openContainingFolder?(file: string): void;
   /** The focused pane's document changed (opened, renamed, closed, focus moved). */
   onActiveDocument?(doc: DocumentModel | null): void;
   /** The set of open documents changed (window state for file routing). */
@@ -707,15 +707,13 @@ export function createDocumentController(deps: DocumentControllerDeps): Document
       if (paneId === panes.focusedPaneId()) {deps.setStats(stats);}
     },
     openContainingFolder() {
-      // Edge case 4: reopen the window on the parent folder with this file
-      // still active.
+      // Edge case 4: show the parent folder with this file still active.
       const doc = activeDoc();
       if (!doc?.path) {
         dialogs.toast('Save the document first.');
         return;
       }
-      if (!deps.openFolder) {return;}
-      deps.openFolder(path.dirname(doc.path));
+      deps.openContainingFolder?.(doc.path);
     },
     pathMoved(from, to) {
       for (const doc of registry.all()) {

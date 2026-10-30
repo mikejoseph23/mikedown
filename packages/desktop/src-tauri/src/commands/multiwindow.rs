@@ -181,6 +181,28 @@ pub fn new_window<R: Runtime>(app: AppHandle<R>, label: Option<String>, paths: O
     create_window(&app, label, paths)
 }
 
+/// The window that has `dir` open as its folder, if any.
+pub fn window_with_folder(windows: &[(String, WindowInfo)], dir: &Path) -> Option<String> {
+    windows.iter().find(|(_, info)| info.folder.as_deref() == Some(dir)).map(|(label, _)| label.clone())
+}
+
+/// Open Containing Folder from a window that already shows another folder:
+/// the window that has `dir` open gets `file` as a tab, otherwise a new
+/// window opens on `dir` with `file` active. Resolves with that window's label.
+#[tauri::command]
+pub fn open_folder_window<R: Runtime>(app: AppHandle<R>, dir: String, file: String) -> Result<String, String> {
+    let dir = PathBuf::from(dir);
+    let file = PathBuf::from(file);
+    let windows = app.state::<WindowRegistry>().snapshot();
+    match window_with_folder(&windows, &dir) {
+        Some(label) => {
+            super::launch::queue_for(&app, &label, vec![file]);
+            Ok(label)
+        }
+        None => create_window(&app, None, vec![dir, file]),
+    }
+}
+
 #[tauri::command]
 pub fn window_count<R: Runtime>(app: AppHandle<R>) -> usize {
     app.webview_windows().len()
@@ -317,6 +339,13 @@ mod tests {
 
     fn p(s: &str) -> PathBuf {
         PathBuf::from(s)
+    }
+
+    #[test]
+    fn window_with_folder_matches_the_folder_exactly() {
+        let windows = vec![win("main", Some("/n"), &[]), win("w-1", Some("/n/sub"), &[]), win("w-2", None, &["/n/sub/a.md"])];
+        assert_eq!(window_with_folder(&windows, Path::new("/n/sub")), Some("w-1".into()));
+        assert_eq!(window_with_folder(&windows, Path::new("/x")), None);
     }
 
     #[test]

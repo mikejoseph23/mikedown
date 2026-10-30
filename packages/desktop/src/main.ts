@@ -356,7 +356,7 @@ const panes = createPaneManager({
       {
         label: 'Open Containing Folder',
         disabled: !p || (!!root && isInside(root, p, path)),
-        run: () => { if (p && openFolderRef) {void openFolderRef(path.dirname(p));} },
+        run: () => { if (p && openContainingFolderRef) {void openContainingFolderRef(p);} },
       },
       { label: 'Open Folder…', run: () => { void openFolderViaDialog(); } },
       null,
@@ -412,7 +412,7 @@ const controller = createDocumentController({
   dialogs,
   path,
   isMac,
-  openFolder: (dir) => { void openFolder(dir); },
+  openContainingFolder: (file) => { void openContainingFolder(file); },
   onActiveDocument: (doc) => {
     for (const host of liveHosts()) {host.syncBacklinks();}
     workspaceRef?.syncActive(doc?.path ?? null);
@@ -667,7 +667,30 @@ async function openFolder(dir: string): Promise<boolean> {
   }
   return true;
 }
-const openFolderRef = openFolder;
+const openContainingFolderRef = openContainingFolder;
+
+/**
+ * Open Containing Folder. A lone-file window reopens on the file's folder.
+ * A window that already shows another folder keeps it: the file moves to the
+ * window that has its folder open, or to a new window on that folder.
+ */
+async function openContainingFolder(file: string): Promise<void> {
+  const dir = path.dirname(file);
+  if (!workspace.root()) {
+    await openFolder(dir);
+    return;
+  }
+  // Save first so the other window reads what is on screen here.
+  const docs = registry.all().filter((d) => d.path === file);
+  if (!(await controller.confirmCloseAll('close', docs))) {return;}
+  try {
+    await windowsApi.openFolderWindow(dir, file);
+  } catch (err) {
+    dialogs.toast(`Could not open a window: ${String(err)}`, { error: true });
+    return;
+  }
+  for (const pane of paneList()) {panes.closeTabs(pane, (d) => d.path === file);}
+}
 
 function paneList(): string[] {
   const out: string[] = [];
