@@ -9,7 +9,7 @@ One-pass usability review of MikeDown's table editing (`packages/core/src/`), re
 | M1 Quick wins (bugs) | Opus | ✅ Done | 11 | `3ff068f`. Table node selection on; all bare `\|` in cells escaped |
 | M2 Clipboard | Opus | ✅ Done | 15 | `624b0e0`. Excel class-based alignment still lost |
 | M3 Discoverability and accessibility | Sonnet | ✅ Done | 15 | `d2a5e53`. Positions checked in jsdom only; hand checks needed |
-| M4 Fidelity options | Sonnet | 🔄 In Progress | — | Item 12 |
+| M4 Fidelity options | Sonnet | ✅ Done | 8 | `dbf96e6`. Setting in package.json, settings.ts, modal, Desktop |
 
 ## What works well today
 
@@ -138,7 +138,7 @@ Merged cells are dropped (OQ1), so 2(b) is a removal and moves into M1; 2(c) is 
 
 ### M4 Fidelity options (1 day)
 
-- [ ] 12. `mikedown.tables.padColumns` setting, default off (OQ4)
+- [x] 12. `mikedown.tables.padColumns` setting, default off (OQ4)
 
 ## Open questions for Mike
 
@@ -162,3 +162,4 @@ Merged cells are dropped (OQ1), so 2(b) is a removal and moves into M1; 2(c) is 
 - 2026-10-30 15:58: M1 done (`3ff068f`, cherry-picked from worktree). Custom cell selection removed; header toggle and merge removed; table-in-table paste uses prosemirror-tables; `|` in cells escaped (all bare pipes, not just code spans); Mod+Enter / Mod+Shift+Enter / Mod+Alt+Backspace; Insert Table opens the picker (keyboard support waits on M3 item 7); Select Table via `allowTableNodeSelection`, so Backspace after a table now selects it first. 32 new tests; unit 3355 pass, lint 0 errors.
 - 2026-10-30 16:15: M2 done (`624b0e0`, cherry-picked from worktree). Pipe and TSV text paste become tables (fill from the cursor inside a table); copy writes a pipe table as plain text, plus Copy Table as Markdown; smart paste leaves merged-over cells empty and keeps column alignment. 38 new tests; unit 3393 pass. One unrelated failure, `test/unit/site-shell.test.ts` ("rejects an unknown page"), comes from the blog commit `07b8db7` in another session. Undo-to-text for text-table paste added to M3 as 4b.
 - 2026-10-30 16:35: M3 done (`d2a5e53`, cherry-picked from worktree). Keyboard table picker (arrows, Enter, Escape, Tab); toolbar anchors to the cursor row on tall tables; handles follow edits, resize and scroll; SVG grips with role and label, column grips moved above the header; Move Row Up/Down and Move Column Left/Right in the context menu; hover "+" for a row or column at the end; text-table paste undoes to text first. Also fixed: dragging a row or column to the last position was ignored. Unit 3459 pass (site-shell failure unrelated).
+- 2026-10-30 16:50: M4 done (`dbf96e6`, cherry-picked from worktree). `mikedown.tables.padColumns` (default off, byte-identical output when off), display-width aware, wired in all three places plus Desktop. Unit 3481 pass (site-shell failure unrelated). All milestones done; hand checks in VS Code and Desktop remain.
