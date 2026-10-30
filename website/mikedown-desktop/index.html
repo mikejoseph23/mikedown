@@ -394,7 +394,8 @@ img { max-width: 100%; }
     <section id="privacy">
       <div class="container prose">
         <h2 class="section-title">Privacy</h2>
-        <p>MikeDown Desktop has no telemetry, no analytics and no account. Your documents never leave your computer.</p>
+        <p>MikeDown Desktop has no telemetry, no analytics and no account. Your documents stay on your computer unless you set up a cloud AI engine.</p>
+        <p>AI features (experimental) are off by default and send nothing until you set up an engine. A local engine (oMLX, LM Studio, Ollama and others) keeps everything on your machine or your network. A cloud engine is used only after you turn on cloud engines and allow it for a folder; then the text you ask about is sent to that provider under its API terms. Each provider's policy is linked where you add the engine. API keys stay in your system keychain.</p>
         <p>The only network request the app makes on its own is the update check: shortly after launch and then every few hours it downloads a small update file (for example <code>latest-darwin-aarch64.json</code>, or <code>latest.json</code>) from this site to see whether a newer version exists. You can turn it off in Settings &gt; App (Automatically check for updates). Links you click open in your browser, and images in your documents that point at web addresses load from those addresses.</p>
         <p>This page sets no cookies and loads no tracking scripts.</p>
       </div>
