@@ -8,8 +8,8 @@ One-pass usability review of MikeDown's table editing (`packages/core/src/`), re
 | --- | --- | --- | --- | --- |
 | M1 Quick wins (bugs) | Opus | ✅ Done | 11 | `3ff068f`. Table node selection on; all bare `\|` in cells escaped |
 | M2 Clipboard | Opus | ✅ Done | 15 | `624b0e0`. Excel class-based alignment still lost |
-| M3 Discoverability and accessibility | Sonnet | 🔄 In Progress | — | Items 7, 8, 10, 11, 4b |
-| M4 Fidelity options | Sonnet | ⬜ Not Started | — | Item 12 |
+| M3 Discoverability and accessibility | Sonnet | ✅ Done | 15 | `d2a5e53`. Positions checked in jsdom only; hand checks needed |
+| M4 Fidelity options | Sonnet | 🔄 In Progress | — | Item 12 |
 
 ## What works well today
 
@@ -130,11 +130,11 @@ Merged cells are dropped (OQ1), so 2(b) is a removal and moves into M1; 2(c) is 
 
 ### M3 Discoverability and accessibility (3 to 4 days)
 
-- [ ] 7. Keyboard-usable table picker
-- [ ] 8. Toolbar and drag handles keep their anchor
-- [ ] 10. Visible, accessible drag handles plus Move row/column menu entries
-- [ ] 11. Hover "+" to add rows and columns
-- [ ] 4b. Text-table paste: first undo turns the table back into the pasted text (as promised in answer 3), second undo removes it
+- [x] 7. Keyboard-usable table picker
+- [x] 8. Toolbar and drag handles keep their anchor
+- [x] 10. Visible, accessible drag handles plus Move row/column menu entries
+- [x] 11. Hover "+" to add rows and columns
+- [x] 4b. Text-table paste: first undo turns the table back into the pasted text (as promised in answer 3), second undo removes it
 
 ### M4 Fidelity options (1 day)
 
@@ -161,3 +161,4 @@ Merged cells are dropped (OQ1), so 2(b) is a removal and moves into M1; 2(c) is 
 - 2026-10-30 15:20: Open questions answered; 2(b) folded into M1 as a removal.
 - 2026-10-30 15:58: M1 done (`3ff068f`, cherry-picked from worktree). Custom cell selection removed; header toggle and merge removed; table-in-table paste uses prosemirror-tables; `|` in cells escaped (all bare pipes, not just code spans); Mod+Enter / Mod+Shift+Enter / Mod+Alt+Backspace; Insert Table opens the picker (keyboard support waits on M3 item 7); Select Table via `allowTableNodeSelection`, so Backspace after a table now selects it first. 32 new tests; unit 3355 pass, lint 0 errors.
 - 2026-10-30 16:15: M2 done (`624b0e0`, cherry-picked from worktree). Pipe and TSV text paste become tables (fill from the cursor inside a table); copy writes a pipe table as plain text, plus Copy Table as Markdown; smart paste leaves merged-over cells empty and keeps column alignment. 38 new tests; unit 3393 pass. One unrelated failure, `test/unit/site-shell.test.ts` ("rejects an unknown page"), comes from the blog commit `07b8db7` in another session. Undo-to-text for text-table paste added to M3 as 4b.
+- 2026-10-30 16:35: M3 done (`d2a5e53`, cherry-picked from worktree). Keyboard table picker (arrows, Enter, Escape, Tab); toolbar anchors to the cursor row on tall tables; handles follow edits, resize and scroll; SVG grips with role and label, column grips moved above the header; Move Row Up/Down and Move Column Left/Right in the context menu; hover "+" for a row or column at the end; text-table paste undoes to text first. Also fixed: dragging a row or column to the last position was ignored. Unit 3459 pass (site-shell failure unrelated).
