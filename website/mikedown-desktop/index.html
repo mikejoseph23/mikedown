@@ -24,7 +24,7 @@
     and linux:end markers are filled with the AppImage's URL and size (or removed
     when a release has no Linux build) by deploy/render-page.js at staging.
     Sections, in order: hero and downloads (#download), feature tour (#features),
-    AI writing tools (#ai), screenshots (#screenshots), Also for VS Code
+    AI writing tools (#ai), screenshots (#screenshots), compare teaser (#compare), Also for VS Code
     (#vscode), install, release notes, privacy (#privacy).
   -->
   <style>
@@ -278,6 +278,12 @@ img { max-width: 100%; }
       .ai-grid { grid-template-columns: 1fr 1fr; }
     }
 
+    /* Compare teaser */
+    .compare-teaser { padding: 48px 0; }
+    .compare-teaser__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px 32px; }
+    .compare-teaser h2 { font-size: 1.3rem; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .compare-teaser p { color: var(--muted); font-size: 15.5px; max-width: 560px; }
+
     @media (prefers-reduced-motion: reduce) { .dl { transition: none; } }
   </style>
 </head>
@@ -450,6 +456,16 @@ img { max-width: 100%; }
             <figcaption>Version history with a side-by-side diff and one-click restore.</figcaption>
           </figure>
         </div>
+      </div>
+    </section>
+
+    <section class="compare-teaser" id="compare" aria-labelledby="compare-title">
+      <div class="container compare-teaser__inner">
+        <div>
+          <h2 id="compare-title">The same editor, four ways</h2>
+          <p>MikeDown is also a VS Code extension and a set of web component, React, Vue and Angular packages. See which features each one has.</p>
+        </div>
+        <a class="btn btn--secondary" href="/mikedown/compare/">Compare the four</a>
       </div>
     </section>
 
