@@ -18,7 +18,7 @@ describe('site shell partials', () => {
   });
 
   it('rejects an unknown page', () => {
-    expect(() => renderHeader('blog')).toThrow(/unknown page/);
+    expect(() => renderHeader('nope')).toThrow(/unknown page/);
   });
 
   it('fills header and footer markers', () => {

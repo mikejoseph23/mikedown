@@ -59,7 +59,6 @@ export function renderFooter() {
         <a href="${SITE_BASE}vscode/">MikeDown for VS Code</a>
         <a href="${SITE_BASE}developers/">For developers</a>
         <a href="${SITE_BASE}compare/">Compare</a>
-        <a href="${SITE_BASE}blog/">Blog</a>
         <a href="${GITHUB_URL}">Source on GitHub</a>
         <a href="${SITE_BASE}#privacy">Privacy</a>
       </nav>

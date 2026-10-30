@@ -5,6 +5,7 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 ## Features
 
 - **Desktop site redesign (do soon).** AI section, full feature tour and a where-is-each-feature comparison chart. Plan: `desktop-site-redesign-plan.md`. Ships as a site-only release after Desktop 0.4.0. _From the 2026-10-30 session._
+- **Review the local AI blog post before linking it.** "Your own computer can run AI" is drafted at `website/blog/local-ai/` (blog index at `website/blog/`). It isn't linked from the footer or any page yet. Mike may edit it or split it into a few posts. Check the claims not backed by the code: "using it for months," the speed wording, 30B vs 8B, the LM Studio/Ollama steps, and the 4-bit download size. Then add the footer link back (`website/shared/partials.js` `renderFooter`, then `npm run sync:shell -w website`). The site-only pack still uploads `blog/`, so the page is reachable by URL. _From the 2026-10-30 session._
 - **Blog post: "Why Markdown? Why MikeDown?"** Start with an interview with Mike (one question at a time), then write the post. Why Markdown:
   - it's the de facto language for talking to AI
   - it reads fine in any plain text editor
