@@ -1007,11 +1007,11 @@ function thinkingInEffect(t: AiRunThinking | null): AiThinkingLevel | null {
   return t ? t.sent ?? t.configured : null;
 }
 
-/** The dial's Default segment ("Model default": the request sends no thinking fields). */
+/** The dial's Default segment: MikeDown picks per task (Off for short edits), else no thinking fields. */
 const THINKING_DEFAULT = 'default';
 
-/** The remembered preference the dial shows as checked: the level sent, else Default. */
-const thinkingSelected = (t: AiRunThinking | null): string => t?.sent ?? THINKING_DEFAULT;
+/** The remembered preference the dial shows as checked: the level sent, else Default (also when the job's default was sent). */
+const thinkingSelected = (t: AiRunThinking | null): string => (t && !t.auto ? t.sent : null) ?? THINKING_DEFAULT;
 
 /** "local · Proxy · model" reads "Local · Proxy · model". */
 const capitalizeFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
@@ -1418,9 +1418,9 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
     const focused = thinkEl.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.level : undefined;
     const label = el('span', 'ai-rw-think-label', 'Thinking');
     label.setAttribute('aria-hidden', 'true');
-    // The AI menu's Thinking row: Default first (the model's own setting, no thinking fields sent), then the kind's levels.
+    // The AI menu's Thinking row: Default first (MikeDown picks per task, else the model's own setting), then the kind's levels.
     const options = [
-      { level: THINKING_DEFAULT, label: 'Default', title: 'Thinking: the model\'s default' },
+      { level: THINKING_DEFAULT, label: 'Default', title: 'Thinking: picked for the task' },
       ...choices.map((c) => ({ level: c.level as string, label: thinkingSegmentLabel(c.label), title: `Thinking: ${c.label}` })),
     ];
     const stop = focused && options.some((o) => o.level === focused) ? focused : current;
@@ -1435,7 +1435,9 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       return seg;
     });
     const effective = thinkingInEffect(thinking);
-    thinkEl.title = thinking?.sent
+    thinkEl.title = thinking?.sent && thinking.auto
+      ? `Thinking: Default, ${choices.find((c) => c.level === thinking?.sent)?.label ?? thinking.sent} for this task`
+      : thinking?.sent
       ? `Thinking: ${choices.find((c) => c.level === thinking?.sent)?.label ?? thinking.sent}`
       : effective
         ? `Thinking: the model's setting (${choices.find((c) => c.level === effective)?.label ?? effective})`
@@ -1783,10 +1785,10 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
   /** A dial change (null: Default): remembered for every later request (the AI menu's Thinking row too), then the same run again (like Retry). */
   function pickThinking(level: AiThinkingLevel | null): void {
     if (!thinking || phase === 'choose') {return;}
-    if (level === thinking.sent) {return;}
+    if ((level ?? THINKING_DEFAULT) === thinkingSelected(thinking)) {return;}
     rememberThinkingLevel(level);
     // Checked at once; the route's answer confirms it.
-    thinking = { ...thinking, sent: level };
+    thinking = { ...thinking, sent: level, auto: false };
     const label = level ? thinkingChoices(thinking.kind).find((c) => c.level === level)?.label ?? level : 'Default';
     rerun();
     liveEl.textContent = `Thinking: ${label}`;
@@ -1921,6 +1923,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       maxTokens: summaryMaxTokens(kind, b.text.length),
       temperature: 0.3,
       thinking: thinkingLevelFor,
+      job: 'summary',
     }, runEvents(seq), signal).then((outcome) => {
       if (seq !== runSeq || !root) {return;}
       controller = null;
@@ -1967,6 +1970,7 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       maxTokens: titleMaxTokens(3),
       temperature: 0.7,
       thinking: thinkingLevelFor,
+      job: 'title',
       ...(info?.json ? { format: 'json' as const } : {}),
     }, runEvents(seq), signal);
     request(messages).then(async (first) => {
@@ -2079,6 +2083,8 @@ export function createAiRewritePopover(deps: AiRewritePopoverDeps): AiRewritePop
       maxTokens,
       temperature: v === 'fixFlow' || v === 'translate' ? 0.2 : 0.5,
       thinking: thinkingLevelFor,
+      // Explain keeps the model's own thinking; every other variant is a short edit (Off).
+      job: readOnly ? 'explain' : v === 'translate' ? 'translate' : 'rewrite',
     }, runEvents(seq), signal).then((outcome) => {
       if (seq !== runSeq || !root) {return;}
       controller = null;

@@ -97,6 +97,10 @@ One model reply per file, for `parseLenientJson`: `{ "description", "raw", "expe
 
 Core checks `requestOverrides` (`packages/core/test/ai-thinking-dial.test.ts`); both hosts build the body for model `m` with the model's and the request's overrides and compare each `expectedBody` key (`test/unit/ai-protocol.test.ts`, `packages/desktop/src-tauri/src/commands/ai/tests.rs`).
 
+## `requests/thinking-defaults.json`
+
+`{ "description", "cases": [...] }`: what a request sends with the dial on Default, by job (Q6). Each case: `kind`, `local`, `modelId`, `job` (`rewrite`, `translate`, `title`, `frontmatter`, `explain`, `summary`), `explicit` (the dial's level or null), `modelOverrides` (or null), `expectedOverrides` (the request's thinking fields, or null for none), `expectedAuto` (the job's default, not the user's pick) and optionally `expectedBodyEffort` (`reasoning_effort` after `buildCompletionBody`'s OpenAI Off mapping). TypeScript only (`packages/core/test/ai-thinking-defaults.test.ts`): Desktop runs core's editor, so the level is decided before the request reaches Rust.
+
 ## `consent/`
 
 `consent-text.json`: the cloud consent dialog's words, from core's `privacy.ts`. `privacy`, `sendsText`, `sendsFallback`, `features` (feature id → what it sends) and `policies` (cloud preset host → policy label, URL, optional note) mirror the core tables; `cases` are `aiConsentText` inputs (`engineName`, `host`, `feature?`, `sends?`, `scopeWord`, `policyLine?`) with the `expected` `{ title, body, allow, allowOnce, deny, readPolicy? }`, the policy looked up from `host`. `policyLine: true` is Desktop's native dialog (the policy URL in the body, no button); without it, VS Code's modal (a `readPolicy` button). Checked by `packages/core/test/ai-privacy.test.ts` (every case) and the Rust port (`commands/ai/consent.rs`, the `policyLine` cases). When the copy changes in core, regenerate the expected text from `aiConsentText` and update the Rust tables to match.

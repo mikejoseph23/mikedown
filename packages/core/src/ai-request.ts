@@ -16,7 +16,9 @@
  * - Thinking: a per-request level becomes the request's `requestOverrides`
  *   (the kind's thinking fields only); the host merges them over the
  *   model's own, so the request wins. Only for a routed engine whose kind
- *   has a mapping (`thinkingChoices`). Such a model counts its reasoning
+ *   has a mapping (`thinkingChoices`). With no level ("Default") and none
+ *   set on the model, the job's default applies (`resolveThinkingLevel`:
+ *   Off for short edits). Such a model counts its reasoning
  *   against `maxTokens`, so unless the effective level is Off the answer
  *   budget gets reasoning headroom (`thinkingMaxTokens`).
  * - Cancellation is the caller's `AbortSignal`; the host aborts the request.
@@ -28,11 +30,13 @@ import {
   makeAiError,
   resolveAiFeature,
   resolveRoute,
+  resolveThinkingLevel,
   thinkingChoices,
   thinkingLevelFrom,
   thinkingMaxTokens,
   toAiError,
   withThinkingLevel,
+  type AiThinkingJob,
   type AiThinkingLevel,
   type AiThinkingOptions,
 } from './ai';
@@ -73,6 +77,12 @@ export interface AiRunRequest {
    * kind is known, so a choice remembered per kind follows a fallback.
    */
   thinking?: AiThinkingLevel | null | ((kind: string) => AiThinkingLevel | null);
+  /**
+   * What the request is for, for the default thinking level when `thinking`
+   * gives none (`taskThinkingDefault`); defaults to `feature`. `explain` and
+   * `translate` run under the `rewrite` feature.
+   */
+  job?: AiThinkingJob;
 }
 
 /** The thinking dial's state for the route serving a request. */
@@ -83,6 +93,8 @@ export interface AiRunThinking {
   configured: AiThinkingLevel | null;
   /** The level this request sent (null: none, `configured` applies). */
   sent: AiThinkingLevel | null;
+  /** `sent` is the job's default, not the user's choice: the dial still shows Default. */
+  auto?: boolean;
 }
 
 /** Whether the model may have been thinking: a routed kind with a mapping whose effective level is not Off. */
@@ -139,15 +151,17 @@ export function thinkingRequestOverrides(
 }
 
 /** The dial state and the overrides to send for `route`, or null when its kind has no mapping. */
-function routeThinking(settings: AiSettings, route: AiRouteOk, wanted: AiRunRequest['thinking']): { info: AiRunThinking; overrides?: Json; contextTokens: number | null } | null {
+function routeThinking(settings: AiSettings, route: AiRouteOk, req: Pick<AiRunRequest, 'thinking' | 'job' | 'feature'>): { info: AiRunThinking; overrides?: Json; contextTokens: number | null } | null {
   const engine = settings.engines.find((e) => e.id === route.engineId);
   if (!engine || thinkingChoices(engine.kind).length === 0) {return null;}
   const model = engine.models.find((m) => m.id === route.modelId);
   const configured = thinkingLevelFrom(engine.kind, model?.requestOverrides);
-  const level = typeof wanted === 'function' ? wanted(engine.kind) : wanted ?? null;
+  const wanted = req.thinking;
+  const explicit = typeof wanted === 'function' ? wanted(engine.kind) : wanted ?? null;
+  const { level, auto } = resolveThinkingLevel(engine.kind, explicit, configured, req.job ?? req.feature, { modelId: route.modelId });
   const overrides = level ? thinkingRequestOverrides(engine.kind, model?.requestOverrides, level, { local: route.isLocal }) : undefined;
   return {
-    info: { kind: engine.kind, configured, sent: overrides ? level : null },
+    info: { kind: engine.kind, configured, sent: overrides ? level : null, ...(overrides && auto ? { auto: true } : {}) },
     ...(overrides ? { overrides } : {}),
     contextTokens: model?.capabilities.contextTokens ?? null,
   };
@@ -244,7 +258,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
       route = resolved;
     }
 
-    const thinking = route ? routeThinking(ctx.settings(), route, req.thinking) : null;
+    const thinking = route ? routeThinking(ctx.settings(), route, req) : null;
     const maxTokens = requestMaxTokens(req, thinking);
     events.onRoute?.(route, thinking?.info ?? null);
     let text = '';

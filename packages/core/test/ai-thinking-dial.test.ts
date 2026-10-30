@@ -137,10 +137,10 @@ describe('runAiCompletion thinking', () => {
     expect(calls[0].requestOverrides).toEqual(thinkingOverrides('anthropic', 'medium'));
   });
 
-  it('sends nothing without a level, or for a level the kind cannot express', async () => {
+  it('sends nothing without a level on a job with no default, or for a level the kind cannot express', async () => {
     const { ai, calls } = host();
     const routes: Array<AiRunThinking | null> = [];
-    await runAiCompletion(ctx(ai, aiSettings()), run, { onRoute: (_r, t) => routes.push(t) }, new AbortController().signal);
+    await runAiCompletion(ctx(ai, aiSettings()), { ...run, feature: 'summary' }, { onRoute: (_r, t) => routes.push(t) }, new AbortController().signal);
     await runAiCompletion(ctx(ai, aiSettings('claude')), { ...run, thinking: 'off' }, { onRoute: (_r, t) => routes.push(t) }, new AbortController().signal);
     expect(calls.map((c) => 'requestOverrides' in c)).toEqual([false, false]);
     expect(routes).toEqual([
@@ -172,7 +172,7 @@ describe('reasoning headroom (T3 F2)', () => {
 
   it('is capped, by the cap and by what is left of the context window, and never below the answer budget', () => {
     expect(thinkingMaxTokens(6000, 'high')).toBe(THINKING_MAX_TOKENS_CAP);
-    expect(thinkingMaxTokens(12000, 'high')).toBe(12000);
+    expect(thinkingMaxTokens(13000, 'high')).toBe(13000);
     expect(thinkingMaxTokens(256, 'high', { contextTokens: 4096, promptTokens: 1000 })).toBe(4096 - 1000 - 256);
     expect(thinkingMaxTokens(700, 'high', { contextTokens: 2048, promptTokens: 1500 })).toBe(700);
     expect(thinkingMaxTokens(256, 'low', { contextTokens: null })).toBe(256 + THINKING_HEADROOM_TOKENS.low);
@@ -181,13 +181,15 @@ describe('reasoning headroom (T3 F2)', () => {
   it('runAiCompletion raises maxTokens for a model that can think, and leaves an Off request unchanged', async () => {
     const { ai, calls } = host();
     const sent = async (settings: AiSettings, thinking?: AiThinkingLevel): Promise<number | undefined> => {
-      await runAiCompletion(ctx(ai, settings), { ...run, maxTokens: 256, ...(thinking ? { thinking } : {}) }, {}, new AbortController().signal);
+      // Summary: a job with no default level, so "no level" is the model's own.
+      await runAiCompletion(ctx(ai, settings), { ...run, feature: 'summary', maxTokens: 256, ...(thinking ? { thinking } : {}) }, {}, new AbortController().signal);
       return calls[calls.length - 1].maxTokens;
     };
     expect(await sent(aiSettings(), 'off')).toBe(256);
     expect(await sent(aiSettings('omlx', { chat_template_kwargs: { enable_thinking: false } }))).toBe(256);
     expect(await sent(aiSettings())).toBe(256 + THINKING_DEFAULT_HEADROOM_TOKENS);
-    expect(await sent(aiSettings(), 'high')).toBe(256 + THINKING_HEADROOM_TOKENS.high);
+    // 256 + the High headroom is past the 8192-token window: held to what is left (8192 - 1 prompt - 256).
+    expect(await sent(aiSettings(), 'high')).toBe(7935);
     expect(await sent(aiSettings('omlx', { reasoning_effort: 'low' }))).toBe(256 + THINKING_HEADROOM_TOKENS.low);
     expect(await sent(aiSettings('claude'), 'low')).toBe(256 + THINKING_HEADROOM_TOKENS.low);
   });
@@ -196,7 +198,8 @@ describe('reasoning headroom (T3 F2)', () => {
     const { ai, calls } = host();
     await runAiCompletion(ctx(ai, aiSettings('claude')), { ...run, maxTokens: 3000, thinking: 'high' }, {}, new AbortController().signal);
     const body = buildCompletionBody('anthropic', { id: 'sonnet' }, calls[0]);
-    expect(body.max_tokens).toBe(3000 + THINKING_HEADROOM_TOKENS.high);
+    // 3000 + the High headroom, held inside the 8192-token context window.
+    expect(body.max_tokens).toBe(thinkingMaxTokens(3000, 'high', { contextTokens: 8192, promptTokens: 1 }));
     expect(body.max_tokens as number).toBeGreaterThan(ANTHROPIC_DEFAULT_MAX_TOKENS);
   });
 
@@ -361,7 +364,7 @@ describe('popover thinking dial: keyboard (U2)', () => {
 });
 
 describe('popover thinking dial: Default', () => {
-  it('matches the AI menu row, and picking Default after a level sends no thinking fields', async () => {
+  it('matches the AI menu row, and picking Default after a level sends the task\'s default (Off for Shorter)', async () => {
     const { handle, requests } = mountTier2('openai-compatible');
     await settle();
     rememberThinkingLevel('low');
@@ -372,9 +375,22 @@ describe('popover thinking dial: Default', () => {
     await settle();
     await settle();
     expect(requests).toHaveLength(2);
-    expect(requests[1].requestOverrides).toBeUndefined();
+    expect(requests[1].requestOverrides).toEqual({ chat_template_kwargs: { enable_thinking: false } });
     expect(loadThinkingLevel()).toBeNull();
+    // MikeDown's pick, not the user's: the dial stays on Default and says what it sent.
     expect(pressed()).toBe('default');
+    expect(dial()!.title).toBe('Thinking: Default, Off for this task');
+    // Pressing Default again does not re-run.
+    segments().find((s) => s.dataset.level === 'default')!.click();
+    await settle();
+    expect(requests).toHaveLength(2);
+    // Pressing Off does: an explicit choice, remembered.
+    segments().find((s) => s.dataset.level === 'off')!.click();
+    await settle();
+    await settle();
+    expect(requests).toHaveLength(3);
+    expect(loadThinkingLevel()).toBe('off');
+    expect(pressed()).toBe('off');
   });
 });
 
@@ -483,13 +499,13 @@ describe('AI menu Thinking row', () => {
     await openAiMenu();
     expect(menuChecked()).toBe('high');
 
-    // Default sends no override.
+    // Default on a short edit sends Off (MikeDown picks per task).
     press(menuSegs().find((s) => s.dataset.value === 'default')!);
     expect(loadThinkingLevel()).toBeNull();
     hideToolbarDropdown();
     const before = requests.length;
     await rewriteShorter(handle);
-    expect(requests[before].requestOverrides).toBeUndefined();
+    expect(requests[before].requestOverrides).toEqual({ chat_template_kwargs: { enable_thinking: false } });
   });
 
   it('is keyboard operable without breaking the menu\'s up/down order', async () => {

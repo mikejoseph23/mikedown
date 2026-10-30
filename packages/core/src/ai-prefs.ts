@@ -7,12 +7,12 @@
  *
  * The thinking level is one value, set from the AI menu's Thinking row or
  * the popover's dial, and sent with every request until changed (null is
- * "Default": no override, the model's own level). A kind that cannot express
+ * "Default": MikeDown picks per task, see `resolveThinkingLevel`). A kind that cannot express
  * it gets its nearest level (`thinkingLevelFor`).
  */
 
 import { getAiAudience, type AiAudience } from './ai/prompts/rewrite';
-import { thinkingChoices, type AiThinkingLevel } from './ai/thinking';
+import { nearestThinkingLevel, type AiThinkingLevel } from './ai/thinking';
 
 const LANGUAGES_KEY = 'mikedown.ai.recentLanguages';
 const AUDIENCE_KEY = 'mikedown.ai.audience';
@@ -98,7 +98,7 @@ export function rememberAudience(audience: AiAudience): void {
 
 const THINKING_LEVELS: readonly AiThinkingLevel[] = ['off', 'low', 'medium', 'high'];
 
-/** The remembered thinking level, or null for "Default" (the model's own). */
+/** The remembered thinking level, or null for "Default" (MikeDown picks per task). */
 export function loadThinkingLevel(): AiThinkingLevel | null {
   try {
     const raw = localStorage.getItem(THINKING_KEY);
@@ -123,9 +123,5 @@ export function rememberThinkingLevel(level: AiThinkingLevel | null): void {
  * on LM Studio is On). Null for "Default" or a kind with no mapping.
  */
 export function thinkingLevelFor(kind: string): AiThinkingLevel | null {
-  const level = loadThinkingLevel();
-  const choices = thinkingChoices(kind);
-  if (!level || choices.length === 0) {return null;}
-  if (choices.some((c) => c.level === level)) {return level;}
-  return level === 'off' ? choices[0].level : (choices.find((c) => c.level !== 'off') ?? choices[0]).level;
+  return nearestThinkingLevel(kind, loadThinkingLevel());
 }

@@ -49,6 +49,8 @@ All notable changes to MikeDown Editor are documented here.
 
 ### Fixed
 
+- AI (experimental): Thinking **Default** now picks per task. Rewrite, Translate, Suggest titles and Suggest properties run with thinking Off (Low on Anthropic), so a reasoning model no longer spends the whole budget thinking on a short edit; Explain and Summarize keep the model's own setting. A level you pick, or one set on the model, still wins. Thinking levels also get more room (2k, 4k and 8k tokens on top of the answer).
+- AI (experimental): the VS Code status bar badge shows the new engine as soon as you change the default or the routing, instead of the last engine until the next request.
 - LM Studio MTP drafters (`qwen3.8-27b-mtp@8bit`, `@4bit`) are no longer offered as chat models with a tiny size tagged "fits"; they are only the draft head of the 27B model, not a model that can answer.
 - `==highlight==` is readable in dark VS Code themes when the editor theme is Auto: a translucent amber instead of bright yellow under pale text.
 - The sidebar Outline opens at the top of the document, with the first heading highlighted, instead of scrolled to the last heading.

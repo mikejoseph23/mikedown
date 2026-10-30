@@ -23,7 +23,16 @@
  *
  * "Model default" (no level) removes the kind's thinking fields and leaves
  * everything else in `requestOverrides` alone.
+ *
+ * Per-task default (Q6): with the dial on Default and no level set on the
+ * model, MikeDown picks the level for the job (`taskThinkingDefault`): Off
+ * for the short edits (every rewrite variant, translate, suggest title,
+ * suggest properties), none for the rest (explain, summarize), so the model
+ * decides there. An explicit dial choice, or a level set on the model, wins
+ * (`resolveThinkingLevel`).
  */
+
+import { isOpenAiReasoningModel } from './capabilityHeuristics';
 
 export type AiThinkingLevel = 'off' | 'low' | 'medium' | 'high';
 
@@ -62,6 +71,65 @@ export function thinkingChoices(kind: string): AiThinkingChoice[] {
     default:
       return [];
   }
+}
+
+/**
+ * The level a kind uses for `level`: the level itself when the kind has it,
+ * else the nearest one (Off on Anthropic is Low, any tier on LM Studio is
+ * On). Null for no level or a kind with no mapping.
+ */
+export function nearestThinkingLevel(kind: string, level: AiThinkingLevel | null): AiThinkingLevel | null {
+  const choices = thinkingChoices(kind);
+  if (!level || choices.length === 0) {return null;}
+  if (choices.some((c) => c.level === level)) {return level;}
+  return level === 'off' ? choices[0].level : (choices.find((c) => c.level !== 'off') ?? choices[0]).level;
+}
+
+/**
+ * What a request is for, as far as its default thinking level goes: a
+ * feature id (`rewrite`, `title`, `frontmatter`, `summary`) or a job that
+ * shares one (`explain` and `translate` run under `rewrite`).
+ */
+export type AiThinkingJob = string;
+
+/** Short edits: thinking spends the budget and adds little, so "Default" sends Off. */
+const SHORT_EDIT_JOBS: ReadonlySet<string> = new Set(['rewrite', 'translate', 'title', 'frontmatter']);
+
+/**
+ * The level MikeDown picks for a job when the dial is on Default (Q6): Off
+ * for the short edits, null (the model's own) for everything else.
+ */
+export function taskThinkingDefault(job: string | undefined): AiThinkingLevel | null {
+  return job && SHORT_EDIT_JOBS.has(job) ? 'off' : null;
+}
+
+export interface ResolvedThinkingLevel {
+  /** The level to send (already the kind's nearest), or null to send none. */
+  level: AiThinkingLevel | null;
+  /** True when `level` is the job's default rather than the user's choice. */
+  auto: boolean;
+}
+
+/**
+ * The level a request sends: the user's explicit choice (the dial) first,
+ * then nothing when the model has its own level set (`configured`), then the
+ * job's default (mapped to the kind's nearest: Off on Anthropic is Low).
+ * The explicit level is sent as given (`thinkingLevelFor` already maps a
+ * remembered one); one the kind cannot express sends nothing.
+ */
+export function resolveThinkingLevel(
+  kind: string,
+  explicit: AiThinkingLevel | null,
+  configured: AiThinkingLevel | null,
+  job: string | undefined,
+  opts: { modelId?: string } = {},
+): ResolvedThinkingLevel {
+  if (explicit) {return { level: explicit, auto: false };}
+  if (configured) {return { level: null, auto: false };}
+  // An OpenAI model that does not reason rejects `reasoning_effort`: nothing to turn off.
+  if (kind === 'openai' && opts.modelId !== undefined && !isOpenAiReasoningModel(opts.modelId, 'openai')) {return { level: null, auto: false };}
+  const level = nearestThinkingLevel(kind, taskThinkingDefault(job));
+  return { level, auto: level !== null };
 }
 
 /** The request fields for one level, or `{}` when the kind cannot express it. */
@@ -141,15 +209,17 @@ export function withThinkingLevel(
 /**
  * Output tokens a thinking model may spend reasoning before it answers, by
  * level. A thinking model counts its reasoning against `max_tokens`, so an
- * answer budget alone can be used up before the first visible word.
+ * answer budget alone can be used up before the first visible word. Sized
+ * for local reasoning models (Qwen3 class), which often think 2,000 to
+ * 4,000 tokens even on a one-paragraph edit. It is a ceiling, not a spend.
  */
-export const THINKING_HEADROOM_TOKENS: Readonly<Record<AiThinkingLevel, number>> = { off: 0, low: 1024, medium: 2048, high: 4096 };
+export const THINKING_HEADROOM_TOKENS: Readonly<Record<AiThinkingLevel, number>> = { off: 0, low: 2048, medium: 4096, high: 8192 };
 
 /** "Model default" (no level set): the model may think, at a level we cannot see. */
 export const THINKING_DEFAULT_HEADROOM_TOKENS = THINKING_HEADROOM_TOKENS.medium;
 
 /** The most `thinkingMaxTokens` raises a request to (a larger answer budget is kept as is). */
-export const THINKING_MAX_TOKENS_CAP = 8192;
+export const THINKING_MAX_TOKENS_CAP = 12288;
 
 export interface ThinkingBudgetOptions {
   /** The model's context window, when known. */

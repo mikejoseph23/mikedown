@@ -108,7 +108,8 @@ async function rewriteShorter(handle: MikeDownEditorHandle): Promise<void> {
 }
 
 describe('rewrite at the length limit', () => {
-  it('no text with thinking at model default: the error says thinking used the budget, with Retry', async () => {
+  it('no text with thinking on: the error says thinking used the budget, with Retry', async () => {
+    rememberThinkingLevel('medium');
     const { handle } = mount('Hello world.\n', { text: '', finish: 'length' });
     await settle();
     await rewriteShorter(handle);
@@ -119,6 +120,14 @@ describe('rewrite at the length limit', () => {
     expect(hasButton('Try again') || hasButton('Retry')).toBe(true);
   });
 
+  it('no text on Default (a short edit sends Off): the error does not mention Thinking', async () => {
+    const { handle, requests } = mount('Hello world.\n', { text: '', finish: 'length' });
+    await settle();
+    await rewriteShorter(handle);
+    expect(requests[0].requestOverrides).toEqual({ chat_template_kwargs: { enable_thinking: false } });
+    expect(errorMessage()).toBe(aiLengthLimitCopy({ thinking: false, empty: true }).message);
+  });
+
   it('no text with thinking Off: the error does not mention Thinking', async () => {
     const { handle } = mount('Hello world.\n', { text: '', finish: 'length' }, { chat_template_kwargs: { enable_thinking: false } });
     await settle();
@@ -127,6 +136,7 @@ describe('rewrite at the length limit', () => {
   });
 
   it('a cut answer is shown with the note, and Accept stays', async () => {
+    rememberThinkingLevel('medium');
     const { handle } = mount('Hello world.\n', { text: 'Hi wor', finish: 'length' });
     await settle();
     await rewriteShorter(handle);
@@ -177,6 +187,7 @@ describe('/summary and /title at the length limit', () => {
   });
 
   it('titles with no text at the limit: the out-of-room error, without a repair round trip', async () => {
+    rememberThinkingLevel('medium');
     const { handle, requests } = mount(MD, { text: '', finish: 'length' });
     await settle();
     handle.command('aiSuggestTitle');
@@ -192,6 +203,7 @@ describe('Properties Suggest at the length limit', () => {
   const row = (el: HTMLElement) => el.querySelector<HTMLElement>('[data-testid="properties-suggest"]')!;
 
   it('no text: the row says thinking used the budget, with Try again', async () => {
+    rememberThinkingLevel('medium');
     const { el, handle, requests } = mount(MD, { text: '', finish: 'length' });
     await settle();
     handle.command('aiSuggestProperties');
@@ -202,6 +214,7 @@ describe('Properties Suggest at the length limit', () => {
   });
 
   it('a cut answer that still parsed shows its chips with the note', async () => {
+    rememberThinkingLevel('medium');
     const { el, handle } = mount(MD, { text: '{"description": "How the editor ships.", "tags": ["release"]}', finish: 'length' });
     await settle();
     handle.command('aiSuggestProperties');

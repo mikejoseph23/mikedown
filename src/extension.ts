@@ -439,11 +439,15 @@ function registerAi(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (!e.affectsConfiguration('mikedown.ai')) {return;}
-      statusBar.setEnabled(getSettings().ai.enabled);
+      const ai = getSettings().ai;
+      statusBar.setEnabled(ai.enabled);
+      // A new default engine or routing shows at once, not after the next request (Q7).
+      statusBar.showRoute(ai, service.cachedStatuses(ai));
       void writeBackEngineIds()
         .catch(() => false)
         // Deletes the keys of engines that are gone, then pushes statuses.
         .then(() => service.settingsChanged())
+        .then(() => { const now = getSettings().ai; statusBar.showRoute(now, service.cachedStatuses(now)); })
         .catch(() => {});
     })
   );

@@ -4544,6 +4544,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       maxTokens,
       temperature: 0.3,
       thinking: ui.thinkingLevelFor,
+      job: 'frontmatter',
       ...(info.json ? { format: 'json' as const } : {}),
     }, {
       onRoute: (route) => {
