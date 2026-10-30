@@ -2,6 +2,15 @@
 
 One-pass usability review of MikeDown's table editing (`packages/core/src/`), read from the code plus a few jsdom probes. No code was changed.
 
+## Milestone Progress Tracker
+
+| Milestone | Model | Status | Duration (min) | Notes |
+| --- | --- | --- | --- | --- |
+| M1 Quick wins (bugs) | Opus | ⬜ Not Started | — | Items 1, 2(a)(b), 3, 6, 9, 14 |
+| M2 Clipboard | Opus | ⬜ Not Started | — | Items 4, 5, 13 |
+| M3 Discoverability and accessibility | Sonnet | ⬜ Not Started | — | Items 7, 8, 10, 11 |
+| M4 Fidelity options | Sonnet | ⬜ Not Started | — | Item 12 |
+
 ## What works well today
 
 - Three ways in: toolbar grid picker (8 x 10, plus a manual size form), `/table`, and the Insert dropdown. The picker commits in one undo step.
@@ -101,13 +110,34 @@ Fix: fill the extra cells with empty cells instead of clones; carry per-column a
 
 ## Milestones
 
-**M1 Quick wins (bugs, 1 to 2 days):** 1, 2(a)(c), 3, 6, 9, 14.
+Merged cells are dropped (OQ1), so 2(b) is a removal and moves into M1; 2(c) is moot once both entries are gone.
 
-**M2 Clipboard (2 to 3 days):** 4, 5, 13.
+### M1 Quick wins (bugs, 1 to 2 days)
 
-**M3 Discoverability and accessibility (3 to 4 days):** 7, 8, 10, 11.
+- [ ] 1. Remove the custom cell-selection layer (Backspace wipe)
+- [ ] 2(a). Remove "Toggle header row" from the toolbar and context menu
+- [ ] 2(b). Remove "Merge / split" from the toolbar and context menu (OQ1)
+- [ ] 3. Table pasted inside a table goes to prosemirror-tables
+- [ ] 6. Escape `|` in inline code inside cells
+- [ ] 9. Row chords (Mod+Enter, Mod+Shift+Enter, Mod+Alt+Backspace), Hotkeys entries, toolbar buttons on `click`
+- [ ] 14. Dead resize CSS, insertTable through the picker, "Select table", round-trip and keyboard tests
 
-**M4 Fidelity options (1 day, after decisions):** 2(b), 12.
+### M2 Clipboard (2 to 3 days)
+
+- [ ] 4. Plain-text table paste: pipe tables and TSV (OQ3)
+- [ ] 5. Copy cells as a markdown pipe table, plus "Copy table as Markdown"
+- [ ] 13. Smart paste: empty cells for colspan, carry column alignment
+
+### M3 Discoverability and accessibility (3 to 4 days)
+
+- [ ] 7. Keyboard-usable table picker
+- [ ] 8. Toolbar and drag handles keep their anchor
+- [ ] 10. Visible, accessible drag handles plus Move row/column menu entries
+- [ ] 11. Hover "+" to add rows and columns
+
+### M4 Fidelity options (1 day)
+
+- [ ] 12. `mikedown.tables.padColumns` setting, default off (OQ4)
 
 ## Open questions for Mike
 
@@ -116,3 +146,15 @@ Fix: fill the extra cells with empty cells instead of clones; carry per-column a
 - Plain-text table paste: recognise pipe tables only, or also TSV and CSV? Should it apply to Cmd+Shift+V (paste without formatting)?
 - Padded pipes in saved markdown: a setting (default off), always on, or never?
 - Keyboard chords for row operations: happy with Mod+Enter / Mod+Shift+Enter, or reserve Mod+Enter for something else?
+
+### Answers (Mike, 2026-10-30)
+
+1. **Merged cells:** drop them. Remove Merge / split everywhere; tables stay GFM-only.
+2. **Enter in a cell:** keep inserting a line break (`<br>`). Shift+Enter already does the same (TipTap HardBreak); no change.
+3. **Plain-text table paste:** pipe tables and TSV, no CSV, no setting. Cmd+Shift+V stays verbatim; undo restores the text.
+4. **Padded pipes:** a setting, `mikedown.tables.padColumns`, default off.
+5. **Row chords:** Mod+Enter (row below), Mod+Shift+Enter (row above), Mod+Alt+Backspace (delete row), inside tables only. This replaces TipTap's Mod+Enter line break inside tables; Enter and Shift+Enter still insert one.
+
+## Progress Log
+
+- 2026-10-30 15:20: Open questions answered; 2(b) folded into M1 as a removal.
