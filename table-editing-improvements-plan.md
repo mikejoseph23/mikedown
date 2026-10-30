@@ -6,7 +6,7 @@ One-pass usability review of MikeDown's table editing (`packages/core/src/`), re
 
 | Milestone | Model | Status | Duration (min) | Notes |
 | --- | --- | --- | --- | --- |
-| M1 Quick wins (bugs) | Opus | ⬜ Not Started | — | Items 1, 2(a)(b), 3, 6, 9, 14 |
+| M1 Quick wins (bugs) | Opus | ✅ Done | 11 | `3ff068f`. Table node selection on; all bare `\|` in cells escaped |
 | M2 Clipboard | Opus | ⬜ Not Started | — | Items 4, 5, 13 |
 | M3 Discoverability and accessibility | Sonnet | ⬜ Not Started | — | Items 7, 8, 10, 11 |
 | M4 Fidelity options | Sonnet | ⬜ Not Started | — | Item 12 |
@@ -114,13 +114,13 @@ Merged cells are dropped (OQ1), so 2(b) is a removal and moves into M1; 2(c) is 
 
 ### M1 Quick wins (bugs, 1 to 2 days)
 
-- [ ] 1. Remove the custom cell-selection layer (Backspace wipe)
-- [ ] 2(a). Remove "Toggle header row" from the toolbar and context menu
-- [ ] 2(b). Remove "Merge / split" from the toolbar and context menu (OQ1)
-- [ ] 3. Table pasted inside a table goes to prosemirror-tables
-- [ ] 6. Escape `|` in inline code inside cells
-- [ ] 9. Row chords (Mod+Enter, Mod+Shift+Enter, Mod+Alt+Backspace), Hotkeys entries, toolbar buttons on `click`
-- [ ] 14. Dead resize CSS, insertTable through the picker, "Select table", round-trip and keyboard tests
+- [x] 1. Remove the custom cell-selection layer (Backspace wipe)
+- [x] 2(a). Remove "Toggle header row" from the toolbar and context menu
+- [x] 2(b). Remove "Merge / split" from the toolbar and context menu (OQ1)
+- [x] 3. Table pasted inside a table goes to prosemirror-tables
+- [x] 6. Escape `|` in inline code inside cells
+- [x] 9. Row chords (Mod+Enter, Mod+Shift+Enter, Mod+Alt+Backspace), Hotkeys entries, toolbar buttons on `click`
+- [x] 14. Dead resize CSS, insertTable through the picker, "Select table", round-trip and keyboard tests
 
 ### M2 Clipboard (2 to 3 days)
 
@@ -158,3 +158,4 @@ Merged cells are dropped (OQ1), so 2(b) is a removal and moves into M1; 2(c) is 
 ## Progress Log
 
 - 2026-10-30 15:20: Open questions answered; 2(b) folded into M1 as a removal.
+- 2026-10-30 15:58: M1 done (`3ff068f`, cherry-picked from worktree). Custom cell selection removed; header toggle and merge removed; table-in-table paste uses prosemirror-tables; `|` in cells escaped (all bare pipes, not just code spans); Mod+Enter / Mod+Shift+Enter / Mod+Alt+Backspace; Insert Table opens the picker (keyboard support waits on M3 item 7); Select Table via `allowTableNodeSelection`, so Backspace after a table now selects it first. 32 new tests; unit 3355 pass, lint 0 errors.
