@@ -49,6 +49,7 @@ All notable changes to MikeDown Editor are documented here.
 
 ### Fixed
 
+- LM Studio MTP drafters (`qwen3.8-27b-mtp@8bit`, `@4bit`) are no longer offered as chat models with a tiny size tagged "fits"; they are only the draft head of the 27B model, not a model that can answer.
 - `==highlight==` is readable in dark VS Code themes when the editor theme is Auto: a translucent amber instead of bright yellow under pale text.
 - The sidebar Outline opens at the top of the document, with the first heading highlighted, instead of scrolled to the last heading.
 - AI (experimental): a newly added local engine (LM Studio, oMLX, Ollama) with no model loaded no longer defaults to the first model in its list, which could be a huge one. A loaded chat model is still the default; otherwise nothing is picked and the form asks you to pick a model. Each row shows the model's size when the server reports it, and a **MoE · fast** tag on mixture-of-experts models (active parameters in the name, such as `A3B`, or the server's architecture name).

@@ -19,6 +19,11 @@ function dataArray(body: unknown, key = 'data'): Json[] {
   return (body[key] as unknown[]).filter(isObject);
 }
 
+/** An architecture name that says a speculative-decoding drafter (`qwen3_5_mtp`): weights for a target model, not a chat model. */
+function drafterArch(v: unknown): boolean {
+  return typeof v === 'string' && /_mtp$/i.test(v);
+}
+
 /** An architecture name that says mixture of experts (`qwen3_5_moe`, `qwen35moe`, `nemotron_h_moe`). */
 function moeArch(v: unknown): boolean {
   return typeof v === 'string' && /moe/i.test(v);
@@ -38,7 +43,8 @@ export function parseOpenAiModelList(body: unknown): AiDiscoveredModel[] {
 /**
  * LM Studio `GET /api/v0/models`: `type` (`llm`, `vlm`, `embeddings`),
  * `max_context_length`, `state` (`loaded` / `not-loaded`), `arch` (a `moe`
- * in it marks a mixture of experts), and on newer builds `capabilities`
+ * in it marks a mixture of experts; one ending `_mtp` is a speculative-decoding
+ * drafter, not a chat model), and on newer builds `capabilities`
  * (`tool_use`).
  */
 export function parseLmStudioModels(body: unknown): AiDiscoveredModel[] {
@@ -54,6 +60,11 @@ export function parseLmStudioModels(body: unknown): AiDiscoveredModel[] {
       Object.assign(caps, { chat: true, vision: false, embed: false });
     }
     if (Array.isArray(m.capabilities) && m.capabilities.includes('tool_use')) {caps.tools = true;}
+    // An MTP drafter (`arch` ends `_mtp`) is only the draft head of a bigger model; its few
+    // hundred MB are the true size, but it cannot chat, so it is never offered as one.
+    if (drafterArch(m.arch)) {
+      Object.assign(caps, { chat: false, stream: false, vision: false, tools: false, json: false, embed: false });
+    }
     const ctx = positiveInt(m.max_context_length) ?? positiveInt(m.loaded_context_length);
     if (ctx) {caps.contextTokens = ctx;}
     const model: AiDiscoveredModel = { id: m.id, capabilities: caps, source: 'endpoint' };

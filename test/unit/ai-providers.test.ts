@@ -254,6 +254,13 @@ describe('discovery', () => {
     expect(await createAdapters({ fetch: old.fetch }).get('lmstudio')!.listModels(e, null, new AbortController().signal)).toEqual(fx.expected);
   });
 
+  it('LM Studio marks an MTP drafter (arch _mtp) as not a chat model and keeps its true size', async () => {
+    const fx = fixture('discovery/lmstudio-mtp-drafters.json');
+    const { fetch } = fakeFetch((url) => json(url.endsWith('/api/v1/models') ? fx.v1Response : fx.response));
+    const models = await createAdapters({ fetch }).get('lmstudio')!.listModels(engine('lmstudio', 'http://127.0.0.1:1234/v1'), null, new AbortController().signal);
+    expect(models).toEqual(fx.expected);
+  });
+
   it('a local OpenAI-compatible server adds /models/status when it answers (oMLX loaded state)', async () => {
     const fx = fixture('discovery/omlx-models-status.json');
     const { fetch, calls } = fakeFetch((url) => json(url.endsWith('/models/status') ? fx.response : fx.listed));

@@ -1,0 +1,42 @@
+{
+  "description": "LM Studio lists MTP drafters (arch ending _mtp, e.g. mlx-community/Qwen3.8-27B-MTP-8bit) beside real models. Their size_bytes is true (the repo holds only the draft head, a few hundred MB), but they cannot chat, so discovery marks them chat false instead of offering a 0.4 GB 27B model. A model whose id merely ends in -mtp but has a normal arch (qwen4_exp) is a full model and stays chat.",
+  "kind": "lmstudio",
+  "request": "GET http://127.0.0.1:1234/api/v0/models, then GET /api/v1/models for the sizes",
+  "response": {
+    "data": [
+      { "id": "qwen3.8-27b-mtp@8bit", "object": "model", "type": "vlm", "publisher": "mlx-community", "arch": "qwen3_5_mtp", "compatibility_type": "mlx", "quantization": "8bit", "state": "not-loaded", "max_context_length": 262144, "capabilities": ["tool_use"] },
+      { "id": "qwen3.8-27b-mtp@4bit", "object": "model", "type": "vlm", "publisher": "mlx-community", "arch": "qwen3_5_mtp", "compatibility_type": "mlx", "quantization": "4bit", "state": "not-loaded", "max_context_length": 262144, "capabilities": ["tool_use"] },
+      { "id": "qwen3.8-flash-next-oq5e-mtp", "object": "model", "type": "vlm", "publisher": "tls20", "arch": "qwen4_exp", "compatibility_type": "mlx", "quantization": "5bit", "state": "not-loaded", "max_context_length": 262144, "capabilities": ["tool_use"] }
+    ]
+  },
+  "v1Response": {
+    "models": [
+      { "type": "llm", "key": "qwen3.8-27b-mtp@8bit", "architecture": "qwen3_5_mtp", "size_bytes": 478001713 },
+      { "type": "llm", "key": "qwen3.8-27b-mtp@4bit", "architecture": "qwen3_5_mtp", "size_bytes": 265665065 },
+      { "type": "llm", "key": "qwen3.8-flash-next-oq5e-mtp", "architecture": "qwen4_exp", "size_bytes": 128567566593 }
+    ]
+  },
+  "expected": [
+    {
+      "id": "qwen3.8-27b-mtp@8bit",
+      "capabilities": { "chat": false, "stream": false, "vision": false, "tools": false, "json": false, "embed": false, "contextTokens": 262144 },
+      "source": "endpoint",
+      "loaded": false,
+      "sizeBytes": 478001713
+    },
+    {
+      "id": "qwen3.8-27b-mtp@4bit",
+      "capabilities": { "chat": false, "stream": false, "vision": false, "tools": false, "json": false, "embed": false, "contextTokens": 262144 },
+      "source": "endpoint",
+      "loaded": false,
+      "sizeBytes": 265665065
+    },
+    {
+      "id": "qwen3.8-flash-next-oq5e-mtp",
+      "capabilities": { "chat": true, "vision": true, "embed": false, "tools": true, "contextTokens": 262144 },
+      "source": "endpoint",
+      "loaded": false,
+      "sizeBytes": 128567566593
+    }
+  ]
+}

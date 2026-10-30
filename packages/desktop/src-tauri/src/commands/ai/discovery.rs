@@ -35,6 +35,12 @@ fn moe_arch(v: Option<&Value>) -> Option<bool> {
     v.and_then(Value::as_str).filter(|s| s.to_ascii_lowercase().contains("moe")).map(|_| true)
 }
 
+/// An architecture name that says a speculative-decoding drafter (`qwen3_5_mtp`):
+/// the draft head of a bigger model, not a chat model.
+fn drafter_arch(v: Option<&Value>) -> bool {
+    v.and_then(Value::as_str).is_some_and(|s| s.to_ascii_lowercase().ends_with("_mtp"))
+}
+
 fn str_id(m: &Value) -> Option<&str> {
     m.get("id").and_then(Value::as_str).filter(|s| !s.is_empty())
 }
@@ -86,6 +92,16 @@ pub fn parse_lmstudio_models(body: &Value) -> Vec<DiscoveredModel> {
         }
         if m.get("capabilities").and_then(Value::as_array).is_some_and(|a| a.iter().any(|c| c.as_str() == Some("tool_use"))) {
             caps.tools = Some(true);
+        }
+        // An MTP drafter is only the draft head of a bigger model; its few hundred MB are
+        // the true size, but it cannot chat, so it is never offered as one.
+        if drafter_arch(m.get("arch")) {
+            caps.chat = Some(false);
+            caps.stream = Some(false);
+            caps.vision = Some(false);
+            caps.tools = Some(false);
+            caps.json = Some(false);
+            caps.embed = Some(false);
         }
         caps.context_tokens = positive_int(m.get("max_context_length")).or_else(|| positive_int(m.get("loaded_context_length")));
         out.push(DiscoveredModel {
@@ -375,6 +391,13 @@ mod tests {
         let f = fixture("lmstudio-api-v1-models-sizes.json");
         let sizes = parse_model_sizes(&f["response"]);
         assert_eq!(serde_json::to_value(&sizes).unwrap(), f["expectedSizes"]);
+    }
+
+    #[test]
+    fn lmstudio_mtp_drafters_are_not_chat_models_and_keep_their_true_size() {
+        let f = fixture("lmstudio-mtp-drafters.json");
+        let models = with_model_sizes(parse_lmstudio_models(&f["response"]), &parse_model_sizes(&f["v1Response"]));
+        assert_eq!(as_json(&models), f["expected"]);
     }
 
     #[test]
