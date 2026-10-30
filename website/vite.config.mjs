@@ -55,6 +55,7 @@ export default defineConfig({
         'developers-react': page('developers/react'),
         'developers-vue': page('developers/vue'),
         'developers-angular': page('developers/angular'),
+        compare: page('compare'),
       },
     },
   },

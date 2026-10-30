@@ -5,7 +5,7 @@
  *   node deploy/stage-site.js --dist website/dist --page-src website/mikedown-desktop \
  *     --desktop-version 0.3.0 --out <folder> [--linux <AppImage>] [--base-url URL]
  *
- * Copies the built site (website/dist: vscode/, developers/, site-assets/),
+ * Copies the built site (website/dist: vscode/, developers/, compare/, site-assets/),
  * renders the desktop download page for the PUBLISHED desktop version (same
  * render-page.js step release.sh runs, so the output is byte-identical to the
  * live page plus whatever changed in the source) with its screenshots, then

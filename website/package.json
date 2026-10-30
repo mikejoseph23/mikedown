@@ -2,7 +2,7 @@
   "name": "@mikedown/site",
   "version": "0.0.0",
   "private": true,
-  "description": "MikeDown website: the VS Code page and the developers pages. The desktop download page (mikedown-desktop/) is rendered by the desktop release script, not built here.",
+  "description": "MikeDown website: the VS Code page, the developers pages and the compare page (packed folders: vscode/, developers/, compare/, site-assets/). The desktop download page (mikedown-desktop/) is rendered by the desktop release script, not built here.",
   "type": "module",
   "scripts": {
     "dev": "node scripts/ensure-packages.mjs && vite",

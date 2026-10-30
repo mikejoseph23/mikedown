@@ -88,6 +88,7 @@ describe.skipIf(!built)('built site links', () => {
     expect(all.map((p) => p.url).sort()).toEqual(
       [
         BASE,
+        BASE + 'compare/',
         BASE + 'developers/',
         BASE + 'developers/angular/',
         BASE + 'developers/react/',

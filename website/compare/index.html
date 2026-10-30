@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/mikedown/favicon.ico" sizes="16x16 32x32">
+  <link rel="icon" type="image/png" sizes="32x32" href="/mikedown/favicon-32.png">
+  <link rel="apple-touch-icon" href="/mikedown/apple-touch-icon.png">
+  <title>Compare MikeDown: Desktop, VS Code and the developer packages</title>
+  <meta name="description" content="MikeDown is one WYSIWYG markdown editor in four forms: a desktop app, a VS Code extension, a web component and React, Vue and Angular packages. See what each one does.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MikeDown">
+  <meta property="og:title" content="Which MikeDown?">
+  <meta property="og:description" content="The same markdown editor as a desktop app, a VS Code extension, a web component and React, Vue and Angular packages, feature by feature.">
+  <meta property="og:url" content="https://www.iadev.net/mikedown/compare/">
+  <link rel="canonical" href="https://www.iadev.net/mikedown/compare/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/shell.css">
+  <link rel="stylesheet" href="/shared/page.css">
+  <link rel="stylesheet" href="/compare/compare.css">
+</head>
+<body>
+  <!--shell:header page="compare"-->
+
+  <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+    <symbol id="mk-yes" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.2 9.5"/></symbol>
+    <symbol id="mk-partial" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="mk-host" viewBox="0 0 24 24"><path d="M9 3v4M15 3v4M6.5 7h11v3.5a5.5 5.5 0 0 1-11 0z M12 16v5"/></symbol>
+    <symbol id="mk-no" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></symbol>
+    <symbol id="mk-na" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-dasharray="2.6 3.05"/></symbol>
+  </svg>
+
+  <main id="main">
+    <section class="compare-hero">
+      <div class="site-container">
+        <h1>Which MikeDown?</h1>
+        <p class="compare-hero__lede">MikeDown is one WYSIWYG markdown editor in four forms. <strong>Desktop</strong> is a free app for macOS and Windows, with a Linux preview, for working through a folder of notes. The <strong>VS Code extension</strong> opens your markdown files in editor tabs, next to your code. The <strong>web component</strong> and the <strong>React, Vue and Angular</strong> packages put the editor inside a web app you build.</p>
+      </div>
+    </section>
+
+    <section class="compare" aria-labelledby="matrix-title">
+      <div class="site-container">
+        <h2 class="visually-hidden" id="matrix-title">Feature by feature</h2>
+        <div class="legend" role="group" aria-labelledby="legend-title">
+          <h3 class="legend__title" id="legend-title">How to read the table</h3>
+          <dl class="legend__list">
+            <div><dt><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></dt><dd>In the product as it ships.</dd></div>
+            <div><dt><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span></dt><dd>There, with the limit named in the cell.</dd></div>
+            <div><dt><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span></dt><dd>The editor has the hook; the app around it supplies the piece.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup> For the VS Code extension, that is VS Code itself.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></dd></div>
+            <div><dt><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></dt><dd>Not in that product.</dd></div>
+            <div><dt><span class="mark mark--na"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-na"/></svg>n/a</span></dt><dd>Does not apply to that product.</dd></div>
+          </dl>
+        </div>
+
+        <table class="matrix" role="table" aria-describedby="legend-title">
+          <caption>What each MikeDown does, feature by feature</caption>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">Feature</th>
+              <th scope="col" role="columnheader">Desktop</th>
+              <th scope="col" role="columnheader">VS Code extension</th>
+              <th scope="col" role="columnheader">Web component</th>
+              <th scope="col" role="columnheader">React / Vue / Angular</th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            <tr class="group-row" role="row"><th scope="rowgroup" colspan="5" id="group-1" role="rowheader">Writing</th></tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">WYSIWYG and source mode</span><span class="feature-note">Switch between the formatted document and its markdown with <span class="keys"><kbd>Cmd</kbd>+<kbd>/</kbd></span> (<span class="keys"><kbd>Ctrl</kbd>+<kbd>/</kbd></span> on Windows and Linux).</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Tables, callouts, math, Mermaid, emoji, footnotes</span><span class="feature-note">The packages can switch math and Mermaid off (<code>features.math</code>, <code>features.mermaid</code>).</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span><span class="cell-note">The CDN bundle loads KaTeX and Mermaid from jsDelivr the first time a document needs them.</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Spellcheck</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span><span class="cell-note">Dictionaries included.</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span><span class="cell-note">Off by default; turn on <code>mikedown.spellCheck.enabled</code>.</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">Give it a dictionary with the <code>spellcheck-dictionary-url</code> attribute.</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">React and Angular: <code>spellcheckDictionaryUrl</code>. Vue: no option yet.</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Image paste to disk</span><span class="feature-note">Paste or drop an image and it is saved as a file next to the document.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">Your <code>host.uploadImage</code> stores it; without one, paste and drop are off.</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">Your <code>host.uploadImage</code> stores it (Angular: the <code>imageUpload</code> input).</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Find and replace</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+            </tr>
+          </tbody>
+          <tbody role="rowgroup">
+            <tr class="group-row" role="row"><th scope="rowgroup" colspan="5" id="group-2" role="rowheader">Organizing notes</th></tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Outline sidebar</span><span class="feature-note">Outline, Properties, Backlinks and Tags in one panel beside the document.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span><span class="cell-note">Off until you set <code>features: { sidebar: true }</code>. Outline and Properties work on their own; Backlinks and Tags need your app.</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span><span class="cell-note">Off until you set <code>features: { sidebar: true }</code>. Outline and Properties work on their own; Backlinks and Tags need your app.</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Backlinks</span><span class="feature-note">The documents that link to the one you are reading.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">Your app builds the index and pushes it with <code>handle.setBacklinks</code>.</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">Your app builds the index and pushes it with <code>handle.setBacklinks</code>.</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Wikilinks and tags</span><span class="feature-note"><code>[[Wikilinks]]</code> and <code>#tags</code> are recognized everywhere.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">Resolving links and listing tags needs your app (<code>resolveWikilinks</code>, <code>getTags</code>).</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">Resolving links and listing tags needs your app (<code>resolveWikilinks</code>, <code>getTags</code>).</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Properties and frontmatter</span><span class="feature-note">The frontmatter block works everywhere; the Properties panel lives in the sidebar.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+            </tr>
+          </tbody>
+          <tbody role="rowgroup">
+            <tr class="group-row" role="row"><th scope="rowgroup" colspan="5" id="group-3" role="rowheader">Files and windows</th></tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Folder tree</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">VS Code’s Explorer.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Tabs</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">VS Code’s editor tabs.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Split panes</span><span class="feature-note">Each Desktop pane has its own tabs and sidebar.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">VS Code’s editor groups.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Folder search</span><span class="feature-note">Plain text, with case and whole-word options.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">VS Code’s Search view.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Version history</span><span class="feature-note">Desktop keeps a snapshot on every save in an open folder, with a side-by-side diff and restore.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">Git and the Timeline view.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Multi-window</span><span class="feature-note">New Window from the Dock or the taskbar; a file from outside the folder can open its own folder in a new window.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">VS Code’s own windows.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></td>
+            </tr>
+          </tbody>
+          <tbody role="rowgroup">
+            <tr class="group-row" role="row"><th scope="rowgroup" colspan="5" id="group-4" role="rowheader">Export, settings and updates</th></tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">HTML and PDF export</span><span class="feature-note">Export to HTML, print or save as PDF (through the system print dialog).</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">Take <code>handle.getHtml()</code> and offer your own download.</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">Take <code>handle.getHtml()</code> and offer your own download.</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Settings UI</span><span class="feature-note">The gear button opens the settings inside the editor.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span><span class="cell-note">The gear opens; changes are saved only through <code>host.saveSettings</code>.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup></span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span><span class="cell-note">The gear opens; changes are saved only through <code>host.saveSettings</code>.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup></span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Toolbar customization</span><span class="feature-note">Rearrange the toolbar in place.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span><span class="cell-note">The layout is kept only through <code>host.saveSettings</code>.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup></span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span><span class="cell-note">The layout is kept only through <code>host.saveSettings</code>.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup></span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Auto-update</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span><span class="cell-note">macOS and Windows update in the app; the Linux AppImage does not.<sup><a class="fn-ref" href="#note-3" aria-label="Note 3">3</a></sup></span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">The Marketplace.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span><span class="cell-note">You update the npm package.</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span><span class="cell-note">You update the npm packages.</span></td>
+            </tr>
+          </tbody>
+          <tbody role="rowgroup">
+            <tr class="group-row" role="row"><th scope="rowgroup" colspan="5" id="group-5" role="rowheader">AI (experimental)</th></tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">AI writing tools</span><span class="feature-note">Rewrite, Explain, Translate, Summarize, Suggest titles and properties.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span><span class="cell-note">Experimental, off by default.<sup><a class="fn-ref" href="#note-1" aria-label="Note 1">1</a></sup></span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span><span class="cell-note">Experimental, off by default.<sup><a class="fn-ref" href="#note-1" aria-label="Note 1">1</a></sup></span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">The AI tools appear once you set the <code>ai</code> property from script (there is no attribute).<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup></span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">The AI tools appear once you pass an <code>ai</code> host.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup></span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">AI engine setup</span><span class="feature-note">Find running local servers, a setup wizard, keys in secure storage and consent per folder or workspace.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span><span class="cell-note"><sup><a class="fn-ref" href="#note-1" aria-label="Note 1">1</a></sup></span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span><span class="cell-note">GitHub Copilot can be an engine too.<sup><a class="fn-ref" href="#note-1" aria-label="Note 1">1</a></sup></span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">The same Engines page; the connection, keys and consent dialog are your app’s.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup></span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span><span class="cell-note">The same Engines page; the connection, keys and consent dialog are your app’s.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup></span></td>
+            </tr>
+          </tbody>
+          <tbody role="rowgroup">
+            <tr class="group-row" role="row"><th scope="rowgroup" colspan="5" id="group-6" role="rowheader">In your own app</th></tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Two-way value binding</span><span class="feature-note">Keep the editor’s markdown in your app’s state.</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--na"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-na"/></svg>n/a</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--na"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-na"/></svg>n/a</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span><span class="cell-note">The <code>value</code> property and the <code>change</code> event.</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span><span class="cell-note">React <code>value</code> and <code>onChange</code>, Vue <code>v-model</code>, Angular forms.</span></td>
+            </tr>
+            <tr role="row">
+              <th scope="row" role="rowheader"><span class="feature">Native form field</span></th>
+              <td role="cell" data-label="Desktop"><span class="mark mark--na"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-na"/></svg>n/a</span></td>
+              <td role="cell" data-label="VS Code extension"><span class="mark mark--na"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-na"/></svg>n/a</span></td>
+              <td role="cell" data-label="Web component"><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span><span class="cell-note">Submits under <code>name</code>, honors <code>required</code> and resets with the form.</span></td>
+              <td role="cell" data-label="React / Vue / Angular"><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span><span class="cell-note">Angular: reactive and template forms. React and Vue: two-way binding only; wrap the web component or post the value yourself.</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <section class="notes" aria-labelledby="notes-title">
+          <h3 class="notes__title" id="notes-title">Notes</h3>
+          <ol class="notes__list">
+            <li id="note-1">AI writing tools are experimental and off by default in both apps; nothing is sent until you set up an engine. <a href="/mikedown/#privacy">What is sent, and where</a>.</li>
+            <li id="note-2">In VS Code, the file tree, tabs, split editors, folder search, version history (Git, Timeline), multiple windows and updates come from VS Code itself, not from the extension.</li>
+            <li id="note-3">MikeDown Desktop updates itself on macOS and Windows; the Linux AppImage does not.</li>
+            <li id="note-4"><strong>Host must provide</strong>: the editor has the hook and your app supplies the piece (a <code>host</code> method, an AI host, a dictionary URL, storage). See <a href="/mikedown/developers/#byo-ai">Bring your own AI</a> and <a href="/mikedown/developers/#toolbar-layout">Toolbar layout</a> on the Developers hub.</li>
+          </ol>
+        </section>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="pick-title">
+      <div class="site-container">
+        <h2 id="pick-title">Pick yours</h2>
+        <p>All four are free, and your files stay plain markdown in every one of them.</p>
+        <ul class="picks">
+          <li class="pick">
+            <h3>MikeDown Desktop</h3>
+            <p>A free app for macOS and Windows, with a Linux preview.</p>
+            <a class="btn btn--primary" href="/mikedown/">Download Desktop</a>
+          </li>
+          <li class="pick">
+            <h3>VS Code extension</h3>
+            <p>WYSIWYG markdown in your editor tabs.</p>
+            <a class="btn btn--secondary" href="https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor">Get it on the Marketplace</a>
+          </li>
+          <li class="pick">
+            <h3>In your app</h3>
+            <p>A web component and React, Vue and Angular packages on npm.</p>
+            <a class="btn btn--secondary" href="/mikedown/developers/">Developers hub</a>
+          </li>
+          <li class="pick">
+            <h3>Source</h3>
+            <p>MIT licensed. Issues and ideas are welcome.</p>
+            <a class="btn btn--secondary" href="https://github.com/mikejoseph23/mikedown">MikeDown on GitHub</a>
+          </li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <!--shell:footer-->
+</body>
+</html>

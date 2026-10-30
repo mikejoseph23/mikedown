@@ -52,7 +52,7 @@ Packages (`docs/wrappers-decisions.md` has the reasoning):
 - `packages/react`, `packages/vue`: thin wrappers over `bindMikeDownValue`.
 - `packages/angular`: `@mikedown/angular`, a form control. Outside the root workspaces with its own lockfile; built by ng-packagr and published from `packages/angular/dist`.
 - `packages/desktop`: MikeDown Desktop (Tauri), private, with its own plan.
-- `website/` (`@mikedown/site`, private): the VS Code page (`vscode/`) and the developers hub with a demo per wrapper (`developers/`), built by Vite (base `/mikedown/`), shared shell in `website/shared/`. The Angular demo is a separate app in `website/developers-angular/`, built by `ng build` into the site output. The desktop download page (`website/mikedown-desktop/`) is rendered by the Desktop release script, not by Vite.
+- `website/` (`@mikedown/site`, private): the VS Code page (`vscode/`), the developers hub with a demo per wrapper (`developers/`) and the product comparison (`compare/`), built by Vite (base `/mikedown/`), shared shell in `website/shared/`. The Angular demo is a separate app in `website/developers-angular/`, built by `ng build` into the site output. The desktop download page (`website/mikedown-desktop/`) is rendered by the Desktop release script, not by Vite.
 
 All wrappers (and the web component) peer on `@mikedown/core` and their framework only; they share one lockstep family version.
 
@@ -112,7 +112,7 @@ npm family:
 4. `npm run release:npm -- --publish [--otp 123456]` publishes core first, then the rest, with `--access public` (`--tag rc` for prereleases). A version already on npm is skipped. If `npm whoami` fails it packs tarballs to `/Volumes/Storage/LymeStack/packages/npm/` (falling back to `.orchestrator/wrappers-npm-plan/artifacts/`) instead of publishing; `--pack` writes them without publishing.
 5. `packages/angular` (when it exists) is outside the root workspaces with its own lockfile and is published from `packages/angular/dist`; the scripts handle it.
 
-Website (`https://www.iadev.net/mikedown/`): `npm run build:site`, then the site-only publish through the same LymeDeploy project as Desktop (`mikedown-downloads`): `packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n N --dry-run` first, then without `--dry-run`. It packs only `vscode/`, `developers/`, site assets and the re-rendered desktop `index.html`, as release `<desktop-version>-site.N`, and never touches Desktop artifacts or manifests. Details in `packages/desktop/deploy/README.md`.
+Website (`https://www.iadev.net/mikedown/`): `npm run build:site`, then the site-only publish through the same LymeDeploy project as Desktop (`mikedown-downloads`): `packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n N --dry-run` first, then without `--dry-run`. It packs only `vscode/`, `developers/`, `compare/`, site assets and the re-rendered desktop `index.html`, as release `<desktop-version>-site.N`, and never touches Desktop artifacts or manifests. Details in `packages/desktop/deploy/README.md`.
 
 Extension:
 

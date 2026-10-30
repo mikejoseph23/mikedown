@@ -14,8 +14,8 @@
  */
 import { pageImageNames } from './publish-checks.js';
 
-export const SITE_TOP_DIRS = ['vscode', 'developers', 'site-assets'];
-const SITE_REQUIRED = ['index.html', 'vscode/index.html', 'developers/index.html'];
+export const SITE_TOP_DIRS = ['vscode', 'developers', 'compare', 'site-assets'];
+const SITE_REQUIRED = ['index.html', 'vscode/index.html', 'developers/index.html', 'compare/index.html'];
 const FORBIDDEN_EXT = /\.(dmg|exe|gz|tgz|sig|appimage|nupkg|msi|pkg|zip)$/i;
 // Served as-is by the folder: IIS defaults plus the machine-wide maps.
 const SERVED_EXT = new Set(['html', 'js', 'css', 'png', 'jpg', 'jpeg', 'ico', 'txt', 'json', 'gif']);

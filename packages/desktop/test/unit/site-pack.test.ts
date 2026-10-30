@@ -15,6 +15,7 @@ const good = () => ({
   'developers/index.html': b(),
   'developers/angular/index.html': b(),
   'developers/angular/main-ABC.js': b(),
+  'compare/index.html': b(),
   'site-assets/pic.jpg': b(),
 });
 
@@ -41,10 +42,24 @@ describe('checkSitePackage', () => {
     expect(checkSitePackage({ files }).problems.join('\n')).toMatch(re);
   });
 
-  it('requires the three site entry pages', () => {
+  it('requires the site entry pages', () => {
     const files = good();
     delete files['vscode/index.html'];
     expect(checkSitePackage({ files }).problems).toEqual(['vscode/index.html is missing']);
+  });
+
+  it('accepts the compare folder and requires its page', () => {
+    const files = good();
+    files['compare/compare.css'] = b();
+    expect(checkSitePackage({ files }).problems).toEqual([]);
+    delete files['compare/index.html'];
+    expect(checkSitePackage({ files }).problems).toEqual(['compare/index.html is missing']);
+  });
+
+  it('still rejects a stray top-level folder next to compare/', () => {
+    const files = good();
+    files['comparison/index.html'] = b();
+    expect(checkSitePackage({ files }).problems.join('\n')).toMatch(/top-level folder 'comparison' is not a site folder/);
   });
 
   it('requires the images the desktop page shows and rejects unrendered Linux placeholders', () => {

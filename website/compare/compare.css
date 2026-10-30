@@ -1,0 +1,148 @@
+/*
+ * The compare page (compare/index.html). Load after shell.css and page.css.
+ * Only the shell tokens (--bg, --bg-raised, --text, --text-strong, --muted,
+ * --accent, --accent-soft, --border), so both themes follow the shell.
+ *
+ * At 720 px and up the matrix is a table. Below that each row becomes a card:
+ * the feature name is its heading and every cell is labelled from data-label.
+ */
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* Hero */
+.compare-hero { padding: 72px 0 40px; }
+.compare-hero h1 { font-size: clamp(2.2rem, 6vw, 3.2rem); margin-bottom: 16px; }
+.compare-hero__lede { color: var(--muted); font-size: clamp(1rem, 2.4vw, 1.15rem); max-width: 720px; }
+.compare-hero__lede strong { color: var(--text-strong); font-weight: 600; }
+
+.compare { padding-bottom: 72px; }
+
+/* Marks: a word with an icon. The icon is decoration; the word carries the meaning. */
+.mark {
+  display: inline-flex; align-items: flex-start; gap: 6px;
+  color: var(--text-strong); font-weight: 600; font-size: 14px; line-height: 1.4;
+}
+.mark svg {
+  flex: none; margin-top: 0.12em;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.mark--yes svg { color: var(--accent); }
+.mark--partial svg, .mark--host svg { color: var(--text); }
+.mark--no, .mark--na { color: var(--muted); font-weight: 500; }
+
+/* Legend */
+.legend {
+  padding: 18px 20px; margin-bottom: 32px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg-raised);
+}
+.legend__title, .notes__title {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px;
+}
+.legend__list { display: grid; gap: 12px 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+.legend__list dd { color: var(--muted); font-size: 14px; line-height: 1.5; margin-top: 2px; }
+
+/* Footnote references */
+sup { line-height: 0; }
+.fn-ref {
+  margin-left: 3px; padding: 0 2px;
+  font-size: 11px; font-weight: 600; text-decoration: none;
+}
+.fn-ref:hover { text-decoration: underline; }
+.fn-ref:focus-visible, .notes a:focus-visible, .legend a:focus-visible {
+  outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+}
+
+/* The matrix */
+.matrix { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14.5px; line-height: 1.5; }
+.matrix caption {
+  text-align: left; caption-side: top; padding-bottom: 12px;
+  color: var(--text-strong); font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em;
+}
+.matrix th, .matrix td { text-align: left; vertical-align: top; }
+.matrix code { white-space: normal; overflow-wrap: anywhere; font-size: 0.86em; }
+.feature { display: block; color: var(--text-strong); font-weight: 600; }
+.feature-note { display: block; margin-top: 3px; color: var(--muted); font-size: 13.5px; font-weight: 400; }
+.cell-note { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+/* Notes */
+.notes { margin-top: 40px; max-width: 760px; }
+.notes__list { padding-left: 1.4em; color: var(--muted); font-size: 14.5px; line-height: 1.6; display: grid; gap: 8px; }
+.notes__list li::marker { color: var(--text-strong); font-weight: 600; }
+.notes__list li:target { color: var(--text); }
+.notes strong { color: var(--text); font-weight: 600; }
+
+@media (min-width: 720px) {
+  .matrix thead th {
+    position: sticky; top: 0; z-index: 1;
+    padding: 12px; background: var(--bg);
+    border-bottom: 2px solid var(--border);
+    color: var(--text-strong); font-size: 14px; font-weight: 600; line-height: 1.35;
+  }
+  .matrix { table-layout: fixed; }
+  .matrix thead th { width: 18.5%; }
+  .matrix thead th:first-child { width: 26%; padding-left: 0; }
+  .matrix tbody th, .matrix tbody td { padding: 14px 12px; border-bottom: 1px solid var(--border); }
+  .matrix tbody th[scope="row"] { padding-left: 0; }
+  .matrix .group-row th {
+    padding: 28px 0 8px;
+    color: var(--accent); font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .matrix tbody:first-of-type .group-row th { padding-top: 16px; }
+  .matrix tbody tr:not(.group-row):hover > * { background: var(--accent-soft); }
+}
+
+/* Cards under 720 px */
+@media (max-width: 719px) {
+  .matrix, .matrix caption, .matrix tbody, .matrix tr, .matrix th, .matrix td { display: block; }
+  .matrix thead {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+  .matrix .group-row th {
+    padding: 24px 0 10px;
+    color: var(--accent); font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .matrix tbody:first-of-type .group-row th { padding-top: 4px; }
+  .matrix tr:not(.group-row) {
+    display: grid; gap: 12px;
+    margin-bottom: 12px; padding: 14px 16px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--bg-raised);
+  }
+  .matrix th[scope="row"] { padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .matrix th[scope="row"] .feature { font-size: 15.5px; }
+  .matrix td { display: grid; grid-template-columns: 7.25em minmax(0, 1fr); column-gap: 12px; }
+  .matrix td::before {
+    content: attr(data-label); grid-row: 1 / span 2;
+    color: var(--muted); font-size: 12.5px; font-weight: 500; line-height: 1.35; padding-top: 2px;
+  }
+  .matrix td > .mark, .matrix td > .cell-note { grid-column: 2; }
+}
+
+@media (min-width: 480px) and (max-width: 719px) {
+  .matrix tr:not(.group-row) { grid-template-columns: 1fr 1fr; column-gap: 20px; }
+  .matrix th[scope="row"] { grid-column: 1 / -1; }
+  .matrix td { display: block; }
+  .matrix td::before { display: block; padding: 0 0 2px; }
+}
+
+/* Closing band: the four ways in */
+.band > .site-container > p { margin-bottom: 0; }
+.picks { list-style: none; display: grid; gap: 16px; margin-top: 28px; }
+.pick {
+  display: flex; flex-direction: column;
+  padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg);
+}
+.band .pick p { flex: 1; font-size: 14.5px; }
+.pick .btn { margin-top: 16px; min-height: 44px; padding: 10px 16px; font-size: 15px; text-align: center; }
+
+@media (min-width: 560px) {
+  .picks { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 900px) {
+  .picks { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 600px) {
+  .compare-hero { padding-top: 48px; }
+  .compare { padding-bottom: 56px; }
+}
