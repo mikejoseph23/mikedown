@@ -629,3 +629,7 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [x] Q6 Rewrite "Shorter" on LM Studio qwen3.8-27b with Thinking Default ends in "No room left to answer" (thinking eats the budget). Fixed in 61e6d13: Default picks per task, Off for rewrite, translate, titles and properties (Low on Anthropic, nothing on non-reasoning OpenAI models); explain and summarize keep the model's own. Explicit dial or model level wins. Headroom now 2k/4k/8k, cap 12k.
 - [x] Q7 Status bar engine badge stays on the old engine after changing the default, until a request runs. Fixed in 61e6d13: any `mikedown.ai.*` change (Engines page save included) shows the next route. Desktop has no engine badge.
 - [ ] Q8 Maybe timing: the first "Use LM Studio" click in the fresh-profile popover closed it with no message; the second showed the no-model message.
+- QA retest (2026-10-29): Q1, Q2, Q3, Q5, Q6, Q7 pass live (short rewrite on LM Studio qwen3.8-27b: `reasoning_effort: "none"`, 0 reasoning tokens, 11 s at 42 tok/s).
+- [x] Q9 oMLX MTP drafters (`config_model_type` ending `_mtp`) were still pickable as chat models. Fixed in `c5dd0db`.
+- [x] Q10 Sidebar footer AI chip stayed on the old engine after a default change (the editor's served label overrode the route preview). Fixed in `c5dd0db`.
+- Note: the popover Thinking dial choice carries across tasks for the session (Rewrite On, then Summarize opens On). Kept as intended; Default is the reset.
