@@ -30,9 +30,9 @@ Defaults applied by the planning skill: incremental verification (acceptance che
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [M1 Comparison matrix: data and Mike's review](#m1-comparison-matrix-data-and-mikes-review) | Sonnet (audit done here), Mike | ⬜ Not Started | — | The matrix below is the draft; Mike resolves the check list |
-| [M2 Compare page](#m2-compare-page) | Opus | ⬜ Not Started | — | `website/compare/`, Vite input, site gate, link test |
-| [M3 Desktop page: feature tour and AI section](#m3-desktop-page-feature-tour-and-ai-section) | Opus | ⬜ Not Started | — | Inline CSS only; markers and script untouched |
+| [M1 Comparison matrix: data and Mike's review](#m1-comparison-matrix-data-and-mikes-review) | Sonnet (audit done here), Mike | ✅ Done | — | Mike accepted every recommendation 2026-10-30 |
+| [M2 Compare page](#m2-compare-page) | Opus | 🔄 In Progress | — | `website/compare/`, Vite input, site gate, link test |
+| [M3 Desktop page: feature tour and AI section](#m3-desktop-page-feature-tour-and-ai-section) | Opus | 🔄 In Progress | — | Inline CSS only; markers and script untouched. Compare teaser moved to M5 |
 | [M4 AI screenshots](#m4-ai-screenshots) | Mike (Sonnet for the page edits) | ⬜ Not Started | — | 2 or 3 PNGs from Desktop with a local engine |
 | [M5 Links from the VS Code and Developers pages](#m5-links-from-the-vs-code-and-developers-pages) | Sonnet | ⬜ Not Started | — | Bands, footer, maybe the nav (OQ2) |
 | [M6 Site-only publish and verification](#m6-site-only-publish-and-verification) | Sonnet, Mike for the real publish | ⬜ Not Started | — | `0.4.0-site.1`, after Desktop 0.4.0 is live |
@@ -79,24 +79,24 @@ The three wrappers (React, Vue, Angular) share one column: they are thin layers 
 |---|---|---|---|---|---|---|
 | WYSIWYG and source mode | Yes | Yes | Yes | Yes | `packages/core/src/types.ts` (`sourceMode` default on); CodeMirror in `editor.ts` | Cmd+/ toggles in every host. |
 | Tables, callouts, math, Mermaid, emoji, footnotes | Yes | Yes | Yes | Yes | `editor.ts` imports: `table-align`, `callout-node`, `math`, `mermaid`, `emoji`, `footnote` | `features.math` / `features.mermaid` can switch the renderers off. The CDN bundle loads KaTeX and Mermaid from jsDelivr on first use (`packages/web-component/README.md`, CDN section). |
-| Spellcheck | Yes | Partial | Host must provide | Host must provide | `packages/desktop/src/main.ts:320` (bundled dictionaries); `src/settings.ts:144` (`spellCheck.enabled`, default false); `types.ts` ("inert unless `spellcheckDictionaryUrl` is set") | VS Code ships dictionaries but the setting is off by default. Web component: `spellcheck-dictionary-url` attribute. Angular: `spellcheckDictionaryUrl` input. React and Vue: see check C2. |
+| Spellcheck | Yes | Partial | Host must provide | Host must provide | `packages/desktop/src/main.ts:320` (bundled dictionaries); `src/settings.ts:144` (`spellCheck.enabled`, default false); `types.ts` ("inert unless `spellcheckDictionaryUrl` is set") | VS Code ships dictionaries but the setting is off by default. Web component: `spellcheck-dictionary-url` attribute. React: `spellcheckDictionaryUrl` prop. Angular: `spellcheckDictionaryUrl` input. Vue: no option yet. VS Code: off by default. |
 | Image paste to disk | Yes | Yes | Host must provide | Host must provide | `tauriHost.ts` (`uploadImage`, `pickImage`, `resizeImage`); `src/markdownEditorProvider.ts` (`savePastedImage`) with `src/imagePaste.ts`; `host.ts:170` ("Absent disables image paste and drop") | Wrappers: `host.uploadImage` (Angular: the `imageUpload` input). |
 | Find and replace | Yes | Yes | Yes | Yes | `types.ts` (`findReplace` default on); `packages/core/src/findreplace.ts` | |
-| Outline sidebar | Yes | Yes | Partial | Partial | `types.ts` (`sidebar` default off); `package.json` command `mikedown.toggleSidebar`; `mikedown-editor.component.ts:191` | Wrappers and the web component get it with `features: { sidebar: true }`. Outline and Properties work alone; Backlinks and Tags need host methods (next rows). See check C3. |
-| Backlinks | Yes | Yes | Host must provide | Host must provide | `packages/desktop/src/tree/backlinks.ts`, `mdIndex.ts`, `tauriHost.ts#refreshBacklinks`; `src/backlinkProvider.ts` and the `backlinks` message in `editor-main.ts` | No backlink index ships in core; a host pushes items through the editor handle (`setBacklinks`). See check C4. |
-| Wikilinks and tags | Yes | Yes | Host must provide | Host must provide | `tauriHost.ts` (`resolveWikilinks`, `createWikilink`, `getTags`); `editor-main.ts` (`wikilinksResolved`, `tags`, `openTag`); `host.ts` (`resolveWikilinks`, `getTags`) | The `[[` and `#` syntax parses everywhere; resolution and the Tags section need the host. Row added by the audit; drop it if the chart gets long. |
+| Outline sidebar | Yes | Yes | Partial | Partial | `types.ts` (`sidebar` default off); `package.json` command `mikedown.toggleSidebar`; `mikedown-editor.component.ts:191` | Wrappers and the web component get it with `features: { sidebar: true }`. Outline and Properties work alone; Backlinks and Tags need host methods (next rows). |
+| Backlinks | Yes | Yes | Host must provide | Host must provide | `packages/desktop/src/tree/backlinks.ts`, `mdIndex.ts`, `tauriHost.ts#refreshBacklinks`; `src/backlinkProvider.ts` and the `backlinks` message in `editor-main.ts` | No backlink index ships in core; a host pushes items through the public editor handle (`handle.setBacklinks`). |
+| Wikilinks and tags | Yes | Yes | Host must provide | Host must provide | `tauriHost.ts` (`resolveWikilinks`, `createWikilink`, `getTags`); `editor-main.ts` (`wikilinksResolved`, `tags`, `openTag`); `host.ts` (`resolveWikilinks`, `getTags`) | The `[[` and `#` syntax parses everywhere; resolution and the Tags section need the host. Kept (C11). |
 | Properties and frontmatter | Yes | Yes | Yes | Yes | `types.ts` (`frontmatter` default on); `packages/core/src/frontmatterParse.ts`; the Properties section of `outlineSidebar.ts` | The frontmatter block is on everywhere; the Properties panel needs the sidebar (row above). |
 | Folder tree | Yes | Host must provide | No | No | `packages/desktop/src/tree/fileTree.ts`, `folderWorkspace.ts` | VS Code: its own Explorer. |
 | Tabs | Yes | Host must provide | No | No | `packages/desktop/src/panes/paneManager.ts` | VS Code: its own editor tabs. |
 | Split panes | Yes | Host must provide | No | No | `packages/desktop/src/panes/paneLayout.ts` | Each Desktop pane has its own tabs and sidebar. VS Code: editor groups. |
 | Folder search | Yes | Host must provide | No | No | `packages/desktop/src/search/searchPanel.ts`; `commands/search.rs` | Plain text, case and whole-word options, hidden and `node_modules` folders skipped. VS Code: its own Search view. |
 | Version history | Yes | Host must provide | No | No | `packages/desktop/src/documents/versioning.ts`; `commands/versions.rs` | Snapshots in `.mikedown/versions/` on every save inside an open folder, side-by-side diff, restore; a lone-file window never snapshots (check C5). Hot-exit backups too (`documents/backups.ts`). VS Code: Git and Timeline are VS Code's. |
-| HTML and PDF export | Yes | Yes | Host must provide | Host must provide | `packages/desktop/src/export/exporter.ts`, `commands/print.rs`; `src/export.ts`, commands `mikedown.exportHtml`, `mikedown.print` ("Print / Export as PDF"), `mikedown.viewInBrowser`; `host.ts` (`exportHtml`, `printDocument`, `viewInBrowser`) | PDF goes through the OS print dialog on both apps (Save as PDF). Wrappers: `handle.getHtml()` plus your own download. |
+| HTML and PDF export | Yes | Yes | Host must provide | Host must provide | `packages/desktop/src/export/exporter.ts`, `commands/print.rs`; `src/export.ts`, commands `mikedown.exportHtml`, `mikedown.print` ("Print / Export as PDF"), `mikedown.viewInBrowser`; `host.ts` (`exportHtml`, `printDocument`, `viewInBrowser`) | PDF goes through the OS print dialog on both apps; page wording: "Export to HTML, print or save as PDF". Wrappers: `handle.getHtml()` plus your own download. |
 | Multi-window | Yes | Host must provide | No | No | `commands/multiwindow.rs`; `dock.rs` (Dock menu on macOS, taskbar jump list on Windows); Open Containing Folder in `packages/desktop/src/main.ts:357` and `ui/chrome.ts` | New in 0.4.0: New Window from the Dock or taskbar; Open Containing Folder on an outside file opens that folder in its own window. |
 | Auto-update | Partial | Host must provide | No | No | `commands/updater.rs`; the Linux card in `website/mikedown-desktop/index.html` | macOS and Windows update in-app; the Linux AppImage does not. VS Code: the Marketplace. Wrappers: npm. |
 | Settings UI | Yes | Yes | Partial | Partial | `packages/core/src/editor.ts#showSettingsModal`; `packages/desktop/src/settings/appTab.ts` (App tab, folder override); `host.ts:163` (`saveSettings`) | The gear modal opens everywhere; persisting a change needs `host.saveSettings` in the web component and wrappers ("Your storage decides" on the Developers hub). |
 | Toolbar customization | Yes | Yes | Partial | Partial | `types.ts` (`customizeToolbar` default on); `packages/core/src/toolbar-customize.ts`; `mikedown.toolbarLayout` in `package.json` | Same limit as Settings: the layout persists only through `host.saveSettings`. |
-| AI writing tools | Yes (experimental, off by default) | Yes (experimental, off by default) | Host must provide | Host must provide | `packages/desktop/src/host/aiHost.ts`, `commands/ai.rs`; `src/ai/` and the `mikedown.ai.*` commands; `element.ts:358` (`ai` property); `packages/react/src/MikeDownEditor.ts:41` and `packages/vue/src/MikeDownEditor.ts:41` (`host.ai`); `mikedown-editor.component.ts:127` (`ai` input) | Rewrite, Explain, Translate, Summarize, Suggest titles and properties. In the web component and wrappers the UI appears only when an `ai` host is given; the AI UI is a lazy chunk. The site demos use a stub host (`website/developers/common/stub-ai.ts`). See check C1. |
+| AI writing tools | Yes (experimental, off by default) | Yes (experimental, off by default) | Host must provide | Host must provide | `packages/desktop/src/host/aiHost.ts`, `commands/ai.rs`; `src/ai/` and the `mikedown.ai.*` commands; `element.ts:358` (`ai` property); `packages/react/src/MikeDownEditor.ts:41` and `packages/vue/src/MikeDownEditor.ts:41` (`host.ai`); `mikedown-editor.component.ts:127` (`ai` input) | Rewrite, Explain, Translate, Summarize, Suggest titles and properties. In the web component and wrappers the UI appears only when an `ai` host is given; the AI UI is a lazy chunk. Web component: set the `ai` property from script (there is no attribute). The site demos use a stub host (`website/developers/common/stub-ai.ts`). |
 | AI engine setup | Yes | Yes | Host must provide | Host must provide | `aiHost.ts` (`detectLocalServers`, `hardwareInfo`, `setSecret`, `requestCloudConsent`, `listConsents`); `src/ai/engineService.ts`, `providers/vscodeLm.ts` (Copilot, VS Code only); `packages/core/README.md` "Bring your own AI" (tier 1 and tier 2) | Both apps find running local servers, run the setup wizard, keep keys in secure storage and ask consent per folder or workspace. A tier 2 host gets the same Engines page UI from core, but transport, keys and the consent dialog are the host's; core ships no provider SDK. |
 | Two-way value binding | n/a | n/a | Yes | Yes | `element.ts` (`value` property, `change` event); `MikeDownEditor.ts` (`value` / `onChange`, controlled or uncontrolled); Vue `modelValue` / `update:modelValue`; Angular `ControlValueAccessor` | |
 | Native form field | n/a | n/a | Yes | Partial | `element.ts:94` (`static formAssociated = true`); `mikedown-editor.component.ts:66` (`ControlValueAccessor`) | Web component: submits under `name`, honors `required`, resets with the form. Angular: reactive and template forms. React and Vue: two-way binding only; wrap the web component or post the value yourself. |
@@ -159,19 +159,19 @@ What a new `website/compare/index.html` needs, confirmed from the files.
 
 ## Needs Mike's check
 
-Cells the audit could not settle from excerpts. Mike answers these in M1; the compare page and the Desktop copy follow his answers.
+All resolved 2026-10-30: Mike accepted every recommendation. The matrix above carries the answers.
 
-- **C1. Web component and AI.** Mike's example was "the web component has no AI interactivity yet". The code says `<mikedown-editor>` has an `ai` property (`packages/web-component/src/element.ts:358`, README Properties table) and the site demo wires the stub host to it (`website/developers/web-component/form.js:12`). The matrix says "Host must provide" for all four npm packages. If Mike means something narrower (no AI from the CDN or no-build path, since a property cannot be set from an attribute; or that no real host exists outside the demos), the cell note should say that instead. Which wording?
-- **C2. React and Vue dictionary URL.** Angular has a `spellcheckDictionaryUrl` input. The audit did not confirm the option name on `@mikedown/react` and `@mikedown/vue` (it is probably passed through to `bindMikeDownValue` options). Confirm before the compare page names it.
-- **C3. Sidebar in the wrappers.** `features.sidebar` is off by default and Angular spreads `this.features` over `{ sidebar: false }`, so it can be turned on. Confirm the Outline and Properties sections are usable without any host method, so "Partial" is right and not "Host must provide".
-- **C4. Backlinks in the wrappers.** The host interface has no backlinks method; the VS Code adapter pushes them with `handle.setBacklinks`. Confirm that handle method is public for wrapper authors; otherwise the wrapper cell is "No".
-- **C5. Version history wording.** Snapshots happen only for files inside the window's open folder; a lone-file window never snapshots (`versioning.ts` header). Confirm the page says "in a folder" rather than "on every save".
-- **C6. Export wording.** Both apps make PDFs through the OS print dialog (Save as PDF). Confirm "Export to HTML or PDF" stays, or becomes "Export to HTML, print or save as PDF".
-- **C7. Auto-update on Linux.** The matrix marks Desktop "Partial" because the AppImage does not update itself. Confirm that footnote is wanted on the compare page, since the desktop page's Linux copy can disappear in a release without a Linux build.
-- **C8. Settings and toolbar persistence in the wrappers.** Marked "Partial" because saving needs `host.saveSettings`. Confirm, or rename to "Host must provide" so the two rows match the others.
-- **C9. Angular `ai` input on npm.** The input exists in the tree; confirm the published `@mikedown/angular` 0.3.0 was built from it, so the compare page does not promise something the registry does not have.
-- **C10. Spellcheck in VS Code.** `spellCheck.enabled` defaults to false (`src/settings.ts:144`). Confirm "Partial, off by default" is how Mike wants it shown, or "Yes" with a note.
-- **C11. The Wikilinks and tags row.** Added by the audit because both apps do it and the wrappers need a host. Keep or drop.
+- ~~C1~~ Web component AI: Host must provide; note that `ai` is a property set from script, no attribute.
+- ~~C2~~ Dictionary URL: React has `spellcheckDictionaryUrl`, Vue has no option yet (checked in code); the note says so. A Vue prop is out of scope for this plan.
+- ~~C3~~ Sidebar in the wrappers: Partial.
+- ~~C4~~ Backlinks: Host must provide; `setBacklinks` is on the public `MikeDownEditorHandle` (`packages/core/src/types.ts:370`).
+- ~~C5~~ Version history: "a snapshot on every save in an open folder".
+- ~~C6~~ Export: "Export to HTML, print or save as PDF".
+- ~~C7~~ Linux auto-update: keep Partial with the AppImage footnote.
+- ~~C8~~ Settings and toolbar: keep Partial.
+- ~~C9~~ Angular `ai` input: shipped in 0.3.0 (commit `4f82fa7` precedes `f19863f`).
+- ~~C10~~ VS Code spellcheck: Partial, "off by default".
+- ~~C11~~ Wikilinks and tags: keep the row.
 
 [Return to Top](#desktop-site-redesign-plan)
 
@@ -179,13 +179,15 @@ Cells the audit could not settle from excerpts. Mike answers these in M1; the co
 
 ## Open Questions for Mike
 
-- **OQ1. Where the chart lives.** Recommended: its own page at `website/compare/` (built by Vite, linked from all three product pages). The alternative, a section on the Desktop page, would duplicate on the VS Code and Developers pages or be hard to find from them, and a six-column table does not fit the Desktop page's inline-CSS budget well. Confirm.
-- **OQ2. Main nav or links only.** Recommended: a footer link on every page plus an in-page link from each product page's band, and a nav entry only if it still fits on one line at 360 px (the worker measures). The page title suggestion is "Compare", with the H1 "Which MikeDown?".
-- **OQ3. Hero tagline.** Keep "A free WYSIWYG markdown editor for macOS and Windows ... Double-click a .md file, or open a folder of notes, and write", or add one short line about AI below it? Recommended: keep the tagline; AI gets its own section with the Experimental badge, and the first feature group stays about writing.
-- **OQ4. Order of the tour.** Recommended: Writing, Files and folders, Version history, Export, Multi-window, AI. AI last because it is experimental and off by default. Confirm or move it up.
-- **OQ5. Which AI screenshots.** Recommended three: (a) the Rewrite popover on a selection with a streamed result, (b) the AI Engines page with a local card showing Running (LM Studio or oMLX) after one-click setup, (c) Suggest properties chips in the Properties panel, or the Summarize callout. Light mode for (a) and (b), dark for (c), 2000 by 1250 like the existing shots. Confirm the three and the engine.
-- **OQ6. Compare page format on phones.** Recommended: at under 720 px each feature row becomes a card with four labelled cells, so there is no horizontal scroll (a scrolling table wrapper would pass the page check but is hard to read). Confirm.
-- **OQ7. Site release number.** `0.4.0-site.1` once Desktop 0.4.0 is live. If the site must go out before 0.4.0 is published, `--site` would re-render the page for 0.3.0 while the copy describes 0.4.0 features, so the plan assumes 0.4.0 ships first. Confirm.
+All resolved 2026-10-30, every recommendation accepted:
+
+- ~~OQ1~~ Own page at `website/compare/`, linked from all three product pages.
+- ~~OQ2~~ Footer link plus in-page bands; a nav entry only if it fits on one line at 360 px (the M2 worker measures). Title "Compare", H1 "Which MikeDown?".
+- ~~OQ3~~ Keep the hero tagline; AI gets its own section with an Experimental badge.
+- ~~OQ4~~ Tour order: Writing, Files and folders, Version history, Export, Multi-window, AI.
+- ~~OQ5~~ Shots: Rewrite popover (light), Engines page with a local engine Running (light), Suggest properties chips (dark); 2000 by 1250.
+- ~~OQ6~~ Under 720 px each row becomes a card with four labelled cells; no horizontal scroll.
+- ~~OQ7~~ `0.4.0-site.1`, after Desktop 0.4.0 is live.
 
 [Return to Top](#desktop-site-redesign-plan)
 
@@ -209,11 +211,21 @@ Cells the audit could not settle from excerpts. Mike answers these in M1; the co
 
 **Recommended model: none needed for the data** (the audit above is the draft). Mike reviews; a Sonnet worker applies his answers.
 
-- [ ] Mike answers C1 to C11 in [Needs Mike's check](#needs-mikes-check) and OQ1, OQ2, OQ6 and OQ7.
-- [ ] Update the matrix in this plan with the answers (cell values and notes), and strike the resolved checks.
-- [ ] Decide the final row list (drop or keep Wikilinks and tags, C11) and the final column labels. Suggested labels: Desktop, VS Code extension, Web component, React / Vue / Angular.
-- [ ] Decide the per-cell marks: plain words (Yes, Partial, Host must provide, No) with a small icon, never color alone (the compare page must read in grayscale and to a screen reader).
-- [ ] Write the footnotes the page will carry: experimental and off-by-default AI; VS Code's own tree, tabs, search and Marketplace; the Linux AppImage; what "Host must provide" means in one sentence with a link to the Developers hub's "Bring your own AI" and "Toolbar layout" sections.
+- [x] Mike answers C1 to C11 in [Needs Mike's check](#needs-mikes-check) and OQ1, OQ2, OQ6 and OQ7.
+- [x] Update the matrix in this plan with the answers (cell values and notes), and strike the resolved checks.
+- [x] Decide the final row list (drop or keep Wikilinks and tags, C11) and the final column labels. Suggested labels: Desktop, VS Code extension, Web component, React / Vue / Angular.
+- [x] Decide the per-cell marks: plain words (Yes, Partial, Host must provide, No) with a small icon, never color alone (the compare page must read in grayscale and to a screen reader).
+- [x] Write the footnotes the page will carry: experimental and off-by-default AI; VS Code's own tree, tabs, search and Marketplace; the Linux AppImage; what "Host must provide" means in one sentence with a link to the Developers hub's "Bring your own AI" and "Toolbar layout" sections.
+
+Resolved values:
+
+- Columns: Desktop, VS Code extension, Web component, React / Vue / Angular. Rows: the matrix above, Wikilinks and tags kept.
+- Marks: plain words (Yes, Partial, Host must provide, No, n/a) with a small inline SVG icon; never color alone.
+- Footnotes for the page:
+  1. AI writing tools are experimental and off by default in both apps; nothing is sent until you set up an engine.
+  2. In VS Code, the file tree, tabs, split editors, folder search, version history (Git, Timeline), multi-window and updates come from VS Code itself, not from the extension.
+  3. Desktop updates itself on macOS and Windows; the Linux AppImage does not.
+  4. "Host must provide": the editor has the hook and your app supplies the piece (a `host` method, an AI host, a dictionary URL, storage). Link to the Developers hub's "Bring your own AI" and "Toolbar layout" sections.
 
 Acceptance: the matrix in this plan has no cell left in the check list, and Mike has said "go" on OQ1.
 
@@ -260,7 +272,7 @@ Section order after this milestone: Hero (unchanged apart from OQ3), Feature tou
   - Local first: Desktop finds a server you already run (oMLX, LM Studio, Ollama and others) and sets it up in one click; a local engine keeps everything on your machine or your network (`AI_CLOUD_PRIVACY.local`).
   - Cloud, opt in: Anthropic, OpenAI and other providers are available after you turn on cloud engines; the first request in a folder asks you and says what it sends; keys stay in your system keychain; each provider's policy is linked where you add the engine. End with a link to `#privacy`. No retention or training claims.
 - [ ] Add the screenshot figures for M4's images to the Screenshots section (placeholders are not allowed in a commit; M3 lands the markup only when M4's PNGs exist, otherwise M4 adds the figures).
-- [ ] Add a **compare teaser**: one short band above "Also for VS Code" ("The same editor, four ways" plus a link to `/mikedown/compare/`). Lands with or after M2, never before, because of the link test.
+- Compare teaser: moved to M5 (orchestrator, 2026-10-30) so M3 can run beside M2 without a link to an unbuilt page.
 - [ ] Update `<meta name="description">` and the header comment of the page if the section list changes.
 - [ ] Keep every constraint in [Audit: Desktop page constraints](#audit-desktop-page-constraints). Run `npm run check:shell -w website` after editing.
 
@@ -291,7 +303,7 @@ Acceptance: `node packages/desktop/deploy/check-upload.js` style check is covere
 
 - [ ] `website/vscode/index.html`: in the closing band ("Also as a desktop app" / "For developers"), add a link to `/mikedown/compare/` ("Compare the four"), and one sentence in the hero or "What you can do in it" that the AI tools are also in the extension, pointing to the README's AI section (no new AI section on this page in this plan).
 - [ ] `website/developers/index.html`: a link to the compare page under "Which package do I need?" ("How the packages compare with the apps"), and in "Bring your own AI" one sentence that the apps ship their own engines while the packages take a host.
-- [ ] `website/mikedown-desktop/index.html`: the compare teaser from M3 and the footer link from M2 (regenerated by `sync:shell`).
+- [ ] `website/mikedown-desktop/index.html`: add the **compare teaser**, one short band above "Also for VS Code" ("The same editor, four ways" plus a link to `/mikedown/compare/`), inline CSS like M3's sections; confirm the footer link from M2 is there (regenerated by `sync:shell`).
 - [ ] If OQ2 chose a nav entry, this milestone verifies the header on all four pages at 360 px after the sync.
 
 Acceptance: `website/test/links.test.ts` passes on a fresh `npm run build:site`; the three pages pass 360 px, light and dark, no horizontal scroll.
@@ -336,3 +348,5 @@ Nothing here touches `packages/core`, `src/` or the Desktop app, so it can run b
 ## Progress Log / Notes
 
 **2026-10-30** - Plan written from a code audit (no page changes yet). Findings that shape the work: the web component and all three wrappers accept an AI host today (`ai` property or input, `host.ai`), so the chart says "Host must provide", not "No" (C1 for Mike); the site package gate (`lib/site-checks.js`) only allows `vscode/`, `developers/` and `site-assets/` at the top level, so a compare page needs that list and its test extended; the desktop page's image check only recognises bare `.png` names in `src=`; the shell header and footer on the desktop page are regenerated by `sync:shell`, so a nav change is a four-page change. Nothing committed beyond this plan and the pointers in `RESUME.md` and `BACKLOG.md`.
+
+**2026-10-30** - M1 done: Mike accepted every recommendation for C1 to C11 and OQ1 to OQ7. Code checks by the orchestrator: Vue has no `spellcheckDictionaryUrl` (React and Angular do), `setBacklinks` is public on `MikeDownEditorHandle`, the Angular `ai` input shipped in 0.3.0. The compare teaser moved from M3 to M5 so M2 and M3 run in parallel. M2 and M3 dispatched on Opus in worktrees.
