@@ -4,6 +4,8 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [Unreleased]
 
+## [2.17.1] - 2026-10-30
+
 ### Fixed
 
 - Edit Link updates the link when only the cursor is in it. Before, the new address (or removing it with an empty URL) was only applied when the link text was selected (#12).
