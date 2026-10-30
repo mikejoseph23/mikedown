@@ -614,6 +614,18 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [x] L3 Opening the engine form focuses Base URL with its text selected; a stray keystroke wipes it. Fixed in `85d2c9f` (loaded state from LM Studio `/api/v0/models` and oMLX `/v1/models/status`).
 - [x] L4 LM Studio "HTTP 400 Failed to load model" is shown raw; explain (LM Studio couldn't load it; load it in LM Studio or use a loaded model) and offer switching to the loaded model. Cause in this case: LM Studio's MLX runtime can't read the oMLX `oq5e` quantization (`Missing FP8 PLE shards`), not a MikeDown bug. Fixed in `b1dee8f` (new `modelLoadFailed`: "Model didn't load", raw text under Details, Choose model / Retry / Close).
 - [x] L5 Not MikeDown: the `/api/v0/models` polling (about every 2 s, all day) is Mac Resource Monitor. MikeDown made only two `GET /v1/models` calls during the walk.
-- [ ] L6 Check: with LM Studio the popover Thinking row showed Off / On without Default (may predate the R6 reload).
+- [x] L6 Check: with LM Studio the popover Thinking row showed Off / On without Default (may predate the R6 reload). Passed in the QA walk (Default selected on both oMLX and LM Studio).
 - [x] F1 Feature (Mike): show timing in the result footer ("2.4 s · 38 tok/s", details in a tooltip), from provider usage or an estimate; also in the request log on both hosts. Dispatched with L4. Done in `b1dee8f` ("2.4 s · 38 tok/s", "~" when estimated; `include_usage` sent to kinds that support it).
-- [ ] L7 Check: oMLX "Use by default" did not appear to stick (star still empty after Test connection, Summarize still served by LM Studio); re-check after reload.
+- [x] L7 Check: oMLX "Use by default" did not appear to stick (star still empty after Test connection, Summarize still served by LM Studio); re-check after reload. Passed in the QA walk (loaded Qwen preselected, footer "oMLX · 5.2 s · 96 tok/s", default kept).
+- [x] L8 New local engine with no loaded model defaulted to the first (huge) model. Now a loaded chat model wins, else nothing is preselected ("Pick a model to start with"), rows show size and a "MoE · fast" hint. Fixed in `63dc142`, `577ff7f`.
+- [x] V1 Dark VS Code theme with MikeDown on Auto showed `==highlight==` as pale text on bright yellow. Fixed in `3557c46`.
+- [x] V2 Sidebar Outline opened scrolled to the bottom (cursor at the end after load). Fixed in `763e41b`.
+- QA walk (Fable worker, 2026-10-29): L6, L7, dark highlight, Outline and the first-run popover pass. New findings:
+- [ ] Q1 Engine form: Done with 0 models picked is not blocked; LM Studio saved with no enabled models.
+- [ ] Q2 Ticking "Enable AI features" in the gear Settings AI tab, then "Add engine…" and finishing on the Engines page, leaves `mikedown.ai.enabled` false (engines and routing are saved).
+- [ ] Q3 The first engine becomes default automatically, so its header button reads "Default" and clicking it turns the default off ("No default model").
+- [ ] Q4 LM Studio sizes are wrong for MTP variants (qwen3.8-27b-mtp@8bit shows 0.4 GB, @4bit 0.2 GB, tagged "fits").
+- [ ] Q5 oMLX model list differs on reopen: first open groups under "Runs well on this machine" with "fits" tags, reopen is flat; GLM-5.3-4bit (409 GB) tagged "MoE · fast".
+- [ ] Q6 Rewrite "Shorter" on LM Studio qwen3.8-27b with Thinking Default ends in "No room left to answer" (thinking eats the budget).
+- [ ] Q7 Status bar engine badge stays on the old engine after changing the default, until a request runs.
+- [ ] Q8 Maybe timing: the first "Use LM Studio" click in the fresh-profile popover closed it with no message; the second showed the no-model message.
