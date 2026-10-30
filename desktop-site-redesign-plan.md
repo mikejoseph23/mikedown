@@ -31,10 +31,10 @@ Defaults applied by the planning skill: incremental verification (acceptance che
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
 | [M1 Comparison matrix: data and Mike's review](#m1-comparison-matrix-data-and-mikes-review) | Sonnet (audit done here), Mike | ✅ Done | — | Mike accepted every recommendation 2026-10-30 |
-| [M2 Compare page](#m2-compare-page) | Opus | 🔄 In Progress | — | `website/compare/`, Vite input, site gate, link test |
+| [M2 Compare page](#m2-compare-page) | Opus | ✅ Done | 10 | `73a180a`. Compare in the footer only (nav would need 329 px of 328) |
 | [M3 Desktop page: feature tour and AI section](#m3-desktop-page-feature-tour-and-ai-section) | Opus | ✅ Done | 6 | `586d787`. Compare teaser moved to M5; AI figures go in M4 |
 | [M4 AI screenshots](#m4-ai-screenshots) | Mike (Sonnet for the page edits) | ⬜ Not Started | — | 2 or 3 PNGs from Desktop with a local engine |
-| [M5 Links from the VS Code and Developers pages](#m5-links-from-the-vs-code-and-developers-pages) | Sonnet | ⬜ Not Started | — | Bands, footer, maybe the nav (OQ2) |
+| [M5 Links from the VS Code and Developers pages](#m5-links-from-the-vs-code-and-developers-pages) | Sonnet | 🔄 In Progress | — | Bands and the Desktop compare teaser; no nav entry |
 | [M6 Site-only publish and verification](#m6-site-only-publish-and-verification) | Sonnet, Mike for the real publish | ⬜ Not Started | — | `0.4.0-site.1`, after Desktop 0.4.0 is live |
 
 [Return to Top](#desktop-site-redesign-plan)
@@ -237,15 +237,15 @@ Acceptance: the matrix in this plan has no cell left in the check list, and Mike
 
 **Recommended model: Opus** (a dense table that has to read well at 360 px and in both themes; the page is the one place all four products meet).
 
-- [ ] Create `website/compare/index.html` from the structure of `website/vscode/index.html`: `<head>` with the shared favicons and Google Fonts link, `shared/shell.css` and `shared/page.css`, the `<!--shell:header page="compare"-->` and `<!--shell:footer-->` markers, a `<main id="main">`.
-- [ ] Content: a short hero ("Which MikeDown?" and one paragraph: the same editor in four forms, where each runs, who it is for), the matrix as a real `<table>` with `<th scope>` on rows and columns and a caption, the legend above it, the footnotes below it, and a closing band with the four calls to action (download Desktop, Marketplace, Developers hub, GitHub).
-- [ ] Page CSS in `website/compare/compare.css`: the table at desktop width; under 720 px each row becomes a card with the feature name as its heading and four labelled cells (OQ6). Marks are words with an inline SVG icon; the icon never carries the meaning alone. Check both themes against the shell tokens (`--bg`, `--bg-raised`, `--text`, `--muted`, `--accent`, `--border`).
-- [ ] `website/vite.config.mjs`: add `compare: page('compare')` to `rollupOptions.input`.
-- [ ] `website/shared/partials.js`: add a Compare link to `renderFooter`. Add it to `PAGES` only if OQ2 says so and it fits on one line at 360 px; then run `npm run sync:shell -w website` and commit the regenerated desktop page markup.
-- [ ] `packages/desktop/deploy/lib/site-checks.js`: add `'compare'` to `SITE_TOP_DIRS` and `compare/index.html` to `SITE_REQUIRED`; extend `packages/desktop/test/unit/release-pipeline.test.ts` (a package with `compare/index.html` passes; one with a stray top-level folder still fails).
-- [ ] Docs: `packages/desktop/deploy/README.md` (site-only section), `CLAUDE.md` (Releasing, Website) and `website/package.json#description` name `compare/` among the packed folders.
-- [ ] `website/test/compare.test.ts`: reads the page source, asserts the expected rows and columns, that every cell is one of the five legend values, and that each Partial or Host must provide cell has a note or footnote reference.
-- [ ] Add the page to `website/test/links.test.ts` only if it does not pick it up on its own (it walks `website/dist`).
+- [x] Create `website/compare/index.html` from the structure of `website/vscode/index.html`: `<head>` with the shared favicons and Google Fonts link, `shared/shell.css` and `shared/page.css`, the `<!--shell:header page="compare"-->` and `<!--shell:footer-->` markers, a `<main id="main">`.
+- [x] Content: a short hero ("Which MikeDown?" and one paragraph: the same editor in four forms, where each runs, who it is for), the matrix as a real `<table>` with `<th scope>` on rows and columns and a caption, the legend above it, the footnotes below it, and a closing band with the four calls to action (download Desktop, Marketplace, Developers hub, GitHub).
+- [x] Page CSS in `website/compare/compare.css`: the table at desktop width; under 720 px each row becomes a card with the feature name as its heading and four labelled cells (OQ6). Marks are words with an inline SVG icon; the icon never carries the meaning alone. Check both themes against the shell tokens (`--bg`, `--bg-raised`, `--text`, `--muted`, `--accent`, `--border`).
+- [x] `website/vite.config.mjs`: add `compare: page('compare')` to `rollupOptions.input`.
+- [x] `website/shared/partials.js`: add a Compare link to `renderFooter`. Add it to `PAGES` only if OQ2 says so and it fits on one line at 360 px; then run `npm run sync:shell -w website` and commit the regenerated desktop page markup.
+- [x] `packages/desktop/deploy/lib/site-checks.js`: add `'compare'` to `SITE_TOP_DIRS` and `compare/index.html` to `SITE_REQUIRED`; extend `packages/desktop/test/unit/release-pipeline.test.ts` (a package with `compare/index.html` passes; one with a stray top-level folder still fails).
+- [x] Docs: `packages/desktop/deploy/README.md` (site-only section), `CLAUDE.md` (Releasing, Website) and `website/package.json#description` name `compare/` among the packed folders.
+- [x] `website/test/compare.test.ts`: reads the page source, asserts the expected rows and columns, that every cell is one of the five legend values, and that each Partial or Host must provide cell has a note or footnote reference.
+- [x] Add the page to `website/test/links.test.ts` only if it does not pick it up on its own (it walks `website/dist`).
 
 Acceptance: `npm run build:site` emits `website/dist/compare/index.html`; the website vitest run passes; `pack-for-lymedeploy.sh --site --site-n 1 --dry-run` reports the compare folder in the package and no problems; the page passes 360 px, light and dark, no horizontal scroll in `npm run dev:site` at `/mikedown/compare/`.
 
@@ -352,3 +352,5 @@ Nothing here touches `packages/core`, `src/` or the Desktop app, so it can run b
 **2026-10-30** - M1 done: Mike accepted every recommendation for C1 to C11 and OQ1 to OQ7. Code checks by the orchestrator: Vue has no `spellcheckDictionaryUrl` (React and Angular do), `setBacklinks` is public on `MikeDownEditorHandle`, the Angular `ai` input shipped in 0.3.0. The compare teaser moved from M3 to M5 so M2 and M3 run in parallel. M2 and M3 dispatched on Opus in worktrees.
 
 **2026-10-30 14:57** - M3 done (`586d787`, 6 min, Opus): six-group feature tour and the AI section with an Experimental badge. Checked: `check:shell`, `build:site` and the website vitest run (34) pass in the main tree after the merge; `render-page.js` with and without `--linux` leaves no `@@LINUX`; dry-run pack passes; 360 and 1280 px, light and dark, no horizontal scroll (headless Chromium, Chrome extension was not connected). Copy differs from the brief in three places, all to match the code: no "copy as rich text" in Export (Desktop doesn't have it), no "nothing is visible" before AI setup (the toolbar shows an AI setup button), version history says "newest 25 snapshots per file" and that oversized files are skipped. No AI figures yet (M4).
+
+**2026-10-30 15:02** - M2 done (`73a180a`, cherry-picked from `19787ba`, 10 min, Opus): `website/compare/` with the matrix, legend, footnotes and closing band; card layout under 720 px; Vite input; footer link (synced into the Desktop page); `site-checks.js` allows and requires `compare/`; docs in `CLAUDE.md`, the deploy README and `website/package.json`; `website/test/compare.test.ts`. Checked in the main tree: `build:site` emits `compare/index.html`, website vitest 42 pass, `site-pack.test.ts` 15 pass (the site-checks tests live there, not in `release-pipeline.test.ts`). Worker's dry-run pack passed with `--linux` pointed at the 0.4.0 AppImage; 360 to 1280 px light and dark checked in headless Chromium, not real Chrome. Compare stays out of the nav (OQ2: five links need 329 px of 328). Extra: compare URLs added to the disabled Cloudflare purge list in `deploy.yaml`. M5 dispatched (Sonnet).
