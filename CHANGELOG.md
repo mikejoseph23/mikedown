@@ -4,6 +4,11 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Edit Link updates the link when only the cursor is in it. Before, the new address (or removing it with an empty URL) was only applied when the link text was selected (#12).
+- Level 6 headings look like a smaller level 5 heading, matching HTML and PDF export, instead of grey uppercase text (#12).
+
 ## [2.17.0] - 2026-10-30
 
 ### Added

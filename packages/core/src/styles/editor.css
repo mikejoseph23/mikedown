@@ -112,7 +112,7 @@
 :is(.mikedown-root, .mikedown-portal) #editor h3 { font-size: 1.25em; }
 :is(.mikedown-root, .mikedown-portal) #editor h4 { font-size: 1.1em; }
 :is(.mikedown-root, .mikedown-portal) #editor h5 { font-size: 1em; }
-:is(.mikedown-root, .mikedown-portal) #editor h6 { font-size: 0.9em; opacity: 0.8; }
+:is(.mikedown-root, .mikedown-portal) #editor h6 { font-size: 0.9em; }
 
 :is(.mikedown-root, .mikedown-portal) #editor p {
   margin-bottom: 1em;
@@ -271,10 +271,7 @@
 }
 
 :is(.mikedown-root, .mikedown-portal) .ProseMirror h6 {
-  opacity: 0.75;
-  text-transform: uppercase;
   font-size: 0.85em;
-  letter-spacing: 0.05em;
 }
 
 /* ─── Lists ───────────────────────────────────────────────────────────────── */

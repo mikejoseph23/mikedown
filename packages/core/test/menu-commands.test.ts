@@ -75,6 +75,29 @@ describe('menu commands', () => {
     expect(document.querySelector('[aria-label="Insert Image"]')).not.toBeNull();
   });
 
+  // Issue #12: with only the caret in a link, Update and an empty URL must
+  // still reach the whole link.
+  it('editing a link with only the caret in it updates the whole link', () => {
+    const { handle } = mount('###### Six\n\nSee [the note](#old) here.\n');
+    let caret = -1;
+    handle.tiptap.state.doc.descendants((node, at) => {
+      if (caret < 0 && node.isText && node.text?.includes('the note')) {caret = at + node.text.indexOf('the note') + 3;}
+    });
+    expect(caret).toBeGreaterThan(0);
+    handle.tiptap.commands.setTextSelection(caret);
+    handle.command('insertLink');
+    const input = document.querySelector<HTMLInputElement>('[role="dialog"] input')!;
+    input.value = '#six';
+    [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b => b.textContent === 'Update')!.click();
+    expect(handle.getMarkdown()).toContain('See [the note](#six) here.');
+
+    handle.tiptap.commands.setTextSelection(caret);
+    handle.command('insertLink');
+    document.querySelector<HTMLInputElement>('[role="dialog"] input')!.value = '';
+    [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b => b.textContent === 'Update')!.click();
+    expect(handle.getMarkdown()).toContain('See the note here.');
+  });
+
   it('zoomIn / zoomOut / zoomReset step the editor font size', () => {
     const { el, handle } = mount('Hello\n');
     const size = (): number => {
