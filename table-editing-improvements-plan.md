@@ -7,7 +7,7 @@ One-pass usability review of MikeDown's table editing (`packages/core/src/`), re
 | Milestone | Model | Status | Duration (min) | Notes |
 | --- | --- | --- | --- | --- |
 | M1 Quick wins (bugs) | Opus | ✅ Done | 11 | `3ff068f`. Table node selection on; all bare `\|` in cells escaped |
-| M2 Clipboard | Opus | ⬜ Not Started | — | Items 4, 5, 13 |
+| M2 Clipboard | Opus | 🔄 In Progress | — | Items 4, 5, 13 |
 | M3 Discoverability and accessibility | Sonnet | ⬜ Not Started | — | Items 7, 8, 10, 11 |
 | M4 Fidelity options | Sonnet | ⬜ Not Started | — | Item 12 |
 
