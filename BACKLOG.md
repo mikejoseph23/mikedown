@@ -5,6 +5,18 @@ Ideas and feature requests for future versions. Not a roadmap — just a parking
 ## Features
 
 - **Desktop site redesign (do soon).** AI section, full feature tour and a where-is-each-feature comparison chart. Plan: `desktop-site-redesign-plan.md`. Ships as a site-only release after Desktop 0.4.0. _From the 2026-10-30 session._
+- **Blog post: "Why Markdown? Why MikeDown?"** Start with an interview with Mike (one question at a time), then write the post. Why Markdown:
+  - it's the de facto language for talking to AI
+  - it reads fine in any plain text editor
+  - it's lighter on tokens than Word, HTML or other markup
+  - it's a standard many tools read (MikeDown among them)
+
+  Why MikeDown:
+  - free and open source, where much of the competition isn't
+  - possibly that a major competitor is a Chinese entity, a concern for sensitive documents (Mike is undecided whether to mention it; check the facts first)
+  - anything else the interview turns up
+
+  Touch on local AI and link the local AI post. _From the 2026-10-30 session._
 - **Definition lists** — `term\n: definition` (pandoc / PHP Markdown Extra).
 - **Custom containers** — `:::note ... :::` style (VuePress / MkDocs).
 - **Image captions** — render alt text or title as a `<figcaption>` under images.
