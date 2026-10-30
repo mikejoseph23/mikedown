@@ -6,6 +6,7 @@ All notable changes to MikeDown Editor are documented here.
 
 ### Added
 
+- MikeDown Desktop: **New Window** from the Dock icon's menu on macOS and from the taskbar jump list on Windows (right-click the icon), alongside File > New Window.
 - AI engines (experimental, off by default): connect MikeDown to the models you already run, or to a cloud provider. Nothing is visible and nothing is sent until you turn on `mikedown.ai.enabled`. The Settings modal gets an AI tab (the last tab, with an Experimental badge and one shared disclaimer), and **Manage engines** opens the AI Engines page, a full-size page for adding, testing and routing engines.
   - Local engines come first: oMLX, LM Studio, Ollama, llama.cpp server, vLLM and any OpenAI-compatible server. Cloud engines are Anthropic and OpenAI (native) and OpenRouter, Google Gemini, Groq, Mistral and DeepSeek through their OpenAI-compatible APIs. Pick a quick-start card, or paste a key and MikeDown fetches the provider's models and picks a sensible default.
   - The Tasks page sends each kind of task (rewrite, summary, titles and so on) to an engine and model that can do it, with a fallback. The status chip shows which engine answers, and a request that cannot run says why.

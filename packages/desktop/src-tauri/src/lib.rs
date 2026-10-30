@@ -12,6 +12,7 @@ use serde::Serialize;
 use tauri::Manager;
 
 mod commands;
+mod dock;
 mod menu;
 
 /// What the webview is running on, for `docs/webview-notes.md`.
@@ -55,6 +56,9 @@ fn smoke_report(name: String, report: String) -> Result<Option<String>, String> 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let context = tauri::generate_context!();
+    dock::before_build(&context.config().identifier);
+
     let mut builder = tauri::Builder::default();
 
     // Single instance must be the first plugin so a second launch hands its
@@ -62,6 +66,13 @@ pub fn run() {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            // The taskbar jump list's New Window task.
+            if dock::wants_new_window(&argv) {
+                if let Err(e) = commands::multiwindow::create_window(app, None, Vec::new()) {
+                    eprintln!("MikeDown: could not open a window: {e}");
+                }
+                return;
+            }
             let paths = commands::launch::paths_from_args(
                 argv.into_iter().skip(1),
                 Some(std::path::Path::new(&cwd)),
@@ -111,6 +122,7 @@ pub fn run() {
             let cwd = std::env::current_dir().ok();
             let paths = commands::launch::paths_from_args(std::env::args().skip(1), cwd.as_deref());
             commands::launch::queue_open(app.handle(), paths);
+            dock::install(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -196,7 +208,7 @@ pub fn run() {
             commands::ai::ai_detect_local_servers,
             commands::ai::ai_hardware_info,
         ])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building MikeDown");
 
     app.run(|app_handle, event| {

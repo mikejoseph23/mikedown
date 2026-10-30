@@ -73,13 +73,18 @@ version = "3"
 # macOS title-bar state Tauri does not wrap: NSWindow.documentEdited (dirty
 # dot) and representedFilename (proxy icon). Same crates Tauri itself uses.
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder", "NSEvent"] }
+# The Dock menu (`dock.rs`) adds `applicationDockMenu:` to tao's app delegate.
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder", "NSEvent", "NSApplication", "NSMenu", "NSMenuItem"] }
 objc2-foundation = { version = "0.3", features = ["NSString"] }
 
 # Pre-install code-signing check on the downloaded Windows installer
 # (WinVerifyTrust + signer subject). Same major version the updater plugin uses.
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_WinTrust", "Win32_Security_Cryptography", "Win32_Security_Cryptography_Catalog", "Win32_Security_Cryptography_Sip"] }
+# Taskbar jump list "New Window" task and the process AppUserModelID (`dock.rs`).
+# Same major version Tauri already pulls in.
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_Storage_EnhancedStorage", "Win32_UI_Shell", "Win32_UI_Shell_Common", "Win32_UI_Shell_PropertiesSystem"] }
 
 # Extended attributes (Finder tags, "Open With", quarantine) survive saves,
 # copies and cross-volume moves.

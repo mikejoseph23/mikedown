@@ -87,6 +87,8 @@ Tauri `dragDropEnabled: true` may disable in-page HTML5 drag on WebView2. Test b
 - [ ] Hot exit: type in two files without saving, then force quit (macOS Force Quit or `kill -9`; Windows Task Manager End task). Relaunch: both files restored with unsaved text and dirty indicators, no dialog; disk files unchanged until you save.
 - [ ] Session restore: relaunch after a clean quit: folder, open tabs and active tab come back.
 - [ ] Open a second folder in the same window with a dirty tab: prompts about the dirty tab, then replaces. New Window opens an empty window.
+- [ ] (macOS) Right-click the Dock icon: **New Window** is listed and opens an empty window, also when no window is focused.
+- [ ] (Windows) Right-click the taskbar icon (running and pinned): **New Window** task is listed and opens an empty window in the running app, not a second process. With the app closed it launches normally.
 
 ## 6. Settings (global vs. folder)
 
