@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/mikedown/favicon-32.png">
   <link rel="apple-touch-icon" href="/mikedown/apple-touch-icon.png">
   <title>MikeDown Desktop</title>
-  <meta name="description" content="MikeDown Desktop: a free WYSIWYG markdown editor for macOS and Windows. Open a file or a folder of notes and write.">
+  <meta name="description" content="MikeDown Desktop: a free WYSIWYG markdown editor for macOS and Windows. Folders, tabs, split panes, search, version history and export, plus optional AI writing tools.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -23,6 +23,9 @@
     Linux (preview) has no updater manifest: the blocks between the linux:begin
     and linux:end markers are filled with the AppImage's URL and size (or removed
     when a release has no Linux build) by deploy/render-page.js at staging.
+    Sections, in order: hero and downloads (#download), feature tour (#features),
+    AI writing tools (#ai), screenshots (#screenshots), Also for VS Code
+    (#vscode), install, release notes, privacy (#privacy).
   -->
   <style>
     /* The shared site shell: tokens, type, header, footer, buttons and the band.
@@ -249,6 +252,32 @@ img { max-width: 100%; }
     .shot figcaption { margin-top: 10px; color: var(--muted); font-size: 14px; line-height: 1.5; }
     .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-top: 32px; }
 
+    /* Feature tour and AI section */
+    .section-lede { color: var(--muted); font-size: 16.5px; max-width: 620px; margin: -8px 0 36px; }
+    .tour-group { display: grid; gap: 12px 48px; padding: 28px 0; border-top: 1px solid var(--border); }
+    .tour-group:first-child { padding-top: 0; border-top: none; }
+    .tour-group h3, .card h3 { color: var(--text-strong); font-size: 1.1rem; line-height: 1.3; letter-spacing: -0.01em; margin-bottom: 6px; }
+    .tour-group p { color: var(--muted); font-size: 15.5px; }
+    .tour-group ul { list-style: none; display: grid; align-content: start; gap: 6px; color: var(--text); font-size: 15px; line-height: 1.55; }
+    .tour-group li { position: relative; padding-left: 20px; }
+    .tour-group li::before { content: ''; position: absolute; left: 2px; top: 0.6em; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+    .tour-card { margin-top: 8px; }
+    .tour-card p { max-width: 620px; }
+    .card a.more { display: inline-block; margin-top: 10px; font-weight: 600; font-size: 15px; text-underline-offset: 3px; }
+    .title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 20px; }
+    .title-row h2.section-title, .title-row h3 { margin-bottom: 0; }
+    .tour-card .title-row { margin-bottom: 6px; }
+    .badge {
+      display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 11px;
+      border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+      font-size: 12px; font-weight: 600; letter-spacing: 0.02em; line-height: 1; white-space: nowrap;
+    }
+    .ai-grid { display: grid; gap: 24px; }
+    @media (min-width: 720px) {
+      .tour-group { grid-template-columns: 2fr 3fr; }
+      .ai-grid { grid-template-columns: 1fr 1fr; }
+    }
+
     @media (prefers-reduced-motion: reduce) { .dl { transition: none; } }
   </style>
 </head>
@@ -293,19 +322,109 @@ img { max-width: 100%; }
       </div>
     </section>
 
-    <section>
-      <div class="container grid">
-        <div class="card">
-          <h2>Files and folders</h2>
-          <p>Open one file, or a whole folder with a file tree, tabs, split panes and folder-wide search.</p>
+    <section id="features" aria-labelledby="features-title">
+      <div class="container">
+        <h2 class="section-title" id="features-title">What's inside</h2>
+        <p class="section-lede">Everything works on plain .md files in folders you already have. Nothing to import, and no account.</p>
+        <div class="tour">
+          <div class="tour-group">
+            <div>
+              <h3>Writing</h3>
+              <p>Write in a formatted view that reads like the finished document and saves plain markdown. Press Cmd+/ (Ctrl+/ on Windows) to see and edit the source whenever you want it.</p>
+            </div>
+            <ul>
+              <li>Tables, callouts, math and Mermaid diagrams</li>
+              <li>Emoji, footnotes and slash commands</li>
+              <li>Find and replace, and spellcheck with dictionaries included</li>
+              <li>An outline, properties and backlinks beside each document</li>
+              <li>Wikilinks and tags across the folder</li>
+              <li>Light and dark, following your system</li>
+            </ul>
+          </div>
+          <div class="tour-group">
+            <div>
+              <h3>Files and folders</h3>
+              <p>Open one file, or a whole folder of notes. The files stay ordinary .md text on your disk, so other apps, Git and sync tools keep working with them.</p>
+            </div>
+            <ul>
+              <li>A file tree and tabs</li>
+              <li>Split panes, each with its own tabs and sidebar</li>
+              <li>Search across the folder, with match case and whole word options</li>
+              <li>Paste or drop an image and it is saved in an images folder next to the note</li>
+              <li>Notices when another app changes an open file</li>
+              <li>Unsaved changes are backed up as you type and come back on the next launch</li>
+            </ul>
+          </div>
+          <div class="tour-group">
+            <div>
+              <h3>Version history</h3>
+              <p>MikeDown keeps a snapshot on every save in an open folder, in <code>.mikedown/versions/</code> inside that folder. Compare any snapshot with the current text and go back to it if you need to.</p>
+            </div>
+            <ul>
+              <li>Side-by-side diff against the current version</li>
+              <li>One-click restore</li>
+              <li>Keeps the newest 25 snapshots of each file by default</li>
+              <li>Skips files above a size limit you can change</li>
+            </ul>
+          </div>
+          <div class="tour-group">
+            <div>
+              <h3>Export</h3>
+              <p>When a note has to leave your folder, export it to HTML, print it or save it as PDF.</p>
+            </div>
+            <ul>
+              <li>Standalone HTML, with images embedded or copied to a folder beside it</li>
+              <li>Print, or save as PDF from the system print dialog</li>
+            </ul>
+          </div>
+          <div class="tour-group">
+            <div>
+              <h3>Multi-window</h3>
+              <p>Give each folder its own window and open as many as you like. Files land where they belong.</p>
+            </div>
+            <ul>
+              <li>New Window from the File menu, the Dock icon's menu on macOS or the taskbar's right-click menu on Windows</li>
+              <li>Open Containing Folder on a file from outside the open folder opens that folder in its own window</li>
+              <li>A file you open from Finder or Explorer goes to the window that already has its folder</li>
+            </ul>
+          </div>
+          <div class="card tour-card">
+            <div class="title-row">
+              <h3>AI writing tools</h3>
+              <span class="badge">Experimental</span>
+            </div>
+            <p>Rewrite, explain, translate and summarize with an engine you choose, local or cloud. Off until you set it up.</p>
+            <a class="more" href="#ai">How the AI tools work</a>
+          </div>
         </div>
-        <div class="card">
-          <h2>Version history</h2>
-          <p>Each save can keep a snapshot next to your notes, with a side-by-side diff and one-click restore.</p>
+      </div>
+    </section>
+
+    <section id="ai" aria-labelledby="ai-title">
+      <div class="container">
+        <div class="title-row">
+          <h2 class="section-title" id="ai-title">AI writing tools</h2>
+          <span class="badge">Experimental</span>
         </div>
-        <div class="card">
-          <h2>Plain markdown</h2>
-          <p>Your files stay ordinary .md text. Export to HTML or PDF when you need to share.</p>
+        <p class="section-lede">Optional help with the text in front of you, from an engine you choose: a model on your own machine, or a cloud provider you allow.</p>
+        <div class="ai-grid">
+          <div class="card">
+            <h3>What it does</h3>
+            <p>Select some text and ask for a rewrite: shorter or longer, more formal or casual, or for a different audience. Or have it explain, translate or summarize, or suggest a title and properties for the document. Every AI edit is one undo step.</p>
+          </div>
+          <div class="card">
+            <h3>Off until you turn it on</h3>
+            <p>AI is off by default. Nothing is sent anywhere until you set up an engine, and the setup starts only when you ask for it, from the AI button in the toolbar or from Settings.</p>
+          </div>
+          <div class="card">
+            <h3>Local first</h3>
+            <p>MikeDown finds a local server you already run (oMLX, LM Studio, Ollama and others) and sets it up in one click. A local engine keeps everything on your machine or your network.</p>
+          </div>
+          <div class="card">
+            <h3>Cloud, if you opt in</h3>
+            <p>Anthropic, OpenAI and other providers are available after you turn on cloud engines. The first request in a folder asks you first and says what it sends. API keys stay in your system keychain, and each provider's policy is linked where you add the engine.</p>
+            <a class="more" href="#privacy">What leaves your machine</a>
+          </div>
         </div>
       </div>
     </section>
