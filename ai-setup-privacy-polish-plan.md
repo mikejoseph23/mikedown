@@ -626,6 +626,6 @@ When a milestone comes back with items skipped or partly done, the orchestrator 
 - [ ] Q3 The first engine becomes default automatically, so its header button reads "Default" and clicking it turns the default off ("No default model").
 - [x] Q4 LM Studio sizes are wrong for MTP variants (qwen3.8-27b-mtp@8bit shows 0.4 GB, @4bit 0.2 GB, tagged "fits"). Fixed in c46abed: the sizes were true (these repos are only the MTP draft head, 0.45 GB / 0.25 GB); the drafters are now marked not-chat so they are not offered or tagged "fits".
 - [ ] Q5 oMLX model list differs on reopen: first open groups under "Runs well on this machine" with "fits" tags, reopen is flat; GLM-5.3-4bit (409 GB) tagged "MoE · fast".
-- [ ] Q6 Rewrite "Shorter" on LM Studio qwen3.8-27b with Thinking Default ends in "No room left to answer" (thinking eats the budget).
-- [ ] Q7 Status bar engine badge stays on the old engine after changing the default, until a request runs.
+- [x] Q6 Rewrite "Shorter" on LM Studio qwen3.8-27b with Thinking Default ends in "No room left to answer" (thinking eats the budget). Fixed in 61e6d13: Default picks per task, Off for rewrite, translate, titles and properties (Low on Anthropic, nothing on non-reasoning OpenAI models); explain and summarize keep the model's own. Explicit dial or model level wins. Headroom now 2k/4k/8k, cap 12k.
+- [x] Q7 Status bar engine badge stays on the old engine after changing the default, until a request runs. Fixed in 61e6d13: any `mikedown.ai.*` change (Engines page save included) shows the next route. Desktop has no engine badge.
 - [ ] Q8 Maybe timing: the first "Use LM Studio" click in the fresh-profile popover closed it with no message; the second showed the no-model message.
