@@ -248,8 +248,6 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
     alignL: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="2" y1="6.5" x2="9" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
     alignC: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="3.5" y1="6.5" x2="10.5" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
     alignR: tsvg('<line x1="2" y1="3" x2="12" y2="3"/><line x1="5" y1="6.5" x2="12" y2="6.5"/><line x1="2" y1="10" x2="12" y2="10"/>'),
-    header: tsvg('<rect x="1" y="1" width="12" height="12" rx="1"/><line x1="1" y1="5" x2="13" y2="5"/><line x1="5" y1="5" x2="5" y2="13"/><line x1="9" y1="5" x2="9" y2="13"/><rect x="1" y="1" width="12" height="4" fill="currentColor" opacity="0.35" stroke="none"/>'),
-    merge: tsvg('<rect x="1" y="2" width="12" height="10" rx="1"/><line x1="5" y1="2" x2="5" y2="5"/><line x1="5" y1="9" x2="5" y2="12"/><line x1="9" y1="2" x2="9" y2="5"/><line x1="9" y1="9" x2="9" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/><polyline points="6.5 5.5 8 7 6.5 8.5"/><polyline points="7.5 5.5 6 7 7.5 8.5"/>'),
     trash: tsvg('<polyline points="2 4 3 12 11 12 12 4"/><line x1="1" y1="4" x2="13" y2="4"/><path d="M5 4V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V4"/>'),
   };
 
@@ -302,17 +300,6 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
     },
     { label: '|', title: '', action: () => {} }, // separator
     {
-      label: tIcons.header, title: 'Toggle header row',
-      action: () => editor.chain().focus().toggleHeaderRow().run(),
-      isDisabled: () => !editor.can().toggleHeaderRow(),
-    },
-    {
-      label: tIcons.merge, title: 'Merge / split cells',
-      action: () => editor.chain().focus().mergeOrSplit().run(),
-      isDisabled: () => !editor.can().mergeOrSplit(),
-    },
-    { label: '|', title: '', action: () => {} }, // separator
-    {
       label: tIcons.trash, title: 'Delete table',
       action: () => editor.chain().focus().deleteTable().run(),
     },
@@ -332,7 +319,11 @@ export function showTableToolbar(editor: Editor, tableEl: HTMLElement): void {
     el.setAttribute('aria-label', btn.title);
     if (btn.isDisabled?.()) {el.disabled = true;}
     if (btn.isActive?.()) {el.classList.add('tt-active');}
-    el.addEventListener('mousedown', (e) => {
+    el.type = 'button';
+    // mousedown keeps focus (and the cell cursor) in the editor; the action
+    // runs on click so Enter and Space work on a focused button too.
+    el.addEventListener('mousedown', (e) => e.preventDefault());
+    el.addEventListener('click', (e) => {
       e.preventDefault();
       btn.action();
       refreshTableToolbarStates(editor);

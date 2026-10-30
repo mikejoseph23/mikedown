@@ -73,7 +73,8 @@ import {
   type SpellCheckLanguage,
 } from './spellcheck';
 import { showTableGridPicker, hideTableGridPicker, updateTableToolbar, hideTableToolbar } from './tablepicker';
-import { initTableDrag, clearCellSelection } from './tabledrag';
+import { initTableDrag } from './tabledrag';
+import { addRowAndFocus, hasModKey, showTablePickerAtCursor } from './table-commands';
 import { locateInSource, findInDoc } from './revealText';
 import { initLinkAutocomplete, receiveSuggestions, receiveFileHeadings, destroyLinkAutocomplete, isDropdownActive, collectDocLinks, type LinkSuggestion } from './linkautocomplete';
 import { showToolbarDropdown, hideToolbarDropdown, isToolbarDropdownOpen, updateDropdownActiveStates, type ToolbarDropdownEntry } from './toolbar-dropdown';
@@ -98,7 +99,7 @@ import {
   type PrefixEdit,
 } from './shared/headingNumbering';
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
-import { MIKEDOWN_HOTKEYS } from './hotkeys';
+import { MIKEDOWN_HOTKEYS, MIKEDOWN_TABLE_HOTKEYS } from './hotkeys';
 import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
 import type { AiEngineStatus, AiMessage, AiRouteOk, AiSendsScope, AiServedBy, AiSettings, AiSettingsPatch, AiSummaryKind, MikeDownAiHost } from './ai';
 // The AI UI loads on demand (ai-lite.ts); only types and the light helpers are imported here.
@@ -1047,6 +1048,24 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       labelCell.textContent = hk.label;
       const keyCell = document.createElement('td');
       keyCell.textContent = `${formatHotkeyChord(hk.mac)} / ${formatHotkeyChord(hk.win)}`;
+      row.append(labelCell, keyCell);
+      tbody.appendChild(row);
+    }
+    const tableHead = document.createElement('tr');
+    const tableHeadCell = document.createElement('th');
+    tableHeadCell.colSpan = 2;
+    tableHeadCell.scope = 'rowgroup';
+    tableHeadCell.textContent = 'In a table';
+    tableHead.appendChild(tableHeadCell);
+    tbody.appendChild(tableHead);
+    for (const hk of MIKEDOWN_TABLE_HOTKEYS) {
+      const row = document.createElement('tr');
+      const labelCell = document.createElement('td');
+      labelCell.textContent = hk.label;
+      const keyCell = document.createElement('td');
+      keyCell.textContent = hk.mac === hk.win
+        ? formatHotkeyChord(hk.mac)
+        : `${formatHotkeyChord(hk.mac)} / ${formatHotkeyChord(hk.win)}`;
       row.append(labelCell, keyCell);
       tbody.appendChild(row);
     }
@@ -3859,7 +3878,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       TaskItem.configure({ nested: true }),
 
       // ── Tables ────────────────────────────────────────────────────────────────
-      TableAligned.configure({ resizable: false }),
+      // allowTableNodeSelection: Select Table (context menu) and Backspace
+      // after a table give a real table NodeSelection, so copy, cut and
+      // Backspace act on the whole table instead of clearing its cells.
+      TableAligned.configure({ resizable: false, allowTableNodeSelection: true }),
       TableRow,
       TableHeaderAligned,
       TableCellAligned,
@@ -4058,6 +4080,22 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
           event.preventDefault();
           showLinkDialog(editor);
           return true;
+        }
+
+        // Row chords, inside tables only (outside, Mod+Enter keeps TipTap's
+        // line break): Mod+Enter adds a row below, Mod+Shift+Enter a row
+        // above, Mod+Alt+Backspace deletes the row.
+        if (hasModKey(event) && editor.isActive('table')) {
+          if (event.key === 'Enter' && !event.altKey) {
+            event.preventDefault();
+            addRowAndFocus(editor, event.shiftKey ? 'above' : 'below');
+            return true;
+          }
+          if (event.key === 'Backspace' && event.altKey && !event.shiftKey) {
+            event.preventDefault();
+            editor.chain().focus().deleteRow().run();
+            return true;
+          }
         }
 
         // M5a — Table keyboard navigation.
@@ -4823,10 +4861,6 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const targetEl = event.target as HTMLElement;
     if (!targetEl.closest('#mikedown-context-menu') && !targetEl.closest('#mikedown-context-submenu')) {
       hideContextMenu();
-    }
-    // M5c — Clear multi-cell selection when clicking outside a table
-    if (!targetEl.closest('table')) {
-      clearCellSelection();
     }
   });
 
@@ -6931,7 +6965,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       case 'openFind': if (features.findReplace) {openFindBar(false);} break;
       case 'openFindReplace': if (features.findReplace) {openFindBar(true);} break;
       case 'insertTable':
-        if (!sourceMode) {editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();}
+        if (!sourceMode) {showTablePickerAtCursor(editor);}
         break;
       case 'insertLink': if (!sourceMode) {showLinkDialog(editor);} break;
       case 'insertImage': if (!sourceMode) {showImageInsertDialog(editor);} break;

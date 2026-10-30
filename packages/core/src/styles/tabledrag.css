@@ -63,31 +63,3 @@ body.td-dragging :is(.mikedown-root, .mikedown-portal) * {
 :is(.mikedown-root, .mikedown-portal) .td-drop-line-col {
   width: 2px;
 }
-
-/* Multi-Cell Selection */
-
-:is(.mikedown-root, .mikedown-portal) .ProseMirror td.mikedown-cell-selected,
-:is(.mikedown-root, .mikedown-portal) .ProseMirror th.mikedown-cell-selected {
-  background: color-mix(in srgb, var(--mikedown-focus-ring, #007fd4) 15%, transparent) !important;
-  position: relative;
-}
-
-:is(.mikedown-root, .mikedown-portal) .ProseMirror td.mikedown-cell-border-top,
-:is(.mikedown-root, .mikedown-portal) .ProseMirror th.mikedown-cell-border-top {
-  border-top: 2px solid var(--mikedown-focus-ring, #007fd4) !important;
-}
-
-:is(.mikedown-root, .mikedown-portal) .ProseMirror td.mikedown-cell-border-bottom,
-:is(.mikedown-root, .mikedown-portal) .ProseMirror th.mikedown-cell-border-bottom {
-  border-bottom: 2px solid var(--mikedown-focus-ring, #007fd4) !important;
-}
-
-:is(.mikedown-root, .mikedown-portal) .ProseMirror td.mikedown-cell-border-left,
-:is(.mikedown-root, .mikedown-portal) .ProseMirror th.mikedown-cell-border-left {
-  border-left: 2px solid var(--mikedown-focus-ring, #007fd4) !important;
-}
-
-:is(.mikedown-root, .mikedown-portal) .ProseMirror td.mikedown-cell-border-right,
-:is(.mikedown-root, .mikedown-portal) .ProseMirror th.mikedown-cell-border-right {
-  border-right: 2px solid var(--mikedown-focus-ring, #007fd4) !important;
-}

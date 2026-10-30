@@ -37,3 +37,22 @@ export const MIKEDOWN_HOTKEYS: MikedownHotkey[] = [
   // Not Cmd+Shift+K (the plan's pick): that is Toggle Inline Code.
   { command: 'mikedown.ai.rewrite', label: 'Rewrite Selection with AI', win: 'ctrl+alt+k', mac: 'cmd+alt+k' },
 ];
+
+/**
+ * Keys the editor handles itself, inside a table. Not VS Code keybindings, so
+ * they are not in package.json and cannot be remapped; the Hotkeys tab lists
+ * them under their own heading.
+ */
+export interface EditorHotkey {
+  label: string;
+  win: string;
+  mac: string;
+}
+
+export const MIKEDOWN_TABLE_HOTKEYS: EditorHotkey[] = [
+  { label: 'Insert Row Below', win: 'ctrl+enter', mac: 'cmd+enter' },
+  { label: 'Insert Row Above', win: 'ctrl+shift+enter', mac: 'cmd+shift+enter' },
+  { label: 'Delete Row', win: 'ctrl+alt+backspace', mac: 'cmd+alt+backspace' },
+  { label: 'Next / Previous Cell', win: 'tab', mac: 'tab' },
+  { label: 'Leave Table', win: 'escape', mac: 'escape' },
+];

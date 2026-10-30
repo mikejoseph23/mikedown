@@ -44,10 +44,15 @@ All notable changes to MikeDown Editor are documented here.
 - Customize Toolbar: rearrange the toolbar's buttons. Open Settings (the gear), go to the Toolbar tab and choose Customize Toolbar, or right-click the toolbar. Drag buttons into place, or use the keyboard: arrow keys move between buttons, Space picks one up and drops it, Delete removes it to the tray, and Escape or Done finishes. Separators and flexible spacers come from the tray, so you can group buttons or push the rest to the right. Changes save when you click Done. Reset to Default in the same tab brings back the standard toolbar. The layout is stored in the new `mikedown.toolbarLayout` setting, and Settings Sync carries it to your other machines.
 - Font Theme toolbar button: an optional toolbar button that opens the font pairing list (Editorial, Notebook, Technical and more). It is not on the default toolbar; drag it in from the tray in Customize Toolbar.
 - npm packages (`@mikedown/*`): `@mikedown/core` takes an optional `ai` group on its host (`MikeDownHost.ai`). A host that implements `complete` alone turns on the writing features; adding the engine registry methods (`listEngines`, `testEngine`, `discoverModels`, `setSecret`, `requestCloudConsent`) also turns on the AI tab and Engines page. The new `@mikedown/core/ai` subpath exports the pure provider layer for hosts that run the requests: settings schema, task routing, request builders, the SSE parser, capability heuristics, thinking levels and the rewrite, summary, title and properties prompts. It has no network, DOM or provider SDK. `@mikedown/core/ai/engines-page` exports `mountAiEnginesPage`, the Engines page as a component you can mount in your own container. Neither is in the editor's main entry. AI is off unless the host provides `ai`. The wrappers pass it through (the `ai` property on the web component, an `ai` input on Angular, `host.ai` in React and Vue).
+- Tables: Cmd+Enter (Ctrl+Enter on Windows and Linux) inserts a row below and Cmd+Shift+Enter a row above, with the cursor in the new row; Cmd+Option+Backspace (Ctrl+Alt+Backspace) deletes the row. They work only inside a table, and the Hotkeys tab lists them under **In a table**.
+- Tables: **Select Table** in the right-click menu selects the whole table, so copy, cut and Backspace act on all of it.
 
 ### Changed
 
 - npm packages (`@mikedown/*`): the AI UI is no longer in the editor's main bundle. `@mikedown/core` loads it with `import()` only when the host provides `host.ai`, so bundlers split it into its own chunk and editors without AI never download it (about 70 kB gzipped less in core's main entry). The standalone web component is now an entry plus chunks in `dist/` (about 815 kB gzipped up front instead of 863 kB, the AI chunk loads on demand); the CDN `<script type="module">` tag is unchanged, but a self-hosted copy needs every `dist/mikedown-editor.*.js` file.
+- Tables: **Toggle header row** and **Merge / split cells** are gone from the table toolbar and the right-click menu. Markdown tables always have a header row and cannot merge cells, and both saved the table as HTML that reopened as literal text.
+- Tables: **Insert > Table** in the right-click menu and the Insert Table command open the size picker instead of always inserting 3 x 3.
+- Tables: the table toolbar buttons run on click, so Enter and Space work on a focused button.
 
 ### Fixed
 
@@ -60,6 +65,9 @@ All notable changes to MikeDown Editor are documented here.
 - `==highlight==` is readable in dark VS Code themes when the editor theme is Auto: a translucent amber instead of bright yellow under pale text.
 - The sidebar Outline opens at the top of the document, with the first heading highlighted, instead of scrolled to the last heading.
 - AI (experimental): a newly added local engine (LM Studio, oMLX, Ollama) with no model loaded no longer defaults to the first model in its list, which could be a huge one. A loaded chat model is still the default; otherwise nothing is picked and the form asks you to pick a model. Each row shows the model's size when the server reports it, and a **MoE · fast** tag on mixture-of-experts models (active parameters in the name, such as `A3B`, or the server's architecture name).
+- Tables: Backspace in a cell deletes one character again. After clicking into a cell, Backspace or Delete emptied the whole cell.
+- Tables: a table pasted with the cursor in a table fills the cells from the cursor, spreadsheet style, instead of nesting a table in the cell (which saved as HTML).
+- Tables: a `|` inside inline code, a wikilink alias or a link in a table cell is saved as `\|`, so the cell no longer splits in two when the file is reopened.
 
 ## [2.16.0] - 2026-10-28
 
@@ -231,7 +239,7 @@ All notable changes to MikeDown Editor are documented here.
 ### Added
 
 - **Table column alignment that actually saves.** The table toolbar's Align Left / Center / Right buttons now set alignment for the whole column and write it to the markdown delimiter row (`:---:`, `---:`), so it survives save and reload. Left is the GFM default and stays a plain `---`. The active alignment is highlighted as you move between columns. Previously these buttons were no-ops — the alignment was neither displayed nor persisted.
-- **Toggle header row** and **merge / split cells** in the table toolbar and right-click menu. Merged cells can't be expressed in GFM, so a table containing them is saved as an HTML `<table>` block (and reloads correctly).
+- **Toggle header row** and **merge / split cells** in the table toolbar and right-click menu. Merged cells can't be expressed in GFM, so a table containing them is saved as an HTML `<table>` block. (That block did not reload as a table; both were removed in a later release.)
 
 ### Changed
 

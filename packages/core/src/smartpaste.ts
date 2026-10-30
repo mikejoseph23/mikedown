@@ -1,6 +1,8 @@
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
+import { handlePaste as handleTablePaste, isInTable } from '@tiptap/pm/tables';
+import type { EditorView } from '@tiptap/pm/view';
 
 export const SmartPasteExtension = Extension.create({
   name: 'smartPaste',
@@ -41,6 +43,13 @@ export const SmartPasteExtension = Extension.create({
 
             if (!slice || slice.content.childCount === 0) {return false;}
 
+            // A table pasted with the cursor in a table fills cells from the
+            // cursor, spreadsheet style (prosemirror-tables), instead of
+            // nesting a table inside the cell.
+            if (slice.content.firstChild?.type.name === 'table' && isInTable(view.state)) {
+              return pasteTableIntoTable(view, event, slice);
+            }
+
             const { tr } = view.state;
             tr.replaceSelection(slice);
             view.dispatch(tr.scrollIntoView());
@@ -51,6 +60,55 @@ export const SmartPasteExtension = Extension.create({
     ];
   },
 });
+
+// ---------------------------------------------------------------------------
+// Table into table
+// ---------------------------------------------------------------------------
+
+type Slice = Parameters<typeof handleTablePaste>[2];
+
+function tablePosAround(state: EditorState): number {
+  const { $from } = state.selection;
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type.name === 'table') {return $from.before(d);}
+  }
+  return -1;
+}
+
+/**
+ * Hand the pasted table to prosemirror-tables, then make the target table GFM
+ * again: the pasted cells keep their own header/body type, so header cells can
+ * land in body rows (and the reverse), which would save as an HTML table.
+ */
+function pasteTableIntoTable(view: EditorView, event: ClipboardEvent, slice: Slice): boolean {
+  const tablePos = tablePosAround(view.state);
+  const proxy = {
+    get state() { return view.state; },
+    dispatch: (tr: Transaction) => {
+      if (tablePos >= 0) {normalizeHeaderRow(tr, tr.mapping.map(tablePos));}
+      view.dispatch(tr.scrollIntoView());
+    },
+  } as unknown as EditorView;
+  return handleTablePaste(proxy, event, slice);
+}
+
+/** First row header cells, every other row body cells. */
+export function normalizeHeaderRow(tr: Transaction, tablePos: number): void {
+  const table = tr.doc.nodeAt(tablePos);
+  if (!table || table.type.name !== 'table') {return;}
+  const { tableHeader, tableCell } = tr.doc.type.schema.nodes;
+  if (!tableHeader || !tableCell) {return;}
+  let rowPos = tablePos + 1;
+  table.forEach((row, _offset, rowIndex) => {
+    let cellPos = rowPos + 1;
+    row.forEach((cell) => {
+      const want = rowIndex === 0 ? tableHeader : tableCell;
+      if (cell.type !== want) {tr.setNodeMarkup(cellPos, want, cell.attrs);}
+      cellPos += cell.nodeSize;
+    });
+    rowPos += row.nodeSize;
+  });
+}
 
 // ---------------------------------------------------------------------------
 // HTML Cleaning — strips noise before PM parsing

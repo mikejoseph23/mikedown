@@ -142,10 +142,12 @@ export const TableAligned = Table.extend({
             state.write('| ');
             row.forEach((col: PMNode, _p2: number, j: number) => {
               if (j) {state.write(' | ');}
+              const cellStart = state.out.length;
               col.forEach((paragraph: PMNode, _p3: number, k: number) => {
                 if (k) {state.write('<br>');}
                 if (paragraph.textContent.trim()) {state.renderInline(paragraph);}
               });
+              state.out = state.out.slice(0, cellStart) + escapeCellPipes(state.out.slice(cellStart));
             });
             state.write(' |');
             state.ensureNewLine();
@@ -172,6 +174,57 @@ export const TableAligned = Table.extend({
     };
   },
 });
+
+/**
+ * Escape every `|` in a rendered cell that would otherwise split it. Text runs
+ * already write `\|`; inline code (written raw), wikilink aliases and URLs do
+ * not. Inside a code span every `|` gets a backslash, since GFM strips one
+ * before the span is parsed; outside, `\x` pairs are already escapes.
+ */
+export function escapeCellPipes(cell: string): string {
+  let out = '';
+  let i = 0;
+  while (i < cell.length) {
+    const ch = cell[i];
+    if (ch === '\\') {
+      out += cell.slice(i, i + 2);
+      i += 2;
+      continue;
+    }
+    if (ch === '`') {
+      let n = 1;
+      while (cell[i + n] === '`') {n++;}
+      const ticks = '`'.repeat(n);
+      const close = findClosingTicks(cell, i + n, n);
+      if (close < 0) {
+        out += ticks;
+        i += n;
+        continue;
+      }
+      out += ticks + cell.slice(i + n, close).replace(/\|/g, '\\|') + ticks;
+      i = close + n;
+      continue;
+    }
+    out += ch === '|' ? '\\|' : ch;
+    i++;
+  }
+  return out;
+}
+
+function findClosingTicks(s: string, from: number, n: number): number {
+  let i = from;
+  while (i < s.length) {
+    if (s[i] !== '`') {
+      i++;
+      continue;
+    }
+    let m = 1;
+    while (s[i + m] === '`') {m++;}
+    if (m === n) {return i;}
+    i += m;
+  }
+  return -1;
+}
 
 // With `html: false`, markdown-it leaves `<br>` in a cell as literal text.
 // Split those text tokens so each `<br>` becomes a real hard break.

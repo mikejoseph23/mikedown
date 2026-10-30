@@ -47,12 +47,17 @@ describe('menu commands', () => {
     expect(handle.getMarkdown().trim()).toBe('Hello');
   });
 
-  it('insertTable inserts a 3x3 table with a header row', () => {
+  it('insertTable opens the table size picker; a pick inserts the table', async () => {
     const { handle } = mount('Hello\n');
     handle.command('insertTable');
+    await new Promise(r => setTimeout(r, 0));
+    const cell = document.querySelector<HTMLElement>('#mikedown-table-picker .tp-cell[data-row="3"][data-col="3"]');
+    expect(cell).not.toBeNull();
+    cell!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     const md = handle.getMarkdown();
     expect(md).toMatch(/\|.*\|.*\|.*\|/);
     expect(md).toMatch(/\| *:?-+:? *\|/);
+    expect(document.getElementById('mikedown-table-picker')).toBeNull();
   });
 
   it('openFind focuses the find bar input', () => {

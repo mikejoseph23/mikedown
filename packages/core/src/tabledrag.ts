@@ -20,28 +20,14 @@ let handleOverlays: HTMLElement[] = [];
 let activeTableEl: HTMLElement | null = null;
 
 // =============================================
-// MULTI-CELL SELECTION STATE
-// =============================================
-
-interface CellSelection {
-  tableEl: HTMLElement;
-  startRow: number;
-  startCol: number;
-  endRow: number;
-  endCol: number;
-}
-
-let cellSelection: CellSelection | null = null;
-let isMouseDown = false;
-
-// =============================================
 // PUBLIC API
 // =============================================
 
 /**
- * Wire drag handles and multi-cell selection for one editor. Returns a
- * function that removes every listener this attached to `document` and the
- * scroll container.
+ * Wire row and column drag handles for one editor. Returns a function that
+ * removes every listener this attached to `document` and the scroll container.
+ * Cell-range selection is prosemirror-tables' own `CellSelection` (Shift+click,
+ * Shift+arrows, drag), which also handles Backspace/Delete and copy.
  */
 export function initTableDrag(editor: Editor, scrollContainer: HTMLElement): () => void {
   // Listen to selectionUpdate to show/hide drag handles
@@ -61,35 +47,20 @@ export function initTableDrag(editor: Editor, scrollContainer: HTMLElement): () 
   // Global mouseup to end drags
   const onMouseUp = (): void => {
     if (dragState) {finalizeDrag(editor);}
-    isMouseDown = false;
   };
   document.addEventListener('mouseup', onMouseUp);
 
   // Global mousemove for drag tracking
   const onMouseMove = (e: MouseEvent): void => {
     if (dragState) {onDragMove(e, editor);}
-    if (isMouseDown && cellSelection) {onCellSelectionMove(e);}
   };
   document.addEventListener('mousemove', onMouseMove);
-
-  // Keyboard: Delete/Backspace on cell selection
-  const onKeyDown = (e: KeyboardEvent): void => {
-    if (!cellSelection) {return;}
-    if (e.key === 'Escape') { clearCellSelection(); return; }
-    if (e.key === 'Backspace' || e.key === 'Delete') {
-      e.preventDefault();
-      clearSelectedCellContents(editor);
-    }
-  };
-  document.addEventListener('keydown', onKeyDown);
 
   return () => {
     scrollContainer.removeEventListener('scroll', onScroll);
     document.removeEventListener('mouseup', onMouseUp);
     document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('keydown', onKeyDown);
     clearDragHandles();
-    clearCellSelection();
   };
 }
 
@@ -100,13 +71,6 @@ export function clearDragHandles(): void {
   document.body.classList.remove('td-handles-visible');
 }
 
-export function clearCellSelection(): void {
-  if (!cellSelection) {return;}
-  cellSelection.tableEl.querySelectorAll('.mikedown-cell-selected, .mikedown-cell-border-top, .mikedown-cell-border-right, .mikedown-cell-border-bottom, .mikedown-cell-border-left')
-    .forEach(el => el.classList.remove('mikedown-cell-selected', 'mikedown-cell-border-top', 'mikedown-cell-border-right', 'mikedown-cell-border-bottom', 'mikedown-cell-border-left'));
-  cellSelection = null;
-}
-
 // =============================================
 // DRAG HANDLES
 // =============================================
@@ -115,7 +79,6 @@ function updateDragHandles(editor: Editor): void {
   const isInTable = editor.isActive('table');
   if (!isInTable) {
     clearDragHandles();
-    clearCellSelection();
     return;
   }
 
@@ -172,9 +135,6 @@ function updateDragHandles(editor: Editor): void {
       });
     });
   }
-
-  // Wire multi-cell selection on all cells
-  wireCellSelection(tableDOM, tablePos);
 }
 
 /**
@@ -350,110 +310,4 @@ function reorderColumns(tr: Transaction, tableNode: PMNode, tablePos: number, fr
 
   const newTable = tableNode.type.create(tableNode.attrs, newRows);
   tr.replaceWith(tablePos, tablePos + tableNode.nodeSize, newTable);
-}
-
-// =============================================
-// MULTI-CELL SELECTION
-// =============================================
-
-function wireCellSelection(tableEl: HTMLElement, _tablePos: number): void {
-  const cells = Array.from(tableEl.querySelectorAll('td, th')) as HTMLElement[]; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion -- cast is load-bearing for the compound selector's element type; leaving as-is
-  cells.forEach(cell => {
-    cell.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) {return;}
-      const { rowIdx, colIdx } = getCellIndices(cell, tableEl);
-      clearCellSelection();
-      isMouseDown = true;
-      cellSelection = { tableEl, startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx };
-      applySelectionHighlight();
-    });
-
-    cell.addEventListener('mouseenter', () => {
-      if (!isMouseDown || !cellSelection || cellSelection.tableEl !== tableEl) {return;}
-      const { rowIdx, colIdx } = getCellIndices(cell, tableEl);
-      cellSelection.endRow = rowIdx;
-      cellSelection.endCol = colIdx;
-      applySelectionHighlight();
-    });
-  });
-}
-
-function onCellSelectionMove(_e: MouseEvent): void {
-  // Movement is handled per-cell via mouseenter above
-}
-
-function getCellIndices(cell: HTMLElement, tableEl: HTMLElement): { rowIdx: number; colIdx: number } {
-  const rows = Array.from(tableEl.querySelectorAll('tr'));
-  for (let r = 0; r < rows.length; r++) {
-    const cells = Array.from(rows[r].querySelectorAll('td, th'));
-    for (let c = 0; c < cells.length; c++) {
-      if (cells[c] === cell) {return { rowIdx: r, colIdx: c };}
-    }
-  }
-  return { rowIdx: 0, colIdx: 0 };
-}
-
-function applySelectionHighlight(): void {
-  if (!cellSelection) {return;}
-  const { tableEl, startRow, startCol, endRow, endCol } = cellSelection;
-  const minR = Math.min(startRow, endRow), maxR = Math.max(startRow, endRow);
-  const minC = Math.min(startCol, endCol), maxC = Math.max(startCol, endCol);
-
-  const rows = Array.from(tableEl.querySelectorAll('tr'));
-  rows.forEach((row, r) => {
-    const cells = Array.from(row.querySelectorAll('td, th')) as HTMLElement[]; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion -- cast is load-bearing for the compound selector's element type; leaving as-is
-    cells.forEach((cell, c) => {
-      const inSel = r >= minR && r <= maxR && c >= minC && c <= maxC;
-      cell.classList.toggle('mikedown-cell-selected', inSel);
-      cell.classList.toggle('mikedown-cell-border-top', inSel && r === minR);
-      cell.classList.toggle('mikedown-cell-border-bottom', inSel && r === maxR);
-      cell.classList.toggle('mikedown-cell-border-left', inSel && c === minC);
-      cell.classList.toggle('mikedown-cell-border-right', inSel && c === maxC);
-    });
-  });
-}
-
-function clearSelectedCellContents(editor: Editor): void {
-  if (!cellSelection || !activeTableEl) {return;}
-  const { state, dispatch } = editor.view;
-  const tr = state.tr;
-  let modified = false;
-
-  const { minR, maxR, minC, maxC } = (() => {
-    const { startRow, startCol, endRow, endCol } = cellSelection;
-    return { minR: Math.min(startRow, endRow), maxR: Math.max(startRow, endRow), minC: Math.min(startCol, endCol), maxC: Math.max(startCol, endCol) };
-  })();
-
-  // Find table pos
-  const { view } = editor;
-  const { $from } = view.state.selection;
-  let tablePos = -1;
-  for (let d = $from.depth; d >= 0; d--) {
-    if ($from.node(d).type.name === 'table') { tablePos = $from.before(d); break; }
-  }
-  if (tablePos < 0) {return;}
-
-  // Walk DOM cells in selection and clear them via PM
-  const rows = Array.from(activeTableEl.querySelectorAll('tr'));
-  for (let r = minR; r <= maxR; r++) {
-    const cells = Array.from(rows[r]?.querySelectorAll('td, th') || []) as HTMLElement[]; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion -- cast is load-bearing for the compound selector's element type; leaving as-is
-    for (let c = minC; c <= maxC; c++) {
-      const cell = cells[c];
-      if (!cell) {continue;}
-      try {
-        const pos = view.posAtDOM(cell, 0);
-        const pmNode = state.doc.nodeAt(pos - 1);
-        if (pmNode && (pmNode.type.name === 'tableCell' || pmNode.type.name === 'tableHeader')) {
-          const start = pos;
-          const end = pos + pmNode.content.size;
-          const emptyPara = state.schema.nodes.paragraph.create();
-          tr.replaceWith(start, end, emptyPara);
-          modified = true;
-        }
-      } catch { /* ignore */ }
-    }
-  }
-
-  if (modified) {dispatch(tr);}
-  clearCellSelection();
 }

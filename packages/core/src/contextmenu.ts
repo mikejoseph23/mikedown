@@ -1,6 +1,7 @@
 import { Editor } from '@tiptap/core';
 import { hideTableToolbar } from './tablepicker';
 import { setColumnAlign } from './table-align';
+import { selectTable, showTablePickerAtCursor } from './table-commands';
 import { getPortal } from './portal';
 import type { AiRewriteVariant } from './ai/prompts/rewrite';
 import type { AiRewriteMenuGroup } from './ai-rewrite';
@@ -314,7 +315,7 @@ export function buildTextMenu(editor: Editor, actions?: ContextMenuActions): Con
       items: [
         { label: 'Link…', shortcut: `${mod}K`, action: () => actions?.showLinkDialog() },
         { label: 'Image…', action: () => actions?.showImageDialog() },
-        { label: 'Table', action: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+        { label: 'Table…', action: () => showTablePickerAtCursor(editor) },
         { label: 'Horizontal Rule', action: () => editor.chain().focus().setHorizontalRule().run() },
       ],
     },
@@ -489,9 +490,7 @@ export function buildTableMenu(editor: Editor): ContextMenuEntry[] {
     { label: 'Align Column Center', action: () => setColumnAlign(editor, 'center') },
     { label: 'Align Column Right', action: () => setColumnAlign(editor, 'right') },
     { separator: true },
-    { label: 'Toggle Header Row', action: () => editor.chain().focus().toggleHeaderRow().run() },
-    { label: 'Merge / Split Cells', action: () => editor.chain().focus().mergeOrSplit().run() },
-    { separator: true },
+    { label: 'Select Table', action: () => { selectTable(editor); } },
     { label: 'Delete Table', action: () => editor.chain().focus().deleteTable().run() },
   ];
 }
