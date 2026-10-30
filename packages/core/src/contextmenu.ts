@@ -2,6 +2,7 @@ import { Editor } from '@tiptap/core';
 import { hideTableToolbar } from './tablepicker';
 import { setColumnAlign } from './table-align';
 import { selectTable, showTablePickerAtCursor } from './table-commands';
+import { copyTableAsMarkdown } from './table-clipboard';
 import { getPortal } from './portal';
 import type { AiRewriteVariant } from './ai/prompts/rewrite';
 import type { AiRewriteMenuGroup } from './ai-rewrite';
@@ -491,6 +492,7 @@ export function buildTableMenu(editor: Editor): ContextMenuEntry[] {
     { label: 'Align Column Right', action: () => setColumnAlign(editor, 'right') },
     { separator: true },
     { label: 'Select Table', action: () => { selectTable(editor); } },
+    { label: 'Copy Table as Markdown', action: () => { copyTableAsMarkdown(editor); } },
     { label: 'Delete Table', action: () => editor.chain().focus().deleteTable().run() },
   ];
 }

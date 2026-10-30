@@ -46,6 +46,8 @@ All notable changes to MikeDown Editor are documented here.
 - npm packages (`@mikedown/*`): `@mikedown/core` takes an optional `ai` group on its host (`MikeDownHost.ai`). A host that implements `complete` alone turns on the writing features; adding the engine registry methods (`listEngines`, `testEngine`, `discoverModels`, `setSecret`, `requestCloudConsent`) also turns on the AI tab and Engines page. The new `@mikedown/core/ai` subpath exports the pure provider layer for hosts that run the requests: settings schema, task routing, request builders, the SSE parser, capability heuristics, thinking levels and the rewrite, summary, title and properties prompts. It has no network, DOM or provider SDK. `@mikedown/core/ai/engines-page` exports `mountAiEnginesPage`, the Engines page as a component you can mount in your own container. Neither is in the editor's main entry. AI is off unless the host provides `ai`. The wrappers pass it through (the `ai` property on the web component, an `ai` input on Angular, `host.ai` in React and Vue).
 - Tables: Cmd+Enter (Ctrl+Enter on Windows and Linux) inserts a row below and Cmd+Shift+Enter a row above, with the cursor in the new row; Cmd+Option+Backspace (Ctrl+Alt+Backspace) deletes the row. They work only inside a table, and the Hotkeys tab lists them under **In a table**.
 - Tables: **Select Table** in the right-click menu selects the whole table, so copy, cut and Backspace act on all of it.
+- Tables: pasting a markdown pipe table or tab-separated text (from a terminal, a text editor or a `.tsv` file) makes a table, keeping the pipe table's alignment and formatting; the first line is the header row. Inside a table it fills the cells from the cursor. Paste Without Formatting (Cmd+Shift+V) still pastes the text as is, and one undo takes the paste back.
+- Tables: copying a table, or cells of one, puts a markdown pipe table on the clipboard as plain text, so it pastes into Slack, a terminal or a commit message as a table (spreadsheets still get the cells). **Copy Table as Markdown** in the right-click menu copies the whole table.
 
 ### Changed
 
@@ -68,6 +70,7 @@ All notable changes to MikeDown Editor are documented here.
 - Tables: Backspace in a cell deletes one character again. After clicking into a cell, Backspace or Delete emptied the whole cell.
 - Tables: a table pasted with the cursor in a table fills the cells from the cursor, spreadsheet style, instead of nesting a table in the cell (which saved as HTML).
 - Tables: a `|` inside inline code, a wikilink alias or a link in a table cell is saved as `\|`, so the cell no longer splits in two when the file is reopened.
+- Tables: a table pasted from a spreadsheet or web page with merged cells keeps a merged cell's text once and leaves the cells it covered empty, instead of repeating the text across a merged row or shifting the cells below a merged column one place left. Column alignment (left, center, right) from the pasted cells now reaches the saved table.
 
 ## [2.16.0] - 2026-10-28
 

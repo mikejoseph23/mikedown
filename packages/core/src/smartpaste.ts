@@ -1,13 +1,16 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
-import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
+import { DOMParser as PMDOMParser, Fragment, Slice as PMSlice } from '@tiptap/pm/model';
 import { handlePaste as handleTablePaste, isInTable } from '@tiptap/pm/tables';
 import type { EditorView } from '@tiptap/pm/view';
+import type { Editor } from '@tiptap/core';
+import { detectTextTable, tableCopyPlugin, textTableToNode } from './table-clipboard';
 
 export const SmartPasteExtension = Extension.create({
   name: 'smartPaste',
 
   addProseMirrorPlugins() {
+    const editor = this.editor;
     return [
       new Plugin({
         key: new PluginKey('smartPaste'),
@@ -17,6 +20,11 @@ export const SmartPasteExtension = Extension.create({
             if (!clipboardData) {return false;}
 
             const htmlData = clipboardData.getData('text/html');
+
+            // A pipe table or TSV in the plain-text flavour becomes a table,
+            // unless the HTML flavour carries a real table (spreadsheets),
+            // which the HTML path below handles with formatting.
+            if (!/<table[\s>]/i.test(htmlData) && pasteTextTable(editor, view, event)) {return true;}
 
             // Task 7: Guard against empty clipboard content
             if (!htmlData || !htmlData.trim()) {return false;}
@@ -57,9 +65,35 @@ export const SmartPasteExtension = Extension.create({
           },
         },
       }),
+      // Copied tables get a markdown pipe table as their plain-text flavour.
+      tableCopyPlugin(editor),
     ];
   },
 });
+
+// ---------------------------------------------------------------------------
+// Plain-text tables (pipe tables and TSV)
+// ---------------------------------------------------------------------------
+
+/**
+ * Paste `text/plain` that is a whole pipe table or TSV block as a table: fills
+ * cells from the cursor inside a table, inserts a table elsewhere. Not in code
+ * blocks, and not on a shift paste (paste without formatting stays verbatim).
+ */
+export function pasteTextTable(editor: Editor, view: EditorView, event: ClipboardEvent): boolean {
+  const { $from } = view.state.selection;
+  if ($from.parent.type.spec.code) {return false;}
+  if ((view as unknown as { input?: { shiftKey?: boolean } }).input?.shiftKey) {return false;}
+  const inTable = isInTable(view.state);
+  const table = detectTextTable(event.clipboardData?.getData('text/plain') ?? '', { singleRow: inTable });
+  if (!table) {return false;}
+  const node = textTableToNode(editor, table);
+  if (!node) {return false;}
+  const slice = new PMSlice(Fragment.from(node), 0, 0);
+  if (inTable) {return pasteTableIntoTable(view, event, slice);}
+  view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+  return true;
+}
 
 // ---------------------------------------------------------------------------
 // Table into table
@@ -273,7 +307,11 @@ function cleanHtml(html: string): string {
 // ---------------------------------------------------------------------------
 
 function normalizeTableHtml(doc: Document): void {
-  doc.querySelectorAll('table').forEach(table => {
+  // Innermost first, so an outer table sees its nested tables already settled.
+  Array.from(doc.querySelectorAll('table')).reverse().forEach(table => {
+    // Merged cells first, while the rows still sit where the source put them.
+    expandSpans(doc, table);
+
     // Ensure there is always a thead with the first row
     let thead = table.querySelector('thead');
     let tbody = table.querySelector('tbody');
@@ -283,11 +321,10 @@ function normalizeTableHtml(doc: Document): void {
       const firstRow = table.querySelector('tr');
       if (firstRow) {
         thead = doc.createElement('thead');
-        // Convert all td in the first row to th
+        // Convert all td in the first row to th, keeping their attributes
+        // (alignment lives in `style` / `align`).
         firstRow.querySelectorAll('td').forEach(td => {
-          const th = doc.createElement('th');
-          th.innerHTML = td.innerHTML;
-          td.replaceWith(th);
+          td.replaceWith(renameCell(doc, td, 'th'));
         });
         thead.appendChild(firstRow.cloneNode(true));
         firstRow.remove();
@@ -308,47 +345,120 @@ function normalizeTableHtml(doc: Document): void {
       table.appendChild(tbody);
     }
 
-    // Handle colspan/rowspan: expand merged cells by duplicating content
-    table.querySelectorAll('[colspan], [rowspan]').forEach(cell => {
-      const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-      const rowspan = parseInt(cell.getAttribute('rowspan') || '1', 10);
-      if (colspan > 1) {
-        // Add sibling cells for the extra columns
-        for (let i = 1; i < colspan; i++) {
-          const clone = doc.createElement(cell.tagName.toLowerCase());
-          clone.innerHTML = cell.innerHTML;
-          cell.parentElement?.insertBefore(clone, cell.nextSibling);
-        }
-        cell.removeAttribute('colspan');
-      }
-      if (rowspan > 1) {
-        // Add cells in subsequent rows for the extra rows — simplified approach
-        cell.removeAttribute('rowspan');
-      }
-    });
-
     // Ensure all rows have the same number of cells
-    const allRows = Array.from(table.querySelectorAll('tr'));
-    const maxCols = allRows.length > 0
-      ? Math.max(...allRows.map(r => r.querySelectorAll('td, th').length))
-      : 0;
+    const allRows = Array.from(table.rows);
+    const maxCols = allRows.length > 0 ? Math.max(...allRows.map(r => r.cells.length)) : 0;
     allRows.forEach(row => {
-      const cells = row.querySelectorAll('td, th').length;
-      for (let i = cells; i < maxCols; i++) {
-        const td = doc.createElement(row.parentElement?.tagName === 'THEAD' ? 'th' : 'td');
-        td.textContent = ' ';
-        row.appendChild(td);
+      for (let i = row.cells.length; i < maxCols; i++) {
+        row.appendChild(doc.createElement(row.parentElement?.tagName === 'THEAD' ? 'th' : 'td'));
       }
     });
 
-    // Extract text-align from inline styles and apply as align attribute
-    table.querySelectorAll('td[style], th[style]').forEach(cell => {
-      const style = (cell as HTMLElement).style.textAlign;
-      if (style) {
-        cell.setAttribute('align', style);
+    applyColumnAlignment(table);
+  });
+}
+
+/** A copy of `cell` as a `th` or `td`, attributes and children kept. */
+function renameCell(doc: Document, cell: Element, tag: 'th' | 'td'): Element {
+  const out = doc.createElement(tag);
+  Array.from(cell.attributes).forEach(a => out.setAttribute(a.name, a.value));
+  out.innerHTML = cell.innerHTML;
+  return out;
+}
+
+/**
+ * Turn merged cells into a rectangular grid: a `colspan` cell keeps its
+ * content in its first column and gets empty cells after it; a `rowspan` cell
+ * gets empty cells at the same columns in the rows below. GFM has no spans, so
+ * nothing would otherwise save as markdown.
+ */
+function expandSpans(doc: Document, table: HTMLTableElement): void {
+  const rows = Array.from(table.rows);
+  // Column index -> rows still covered by a rowspan from above.
+  const pending = new Map<number, number>();
+  rows.forEach(row => {
+    const tag = (cell: Element | undefined) => (cell?.tagName === 'TH' ? 'th' : 'td');
+    const cells = Array.from(row.cells);
+    const out: Element[] = [];
+    const fillPending = () => {
+      let n = pending.get(out.length) ?? 0;
+      while (n > 0) {
+        pending.set(out.length, n - 1);
+        out.push(doc.createElement(tag(cells[0])));
+        n = pending.get(out.length) ?? 0;
+      }
+    };
+    cells.forEach(cell => {
+      fillPending();
+      const col = out.length;
+      const colspan = Math.max(1, parseInt(cell.getAttribute('colspan') || '1', 10) || 1);
+      const rowspan = Math.max(1, parseInt(cell.getAttribute('rowspan') || '1', 10) || 1);
+      cell.removeAttribute('colspan');
+      cell.removeAttribute('rowspan');
+      if (colspan > 1) {cell.setAttribute('data-mikedown-spanned', '');}
+      out.push(cell);
+      for (let i = 1; i < colspan; i++) {out.push(doc.createElement(tag(cell)));}
+      if (rowspan > 1) {
+        for (let c = col; c < col + colspan; c++) {pending.set(c, rowspan - 1);}
       }
     });
+    // Rowspans reaching past the row's last cell.
+    const lastPending = Math.max(-1, ...Array.from(pending.entries()).filter(([, n]) => n > 0).map(([c]) => c));
+    while (out.length <= lastPending) {
+      const n = pending.get(out.length) ?? 0;
+      if (n > 0) {pending.set(out.length, n - 1);}
+      out.push(doc.createElement(tag(cells[0])));
+    }
+    if (out.length !== cells.length || out.some((c, i) => c !== cells[i])) {
+      cells.forEach(c => c.remove());
+      out.forEach(c => row.appendChild(c));
+    }
   });
+}
+
+function cellAlign(cell: Element): string | null {
+  const raw = ((cell as HTMLElement).style?.textAlign || cell.getAttribute('align') || '').toLowerCase();
+  if (raw === 'center' || raw === '-webkit-center') {return 'center';}
+  if (raw === 'right' || raw === 'end' || raw === '-webkit-right') {return 'right';}
+  if (raw === 'left' || raw === 'start' || raw === '-webkit-left') {return 'left';}
+  return null;
+}
+
+/**
+ * Markdown aligns whole columns (the delimiter row, read from the header
+ * cells), while pasted HTML aligns cells. Give each column one alignment: the
+ * header cell's center or right, else the most common among its body cells
+ * (merged cells don't vote; a left header is the default, not a vote). Every cell of the column gets it, so the editor shows what the
+ * file will say.
+ */
+function applyColumnAlignment(table: HTMLTableElement): void {
+  const rows = Array.from(table.rows);
+  const width = rows.length ? Math.max(...rows.map(r => r.cells.length)) : 0;
+  for (let c = 0; c < width; c++) {
+    const header = rows[0]?.cells[c];
+    let align = header && !header.hasAttribute('data-mikedown-spanned') ? cellAlign(header) : null;
+    if (align === 'left') {align = null;}
+    if (!align) {
+      const votes = new Map<string, number>();
+      rows.slice(1).forEach(row => {
+        const cell = row.cells[c];
+        if (!cell || cell.hasAttribute('data-mikedown-spanned')) {return;}
+        const a = cellAlign(cell);
+        if (a) {votes.set(a, (votes.get(a) ?? 0) + 1);}
+      });
+      let best = 0;
+      votes.forEach((n, a) => { if (n > best) {best = n; align = a;} });
+    }
+    const value = align === 'left' ? null : align;
+    rows.forEach(row => {
+      const cell = row.cells[c] as HTMLElement | undefined;
+      if (!cell) {return;}
+      cell.style.textAlign = value ?? '';
+      if (!cell.getAttribute('style')?.trim()) {cell.removeAttribute('style');}
+      if (value) {cell.setAttribute('align', value);} else {cell.removeAttribute('align');}
+    });
+  }
+  table.querySelectorAll('[data-mikedown-spanned]').forEach(cell => cell.removeAttribute('data-mikedown-spanned'));
 }
 
 // ---------------------------------------------------------------------------
