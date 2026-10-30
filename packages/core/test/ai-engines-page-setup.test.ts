@@ -236,10 +236,10 @@ describe('Done when the page was opened by Set up (B3)', () => {
       expect(patchOf(m)).not.toHaveProperty('ai.enabled');
       expect(savedOf(m).enabled).toBe(false);
     }
-    // An enabled engine whose only model is switched off has no usable route either.
+    // An enabled engine whose only model is switched off has no usable route either: Done stops at its form (Q1).
     const off = mountPage([{ ...lmsEngine, models: [{ id: 'gemma', enabled: false, capabilities: caps }] }], { routing: route('lms', 'gemma'), turnOnWhenDone: true });
     click(q(off.c, 'page:done'));
-    expect(patchOf(off)).not.toHaveProperty('ai.enabled');
+    expect(off.onDone).not.toHaveBeenCalled();
   });
 
   it('does not turn AI on when the page was not opened by Set up, whatever the route', () => {

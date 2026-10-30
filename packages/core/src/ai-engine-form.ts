@@ -22,7 +22,7 @@
  * whose result is dropped, and runs as soon as it settles.
  */
 
-import { AI_ENGINE_KINDS, aiErrorCopy, aiProviderPolicy, formatModelSize, isHostEngineKind, isKnownEngineKind, modelMoeHint, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
+import { AI_ENGINE_KINDS, aiErrorCopy, aiProviderPolicy, formatModelSize, isHostEngineKind, isKnownEngineKind, modelMoeFastHint, thinkingChoices, thinkingLevelFrom, toAiError } from './ai';
 import type { AiEngineConfig, AiEngineStatus, AiKeySource, AiLocalitySetting, AiModelConfig, AiModelSizeTag, AiSettings, AiThinkingLevel, MikeDownAiHost } from './ai';
 import {
   AI_CAPABILITY_CHIPS,
@@ -130,6 +130,13 @@ export interface EngineFormController {
   opened(engineId: string, opts?: { isNew?: boolean }): string | null;
   /** What the engine is busy with, for the row's status dot. */
   busy(engineId: string): 'test' | 'discover' | undefined;
+  /**
+   * Done found this engine with chat models listed but none picked (Q1): the
+   * next build shows an error over the models list until a model is picked.
+   * The host re-renders the form and focuses the list (`eng:<id>:pick` or
+   * `eng:<id>:models`).
+   */
+  requirePick(engineId: string): void;
   /** The engine was deleted: drop its timers and state. */
   forget(engineId: string): void;
   /** Stop every timer (the modal closed). */
@@ -206,6 +213,8 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
   /** The model this form picked last per engine (the auto-pick or a setup choice), which a new setup choice replaces. */
   const formPicked = new Map<string, string>();
   const overrideErrors = new Map<string, { text: string; error: string }>();
+  /** Engines Done stopped at because nothing is picked (Q1). */
+  const pickRequired = new Set<string>();
 
   const getEngine = (id: string) => deps.getDraft().engines.find((e) => e.id === id);
   const presetOf = (engine: AiEngineConfig): EngineFormPreset => enginePreset(engine, deps.getDraft().localNetworks);
@@ -683,17 +692,26 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
 
   /** "Pick a model" for a local engine that lists chat models but has none picked (in setup: none chosen). */
   function localPickNote(engine: AiEngineConfig, preset: EngineFormPreset, setup: boolean): HTMLElement | null {
-    if (preset.family !== 'local') {return null;}
     const chat = engine.models.filter((m) => !m.missing && m.capabilities.chat);
     if (chat.length === 0) {return null;}
     const chosenId = engineDefaultModelId(deps.getDraft(), engine.id);
     const picked = setup
       ? chat.some((m) => m.id === chosenId && m.enabled)
       : chat.some((m) => m.enabled);
-    if (picked) {return null;}
+    if (picked) {
+      pickRequired.delete(engine.id);
+      return null;
+    }
+    // Done stopped here: say why, as an error, on any engine.
+    if (pickRequired.has(engine.id)) {
+      const line = note('error', `Pick at least one model before you choose Done. ${engineDisplayName(engine)} needs a default model to answer.`, 'ai-pick-note');
+      line.setAttribute('role', 'alert');
+      return line;
+    }
+    if (preset.family !== 'local') {return null;}
     const sizeOf = sizeTagFor(engine.id, preset);
     const facts = new Map((deps.statuses.get(engine.id)?.models ?? []).map((m) => [m.id, m]));
-    const tagged = chat.some((m) => (sizeOf && sizeOf(m.id) !== undefined) || !!facts.get(m.id)?.sizeBytes || !!modelMoeHint(m.id, facts.get(m.id)?.moe));
+    const tagged = chat.some((m) => (sizeOf && sizeOf(m.id) !== undefined) || !!facts.get(m.id)?.sizeBytes || !!modelMoeFastHint(m.id, facts.get(m.id)?.moe, sizeOf?.(m.id)));
     const text = `Pick a model to start with. No chat model is loaded in ${engineDisplayName(engine)}, so none was chosen for you${tagged ? '; the tags give size and speed hints' : ''}.`;
     const line = note('info', text, 'ai-pick-note');
     line.setAttribute('role', 'status');
@@ -875,6 +893,12 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       li.dataset.modelId = o.id;
       li.classList.toggle('is-missing', o.missing);
       li.classList.toggle('is-on', on);
+      // Not a chat model (in setup: the choice is the default, so chat only); shown greyed, never picked.
+      const unusable = !(setup ? o.chat : o.usable);
+      if (unusable) {
+        li.classList.add('is-unusable');
+        li.setAttribute('aria-disabled', 'true');
+      }
       const check = el('span', 'ai-option-check');
       check.setAttribute('aria-hidden', 'true');
       check.innerHTML = ICONS.check;
@@ -894,9 +918,15 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         tags.append(t);
       }
       if (o.manual) {tags.append(el('span', 'ai-tag', 'typed in'));}
-      // Local rows: how fast (a mixture of experts) and how big, when known. Hints only; they never pick.
+      if (unusable) {
+        const t = el('span', 'ai-tag ai-tag--unusable', o.usable ? 'not for chat' : 'not a chat model');
+        t.title = o.usable ? 'An embeddings model: it cannot be the model this engine answers with.' : 'This model cannot answer (a converter or a draft model for another model), so it cannot be picked.';
+        tags.append(t);
+      }
+      // Local rows: how fast (a mixture of experts that fits here) and how big, when known. Hints only; they never pick.
       const facts = preset.family === 'local' ? deps.statuses.get(id)?.models.find((m) => m.id === o.id) : undefined;
-      const moe = preset.family === 'local' ? modelMoeHint(o.id, facts?.moe) : null;
+      const size = sizeOf?.(o.id);
+      const moe = preset.family === 'local' ? modelMoeFastHint(o.id, facts?.moe, size) : null;
       if (moe) {
         const t = el('span', 'ai-tag ai-tag--moe', 'MoE · fast');
         t.title = moe.activeBillions !== null
@@ -909,7 +939,6 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
         t.title = 'Its size, as the server reports it.';
         tags.append(t);
       }
-      const size = sizeOf?.(o.id);
       if (size) {
         const t = el('span', `ai-tag ai-tag--size ai-tag--${size.replace(' ', '-')}`, size);
         t.title = SIZE_TITLES[size];
@@ -927,6 +956,11 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
 
     /** Toggle a model, or in setup choose it. */
     function pick(modelId: string): void {
+      const o = options.find((x) => x.id === modelId);
+      if (o && !(setup ? o.chat : o.usable)) {
+        deps.announce(`${o.name} is not a chat model, so it cannot be picked.`);
+        return;
+      }
       if (setup) {choose(modelId);} else {toggle(modelId);}
     }
 
@@ -1097,8 +1131,10 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
   function buildDefaultModel(engine: AiEngineConfig): HTMLElement | null {
     const id = engine.id;
     const draft = deps.getDraft();
-    const enabled = engine.models.filter((m) => m.enabled && !m.missing);
-    const current = engineDefaultModelId(draft, id);
+    // Only a chat model can be the default (not embeddings, a converter or an MTP drafter).
+    const enabled = engine.models.filter((m) => m.enabled && !m.missing && m.capabilities.chat);
+    const stored = engineDefaultModelId(draft, id);
+    const current = stored && enabled.some((m) => m.id === stored) ? stored : null;
     const line = el('div', 'ai-default');
     const select = el('select', 'settings-input ai-default-select');
     select.id = nextId('ai-default');
@@ -1440,6 +1476,11 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
     enabled.checked = model.enabled;
     enabled.dataset.fk = mfk('enabled');
     enabled.setAttribute('aria-label', `Use ${shown}`);
+    // A model that can neither chat nor embed (a converter, an MTP drafter) cannot be used; one already on can still be turned off.
+    if (!model.capabilities.chat && !model.capabilities.embed && !model.enabled) {
+      enabled.disabled = true;
+      enabled.title = 'Not a chat model: it cannot be picked.';
+    }
     enabled.addEventListener('change', () => {
       deps.setDraft(setModelPicked(deps.getDraft(), engineId, model.id, enabled.checked), { form: true, head: true, routing: true });
     });
@@ -1620,7 +1661,11 @@ export function createEngineFormController(deps: EngineFormDeps): EngineFormCont
       if (testing.has(id)) {return 'test';}
       return fetches.get(id)?.running ? 'discover' : undefined;
     },
+    requirePick(id) {
+      pickRequired.add(id);
+    },
     forget(id) {
+      pickRequired.delete(id);
       const st = fetches.get(id);
       if (st) {
         window.clearTimeout(st.timer);

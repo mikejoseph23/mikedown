@@ -634,6 +634,37 @@ describe('AI tab order and naming (U3, U8)', () => {
     expect(star.title).toBe('Use this engine by default');
     expect(document.querySelector('[data-fk="eng:lms:fetch"]')?.textContent).toBe('Refresh models');
   });
+
+  it('Q2: Enable AI features ticked on the tab, then engines saved on the page, saves ai.enabled with them', () => {
+    const saveSettings = vi.fn();
+    class Host extends NoopHost { ai = tier2(); saveSettings = saveSettings; }
+    const handle = mount(new Host(), { ...settings(), enabled: false });
+    handle.command('openAiSettings');
+    click(byText('.settings-label', 'Enable AI features'));
+    click(document.querySelector('[data-fk="manage-engines"]'));
+    click(document.querySelector('[data-fk="nav:eng:lms"]'));
+    click(document.querySelector('[data-fk="eng:lms:star"]'));
+    click(document.querySelector('[data-fk="page:done"]'));
+    const patch = saveSettings.mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(patch['ai.enabled']).toBe(true);
+    expect(patch).toHaveProperty('ai.routing');
+    // The tab stays ticked, and saving it again sends no second ai.enabled.
+    expect(document.querySelector<HTMLInputElement>('[data-fk="ai-enabled"]')?.checked).toBe(true);
+    click(byText('.settings-btn--primary', 'Save to Settings'));
+    expect(saveSettings.mock.calls.at(-1)![0]).not.toHaveProperty('ai.enabled');
+  });
+
+  it('Q2: a page opened from the tab without a pending enable does not turn AI on', () => {
+    const saveSettings = vi.fn();
+    class Host extends NoopHost { ai = tier2(); saveSettings = saveSettings; }
+    const handle = mount(new Host(), { ...settings(), enabled: false });
+    handle.command('openAiSettings');
+    click(document.querySelector('[data-fk="manage-engines"]'));
+    click(document.querySelector('[data-fk="nav:eng:lms"]'));
+    click(document.querySelector('[data-fk="eng:lms:star"]'));
+    click(document.querySelector('[data-fk="page:done"]'));
+    expect(saveSettings.mock.calls.at(-1)![0]).not.toHaveProperty('ai.enabled');
+  });
 });
 
 describe('Local networks field on the AI tab', () => {

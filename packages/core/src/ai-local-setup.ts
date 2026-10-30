@@ -145,6 +145,9 @@ export function canScanForSetup(ai: MikeDownAiHost): boolean {
   return !!(ai.detectLocalServers || ai.hardwareInfo || ai.detectHostEngines);
 }
 
+/** The answers `setupHardware` already has, so a view built later reads them at once. */
+const hardwareKnown = new WeakMap<MikeDownAiHost, AiHardwareInfo>();
+
 /** This machine's hardware, asked once per host (it does not change); null when the host cannot tell. */
 export function setupHardware(ai: MikeDownAiHost): Promise<AiHardwareInfo | null> {
   let info = hardwareByHost.get(ai);
@@ -152,9 +155,22 @@ export function setupHardware(ai: MikeDownAiHost): Promise<AiHardwareInfo | null
     info = ai.hardwareInfo
       ? ai.hardwareInfo().then((h) => (h && typeof h === 'object' ? h : null), () => null)
       : Promise.resolve(null);
+    info = info.then((h) => {
+      if (h) {hardwareKnown.set(ai, h);}
+      return h;
+    });
     hardwareByHost.set(ai, info);
   }
   return info;
+}
+
+/**
+ * The hardware `setupHardware` already answered with, or null before it has
+ * (or when the host cannot tell). Synchronous, so the models picker of a form
+ * opened later groups by size on its first render, like the first open (Q5).
+ */
+export function knownHardware(ai: MikeDownAiHost): AiHardwareInfo | null {
+  return hardwareKnown.get(ai) ?? null;
 }
 
 /** Whether VS Code offers a Copilot model; null on a host without the method, or when it did not answer in time. */

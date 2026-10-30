@@ -178,12 +178,15 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   enginesRow.append(enginesBody);
 
   function openPage(initial?: AiEnginesPageRequest['initial']): void {
+    // "Enable AI features" ticked but not saved yet: the page saves it with the engines (Q2).
+    const pendingEnable = session.draft.enabled && !session.original.enabled;
     opts.openEnginesPage?.({
       initial,
-      session: session.fork(),
+      session: { ...session.fork(), pendingEnable },
       onDone: (patch, saved) => {
         session.absorb(saved, patch);
         cloudField.input.checked = session.draft.allowCloud;
+        masterField.input.checked = session.draft.enabled;
         renderEngines();
         if (Object.keys(patch).length > 0) {announce('Engines and tasks saved.');}
       },

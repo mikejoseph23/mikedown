@@ -390,3 +390,32 @@ describe('discoveryProblem', () => {
     expect(discoveryProblem({ ...base, ok: false, message: 'HTTP 500: boom' })).toMatchObject({ kind: 'other', retry: true });
   });
 });
+
+describe('Done needs a picked chat model, and only chat models are defaults (Q1)', () => {
+  const chatCaps = { chat: true, stream: true, vision: false, json: true, tools: true, fim: false, embed: false, contextTokens: null };
+  const row = (id: string, enabled: boolean, over: Partial<typeof chatCaps> = {}) => ({ id, enabled, capabilities: { ...chatCaps, ...over }, capabilitiesSource: 'endpoint' as const });
+  const engine = (models: ReturnType<typeof row>[], enabled = true) => ({ id: 'lms', name: 'LM Studio', kind: 'lmstudio', baseUrl: 'http://127.0.0.1:1234/v1', enabled, models }) as unknown as AiEngineConfig;
+
+  it('engineNeedsModelPick: chat models listed and none picked; not for an empty or disabled engine', async () => {
+    const { engineNeedsModelPick, firstEngineNeedingPick } = await import('../src/ai-settings-model');
+    expect(engineNeedsModelPick(engine([row('gemma', false), row('qwen', false)]))).toBe(true);
+    expect(engineNeedsModelPick(engine([row('gemma', true), row('qwen', false)]))).toBe(false);
+    expect(engineNeedsModelPick(engine([]))).toBe(false);
+    expect(engineNeedsModelPick(engine([row('gemma', false)], false))).toBe(false);
+    // Only an embeddings model picked: still nothing to answer with.
+    expect(engineNeedsModelPick(engine([row('gemma', false), row('nomic-embed', true, { chat: false, embed: true })]))).toBe(true);
+    // A drafter is not a chat model, so it does not count as something to pick.
+    expect(engineNeedsModelPick(engine([row('qwen-mtp', false, { chat: false })]))).toBe(false);
+    const ok = engine([row('gemma', true)]);
+    const bad = { ...engine([row('qwen', false)]), id: 'omlx' } as AiEngineConfig;
+    expect(firstEngineNeedingPick({ engines: [ok, bad] })?.id).toBe('omlx');
+    expect(firstEngineNeedingPick({ engines: [ok] })).toBeNull();
+  });
+
+  it('setEngineDefaultModel ignores a model that cannot chat', async () => {
+    const { setEngineDefaultModel } = await import('../src/ai-settings-model');
+    const s = { engines: [engine([row('gemma', true), row('qwen-mtp', false, { chat: false })])], routing: { default: null, fallback: 'none', tasks: {} } } as unknown as AiSettings;
+    expect(setEngineDefaultModel(s, 'lms', 'qwen-mtp')).toBe(s);
+    expect(setEngineDefaultModel(s, 'lms', 'gemma').routing.default).toEqual({ engineId: 'lms', modelId: 'gemma' });
+  });
+});

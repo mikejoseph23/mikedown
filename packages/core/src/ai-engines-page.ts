@@ -46,7 +46,7 @@
  */
 
 import { AI_ENGINE_PRESETS, AI_HOST_PRESET_FAMILY, AI_PRESET_FAMILIES, aiProviderPolicy, modelSizeHint, presetForEngine } from './ai';
-import { AI_DETECT_LOOKING, AI_DETECT_NONE, detectLocalServers, hostEngineAvailability, setupHardware } from './ai-local-setup';
+import { AI_DETECT_LOOKING, AI_DETECT_NONE, detectLocalServers, hostEngineAvailability, knownHardware, setupHardware } from './ai-local-setup';
 import type { AiEngineConfig, AiEnginePreset, AiEngineStatus, AiHardwareInfo, AiLocalServerProbe, AiPresetFamilyInfo, AiRoute, AiSettings, AiSettingsPatch } from './ai';
 import {
   defaultRouteForEngine,
@@ -56,6 +56,7 @@ import {
   engineIssues,
   engineKindLabel,
   groupPresets,
+  firstEngineNeedingPick,
   hasUsableDefaultRoute,
   rankLocalCandidates,
   routeLabel,
@@ -112,8 +113,8 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   const getEngine = (id: string) => session.getEngine(id);
   /** The setup wizard while it shows; the list and detail wait underneath, unrendered. */
   let wizard: SetupWizard | null = null;
-  /** This machine, once the host said (the models picker's size groups). */
-  let hardware: AiHardwareInfo | null = null;
+  /** This machine, once the host said (the models picker's size groups). Known at once when asked before (Q5). */
+  let hardware: AiHardwareInfo | null = knownHardware(ai);
 
   let selection: Selection = initialSelection();
   let narrow = false;
@@ -509,15 +510,26 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     if (engine.models.length > 0) {subParts.push(picked === models ? `${models} ${models === 1 ? 'model' : 'models'}` : `${picked} of ${models} models`);}
     main.append(titleLine, el('div', 'ai-detail-sub', subParts.join(' · ')));
 
+    // The default engine shows a label, not a switch (Q3): the default moves by choosing another engine.
     const isDefault = session.draft.routing.default?.engineId === engine.id;
-    const star = button(`settings-btn ai-default-btn${isDefault ? ' is-on' : ''}`, isDefault ? 'Default' : 'Use by default', {
-      html: isDefault ? ICONS.starOn : ICONS.starOff,
-      title: isDefault ? `Default: ${routeLabel(session.draft, session.draft.routing.default as AiRoute)}` : 'Use this engine by default',
-      fk: `eng:${engine.id}:star`,
-    });
-    star.setAttribute('aria-pressed', String(isDefault));
-    star.setAttribute('aria-label', `Default engine: ${name}`);
-    star.addEventListener('click', () => toggleDefault(engine.id));
+    let star: HTMLElement;
+    if (isDefault) {
+      star = el('span', 'ai-default-badge');
+      star.innerHTML = ICONS.starOn;
+      star.append(el('span', 'ai-btn-text', 'Default'));
+      star.title = `Default: ${routeLabel(session.draft, session.draft.routing.default as AiRoute)}. To change it, choose Use by default on another engine, or pick the default model under Tasks.`;
+      star.setAttribute('aria-label', `${name} is the default engine`);
+      star.dataset.fk = `eng:${engine.id}:star`;
+      // Focus can land here after "Use by default" turns into the label.
+      star.tabIndex = -1;
+    } else {
+      star = button('settings-btn ai-default-btn', 'Use by default', {
+        html: ICONS.starOff,
+        title: 'Use this engine by default',
+        fk: `eng:${engine.id}:star`,
+      });
+      star.addEventListener('click', () => makeDefault(engine.id));
+    }
 
     const del = button('ai-icon-btn ai-delete-btn', '', { html: ICONS.trash, ariaLabel: `Delete ${name}`, title: 'Delete engine', fk: `eng:${engine.id}:delete` });
     del.addEventListener('click', () => {
@@ -854,29 +866,28 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     focusKey(next ? `nav:eng:${next.id}` : 'nav:add');
   }
 
-  function toggleDefault(engineId: string): void {
+  /** "Use by default": this engine's default model becomes the default route. Already the default: nothing changes. */
+  function makeDefault(engineId: string): void {
     const engine = getEngine(engineId);
     if (!engine) {return;}
     const name = engineDisplayName(engine);
     const draft = session.draft;
-    if (draft.routing.default?.engineId === engineId) {
-      session.draft = { ...draft, routing: { ...draft.routing, default: null } };
-      announce(`${name} is no longer the default.`);
-    } else {
-      const route = defaultRouteForEngine(draft, session.statusList(), engineId);
-      if (!route) {
-        headNotes.set(engineId, { level: 'info', text: 'No model here can be the default yet. Pick or add a chat model first.' });
-        announce(`${name} has no chat model to make the default yet.`);
-        renderDetailHead();
-        return;
-      }
-      session.draft = { ...draft, routing: { ...draft.routing, default: route } };
-      announce(`Default model: ${routeLabel(session.draft, route)}.`);
+    if (draft.routing.default?.engineId === engineId) {return;}
+    const route = defaultRouteForEngine(draft, session.statusList(), engineId);
+    if (!route) {
+      headNotes.set(engineId, { level: 'info', text: 'No model here can be the default yet. Pick or add a chat model first.' });
+      announce(`${name} has no chat model to make the default yet.`);
+      renderDetailHead();
+      return;
     }
+    session.draft = { ...draft, routing: { ...draft.routing, default: route } };
+    announce(`Default model: ${routeLabel(session.draft, route)}.`);
     headNotes.delete(engineId);
     renderNav();
     renderDetailHead();
     rerenderForm(engineId);
+    // The button became the Default label: keep focus there, not on the page.
+    focusKey(`eng:${engineId}:star`);
   }
 
   // ── Back, Done and the discard confirmation ───────────────────────────────
@@ -917,6 +928,12 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
 
   function done(): void {
     if (finished) {return;}
+    // An engine with chat models listed and none picked has no default model: stop there (Q1).
+    const unpicked = firstEngineNeedingPick(session.draft);
+    if (unpicked) {
+      requirePick(unpicked.id);
+      return;
+    }
     finished = true;
     const patch = session.collect();
     const saved = session.commit();
@@ -926,6 +943,28 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       saved.enabled = true;
     }
     opts.onDone(patch, saved);
+  }
+
+  /** Open the engine's form with the "Pick at least one model" error and focus its models list. */
+  function requirePick(engineId: string): void {
+    const engine = getEngine(engineId);
+    if (!engine) {return;}
+    form.requirePick(engineId);
+    if (wizard) {
+      leaveWizardFor(engineId);
+    } else if (selection.kind !== 'engine' || selection.id !== engineId) {
+      selection = { kind: 'engine', id: engineId };
+      view = 'detail';
+      applyLayout();
+      renderNav();
+      renderDetail();
+    } else {
+      rerenderForm(engineId);
+    }
+    announce(`Pick at least one model for ${engineDisplayName(engine)} before you choose Done.`);
+    const target = Array.from(root.querySelectorAll<HTMLElement>('[data-fk]'))
+      .find((n) => n.dataset.fk === `eng:${engineId}:pick` || n.dataset.fk === `eng:${engineId}:models`);
+    target?.focus({ preventScroll: false });
   }
 
   function showDiscard(): void {
@@ -1099,8 +1138,14 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     renderDetail();
     if (selection.kind === 'engine') {form.opened(selection.id);}
   }
-  if (ai.hardwareInfo) {
-    void setupHardware(ai).then((info) => { hardware = info; });
+  if (ai.hardwareInfo && !hardware) {
+    // The first answer arrives after the form rendered: render it again so it groups and tags by size, as on a later open (Q5).
+    void setupHardware(ai).then((info) => {
+      if (finished || !info) {return;}
+      hardware = info;
+      const formEngine = wizard ? wizard.engineId() : selectedEngineId();
+      if (formEngine) {rerenderForm(formEngine);}
+    });
   }
 
   // Fresh statuses as the page opens: the dots should not be stale.

@@ -823,6 +823,10 @@ export interface ModelPickerOption {
   loaded: boolean;
   missing: boolean;
   manual: boolean;
+  /** Can chat: only these can be the default model or the setup choice. */
+  chat: boolean;
+  /** Can be picked at all: a chat or an embeddings model. A converter or a speculative-decoding drafter (`chat: false`, no `embed`) is shown greyed out. */
+  usable: boolean;
 }
 
 /**
@@ -842,6 +846,8 @@ export function modelPickerOptions(engine: AiEngineConfig, status: AiEngineStatu
       loaded: loaded.get(m.id) ?? false,
       missing: !!(m.missing || status?.models.find((s) => s.id === m.id)?.missing),
       manual: !!m.manual,
+      chat: !!m.capabilities.chat,
+      usable: !!(m.capabilities.chat || m.capabilities.embed),
       index,
     }))
     .filter((o) => !needle || o.id.toLowerCase().includes(needle) || o.name.toLowerCase().includes(needle));
@@ -986,7 +992,8 @@ export function engineDefaultModelId(settings: AiSettings, engineId: string): st
 export function setEngineDefaultModel(settings: AiSettings, engineId: string, modelId: string): AiSettings {
   const engine = settings.engines.find((e) => e.id === engineId);
   const model = engine?.models.find((m) => m.id === modelId);
-  if (!engine || !model) {return settings;}
+  // Only a chat model can be a default (not embeddings, a converter or an MTP drafter).
+  if (!engine || !model || !model.capabilities.chat) {return settings;}
   const models = [{ ...model, enabled: true }, ...engine.models.filter((m) => m.id !== modelId)];
   const next = withEngine(settings, { ...engine, models });
   const def = settings.routing.default;
@@ -994,6 +1001,23 @@ export function setEngineDefaultModel(settings: AiSettings, engineId: string, mo
     return { ...next, routing: { ...next.routing, default: { ...(def ?? {}), engineId, modelId } } };
   }
   return next;
+}
+
+/**
+ * An engine that cannot be saved yet: enabled, it lists chat models, but none
+ * is picked, so it has no default model (Q1). An engine with no models listed
+ * (a server that is off, a cloud engine without a key) is not held back: there
+ * is nothing to pick yet.
+ */
+export function engineNeedsModelPick(engine: AiEngineConfig): boolean {
+  if (!engine.enabled) {return false;}
+  const chat = engine.models.filter((m) => !m.missing && m.capabilities.chat);
+  return chat.length > 0 && !chat.some((m) => m.enabled);
+}
+
+/** The first engine Done must stop at (`engineNeedsModelPick`), or null. */
+export function firstEngineNeedingPick(settings: Pick<AiSettings, 'engines'>): AiEngineConfig | null {
+  return settings.engines.find(engineNeedsModelPick) ?? null;
 }
 
 /**

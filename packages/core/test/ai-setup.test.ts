@@ -348,3 +348,17 @@ describe('links and wording (T1)', () => {
     for (const p of AI_ENGINE_PRESETS) {expect(`${p.caption} ${p.keyHint}`, p.id).not.toMatch(promises);}
   });
 });
+
+describe('modelMoeFastHint (Q5)', () => {
+  it('hints MoE speed only when the model fits this machine', async () => {
+    const { modelMoeFastHint } = await import('../src/ai');
+    expect(modelMoeFastHint('Qwen3.6-35B-A3B-Q8_0', undefined, 'fits')).toEqual({ activeBillions: 3 });
+    expect(modelMoeFastHint('minimax-m3', true, 'fits')).toEqual({ activeBillions: null });
+    // A 409 GB MoE on a 512 GB Mac is tight: not fast there. Too large or unknown fit: no hint either.
+    expect(modelMoeFastHint('GLM-5.3-4bit', true, 'tight')).toBeNull();
+    expect(modelMoeFastHint('GLM-5.3-4bit', true, 'too large')).toBeNull();
+    expect(modelMoeFastHint('Qwen3.6-35B-A3B', undefined, undefined)).toBeNull();
+    // Not a mixture of experts: never.
+    expect(modelMoeFastHint('qwen3.8-27b', undefined, 'fits')).toBeNull();
+  });
+});

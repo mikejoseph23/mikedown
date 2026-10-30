@@ -675,11 +675,39 @@ describe('OPEN-12: enabled state after a fetch', () => {
     const m = mountPage([omlx], { discover: async (id) => listing(id, ['glm-5.3', 'gemma', 'llama']) });
     click(q(m.c, 'eng:omlx:fetch'));
     await settle(0);
-    expect(enabledIds(saved(m), 'omlx')).toEqual([]);
+    expect(m.c.querySelectorAll('.ai-option.is-on')).toHaveLength(0);
     expect(m.c.querySelector('.ai-pick-note')?.textContent).toBe('Pick a model to start with. No chat model is loaded in oMLX, so none was chosen for you.');
     // Picking one clears it.
     click(m.c.querySelector('[data-model-id="gemma"]'));
     expect(m.c.querySelector('.ai-pick-note')).toBeNull();
+  });
+
+  it('Q1: Done with chat models listed and none picked is blocked, says why and focuses the list', async () => {
+    const m = mountPage([omlx], { discover: async (id) => listing(id, ['glm-5.3', 'gemma', 'llama']) });
+    click(q(m.c, 'eng:omlx:fetch'));
+    await settle(0);
+    click(q(m.c, 'page:done'));
+    expect(m.onDone).not.toHaveBeenCalled();
+    const error = m.c.querySelector('.ai-pick-note');
+    expect(error?.getAttribute('role')).toBe('alert');
+    expect(error?.textContent).toContain('Pick at least one model before you choose Done.');
+    expect(document.activeElement?.closest('.ai-picker')).not.toBeNull();
+    // A pick clears the error, and Done saves with that model as the default.
+    click(m.c.querySelector('[data-model-id="gemma"]'));
+    expect(m.c.querySelector('.ai-pick-note')).toBeNull();
+    const result = saved(m);
+    expect(enabledIds(result, 'omlx')).toEqual(['gemma']);
+    expect(result.routing.default).toEqual({ engineId: 'omlx', modelId: 'gemma' });
+  });
+
+  it('Q1: Done stops at another engine with nothing picked and opens it', async () => {
+    const empty = { ...omlx, models: [modelRow('gemma', { enabled: false })] };
+    const m = mountPage([claude, empty], { routing: { default: null } });
+    expect(m.c.querySelector('.ai-nav-item.is-selected')?.getAttribute('data-engine-id')).toBe('claude');
+    click(q(m.c, 'page:done'));
+    expect(m.onDone).not.toHaveBeenCalled();
+    expect(m.c.querySelector('.ai-nav-item.is-selected')?.getAttribute('data-engine-id')).toBe('omlx');
+    expect(m.c.querySelector('.ai-pick-note')?.textContent).toContain('Pick at least one model');
   });
 
   it('local, nothing loaded: rows hint size and MoE speed, and none of it picks a model', async () => {
@@ -695,7 +723,7 @@ describe('OPEN-12: enabled state after a fetch', () => {
     await settle(0);
     click(q(m.c, 'eng:omlx:fetch'));
     await settle(0);
-    expect(enabledIds(saved(m), 'omlx')).toEqual([]);
+    expect(m.c.querySelectorAll('.ai-option.is-on')).toHaveLength(0);
     expect(m.c.querySelector('.ai-pick-note')?.textContent).toContain('the tags give size and speed hints');
     const tags = (id: string) => Array.from(m.c.querySelectorAll(`[data-model-id="${id}"] .ai-tag`)).map((t) => t.textContent);
     expect(tags('Qwen3.6-35B-A3B-Q8_0')).toEqual(['MoE · fast', '35 GB', 'fits']);
@@ -1117,5 +1145,74 @@ describe('discarding an engine added in this session', () => {
     expect(result.engines.map((e) => e.id)).toEqual(['omlx', id]);
     expect(m.ai.setSecret).not.toHaveBeenCalledWith(id, null);
     expect(JSON.stringify(m.onDone.mock.calls)).not.toContain('sk-new');
+  });
+});
+
+describe('the default engine head (Q3)', () => {
+  const lmsModels = { ...lms, models: [modelRow('gemma')] };
+  const omlxModels = { ...omlx, models: [modelRow('qwen')] };
+
+  it('the default engine shows a Default label that is not a button; another engine moves the default', () => {
+    const m = mountPage([omlxModels, lmsModels], { routing: { default: { engineId: 'omlx', modelId: 'qwen' } } });
+    const badge = q(m.c, 'eng:omlx:star')!;
+    expect(badge.tagName).toBe('SPAN');
+    expect(badge.classList.contains('ai-default-badge')).toBe(true);
+    expect(badge.textContent).toBe('Default');
+    expect(badge.getAttribute('aria-label')).toBe('oMLX is the default engine');
+    // Clicking the label changes nothing.
+    click(badge);
+    expect(m.c.querySelector('.ai-detail-head')?.textContent).not.toContain('Use by default');
+    click(q(m.c, 'nav:eng:lms'));
+    const use = q<HTMLButtonElement>(m.c, 'eng:lms:star')!;
+    expect(use.tagName).toBe('BUTTON');
+    expect(use.textContent).toBe('Use by default');
+    click(use);
+    expect(q(m.c, 'eng:lms:star')?.tagName).toBe('SPAN');
+    expect(document.activeElement).toBe(q(m.c, 'eng:lms:star'));
+    expect(saved(m).routing.default).toEqual({ engineId: 'lms', modelId: 'gemma' });
+  });
+
+  it('the first engine to get a model becomes the default and shows the label, never a way to switch it off', async () => {
+    const m = mountPage([lms], { discover: async (id) => ({ ...listing(id, ['gemma']), models: [{ id: 'gemma', capabilities: caps, source: 'endpoint' as const, loaded: true }] }) });
+    click(q(m.c, 'eng:lms:fetch'));
+    await settle(0);
+    expect(q(m.c, 'eng:lms:star')?.classList.contains('ai-default-badge')).toBe(true);
+    expect(m.c.querySelector('.ai-detail-head button.ai-default-btn')).toBeNull();
+  });
+});
+
+describe('local model list on reopen (Q5) and models that cannot chat', () => {
+  const GB = 1024 ** 3;
+  const hardwareInfo = async () => ({ arch: 'arm64', platform: 'darwin', totalMemoryBytes: 512 * GB, appleSilicon: true });
+  const tags = (c: HTMLElement, id: string) => Array.from(c.querySelectorAll(`[data-model-id="${id}"] .ai-tag`)).map((t) => t.textContent);
+  const headings = (c: HTMLElement) => Array.from(c.querySelectorAll('.ai-listbox-heading')).map((h) => h.textContent);
+
+  it('a saved engine opened before the hardware answers still groups by size and tags fits once it does', async () => {
+    const engine = { ...omlx, models: [modelRow('Qwen3.6-35B-A3B-Q8_0'), modelRow('GLM-5.3-4bit', { enabled: false })] };
+    const status = listing('omlx', ['Qwen3.6-35B-A3B-Q8_0', 'GLM-5.3-4bit']);
+    status.models[0].sizeBytes = 35 * GB;
+    status.models[1].sizeBytes = 409 * GB;
+    status.models[1].moe = true;
+    const m = mountPage([engine], { statuses: [status], host: { hardwareInfo }, routing: { default: { engineId: 'omlx', modelId: 'Qwen3.6-35B-A3B-Q8_0' } } });
+    await settle(0);
+    expect(headings(m.c)).toContain('Runs well on this machine');
+    expect(tags(m.c, 'Qwen3.6-35B-A3B-Q8_0')).toEqual(['MoE · fast', '35 GB', 'fits']);
+    // A 409 GB mixture of experts is not fast on this machine: size and fit only.
+    expect(tags(m.c, 'GLM-5.3-4bit')).not.toContain('MoE · fast');
+    expect(tags(m.c, 'GLM-5.3-4bit')).toEqual(['409 GB', 'tight']);
+  });
+
+  it('a model that cannot chat (an MTP drafter, a converter) is greyed out, cannot be picked and is never the default model', () => {
+    const drafter = modelRow('qwen3.8-27b-mtp@8bit', { enabled: false, capabilities: { ...caps, chat: false, stream: false, json: false, tools: false } });
+    const m = mountPage([{ ...lms, models: [modelRow('gemma'), drafter] }], { routing: { default: { engineId: 'lms', modelId: 'gemma' } } });
+    const row = m.c.querySelector('[data-model-id="qwen3.8-27b-mtp@8bit"]')!;
+    expect(row.classList.contains('is-unusable')).toBe(true);
+    expect(row.getAttribute('aria-disabled')).toBe('true');
+    expect(tags(m.c, 'qwen3.8-27b-mtp@8bit')).toContain('not a chat model');
+    click(row);
+    expect(row.isConnected ? row.getAttribute('aria-selected') : m.c.querySelector('[data-model-id="qwen3.8-27b-mtp@8bit"]')?.getAttribute('aria-selected')).toBe('false');
+    const options = Array.from(q<HTMLSelectElement>(m.c, 'eng:lms:default-model')!.options).map((o) => o.value);
+    expect(options).toEqual(['gemma']);
+    expect(enabledIds(saved(m), 'lms')).toEqual(['gemma']);
   });
 });

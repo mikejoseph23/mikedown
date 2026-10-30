@@ -299,6 +299,17 @@ export function modelMoeHint(id: string, moe?: boolean): { activeBillions: numbe
   return active !== null || moe ? { activeBillions: active } : null;
 }
 
+/**
+ * The picker's "MoE · fast" hint: a mixture of experts that also fits this
+ * machine (`fits`). A tight fit (a 409 GB model on a 512 GB Mac) or one too
+ * large runs slowly however few parameters work per token, and an unknown fit
+ * proves nothing, so neither gets the speed hint (Q5).
+ */
+export function modelMoeFastHint(id: string, moe: boolean | undefined, size: AiModelSizeTag | undefined): { activeBillions: number | null } | null {
+  if (size !== 'fits') {return null;}
+  return modelMoeHint(id, moe);
+}
+
 /** One model as `localDefaultModel` weighs it. */
 export interface AiLocalModelChoice {
   id: string;

@@ -38,6 +38,13 @@ export interface AiSettingsSessionOptions {
   onStatuses(statuses: AiEngineStatus[]): void;
   /** Statuses that arrive without the view asking (a host push, a settings refresh). Returns an unsubscribe. */
   subscribeStatuses?(listener: (statuses: AiEngineStatus[]) => void): () => void;
+  /**
+   * A child session opened while the parent's "Enable AI features" is ticked
+   * but not saved: when this session saves anything, it saves
+   * `ai.enabled: true` with it, so finishing on the Engines page keeps the
+   * tick (Q2).
+   */
+  pendingEnable?: boolean;
 }
 
 export interface AiSettingsSession {
@@ -162,7 +169,11 @@ export function createAiSettingsSession(
       if (current) {draft = withEngine(draft, { ...current, ...patch });}
     },
 
-    collect: () => changedAiPatch(original, draft),
+    collect() {
+      const patch = changedAiPatch(original, draft);
+      if (options.pendingEnable && draft.enabled && Object.keys(patch).length > 0) {patch['ai.enabled'] = true;}
+      return patch;
+    },
 
     dirty() {
       if (Object.keys(changedAiPatch(original, draft)).length > 0) {return true;}
