@@ -56,6 +56,8 @@ export default defineConfig({
         'developers-vue': page('developers/vue'),
         'developers-angular': page('developers/angular'),
         compare: page('compare'),
+        blog: page('blog'),
+        'blog-local-ai': page('blog/local-ai'),
       },
     },
   },

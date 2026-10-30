@@ -247,7 +247,7 @@ content_types = '''<?xml version="1.0" encoding="utf-8"?>
 </Types>
 '''
 if site:
-    # Site payload has subfolders (vscode/, developers/, compare/, site-assets/). Entry
+    # Site payload has subfolders (vscode/, developers/, compare/, blog/, site-assets/). Entry
     # names are '/'-separated paths from the folder root. Every extension in a
     # package needs a content type (OPC); unknown ones fall back to octet-stream.
     names = []

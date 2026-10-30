@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/mikedown/favicon.ico" sizes="16x16 32x32">
+  <link rel="icon" type="image/png" sizes="32x32" href="/mikedown/favicon-32.png">
+  <link rel="apple-touch-icon" href="/mikedown/apple-touch-icon.png">
+  <title>Your own computer can run AI</title>
+  <meta name="description" content="The laptop you already own can probably run a capable language model, privately and offline, with no per-use bill. What that takes, the honest trade-offs, and how MikeDown finds a local server and sets it up in one click.">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MikeDown">
+  <meta property="og:title" content="Your own computer can run AI">
+  <meta property="og:description" content="A capable language model on the laptop you already own: private, offline, no meter. What it takes, the trade-offs, and how MikeDown finds it.">
+  <meta property="og:url" content="https://www.iadev.net/mikedown/blog/local-ai/">
+  <meta property="article:published_time" content="2026-10-30">
+  <link rel="canonical" href="https://www.iadev.net/mikedown/blog/local-ai/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/shell.css">
+  <link rel="stylesheet" href="/shared/page.css">
+  <link rel="stylesheet" href="/blog/blog.css">
+</head>
+<body>
+  <!--shell:header page="blog"-->
+
+  <main id="main">
+    <div class="site-container">
+      <article class="post">
+        <a class="post__crumb" href="/mikedown/blog/">Blog</a>
+        <h1>Your own computer can run AI</h1>
+        <p class="post__meta">Mike Joseph, <time datetime="2026-10-30">October 30, 2026</time></p>
+        <p class="post__lede">Most people I talk to assume AI means a subscription: you open a chat window in a browser, you type, and somewhere a data center does the work. That is one way to do it. It is not the only way, and for a writing tool it is often not the best way.</p>
+
+        <div class="post__body">
+          <p>Here is the part that surprises people. The laptop you already own can probably run a capable language model, by itself, with nothing leaving the machine. I have been using one that way in MikeDown for months, and this post is the explanation I keep giving in person.</p>
+
+          <h2 id="what-changed">What changed</h2>
+          <p>Two things happened at once over the last couple of years. Open models got good. A model you can download for free can now rewrite a paragraph, summarize a page or translate a note well enough that you would not reach for the cloud version. And the hardware caught up. An Apple silicon Mac shares one pool of memory between the processor and the graphics cores, so a MacBook with 16 GB or more can load a model that a few years ago needed a dedicated card. On the PC side, a recent NVIDIA card with 8 GB of video memory or more does the same job, and a machine with 32 GB of plain RAM can run a model on the processor alone (slower, but it works).</p>
+          <p>Those three thresholds are not my opinion. They are the numbers MikeDown's setup wizard checks to decide whether to show local models as an option on your machine.</p>
+
+          <h2 id="why">Why I bother</h2>
+          <p>Three reasons, in the order I care about them.</p>
+          <p><strong>Private.</strong> The text you select never leaves your computer. There is no terms of service to read, no wondering whether your draft becomes somebody's training data, no retention policy to think about. For journals, client work, and anything under an NDA, that settles it.</p>
+          <p><strong>Offline.</strong> On a plane, in a cabin, on a train through a tunnel, it works the same.</p>
+          <p><strong>No meter.</strong> There is no per-use bill. Once the model is downloaded, a thousand rewrites cost the same as one: a little electricity.</p>
+
+          <h2 id="trade-offs">The honest trade-offs</h2>
+          <p>The big cloud models are still stronger. If you want long chains of reasoning, deep research or serious code generation, a frontier model from Anthropic or OpenAI will beat anything that fits on a laptop. For the things a writing tool asks for (a shorter version of this paragraph, a title for this note, a translation, a summary) a local model is usually plenty.</p>
+          <p>Local is also slower on modest hardware. A model running on the processor with no GPU help will make you wait. The same model on an Apple silicon Mac or an NVIDIA card feels quick. And a model that does not fit in memory is not slow, it is painful, which brings up the question everyone asks.</p>
+
+          <h2 id="how-big">How big a model can I run?</h2>
+          <p>Rough guidance, the same bands the wizard uses. The figures assume a 4-bit quantized model, which is the common download size, and they are hints, not gates: you can try any model you like.</p>
+          <dl class="bands">
+            <div><dt>Under 24 GB</dt><dd>Models up to about 8B parameters run well.</dd></div>
+            <div><dt>24 to 48 GB</dt><dd>Models up to about 30B parameters run well.</dd></div>
+            <div><dt>Above 48 GB</dt><dd>Larger models work, well beyond 30B parameters.</dd></div>
+          </dl>
+          <p>Memory here means the memory the model actually runs in: all of it on an Apple silicon Mac, the card's video memory on a PC with an NVIDIA GPU, and system RAM otherwise. A 16 GB MacBook Air lands in the first band. A 36 GB MacBook Pro is in the second, and that is a sweet spot: a 30B class model is a noticeable step up from 8B.</p>
+          <p>One more tip. Some newer models are a mixture of experts: a large model where only a few billion parameters do the work for each word, so it runs far faster than its size suggests. MikeDown's model picker tags these <strong>MoE · fast</strong> when they also fit your machine. If you see one, try it first.</p>
+
+          <h2 id="getting-started">Getting started</h2>
+          <p>You need a program that runs the model and listens on a local port. Three good ones:</p>
+          <ul>
+            <li><strong><a href="https://lmstudio.ai/download">LM Studio</a></strong> (Mac, Windows, Linux). A desktop app with a model browser. Download a model, start its local server, done.</li>
+            <li><strong><a href="https://ollama.com/download">Ollama</a></strong> (Mac, Windows, Linux). Command line. Pull a model and it is already serving.</li>
+            <li><strong><a href="https://omlx.ai">oMLX</a></strong> (Mac). Built on Apple's MLX framework, so it is the fast path on Apple silicon.</li>
+          </ul>
+          <p>MikeDown also knows about the llama.cpp server and vLLM, and anything else that speaks the OpenAI API can be added by hand.</p>
+
+          <h2 id="mikedown-finds-it">Then MikeDown finds it</h2>
+          <p>AI in MikeDown is experimental and off by default. Nothing is sent anywhere, and nothing runs in the background, until you press the AI button in the toolbar and ask to set it up. When you do, MikeDown checks the local addresses those servers use (LM Studio on port 1234, Ollama on 11434, oMLX on 8000, and so on). If one answers and has a model loaded, it is offered first: one click adds the engine, picks the loaded model and turns AI on. If nothing answers, you get one line:</p>
+          <blockquote><p>No local AI server found. Start LM Studio, Ollama or oMLX, then choose Look again.</p></blockquote>
+          <p>The wizard also reads your hardware and tells you where you stand, in one sentence:</p>
+          <blockquote><p>Local is an option on this machine: Apple Silicon, 32 GB. Models up to about 30B parameters run well.</p></blockquote>
+          <p>On a smaller machine it says so and suggests cloud as the easier path. In the VS Code extension the graphics card is not checked, so the hint comes from memory alone, and it tells you that too.</p>
+
+          <figure class="shot">
+            <span class="shot__frame"><img src="./screenshot-ai-engines.png" width="2000" height="1250" loading="lazy" decoding="async" alt="The AI Engines page, marked Experimental: a local engine in the list on the left, and cards for local servers found on this machine, one of them Running, above the cloud providers, which stay off until cloud engines are allowed."></span>
+            <figcaption>The Engines page in MikeDown Desktop. A local server it found is marked Running; the cloud providers stay off until you allow them.</figcaption>
+          </figure>
+          <figure class="shot">
+            <span class="shot__frame"><img src="./screenshot-ai-rewrite.png" width="2000" height="1250" loading="lazy" decoding="async" alt="A paragraph of the roadmap selected, with the Rewrite popover below it showing a shorter version from a local model, and Accept, Retry and Copy buttons."></span>
+            <figcaption>Rewrite a selection, shorter, from a model on this Mac. Every AI edit is one undo step.</figcaption>
+          </figure>
+
+          <h2 id="cloud">If you do want the cloud</h2>
+          <p>You can. MikeDown works with Anthropic, OpenAI and other providers once you turn on cloud engines, and the first request in each folder asks you first and says what it will send. Two things to know. It uses an API key, which the provider bills per use; a ChatGPT Plus or Claude Pro subscription does not include API access, so that is a separate account with the provider. And the key goes in your system keychain (SecretStorage in VS Code), never in a settings file.</p>
+          <p>In VS Code there is a third option. If you have GitHub Copilot, MikeDown can use the models VS Code already offers through it, with no key to paste. Text then goes to GitHub's Copilot service, and the wizard says so.</p>
+
+          <h2 id="try-it">Try it</h2>
+          <p>MikeDown Desktop is free for macOS and Windows, with a Linux preview, and the VS Code extension is on the Marketplace. The <a href="/mikedown/#ai">AI section of the Desktop page</a> has more on what is and is not sent, and the <a href="/mikedown/compare/">compare page</a> shows which features are in which product. Start a local server, open a note, select a paragraph, and ask for it shorter. The answer comes from your own machine.</p>
+
+          <div class="post__next">
+            <a class="btn btn--primary" href="/mikedown/#ai">AI in MikeDown Desktop</a>
+            <a class="btn btn--secondary" href="/mikedown/compare/">Compare the products</a>
+          </div>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <!--shell:footer-->
+</body>
+</html>

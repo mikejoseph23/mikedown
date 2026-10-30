@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/mikedown/favicon.ico" sizes="16x16 32x32">
+  <link rel="icon" type="image/png" sizes="32x32" href="/mikedown/favicon-32.png">
+  <link rel="apple-touch-icon" href="/mikedown/apple-touch-icon.png">
+  <title>MikeDown blog</title>
+  <meta name="description" content="Notes from building MikeDown: a free WYSIWYG markdown editor for the desktop, VS Code and your own web app.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MikeDown">
+  <meta property="og:title" content="MikeDown blog">
+  <meta property="og:description" content="Notes from building MikeDown, a free WYSIWYG markdown editor.">
+  <meta property="og:url" content="https://www.iadev.net/mikedown/blog/">
+  <link rel="canonical" href="https://www.iadev.net/mikedown/blog/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/shell.css">
+  <link rel="stylesheet" href="/shared/page.css">
+  <link rel="stylesheet" href="/blog/blog.css">
+</head>
+<body>
+  <!--shell:header page="blog"-->
+
+  <main id="main">
+    <section class="blog-hero">
+      <div class="site-container">
+        <h1>Blog</h1>
+        <p class="blog-hero__lede">Notes from building MikeDown: what changed, what I learned, and the odd detour.</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="posts-title">
+      <div class="site-container">
+        <h2 class="visually-hidden" id="posts-title">Posts</h2>
+        <ol class="posts" reversed>
+          <li class="post-card" data-post="local-ai">
+            <time datetime="2026-10-30">October 30, 2026</time>
+            <h2><a href="/mikedown/blog/local-ai/">Your own computer can run AI</a></h2>
+            <p>Most people assume AI means a cloud subscription. The laptop you already own can probably run a capable model by itself, with nothing leaving the machine. What that takes, where it falls short, and how MikeDown finds it.</p>
+            <a class="post-card__more" href="/mikedown/blog/local-ai/">Read the post</a>
+          </li>
+        </ol>
+      </div>
+    </section>
+  </main>
+
+  <!--shell:footer-->
+</body>
+</html>

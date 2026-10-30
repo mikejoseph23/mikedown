@@ -248,7 +248,7 @@ packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n 1              # 
 
 `--site` reads the published desktop version from `latest.json` (or take
 `--desktop-version`), re-renders `website/mikedown-desktop/index.html` for it and
-packs only `vscode/`, `developers/`, `compare/`, `site-assets/`, that `index.html` and its
+packs only `vscode/`, `developers/`, `compare/`, `blog/`, `site-assets/`, that `index.html` and its
 screenshots. The pack fails if the package holds `latest*.json`, any artifact,
 `SHA256SUMS.txt` or a `web.config`. Use a new `N` each time (a repeated version
 is a Conflict). After the deploy, `verify-site.js` fetches every file and

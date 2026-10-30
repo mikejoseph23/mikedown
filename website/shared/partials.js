@@ -5,7 +5,7 @@
 // link the stylesheet; shared/vite-plugin.js fills the markers at dev and build.
 //
 //   <link rel="stylesheet" href="/shared/shell.css">
-//   <!--shell:header page="vscode"-->      page: desktop | vscode | developers | compare
+//   <!--shell:header page="vscode"-->      page: desktop | vscode | developers | compare | blog
 //   <main id="main">...</main>
 //   <!--shell:footer-->
 //
@@ -27,7 +27,7 @@ const PAGES = [
   { id: 'developers', label: 'Developers', href: `${SITE_BASE}developers/` },
 ];
 // Pages that use the shell but have no main-nav entry (linked from the footer).
-const UNLISTED = ['compare'];
+const UNLISTED = ['compare', 'blog'];
 
 // The MikeDown mark (the extension icon's M and down arrow), drawn in currentColor.
 const MARK = '<svg width="24" height="24" viewBox="0 0 128 128" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,86 20,30 64,66 108,30 108,86" stroke-width="13"/><polyline points="49,99 64,114 79,99" stroke-width="10"/></g></svg>';
@@ -59,6 +59,7 @@ export function renderFooter() {
         <a href="${SITE_BASE}vscode/">MikeDown for VS Code</a>
         <a href="${SITE_BASE}developers/">For developers</a>
         <a href="${SITE_BASE}compare/">Compare</a>
+        <a href="${SITE_BASE}blog/">Blog</a>
         <a href="${GITHUB_URL}">Source on GitHub</a>
         <a href="${SITE_BASE}#privacy">Privacy</a>
       </nav>

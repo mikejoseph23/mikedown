@@ -16,6 +16,7 @@ const good = () => ({
   'developers/angular/index.html': b(),
   'developers/angular/main-ABC.js': b(),
   'compare/index.html': b(),
+  'blog/index.html': b(),
   'site-assets/pic.jpg': b(),
 });
 
@@ -54,6 +55,15 @@ describe('checkSitePackage', () => {
     expect(checkSitePackage({ files }).problems).toEqual([]);
     delete files['compare/index.html'];
     expect(checkSitePackage({ files }).problems).toEqual(['compare/index.html is missing']);
+  });
+
+  it('accepts the blog folder with its posts and requires its index', () => {
+    const files = good();
+    files['blog/blog.css'] = b();
+    files['blog/local-ai/index.html'] = b();
+    expect(checkSitePackage({ files }).problems).toEqual([]);
+    delete files['blog/index.html'];
+    expect(checkSitePackage({ files }).problems).toEqual(['blog/index.html is missing']);
   });
 
   it('still rejects a stray top-level folder next to compare/', () => {

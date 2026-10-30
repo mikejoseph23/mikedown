@@ -1,0 +1,80 @@
+/*
+ * The blog (blog/index.html and every blog/<post>/index.html). Load after
+ * shell.css and page.css. Only the shell tokens, so both themes follow the shell.
+ *
+ * One column, 680 px of measure, the same at 360 px with the shell's 16 px gutter.
+ */
+
+/* The blog index */
+.blog-hero { padding: 72px 0 32px; }
+.blog-hero h1 { font-size: clamp(2.2rem, 6vw, 3.2rem); margin-bottom: 12px; }
+.blog-hero__lede { color: var(--muted); font-size: clamp(1rem, 2.4vw, 1.15rem); max-width: 620px; }
+
+.posts { list-style: none; display: grid; gap: 16px; max-width: 720px; padding-bottom: 72px; }
+.post-card {
+  padding: 22px 24px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg-raised);
+}
+.post-card time { display: block; color: var(--muted); font-size: 13.5px; margin-bottom: 6px; }
+.post-card h2 { font-size: 1.3rem; line-height: 1.3; margin-bottom: 8px; }
+.post-card h2 a { color: var(--text-strong); text-decoration: none; }
+.post-card h2 a:hover { color: var(--accent); }
+.post-card p { color: var(--muted); font-size: 15.5px; line-height: 1.6; }
+.post-card__more { display: inline-block; margin-top: 10px; font-weight: 600; font-size: 15px; text-decoration: none; }
+.post-card__more:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* A post */
+.post { max-width: 680px; padding: 56px 0 72px; }
+.post__crumb { display: inline-block; color: var(--muted); font-size: 14px; text-decoration: none; margin-bottom: 20px; }
+.post__crumb:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.post h1 { font-size: clamp(2rem, 5.5vw, 2.8rem); margin-bottom: 14px; }
+.post__meta { color: var(--muted); font-size: 14.5px; margin-bottom: 36px; }
+.post__lede { color: var(--text-strong); font-size: clamp(1.05rem, 2.4vw, 1.2rem); line-height: 1.6; margin-bottom: 28px; }
+
+.post__body { color: var(--text); font-size: 17px; line-height: 1.7; }
+.post__body h2 { font-size: 1.45rem; margin: 44px 0 14px; }
+.post__body h3 { font-size: 1.1rem; margin: 28px 0 8px; }
+.post__body p { margin-bottom: 18px; }
+.post__body strong { color: var(--text-strong); font-weight: 600; }
+.post__body ul, .post__body ol { margin: 0 0 18px 1.35em; }
+.post__body li { margin-bottom: 8px; }
+.post__body li::marker { color: var(--accent); }
+.post__body blockquote {
+  margin: 0 0 18px; padding: 12px 18px;
+  border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0;
+  color: var(--text-strong); font-size: 16px;
+}
+.post__body blockquote p:last-child { margin-bottom: 0; }
+.post__body code { overflow-wrap: anywhere; }
+.post__body a { text-underline-offset: 3px; }
+.post__body a:focus-visible, .post__crumb:focus-visible, .post-card a:focus-visible {
+  outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+}
+
+/* Memory bands: a small definition list, one row each */
+.bands { margin: 0 0 18px; display: grid; gap: 10px; }
+.bands div {
+  display: grid; grid-template-columns: minmax(7.5em, auto) 1fr; column-gap: 16px;
+  padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-raised);
+}
+.bands dt { color: var(--text-strong); font-weight: 600; font-size: 15px; }
+.bands dd { color: var(--text); font-size: 15px; }
+
+/* Screenshots */
+.post__body .shot { margin: 28px 0; }
+.post__body .shot img { display: block; width: 100%; height: auto; }
+.post__body .shot figcaption { margin-top: 10px; }
+
+/* Closing band of two actions */
+.post__next {
+  margin-top: 48px; padding-top: 28px; border-top: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; gap: 12px;
+}
+.post__next .btn { min-height: 44px; padding: 10px 18px; font-size: 15px; }
+
+@media (max-width: 600px) {
+  .blog-hero { padding-top: 48px; }
+  .post { padding-top: 36px; }
+  .post__body { font-size: 16.5px; }
+  .bands div { grid-template-columns: 1fr; row-gap: 2px; }
+}
