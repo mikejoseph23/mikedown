@@ -4,6 +4,10 @@
 
 ![A launch plan open in MikeDown in a dark theme: heading, a tip callout, a milestones table and a go/no-go task list, with the toolbar above and word count in the status bar.](assets/screenshots/dark-mode-editor.jpg)
 
+**New:** optional AI writing tools (Experimental, off by default): rewrite, explain, translate, summarize and suggest titles or properties, using a model on your own machine (LM Studio, Ollama, oMLX), an API key from a cloud provider (billed by the provider, not a ChatGPT or Claude subscription) or GitHub Copilot through your Copilot plan. [See AI Writing Help](#ai-writing-help-experimental-off-by-default).
+
+**[MikeDown Desktop](https://www.iadev.net/mikedown/)** is now available for Mac, Windows and Linux (preview), the same editor as a standalone app.
+
 ## More MikeDown
 
 [![@mikedown/core on npm](https://img.shields.io/npm/v/@mikedown/core?label=%40mikedown%2Fcore)](https://www.npmjs.com/package/@mikedown/core)
@@ -147,6 +151,8 @@ Type `/toc`, choose **Insert > Table of Contents**, or type `[toc]` on its own l
 
 AI is optional and off until you turn on **AI features** (`mikedown.ai.enabled`). Then pick an engine in the AI tab of the Settings modal (or the AI button on the toolbar), and rewrite the selection to be shorter, longer or with more detail, simpler, more formal or more casual, at a chosen reading level, or translate it into another language (or the whole document). Explain a selection in plain words, summarize the document with `/summary` (a TL;DR callout or an outline), or get three title ideas with `/title`. The Properties panel can suggest tags, a title and a description. Each AI edit is one undo step, and a warning appears when a tone or translation rewrite could change the document's structure. The toolbar AI menu, the right-click **AI** submenu and (in MikeDown Desktop) **Format > AI** offer the same actions in the same order.
 
+![Experimental: an AI rewrite of the selected paragraph from a local model, with the time it took under the result.](assets/screenshots/ai-rewrite.jpg)
+
 - **Setup:** click the AI button on the toolbar and choose **Set up**. With no engines yet, a short setup wizard opens. If a local server is already running (LM Studio, Ollama, oMLX and so on), it is found and one click (**Use LM Studio**, say) adds it, picks a model and turns AI on. Otherwise the wizard offers cloud providers first, because they work on any machine; running models on your own machine is under **Advanced**, which shows a one-line summary of your memory and graphics card and tags each model as a fit, tight or too large. AI turns on when you finish setup, not before, and Skip or Back leaves it off.
 - **Cloud in a few steps:** pick a provider (the card links to where you get a key), paste the key, and MikeDown fetches the provider's models and picks a default. Choosing a cloud provider or Copilot in setup turns **Allow cloud** on, and the first request still asks you (see Cloud is opt-in below). If the key is already in an environment variable such as `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, it is picked up when you add the engine and the field says where it was found. MikeDown Desktop opened from the Dock or Finder does not see shell variables; use the engine's key file or paste the key.
 - **Engines:** local first: oMLX, LM Studio, Ollama, llama.cpp server, vLLM, or any OpenAI-compatible server. Cloud engines are Anthropic, OpenAI, OpenRouter, Google Gemini, Groq, Mistral and DeepSeek. Add and test them on the AI Engines page (AI tab, **Manage engines**), and use its **Tasks** page to choose which model does what (rewrite, summary, titles and so on). Ollama is tested against recorded responses only.
@@ -154,6 +160,10 @@ AI is optional and off until you turn on **AI features** (`mikedown.ai.enabled`)
 - **Cloud is opt-in:** a cloud engine is never used until `mikedown.ai.allowCloud` is on (a user-level setting, so a repository cannot turn it on) *and* you allow it for the workspace the first time it would run. The prompt names the engine and what is sent, and offers Allow, **Not for this workspace** and Not now. Allow and Not for this workspace are remembered for that engine at its current address (change the address and you are asked again); the **Cloud consents** list on the AI tab shows them, and **Forget** makes MikeDown ask again.
 - **Keys and engines stay out of repos:** engines are user settings only, and API keys live in VS Code's secret storage (or an environment variable, or oMLX's own settings file), never in `settings.json`.
 - **MikeDown Desktop** has the same features. Its per-folder cloud consent is saved in the app's own data folder, keyed by the folder, not in the folder itself, so a cloned or shared folder cannot arrive with consent already recorded. Engines, keys and the `allowCloud` switch stay global, so a folder cannot add an endpoint.
+
+![Experimental: one-click setup when a local AI server is already running.](assets/screenshots/ai-local-setup-dark.jpg)
+
+![Experimental: the AI setup wizard offering the local LM Studio server or a cloud provider.](assets/screenshots/ai-setup-wizard.jpg)
 
 #### Privacy
 

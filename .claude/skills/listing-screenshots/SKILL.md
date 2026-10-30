@@ -46,9 +46,9 @@ Needs a Retina display (2× capture) and Screen Recording plus Accessibility per
 | toolbar-dropdown | dark | launch-plan.md | **you:** open the Insert dropdown (picture icon) | The Insert menu open on the MikeDown toolbar. |
 | slash-commands | dark | launch-plan.md | **you:** new line, type `/ta` | The slash command menu filtered to Table and Task list as you type. |
 | toolbar-edit-mode | light | launch-plan.md | **you:** gear > Customize Toolbar… | Customizing the toolbar in place: drag buttons to reorder, pin or hide them. |
-| ai-rewrite | dark | launch-plan.md | **you:** select the intro, Cmd+Alt+K, Shorter, wait for the result | An AI rewrite of the selected paragraph from a local model, with the time it took under the result. |
-| ai-local-setup-dark | dark | launch-plan.md | **you:** LM Studio or oMLX running, click the sparkle button; don't click Use LM Studio | One-click setup when a local AI server is already running. |
-| ai-setup-wizard | light | launch-plan.md | **you:** sparkle button > Set up another way…, stop on the engine step | The AI setup wizard offering the local LM Studio server or a cloud provider. |
+| ai-rewrite | dark | launch-plan.md | **you:** select the intro, Cmd+Alt+K, Shorter, wait for the result | Experimental: an AI rewrite of the selected paragraph from a local model, with the time it took under the result. |
+| ai-local-setup-dark | dark | launch-plan.md | **you:** LM Studio or oMLX running, click the sparkle button; don't click Use LM Studio | Experimental: one-click setup when a local AI server is already running. |
+| ai-setup-wizard | light | launch-plan.md | **you:** sparkle button > Set up another way…, stop on the engine step | Experimental: the AI setup wizard offering the local LM Studio server or a cloud provider. |
 
 The two setup shots run with AI off and no engines (a fresh profile's default): the sparkle button opens the first-run popover only while `mikedown.ai.enabled` is false; with it on, the button opens the AI menu instead.
 

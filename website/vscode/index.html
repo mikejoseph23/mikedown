@@ -118,6 +118,7 @@
           </div>
         </div>
         <p class="hero__meta">Free and open source (MIT). Needs VS Code 1.109 or later.</p>
+        <p class="hero__meta"><strong>New:</strong> optional <a href="#ai-title">AI writing tools</a> (Experimental, off by default), with a model on your own machine, a cloud API key or GitHub Copilot.</p>
 
         <figure class="shot hero__shot">
           <span class="shot__frame">
@@ -168,7 +169,7 @@
       <div class="site-container">
         <div class="section-head">
           <h2 class="section-title" id="features-title">What you can do in it</h2>
-          <p class="section-lede">Everything below works in the formatted view. None of it needs a split pane. The optional AI writing tools are in the extension too; the <a href="https://github.com/mikejoseph23/mikedown#ai-writing-help-experimental-off-by-default">README</a> covers what they do and what they send.</p>
+          <p class="section-lede">Everything below works in the formatted view. None of it needs a split pane. The optional AI writing tools have <a href="#ai-title">their own section below</a>, and the <a href="https://github.com/mikejoseph23/mikedown#ai-writing-help-experimental-off-by-default">README</a> covers what they send.</p>
         </div>
         <div class="groups">
           <div class="group">
@@ -275,6 +276,35 @@
               </li>
             </ul>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="ai-title">
+      <div class="site-container">
+        <div class="section-head">
+          <h2 class="section-title" id="ai-title">AI writing help (Experimental)</h2>
+          <p class="section-lede">Off by default, and nothing is sent anywhere until you set it up. Use a model on your own machine (LM Studio, Ollama, oMLX), an API key from a cloud provider (billed by the provider, not a ChatGPT or Claude subscription), or GitHub Copilot through your Copilot plan. Cloud engines ask before the first request in each workspace.</p>
+        </div>
+        <figure class="shot">
+          <span class="shot__frame">
+            <img src="./ai-rewrite.jpg" width="1198" height="953" loading="lazy" decoding="async" alt="Experimental: an AI rewrite of the selected paragraph from a local model, with the time it took under the result.">
+          </span>
+          <figcaption>Experimental: rewrite a paragraph shorter with a local model, then accept, retry or copy.</figcaption>
+        </figure>
+        <div class="pair">
+          <figure class="shot">
+            <span class="shot__frame">
+              <img src="./ai-local-setup-dark.jpg" width="1198" height="953" loading="lazy" decoding="async" alt="Experimental: one-click setup when a local AI server is already running.">
+            </span>
+            <figcaption>Experimental: one-click setup when LM Studio is already running.</figcaption>
+          </figure>
+          <figure class="shot">
+            <span class="shot__frame">
+              <img src="./ai-setup-wizard.jpg" width="1198" height="953" loading="lazy" decoding="async" alt="Experimental: the AI setup wizard offering the local LM Studio server or a cloud provider.">
+            </span>
+            <figcaption>Experimental: the setup wizard, local server or cloud provider.</figcaption>
+          </figure>
         </div>
       </div>
     </section>
