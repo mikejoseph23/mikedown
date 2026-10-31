@@ -7,131 +7,122 @@ MikeDown is a WYSIWYG markdown editor (TipTap/ProseMirror) in an npm workspace. 
 - the VS Code extension (`src/`, thin shell `src/webview/editor-main.ts`);
 - **MikeDown Desktop**, Tauri 2 at `packages/desktop/`;
 - the npm family `@mikedown/core`, `web-component`, `react`, `vue`, `angular` (lockstep versions, independent of the extension's 2.x);
-- downstream apps LymeStarter and Quantico Creek.
+- the website `website/` (https://www.iadev.net/mikedown/).
 
 See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside a PM transaction; the three-place Settings rule; the `tiptap-markdown` ES alias) and the release steps.
 
 ## Current Status
 
-**Revisit soon: `desktop-site-redesign-plan.md`.** The Desktop download page gets an AI section, a fuller feature tour, and a comparison chart across Desktop, VS Code, the web component and the wrappers. It ships as a site-only release after Desktop 0.4.0.
+**Everything is released and pushed. `develop` matches `origin/develop`, the working tree is clean apart from this wrap-up, and there are no open GitHub issues.**
 
-**`develop` is 51 commits ahead of `origin/develop`, so push with Mike's OK. Working tree clean. The AI setup, privacy and polish plan is implemented, and the VS Code half of the fresh-user walk (T4) has passed. Nothing from `develop` is released or merged to `main`.**
+- **Live:**
+  - VS Code **2.17.1** (tags `v2.17.0`, `v2.17.1`), the first release with the AI features, Experimental and off by default;
+  - Desktop **0.5.0** (tag `desktop-v0.5.0`);
+  - npm family **0.3.0**;
+  - site **`0.5.0-site.1`**.
+- **Not yet in Desktop or npm:** the issue #12 fixes (`8337754`) are only in the extension 2.17.1. They go out with the next Desktop and npm release.
+- **Not merged to `main`.** The releases ran from `develop`, as before.
 
-- **Released:** VS Code 2.16.0, npm family 0.2.0, Desktop 0.3.0, site `0.3.0-site.3`.
-- **AI** stays off by default behind `mikedown.ai.enabled` and is labelled Experimental.
-- **No orchestrator sessions** are registered.
+## Last Session Summary (2026-10-30)
 
-## What's Done (2026-10-29)
+1. **Desktop multi-window:**
+   - New Window from the macOS Dock menu and the Windows taskbar jump list (`dock.rs`);
+   - Open Containing Folder opens an outside file's folder in its own window (`open_folder_window`).
+2. **Desktop 0.4.0** shipped the AI features (Experimental, off by default), then **0.5.0** shipped the table work.
+3. **Table editing plan** (`table-editing-improvements-plan.md`, M1 to M4, orchestrator):
+   - the Backspace cell-wipe fix;
+   - Toggle header and Merge removed (they saved as HTML);
+   - pipe/TSV paste, and copy as a markdown table;
+   - row shortcuts (Mod+Enter, Mod+Shift+Enter, Mod+Alt+Backspace) and Move Row/Column;
+   - a keyboard-usable size picker, "+" strips, and accessible grips;
+   - the `mikedown.tables.padColumns` setting.
+4. **Desktop site redesign** (`desktop-site-redesign-plan.md`) is all done:
+   - the compare page and feature tour;
+   - an AI section with three Desktop AI screenshots;
+   - copy that says cloud AI means an API key billed by the provider, **not** a ChatGPT or Claude subscription (Copilot works through `vscode.lm` in VS Code only).
+5. **Marketplace listing:**
+   - the README has "New" lines above the fold (optional AI tools, and Desktop now available);
+   - the README and the `website/vscode/` page have AI screenshots (`ai-rewrite`, `ai-local-setup-dark`, `ai-setup-wizard`), all marked Experimental.
+6. **Blog:** `website/blog/` with a draft post, "Your own computer can run AI" (`website/blog/local-ai/`). It's deliberately **unlinked** (footer link removed) and `noindex`. It's still reachable by URL because the site-only pack includes `blog/`.
+7. **Issue #12** (mzenker-PSS) is fixed in 2.17.1, replied to and closed:
+   - Edit Link with only the caret in the link now applies (`extendMarkRange('link')`);
+   - H6 is styled as a smaller H5, matching the PDF export.
 
-1. **`ai-setup-privacy-polish-plan.md` M1 to M6** (orchestrator), including:
-   - a cloud-first setup wizard, with local setup under Advanced, hardware detection, and Copilot as the `vscode-lm` engine kind;
-   - consent keyed by engine fingerprint (Allow / Allow once / Deny / Never), with a list of cloud consents;
-   - privacy copy and provider policy links;
-   - model-aware OpenAI parameters (no temperature on reasoning models, `reasoning_effort` mapping, one retry on parameter-shaped 400s).
-2. **The T4 fresh-user walk on VS Code** found W1 to W26, R1 to R7, E1 to E5, L1 to L8 and F1, all fixed or closed. The plan's Progress Log has the shas. Highlights:
-   - a timing footer ("5.2 s · 96 tok/s");
-   - plain-language load errors (`modelLoadFailed`);
-   - a new local engine defaults only to its loaded chat model; otherwise it shows "Pick a model to start with", with sizes and a "MoE · fast" hint that only appears when the model fits.
-3. **Two Fable QA walks** found Q1 to Q10. Everything except Q8 (probably an automation timing miss) is fixed and passed live:
-   - on Default, short edits (rewrite, translate, title, properties) run with thinking Off, and thinking requests get more room (`61e6d13`);
-   - MTP draft heads on LM Studio and oMLX are no longer chat models (`c46abed`, `c5dd0db`);
-   - Done is blocked when an engine has no model picked;
-   - the default engine is a label, not a toggle;
-   - Enable AI persists when you go to the Engines page;
-   - the status bar and sidebar AI chip refresh when the default changes (`4a9293c`, `c5dd0db`).
-4. **Non-AI fixes:** `==highlight==` is readable in dark VS Code themes on Auto (`3557c46`), and the sidebar Outline opens at the top (`763e41b`).
-5. **Repo skill `.claude/skills/listing-screenshots/`** (`f01a118`, `0724e44`):
-   - `capture.sh` plus a stager extension, taking fresh-profile captures into `assets/screenshots/_new/`, then `--promote`;
-   - 9 listing shots refreshed and promoted (`d03987b`): README plus `website/vscode/`, with a new `outline.jpg` in the README.
-6. **Docs sweep (`20223ba`):** finished plans moved to `docs/` and `docs/_archive/` (with `-history/` folders), and the `docs/README.md` index rewritten.
-7. **`BACKLOG.md`:** AI Recipes (user prompt templates) added.
+**Decisions:** merged table cells were dropped, so tables stay GFM only. Enter in a table cell still inserts `<br>`. Plain-text paste recognizes pipe tables and TSV, not CSV.
+
+**Gotcha:** Mike's npm 2FA is a **passkey**, so there is no OTP code. Mike runs `npm run release:npm -- --publish` in his own terminal and approves in the browser. Check with the registry directly (`curl https://registry.npmjs.org/@mikedown%2fcore`), because `npm view` lags.
 
 ## What's Next
 
-1. **Push `develop`** (Mike's OK).
-2. **CHANGELOG catch-up:** `[Unreleased]` has lines for the late fixes, but the earlier ones are missing:
-   - the consent rework (Allow once, Deny, Never, the list of cloud consents);
-   - the setup wizard and Copilot `vscode-lm`;
-   - the OpenAI parameter mapping (`6f3038e`);
-   - the timing footer and load errors (`b1dee8f`);
-   - the local default model picks (`85d2c9f`).
-   Check `git log` against the CHANGELOG.
-3. **Six interactive screenshots (Mike):** toolbar-dropdown, slash-commands, toolbar-edit-mode, ai-rewrite (timing footer), ai-setup-wizard, ai-local-setup-dark.
-   - Run `.claude/skills/listing-screenshots/capture.sh --interactive` (or `--only <name>`). `ai-local-setup-dark` needs LM Studio running and AI **off**.
-   - Optionally retake `sidebar-dark,sidebar-light` now that the Outline fix is in.
-   - Review, then `--promote`, as described in `SKILL.md`.
-4. **T4 Desktop half** of `ai-setup-privacy-polish-plan.md`: the same fresh-user walk in MikeDown Desktop (`npm run dev` in `packages/desktop`).
-5. **AI release prep** (`ai-inference-engines-plan.md` M7):
-   1. `npm run version:npm -- 0.3.0`;
-   2. `test:packages`;
-   3. `release:npm` dry run;
-   4. Mike publishes;
-   5. bump the Desktop core pin off `0.1.0`;
-   6. `npm run vsix:minor` (it ships the new README screenshots).
-6. **Untested cloud engines:** DeepSeek, Gemini, Groq, Mistral and OpenRouter rely on fixtures. Mike chose not to open accounts, so they'll be fixed on user reports.
-7. **Older items:**
-   - npm 2FA "disallow tokens" on each `@mikedown/*` package;
-   - Desktop T4 checklist;
+1. **Mike, hands-on:**
+   - In-app update to Desktop 0.5.0 from an older version, on a Mac and on Windows (Help > Check for Updates).
+   - The Windows jump list ("New Window") on DEVBOX1.
+   - The table checks from the table plan's Review Materials (`.orchestrator/table-editing-improvements-plan/processed/`): Backspace after a table now selects the table first. Decide whether that's acceptable.
+2. **Blog:**
+   - Review or split the local AI post, and check the claims listed in `BACKLOG.md`.
+   - Then add the footer link back (`website/shared/partials.js` `renderFooter`, then `npm run sync:shell -w website`) and drop `noindex`.
+3. **Blog post "Why Markdown? Why MikeDown?"** (`BACKLOG.md`): start with an interview of Mike, one question at a time.
+4. **Next Desktop and npm patch:** pick up the #12 fixes (Desktop 0.5.1, npm 0.3.1) whenever there's more to ship.
+5. **Older items** (previous RESUME):
+   - the T4 Desktop half of `ai-setup-privacy-polish-plan.md`;
+   - Q8;
+   - npm "disallow tokens" 2FA per package;
    - re-encrypt the updater key;
-   - move `~/git/rando` to GitHub;
-   - T1 hands-on in `docs/wrappers-npm-plan.md`;
    - the frontmatter YAML undo gap;
-   - prune `.claude/worktrees/`;
-   - optionally clear `.orchestrator/` for the archived plans.
+   - prune `.claude/worktrees/`.
+6. **Optional cleanup:** `desktop-site-redesign-plan.md` and `table-editing-improvements-plan.md` are complete. Run `/iadev:repo-markdown-cleanup` to file them into `docs/` once Mike has finished the hand checks.
 
 ## Planning Docs
 
-- `ai-setup-privacy-polish-plan.md`: **active**. M1 to M6 are done, and the T4 VS Code walk is done (findings with shas in the Progress Log). Still open: the T4 Desktop half, Q8 (watch for it) and R7 (note only).
-- `ai-inference-engines-plan.md`: the engines layer is done; **M7 release prep is open**.
-- `ai-copilot-brainstorm.md`: AI feature ideas (ghost text, chat with the doc, image alt text).
+- `table-editing-improvements-plan.md`: done (M1 to M4); only hand checks remain.
+- `desktop-site-redesign-plan.md`: done (M1 to M6, published as `0.5.0-site.1`).
+- `ai-setup-privacy-polish-plan.md`: done except the T4 Desktop walk and Q8.
+- `ai-inference-engines-plan.md`: done; M7 release prep happened with npm 0.3.0 and extension 2.17.0.
 - `angular-core-extraction-plan.md`: M10 open; the M8 Quantico Creek hands-on is pending.
-- `desktop-auto-update-handson.md` and `packages/desktop/private/`: owned by another session. Leave them alone.
 - `docs/README.md`: an index of the finished plans and decisions.
 
 ## Servers
 
-- **VS Code dev host:** `npm run dev`. After code changes run `npm run compile`, then Developer: Reload Window. The output channel is **MikeDown AI**.
-- **Fresh-profile testing:** `code --new-window --user-data-dir /tmp/mdfresh --extensions-dir /tmp/mdfresh-ext --extensionDevelopmentPath="$PWD" test/workspace`.
-  - Keep the paths short; long ones exit silently because of the socket path limit.
-  - Quit that instance (Cmd+Q in it) before `rm -rf /tmp/mdfresh*`.
-  - QA workers use `/tmp/mdqa`, and the screenshot skill uses `/tmp/mdshots`.
-- **Desktop dev:** `npm run dev` in `packages/desktop` (needs `export PATH="$HOME/.cargo/bin:$PATH"`).
+- **VS Code dev host:** `npm run dev` (opens `test/workspace`; `sample.md` has a table).
+- **Desktop dev:** `npm run dev` in `packages/desktop`. Quit the installed MikeDown first, or the single-instance plugin hands off to it.
 - **Site:** `npm run dev:site` (port 5180, base `/mikedown/`).
 - **AI engines:**
-  - oMLX `http://127.0.0.1:8000/v1`: the key is in `OMLX_API_KEY` and `~/.omlx/settings.json`, never print it. Mike's daily driver is Qwen3.8-Flash-Next (MoE plus MTP, about 96 tok/s).
-  - LM Studio `:1234`: it can't load oMLX `oq5e` quants (`Missing FP8 PLE shards`), and that's not a MikeDown bug.
-  - Mac Resource Monitor polls LM Studio `/api/v0/models` every 1 to 2 s; that's not MikeDown.
-- **Production:** LymeDeploy project `mikedown-downloads` (`packages/desktop/deploy/pack-for-lymedeploy.sh`; the next site release is `--site-n 4`).
+  - oMLX `http://127.0.0.1:8000/v1` (never print the key);
+  - LM Studio on `:1234`.
+- **Production:** LymeDeploy project `mikedown-downloads`.
+  - Desktop: `packages/desktop/deploy/release.sh <bump> --notes-file release-notes/<v>.md`, then `pack-for-lymedeploy.sh --version <v>`.
+  - Site only: `pack-for-lymedeploy.sh --site --site-n N` (the next one is `0.5.0-site.2`).
+  - Browsers cache the pages; hard-reload to check.
 
 ## Key File Paths
 
-- `packages/core/src/ai/`: the pure AI layer.
-  - `thinking.ts`: `taskThinkingDefault`, `resolveThinkingLevel`.
-  - `setup.ts`: `localDefaultModel`, size and MoE hints.
-  - `discovery.ts`: LM Studio and oMLX parsing, `drafterArch`.
-  - `privacy.ts`.
-- `packages/core/src/ai-engines-page.ts`, `ai-setup-wizard.ts`, `ai-local-setup.ts`, `ai-ui.ts` (the lazy chunk), `ai-settings-model.ts` (`aiNextRouteChanged`).
-- `src/ai/`: VS Code host (`engineService.ts`, `statusBar.ts`, `hardware.ts`, `providers/vscodeLm.ts`, `vscodeAi.ts`).
-- `packages/desktop/src-tauri/src/commands/ai.rs` plus `commands/ai/`: the Rust twin. `test/ai-fixtures/` holds the fixtures both sides share.
-- `.claude/skills/listing-screenshots/`: `SKILL.md`, `capture.sh`, `shots.json`, `stager/`.
-- `assets/sample-docs/`: demo documents for the screenshots (all invented content).
+- `packages/core/src/`
+  - `table-commands.ts`, `table-clipboard.ts`, `table-align.ts`, `tabledrag.ts`, `tablepicker.ts`: tables.
+  - `editor.ts`: the link dialog's `confirm()` (the #12 fix).
+  - `styles/editor.css`: heading styles.
+- `packages/desktop/src-tauri/src/dock.rs` and `commands/multiwindow.rs`: Dock menu, jump list, windows.
+- `packages/desktop/deploy/`: `release.sh`, `pack-for-lymedeploy.sh`, `release-notes/`.
+- `website/`
+  - `mikedown-desktop/index.html`: the AI section and shots;
+  - `vscode/`, `compare/`, `blog/` (unlinked draft);
+  - `shared/partials.js`: header and footer.
+- `.claude/skills/listing-screenshots/`: VS Code listing screenshots (now including the AI shots).
 
 ## Recent Git Log (`develop`)
 
-- `7b96008` Record the QA retest results in the AI setup plan
-- `c5dd0db` Grey out oMLX MTP drafters and keep the sidebar AI chip on the current route
-- `4a9293c` Block Done on an engine with nothing picked, and make the default engine a label
-- `61e6d13` Pick thinking per task on Default and refresh the AI status bar on settings changes
-- `c46abed` Do not offer LM Studio MTP drafters as chat models
-- `577ff7f` Default a new local engine to its loaded model only, and hint MoE speed
-- `763e41b` Open the sidebar outline at the top instead of the last heading
-- `3557c46` Make ==highlight== readable in dark VS Code themes when the editor theme is auto
+- `0db994e` Release 2.17.1
+- `8337754` Fix Edit Link with only the caret in a link, and style H6 like a smaller H5 (#12)
+- `f3d9664` Release 2.17.0
+- `5c68ec4` Add AI screenshots and a New line for AI and Desktop to the README and VS Code page
+- `d1e3730` MikeDown Desktop 0.5.0
+- `c5171a5` Keep the draft blog out of search results and add the Desktop 0.5.0 release notes
+- `2fbf116` Unlink the blog from the footer until the first post is reviewed
+- `dbf96e6` Add mikedown.tables.padColumns to align markdown table columns in the source
 
 ## Any Other Notes
 
-- **Commits:** no AI attribution. A PreToolUse hook blocks commands containing the attribution strings, even in a grep, so search with patterns like `cl[a]ude`.
-- **Workers:** Mike prefers Agent-tool subagents over clipboard prompts, except for hands-on QA, which goes to a clipboard Fable worker in a fresh context. Each worker commits only its own paths. Never run two workers that edit `editor.ts` at once.
-- **Type checks:** the webview build is transpile-only, so check with `npx tsc -p tsconfig.webview.json --noEmit`. Desktop's tsc reads core's `dist`, so run `npm run build:core` first.
-- **Thinking dial:** a choice carries across tasks for the session (intended); Default resets it. The popover dial offers Default, Off and On; Low, Med and High are only in the per-engine select.
-- **The Engines page stages a default change until Done**; the status bar and sidebar chip update on Done.
+- **Commits:** no AI attribution. A PreToolUse hook blocks commands containing the attribution strings, even in a grep.
+- **Workers:** Mike prefers Agent-tool subagents over clipboard prompts. Tell subagents not to spawn agents of their own, because a Fable worker stalled that way. UI-driving agents (screenshots) take over the screen, so warn Mike first.
+- **Issue replies:** mzenker-PSS has already been asked for a review (see memory).
+- **Type checks:** the webview build is transpile-only, so check with `npx tsc -p tsconfig.webview.json --noEmit`.
 - Never run machine-wide `pkill`; kill by PID.

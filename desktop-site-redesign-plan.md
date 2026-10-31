@@ -35,7 +35,7 @@ Defaults applied by the planning skill: incremental verification (acceptance che
 | [M3 Desktop page: feature tour and AI section](#m3-desktop-page-feature-tour-and-ai-section) | Opus | ✅ Done | 6 | `586d787`. Compare teaser moved to M5; AI figures go in M4 |
 | [M4 AI screenshots](#m4-ai-screenshots) | Mike (Sonnet for the page edits) | ✅ Done | 15 | Three shots from Desktop 0.4.0 (oMLX), figures at the end of the AI section |
 | [M5 Links from the VS Code and Developers pages](#m5-links-from-the-vs-code-and-developers-pages) | Sonnet | ✅ Done | 12 | `06f5ea2`. No nav entry (OQ2) |
-| [M6 Site-only publish and verification](#m6-site-only-publish-and-verification) | Sonnet, Mike for the real publish | ⬜ Not Started | — | `0.4.0-site.1`, after Desktop 0.4.0 is live |
+| [M6 Site-only publish and verification](#m6-site-only-publish-and-verification) | Sonnet, Mike for the real publish | ✅ Done | — | Published as `0.5.0-site.1` on 2026-10-30, after Desktop 0.5.0; verify-site passed (214 files) |
 
 [Return to Top](#desktop-site-redesign-plan)
 
@@ -316,13 +316,13 @@ Acceptance: `website/test/links.test.ts` passes on a fresh `npm run build:site`;
 
 **Recommended model: Sonnet for the checks; Mike runs the real publish.**
 
-- [ ] Preconditions: Desktop 0.4.0 is published (`latest.json` on the site announces 0.4.0), M2 to M5 are committed on `develop`, and the working tree is clean.
-- [ ] `npm run build:site` from the repo root (builds the packages, Vite pages and the Angular demo).
-- [ ] `npx vitest run --config website/vitest.config.mjs` (links, mounts, stub AI, the new compare test).
-- [ ] `packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n 1 --dry-run`. Read the staged folder list: `index.html`, the seven PNGs, `vscode/`, `developers/`, `compare/`, `site-assets/`, `favicon.ico`; no `latest*.json`, no artifact, no `web.config`. Confirm the rendered `index.html` has the Linux blocks filled or removed as the live release has them (`--site` reads the published version; pass `--linux` or `--no-linux` to match).
-- [ ] Mike: the same command without `--dry-run`. It pushes, releases, deploys and runs `verify-site.js`, which fetches every file and checks `latest.json` still says 0.4.0.
-- [ ] After the deploy: open https://www.iadev.net/mikedown/, `/mikedown/compare/`, `/mikedown/vscode/` and `/mikedown/developers/` on a phone and a desktop, light and dark; confirm the download buttons still rewrite from the manifests (version line and notes appear) and the new PNGs load.
-- [ ] Commit `Website: Desktop feature tour, AI section and compare page` if anything changed during the publish, and note the site version in `RESUME.md`.
+- [x] Preconditions: Desktop 0.4.0 is published (`latest.json` on the site announces 0.4.0), M2 to M5 are committed on `develop`, and the working tree is clean.
+- [x] `npm run build:site` from the repo root (builds the packages, Vite pages and the Angular demo).
+- [x] `npx vitest run --config website/vitest.config.mjs` (links, mounts, stub AI, the new compare test).
+- [x] `packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n 1 --dry-run`. Read the staged folder list: `index.html`, the seven PNGs, `vscode/`, `developers/`, `compare/`, `site-assets/`, `favicon.ico`; no `latest*.json`, no artifact, no `web.config`. Confirm the rendered `index.html` has the Linux blocks filled or removed as the live release has them (`--site` reads the published version; pass `--linux` or `--no-linux` to match).
+- [x] Mike: the same command without `--dry-run`. It pushes, releases, deploys and runs `verify-site.js`, which fetches every file and checks `latest.json` still says 0.4.0.
+- [x] After the deploy: open https://www.iadev.net/mikedown/, `/mikedown/compare/`, `/mikedown/vscode/` and `/mikedown/developers/` on a phone and a desktop, light and dark; confirm the download buttons still rewrite from the manifests (version line and notes appear) and the new PNGs load.
+- [x] Commit `Website: Desktop feature tour, AI section and compare page` if anything changed during the publish, and note the site version in `RESUME.md`.
 
 Acceptance: `verify-site.js` reports every file identical and the desktop version unchanged; the four pages pass the phone and theme checks live.
 
