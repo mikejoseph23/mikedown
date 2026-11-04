@@ -168,6 +168,11 @@
   color: #fff;
 }
 
+.mdapp-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--mikedown-danger, #b91c1c) 85%, #000);
+  border-color: color-mix(in srgb, var(--mikedown-danger, #b91c1c) 85%, #000);
+}
+
 /* ── File tree ─────────────────────────────────────────────────────────── */
 .mdapp-tree {
   padding: 0 0 24px;

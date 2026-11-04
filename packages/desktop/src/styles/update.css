@@ -366,11 +366,6 @@
   font-size: 13px;
 }
 
-.mdapp-updwin__btn.mdapp-btn--primary:hover:not(:disabled) {
-  background: var(--mikedown-accent-hover, var(--mikedown-accent, #3546a0));
-  border-color: var(--mikedown-accent-hover, var(--mikedown-accent, #3546a0));
-}
-
 .mdapp-updwin__btn:focus-visible {
   outline: 2px solid var(--mikedown-focus-ring, var(--mikedown-accent, #3b82f6));
   outline-offset: 2px;

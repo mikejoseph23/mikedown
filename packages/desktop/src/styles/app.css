@@ -77,6 +77,11 @@ body {
   color: #fff;
 }
 
+.mdapp-btn--primary:hover:not(:disabled) {
+  background: var(--mikedown-accent-hover, var(--mikedown-accent, #3b82f6));
+  border-color: var(--mikedown-accent-hover, var(--mikedown-accent, #3b82f6));
+}
+
 /* ── Notice bar (non-UTF-8, large file) ────────────────────────────────── */
 .mdapp-notice {
   padding: 6px 14px;
