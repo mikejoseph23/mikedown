@@ -177,7 +177,24 @@ With a cloud engine:
 
 Each cloud engine links its provider's own privacy or API data-use page: expand **What this means** above the cloud engines on the AI Engines page (also shown in setup), open an engine and expand **What is sent**, or choose **Read the provider's policy** in the consent prompt, which opens the page in your browser and then asks again. The prompt also says what that request sends: the selection and the paragraph around it for Rewrite, Explain and Translate, the whole document (up to what fits the model) for Summary, Titles and whole-document Translate, and the document with its frontmatter and the workspace's tag names for Properties.
 
-### Link Navigation and Autocomplete
+### Documentation Bases *(experimental, off by default)*
+
+With `mikedown.ai.enabled` on, **MikeDown: Chat with AI** opens a chat panel in the editor. Its scope picker has two choices:
+
+- **This document** answers from the text in the editor, unsaved changes included.
+- **Active bases** answers from your documentation bases: folders of markdown files on your machine, read from disk when you ask.
+
+Each answer has numbered citations that open the section they came from, and **Insert** puts the answer at the cursor with links to those sections. Answers are not saved. The chat history is kept in memory and cleared when you close the editor. MikeDown Desktop has the same panel and bases.
+
+Add a base on the Documentation bases page of the Settings modal, or choose **Add this workspace folder**. Bases are stored in your user settings only (`mikedown.ai.docBases`, machine scope), so a repository cannot add a base or point one somewhere else. `mikedown.ai.docs` (also user settings only) holds the advanced options: `maxHops` (navigation calls before the answer, 1 to 5, default 3) and `sourceShare` (the share of the model's context the sent sections may use, 30 to 80 percent, default 60).
+
+- **Home document:** each folder's home is the first that exists: the file named by the base's `homeFile`, then `INDEX.md`, then `README.md` at the top of the folder. With none, MikeDown builds an in-memory map of file titles and headings. It writes nothing to disk.
+- **Navigation:** the model reads each home's outline and list of links, names the sections it wants, and repeats up to `maxHops` times. It can only name sections from MikeDown's own index. Then one final call answers from the sections read. The answer says how many sections it left out.
+- **What is sent:** navigation calls get outlines and links only, never section text. The answer call gets the text of the chosen sections, each cut at 24 KB. Nothing else from your folders is sent.
+- **Limits:** 5,000 markdown files per base, and files over 1 MiB are skipped and counted on the Documentation bases page. Symbolic links are skipped.
+- **Secrets scan:** every section, and every title and link in a navigation list, is checked before it is sent. Text that looks like an AWS access key, an `sk-` style or Stripe-style key, a PEM private key block or a JWT is left out, and the answer says so. This applies to local engines too.
+- **Cloud is opt-in per base:** each base has `allowCloud`, off by default. With it off, the base's pages never go to a cloud engine. If the chat would need one, it says "Base X is local-only" and offers a local engine or the switch. The consent prompt names the bases that would be sent.
+
 
 - **Cmd+Click** (or Ctrl+Click) to follow links to files, headings, or URLs
 - **Right-click** any link for Open Link / Open Link in New Tab options

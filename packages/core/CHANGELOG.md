@@ -7,6 +7,10 @@
 - `AiCompletionRequest.requestOverrides` carries per-request body fields (for example `reasoning_effort`). Hosts merge them over the model's configured overrides, so the request wins. Tier 1 hosts may ignore them.
 - The `summarize` and `structure` tasks now require chat only; `json` and `context` are preferences for them. There is a new `title` feature id, and a `badOutput` error code.
 - The rewrite popover gained modes for insert and choose, used by the summary and title commands.
+- New `ai/docs/` module (public through `@mikedown/core/ai`): the documentation base model, home document precedence, link graph, keyword fallback, secrets scan, citations and the navigation loop. Hosts provide `host.docs` (`MikeDownDocsHost`) to back it; without it the chat shows "This document" only.
+- `@mikedown/core/ai` adds the `chat` feature (status `available`), the `docs` task, the `docsBase` value of `AiSendsScope` and an optional `enabled` flag per base.
+- `@mikedown/core` exports the chat panel (`ai-chat-panel.ts`), the documentation bases page (`ai-docs-page.ts`) and the run wiring (`ai-docs-run.ts`) through the AI UI, loaded only when the host has `host.ai`.
+- Run requests can be pinned to one engine and model (`AiRunRequest.pin`). A pinned run never re-routes or falls back within the turn.
 
 ## 0.2.0
 

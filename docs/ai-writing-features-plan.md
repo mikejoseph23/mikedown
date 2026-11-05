@@ -396,7 +396,8 @@ All resolved on 2026-10-28; the decisions are D10 to D17 above and are already f
 4. **"Also rename heading" from `/title`** through `headingRename.ts` so links stay valid (D12).
 5. **Host state API** (`getState/setState`) if `localStorage` proves unreliable for remembered choices (D10).
 6. **Meeting notes to action items** (`/actions`, idea 13), **paste cleanup** (16) and **Mermaid/table generation** (9): the rest of the engines plan's follow-up 4, each one prompt module plus a popover mode on the machinery built here.
-7. Ghost text, chat with this document, alt text, grammar and consistency review, workspace RAG, dictation: unchanged, their own plans.
+7. Ghost text, alt text, grammar and consistency review, dictation: unchanged, their own plans.
+   **Chat is shipped** (status `available`, label "Chat"): it answers about this document or over documentation bases, with citations. Its plan is [Workspace RAG (documentation bases)](../workspace-rag-plan.md).
 8. **Disabled slash entries.** If a later plan gives `slashcommands.ts` a greyed-with-reason row, the `ai` group should use it instead of hiding when `disabled` (D15).
 9. ~~**Split AI code out of the standalone web component bundle** (budget raised 850 → 900 kB on 2026-10-28 to absorb this plan).~~ Done 2026-10-29 (`e1032e9`): the AI UI loads by `import()` only with `host.ai`; budget back to 850 kB.
 10. The shared action list across the toolbar menu, the context menu and Desktop's Format > AI, the engine-named error copy and the thinking dial's keyboard support are done in `ai-setup-privacy-polish-plan.md` (M5).

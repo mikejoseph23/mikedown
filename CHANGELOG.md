@@ -6,6 +6,7 @@ All notable changes to MikeDown Editor are documented here.
 
 ### Added
 
+- Chat with AI (experimental, off by default; turn on `mikedown.ai.enabled`, then **MikeDown: Chat with AI**). The chat panel answers about this document or, with the Active bases scope, from your documentation bases: folders of markdown files read from disk. Answers have numbered citations that open their sections and can be inserted at the cursor. Bases are set on a new Documentation bases page in the Settings modal and stored in user settings only (`mikedown.ai.docBases`, `mikedown.ai.docs`), so a repository cannot add or redirect one. Each base has its own cloud switch, off by default. MikeDown Desktop has the same panel.
 - AI Activity panel (experimental, off by default): turn on `mikedown.ai.activityPanel`, then open **AI Activity…** from the AI toolbar menu or the AI tab of Settings. It lists each AI request of this session with the exact messages sent and the raw response. Nothing is stored or sent anywhere; the list is kept in memory, can be copied or saved to a text file, and is cleared when you turn the setting off.
 
 ## [2.17.1] - 2026-10-30
