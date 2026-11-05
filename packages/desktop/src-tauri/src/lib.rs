@@ -216,6 +216,7 @@ pub fn run() {
             commands::docs::docs_read_sections,
             commands::docs::docs_keyword_search,
             commands::docs::docs_sync_roots,
+            commands::docs::docs_pick_folder,
             commands::docs::docs_watch,
             commands::docs::docs_unwatch,
         ])

@@ -52,13 +52,14 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 use tauri_plugin_fs::FsExt;
 
-use self::markdown::{extract_links, frontmatter_title, headings_with_offsets, split_sections};
+use self::markdown::{extract_links, frontmatter_title, headings_with_offsets_limited, split_sections};
 use self::rules::{
-    build_docs_index, cap_section_text, cmp_section_refs, docs_page_id, docs_root_labels, docs_section_id, keyword_terms,
-    parse_docs_id, rank_keyword_sections, utf16_len, DocsIndexOut, IndexInput, KeywordSection, PageInput, SectionRef, DOCS_KEYWORD_TOP,
-    DOCS_MAX_FILES, DOCS_MAX_FILE_BYTES, DOCS_MAX_IDS_PER_READ, DOCS_MAX_SECTION_BYTES,
+    build_docs_index, cap_section_text, cmp_section_refs, docs_page_id, docs_root_labels, docs_section_id, is_utf8_text, keyword_terms,
+    parse_docs_id, rank_keyword_sections, utf16_len, DocsIndexOut, IndexInput, KeywordSection, PageInput, SectionRef, DOCS_BUILD_BUDGET_MS,
+    DOCS_KEYWORD_TOP, DOCS_MAX_DIRS, DOCS_MAX_FILES, DOCS_MAX_FILE_BYTES, DOCS_MAX_HEADINGS_PER_PAGE, DOCS_MAX_IDS_PER_READ,
+    DOCS_MAX_SECTION_BYTES,
 };
-use super::fs::{decode, is_mikedown_temp, walk_markdown};
+use super::fs::{decode, is_mikedown_temp, walk_markdown_bounded};
 use super::settings::{read_settings, settings_path};
 use super::watcher::{force_poll, is_network_path, start_with, Handle, Mode, Signal};
 
@@ -361,8 +362,15 @@ pub fn read_checked(canonical_root: &Path, file: &Path) -> Result<String, String
     if bytes.len() as u64 > DOCS_MAX_FILE_BYTES {
         return Err("over the size cap".to_string());
     }
+    // A UTF-16 or UTF-32 file decodes to text with NULs in it, which the secrets scan cannot read (S7).
+    if !is_utf8_text(&bytes) {
+        return Err(NOT_TEXT_REASON.to_string());
+    }
     Ok(decode(&bytes).text)
 }
+
+/// Why `read_checked` refused a file that is not UTF-8 text (the walk counts these).
+pub const NOT_TEXT_REASON: &str = "not UTF-8 text";
 
 // ── The index of one base ───────────────────────────────────────────────────
 
@@ -376,6 +384,10 @@ pub struct RootInfo {
     pub file_count: usize,
     pub oversize_skipped: u64,
     pub cap_reached: bool,
+    /// Files skipped because they are not UTF-8 text.
+    pub not_text_skipped: u64,
+    /// The folder cap was reached under this root.
+    pub dir_cap_reached: bool,
 }
 
 /// Where a page lives: under configured root number `root`, at the page's
@@ -395,6 +407,8 @@ pub struct BaseIndex {
     pub roots: Vec<RootInfo>,
     pub files: HashMap<String, PageFile>,
     pages: HashMap<String, usize>,
+    /// The build's time budget ran out before every file was read.
+    pub timed_out: bool,
 }
 
 /// What a cached index was built from: a base whose roots or home file changed
@@ -424,11 +438,21 @@ fn rel_path_of(root: &Path, file: &Path) -> Option<String> {
 /// shared by the whole base; the cap is reported per root. Oversize files are
 /// skipped and counted. Blocking: run it off the main thread.
 pub fn build_base_index(base: &DocBase) -> BaseIndex {
+    build_base_index_with(base, Duration::from_millis(DOCS_BUILD_BUDGET_MS), DOCS_MAX_DIRS)
+}
+
+/// `build_base_index` with the time budget and the folder cap as parameters
+/// (tests use small ones). The budget covers the walk and the reads of the
+/// whole base; past it the build ends with what it has and `timed_out` is set.
+pub fn build_base_index_with(base: &DocBase, budget: Duration, dir_limit: usize) -> BaseIndex {
     let labels = docs_root_labels(&base.roots);
+    let deadline = Instant::now() + budget;
     let mut roots: Vec<RootInfo> = Vec::new();
     let mut inputs: Vec<PageInput> = Vec::new();
     let mut located: HashMap<String, PageFile> = HashMap::new();
     let mut walked = 0usize;
+    let mut dirs = 0usize;
+    let mut timed_out = false;
     for (i, configured) in base.roots.iter().enumerate() {
         let canonical = stdfs::canonicalize(configured).ok().filter(|p| p.is_dir());
         let mut info = RootInfo {
@@ -438,31 +462,56 @@ pub fn build_base_index(base: &DocBase) -> BaseIndex {
             file_count: 0,
             oversize_skipped: 0,
             cap_reached: false,
+            not_text_skipped: 0,
+            dir_cap_reached: false,
         };
-        if let Some(root) = canonical {
+        if let (Some(root), false) = (canonical, timed_out) {
             let remaining = DOCS_MAX_FILES.saturating_sub(walked);
+            let dirs_left = dir_limit.saturating_sub(dirs);
             if remaining == 0 {
                 info.cap_reached = true;
+            } else if dirs_left == 0 {
+                info.dir_cap_reached = true;
             } else {
-                let mut paths = walk_markdown(&root, SHOW_HIDDEN, remaining);
-                if paths.len() >= remaining {
+                let found = walk_markdown_bounded(&root, SHOW_HIDDEN, remaining, dirs_left, Some(deadline));
+                if found.file_cap_reached {
                     info.cap_reached = true;
                 }
+                if found.dir_cap_reached {
+                    info.dir_cap_reached = true;
+                }
+                if found.timed_out {
+                    timed_out = true;
+                }
+                dirs += found.dirs_read;
+                let mut paths = found.files;
                 walked += paths.len();
                 paths.sort();
                 for path in paths {
+                    if Instant::now() >= deadline {
+                        timed_out = true;
+                        break;
+                    }
                     let Some(rel) = rel_path_of(&root, &path) else { continue };
                     let Ok(meta) = stdfs::metadata(&path) else { continue };
                     if meta.len() > DOCS_MAX_FILE_BYTES {
                         info.oversize_skipped += 1;
                         continue;
                     }
-                    let Ok(text) = read_checked(&root, &path) else { continue };
+                    let text = match read_checked(&root, &path) {
+                        Ok(text) => text,
+                        Err(reason) => {
+                            if reason == NOT_TEXT_REASON {
+                                info.not_text_skipped += 1;
+                            }
+                            continue;
+                        }
+                    };
                     inputs.push(PageInput {
                         root: labels[i].clone(),
                         rel_path: rel.clone(),
                         title: frontmatter_title(&text),
-                        headings: headings_with_offsets(&text).into_iter().map(|h| (h.level, h.text)).collect(),
+                        headings: headings_with_offsets_limited(&text, DOCS_MAX_HEADINGS_PER_PAGE).into_iter().map(|h| (h.level, h.text)).collect(),
                         links: extract_links(&text),
                         chars: utf16_len(&text),
                     });
@@ -487,7 +536,7 @@ pub fn build_base_index(base: &DocBase) -> BaseIndex {
     });
     let files: HashMap<String, PageFile> = out.pages.iter().filter_map(|p| located.remove(&p.id).map(|f| (p.id.clone(), f))).collect();
     let pages: HashMap<String, usize> = out.pages.iter().enumerate().map(|(i, p)| (p.id.clone(), i)).collect();
-    BaseIndex { key: config_key(base), built: Instant::now(), out, roots, files, pages }
+    BaseIndex { key: config_key(base), built: Instant::now(), out, roots, files, pages, timed_out }
 }
 
 impl BaseIndex {
@@ -617,6 +666,10 @@ pub struct RootStatusOut {
     pub file_count: usize,
     pub oversize_skipped: u64,
     pub cap_reached: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub not_text_skipped: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dir_cap_reached: Option<bool>,
 }
 
 /// `AiDocBaseStatus`. `brokenLinks` is left out here on purpose: `docsHost.ts` fills it from
@@ -631,6 +684,12 @@ pub struct BaseStatusOut {
     pub oversize_skipped: u64,
     pub roots_missing: usize,
     pub cap_reached: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub not_text_skipped: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dir_cap_reached: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timed_out: Option<bool>,
 }
 
 /// Health of a base from its (possibly empty) index. A disabled base is not
@@ -648,6 +707,8 @@ pub fn base_status(base: &DocBase, index: Option<&BaseIndex>) -> BaseStatusOut {
             file_count: 0,
             oversize_skipped: 0,
             cap_reached: false,
+            not_text_skipped: None,
+            dir_cap_reached: None,
         };
         if let Some(index) = index {
             if let Some(info) = index.roots.get(i) {
@@ -655,6 +716,8 @@ pub fn base_status(base: &DocBase, index: Option<&BaseIndex>) -> BaseStatusOut {
                 status.file_count = info.file_count;
                 status.oversize_skipped = info.oversize_skipped;
                 status.cap_reached = info.cap_reached;
+                status.not_text_skipped = (info.not_text_skipped > 0).then_some(info.not_text_skipped);
+                status.dir_cap_reached = info.dir_cap_reached.then_some(true);
             }
             if status.found {
                 if let Some(home) = index.out.homes.iter().find(|h| h.root == status.label) {
@@ -666,7 +729,11 @@ pub fn base_status(base: &DocBase, index: Option<&BaseIndex>) -> BaseStatusOut {
         roots.push(status);
     }
     let missing = roots.iter().filter(|r| !r.found).count();
+    let not_text: u64 = roots.iter().filter_map(|r| r.not_text_skipped).sum();
     BaseStatusOut {
+        not_text_skipped: (not_text > 0).then_some(not_text),
+        dir_cap_reached: roots.iter().any(|r| r.dir_cap_reached == Some(true)).then_some(true),
+        timed_out: index.is_some_and(|i| i.timed_out).then_some(true),
         base: base.clone(),
         active: base.enabled && roots.iter().any(|r| r.found),
         file_count: roots.iter().map(|r| r.file_count).sum(),
@@ -694,6 +761,10 @@ pub struct DocsState {
     watchers: Mutex<HashMap<String, WatchSet>>,
     /// How many times a base has been walked (tests count them; nothing reads it otherwise).
     walks: AtomicU64,
+    /// Roots the fs scope may take without asking (F8): present in the settings
+    /// at startup, or chosen in the native folder picker (`docs_pick_folder`).
+    /// Keyed by `doc_root_key`. Only Rust writes it.
+    trusted_roots: Mutex<HashSet<String>>,
 }
 
 impl DocsState {
@@ -827,13 +898,85 @@ pub async fn docs_keyword_search<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || keyword_search(&index, &query)).await.map_err(|e| e.to_string())
 }
 
-/// Allow every base root that passes validation in the fs scope (S11). Called
-/// at startup and after bases are saved. Returns how many roots were allowed.
-pub fn allow_roots<R: Runtime>(app: &AppHandle<R>) -> usize {
-    let Ok(bases) = load_bases(app) else { return 0 };
-    let mut allowed = 0;
+// ── The fs scope (S11, F8) ──────────────────────────────────────────────────
+
+/// What `docs_sync_roots` does with one root of the saved bases.
+#[derive(Debug, PartialEq, Eq)]
+pub enum RootDecision {
+    /// Already trusted: it was in the settings at startup, or the user picked it in the native picker.
+    Trusted,
+    /// Inside the home folder, which the scope covers already; nothing to add.
+    UnderHome,
+    /// Outside the home folder and never trusted: ask the user, natively.
+    NeedsConfirm,
+}
+
+/// Decide a root's fate. `home` is the canonical home folder; the root is
+/// canonicalized here, so a link inside the home folder that points outside it
+/// is outside.
+pub fn classify_root(root: &str, home: Option<&Path>, trusted: &HashSet<String>) -> RootDecision {
+    if trusted.contains(&doc_root_key(root)) {
+        return RootDecision::Trusted;
+    }
+    let canonical = stdfs::canonicalize(root).ok();
+    if let (Some(home), Some(real)) = (home, canonical.as_deref()) {
+        if is_within(home, real) {
+            return RootDecision::UnderHome;
+        }
+    }
+    RootDecision::NeedsConfirm
+}
+
+/// The roots of `bases` that must join the fs scope, after asking `confirm`
+/// about each untrusted one outside the home folder. Returns the roots to add
+/// (the caller adds them to the scope) and records them as trusted. Pure apart
+/// from `confirm`, so tests drive it without a window.
+pub fn roots_to_allow(
+    bases: &[DocBase],
+    home: Option<&Path>,
+    trusted: &Mutex<HashSet<String>>,
+    mut confirm: impl FnMut(&str) -> bool,
+) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
     for root in bases.iter().flat_map(|b| b.roots.iter()) {
         // `check_doc_root` already passed; the folder must exist too.
+        if !stdfs::metadata(root).map(|m| m.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let snapshot = trusted.lock().map(|t| t.clone()).unwrap_or_default();
+        let allow = match classify_root(root, home, &snapshot) {
+            RootDecision::Trusted => true,
+            RootDecision::UnderHome => false,
+            RootDecision::NeedsConfirm => confirm(root),
+        };
+        if allow {
+            if let Ok(mut t) = trusted.lock() {
+                t.insert(doc_root_key(root));
+            }
+            out.push(root.clone());
+        }
+    }
+    out
+}
+
+fn home_dir_of<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+    let home = app.path().home_dir().ok()?;
+    stdfs::canonicalize(&home).ok().or(Some(home))
+}
+
+/// Allow every base root that passes validation in the fs scope (S11), at
+/// startup: the roots in the settings now are the trusted set (F8). Returns
+/// how many roots were allowed.
+pub fn allow_roots<R: Runtime>(app: &AppHandle<R>) -> usize {
+    let Ok(bases) = load_bases(app) else { return 0 };
+    let state = app.state::<DocsState>();
+    if let Ok(mut trusted) = state.trusted_roots.lock() {
+        for root in bases.iter().flat_map(|b| b.roots.iter()) {
+            trusted.insert(doc_root_key(root));
+        }
+    }
+    let mut allowed = 0;
+    for root in bases.iter().flat_map(|b| b.roots.iter()) {
         if stdfs::metadata(root).map(|m| m.is_dir()).unwrap_or(false) && app.fs_scope().allow_directory(root, true).is_ok() {
             allowed += 1;
         }
@@ -841,11 +984,95 @@ pub fn allow_roots<R: Runtime>(app: &AppHandle<R>) -> usize {
     allowed
 }
 
+/// Ask whether a folder outside the home folder may be opened and written to
+/// for this session. A native modal: nothing the webview sends can answer it.
+#[cfg(not(test))]
+async fn confirm_outside_home<R: Runtime>(app: &AppHandle<R>, window: &WebviewWindow<R>, root: &str) -> bool {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .message(format!(
+            "A documentation base points at a folder outside your home folder:\n\n{root}\n\nAllowing it lets MikeDown open and change any file in that folder until you quit. Only allow a folder you chose."
+        ))
+        .title("Allow this folder?")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom("Allow".to_string(), "Don't allow".to_string()))
+        .parent(window)
+        .show(move |ok| {
+            let _ = tx.send(ok);
+        });
+    rx.await.unwrap_or(false)
+}
+
+#[cfg(test)]
+async fn confirm_outside_home<R: Runtime>(_app: &AppHandle<R>, _window: &WebviewWindow<R>, _root: &str) -> bool {
+    false
+}
+
+/// Add the saved bases' roots to the fs scope (S11). A root joins it only if it
+/// was in the settings at startup, came through `docs_pick_folder`, or the user
+/// confirms it in a native dialog (outside the home folder only; inside it the
+/// scope already allows it). The decision is made here, not in the webview.
 #[tauri::command]
-pub fn docs_sync_roots<R: Runtime>(app: AppHandle<R>, state: State<'_, DocsState>) -> usize {
+pub async fn docs_sync_roots<R: Runtime>(app: AppHandle<R>, window: WebviewWindow<R>, state: State<'_, DocsState>) -> Result<usize, String> {
     // The bases may just have changed: no cached index outlives that.
     state.forget_all();
-    allow_roots(&app)
+    let bases = load_bases(&app)?;
+    let home = home_dir_of(&app);
+    // Ask about each untrusted outside root in turn: the dialog is async, the decision loop is not.
+    let mut asked: HashMap<String, bool> = HashMap::new();
+    for root in bases.iter().flat_map(|b| b.roots.iter()) {
+        if !stdfs::metadata(root).map(|m| m.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let snapshot = state.trusted_roots.lock().map(|t| t.clone()).unwrap_or_default();
+        if classify_root(root, home.as_deref(), &snapshot) == RootDecision::NeedsConfirm && !asked.contains_key(root) {
+            let answer = confirm_outside_home(&app, &window, root).await;
+            asked.insert(root.clone(), answer);
+        }
+    }
+    let allowed = roots_to_allow(&bases, home.as_deref(), &state.trusted_roots, |root| asked.get(root).copied().unwrap_or(false));
+    let mut count = 0;
+    for root in &allowed {
+        if app.fs_scope().allow_directory(root, true).is_ok() {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+/// The native folder picker for adding a base folder (F8). The pick is
+/// validated, joins the fs scope and is remembered as trusted, all here: the
+/// webview only receives the path. One click, no second dialog.
+#[tauri::command]
+pub async fn docs_pick_folder<R: Runtime>(app: AppHandle<R>, window: WebviewWindow<R>, state: State<'_, DocsState>) -> Result<Option<String>, String> {
+    let Some(picked) = pick_folder_dialog(&app, &window).await else { return Ok(None) };
+    let Some(root) = picked.to_str().and_then(check_doc_root) else { return Err("That folder cannot be used as a documentation base.".to_string()) };
+    if !stdfs::metadata(&root).map(|m| m.is_dir()).unwrap_or(false) {
+        return Err("That is not a folder.".to_string());
+    }
+    app.fs_scope().allow_directory(&root, true).map_err(|e| e.to_string())?;
+    if let Ok(mut trusted) = state.trusted_roots.lock() {
+        trusted.insert(doc_root_key(&root));
+    }
+    Ok(Some(root))
+}
+
+#[cfg(not(test))]
+async fn pick_folder_dialog<R: Runtime>(app: &AppHandle<R>, window: &WebviewWindow<R>) -> Option<PathBuf> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog().file().set_title("Choose a documentation folder").set_parent(window).pick_folder(move |picked| {
+        let _ = tx.send(picked);
+    });
+    rx.await.ok().flatten().and_then(|p| p.into_path().ok())
+}
+
+#[cfg(test)]
+async fn pick_folder_dialog<R: Runtime>(_app: &AppHandle<R>, _window: &WebviewWindow<R>) -> Option<PathBuf> {
+    None
 }
 
 // ── Watching ────────────────────────────────────────────────────────────────

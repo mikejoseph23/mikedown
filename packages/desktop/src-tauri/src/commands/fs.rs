@@ -560,9 +560,39 @@ pub fn move_entry(from: &Path, to: &Path) -> io::Result<()> {
 /// `node_modules` unless `show_hidden`, and symlinked folders (no cycles).
 /// Stops at `limit` files.
 pub fn walk_markdown(root: &Path, show_hidden: bool, limit: usize) -> Vec<PathBuf> {
-    let mut out = Vec::new();
+    walk_markdown_bounded(root, show_hidden, limit, usize::MAX, None).files
+}
+
+/// What a bounded walk found and why it stopped.
+#[derive(Debug, Default)]
+pub struct Walked {
+    pub files: Vec<PathBuf>,
+    /// Folders read (each `read_dir` attempt counts).
+    pub dirs_read: usize,
+    /// The file `limit` was reached.
+    pub file_cap_reached: bool,
+    /// The folder `dir_limit` was reached with folders still unread.
+    pub dir_cap_reached: bool,
+    /// The deadline passed.
+    pub timed_out: bool,
+}
+
+/// `walk_markdown` with a folder limit and a deadline, for the documentation
+/// bases (S9): a root with millions of folders or a very slow disk ends the
+/// walk and says why instead of running on.
+pub fn walk_markdown_bounded(root: &Path, show_hidden: bool, limit: usize, dir_limit: usize, deadline: Option<std::time::Instant>) -> Walked {
+    let mut out = Walked::default();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
+        if out.dirs_read >= dir_limit {
+            out.dir_cap_reached = true;
+            return out;
+        }
+        if deadline.is_some_and(|d| std::time::Instant::now() >= d) {
+            out.timed_out = true;
+            return out;
+        }
+        out.dirs_read += 1;
         let Ok(entries) = stdfs::read_dir(&dir) else { continue };
         for entry in entries.flatten() {
             let Ok(ft) = entry.file_type() else { continue };
@@ -575,8 +605,9 @@ pub fn walk_markdown(root: &Path, show_hidden: bool, limit: usize) -> Vec<PathBu
             } else if ft.is_file() {
                 let lower = name.to_ascii_lowercase();
                 if lower.ends_with(".md") || lower.ends_with(".markdown") {
-                    out.push(entry.path());
-                    if out.len() >= limit {
+                    out.files.push(entry.path());
+                    if out.files.len() >= limit {
+                        out.file_cap_reached = true;
                         return out;
                     }
                 }

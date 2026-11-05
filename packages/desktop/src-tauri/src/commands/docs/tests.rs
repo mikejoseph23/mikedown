@@ -902,3 +902,283 @@ fn a_plain_list_notices_a_root_that_vanishes_or_a_base_with_new_roots() {
     assert_eq!(walks(&state), 2);
     let _ = stdfs::remove_dir_all(&app_data);
 }
+
+// ── Hostile input and host hardening (S9, F2, F3, F7, F8, F9) ───────────────
+
+/// Growth, not a wall clock (`helpers/growth.ts` on the TypeScript side): the
+/// input grows 4x per step (1/64, 1/16, 1/4, 1 of about 1 MiB); linear work grows
+/// about 4x per step and a quadratic scan about 16x. A step over 150 ms must not
+/// be 10x its predecessor (best of two looks, the predecessor floored at 5 ms).
+/// Climbing from the small end fails a regression in seconds, not minutes.
+fn assert_near_linear<T>(name: &str, make: impl Fn(f64) -> T, run: impl Fn(&T)) {
+    let time = |input: &T| {
+        let t0 = std::time::Instant::now();
+        run(input);
+        t0.elapsed().as_secs_f64() * 1000.0
+    };
+    let mut prev: Option<(T, f64)> = None;
+    for u in [1.0 / 64.0, 1.0 / 16.0, 1.0 / 4.0, 1.0] {
+        let input = make(u);
+        let mut ms = time(&input);
+        if let Some((prev_input, prev_ms)) = prev.as_mut() {
+            if ms >= 150.0 && ms / prev_ms.max(5.0) >= 10.0 {
+                ms = ms.min(time(&input));
+                *prev_ms = prev_ms.min(time(prev_input));
+                assert!(ms / prev_ms.max(5.0) < 10.0, "{name}: {ms:.0} ms at {u} of a MiB, {prev_ms:.0} ms at a quarter of that");
+            }
+        }
+        prev = Some((input, ms));
+    }
+}
+
+const MIB: usize = 1024 * 1024;
+
+fn rep(s: &str, chars: usize, u: f64) -> String {
+    s.repeat((((chars as f64) * u / (s.chars().count() as f64)).round() as usize).max(1))
+}
+
+#[test]
+fn links_stay_near_linear_on_a_mebibyte_of_one_line() {
+    let inputs: Vec<(&str, Box<dyn Fn(f64) -> String>)> = vec![
+        ("an opening link then blanks", Box::new(|u| format!("[a]({}x", " ".repeat((MIB as f64 * u) as usize)))),
+        ("blank runs after many openings", Box::new(|u| rep(&format!("[a]({}x ", " ".repeat(40)), MIB, u))),
+        ("brackets", Box::new(|u| rep("[", MIB, u))),
+        ("link openings", Box::new(|u| rep("[a](", MIB, u))),
+        ("unclosed angle destinations", Box::new(|u| rep("[a](<", MIB, u))),
+        ("unclosed titles", Box::new(|u| rep("[a](x \"", MIB, u))),
+        ("images", Box::new(|u| rep("![a](<", MIB, u))),
+        ("wikilink openings", Box::new(|u| rep("[[a", MIB, u))),
+        ("a long destination", Box::new(|u| format!("[a]({})", "d".repeat((MIB as f64 * u) as usize)))),
+        ("backticks", Box::new(|u| rep("`[a](b)", MIB, u))),
+    ];
+    for (name, make) in inputs {
+        assert_near_linear(name, |u| make(u), |md| {
+            extract_links(md);
+        });
+    }
+}
+
+#[test]
+fn headings_and_sections_stay_near_linear_on_a_mebibyte() {
+    let inputs: Vec<(&str, Box<dyn Fn(f64) -> String>)> = vec![
+        ("blanks inside a heading", Box::new(|u| format!("# a{}b", " ".repeat((MIB as f64 * u) as usize)))),
+        ("closing hashes", Box::new(|u| format!("# a {}", "#".repeat((MIB as f64 * u) as usize)))),
+        ("262,144 equal headings", Box::new(|u| rep("# a\n", MIB, u))),
+        ("headings with the same slug family", Box::new(|u| rep("# a-1\n# a\n", MIB, u))),
+    ];
+    for (name, make) in inputs {
+        assert_near_linear(name, |u| make(u), |md| {
+            split_sections(md);
+            headings_with_offsets(md);
+        });
+    }
+}
+
+#[test]
+fn slugs_stay_near_linear_for_equal_headings_and_keep_their_old_values() {
+    assert_near_linear("docs_slugs", |u| vec!["Setup"; (262_144.0 * u) as usize], |texts| {
+        docs_slugs(texts);
+    });
+    assert_eq!(docs_slugs(&["Setup", "Setup", "Setup", "Setup 1"]), vec!["setup", "setup-1", "setup-2", "setup-1-1"]);
+}
+
+#[test]
+fn sections_keep_1000_headings_and_clip_their_text_like_the_fixture() {
+    let f = fixture("limits.json");
+    let many = &f["manyHeadings"];
+    let line = many["line"].as_str().unwrap();
+    let md: String = (0..many["count"].as_u64().unwrap()).map(|n| line.replace("{n}", &n.to_string())).collect();
+    let sections = split_sections(&md);
+    assert_eq!(sections.len() as u64, many["sections"].as_u64().unwrap());
+    let last = sections.last().unwrap();
+    let (_, text, slug) = last.heading.clone().unwrap();
+    assert_eq!(slug, many["lastSlug"].as_str().unwrap());
+    assert_eq!(text, many["lastHeading"].as_str().unwrap());
+    assert!(last.text.ends_with(many["lastTextTail"].as_str().unwrap()));
+
+    let long = &f["longHeading"];
+    let md = format!("# {}\nbody\n", long["char"].as_str().unwrap().repeat(long["length"].as_u64().unwrap() as usize));
+    let (_, text, slug) = split_sections(&md)[0].heading.clone().unwrap();
+    assert_eq!(text.chars().count() as u64, long["textLength"].as_u64().unwrap());
+    assert_eq!(slug.chars().count() as u64, long["slugLength"].as_u64().unwrap());
+
+    let wide = &f["longHeadingWide"];
+    let md = format!("# {}\n", wide["char"].as_str().unwrap().repeat(wide["length"].as_u64().unwrap() as usize));
+    assert_eq!(split_sections(&md)[0].heading.clone().unwrap().1.chars().count() as u64, wide["textCodePoints"].as_u64().unwrap());
+}
+
+#[test]
+fn bytes_that_are_not_utf8_text_match_the_fixture() {
+    let cases = fixture("not-text.json");
+    let cases = cases["cases"].as_array().unwrap();
+    assert!(cases.len() > 8);
+    for case in cases {
+        let hex = case["hex"].as_str().unwrap();
+        let bytes: Vec<u8> = (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap()).collect();
+        assert_eq!(is_utf8_text(&bytes), case["text"].as_bool().unwrap(), "{}", case["name"]);
+    }
+}
+
+fn write_bytes(root: &Path, rel: &str, bytes: &[u8]) {
+    let path = root.join(rel);
+    stdfs::create_dir_all(path.parent().unwrap()).unwrap();
+    stdfs::write(path, bytes).unwrap();
+}
+
+#[test]
+fn a_file_that_is_not_utf8_text_is_refused_skipped_and_counted() {
+    let root = temp_dir("nottext");
+    write(&root, "ok.md", "# Ok\n");
+    let mut bom = vec![0xef, 0xbb, 0xbf];
+    bom.extend_from_slice(b"# With a UTF-8 mark\n");
+    write_bytes(&root, "bom.md", &bom);
+    let utf16: Vec<u8> = [0xff, 0xfe].into_iter().chain("# Keys\nAKIAIOSFODNN7EXAMPLE\n".chars().flat_map(|c| [c as u8, 0])).collect();
+    write_bytes(&root, "u16.md", &utf16);
+    write_bytes(&root, "u32.md", &[0, 0, 0xfe, 0xff, 0, 0, 0, 0x23]);
+    write_bytes(&root, "nul.md", b"# a\0b\n");
+
+    assert_eq!(read_checked(&root, &root.join("u16.md")).unwrap_err(), NOT_TEXT_REASON);
+    assert_eq!(read_checked(&root, &root.join("nul.md")).unwrap_err(), NOT_TEXT_REASON);
+    assert_eq!(read_checked(&root, &root.join("bom.md")).unwrap(), "# With a UTF-8 mark\n");
+
+    let cfg = base("nt", &[root.as_path()]);
+    let index = build_base_index(&cfg);
+    let ids: Vec<&str> = index.out.pages.iter().map(|p| p.id.as_str()).collect();
+    assert_eq!(ids.len(), 2, "{ids:?}");
+    assert_eq!(index.roots[0].not_text_skipped, 3);
+    let status = base_status(&cfg, Some(&index));
+    assert_eq!(status.not_text_skipped, Some(3));
+    assert_eq!(status.roots[0].not_text_skipped, Some(3));
+    assert_eq!(status.file_count, 2);
+    let _ = stdfs::remove_dir_all(&root);
+}
+
+#[test]
+fn the_index_cuts_heading_text_and_link_targets() {
+    let root = temp_dir("clip");
+    write(&root, "a.md", &format!("# {}\n[a]({}) [[{}]]\n", "h".repeat(900), "t".repeat(900), "w".repeat(250)));
+    let index = build_base_index(&base("clip", &[root.as_path()]));
+    let page = &index.out.pages[0];
+    assert_eq!(page.headings[0].text.chars().count(), 200);
+    assert_eq!(page.headings[0].slug, "h".repeat(200));
+    assert_eq!(page.links.iter().map(|l| l.target.chars().count()).collect::<Vec<_>>(), vec![500, 250]);
+    let _ = stdfs::remove_dir_all(&root);
+}
+
+#[test]
+fn the_walk_stops_at_the_folder_cap_and_says_so() {
+    let root = temp_dir("dircap");
+    for i in 0..30 {
+        write(&root, &format!("d{i}/page.md"), "# P\n");
+    }
+    let cfg = base("dircap", &[root.as_path()]);
+    let index = build_base_index_with(&cfg, Duration::from_secs(60), 10);
+    assert!(index.roots[0].dir_cap_reached);
+    assert!(index.out.pages.len() < 30);
+    let status = base_status(&cfg, Some(&index));
+    assert_eq!(status.dir_cap_reached, Some(true));
+    assert_eq!(status.roots[0].dir_cap_reached, Some(true));
+    let full = build_base_index_with(&cfg, Duration::from_secs(60), 1000);
+    assert!(!full.roots[0].dir_cap_reached);
+    assert_eq!(full.out.pages.len(), 30);
+    assert_eq!(base_status(&cfg, Some(&full)).dir_cap_reached, None);
+    let _ = stdfs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_build_past_its_time_budget_ends_and_says_so() {
+    let root = temp_dir("budget");
+    for i in 0..50 {
+        write(&root, &format!("f{i}.md"), "# P\n");
+    }
+    let cfg = base("budget", &[root.as_path()]);
+    let index = build_base_index_with(&cfg, Duration::ZERO, DOCS_MAX_DIRS);
+    assert!(index.timed_out);
+    assert!(index.out.pages.is_empty());
+    assert!(index.active(), "the root was found, only the reading ran out of time");
+    let status = base_status(&cfg, Some(&index));
+    assert_eq!(status.timed_out, Some(true));
+    let ok = build_base_index_with(&cfg, Duration::from_secs(60), DOCS_MAX_DIRS);
+    assert!(!ok.timed_out);
+    assert_eq!(base_status(&cfg, Some(&ok)).timed_out, None);
+    let _ = stdfs::remove_dir_all(&root);
+}
+
+// F8: the fs scope
+
+fn trusted(keys: &[&str]) -> Mutex<HashSet<String>> {
+    Mutex::new(keys.iter().map(|k| doc_root_key(k)).collect())
+}
+
+#[test]
+fn a_root_inside_home_needs_nothing_and_one_outside_needs_a_native_yes() {
+    let home = temp_dir("f8-home");
+    let inside = home.join("notes");
+    stdfs::create_dir_all(&inside).unwrap();
+    let outside = temp_dir("f8-outside");
+    let inside_s = inside.to_string_lossy().into_owned();
+    let outside_s = outside.to_string_lossy().into_owned();
+
+    let empty = HashSet::new();
+    assert_eq!(classify_root(&inside_s, Some(&home), &empty), RootDecision::UnderHome);
+    assert_eq!(classify_root(&outside_s, Some(&home), &empty), RootDecision::NeedsConfirm);
+    assert_eq!(classify_root(&outside_s, None, &empty), RootDecision::NeedsConfirm, "no home known: ask");
+    let mut known = HashSet::new();
+    known.insert(doc_root_key(&outside_s));
+    assert_eq!(classify_root(&outside_s, Some(&home), &known), RootDecision::Trusted);
+    let _ = (stdfs::remove_dir_all(&home), stdfs::remove_dir_all(&outside));
+}
+
+#[test]
+fn a_root_set_by_the_webview_joins_the_scope_only_if_trusted_or_confirmed() {
+    let home = temp_dir("f8b-home");
+    let outside_start = temp_dir("f8b-start");
+    let outside_picked = temp_dir("f8b-picked");
+    let outside_new = temp_dir("f8b-new");
+    let cfg = |roots: &[&Path]| vec![base("b", roots)];
+    let s = |p: &Path| p.to_string_lossy().into_owned();
+
+    // The startup set and a pick are allowed without a question.
+    let trust = trusted(&[&s(&outside_start), &s(&outside_picked)]);
+    let asked = std::cell::RefCell::new(Vec::new());
+    let ask = |root: &str| {
+        asked.borrow_mut().push(root.to_string());
+        false
+    };
+    let got = roots_to_allow(&cfg(&[&outside_start, &outside_picked]), Some(&home), &trust, ask);
+    assert_eq!(got.len(), 2);
+    assert!(asked.borrow().is_empty());
+
+    // A root the webview just made up: asked, and refused means not added and not trusted.
+    let got = roots_to_allow(&cfg(&[&outside_new]), Some(&home), &trust, |root| {
+        asked.borrow_mut().push(root.to_string());
+        false
+    });
+    assert!(got.is_empty());
+    assert_eq!(asked.borrow().len(), 1);
+    assert!(!trust.lock().unwrap().contains(&doc_root_key(&s(&outside_new))));
+
+    // Confirmed: added, and trusted from then on, so the next sync does not ask again.
+    let got = roots_to_allow(&cfg(&[&outside_new]), Some(&home), &trust, |_| true);
+    assert_eq!(got, vec![s(&outside_new)]);
+    let got = roots_to_allow(&cfg(&[&outside_new]), Some(&home), &trust, |_| panic!("asked twice"));
+    assert_eq!(got, vec![s(&outside_new)]);
+
+    // A root that does not exist is never asked about or added.
+    let missing = home.join("gone");
+    assert!(roots_to_allow(&cfg(&[&missing]), Some(&home), &trust, |_| panic!("asked about a missing folder")).is_empty());
+    for d in [&home, &outside_start, &outside_picked, &outside_new] {
+        let _ = stdfs::remove_dir_all(d);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_inside_home_that_points_outside_it_is_outside() {
+    let home = temp_dir("f8c-home");
+    let elsewhere = temp_dir("f8c-else");
+    std::os::unix::fs::symlink(&elsewhere, home.join("shortcut")).unwrap();
+    let link = home.join("shortcut").to_string_lossy().into_owned();
+    assert_eq!(classify_root(&link, Some(&home), &HashSet::new()), RootDecision::NeedsConfirm);
+    let _ = (stdfs::remove_dir_all(&home), stdfs::remove_dir_all(&elsewhere));
+}

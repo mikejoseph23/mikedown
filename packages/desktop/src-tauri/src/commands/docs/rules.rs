@@ -33,6 +33,18 @@ pub const DOCS_MAX_HEADINGS_PER_PAGE: usize = 1000;
 pub const DOCS_MAX_LINKS_PER_PAGE: usize = 1000;
 /// Ids one `docs_read_sections` call looks at (anything past this is ignored).
 pub const DOCS_MAX_IDS_PER_READ: usize = 200;
+/// Folders read per base while walking; the walk stops at this many and health says so.
+pub const DOCS_MAX_DIRS: usize = 20_000;
+/// Heading text is cut to this many code points in the index and in sections.
+pub const DOCS_MAX_HEADING_CHARS: usize = 200;
+/// A link target is cut to this many code points in the index.
+pub const DOCS_MAX_LINK_TARGET_CHARS: usize = 500;
+/// How far (UTF-16 units) the link scanner looks for the end of a `<...>` destination or a quoted title.
+pub const DOCS_LINK_SCAN_UNITS: usize = 1000;
+/// Link text between the brackets, in UTF-16 units (longer is not a link).
+pub const DOCS_LINK_TEXT_UNITS: usize = 300;
+/// Milliseconds one base's walk and index may take; past it the build ends and health says so.
+pub const DOCS_BUILD_BUDGET_MS: u64 = 30_000;
 
 // ── Text helpers (util.ts) ──────────────────────────────────────────────────
 
@@ -87,6 +99,16 @@ pub fn cap_section_text(text: &str, max_bytes: usize) -> (String, bool) {
         cut -= 1;
     }
     (text[..cut].to_string(), true)
+}
+
+/// `isUtf8Text` (`src/ai/docsHost.ts`): false for a UTF-16 or UTF-32 byte order
+/// mark (`FF FE`, `FE FF`, `00 00 FE FF`) or any NUL byte; a UTF-8 byte order
+/// mark is fine. Shared through `test/ai-fixtures/docs/not-text.json`.
+pub fn is_utf8_text(bytes: &[u8]) -> bool {
+    if bytes.len() >= 2 && ((bytes[0] == 0xff && bytes[1] == 0xfe) || (bytes[0] == 0xfe && bytes[1] == 0xff)) {
+        return false;
+    }
+    !bytes.contains(&0)
 }
 
 // ── Root labels, slugs, ids (index.ts) ──────────────────────────────────────
@@ -145,22 +167,35 @@ pub fn docs_slug(text: &str) -> String {
 }
 
 /// `docsSlugs`: unique slugs for a page's heading texts, in document order.
+/// `used` only grows, so for a base slug every suffix below the one last handed
+/// out is still taken: each base resumes from its own counter (linear time; the
+/// result is the same as "the smallest unused suffix").
 pub fn docs_slugs<S: AsRef<str>>(texts: &[S]) -> Vec<String> {
     let mut used: HashSet<String> = HashSet::new();
+    let mut next: HashMap<String, usize> = HashMap::new();
     texts
         .iter()
         .map(|text| {
             let base = docs_slug(text.as_ref());
             let mut slug = base.clone();
-            let mut n = 1;
-            while used.contains(&slug) {
+            if used.contains(&slug) {
+                let mut n = next.get(&base).copied().unwrap_or(1);
+                while used.contains(&format!("{base}-{n}")) {
+                    n += 1;
+                }
                 slug = format!("{base}-{n}");
-                n += 1;
+                next.insert(base, n + 1);
             }
             used.insert(slug.clone());
             slug
         })
         .collect()
+}
+
+/// `clipDocsHeading`: heading text as the index and the sections keep it, at
+/// most `DOCS_MAX_HEADING_CHARS` code points.
+pub fn clip_docs_heading(text: &str) -> String {
+    text.chars().take(DOCS_MAX_HEADING_CHARS).collect()
 }
 
 pub fn docs_page_id(root_label: &str, rel_path: &str) -> String {
@@ -277,7 +312,13 @@ pub struct PageInput {
 }
 
 fn build_page(input: &PageInput, id: String) -> DocsPage {
-    let kept: Vec<&(u8, String)> = input.headings.iter().filter(|(_, t)| !js_trim(t).is_empty()).take(DOCS_MAX_HEADINGS_PER_PAGE).collect();
+    let kept: Vec<(u8, String)> = input
+        .headings
+        .iter()
+        .filter(|(_, t)| !js_trim(t).is_empty())
+        .take(DOCS_MAX_HEADINGS_PER_PAGE)
+        .map(|(level, text)| (*level, clip_docs_heading(text)))
+        .collect();
     let texts: Vec<&str> = kept.iter().map(|(_, t)| t.as_str()).collect();
     let slugs = docs_slugs(&texts);
     let headings: Vec<DocsHeading> = kept

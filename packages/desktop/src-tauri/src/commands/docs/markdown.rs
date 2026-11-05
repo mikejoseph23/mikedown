@@ -15,7 +15,10 @@
 //!   frontmatter, because the pattern needs a newline between the fences;
 //! - `trim()` is JavaScript's (`rules::js_trim`).
 
-use super::rules::{docs_slugs, is_js_space, js_trim, DocsLink};
+use super::rules::{
+    clip_docs_heading, docs_slugs, is_js_space, js_trim, DocsLink, DOCS_LINK_SCAN_UNITS, DOCS_LINK_TEXT_UNITS, DOCS_MAX_HEADINGS_PER_PAGE,
+    DOCS_MAX_LINKS_PER_PAGE, DOCS_MAX_LINK_TARGET_CHARS,
+};
 
 #[derive(Clone, Copy)]
 struct Line<'a> {
@@ -181,11 +184,20 @@ pub struct HeadingAt {
 
 /// `headingsWithOffsets`: heading levels, texts and line offsets, skipping
 /// frontmatter and fenced code.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn headings_with_offsets(md: &str) -> Vec<HeadingAt> {
+    headings_with_offsets_limited(md, usize::MAX)
+}
+
+/// `headingsWithOffsets(markdown, limit)`: stops after `limit` headings (the index keeps 1000).
+pub fn headings_with_offsets_limited(md: &str, limit: usize) -> Vec<HeadingAt> {
     let lines = split_lines(md, frontmatter_end(md));
     let mask = fence_mask(&lines);
     let mut out = Vec::new();
     for (i, line) in lines.iter().enumerate() {
+        if out.len() >= limit {
+            break;
+        }
         if mask[i] {
             continue;
         }
@@ -208,7 +220,11 @@ pub struct MdSection<'a> {
 /// first heading, after the frontmatter) and one section per heading, each
 /// running to the next heading of any level.
 pub fn split_sections(md: &str) -> Vec<MdSection<'_>> {
-    let headings = headings_with_offsets(md);
+    // Only the first 1000 headings open a section; a later heading is text of the 1000th.
+    let mut headings = headings_with_offsets_limited(md, DOCS_MAX_HEADINGS_PER_PAGE);
+    for h in headings.iter_mut() {
+        h.text = clip_docs_heading(&h.text);
+    }
     let texts: Vec<&str> = headings.iter().map(|h| h.text.as_str()).collect();
     let slugs = docs_slugs(&texts);
     let mut out = Vec::new();
@@ -277,8 +293,32 @@ fn units(chars: &[char]) -> usize {
     chars.iter().map(|c| c.len_utf16()).sum()
 }
 
-/// After a destination ending at `at`: `(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)`.
-/// Returns the index after the `)`.
+/// A link target as the index keeps it: its first `DOCS_MAX_LINK_TARGET_CHARS` code points.
+fn clip_target(target: &str) -> String {
+    target.chars().take(DOCS_MAX_LINK_TARGET_CHARS).collect()
+}
+
+/// The index of the first `target` in `chars[from..]` whose content before it
+/// (from `from`) is at most `limit` UTF-16 units; None past that. This is what
+/// keeps every start of a link bounded (`indexWithin` in `docsHost.ts`).
+fn find_within(chars: &[char], target: char, from: usize, limit: usize) -> Option<usize> {
+    let mut used = 0usize;
+    let mut i = from;
+    while i < chars.len() {
+        if chars[i] == target {
+            return Some(i);
+        }
+        used += chars[i].len_utf16();
+        if used > limit {
+            return None;
+        }
+        i += 1;
+    }
+    None
+}
+
+/// After a destination ending at `at`: `(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)`,
+/// the title looked for within `DOCS_LINK_SCAN_UNITS`. Returns the index after the `)`.
 fn link_tail(chars: &[char], at: usize) -> Option<usize> {
     let skip_space = |mut i: usize| {
         while i < chars.len() && is_re_space(chars[i]) {
@@ -289,7 +329,7 @@ fn link_tail(chars: &[char], at: usize) -> Option<usize> {
     let after_blanks = skip_space(at);
     if after_blanks > at && after_blanks < chars.len() && (chars[after_blanks] == '"' || chars[after_blanks] == '\'') {
         let quote = chars[after_blanks];
-        if let Some(close) = (after_blanks + 1..chars.len()).find(|k| chars[*k] == quote) {
+        if let Some(close) = find_within(chars, quote, after_blanks + 1, DOCS_LINK_SCAN_UNITS) {
             let e = skip_space(close + 1);
             if e < chars.len() && chars[e] == ')' {
                 return Some(e + 1);
@@ -299,12 +339,15 @@ fn link_tail(chars: &[char], at: usize) -> Option<usize> {
     (after_blanks < chars.len() && chars[after_blanks] == ')').then_some(after_blanks + 1)
 }
 
-/// `(!?)\[([^\]\n]{0,300})\]\(\s*(<[^>\n]*>|[^()\s]*)(?:\s+(?:"..."|'...'))?\s*\)` starting at
-/// `chars[at]` (the `[`). The text, the destination as written and the index after the `)`.
+/// `[text](dest "title")` starting at `chars[at]` (the `[`). The text, the
+/// destination as written and the index after the `)`. The text, a `<...>`
+/// destination and a title are looked for within a fixed number of units, so a
+/// start costs a bounded amount; a run destination ends at its first blank or
+/// parenthesis, so starts do not rescan each other's runs.
 fn markdown_link_at(chars: &[char], at: usize) -> Option<(String, String, usize)> {
     let text_start = at + 1;
-    let close = (text_start..chars.len()).find(|i| chars[*i] == ']')?;
-    if units(&chars[text_start..close]) > 300 || chars.get(close + 1) != Some(&'(') {
+    let close = find_within(chars, ']', text_start, DOCS_LINK_TEXT_UNITS)?;
+    if chars.get(close + 1) != Some(&'(') {
         return None;
     }
     let mut j = close + 2;
@@ -313,7 +356,7 @@ fn markdown_link_at(chars: &[char], at: usize) -> Option<(String, String, usize)
     }
     let text: String = chars[text_start..close].iter().collect();
     if chars.get(j) == Some(&'<') {
-        if let Some(gt) = (j + 1..chars.len()).find(|k| chars[*k] == '>') {
+        if let Some(gt) = find_within(chars, '>', j + 1, DOCS_LINK_SCAN_UNITS) {
             if let Some(end) = link_tail(chars, gt + 1) {
                 return Some((text, chars[j..=gt].iter().collect(), end));
             }
@@ -385,7 +428,7 @@ pub fn extract_links(md: &str) -> Vec<DocsLink> {
         let mut found: Vec<(usize, DocsLink)> = Vec::new();
         // `(!?)` then `[`: a `!` directly before the bracket makes it an image, which is consumed whole.
         let mut at = 0;
-        while at < chars.len() {
+        while at < chars.len() && found.len() < DOCS_MAX_LINKS_PER_PAGE {
             let bang = chars[at] == '!' && chars.get(at + 1) == Some(&'[');
             let open = if bang { at + 1 } else { at };
             if chars[open] == '[' {
@@ -394,7 +437,7 @@ pub fn extract_links(md: &str) -> Vec<DocsLink> {
                         let unwrapped = if dest.chars().count() >= 2 && dest.starts_with('<') && dest.ends_with('>') { &dest[1..dest.len() - 1] } else { dest.as_str() };
                         let target = js_trim(unwrapped).to_string();
                         if !target.is_empty() {
-                            found.push((at, DocsLink { target, text: clip(&text), kind: "markdown" }));
+                            found.push((at, DocsLink { target: clip_target(&target), text: clip(&text), kind: "markdown" }));
                         }
                     }
                     at = end;
@@ -404,7 +447,8 @@ pub fn extract_links(md: &str) -> Vec<DocsLink> {
             at += 1;
         }
         let mut at = 0;
-        while at < chars.len() {
+        let mut wikis = 0usize;
+        while at < chars.len() && wikis < DOCS_MAX_LINKS_PER_PAGE {
             let bang = chars[at] == '!' && chars.get(at + 1) == Some(&'[');
             let open = if bang { at + 1 } else { at };
             if chars[open] == '[' {
@@ -414,7 +458,8 @@ pub fn extract_links(md: &str) -> Vec<DocsLink> {
                         if !js_trim(name).is_empty() {
                             let alias = inner.find('|').map(|bar| js_trim(&inner[bar + 1..])).unwrap_or("");
                             let text = if alias.is_empty() { clip(name) } else { clip(alias) };
-                            found.push((at, DocsLink { target: js_trim(&inner).to_string(), text, kind: "wikilink" }));
+                            found.push((at, DocsLink { target: clip_target(js_trim(&inner)), text, kind: "wikilink" }));
+                            wikis += 1;
                         }
                     }
                     at = end;
@@ -425,8 +470,8 @@ pub fn extract_links(md: &str) -> Vec<DocsLink> {
         }
         found.sort_by_key(|(at, _)| *at);
         out.extend(found.into_iter().map(|(_, link)| link));
-        if out.len() >= super::rules::DOCS_MAX_LINKS_PER_PAGE {
-            out.truncate(super::rules::DOCS_MAX_LINKS_PER_PAGE);
+        if out.len() >= DOCS_MAX_LINKS_PER_PAGE {
+            out.truncate(DOCS_MAX_LINKS_PER_PAGE);
             return out;
         }
     }
