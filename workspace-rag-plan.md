@@ -26,9 +26,9 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 | [M7 Host tests](#m7-host-tests) | Sonnet | ✅ Done | 14 | `c455fba`, gap fill `8cf75b9` |
 | [M8 Bases manager page](#m8-bases-manager-page) | Opus | ✅ Done | 14 | `7fdf1be`. UI |
 | [M9 Chat panel](#m9-chat-panel) | Opus | ✅ Done | 20 | `58dcfcd`. UI |
-| [M10 UI tests](#m10-ui-tests) | Sonnet | 🔄 In Progress | — | vitest jsdom |
-| [M11 Hands-on in both hosts](#m11-hands-on-in-both-hosts) | Sonnet | ⬜ Not Started | — | Mike signs off |
-| [M12 Docs and release notes](#m12-docs-and-release-notes) | Haiku | ⬜ Not Started | — | |
+| [M10 UI tests](#m10-ui-tests) | Sonnet | ✅ Done | 14 | `89f2719`. vitest jsdom |
+| [M11 Hands-on in both hosts](#m11-hands-on-in-both-hosts) | Sonnet | 🔄 In Progress | — | Mike signs off |
+| [M12 Docs and release notes](#m12-docs-and-release-notes) | Haiku | 🔄 In Progress | — | |
 
 ## Table of Contents
 
@@ -245,11 +245,11 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 
 **Model:** Sonnet. Mode: unit (vitest jsdom), `packages/core/test/ai-docs-page.test.ts`, `ai-chat-panel.test.ts`, extend `ai-lazy-load.test.ts`.
 
-- [ ] Manager page: renders health states, validation messages, clamp of hops and share, cloud switch default off, hidden without `host.docs`.
-- [ ] Chat panel: scope picker defaults, local-only state, citation chips call `openLink` with the reveal, unknown `[n]` dropped, Insert at cursor output with a fake host (links rewritten, image URL not in a cited section becomes text), Cancel aborts the signal, history cleared on dispose.
-- [ ] Loop integration with a fake host and fake engine: three hops then answer, repair retry path, secrets section left out with the note, `baseLocalOnly` on a cloud route.
-- [ ] Lazy load: neither panel is imported from the editor's main path.
-- [ ] `npm run test:unit` and `npm run lint` green.
+- [x] Manager page: renders health states, validation messages, clamp of hops and share, cloud switch default off, hidden without `host.docs`.
+- [x] Chat panel: scope picker defaults, local-only state, citation chips call `openLink` with the reveal, unknown `[n]` dropped, Insert at cursor output with a fake host (links rewritten, image URL not in a cited section becomes text), Cancel aborts the signal, history cleared on dispose.
+- [x] Loop integration with a fake host and fake engine: three hops then answer, repair retry path, secrets section left out with the note, `baseLocalOnly` on a cloud route.
+- [x] Lazy load: neither panel is imported from the editor's main path.
+- [x] `npm run test:unit` and `npm run lint` green.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
@@ -340,5 +340,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 17:39** - M7 gap fill done (`8cf75b9`): a plain `listBases` no longer walks on Desktop, and Refresh forces a walk on both hosts. VS Code needed tests only. `allowCloud` stays fresh on a plain call, tested on each host.
 
 **2026-11-05 17:50** - M9 done (`58dcfcd`), unit suite and lint re-run here: 207 files pass, 0 lint errors. The panel is docked rather than a full-window modal, so Insert's cursor and the file a chip opens stay visible. It closed an S8 hole in M2's code (a heading could reach the document as markup) and three chip-opening faults in VS Code. The VS Code `file:` path and Desktop `openPath` are traced by reading only, so M11 must click chips on both, including a file open in another group. M10 dispatched.
+
+**2026-11-05 18:04** - M10 done (`89f2719`): 4256 unit tests per the worker. Dispatched together: an independent read-only audit of S1 to S13, M12 docs (the plan stays in the root until sign-off), and M11's fixture and checklist. Mike's walk comes last.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
