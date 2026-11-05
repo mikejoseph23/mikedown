@@ -16,7 +16,7 @@
  * host routes by itself: its button is "Turn on" and lands on the AI tab.
  * With AI on, a click opens a menu of every AI action (the same list as the
  * context menu's `AI` submenu), a Thinking row when the routed model can
- * think, and "Manage engines…".
+ * think, "AI Activity…" while `ai.activityPanel` is on, and "Manage engines…".
  *
  * Toolbar chrome only: nothing here touches the editor document or its DOM.
  */
@@ -78,7 +78,7 @@ export interface AiToolbarMenuInput {
   thinking?: AiToolbarThinkingRow;
   /** True for a host with an engine registry ("Manage engines…"); otherwise "AI settings…". */
   canManageEngines: boolean;
-  icons: { rewrite: string; manage: string; explain?: string; translate?: string; summarize?: string; titles?: string; properties?: string };
+  icons: { rewrite: string; manage: string; explain?: string; translate?: string; summarize?: string; titles?: string; properties?: string; activity?: string };
   onRewrite(): void;
   onExplain?(): void;
   onTranslate?(): void;
@@ -86,6 +86,8 @@ export interface AiToolbarMenuInput {
   onSuggestTitles?(): void;
   onSuggestProperties?(): void;
   onManage(): void;
+  /** "AI Activity…". Absent (the setting is off): no such entry. The menu is built each time it opens, so it follows the setting. */
+  onActivity?(): void;
   /** "Look again" under the status row: retest the engine the menu is waiting on. Absent: no such row. */
   onRetest?(): void;
 }
@@ -153,7 +155,7 @@ function sharedDisabledReason(states: readonly (AiToolbarEntryState | undefined)
 /**
  * The AI menu: one flat list, the same as the context menu's `AI` submenu
  * and the commands (U1): the selection actions, the document actions, the
- * Thinking row, then Manage engines…. No submenus (D14).
+ * Thinking row, then AI Activity… and Manage engines…. No submenus (D14).
  */
 export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdownEntry[] {
   const entries: ToolbarDropdownEntry[] = [];
@@ -195,6 +197,15 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
     entries.push(thinkingRowEntry(input.thinking));
   }
   separate();
+  if (input.onActivity) {
+    entries.push({
+      type: 'action',
+      id: 'ai-activity',
+      label: 'AI Activity…',
+      icon: input.icons.activity ?? input.icons.manage,
+      action: () => input.onActivity?.(),
+    });
+  }
   entries.push({
     type: 'action',
     id: 'ai-manage',

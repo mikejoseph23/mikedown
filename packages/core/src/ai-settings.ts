@@ -4,9 +4,10 @@
  * builders so it sits flush with the other tabs.
  *
  * Order (U8): the intro, the master switch, the Engines summary, Allow
- * cloud with the cloud consents, the toolbar button switch, Features.
+ * cloud with the cloud consents, the toolbar button switch, the AI Activity
+ * switch, Features.
  * Tier 1 hosts (`complete` only, they route by themselves) get the master
- * switch, the toolbar switch and the feature toggles. Tier 2 hosts (an
+ * switch, the toolbar and AI Activity switches and the feature toggles. Tier 2 hosts (an
  * engine registry) also get a compact engine list (name, local/cloud pill,
  * status dot, enabled switch), the default model with "Change…" (the Tasks
  * section), "Manage engines…", Allow cloud, and each feature's task under
@@ -45,6 +46,8 @@ export interface AiSettingsSectionOptions extends AiSettingsSessionOptions {
   onSaved(draft: AiSettings): void;
   /** Open the AI Engines page. Absent: no engine list and no Manage engines… button. */
   openEnginesPage?(request: AiEnginesPageRequest): void;
+  /** Open the AI Activity panel over the modal. Absent: no "Open" beside the switch. */
+  openActivityPanel?(): void;
   /** A stored consent was forgotten: drop this session's copy of the answer so the next request asks again. */
   onConsentForgotten?(engineId: string): void;
 }
@@ -97,6 +100,23 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   toolbarField.input.dataset.fk = 'ai-toolbar-button';
   toolbarField.input.addEventListener('change', () => {
     session.draft = { ...session.draft, showToolbarButton: toolbarField.input.checked };
+  });
+
+  const activityField = ctx.makeCheckboxRow(
+    'AI Activity',
+    'Shows exactly what each AI request sent and received. Kept in memory for this window only; turning it off clears it.',
+    session.draft.activityPanel,
+  );
+  activityField.row.classList.add('ai-activity-setting');
+  activityField.input.dataset.fk = 'ai-activity-panel';
+  // "Open" follows the switch at once, before Save. The panel says so if it is not recording yet.
+  const activityOpen = button('ai-link-btn ai-activity-open', 'Open', { fk: 'ai-activity:open', ariaLabel: 'Open AI Activity' });
+  activityOpen.hidden = !session.draft.activityPanel;
+  activityOpen.addEventListener('click', () => opts.openActivityPanel?.());
+  if (opts.openActivityPanel) {activityField.row.insertBefore(activityOpen, activityField.input);}
+  activityField.input.addEventListener('change', () => {
+    session.draft = { ...session.draft, activityPanel: activityField.input.checked };
+    activityOpen.hidden = !activityField.input.checked;
   });
 
   const cloudField = ctx.makeCheckboxRow(
@@ -420,7 +440,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   // ── Assemble ──────────────────────────────────────────────────────────────
 
   // Intro, master switch, Engines (with the default model), Allow cloud and
-  // its consents, the toolbar button, Features (U8).
+  // its consents, the toolbar button, AI Activity, Features (U8).
   rows.push(masterField.row);
   if (tier === 2) {
     if (canManage) {
@@ -433,7 +453,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
       void refreshConsents();
     }
   }
-  rows.push(toolbarField.row, featuresRow);
+  rows.push(toolbarField.row, activityField.row, featuresRow);
   if (tier === 2) {rows.push(localNetsRow);}
   rows.push(live);
 

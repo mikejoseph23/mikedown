@@ -2181,3 +2181,414 @@
   line-height: 1.45;
   color: var(--settings-muted, var(--mikedown-text-muted));
 }
+
+/* ── AI Activity panel (ai-activity-panel.ts) ─────────────────────────────────
+   In the AI Engines page's shell. A request list crossed with an output pane:
+   proportional type for labels, monospace for anything raw, no chrome beyond
+   the hairlines the page already has. */
+
+:is(.mikedown-root, .mikedown-portal) .ai-activity:focus { outline: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-header-actions {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-action {
+  padding: 3px 10px;
+  background: var(--mikedown-button-bg, transparent);
+  color: var(--mikedown-button-text, var(--settings-fg));
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-action:hover { background: var(--mikedown-button-hover, var(--settings-hover-bg)); }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-action:disabled,
+:is(.mikedown-root, .mikedown-portal) .ai-activity-action:disabled:hover {
+  background: var(--mikedown-button-bg, transparent);
+  opacity: 0.5;
+  cursor: default;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-inline-status {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--settings-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-inline-status[data-level="ok"] { color: var(--ai-ok); }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-inline-status[data-level="error"] { color: var(--ai-error); }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-banner {
+  margin: 0;
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--mikedown-divider, var(--settings-divider));
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--settings-muted);
+  flex-shrink: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* The list: dense enough to scan, like a network panel. */
+:is(.mikedown-root, .mikedown-portal) .ai-activity-master {
+  width: clamp(320px, 38%, 420px);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--mikedown-divider, var(--settings-divider));
+  background: var(--mikedown-surface-toolbar, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px 6px;
+  flex-shrink: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-list-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-list-count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 8px 10px;
+  overflow-y: auto;
+  /* The panel keeps the scroll position itself when a row lands on top. */
+  overflow-anchor: none;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 6px;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border-radius: var(--mikedown-radius-sm, 4px);
+  color: var(--settings-fg);
+  cursor: pointer;
+  transition: background-color 120ms var(--ai-ease);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row:hover { background: var(--ai-row-hover); }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row[aria-selected="true"] {
+  background: var(--settings-active-bg);
+  color: var(--settings-active-fg);
+  outline: 1px solid var(--mikedown-contrast-border, transparent);
+  outline-offset: -1px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row:focus:not(:focus-visible) { outline: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row:focus-visible {
+  outline: 1px solid var(--settings-focus);
+  outline-offset: -1px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row > .ai-activity-dot { justify-self: center; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-head,
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-sub { grid-column: 2; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-feature {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-status {
+  flex-shrink: 0;
+  font-size: 11px;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row[data-status="error"] .ai-activity-row-status { color: var(--ai-error); }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row[data-status="fallback"] .ai-activity-row-status { color: var(--ai-warn); }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row[data-status="streaming"] .ai-activity-row-status { color: var(--ai-info); }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row[data-status="cancelled"] .ai-activity-row-status { color: var(--settings-muted); }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-when,
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-tokens {
+  justify-self: end;
+  font-family: var(--mikedown-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--settings-muted);
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-when {
+  display: flex;
+  gap: 10px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-engine {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11.5px;
+  color: var(--settings-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-locality { display: inline-flex; flex-shrink: 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row-locality:empty { display: none; }
+/* On the selected fill, everything follows its text color (a theme's fill can be saturated). */
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row[aria-selected="true"] :is(.ai-activity-row-status, .ai-activity-row-when, .ai-activity-row-tokens, .ai-activity-row-engine) {
+  color: inherit;
+  opacity: 0.78;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row[aria-selected="true"] .ai-pill {
+  color: inherit;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+/* The status dot. Shape as well as color: cancelled is a hollow ring. */
+:is(.mikedown-root, .mikedown-portal) .ai-activity-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border: 1.5px solid var(--settings-muted);
+  border-radius: 50%;
+  background: transparent;
+}
+:is(.mikedown-root, .mikedown-portal) [data-status="ok"] > .ai-activity-dot { background: var(--ai-ok); border-color: var(--ai-ok); }
+:is(.mikedown-root, .mikedown-portal) [data-status="error"] > .ai-activity-dot { background: var(--ai-error); border-color: var(--ai-error); }
+:is(.mikedown-root, .mikedown-portal) [data-status="fallback"] > .ai-activity-dot { background: var(--ai-warn); border-color: var(--ai-warn); }
+:is(.mikedown-root, .mikedown-portal) [data-status="streaming"] > .ai-activity-dot {
+  background: var(--ai-info);
+  border-color: var(--ai-info);
+  animation: ai-pulse 1s ease-in-out infinite;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-row[aria-selected="true"] > .ai-activity-dot {
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent);
+}
+
+/* The request: one readable column that can hold long raw text. */
+:is(.mikedown-root, .mikedown-portal) .ai-activity-detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-detail:focus:not(:focus-visible) { outline: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-detail:focus-visible {
+  outline: 1px solid var(--settings-focus);
+  outline-offset: -1px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-detail-inner {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 18px 24px 40px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-detail-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-detail-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--settings-fg);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-status[data-status="error"] { color: var(--ai-error); }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-left: auto;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  font-size: 12.5px;
+  color: var(--settings-fg);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-route-model {
+  font-family: var(--mikedown-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--settings-muted);
+  overflow-wrap: anywhere;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-thinking {
+  font-size: 12px;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-notes:empty { display: none; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-activity-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-section-toggle {
+  align-self: auto;
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--settings-fg);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-section-summary {
+  overflow: hidden;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--settings-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-section-body[hidden],
+:is(.mikedown-root, .mikedown-portal) .ai-activity-block[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-block {
+  overflow: hidden;
+  border: 1px solid var(--mikedown-divider, var(--settings-divider));
+  border-radius: var(--mikedown-radius-sm, 4px);
+  background: var(--mikedown-code-bg, transparent);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-block-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--mikedown-divider, var(--settings-divider));
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-message-role {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-block-size {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--settings-muted);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-text {
+  margin: 0;
+  padding: 8px 10px;
+  background: none;
+  font-family: var(--mikedown-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--mikedown-text, var(--settings-fg));
+  tab-size: 4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-meta {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px 14px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-meta dt { color: var(--settings-muted); }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-meta dd {
+  margin: 0;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--settings-fg);
+  overflow-wrap: anywhere;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-meta dd.is-raw {
+  font-family: var(--mikedown-font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+}
+
+/* Nothing recorded: the list and detail give way to one quiet message. */
+:is(.mikedown-root, .mikedown-portal) .ai-activity-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 32px 24px 96px;
+  text-align: center;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--settings-fg);
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity-empty-text {
+  max-width: 460px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--settings-muted);
+}
+
+/* One column: the list or the request, as on the AI Engines page. */
+:is(.mikedown-root, .mikedown-portal) .ai-activity.is-narrow .ai-activity-master {
+  width: auto;
+  flex: 1;
+  border-right: none;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-activity.is-narrow[data-view="list"] .ai-activity-detail,
+:is(.mikedown-root, .mikedown-portal) .ai-activity.is-narrow[data-view="detail"] .ai-activity-master { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity.is-narrow .ai-activity-detail-inner { padding: 14px 16px 32px; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity.is-narrow .ai-page-header { padding: 8px 10px; }
+
+/* The AI tab's "Open" beside the AI Activity switch. */
+:is(.mikedown-root, .mikedown-portal) .settings-row--inline.ai-activity-setting { grid-template-columns: minmax(0, 1fr) auto auto; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-open { margin: 0; flex-shrink: 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-activity-open[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.mikedown-root, .mikedown-portal) [data-status="streaming"] > .ai-activity-dot { animation: none; }
+  :is(.mikedown-root, .mikedown-portal) .ai-activity-row { transition: none; }
+}

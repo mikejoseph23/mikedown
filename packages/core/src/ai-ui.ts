@@ -24,6 +24,7 @@ export {
 } from './ai-toolbar';
 export { aiFeatureAvailability, aiRunThinkingOn, runAiCompletion } from './ai-request';
 export { AI_ACTIVITY_LIMIT, aiActivityStatus, createAiActivityLog } from './ai-activity';
+export { activityExportFileName, formatActivityExport, mountAiActivityPanel } from './ai-activity-panel';
 export {
   aiRewriteMenuGroups, applyRichTitle, applySourceTitle,
   createAiRewritePopover, cursorInsertTarget, richDocumentTarget, richRewriteTarget, setYamlTitle, sourceCursorTarget,

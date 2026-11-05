@@ -111,6 +111,7 @@ import type { AiSettingsSessionOptions } from './ai-settings-session';
 import type { AiFirstRunDetection } from './ai-toolbar';
 import { makeCheckboxRow, makeGroup, makeRow, makeSelectRow, settingsSectionContext } from './settings-rows';
 import type { AiActivityLog } from './ai-activity';
+import type { AiActivityPanelHandle } from './ai-activity-panel';
 import type { AiFeatureAvailability, AiRunContext, AiRunOutcome } from './ai-request';
 import type { AiCursorTarget, AiRewritePopover, AiRewriteBadge, AiRewriteTarget, AiTitleEffect } from './ai-rewrite';
 import type { AiRewriteParams, AiRewriteVariant } from './ai/prompts/rewrite';
@@ -313,6 +314,7 @@ const toolbarIcons = {
   more: toolbarSvg('<circle cx="3.5" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor" stroke="none"/>'),
   ai: toolbarSvg('<path d="M7 2.5l1.25 3.25L11.5 7 8.25 8.25 7 11.5 5.75 8.25 2.5 7l3.25-1.25z"/><path d="M12.5 10v3.5M10.75 11.75h3.5"/>', 1.5),
   rewrite: toolbarSvg('<path d="M10.5 2.5l3 3L6 13H3v-3z"/><path d="M9 4l3 3"/>', 1.5),
+  aiActivity: toolbarSvg('<polyline points="1.5 8 4.5 8 6.5 3 9.5 13 11.5 8 14.5 8"/>', 1.5),
   explain: toolbarSvg('<circle cx="8" cy="8" r="6"/><path d="M6.3 6.3a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1"/><circle cx="8" cy="11.3" r="0.6" fill="currentColor" stroke="none"/>', 1.5),
   translate: toolbarSvg('<path d="M2 4h7M5.5 2.5V4M4 4c.5 2.5 2 4.5 4.5 5.5M7.5 4c-.6 2.6-2.3 4.7-5 6"/><path d="M8.5 14l2.5-6 2.5 6M9.3 12h3.4"/>', 1.5),
   tag: toolbarSvg('<path d="M2.5 2.5h5l6 6-5 5-6-6z"/><circle cx="5.5" cy="5.5" r="1" fill="currentColor" stroke="none"/>', 1.5),
@@ -1099,6 +1101,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function closeSettingsModal(): void {
     // A page opened from the modal works on the modal's draft: it goes too.
     if (aiPage?.fromModal) {closeAiEnginesPage();}
+    if (aiActivityPage?.fromModal) {closeAiActivityPanel();}
     const discard = discardSettings;
     discardSettings = null;
     refreshToolbarSettingsRows = null;
@@ -1699,6 +1702,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         onConsentForgotten: (engineId) => { delete aiConsent[engineId]; },
         onSaved: (saved) => {
           currentAiSettings = saved;
+          syncAiActivitySetting();
           renderAiIndicator();
           refreshAiToolbarButton();
           scheduleAiStatusRefresh();
@@ -1710,6 +1714,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
           onDone: (patch, saved) => request.onDone(patch, saved),
           fromModal: true,
         }),
+        openActivityPanel: () => showAiActivityPanel({ fromModal: true }),
       }),
     }] : [];
     // ── Toolbar tab: Customize… and Reset to Default (hidden when the host
@@ -2272,17 +2277,30 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
    * settings broadcast.
    */
   let aiActivity: AiActivityLog | null = null;
+  /** The open AI Activity panel, if any. */
+  let aiActivityPage: { overlay: HTMLElement; handle: AiActivityPanelHandle; fromModal: boolean } | null = null;
+
+  /** This editor's one log, made on first use: the panel can open before any request has run. */
+  function aiActivityLog(ui: AiUi): AiActivityLog {
+    aiActivity ??= ui.createAiActivityLog();
+    aiActivity.setEnabled(currentAiSettings.activityPanel);
+    return aiActivity;
+  }
+
+  /** The setting may have changed: the log follows it (off clears) and an open panel shows it. */
+  function syncAiActivitySetting(): void {
+    aiActivity?.setEnabled(currentAiSettings.activityPanel);
+    aiActivityPage?.handle.refresh();
+  }
 
   /** The one place an AI request's context is built, so no feature can skip the recorder. */
   function aiRunContext(ui: AiUi, ai: MikeDownAiHost): AiRunContext {
-    aiActivity ??= ui.createAiActivityLog();
-    aiActivity.setEnabled(currentAiSettings.activityPanel);
     return {
       ai,
       settings: () => currentAiSettings,
       statuses: () => aiStatuses,
       consent: aiConsent,
-      activity: aiActivity,
+      activity: aiActivityLog(ui),
     };
   }
   /** Pending waiters for a settings echo (the AI tab saving engines before a test). */
@@ -2364,7 +2382,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     // Hosts send parsed settings; parsing again is cheap and keeps a sloppy host safe.
     const before = currentAiSettings;
     currentAiSettings = ui.parseAiSettings(raw, { onWarning: () => { /* the host already warned */ } });
-    aiActivity?.setEnabled(currentAiSettings.activityPanel);
+    syncAiActivitySetting();
     // A new default or route: the chip shows where the next request goes, not the last one.
     if (aiServed && ui.aiNextRouteChanged(before, currentAiSettings, aiStatuses)) {aiServed = null;}
     for (const waiter of [...aiSettingsWaiters]) {waiter(currentAiSettings);}
@@ -2454,6 +2472,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     }
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeAiEnginesPage();
+    closeAiActivityPanel();
 
     const overlay = document.createElement('div');
     overlay.id = 'mikedown-ai-page-overlay';
@@ -2488,6 +2507,53 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       onCancel: finish,
     });
     aiPage = { overlay, handle, fromModal: !!o.fromModal };
+    const titleId = frame.querySelector('.ai-page-title')?.id;
+    if (titleId) {frame.setAttribute('aria-labelledby', titleId);}
+    frame.addEventListener('keydown', (e) => { if (e.key === 'Tab') {trapTab(frame, e);} });
+    handle.focus();
+  }
+
+  // ── AI Activity panel (overlay) ────────────────────────────────────────────
+  // ai-activity-panel.ts in the AI Engines page's shell, above the Settings
+  // modal when opened from it. The panel owns Escape, this host the focus.
+
+  function closeAiActivityPanel(): void {
+    const page = aiActivityPage;
+    aiActivityPage = null;
+    if (!page) {return;}
+    page.handle.destroy();
+    page.overlay.remove();
+  }
+
+  function showAiActivityPanel(o: { fromModal?: boolean } = {}): void {
+    if (!aiHost) {return;}
+    const ui = aiUi;
+    if (!ui) {
+      whenAiUi(() => showAiActivityPanel(o));
+      return;
+    }
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeAiEnginesPage();
+    closeAiActivityPanel();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'mikedown-ai-page-overlay';
+    const frame = document.createElement('div');
+    frame.className = 'ai-page-frame';
+    frame.setAttribute('role', 'dialog');
+    frame.setAttribute('aria-modal', 'true');
+    overlay.appendChild(frame);
+    getPortal().appendChild(overlay);
+
+    const finish = (): void => {
+      closeAiActivityPanel();
+      restoreFocus(opener);
+    };
+    const handle = ui.mountAiActivityPanel(frame, settingsSectionContext(finish, (href) => openLinkViaHost(href)), {
+      log: aiActivityLog(ui),
+      ...(host.saveTextFile ? { saveTextFile: (name: string, text: string) => host.saveTextFile?.(name, text) ?? Promise.resolve() } : {}),
+    });
+    aiActivityPage = { overlay, handle, fromModal: !!o.fromModal };
     const titleId = frame.querySelector('.ai-page-title')?.id;
     if (titleId) {frame.setAttribute('aria-labelledby', titleId);}
     frame.addEventListener('keydown', (e) => { if (e.key === 'Tab') {trapTab(frame, e);} });
@@ -2724,6 +2790,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       icons: {
         rewrite: toolbarIcons.rewrite, explain: toolbarIcons.explain, translate: toolbarIcons.translate,
         summarize: toolbarIcons.toc, titles: toolbarIcons.ai, properties: toolbarIcons.tag, manage: toolbarIcons.gear,
+        activity: toolbarIcons.aiActivity,
       },
       onRewrite: () => { startAiRewrite(); },
       onExplain: () => { startAiRewrite('explain'); },
@@ -2732,6 +2799,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       onSuggestTitles: () => { startAiTitles(); },
       onSuggestProperties: () => { startAiPropertySuggestions(); },
       onManage: () => { if (tier2) {showAiEnginesPage();} else {showSettingsModal('ai');} },
+      ...(currentAiSettings.activityPanel ? { onActivity: () => showAiActivityPanel() } : {}),
       // "Look again": retest the engines that failed, then open the menu afresh.
       ...(ai.testEngine ? { onRetest: () => { void retestAiEngines(ai).then(() => { if (!destroyed && anchor.isConnected) {openAiToolbar(anchor);} }); } } : {}),
     }));
@@ -7311,6 +7379,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     }
     setSlashDisableHandler(null);
     closeAiEnginesPage();
+    closeAiActivityPanel();
     closeSettingsModal();
     cmView?.destroy();
     cmView = null;
@@ -7347,7 +7416,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       renderAiIndicator();
     },
     setAiEngineStatuses: (list) => setAiStatuses(Array.isArray(list) ? list : []),
-    isModalOpen: () => !!settingsOverlay?.isConnected || !!aiPage?.overlay.isConnected,
+    isModalOpen: () => !!settingsOverlay?.isConnected || !!aiPage?.overlay.isConnected || !!aiActivityPage?.overlay.isConnected,
     getViewState,
     setViewState,
     focus: () => { if (sourceMode && cmView) {cmView.focus();} else {editor.commands.focus();} },
