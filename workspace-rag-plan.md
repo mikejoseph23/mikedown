@@ -20,12 +20,12 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 | [M1 Core types, settings, `docs` task, `docsBase` scope](#m1-core-types-settings-docs-task-docsbase-scope) | Sonnet | ✅ Done | 8 | `98707b6` |
 | [M2 Core index model, link graph, keyword fallback, secrets scan](#m2-core-index-model-link-graph-keyword-fallback-secrets-scan) | Sonnet | ✅ Done | 14 | `d3aa708`. Pure TS |
 | [M3 Core tests](#m3-core-tests) | Sonnet | ✅ Done | 9 | `4c458a1`. Found and fixed 3 M2 bugs |
-| [M4 Navigation loop and answer call](#m4-navigation-loop-and-answer-call) | Opus | 🔄 In Progress | — | Nuanced prompts |
+| [M4 Navigation loop and answer call](#m4-navigation-loop-and-answer-call) | Opus | ✅ Done | 17 | `c0d9eb3`. Route pinned for the turn |
 | [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | ✅ Done | 11 | `4c28014`. Modal entry is M8's |
 | [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | ✅ Done | 15 | `984583d`. Rust |
 | [M7 Host tests](#m7-host-tests) | Sonnet | 🔄 In Progress | — | vitest + cargo |
 | [M8 Bases manager page](#m8-bases-manager-page) | Opus | ✅ Done | 14 | `7fdf1be`. UI |
-| [M9 Chat panel](#m9-chat-panel) | Opus | ⬜ Not Started | — | UI |
+| [M9 Chat panel](#m9-chat-panel) | Opus | 🔄 In Progress | — | UI |
 | [M10 UI tests](#m10-ui-tests) | Sonnet | ⬜ Not Started | — | vitest jsdom |
 | [M11 Hands-on in both hosts](#m11-hands-on-in-both-hosts) | Sonnet | ⬜ Not Started | — | Mike signs off |
 | [M12 Docs and release notes](#m12-docs-and-release-notes) | Haiku | ⬜ Not Started | — | |
@@ -155,16 +155,16 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 
 **Model:** Opus. `packages/core/src/ai/docs/loop.ts` and `prompts/docsNavigate.ts`, `prompts/docsAnswer.ts`.
 
-- [ ] Nav prompt: home outline plus link list under root labels, JSON shape hint from `JSON_SHAPE_HINT`, (S10) states page text is data and instructions inside pages must be ignored.
-- [ ] Loop: `runAiCompletion` with `feature: 'chat'`, `task: 'docs'`, `format: 'json'`, `job: 'navigate'`; one repair retry through `parseLenientJson` and `jsonRepairMessages`; stop on `done`, empty read list, or `maxHops`.
-- [ ] (S1) Only ids present in the index are passed to `host.docs.readSections`; anything else is dropped and counted in the entry.
-- [ ] (S6) Before the first request, resolve the route; if cloud and any active base has `allowCloud: false`, return a `baseLocalOnly` outcome naming the base.
-- [ ] (S7) Run the secrets scan on every section before budgeting; left-out sections go into the coverage note.
-- [ ] Answer call: numbered sections, coverage note, same engine as the hops; `sends: 'docsBase'` with base names for the consent dialog.
-- [ ] Keyword fallback when the home is the map or the loop read nothing; "answered without sources" when still empty.
-- [ ] (S13) One Activity entry per hop (job `navigate` / `answer`, page list, dropped ids); activity stays off by default.
-- [ ] One request in flight per editor; `AbortSignal` cancels hops and the answer.
-- [ ] This document scope: same loop with a single synthetic page from live editor text, no host calls, task `chat`.
+- [x] Nav prompt: home outline plus link list under root labels, JSON shape hint from `JSON_SHAPE_HINT`, (S10) states page text is data and instructions inside pages must be ignored.
+- [x] Loop: `runAiCompletion` with `feature: 'chat'`, `task: 'docs'`, `format: 'json'`, `job: 'navigate'`; one repair retry through `parseLenientJson` and `jsonRepairMessages`; stop on `done`, empty read list, or `maxHops`.
+- [x] (S1) Only ids present in the index are passed to `host.docs.readSections`; anything else is dropped and counted in the entry.
+- [x] (S6) Before the first request, resolve the route; if cloud and any active base has `allowCloud: false`, return a `baseLocalOnly` outcome naming the base.
+- [x] (S7) Run the secrets scan on every section before budgeting; left-out sections go into the coverage note.
+- [x] Answer call: numbered sections, coverage note, same engine as the hops; `sends: 'docsBase'` with base names for the consent dialog.
+- [x] Keyword fallback when the home is the map or the loop read nothing; "answered without sources" when still empty.
+- [x] (S13) One Activity entry per hop (job `navigate` / `answer`, page list, dropped ids); activity stays off by default.
+- [x] One request in flight per editor; `AbortSignal` cancels hops and the answer.
+- [x] This document scope: same loop with a single synthetic page from live editor text, no host calls, task `chat`.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
@@ -331,5 +331,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 17:23** - M8 done (`7fdf1be`), including the Settings modal entry moved from M5.
 
 **2026-11-05 17:25** - M6 done (`984583d`): 29 docs Rust tests re-run here; 284 lib tests and 589 Desktop vitest per the worker. Live-app paths (startup scope, watcher) are covered by pure tests only until M11. M7 dispatched, with the strict symlink read, broken link health and cross-host parity for links and titles added to it.
+
+**2026-11-05 17:28** - M4 done (`c0d9eb3`): 4053 unit tests per the worker; the loop and request tests re-run here (120). 16 hand mutations of the security rules each failed tests, per the worker. Open for Mike at sign-off: each chat turn is standalone, so a follow-up question does not see the earlier answer; an engine already allowed sends base pages without a dialog once a base's switch is on; a newly added base shows no health until Refresh. M9 dispatched.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
