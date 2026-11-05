@@ -13,17 +13,23 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
 
 ## Current Status
 
-**Everything is released and pushed. `develop` matches `origin/develop`, the working tree is clean apart from this wrap-up, and there are no open GitHub issues.**
+**All releases are out. `develop` has local commits not pushed yet (the Desktop hover fix and this RESUME); Mike decides when to push.**
 
 - **Live:**
   - VS Code **2.17.1** (tags `v2.17.0`, `v2.17.1`), the first release with the AI features, Experimental and off by default;
   - Desktop **0.5.0** (tag `desktop-v0.5.0`);
   - npm family **0.3.0**;
   - site **`0.5.0-site.1`**.
+- **Waiting for the next Desktop release:** the primary/danger button hover fix (`c5438eb`, Desktop only). Mike doesn't want a special update for it.
 - **Not yet in Desktop or npm:** the issue #12 fixes (`8337754`) are only in the extension 2.17.1. They go out with the next Desktop and npm release.
 - **Not merged to `main`.** The releases ran from `develop`, as before.
 
-## Last Session Summary (2026-10-30)
+## Last Session Summary (2026-11-04)
+
+1. **Desktop button hover fix** (`c5438eb`): the base `.mdapp-btn:hover` rule outranked the variants, so primary buttons (Save in the close dialog) hovered as white text on light grey. Primary and danger now have their own hover colors in `app.css` and `sidebar.css`, and the update window's one-off override is gone. Checked with computed styles in headless Chromium (light theme) and launched in the dev app; no Tauri hover check was reported back.
+2. **AI transparency question, undecided:** users can't see the prompts or responses. The request log is metadata only, by design: VS Code's `MikeDown AI` output channel, and stderr on Desktop, which a Dock launch never shows. Proposed an **AI Activity** panel (see What's Next); Mike hasn't answered.
+
+## Earlier Session Summary (2026-10-30)
 
 1. **Desktop multi-window:**
    - New Window from the macOS Dock menu and the Windows taskbar jump list (`dock.rs`);
@@ -54,23 +60,27 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
 
 ## What's Next
 
-1. **Mike, hands-on:**
+1. **Decide on the AI Activity panel:** backlog it or build it. Off by default, shows the exact messages sent and the raw response per request, held in memory for the session only, with a manual "Save to file". One hook in `runAiCompletion` (core) covers both hosts. It would relax the engines plan's "never the prompt text" logging rule, so keep the logs themselves unchanged.
+2. **AI roadmap, nothing scheduled.** Follow-ups are in `docs/ai-writing-features-plan.md` (Follow-ups) and `BACKLOG.md` (AI Recipes):
+   - small: `/actions`, paste cleanup, table/Mermaid from prose, chunk-then-merge summaries, per-task benchmark, Recipes;
+   - own plan: ghost text (recommended next; task and feature definitions exist, no UI), chat with this document (runner-up), alt text, then grammar review, workspace RAG, dictation.
+3. **Mike, hands-on:**
    - In-app update to Desktop 0.5.0 from an older version, on a Mac and on Windows (Help > Check for Updates).
    - The Windows jump list ("New Window") on DEVBOX1.
    - The table checks from the table plan's Review Materials (`.orchestrator/table-editing-improvements-plan/processed/`): Backspace after a table now selects the table first. Decide whether that's acceptable.
-2. **Blog:**
+4. **Blog:**
    - Review or split the local AI post, and check the claims listed in `BACKLOG.md`.
    - Then add the footer link back (`website/shared/partials.js` `renderFooter`, then `npm run sync:shell -w website`) and drop `noindex`.
-3. **Blog post "Why Markdown? Why MikeDown?"** (`BACKLOG.md`): start with an interview of Mike, one question at a time.
-4. **Next Desktop and npm patch:** pick up the #12 fixes (Desktop 0.5.1, npm 0.3.1) whenever there's more to ship.
-5. **Older items** (previous RESUME):
+5. **Blog post "Why Markdown? Why MikeDown?"** (`BACKLOG.md`): start with an interview of Mike, one question at a time.
+6. **Next Desktop and npm patch:** pick up the #12 fixes and the hover fix (Desktop 0.5.1, npm 0.3.1) whenever there's more to ship.
+7. **Older items** (previous RESUME):
    - the T4 Desktop half of `ai-setup-privacy-polish-plan.md`;
    - Q8;
    - npm "disallow tokens" 2FA per package;
    - re-encrypt the updater key;
    - the frontmatter YAML undo gap;
    - prune `.claude/worktrees/`.
-6. **Optional cleanup:** `desktop-site-redesign-plan.md` and `table-editing-improvements-plan.md` are complete. Run `/iadev:repo-markdown-cleanup` to file them into `docs/` once Mike has finished the hand checks.
+8. **Optional cleanup:** `desktop-site-redesign-plan.md` and `table-editing-improvements-plan.md` are complete. Run `/iadev:repo-markdown-cleanup` to file them into `docs/` once Mike has finished the hand checks.
 
 ## Planning Docs
 
@@ -100,6 +110,9 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
   - `table-commands.ts`, `table-clipboard.ts`, `table-align.ts`, `tabledrag.ts`, `tablepicker.ts`: tables.
   - `editor.ts`: the link dialog's `confirm()` (the #12 fix).
   - `styles/editor.css`: heading styles.
+  - `ai-request.ts`: `runAiCompletion`, where every AI request passes (the AI Activity hook point).
+- `packages/desktop/src/styles/app.css`, `sidebar.css`: `.mdapp-btn` and its variants.
+- `src/ai/engineService.ts` (`logRequest`) and `packages/desktop/src-tauri/src/commands/ai/request_log.rs`: the metadata-only request log.
 - `packages/desktop/src-tauri/src/dock.rs` and `commands/multiwindow.rs`: Dock menu, jump list, windows.
 - `packages/desktop/deploy/`: `release.sh`, `pack-for-lymedeploy.sh`, `release-notes/`.
 - `website/`
@@ -110,14 +123,14 @@ See `CLAUDE.md` for critical constraints (never mutate `editor.view.dom` outside
 
 ## Recent Git Log (`develop`)
 
+- `c5438eb` Keep primary and danger button colors on hover in Desktop
+- `af0674e` Update RESUME and mark the site plan's publish milestone done
 - `0db994e` Release 2.17.1
 - `8337754` Fix Edit Link with only the caret in a link, and style H6 like a smaller H5 (#12)
 - `f3d9664` Release 2.17.0
 - `5c68ec4` Add AI screenshots and a New line for AI and Desktop to the README and VS Code page
 - `d1e3730` MikeDown Desktop 0.5.0
 - `c5171a5` Keep the draft blog out of search results and add the Desktop 0.5.0 release notes
-- `2fbf116` Unlink the blog from the footer until the first post is reviewed
-- `dbf96e6` Add mikedown.tables.padColumns to align markdown table columns in the source
 
 ## Any Other Notes
 
