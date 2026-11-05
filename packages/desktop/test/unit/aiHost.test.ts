@@ -4,8 +4,10 @@
  * discovery merges into the saved engines.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { defaultAiSettings, parseAiSettings, toWireCompletionRequest, type AiEngineConfig, type AiSettings } from '@mikedown/core/ai';
+import { defaultAiSettings, parseAiSettings, runDocsTurn, toWireCompletionRequest, type AiEngineConfig, type AiSettings, type AiWireCompletionRequest } from '@mikedown/core/ai';
 import type { AiCompletionRequest } from '@mikedown/core';
+import { aiDocsLoopDeps } from '../../../core/src/ai-docs-run';
+import { fakeDocs, nav, simple } from '../../../core/test/helpers/ai-docs-fakes';
 import { createAiHost } from '../../src/host/aiHost';
 import { aiChannelId, type AiApi, type AiDoneEvent, type AiEngineInfo, type AiErrorEvent, type AiTokenEvent } from '../../src/host/aiApi';
 
@@ -29,6 +31,7 @@ function createFakeApi() {
     requestCloudConsent: vi.fn(async (): Promise<'allow' | 'allowOnce' | 'deny' | 'never'> => 'allow'),
     listConsents: vi.fn(async () => [] as unknown[]),
     forgetConsent: vi.fn(async (_id: string) => undefined),
+    endTurn: vi.fn(async (_turnId: string) => undefined),
     onToken: vi.fn(async (id: string, h: Handler<AiTokenEvent>) => add(tokens, id, h)),
     onDone: vi.fn(async (id: string, h: Handler<AiDoneEvent>) => add(dones, id, h)),
     onError: vi.fn(async (id: string, h: Handler<AiErrorEvent>) => add(errors, id, h)),
@@ -298,5 +301,85 @@ describe('TauriHost.ai', () => {
 
   it('has no ai group otherwise, so core keeps every AI surface off', async () => {
     expect((await makeHost(false)).ai).toBeUndefined();
+  });
+});
+
+describe('a chat turn', () => {
+  const CHAT = { chat: true, stream: true, vision: false, json: true, tools: false, fim: false, embed: false, contextTokens: 32768 };
+  const routed = parseAiSettings({
+    enabled: true,
+    allowCloud: true,
+    engines: [{ id: 'cloud', name: 'Cloud', kind: 'anthropic', baseUrl: 'https://api.example.com', models: [{ id: 'm', capabilities: CHAT, capabilitiesSource: 'user' }] }],
+    routing: { default: { engineId: 'cloud', modelId: 'm' }, fallback: 'none', tasks: {} },
+  }, { onWarning: () => {} });
+
+  /** The real host and the real loop, with Rust's side of the commands answering from a script. */
+  function turnSetup(answer: 'allow' | 'allowOnce' | 'deny' = 'allowOnce') {
+    const { host, api, emit } = setup();
+    const wire: AiWireCompletionRequest[] = [];
+    const script = [nav(['docs/security.md#audit']), nav(['docs/ops.md#backups']), nav([], true)];
+    let step = 0;
+    api.requestCloudConsent.mockImplementation(async () => answer);
+    (api.complete as unknown as { mockImplementation(f: (r: AiWireCompletionRequest) => Promise<string>): void }).mockImplementation(async (req) => {
+      wire.push(req);
+      const text = req.format === 'json' ? script[Math.min(step++, script.length - 1)] : 'the answer [1]';
+      queueMicrotask(() => emit.done(req.requestId, { text, served: SERVED, finishReason: 'stop' }));
+      return 'chan';
+    });
+    const ctx = { ai: host, settings: () => routed, statuses: () => [], consent: {} };
+    const { docs } = fakeDocs([simple({ allowCloud: true })]);
+    const turn = () => runDocsTurn(aiDocsLoopDeps(ctx), { question: 'q', scope: { kind: 'bases', docs } }, {}, new AbortController().signal);
+    return { api, wire, turn };
+  }
+
+  it('asks once for a three-hop turn, sends the turn with each request, and says when it is over', async () => {
+    const { api, wire, turn } = turnSetup();
+    expect((await turn()).kind).toBe('answered');
+    expect(wire).toHaveLength(4);
+    const id = wire[0].turn?.id;
+    expect(id).toBeTruthy();
+    for (const req of wire) {expect(req.turn).toEqual({ id, sends: 'docsBase', baseIds: ['b'], isLocal: false });}
+    expect((api.requestCloudConsent.mock.calls as unknown[][])).toEqual([['cloud', { feature: 'chat', sends: 'docsBase', baseIds: ['b'], turnId: id }]]);
+    expect(api.endTurn.mock.calls).toEqual([[id]]);
+  });
+
+  it('a second turn asks again, under its own id', async () => {
+    const { api, wire, turn } = turnSetup();
+    await turn();
+    await turn();
+    expect(api.requestCloudConsent).toHaveBeenCalledTimes(2);
+    expect(new Set(wire.map((r) => r.turn?.id)).size).toBe(2);
+    expect(new Set(api.endTurn.mock.calls.map(([t]) => t)).size).toBe(2);
+  });
+
+  it('"Allow for this folder" asks once, as before', async () => {
+    const { api, turn } = turnSetup('allow');
+    await turn();
+    await turn();
+    expect(api.requestCloudConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('a refusal ends the turn with nothing sent', async () => {
+    const { api, wire, turn } = turnSetup('deny');
+    expect((await turn()).kind).toBe('error');
+    expect(wire).toHaveLength(0);
+    expect(api.endTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it('endTurn never rejects, whatever Rust says', async () => {
+    const { host, api } = setup();
+    api.endTurn.mockRejectedValueOnce(new Error('gone'));
+    host.endTurn?.('T');
+    await Promise.resolve();
+    expect(api.endTurn).toHaveBeenCalledWith('T');
+  });
+
+  it('a non-chat request carries no turn', async () => {
+    const { host, api, emit } = setup();
+    const pending = host.complete(REQUEST, () => {}, new AbortController().signal);
+    await vi.waitFor(() => expect(api.complete).toHaveBeenCalled());
+    expect((api.complete.mock.calls[0][0] as AiWireCompletionRequest).turn).toBeUndefined();
+    emit.done('req-1', { text: 'x', served: SERVED, finishReason: 'stop' });
+    await pending;
   });
 });

@@ -26,7 +26,12 @@
  *   one engine and model for a whole turn: never re-routed, never retried
  *   elsewhere. If that engine cannot serve it, the request fails with a normal
  *   error and the fallback waits for the next turn. Documentation base pages
- *   would otherwise follow a fallback past the per-base cloud switch.
+ *   would otherwise follow a fallback past the per-base cloud switch. It also
+ *   fails if the engine's locality changed since the turn was routed.
+ * - A turn: `resolveAiTurnRoute` names the turn (`pin.turnId`) in its consent
+ *   request and every pinned request carries it (`AiCompletionRequest.turn`).
+ *   "Allow once" then holds for that turn, on the host as well as here: the
+ *   host keeps the grant, and core's `pin.consented` is not consent to it.
  */
 
 import {
@@ -49,6 +54,8 @@ import { aiActivityResponse, type AiActivityEntry, type AiActivityLog } from './
 import type {
   AiCompletionRequest,
   AiCompletionResult,
+  AiConsentAbout,
+  AiConsentReply,
   AiConsentState,
   AiDocsActivityDetail,
   AiEngineStatus,
@@ -219,6 +226,25 @@ function nextRequestId(feature: string): string {
   return `ai-${feature}-${Date.now().toString(36)}-${requestCounter}`;
 }
 
+let turnCounter = 0;
+
+/** Tells one turn from another within a panel or window; hosts key their grants by the panel as well. */
+function nextTurnId(): string {
+  turnCounter += 1;
+  return `turn-${Date.now().toString(36)}-${turnCounter}`;
+}
+
+/** Ask about a cloud engine, naming the turn to a host that holds grants per turn. No dialog on a host that decides alone. */
+function askConsent(ai: MikeDownAiHost, engineId: string, about: AiConsentAbout, turnId: string | undefined): Promise<AiConsentReply> | boolean {
+  if (turnId && ai.requestTurnConsent) {return ai.requestTurnConsent(engineId, { ...about, turnId });}
+  return ai.requestCloudConsent ? ai.requestCloudConsent(engineId, about) : true;
+}
+
+/** The turn is over: the host forgets what it held for it. Nothing here may disturb the outcome. */
+export function endAiTurn(ctx: AiRunContext, turnId: string): void {
+  try { ctx.ai.endTurn?.(turnId); } catch { /* ignore */ }
+}
+
 /** The route as the activity log keeps it. */
 function activityRoute(settings: AiSettings, route: AiRouteOk): NonNullable<AiActivityEntry['route']> {
   const engine = settings.engines.find((e) => e.id === route.engineId);
@@ -311,37 +337,46 @@ export async function resolveAiTurnRoute(ctx: AiRunContext, req: AiTurnRouteRequ
   }
   const refused: Record<string, boolean> = {};
   const once: Record<string, boolean> = {};
-  for (let pass = 0; pass < 12; pass++) {
-    if (signal.aborted) {throw makeAiError('cancelled');}
-    const consent: AiConsentState = { ...ctx.consent, ...once, ...refused };
-    const resolved = resolveRoute(ctx.settings(), ctx.statuses(), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
-    if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
-    if (req.allowed && !req.allowed(resolved)) {return { blocked: true, route: resolved, pin: null };}
-    if (!resolved.needsConsent) {
-      return {
-        blocked: false,
-        route: resolved,
-        pin: {
-          engineId: resolved.engineId,
-          modelId: resolved.modelId,
-          viaFallback: resolved.viaFallback,
-          ...(resolved.reason ? { reason: resolved.reason } : {}),
-          ...(once[resolved.engineId] ? { consented: true } : {}),
-        },
-      };
+  const turnId = nextTurnId();
+  try {
+    for (let pass = 0; pass < 12; pass++) {
+      if (signal.aborted) {throw makeAiError('cancelled');}
+      const consent: AiConsentState = { ...ctx.consent, ...once, ...refused };
+      const resolved = resolveRoute(ctx.settings(), ctx.statuses(), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
+      if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
+      if (req.allowed && !req.allowed(resolved)) {
+        endAiTurn(ctx, turnId);
+        return { blocked: true, route: resolved, pin: null };
+      }
+      if (!resolved.needsConsent) {
+        return {
+          blocked: false,
+          route: resolved,
+          pin: {
+            engineId: resolved.engineId,
+            modelId: resolved.modelId,
+            viaFallback: resolved.viaFallback,
+            isLocal: resolved.isLocal,
+            turnId,
+            ...(resolved.reason ? { reason: resolved.reason } : {}),
+            ...(once[resolved.engineId] ? { consented: true } : {}),
+          },
+        };
+      }
+      const reply = await askConsent(ctx.ai, resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}), ...(req.baseIds && req.baseIds.length > 0 ? { baseIds: req.baseIds } : {}) }, turnId);
+      if (signal.aborted) {throw makeAiError('cancelled');}
+      if (reply === true) {ctx.consent[resolved.engineId] = true;}
+      else if (reply === 'once') {once[resolved.engineId] = true;}
+      else {
+        refused[resolved.engineId] = false;
+        if (reply === 'never') {ctx.consent[resolved.engineId] = false;}
+      }
     }
-    const reply = ctx.ai.requestCloudConsent
-      ? await ctx.ai.requestCloudConsent(resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}), ...(req.baseIds && req.baseIds.length > 0 ? { baseIds: req.baseIds } : {}) })
-      : true;
-    if (signal.aborted) {throw makeAiError('cancelled');}
-    if (reply === true) {ctx.consent[resolved.engineId] = true;}
-    else if (reply === 'once') {once[resolved.engineId] = true;}
-    else {
-      refused[resolved.engineId] = false;
-      if (reply === 'never') {ctx.consent[resolved.engineId] = false;}
-    }
+    throw makeAiError('unknown', 'No engine answered.');
+  } catch (err) {
+    endAiTurn(ctx, turnId);
+    throw err;
   }
-  throw makeAiError('unknown', 'No engine answered.');
 }
 
 export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, events: AiRunEvents, signal: AbortSignal): Promise<AiRunOutcome> {
@@ -364,14 +399,20 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
       const settings = pin ? pinnedSettings(ctx.settings(), req, pin) : ctx.settings();
       const resolved = resolveRoute(settings, withFailures(ctx.statuses(), failed), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
       if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
+      if (pin && pin.isLocal !== undefined && resolved.isLocal !== pin.isLocal) {
+        const name = ctx.settings().engines.find((e) => e.id === pin.engineId)?.name || pin.engineId;
+        const moved: AiError = { ...makeAiError('unknown', `${name} moved between local and cloud during this turn. Ask again.`), engineId: pin.engineId };
+        throw moved;
+      }
       if (resolved.needsConsent) {
-        const reply = ctx.ai.requestCloudConsent
-          ? await ctx.ai.requestCloudConsent(resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}), ...(req.baseIds && req.baseIds.length > 0 ? { baseIds: req.baseIds } : {}) })
-          : true;
+        const reply = await askConsent(ctx.ai, resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}), ...(req.baseIds && req.baseIds.length > 0 ? { baseIds: req.baseIds } : {}) }, pin?.turnId);
         if (signal.aborted) {throw makeAiError('cancelled');}
         if (reply === true) {ctx.consent[resolved.engineId] = true;}
-        else if (reply === 'once') {once[resolved.engineId] = true;}
-        else {
+        else if (reply === 'once') {
+          once[resolved.engineId] = true;
+          // Asked mid-turn (the earlier answer was forgotten): the answer lasts for the rest of the turn too.
+          if (pin) {pin.consented = true;}
+        } else {
           refused[resolved.engineId] = false;
           // A stored refusal from an older version: the host will not ask again, so the
           // menu entries disable with the router's reason for the rest of the session.
@@ -399,6 +440,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
       ...(maxTokens !== undefined ? { maxTokens } : {}),
       ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
       ...(thinking?.overrides ? { requestOverrides: thinking.overrides } : {}),
+      ...(pin?.turnId && route ? { turn: { id: pin.turnId, ...(req.sends ? { sends: req.sends } : {}), ...(req.baseIds && req.baseIds.length > 0 ? { baseIds: req.baseIds } : {}), isLocal: route.isLocal } } : {}),
     };
     const entryId = request.requestId;
     openActivity(ctx, {

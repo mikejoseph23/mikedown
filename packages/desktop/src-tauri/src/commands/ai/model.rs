@@ -162,6 +162,26 @@ pub struct CompletionRequest {
     /// is ignored.
     #[serde(default)]
     pub request_overrides: Option<Value>,
+    /// Set on every request of a chat turn (core's `AiCompletionTurn`). A
+    /// claim, not consent: it only finds a grant `ai.rs` holds for the turn.
+    #[serde(default)]
+    pub turn: Option<TurnClaim>,
+}
+
+/// What a request says about the chat turn it belongs to.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TurnClaim {
+    pub id: String,
+    /// Core's `AiSendsScope`, for a dialog raised during the turn.
+    #[serde(default)]
+    pub sends: Option<String>,
+    /// Documentation bases by id; names come from the global settings (A3).
+    #[serde(default)]
+    pub base_ids: Vec<String>,
+    /// The engine's locality when the turn was routed.
+    #[serde(default)]
+    pub is_local: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]

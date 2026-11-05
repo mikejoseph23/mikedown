@@ -5,7 +5,7 @@
  */
 
 import { createDocsChat, type AiDocsActivityDetail, type DocsChat, type DocsLoopDeps, type DocsRunRequest } from './ai';
-import { resolveAiTurnRoute, runAiCompletion, type AiRunContext } from './ai-request';
+import { endAiTurn, resolveAiTurnRoute, runAiCompletion, type AiRunContext } from './ai-request';
 
 /** `format: 'json'` is dropped for a model known not to do it: the prompt still asks, and the parser is lenient. */
 function withSupportedFormat(ctx: AiRunContext, req: DocsRunRequest): DocsRunRequest {
@@ -29,6 +29,9 @@ export function aiDocsLoopDeps(ctx: AiRunContext): DocsLoopDeps {
     annotate(requestId: string, detail: AiDocsActivityDetail) {
       // The recorder is a side channel: a failure in it never reaches the turn.
       try { ctx.activity?.update(requestId, { docs: detail }); } catch { /* ignore */ }
+    },
+    endTurn(pin) {
+      if (pin.turnId) {endAiTurn(ctx, pin.turnId);}
     },
   };
 }

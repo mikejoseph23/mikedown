@@ -19,12 +19,18 @@
 //!   discovered models with core's capability heuristics.
 //! - `ai_set_secret(id, key)`: the OS keychain (service `net.iadev.mikedown`,
 //!   account = engine id). Keys never come back out.
-//! - `ai_request_cloud_consent(id, feature?, sends?, baseIds?)`: a native dialog with
+//! - `ai_request_cloud_consent(id, feature?, sends?, baseIds?, turnId?)`: a native dialog with
 //!   three answers (Allow for this folder / Allow once / Don't allow), not
 //!   webview UI, so a shared folder cannot restyle it away. Its words come
 //!   from `consent.rs`, the port of core's `aiConsentText`; `baseIds` (a
 //!   documentation-base request) become names from the global settings.
 //!   Resolves to `allow`, `allowOnce`, `deny`, or `never` (stored by an older version).
+//!   With `turnId` (a chat turn), `allowOnce` is a grant held here for that
+//!   window and turn: every request of the turn uses it (`request.turn`), and
+//!   it never covers another turn, engine or set of bases. It ends with
+//!   `ai_end_turn`, a failed or cancelled request, or the window closing.
+//!   `ai_complete` raises the same dialog, with the request's real `sends` and
+//!   base names, for a turn request nothing admits.
 //! - `ai_list_consents()` and `ai_forget_consent(id)`: the window folder's
 //!   stored answers and this session's "Don't allow", for the Cloud consents
 //!   list on the AI tab.
@@ -70,7 +76,7 @@ use self::consent_store::Answer;
 use self::errors::{AiError, ErrorCode};
 use self::locality::{default_local_networks, engine_locality, host_of_url, Locality};
 use self::model::{
-    CompletionRequest, DiscoveryResult, DoneEvent, EngineConfig, EngineInfo, ErrorEvent, ServedBy, TokenEvent,
+    CompletionRequest, DiscoveryResult, DoneEvent, EngineConfig, EngineInfo, ErrorEvent, ModelConfig, ServedBy, TokenEvent, TurnClaim,
 };
 use self::secrets::{resolve_key_with_file, KeyLookup, KeySource, KeychainStore, SecretStore};
 use super::multiwindow::WindowRegistry;
@@ -152,6 +158,33 @@ pub fn cloud_gate(locality: Locality, allow_cloud: bool, consent: Option<Answer>
     Ok(())
 }
 
+/// The most requests one "Allow once" admits in a chat turn: a navigation call
+/// and its one repair per hop, then the answer. The same number as core's
+/// `AI_TURN_GRANT_MAX_USES`.
+pub const TURN_GRANT_MAX_USES: u32 = 11;
+
+const MAX_TURN_ID_LEN: usize = 200;
+const MAX_TURN_BASE_IDS: usize = 50;
+
+/// A turn's claim from the webview: bounded, like the bridge in VS Code.
+fn check_turn_claim(claim: &TurnClaim) -> Result<(), AiError> {
+    if claim.id.is_empty() || claim.id.len() > MAX_TURN_ID_LEN || claim.base_ids.len() > MAX_TURN_BASE_IDS {
+        return Err(AiError::unknown("Malformed chat turn."));
+    }
+    Ok(())
+}
+
+/// F6: a turn's pin holds its engine's locality, and a change fails the
+/// request, whichever way the engine moved.
+pub fn turn_locality_gate(claim: Option<&TurnClaim>, locality: Locality, engine_name: &str) -> Result<(), AiError> {
+    match claim.and_then(|c| c.is_local) {
+        Some(was_local) if was_local != (locality == Locality::Local) => {
+            Err(AiError::unknown(format!("{engine_name} moved between local and cloud during this turn. Ask again.")))
+        }
+        _ => Ok(()),
+    }
+}
+
 /// A name Tauri accepts in an event (`[A-Za-z0-9_-]`), derived from the
 /// request id. The same mapping is in `src/host/aiApi.ts`.
 pub fn channel_id(request_id: &str) -> Result<String, AiError> {
@@ -184,6 +217,25 @@ struct SessionAnswer {
     at: u64,
 }
 
+/// What the user answered "Allow once" to, for one chat turn in one window.
+#[derive(Clone)]
+struct TurnGrant {
+    engine_id: String,
+    fingerprint: String,
+    feature: String,
+    sends: String,
+    base_ids: Vec<String>,
+    uses: u32,
+}
+
+/// A set of base ids in a form two claims can be compared by.
+fn base_id_set(ids: &[String]) -> Vec<String> {
+    let mut set = ids.to_vec();
+    set.sort();
+    set.dedup();
+    set
+}
+
 /// Managed state: the HTTP client, the secret store, in-flight requests (per
 /// window), the probe cache and this session's consent answers.
 pub struct AiState {
@@ -194,12 +246,20 @@ pub struct AiState {
     /// (folder or "", engine id) to the answer given this session ("Don't
     /// allow" and an unused "Allow once" live only here).
     consent: Mutex<HashMap<(String, String), SessionAnswer>>,
+    /// (window label, turn id) to the "Allow once" given for that chat turn.
+    turn_grants: Mutex<HashMap<(String, String), TurnGrant>>,
     /// Serialises reads and writes of the consent file.
     consent_io: Mutex<()>,
     /// One consent dialog at a time.
     consent_dialog: tokio::sync::Mutex<()>,
     /// The last key-file problem logged per engine, so status polls say it once.
     key_file_logged: Mutex<HashMap<String, String>>,
+    /// Tests stand in for the native dialog: the bodies it was asked to show,
+    /// and what it answers.
+    #[cfg(test)]
+    dialogs: Mutex<Vec<String>>,
+    #[cfg(test)]
+    dialog_answer: Mutex<Answer>,
 }
 
 impl AiState {
@@ -214,9 +274,14 @@ impl AiState {
             inflight: Mutex::new(HashMap::new()),
             probes: Mutex::new(HashMap::new()),
             consent: Mutex::new(HashMap::new()),
+            turn_grants: Mutex::new(HashMap::new()),
             consent_io: Mutex::new(()),
             consent_dialog: tokio::sync::Mutex::new(()),
             key_file_logged: Mutex::new(HashMap::new()),
+            #[cfg(test)]
+            dialogs: Mutex::new(Vec::new()),
+            #[cfg(test)]
+            dialog_answer: Mutex::new(Answer::Deny),
         }
     }
 
@@ -232,8 +297,10 @@ impl AiState {
         n
     }
 
-    /// Cancel every request a window started (the window closed).
+    /// Cancel every request a window started (the window closed). Its chat
+    /// turns' "Allow once" grants end with it.
     pub fn cancel_window(&self, label: &str) -> usize {
+        self.turn_grants.lock().unwrap().retain(|(window, _), _| window != label);
         self.cancel_where(|_, f| f.window == label)
     }
 
@@ -276,6 +343,60 @@ impl AiState {
             }
         }
         self.consent_state(base, folder, engine)
+    }
+
+    /// The user answered "Allow once" for this chat turn in this window.
+    fn grant_turn(&self, window: &str, turn_id: &str, engine: &EngineConfig, feature: Option<&str>, sends: Option<&str>, base_ids: &[String]) {
+        let grant = TurnGrant {
+            engine_id: engine.id.clone(),
+            fingerprint: consent_store::fingerprint(engine),
+            feature: feature.unwrap_or_default().to_string(),
+            sends: sends.unwrap_or_default().to_string(),
+            base_ids: base_id_set(base_ids),
+            uses: 0,
+        };
+        self.turn_grants.lock().unwrap().insert((window.to_string(), turn_id.to_string()), grant);
+    }
+
+    /// True when this window holds a grant for the claim's turn that fits it:
+    /// same engine as it is now, same feature, same scope, same set of bases,
+    /// and not used more often than one turn can. A claim that does not fit
+    /// ends the grant.
+    fn use_turn_grant(&self, window: &str, engine: &EngineConfig, feature: &str, claim: &TurnClaim) -> bool {
+        let key = (window.to_string(), claim.id.clone());
+        let mut grants = self.turn_grants.lock().unwrap();
+        let Some(grant) = grants.get_mut(&key) else { return false };
+        let fits = grant.engine_id == engine.id
+            && grant.fingerprint == consent_store::fingerprint(engine)
+            && grant.feature == feature
+            && grant.sends == claim.sends.as_deref().unwrap_or_default()
+            && grant.base_ids == base_id_set(&claim.base_ids)
+            && grant.uses < TURN_GRANT_MAX_USES;
+        if !fits {
+            grants.remove(&key);
+            return false;
+        }
+        grant.uses += 1;
+        true
+    }
+
+    /// The answer for a request of a chat turn: this turn's grant, else what
+    /// `consent_state` says. An "Allow once" given outside this turn never
+    /// counts here, whatever the claim says.
+    fn take_turn_consent(&self, base: &Path, folder: Option<&Path>, window: &str, engine: &EngineConfig, feature: &str, claim: &TurnClaim) -> Option<Answer> {
+        if self.use_turn_grant(window, engine, feature, claim) {
+            return Some(Answer::AllowOnce);
+        }
+        self.consent_state(base, folder, engine)
+    }
+
+    /// The turn is over: its grant, if any, is gone.
+    fn end_turn(&self, window: &str, turn_id: &str) {
+        self.turn_grants.lock().unwrap().remove(&(window.to_string(), turn_id.to_string()));
+    }
+
+    fn forget_turn_grants(&self, engine_ids: &[String]) {
+        self.turn_grants.lock().unwrap().retain(|_, grant| !engine_ids.contains(&grant.engine_id));
     }
 
     /// Keep an answer for the session and, for `allow` in a folder window, in
@@ -395,19 +516,101 @@ fn find_engine<'a>(config: &'a AiConfig, engine_id: &str) -> Result<&'a EngineCo
         .ok_or_else(|| AiError::new(ErrorCode::ModelNotFound, "That engine is not in your AI settings."))
 }
 
-// ── Commands ────────────────────────────────────────────────────────────────
+/// What a request says it sends, for a consent dialog.
+struct ConsentAsk<'a> {
+    feature: Option<&'a str>,
+    sends: Option<&'a str>,
+    base_ids: &'a [String],
+    /// A chat turn: "Allow once" becomes that turn's grant, not the next completion's.
+    turn_id: Option<&'a str>,
+}
 
-#[tauri::command]
-pub async fn ai_complete<R: Runtime>(
-    app: AppHandle<R>,
-    window: WebviewWindow<R>,
-    state: State<'_, AiState>,
-    request: CompletionRequest,
-) -> Result<String, AiError> {
-    let channel = channel_id(&request.request_id)?;
-    let label = window.label().to_string();
-    let config = load_config(&app)?;
+/// The native dialog. Three buttons is all it has, so the policy link is
+/// spelled out in the body.
+#[cfg(not(test))]
+async fn show_consent_dialog<R: Runtime>(app: &AppHandle<R>, window: &WebviewWindow<R>, text: consent::ConsentText) -> Answer {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult};
 
+    let allow_label = text.allow.clone();
+    let once_label = text.allow_once.clone();
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .message(text.body)
+        .title(text.title)
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::YesNoCancelCustom(text.allow, text.allow_once, text.deny))
+        .parent(window)
+        .show_with_result(move |result| {
+            let _ = tx.send(result);
+        });
+    match rx.await {
+        Ok(MessageDialogResult::Custom(label)) if label == allow_label => Answer::Allow,
+        Ok(MessageDialogResult::Custom(label)) if label == once_label => Answer::AllowOnce,
+        Ok(MessageDialogResult::Yes) => Answer::Allow,
+        Ok(MessageDialogResult::No) => Answer::AllowOnce,
+        // "Don't allow", a closed dialog, an unknown label.
+        _ => Answer::Deny,
+    }
+}
+
+#[cfg(test)]
+async fn show_consent_dialog<R: Runtime>(app: &AppHandle<R>, _window: &WebviewWindow<R>, text: consent::ConsentText) -> Answer {
+    let state = app.state::<AiState>();
+    state.dialogs.lock().unwrap().push(text.body);
+    let answer = *state.dialog_answer.lock().unwrap();
+    answer
+}
+
+/// Ask the user, one dialog at a time; a request that waited sees the first
+/// answer if it holds. The words name the bases from the global settings, and
+/// ids the settings do not list are dropped, so webview text never reaches the
+/// native modal (A3).
+async fn ask_consent<R: Runtime>(
+    app: &AppHandle<R>,
+    window: &WebviewWindow<R>,
+    state: &AiState,
+    base: &Path,
+    folder: Option<&Path>,
+    engine: &EngineConfig,
+    ask: ConsentAsk<'_>,
+) -> Answer {
+    let _turn = state.consent_dialog.lock().await;
+    if let Some(answer) = state.consent_state(base, folder, engine) {
+        return answer;
+    }
+    let host = host_of_url(&engine.base_url).unwrap_or_else(|| engine.base_url.clone());
+    let scope_word = if folder.is_some() { "folder" } else { "session" };
+    let base_names = super::docs::consent_base_names(app, ask.base_ids);
+    let text = consent::consent_text(engine.display_name(), &host, ask.feature, ask.sends, &base_names, scope_word);
+    let answer = show_consent_dialog(app, window, text).await;
+    match (answer, ask.turn_id) {
+        (Answer::AllowOnce, Some(turn_id)) => state.grant_turn(window.label(), turn_id, engine, ask.feature, ask.sends, ask.base_ids),
+        _ => state.remember_consent(base, folder, engine, answer),
+    }
+    answer
+}
+
+/// What `ai_complete` hands its task once the request may go.
+struct Prepared {
+    engine: EngineConfig,
+    model: ModelConfig,
+    is_local: bool,
+    api_key: Option<String>,
+    cancel_rx: watch::Receiver<bool>,
+}
+
+/// Everything before the request leaves: look up the route, register it for
+/// cancelling, run the gates. The request's `route` names an engine, nothing
+/// more. It goes only if the cloud gate passes on what this module holds.
+async fn prepare_completion<R: Runtime>(
+    app: &AppHandle<R>,
+    window: &WebviewWindow<R>,
+    state: &AiState,
+    request: &CompletionRequest,
+    channel: &str,
+    label: &str,
+) -> Result<Prepared, AiError> {
+    let config = load_config(app)?;
     let route = request.route.clone().ok_or_else(|| AiError::unknown("The request names no engine and model."))?;
     let engine = find_engine(&config, &route.engine_id)?.clone();
     if !engine.enabled {
@@ -419,28 +622,82 @@ pub async fn ai_complete<R: Runtime>(
         .find(|m| m.id == route.model_id && m.enabled)
         .ok_or_else(|| AiError::new(ErrorCode::ModelNotFound, "That model is not enabled on this engine."))?
         .clone();
-
+    let claim = request.turn.as_ref();
+    if let Some(claim) = claim {
+        check_turn_claim(claim)?;
+    }
     let locality = engine_locality(&engine.locality, &engine.base_url, &config.local_networks);
-    let folder = window_folder(&app, &label);
-    let consent = if locality == Locality::Local { None } else { state.take_consent(&data_dir(&app)?, folder.as_deref(), &engine) };
-    cloud_gate(locality, config.allow_cloud, consent)?;
+    turn_locality_gate(claim, locality, engine.display_name())?;
 
-    let (api_key, _keychain_problem) = state.key_for(&engine).await;
+    // Registered first: a request waiting on a dialog can be cancelled too.
+    let (cancel_tx, cancel_rx) = watch::channel(false);
+    {
+        let mut inflight = state.inflight.lock().unwrap();
+        if inflight.contains_key(channel) {
+            return Err(AiError::unknown("A request with this id is already running."));
+        }
+        inflight.insert(channel.to_string(), Inflight { window: label.to_string(), cancel: cancel_tx });
+    }
+    let admitted = async {
+        let folder = window_folder(app, label);
+        let consent = if locality == Locality::Local {
+            None
+        } else if let Some(claim) = claim {
+            let base = data_dir(app)?;
+            match state.take_turn_consent(&base, folder.as_deref(), label, &engine, &request.feature, claim) {
+                None if config.allow_cloud => {
+                    let ask = ConsentAsk { feature: Some(&request.feature), sends: claim.sends.as_deref(), base_ids: &claim.base_ids, turn_id: Some(&claim.id) };
+                    Some(ask_consent(app, window, state, &base, folder.as_deref(), &engine, ask).await)
+                }
+                held => held,
+            }
+        } else {
+            state.take_consent(&data_dir(app)?, folder.as_deref(), &engine)
+        };
+        cloud_gate(locality, config.allow_cloud, consent)?;
+        let (api_key, _keychain_problem) = state.key_for(&engine).await;
+        if *cancel_rx.borrow() {
+            return Err(AiError::new(ErrorCode::Cancelled, "Cancelled."));
+        }
+        Ok(api_key)
+    }
+    .await;
+    match admitted {
+        Ok(api_key) => Ok(Prepared { engine, model, is_local: locality == Locality::Local, api_key, cancel_rx }),
+        Err(error) => {
+            state.inflight.lock().unwrap().remove(channel);
+            Err(error)
+        }
+    }
+}
+
+// ── Commands ────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn ai_complete<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    state: State<'_, AiState>,
+    request: CompletionRequest,
+) -> Result<String, AiError> {
+    let channel = channel_id(&request.request_id)?;
+    let label = window.label().to_string();
+    let Prepared { engine, model, is_local, api_key, cancel_rx } = match prepare_completion(&app, &window, &state, &request, &channel, &label).await {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            // A failed request ends its turn, so it ends the turn's "Allow once" too.
+            if let Some(claim) = &request.turn {
+                state.end_turn(&label, &claim.id);
+            }
+            return Err(error);
+        }
+    };
     let served = ServedBy {
         engine_id: engine.id.clone(),
         engine_name: engine.display_name().to_string(),
         model_id: model.id.clone(),
-        is_local: locality == Locality::Local,
+        is_local,
     };
-
-    let (cancel_tx, cancel_rx) = watch::channel(false);
-    {
-        let mut inflight = state.inflight.lock().unwrap();
-        if inflight.contains_key(&channel) {
-            return Err(AiError::unknown("A request with this id is already running."));
-        }
-        inflight.insert(channel.clone(), Inflight { window: label.clone(), cancel: cancel_tx });
-    }
 
     let client = state.client.clone();
     let started = Instant::now();
@@ -459,6 +716,9 @@ pub async fn ai_complete<R: Runtime>(
         let outcome = providers::complete(&client, &engine, api_key.as_deref(), &model, &request, served, &cancel_rx, &mut on_token).await;
         if let Some(state) = task_app.try_state::<AiState>() {
             state.inflight.lock().unwrap().remove(&task_channel);
+            if let (true, Some(claim)) = (outcome.is_err(), &request.turn) {
+                state.end_turn(&label, &claim.id);
+            }
         }
         let finish = match &outcome {
             Ok(result) => format!("{:?}", result.finish_reason).to_lowercase(),
@@ -570,7 +830,8 @@ pub async fn ai_set_secret(state: State<'_, AiState>, id: String, api_key: Optio
 /// text to a cloud engine. Returns the stored answer, or this session's
 /// "Don't allow", without asking. Three answers: "Allow for this folder" is
 /// stored (in app data, with the engine's fingerprint); "Allow once" lets the
-/// next completion for the engine through and is then used up; "Don't allow"
+/// next completion for the engine through and is then used up, or with
+/// `turn_id` lets that chat turn's requests through; "Don't allow"
 /// (or closing the dialog) is remembered until the app quits. `feature` and
 /// `sends` (core's `AiConsentAbout`) say what the request sends.
 #[tauri::command]
@@ -582,9 +843,11 @@ pub async fn ai_request_cloud_consent<R: Runtime>(
     feature: Option<String>,
     sends: Option<String>,
     base_ids: Option<Vec<String>>,
+    turn_id: Option<String>,
 ) -> Result<Answer, AiError> {
-    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult};
-
+    if turn_id.as_deref().is_some_and(|t| t.is_empty() || t.len() > MAX_TURN_ID_LEN) {
+        return Err(AiError::unknown("Malformed chat turn."));
+    }
     let config = load_config(&app)?;
     let engine = find_engine(&config, &id)?.clone();
     if engine_locality(&engine.locality, &engine.base_url, &config.local_networks) == Locality::Local {
@@ -599,47 +862,16 @@ pub async fn ai_request_cloud_consent<R: Runtime>(
         return Ok(answer);
     }
 
-    // One dialog at a time; a second request that waited sees the first answer.
-    let _turn = state.consent_dialog.lock().await;
-    if let Some(answer) = state.consent_state(&base, folder.as_deref(), &engine) {
-        return Ok(answer);
-    }
-    let host = host_of_url(&engine.base_url).unwrap_or_else(|| engine.base_url.clone());
-    let scope_word = if folder.is_some() { "folder" } else { "session" };
-    // The dialog names the bases from the global settings; ids the settings do
-    // not list are dropped, so webview text never reaches the native modal (A3).
-    let base_names = super::docs::consent_base_names(&app, &base_ids.unwrap_or_default());
-    let text = consent::consent_text(
-        engine.display_name(),
-        &host,
-        feature.as_deref(),
-        sends.as_deref(),
-        &base_names,
-        scope_word,
-    );
-    let allow_label = text.allow.clone();
-    let once_label = text.allow_once.clone();
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    // Three buttons is all the dialog has, so the policy link is spelled out in the body.
-    app.dialog()
-        .message(text.body)
-        .title(text.title)
-        .kind(MessageDialogKind::Warning)
-        .buttons(MessageDialogButtons::YesNoCancelCustom(text.allow, text.allow_once, text.deny))
-        .parent(&window)
-        .show_with_result(move |result| {
-            let _ = tx.send(result);
-        });
-    let answer = match rx.await {
-        Ok(MessageDialogResult::Custom(label)) if label == allow_label => Answer::Allow,
-        Ok(MessageDialogResult::Custom(label)) if label == once_label => Answer::AllowOnce,
-        Ok(MessageDialogResult::Yes) => Answer::Allow,
-        Ok(MessageDialogResult::No) => Answer::AllowOnce,
-        // "Don't allow", a closed dialog, an unknown label.
-        _ => Answer::Deny,
-    };
-    state.remember_consent(&base, folder.as_deref(), &engine, answer);
-    Ok(answer)
+    let base_ids = base_ids.unwrap_or_default();
+    let ask = ConsentAsk { feature: feature.as_deref(), sends: sends.as_deref(), base_ids: &base_ids, turn_id: turn_id.as_deref() };
+    Ok(ask_consent(&app, &window, &state, &base, folder.as_deref(), &engine, ask).await)
+}
+
+/// A chat turn is over (answered, refused, failed or cancelled): forget the
+/// "Allow once" this window held for it. A turn with none is not an error.
+#[tauri::command]
+pub fn ai_end_turn<R: Runtime>(window: WebviewWindow<R>, state: State<'_, AiState>, turn_id: String) {
+    state.end_turn(window.label(), &turn_id);
 }
 
 /// The cloud consents for this window's folder, newest first: the stored
@@ -669,6 +901,7 @@ pub async fn ai_forget_consent<R: Runtime>(
 ) -> Result<(), AiError> {
     let folder = window_folder(&app, window.label());
     state.consent.lock().unwrap().remove(&AiState::session_key(folder.as_deref(), &id));
+    state.forget_turn_grants(std::slice::from_ref(&id));
     if let Some(folder) = folder {
         let base = data_dir(&app)?;
         let _io = state.consent_io.lock().unwrap();
@@ -685,6 +918,7 @@ pub async fn ai_forget_engine_consents<R: Runtime>(app: AppHandle<R>, state: Sta
         return Ok(());
     }
     state.consent.lock().unwrap().retain(|(_, engine_id), _| !ids.contains(engine_id));
+    state.forget_turn_grants(&ids);
     let base = data_dir(&app)?;
     let _io = state.consent_io.lock().unwrap();
     consent_store::forget_engines(&base, &ids).map_err(AiError::unknown)?;

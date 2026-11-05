@@ -89,8 +89,12 @@ export interface AiRoutePin {
   /** How the turn's route was reached, for the badge and the Activity entry. */
   viaFallback?: boolean;
   reason?: string;
-  /** "Allow once" answered at the start of the turn: it covers every call of this turn, and nothing after it. */
+  /** "Allow once" answered for this turn: it covers every call of this turn, and nothing after it. */
   consented?: boolean;
+  /** The engine's locality when the turn was routed. A pinned call fails if it has changed. */
+  isLocal?: boolean;
+  /** The turn, on the wire with every request (`AiCompletionTurn`), so a host can hold "Allow once" for exactly this turn. */
+  turnId?: string;
 }
 
 /** What a chat request's Activity entry adds to the usual fields (A7). Ids only, never text. */
@@ -172,6 +176,8 @@ export interface DocsLoopDeps {
   contextTokens(route: AiRouteOk | null): number | null;
   /** Update a request's Activity entry once the hop's reply was acted on. */
   annotate?(requestId: string, detail: AiDocsActivityDetail): void;
+  /** The turn holding `pin` is over, however it ended. */
+  endTurn?(pin: AiRoutePin): void;
 }
 
 /** The read side of `host.docs`; the loop never touches `saveBases` or a folder picker. */
@@ -249,6 +255,22 @@ export function docsActiveBases(statuses: readonly AiDocBaseStatus[]): AiDocBase
 export function docsBlockingBases(active: readonly AiDocBaseStatus[], route: AiRouteOk | null): AiDocBaseStatus[] {
   if (route?.isLocal === true) {return [];}
   return active.filter((s) => s.base.allowCloud !== true);
+}
+
+/**
+ * The bases of this turn that may not go on to the answer call, by what the
+ * host says now (F6): one that was disabled or removed mid-turn on any route,
+ * one whose cloud switch went off on a route that is not local.
+ */
+export function docsBasesOffMidTurn(active: readonly AiDocBaseStatus[], now: readonly AiDocBaseStatus[], route: AiRouteOk | null): Array<{ id: string; name: string }> {
+  const off: Array<{ id: string; name: string }> = [];
+  for (const { base } of active) {
+    const latest = now.find((s) => s.base.id === base.id)?.base;
+    if (latest?.enabled !== true || (route?.isLocal !== true && latest.allowCloud !== true)) {
+      off.push({ id: base.id, name: latest?.name ?? base.name });
+    }
+  }
+  return off;
 }
 
 // ── The turn's sources ──────────────────────────────────────────────────────
@@ -640,7 +662,7 @@ async function keywordFallback(question: string, source: TurnSource, state: Turn
   state.droppedIds.push(...activityIds(read.missing));
 }
 
-async function runTurn(deps: DocsLoopDeps, input: DocsTurnInput, events: DocsTurnEvents, signal: AbortSignal): Promise<DocsTurnOutcome> {
+async function runTurn(deps: DocsLoopDeps, input: DocsTurnInput, events: DocsTurnEvents, signal: AbortSignal, held: { pin: AiRoutePin | null }): Promise<DocsTurnOutcome> {
   const question = input.question.trim();
   if (question === '') {return { kind: 'error', error: makeAiError('unknown', 'Type a question first.') };}
   // S7 covers every string sent. Nothing has happened yet, so this is the cheapest place to stop.
@@ -670,6 +692,7 @@ async function runTurn(deps: DocsLoopDeps, input: DocsTurnInput, events: DocsTur
     ...(baseIds.length > 0 ? { baseIds } : {}),
     allowed: routeAllowed,
   }, signal);
+  held.pin = turn.pin;
   // The resolver was told, and this is checked again here: the loop does not take its word for it.
   if (turn.blocked || !routeAllowed(turn.route)) {return blocked(turn.route);}
   throwIfAborted(signal);
@@ -811,6 +834,13 @@ async function runTurn(deps: DocsLoopDeps, input: DocsTurnInput, events: DocsTur
   ].filter((p) => p !== '');
   const coverage = coverageParts.join('; ');
 
+  // Pages go out in this call. Plain `listBases()`, which does not walk: the switches may have moved during the hops.
+  if (scope.kind === 'bases') {
+    const off = docsBasesOffMidTurn(active, await scope.docs.listBases(), turn.route);
+    throwIfAborted(signal);
+    if (off.length > 0) {return { kind: 'baseLocalOnly', bases: off, route: turn.route };}
+  }
+
   events.onProgress?.({ phase: 'answer', maxHops, pages: sent.length });
   const messages = buildDocsAnswerMessages({ question, sent, coverage, scope: scope.kind });
   const run = await deps.run({
@@ -855,11 +885,14 @@ async function runTurn(deps: DocsLoopDeps, input: DocsTurnInput, events: DocsTur
  * turn with an outcome, and what Activity recorded stays there.
  */
 export async function runDocsTurn(deps: DocsLoopDeps, input: DocsTurnInput, events: DocsTurnEvents, signal: AbortSignal): Promise<DocsTurnOutcome> {
+  const held: { pin: AiRoutePin | null } = { pin: null };
   try {
-    return await runTurn(deps, input, events, signal);
+    return await runTurn(deps, input, events, signal, held);
   } catch (err) {
     const error = signal.aborted ? makeAiError('cancelled') : toAiError(err);
     return error.code === 'cancelled' ? { kind: 'cancelled' } : { kind: 'error', error };
+  } finally {
+    if (held.pin) {deps.endTurn?.(held.pin);}
   }
 }
 

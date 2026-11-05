@@ -219,6 +219,13 @@ export interface AiDocsSettings extends AiDocsOptions {
 
 export const AI_DOCS_MAX_HOPS_MIN = 1;
 export const AI_DOCS_MAX_HOPS_MAX = 5;
+/**
+ * The most requests one "Allow once" can admit in a chat turn: a navigation
+ * call and its one repair per hop, then the answer. Hosts stop honouring a grant
+ * past this, so a webview that never ends its turn cannot keep sending on it.
+ * `TURN_GRANT_MAX_USES` in Desktop's `commands/ai.rs` is the same number.
+ */
+export const AI_TURN_GRANT_MAX_USES = AI_DOCS_MAX_HOPS_MAX * 2 + 1;
 export const AI_DOCS_MAX_HOPS_DEFAULT = 3;
 export const AI_DOCS_SOURCE_SHARE_MIN = 30;
 export const AI_DOCS_SOURCE_SHARE_MAX = 80;
@@ -399,6 +406,24 @@ export interface AiCompletionRequest {
    * request wins. Tier-1 hosts may ignore them.
    */
   requestOverrides?: Record<string, unknown>;
+  /** Set on every request of a chat turn (`AiRoutePin`); absent on every other request. */
+  turn?: AiCompletionTurn;
+}
+
+/**
+ * What a request of a chat turn says about that turn. A host uses it to find
+ * the "Allow once" it holds for the turn, and to word a dialog it has to raise
+ * in the middle of one (`sends`, and `baseIds`, which it maps to names from its
+ * own settings). It is a claim, not consent: a host admits the request only
+ * against a grant it made itself when the user answered, for this panel or
+ * window, this turn, this engine and this set of bases.
+ */
+export interface AiCompletionTurn {
+  id: string;
+  sends?: AiSendsScope;
+  baseIds?: string[];
+  /** The engine's locality when the turn was routed. A host fails the request if it no longer holds. */
+  isLocal?: boolean;
 }
 
 export interface AiServedBy {
@@ -612,6 +637,18 @@ export interface MikeDownAiHost {
    */
   requestCloudConsent?(engineId: string, about?: AiConsentAbout): Promise<AiConsentReply>;
   /**
+   * `requestCloudConsent` for a chat turn, where `'once'` means the whole turn:
+   * the host holds the grant and admits the turn's requests (`req.turn`) on it.
+   * Absent: core asks `requestCloudConsent`.
+   */
+  requestTurnConsent?(engineId: string, about: AiTurnConsentAbout): Promise<AiConsentReply>;
+  /**
+   * The chat turn `turnId` is over (answered, refused, failed or cancelled):
+   * forget any "Allow once" held for it. Fire and forget. A host that holds no
+   * grant per turn can leave it out.
+   */
+  endTurn?(turnId: string): void;
+  /**
    * The cloud consents for this workspace or folder, for the Cloud consents
    * list on the AI tab: the stored answers, plus this session's "Don't
    * allow" (`deny`), so it can be forgotten without a restart. "Allow once"
@@ -625,7 +662,7 @@ export interface MikeDownAiHost {
 /**
  * What `requestCloudConsent` resolves to: `true` allowed for the workspace
  * (remembered), `'once'` allowed for this request only (the next one asks
- * again), `false` declined for this request (a host may also stop asking for
+ * again), or for the whole turn from `requestTurnConsent`, `false` declined for this request (a host may also stop asking for
  * the session; it then answers `false` without a dialog), `'never'` a stored
  * refusal from an older version (the host answers it without asking). A host
  * that only knows allow and decline keeps returning booleans.
@@ -664,6 +701,11 @@ export interface AiConsentAbout {
    * ids, so a name from the webview never reaches its modal.
    */
   baseIds?: string[];
+}
+
+/** A consent prompt from a chat turn (`AiCompletionTurn.id`): an "Allow once" holds for that turn and no other. */
+export interface AiTurnConsentAbout extends AiConsentAbout {
+  turnId: string;
 }
 
 // ── Docs host group ─────────────────────────────────────────────────────────

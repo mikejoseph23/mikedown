@@ -206,16 +206,16 @@ describe('the per-base cloud switch (S6)', () => {
     expect((await run(ctx, docs)).kind).toBe('answered');
     base.allowCloud = false;
     expect((await run(ctx, docs)).kind).toBe('baseLocalOnly');
-    expect(listBases).toHaveBeenCalledTimes(2);
+    // The answered turn reads at its start and again before the answer (F6); the blocked one stops at the first.
+    expect(listBases).toHaveBeenCalledTimes(3);
   });
 
-  it('asks listBases without refresh, once per turn: a chat turn must not force a walk', async () => {
+  it('asks listBases without refresh, at the start and before the answer: a chat turn must not force a walk', async () => {
     const { ai } = fakeAi([nav([], true)]);
     const { docs, listBases } = fakeDocs([simple()]);
     expect((await run(ctxOf(ai, aiSettings()), docs)).kind).toBe('answered');
-    expect(listBases).toHaveBeenCalledTimes(1);
-    const args = listBases.mock.calls[0] as unknown[];
-    expect(args.length === 0 || (args[0] as { refresh?: boolean } | undefined)?.refresh !== true).toBe(true);
+    expect(listBases).toHaveBeenCalledTimes(2);
+    expect(listBases.mock.calls.every((args) => (args as unknown[]).length === 0)).toBe(true);
   });
 
   it('ignores a disabled base for the switch, and never indexes or sends it', async () => {

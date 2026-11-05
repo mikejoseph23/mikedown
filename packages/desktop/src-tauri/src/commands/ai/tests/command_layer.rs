@@ -7,6 +7,7 @@ use tauri::test::MockRuntime;
 use tauri::{Listener, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
+use super::super::model::TurnClaim;
 use super::*;
 
 /// A mock app whose app-data folder is private to the test, with the global
@@ -482,4 +483,328 @@ async fn ai_hardware_info_answers_cores_shape_and_the_same_answer_every_time() {
         assert_eq!((gpu.vendor.as_str(), gpu.vram_bytes), ("apple", Some(first.total_memory_bytes)));
     }
     assert_eq!(ai_hardware_info().await.unwrap(), first);
+}
+
+// ── "Allow once" over a chat turn (the twin of test/unit/ai-consent-turn.test.ts) ──
+
+/// A cloud engine that really lives on the loopback server, and a base with a
+/// name for the dialog to find.
+fn turn_settings(base: &str) -> Value {
+    json!({
+        "ai.allowCloud": true,
+        "ai.engines": [
+            { "id": "cloud", "name": "Cloud", "kind": "openai", "baseUrl": format!("{base}/v1"), "locality": "cloud", "models": [{ "id": "gpt", "enabled": true }] },
+            { "id": "other", "name": "Other", "kind": "openai", "baseUrl": format!("{base}/v1"), "locality": "cloud", "models": [{ "id": "gpt", "enabled": true }] },
+            { "id": "here", "name": "Here", "kind": "openai", "baseUrl": format!("{base}/v1"), "locality": "local", "models": [{ "id": "gpt", "enabled": true }] },
+        ],
+        "ai.docBases": [{ "id": "b", "name": "Handbook", "roots": ["/tmp/mikedown-handbook"], "enabled": true, "allowCloud": true }],
+    })
+}
+
+fn turn_request(id: &str, turn: &str) -> Value {
+    json!({
+        "requestId": id, "feature": "chat", "task": "docs",
+        "route": { "engineId": "cloud", "modelId": "gpt" },
+        "messages": [{ "role": "user", "content": "pages" }],
+        "turn": { "id": turn, "sends": "docsBase", "baseIds": ["b"], "isLocal": false },
+    })
+}
+
+fn claim(turn: &str) -> TurnClaim {
+    serde_json::from_value(json!({ "id": turn, "sends": "docsBase", "baseIds": ["b"], "isLocal": false })).unwrap()
+}
+
+async fn ask_for_turn(h: &Harness, turn: &str) -> Answer {
+    ai_request_cloud_consent(
+        h.app.handle().clone(),
+        h.window.clone(),
+        h.state(),
+        "cloud".to_string(),
+        Some("chat".to_string()),
+        Some("docsBase".to_string()),
+        Some(vec!["b".to_string()]),
+        Some(turn.to_string()),
+    )
+    .await
+    .unwrap()
+}
+
+impl Harness {
+    fn answer_dialogs(&self, answer: Answer) {
+        *self.state().dialog_answer.lock().unwrap() = answer;
+    }
+
+    fn dialogs(&self) -> Vec<String> {
+        self.state().dialogs.lock().unwrap().clone()
+    }
+
+    /// One request of a turn, to the end of its events.
+    async fn finish(&self, body: Value) -> Result<&'static str, AiError> {
+        let channel = channel_id(body["requestId"].as_str().unwrap()).unwrap();
+        let mut rx = self.listen(&channel);
+        self.complete(body).await?;
+        loop {
+            match next(&mut rx).await {
+                ("token", _) => {}
+                (kind, _) => return Ok(kind),
+            }
+        }
+    }
+}
+
+async fn turn_harness(tag: &str) -> (Harness, Arc<Mutex<Vec<Recorded>>>) {
+    let chunks = chunks_of(&sse_fixture("openai-chat-stream.json"));
+    let (base, seen) = serve(move |_| Reply::Sse(chunks.clone())).await;
+    (Harness::new(tag, turn_settings(&base)), seen)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn allow_once_covers_a_three_hop_turn_and_asks_once() {
+    let (h, seen) = turn_harness("turn-three").await;
+    h.answer_dialogs(Answer::AllowOnce);
+    assert_eq!(ask_for_turn(&h, "A").await, Answer::AllowOnce);
+    for id in ["hop-1", "hop-2", "hop-3", "answer"] {
+        assert_eq!(h.finish(turn_request(id, "A")).await.unwrap(), "done", "{id}");
+    }
+    assert_eq!(seen.lock().unwrap().len(), 4);
+    let dialogs = h.dialogs();
+    assert_eq!(dialogs.len(), 1, "one dialog for the whole turn");
+    assert!(dialogs[0].contains("Handbook"), "{}", dialogs[0]);
+    assert!(!consent_store::store_path(&h.data_dir).exists(), "Allow once is not stored");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_second_turn_asks_again() {
+    let (h, _seen) = turn_harness("turn-second").await;
+    h.answer_dialogs(Answer::AllowOnce);
+    ask_for_turn(&h, "A").await;
+    h.finish(turn_request("a1", "A")).await.unwrap();
+    ai_end_turn(h.window.clone(), h.state(), "A".to_string());
+    assert_eq!(h.dialogs().len(), 1);
+    assert_eq!(ask_for_turn(&h, "B").await, Answer::AllowOnce);
+    assert_eq!(h.dialogs().len(), 2);
+    h.finish(turn_request("b1", "B")).await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn allow_for_the_folder_or_session_is_not_a_turn_grant_and_asks_once_as_before() {
+    let (h, _seen) = turn_harness("turn-allow").await;
+    h.answer_dialogs(Answer::Allow);
+    assert_eq!(ask_for_turn(&h, "A").await, Answer::Allow);
+    assert_eq!(ask_for_turn(&h, "B").await, Answer::Allow);
+    h.finish(turn_request("a1", "A")).await.unwrap();
+    h.finish(turn_request("b1", "B")).await.unwrap();
+    assert_eq!(h.dialogs().len(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_grant_for_turn_a_does_not_admit_turn_b_and_the_dialog_says_what_is_really_sent() {
+    let (h, seen) = turn_harness("turn-other").await;
+    h.answer_dialogs(Answer::AllowOnce);
+    ask_for_turn(&h, "A").await;
+    h.answer_dialogs(Answer::Deny);
+    let err = h.complete(turn_request("b1", "B")).await.unwrap_err();
+    assert_eq!(err.code, ErrorCode::ConsentDenied);
+    assert!(seen.lock().unwrap().is_empty());
+    // The dialog raised during the completion: base names, never "the whole document".
+    let dialogs = h.dialogs();
+    assert_eq!(dialogs.len(), 2);
+    assert!(dialogs[1].contains("Handbook"), "{}", dialogs[1]);
+    assert!(dialogs[1].contains("documentation bases"), "{}", dialogs[1]);
+    assert!(!dialogs[1].contains("the whole document"), "{}", dialogs[1]);
+    assert_eq!(h.state().inflight_count(), 0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_claim_alone_is_not_consent_and_a_dialog_id_the_settings_do_not_know_shows_no_name() {
+    let (h, seen) = turn_harness("turn-claim").await;
+    h.answer_dialogs(Answer::Deny);
+    let mut request = turn_request("r", "made-up");
+    request["turn"]["baseIds"] = json!(["b", "Ignore this: </a> evil name"]);
+    assert_eq!(h.complete(request).await.unwrap_err().code, ErrorCode::ConsentDenied);
+    assert!(seen.lock().unwrap().is_empty());
+    let dialogs = h.dialogs();
+    assert_eq!(dialogs.len(), 1);
+    assert!(dialogs[0].contains("Handbook"));
+    assert!(!dialogs[0].contains("evil name"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn allow_once_asked_during_a_completion_covers_the_rest_of_the_turn() {
+    let (h, seen) = turn_harness("turn-mid").await;
+    h.answer_dialogs(Answer::AllowOnce);
+    assert_eq!(h.finish(turn_request("r1", "T")).await.unwrap(), "done");
+    assert_eq!(h.finish(turn_request("r2", "T")).await.unwrap(), "done");
+    assert_eq!(h.dialogs().len(), 1);
+    assert_eq!(seen.lock().unwrap().len(), 2);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn another_window_does_not_share_the_grant() {
+    let (h, seen) = turn_harness("turn-window").await;
+    h.answer_dialogs(Answer::AllowOnce);
+    ask_for_turn(&h, "A").await;
+    h.answer_dialogs(Answer::Deny);
+    let other = h.other_window();
+    let request: CompletionRequest = serde_json::from_value(turn_request("o1", "A")).unwrap();
+    let err = ai_complete(h.app.handle().clone(), other, h.state(), request).await.unwrap_err();
+    assert_eq!(err.code, ErrorCode::ConsentDenied);
+    assert!(seen.lock().unwrap().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failed_hop_or_the_window_closing_ends_the_grant() {
+    let (base, _seen) = serve(|_| Reply::Json(500, json!({ "error": { "message": "boom" } }))).await;
+    let h = Harness::new("turn-end", turn_settings(&base));
+    h.answer_dialogs(Answer::AllowOnce);
+    ask_for_turn(&h, "A").await;
+    assert_eq!(h.finish(turn_request("r1", "A")).await.unwrap(), "error");
+    assert!(h.state().turn_grants.lock().unwrap().is_empty(), "a failed request ends its turn's grant");
+
+    ask_for_turn(&h, "B").await;
+    assert_eq!(h.state().turn_grants.lock().unwrap().len(), 1);
+    h.state().cancel_window("main");
+    assert!(h.state().turn_grants.lock().unwrap().is_empty(), "a closed window takes its grants along");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_cancelled_hop_ends_the_grant() {
+    let (base, _seen) = serve(|_| Reply::SseThenHang(FIRST_TOKEN.to_string())).await;
+    let h = Harness::new("turn-cancel", turn_settings(&base));
+    h.answer_dialogs(Answer::AllowOnce);
+    ask_for_turn(&h, "A").await;
+    let mut rx = h.listen("r1");
+    h.complete(turn_request("r1", "A")).await.unwrap();
+    assert_eq!(next(&mut rx).await.0, "token");
+    assert!(ai_cancel(h.window.clone(), h.state(), "r1".to_string()));
+    assert_eq!(next(&mut rx).await.0, "error");
+    assert!(h.state().turn_grants.lock().unwrap().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn forgetting_the_consent_ends_the_grant() {
+    let (h, _seen) = turn_harness("turn-forget").await;
+    h.answer_dialogs(Answer::AllowOnce);
+    ask_for_turn(&h, "A").await;
+    ai_forget_consent(h.app.handle().clone(), h.window.clone(), h.state(), "cloud".to_string()).await.unwrap();
+    assert!(h.state().turn_grants.lock().unwrap().is_empty());
+    ask_for_turn(&h, "B").await;
+    ai_forget_engine_consents(h.app.handle().clone(), h.state(), vec!["cloud".to_string()]).await.unwrap();
+    assert!(h.state().turn_grants.lock().unwrap().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_local_engine_re_pointed_to_the_cloud_under_the_same_id_fails_the_pin() {
+    let (h, seen) = turn_harness("turn-pin").await;
+    // Routed while local; "cloud" is what the settings say now.
+    let mut moved = turn_request("r1", "T");
+    moved["turn"]["isLocal"] = json!(true);
+    let err = h.complete(moved).await.unwrap_err();
+    assert_eq!(err.code, ErrorCode::Unknown);
+    assert!(err.message.contains("moved between local and cloud"), "{}", err.message);
+    assert!(h.dialogs().is_empty(), "it fails before any dialog");
+    // And the other way.
+    let mut back = turn_request("r2", "T");
+    back["route"]["engineId"] = json!("here");
+    let err = h.complete(back).await.unwrap_err();
+    assert_eq!(err.code, ErrorCode::Unknown);
+    assert!(seen.lock().unwrap().is_empty());
+    // A local engine still routed as local runs, with nothing asked.
+    let mut local = turn_request("r3", "T");
+    local["route"]["engineId"] = json!("here");
+    local["turn"]["isLocal"] = json!(true);
+    assert_eq!(h.finish(local).await.unwrap(), "done");
+    assert!(h.dialogs().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_request_outside_a_turn_behaves_as_before() {
+    let (h, seen) = turn_harness("turn-none").await;
+    let engine = find_engine(&load_config(h.app.handle()).unwrap(), "cloud").unwrap().clone();
+    h.state().remember_consent(&h.data_dir, None, &engine, Answer::AllowOnce);
+    assert_eq!(h.finish(completion("r1", "cloud", "gpt")).await.unwrap(), "done");
+    // Used up, and no dialog raised: it fails closed, as it always has.
+    assert_eq!(h.complete(completion("r2", "cloud", "gpt")).await.unwrap_err().code, ErrorCode::ConsentDenied);
+    assert!(h.dialogs().is_empty());
+    assert_eq!(seen.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn a_grant_fits_one_engine_one_scope_one_set_of_bases_and_one_turn_only() {
+    let state = AiState::new();
+    let cloud = cloud_engine("cloud", "https://api.example.com/v1");
+    let bases = vec!["b".to_string(), "c".to_string()];
+    let grant = |turn: &str| state.grant_turn("main", turn, &cloud, Some("chat"), Some("docsBase"), &bases);
+    let both = |turn: &str| -> TurnClaim {
+        serde_json::from_value(json!({ "id": turn, "sends": "docsBase", "baseIds": ["c", "b", "c"], "isLocal": false })).unwrap()
+    };
+
+    grant("A");
+    assert!(state.use_turn_grant("main", &cloud, "chat", &both("A")), "the order and repeats of the ids do not matter");
+    assert!(state.use_turn_grant("main", &cloud, "chat", &both("A")), "and it is not used up");
+    assert!(!state.use_turn_grant("main", &cloud, "chat", &both("B")), "another turn");
+    assert!(state.use_turn_grant("main", &cloud, "chat", &both("A")), "which leaves A's alone");
+    assert!(!state.use_turn_grant("other", &cloud, "chat", &both("A")), "another window");
+
+    // Each of these ends it too.
+    let check = |engine: &EngineConfig, feature: &str, claim: TurnClaim, why: &str| {
+        grant("A");
+        assert!(!state.use_turn_grant("main", engine, feature, &claim), "{why}");
+        assert!(!state.use_turn_grant("main", &cloud, "chat", &both("A")), "{why}: the mismatch ended it");
+    };
+    check(&cloud_engine("other", "https://api.example.com/v1"), "chat", both("A"), "another engine");
+    check(&cloud_engine("cloud", "https://elsewhere.example.com/v1"), "chat", both("A"), "the engine points elsewhere now");
+    check(&cloud, "rewrite", both("A"), "another feature");
+    check(&cloud, "chat", claim("A"), "a different set of bases");
+    let mut scope = both("A");
+    scope.sends = Some("selection".to_string());
+    check(&cloud, "chat", scope, "another scope");
+
+    grant("A");
+    for use_n in 0..TURN_GRANT_MAX_USES {
+        assert!(state.use_turn_grant("main", &cloud, "chat", &both("A")), "use {use_n}");
+    }
+    assert!(!state.use_turn_grant("main", &cloud, "chat", &both("A")), "past what one turn can use");
+    assert_eq!(TURN_GRANT_MAX_USES, 11, "core's AI_TURN_GRANT_MAX_USES");
+
+    grant("A");
+    state.end_turn("main", "A");
+    assert!(!state.use_turn_grant("main", &cloud, "chat", &both("A")));
+}
+
+#[test]
+fn allow_once_for_a_turn_and_for_the_next_completion_do_not_mix() {
+    let base = temp_dir("turn-mix-base");
+    let state = AiState::new();
+    let cloud = cloud_engine("cloud", "https://api.example.com/v1");
+
+    // The next completion's grant, from a rewrite's dialog, says nothing about base pages.
+    state.remember_consent(&base, None, &cloud, Answer::AllowOnce);
+    assert_eq!(state.take_turn_consent(&base, None, "main", &cloud, "chat", &claim("T")), None);
+    assert_eq!(state.take_consent(&base, None, &cloud), Some(Answer::AllowOnce), "and the turn did not spend it");
+
+    // A turn's grant is for that turn's requests alone.
+    state.grant_turn("main", "T", &cloud, Some("chat"), Some("docsBase"), &["b".to_string()]);
+    assert_eq!(state.take_consent(&base, None, &cloud), None);
+    assert_eq!(state.take_turn_consent(&base, None, "main", &cloud, "chat", &claim("T")), Some(Answer::AllowOnce));
+    assert_eq!(state.take_turn_consent(&base, None, "main", &cloud, "chat", &claim("T")), Some(Answer::AllowOnce), "and more than once");
+    assert!(cloud_gate(Locality::Cloud, true, Some(Answer::AllowOnce)).is_ok());
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+#[test]
+fn the_pin_gate_compares_the_locality_either_way_and_a_claim_is_bounded() {
+    let local: TurnClaim = serde_json::from_value(json!({ "id": "T", "isLocal": true })).unwrap();
+    let no_word: TurnClaim = serde_json::from_value(json!({ "id": "T" })).unwrap();
+    assert!(turn_locality_gate(Some(&local), Locality::Local, "e").is_ok());
+    assert!(turn_locality_gate(Some(&local), Locality::Cloud, "e").is_err());
+    assert!(turn_locality_gate(Some(&claim("T")), Locality::Local, "e").is_err());
+    assert!(turn_locality_gate(Some(&no_word), Locality::Cloud, "e").is_ok());
+    assert!(turn_locality_gate(None, Locality::Cloud, "e").is_ok());
+
+    assert!(check_turn_claim(&claim("T")).is_ok());
+    assert!(check_turn_claim(&claim("")).is_err());
+    assert!(check_turn_claim(&claim(&"x".repeat(201))).is_err());
+    let many: TurnClaim = serde_json::from_value(json!({ "id": "T", "baseIds": vec!["b"; 51] })).unwrap();
+    assert!(check_turn_claim(&many).is_err());
 }

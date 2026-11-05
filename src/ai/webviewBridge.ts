@@ -1,4 +1,4 @@
-import { AI_SENDS_TEXT, fromWireCompletionRequest, toAiError, type AiCompletionResult, type AiSendsScope, type AiWireCompletionRequest } from '@mikedown/core/ai';
+import { AI_SENDS_TEXT, fromWireCompletionRequest, toAiError, type AiCompletionResult, type AiCompletionTurn, type AiSendsScope, type AiWireCompletionRequest } from '@mikedown/core/ai';
 import type { AiDocBaseStatus, AiDocsIndex, AiDocsSection, AiDocsSectionRef } from '@mikedown/core/ai';
 import type { AiEngineService } from './engineService';
 
@@ -8,14 +8,18 @@ import type { AiEngineService } from './engineService';
  *
  * Webview → host:
  *   aiComplete            { request: AiWireCompletionRequest }  → aiToken*, then aiDone or aiError
+ *       `request.turn` { id, sends?, baseIds?, isLocal? } (chat turn): finds this panel's "Allow once" for the turn and words a
+ *       dialog raised mid-turn. A claim, never consent: only a dialog's answer makes a grant.
  *   aiCancel              { requestId }
+ *   aiEndTurn             { turnId }                           (no reply; the turn is over, its "Allow once" is gone)
  *   aiListEngines         {}                                   → aiEngines
  *   aiTestEngine          { requestId, engineId }              → aiEngineStatus
  *   aiDiscoverModels      { requestId, engineId }              → aiEngineStatus
  *   aiSetSecret           { requestId, engineId, apiKey }      → aiEngineStatus (hasKey)
- *   aiRequestCloudConsent { requestId, engineId, feature?, sends?, baseIds? } → aiConsent, or aiError (cloudBlocked while Allow cloud is off)
+ *   aiRequestCloudConsent { requestId, engineId, feature?, sends?, baseIds?, turnId? } → aiConsent, or aiError (cloudBlocked while Allow cloud is off)
  *       `baseIds` (docs chat): the documentation bases the request would send pages from. The host maps the ids to names
- *       from its own user-level settings, drops unknown ids and puts only those names in the dialog.
+ *       from its own user-level settings, drops unknown ids and puts only those names in the dialog. `turnId` (docs chat):
+ *       "Allow once" holds for that turn in this panel.
  *   aiListConsents        { requestId }                        → aiConsents
  *   aiForgetConsent       { requestId, engineId }              → aiConsents (the list after forgetting)
  *   aiDetectLocalServers  { requestId, candidates: { presetId, baseUrl }[] } → aiEngineProbes
@@ -36,7 +40,7 @@ import type { AiEngineService } from './engineService';
  *   aiError        { requestId, code, message }   (also answers a failed test/discover/setSecret/consent)
  *   aiEngines      { engines: AiEngineStatus[] }  (reply to aiListEngines, and pushed after a settings or status change)
  *   aiEngineStatus { requestId, status }
- *   aiConsent      { requestId, engineId, granted: true | 'once' | false | 'never' }  ('once': this request only; false: don't allow, asked again after a restart; 'never': stored by an older version)
+ *   aiConsent      { requestId, engineId, granted: true | 'once' | false | 'never' }  ('once': this request only, or this turn; false: don't allow, asked again after a restart; 'never': stored by an older version)
  *   aiConsents     { requestId, consents: AiConsentRecord[] }  (this workspace's stored answers and this session's "Don't allow", newest first)
  *   aiEngineProbes { requestId, probes: AiLocalServerProbe[] }  (one per candidate, in order; nothing cached)
  *   aiHostEngines  { requestId, probes: AiHostEngineProbe[] }   (VS Code's Copilot models: how many, never a prompt)
@@ -53,6 +57,7 @@ import type { AiEngineService } from './engineService';
 export const AI_WEBVIEW_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'aiComplete',
   'aiCancel',
+  'aiEndTurn',
   'aiListEngines',
   'aiTestEngine',
   'aiDiscoverModels',
@@ -98,6 +103,7 @@ const MAX_IDS = 200;
 const MAX_ID_LENGTH = 2000;
 const MAX_BASES = 100;
 const MAX_BASE_IDS = 50;
+const MAX_TURN_ID = 200;
 
 /** A short string list from the webview: strings only, bounded count and length. */
 function stringList(v: unknown, maxItems: number, maxLength: number): string[] {
@@ -172,6 +178,21 @@ function sendsScope(v: unknown): AiSendsScope | undefined {
   return typeof v === 'string' && Object.prototype.hasOwnProperty.call(AI_SENDS_TEXT, v) ? v as AiSendsScope : undefined;
 }
 
+function turnId(v: unknown): string | undefined {
+  return typeof v === 'string' && v.length > 0 && v.length <= MAX_TURN_ID ? v : undefined;
+}
+
+/** A request's turn from the webview, fields checked one by one; anything else is no turn. */
+function turnClaim(v: unknown): AiCompletionTurn | undefined {
+  if (typeof v !== 'object' || v === null) {return undefined;}
+  const raw = v as Record<string, unknown>;
+  const id = turnId(raw.id);
+  if (!id) {return undefined;}
+  const sends = sendsScope(raw.sends);
+  const baseIds = stringList(raw.baseIds, MAX_BASE_IDS, MAX_BASE_ID);
+  return { id, ...(sends ? { sends } : {}), ...(baseIds.length > 0 ? { baseIds } : {}), ...(typeof raw.isLocal === 'boolean' ? { isLocal: raw.isLocal } : {}) };
+}
+
 /** Handle one AI message from `panel`'s webview, posting the replies through `post`. */
 export async function handleAiMessage(
   service: AiEngineService,
@@ -199,7 +220,9 @@ export async function handleAiMessage(
         return;
       }
       try {
-        const result = await service.complete(panel, fromWireCompletionRequest(wire), (delta) => post({ type: 'aiToken', requestId: id, delta }));
+        const { turn: rawTurn, ...request } = fromWireCompletionRequest(wire);
+        const turn = turnClaim(rawTurn);
+        const result = await service.complete(panel, turn ? { ...request, turn } : request, (delta) => post({ type: 'aiToken', requestId: id, delta }));
         post({ type: 'aiDone', requestId: id, result });
         hooks.onServed?.(result);
       } catch (err) {
@@ -209,6 +232,9 @@ export async function handleAiMessage(
     }
     case 'aiCancel':
       service.cancel(panel, requestId);
+      return;
+    case 'aiEndTurn':
+      service.endTurn(panel, str(message.turnId));
       return;
     case 'aiListEngines':
       try {
@@ -247,9 +273,12 @@ export async function handleAiMessage(
       try {
         const feature = typeof message.feature === 'string' ? message.feature : undefined;
         const baseIds = stringList(message.baseIds, MAX_BASE_IDS, MAX_BASE_ID);
-        const granted = baseIds.length > 0
-          ? await service.requestCloudConsent(engineId, feature, sendsScope(message.sends), baseIds)
-          : await service.requestCloudConsent(engineId, feature, sendsScope(message.sends));
+        const turn = turnId(message.turnId);
+        const granted = turn
+          ? await service.requestCloudConsent(engineId, feature, sendsScope(message.sends), baseIds, { panel, id: turn })
+          : baseIds.length > 0
+            ? await service.requestCloudConsent(engineId, feature, sendsScope(message.sends), baseIds)
+            : await service.requestCloudConsent(engineId, feature, sendsScope(message.sends));
         post({ type: 'aiConsent', requestId, engineId, granted });
       } catch (err) {
         // cloudBlocked and friends reach the webview as an error, not as a quiet "no".

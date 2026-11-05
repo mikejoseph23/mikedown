@@ -27,6 +27,7 @@ import type {
   AiCompletionRequest,
   AiCompletionResult,
   AiConsentAbout,
+  AiTurnConsentAbout,
   AiConsentRecord,
   AiConsentReply,
   AiDocBase,
@@ -351,6 +352,9 @@ export class VsCodeHost implements MikeDownHost {
       this.aiRequest<AiEngineStatus>({ type: 'aiSetSecret', engineId, apiKey }).then(() => undefined),
     requestCloudConsent: (engineId: string, about?: AiConsentAbout) =>
       this.aiRequest<AiConsentReply>({ type: 'aiRequestCloudConsent', engineId, ...(about?.feature ? { feature: about.feature } : {}), ...(about?.sends ? { sends: about.sends } : {}), ...(about?.baseIds && about.baseIds.length > 0 ? { baseIds: about.baseIds } : {}) }),
+    requestTurnConsent: (engineId: string, about: AiTurnConsentAbout) =>
+      this.aiRequest<AiConsentReply>({ type: 'aiRequestCloudConsent', engineId, ...(about.feature ? { feature: about.feature } : {}), ...(about.sends ? { sends: about.sends } : {}), ...(about.baseIds && about.baseIds.length > 0 ? { baseIds: about.baseIds } : {}), turnId: about.turnId }),
+    endTurn: (turnId: string) => { this.post({ type: 'aiEndTurn', turnId }); },
     listConsents: () => this.aiRequest<AiConsentRecord[]>({ type: 'aiListConsents' }),
     forgetConsent: (engineId: string) => this.aiRequest<AiConsentRecord[]>({ type: 'aiForgetConsent', engineId }).then(() => undefined),
     // The host caps each address; an abort here only stops waiting for the answer.

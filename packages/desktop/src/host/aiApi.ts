@@ -5,7 +5,7 @@
  * `setSecret` is write-only.
  */
 import type { AiCompletionResult, AiErrorCode } from '@mikedown/core';
-import type { AiConsentAbout, AiConsentRecord, AiDiscoveredModel, AiHardwareInfo, AiKeySource, AiLocalServerProbe, AiWireCompletionRequest } from '@mikedown/core/ai';
+import type { AiConsentAbout, AiTurnConsentAbout, AiConsentRecord, AiDiscoveredModel, AiHardwareInfo, AiKeySource, AiLocalServerProbe, AiWireCompletionRequest } from '@mikedown/core/ai';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
@@ -54,7 +54,7 @@ export function aiChannelId(requestId: string): string {
 
 /**
  * A consent answer (`Answer` in `consent_store.rs`): the native dialog's
- * `allow` (stored), `allowOnce` (the next completion only) and `deny` (until
+ * `allow` (stored), `allowOnce` (the next completion, or a chat turn) and `deny` (until
  * the app quits), or a `never` an older version stored.
  */
 export type AiConsentAnswer = 'allow' | 'allowOnce' | 'deny' | 'never';
@@ -68,7 +68,9 @@ export interface AiApi {
   discoverModels(engineId: string): Promise<AiDiscoveryResult>;
   setSecret(engineId: string, apiKey: string | null): Promise<void>;
   /** `feature`, `sends` and `baseIds` say what the request sends, for the dialog's words. */
-  requestCloudConsent(engineId: string, about?: AiConsentAbout): Promise<AiConsentAnswer>;
+  requestCloudConsent(engineId: string, about?: AiConsentAbout | AiTurnConsentAbout): Promise<AiConsentAnswer>;
+  /** A chat turn is over: Rust forgets the "Allow once" it held for it. */
+  endTurn(turnId: string): Promise<void>;
   /** The window folder's stored answers (`allow` / `never`), newest first. */
   listConsents(): Promise<AiConsentRecord[]>;
   /** Forget the window folder's answer for an engine (stored and session). */
@@ -98,7 +100,10 @@ export const aiApi: AiApi = {
       sends: about?.sends ?? null,
       // Ids only: Rust maps them to names from the global settings (A3).
       baseIds: about?.baseIds ?? null,
+      // Rust holds "Allow once" for this chat turn, in this window.
+      ...(about && 'turnId' in about ? { turnId: about.turnId } : {}),
     }),
+  endTurn: (turnId) => invoke<void>('ai_end_turn', { turnId }),
   listConsents: () => invoke<AiConsentRecord[]>('ai_list_consents'),
   forgetConsent: (engineId) => invoke<void>('ai_forget_consent', { id: engineId }),
   forgetEngineConsents: (engineIds) => invoke<void>('ai_forget_engine_consents', { ids: engineIds }),

@@ -17,6 +17,9 @@
  *   and never comes back. The native dialog has three answers: `allow` is
  *   `true`, `allowOnce` is `'once'`, `deny` is `false`; a `never` an older
  *   version stored stays `'never'`.
+ * - `requestTurnConsent` is the same dialog for a chat turn, whose `allowOnce`
+ *   Rust keeps as a grant for the turn. `endTurn` tells Rust the turn is over, so the grant is gone. Rust decides what a request's `turn` admits; nothing the
+ *   webview says grants anything.
  * - `listConsents` / `forgetConsent` read and drop the window folder's stored
  *   answers and this session's "Don't allow" (the Cloud consents list on the
  *   AI tab).
@@ -203,6 +206,20 @@ export function createAiHost(deps: AiHostDeps): MikeDownAiHost {
     },
 
     async requestCloudConsent(engineId, about) {
+      try {
+        const answer = await api.requestCloudConsent(engineId, about);
+        return answer === 'allow' ? true : answer === 'allowOnce' ? 'once' : answer === 'never' ? 'never' : false;
+      } catch (err) {
+        throw toAiError(err);
+      }
+    },
+
+    endTurn(turnId) {
+      // Fire and forget. A lost call leaves a grant only the same window's same turn id could find, and the window closing ends it.
+      void api.endTurn(turnId).catch(() => { /* ignore */ });
+    },
+
+    async requestTurnConsent(engineId, about) {
       try {
         const answer = await api.requestCloudConsent(engineId, about);
         return answer === 'allow' ? true : answer === 'allowOnce' ? 'once' : answer === 'never' ? 'never' : false;

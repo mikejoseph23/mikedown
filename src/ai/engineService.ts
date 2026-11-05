@@ -1,5 +1,6 @@
 import {
   AI_ENGINE_PRESETS,
+  AI_TURN_GRANT_MAX_USES,
   AI_LOCAL_DETECT_TIMEOUT_MS,
   aiTimingLogParts,
   buildAuthHeaders,
@@ -17,6 +18,7 @@ import {
   toAiError,
   type AiCompletionRequest,
   type AiCompletionResult,
+  type AiCompletionTurn,
   type AiConsentRecord,
   type AiConsentReply,
   type AiConsentState,
@@ -51,7 +53,11 @@ import { requestJson, resolveFetch, type FetchLike } from './providers/http';
  *   depth): a cloud engine is refused with `cloudBlocked` while Allow cloud
  *   is off, and needs consent before any text leaves: a stored "Allow for
  *   this workspace" or an unused "Allow once"; a consent only counts while
- *   the engine still has the kind, base URL and locality it was given for;
+ *   the engine still has the kind, base URL and locality it was given for.
+ *   "Allow once" asked for a chat turn is a grant held here for that panel and
+ *   turn: every request of the turn uses it, and it ends with the turn, on any
+ *   failed request and when the panel closes. The webview's claim (`req.turn`)
+ *   only finds a grant, it can never make one;
  * - one output-channel line per request, never the prompt text;
  * - local server detection for the setup UI: asked for, never cached;
  * - VS Code's own models (`vscode-lm`) and this machine's hardware, for the
@@ -113,6 +119,21 @@ export interface EngineServiceDeps {
   readHardware?: () => AiHardwareInfo;
 }
 
+/** What the user answered "Allow once" to, for one chat turn in one panel. */
+interface TurnGrant {
+  engineId: string;
+  fingerprint: string;
+  feature: string;
+  sends: string;
+  baseIds: string;
+  uses: number;
+}
+
+/** A set of base ids in a form two claims can be compared by. */
+function baseIdsKey(ids: readonly string[] | undefined): string {
+  return JSON.stringify([...new Set(ids ?? [])].sort());
+}
+
 interface ProbeEntry {
   ok: boolean;
   latencyMs?: number;
@@ -161,6 +182,8 @@ export class AiEngineService {
   private readonly consentPrompts = new Map<string, { key: string; promise: Promise<ConsentAnswer> }>();
   /** "Allow once" grants not yet used, by engine id (the engine's fingerprint). The next completion takes it. */
   private readonly onceGrants = new Map<string, string>();
+  /** "Allow once" grants for chat turns, by panel, then turn id. Never used by a request outside that turn. */
+  private readonly turnGrants = new Map<object, Map<string, TurnGrant>>();
   /** This session's "Don't allow", by engine id: the fingerprint and when. */
   private readonly sessionDenied = new Map<string, { fingerprint: string; at: number }>();
   private readonly listeners = new Set<() => void>();
@@ -529,6 +552,7 @@ export class AiEngineService {
   async forgetConsent(engineId: string): Promise<void> {
     this.sessionDenied.delete(engineId);
     this.onceGrants.delete(engineId);
+    this.dropTurnGrants(engineId);
     await this.deps.consent.forget(engineId);
     this.deps.log(`Consent ${engineId}: forgotten`);
   }
@@ -540,17 +564,21 @@ export class AiEngineService {
    * `cloudBlocked` while Allow cloud is off, like Desktop. A stored answer
    * and this session's "Don't allow" are returned without asking. "Allow
    * once" leaves a grant the next completion for the engine uses up; an
-   * unused one is replaced by the next answer.
+   * unused one is replaced by the next answer. With `turn` it leaves a grant
+   * for that chat turn instead, which every request of the turn uses.
    */
-  async requestCloudConsent(engineId: string, feature?: string, sends?: AiSendsScope, baseIds?: readonly string[]): Promise<AiConsentReply> {
+  async requestCloudConsent(engineId: string, feature?: string, sends?: AiSendsScope, baseIds?: readonly string[], turn?: { panel: object; id: string }): Promise<AiConsentReply> {
     const settings = this.deps.readSettings();
     const engine = settings.engines.find((e) => e.id === engineId);
     if (!engine) {return false;}
     if (engineLocality(engine, settings.localNetworks) === 'local') {return true;}
     if (!settings.allowCloud) {throw makeAiError('cloudBlocked', `${engineName(engine)} is a cloud engine and Allow cloud is off.`);}
     this.onceGrants.delete(engine.id);
-    const answer = await this.ensureConsent(engine, feature, sends, this.baseNamesFor(settings, baseIds));
-    if (answer === 'allowOnce') {this.onceGrants.set(engine.id, consentFingerprint(engine));}
+    const answer = await this.ensureConsent(engine, feature, sends, this.baseNamesFor(settings, baseIds), turn?.id);
+    if (answer === 'allowOnce') {
+      if (turn) {this.grantTurn(turn.panel, turn.id, engine, feature, sends, baseIds);}
+      else {this.onceGrants.set(engine.id, consentFingerprint(engine));}
+    }
     return answer === 'allow' ? true : answer === 'allowOnce' ? 'once' : answer === 'never' ? 'never' : false;
   }
 
@@ -569,13 +597,73 @@ export class AiEngineService {
     return names;
   }
 
+  private grantTurn(panel: object, turnId: string, engine: AiEngineConfig, feature: string | undefined, sends: AiSendsScope | undefined, baseIds: readonly string[] | undefined): void {
+    let grants = this.turnGrants.get(panel);
+    if (!grants) {
+      grants = new Map();
+      this.turnGrants.set(panel, grants);
+    }
+    grants.set(turnId, { engineId: engine.id, fingerprint: consentFingerprint(engine), feature: feature ?? '', sends: sends ?? '', baseIds: baseIdsKey(baseIds), uses: 0 });
+  }
+
+  /**
+   * True when this panel holds a grant for this request's turn that fits it:
+   * same engine as it is now, same feature, same scope, same set of bases, and
+   * not used more often than one turn can. A claim that does not fit ends the grant.
+   */
+  private useTurnGrant(panel: object, engine: AiEngineConfig, req: AiCompletionRequest, turn: AiCompletionTurn): boolean {
+    const grants = this.turnGrants.get(panel);
+    const grant = grants?.get(turn.id);
+    if (!grant) {return false;}
+    const fits = grant.engineId === engine.id
+      && grant.fingerprint === consentFingerprint(engine)
+      && grant.feature === req.feature
+      && grant.sends === (turn.sends ?? '')
+      && grant.baseIds === baseIdsKey(turn.baseIds)
+      && grant.uses < AI_TURN_GRANT_MAX_USES;
+    if (!fits) {
+      this.endTurn(panel, turn.id);
+      return false;
+    }
+    grant.uses += 1;
+    return true;
+  }
+
+  /** The turn is over: its grant, if any, is gone. */
+  endTurn(panel: object, turnId: string): void {
+    const grants = this.turnGrants.get(panel);
+    if (!grants) {return;}
+    grants.delete(turnId);
+    if (grants.size === 0) {this.turnGrants.delete(panel);}
+  }
+
+  private dropTurnGrants(engineId: string): void {
+    for (const [panel, grants] of [...this.turnGrants]) {
+      for (const [turnId, grant] of [...grants]) {
+        if (grant.engineId === engineId) {this.endTurn(panel, turnId);}
+      }
+    }
+  }
+
+  /**
+   * A request of a turn with nothing that admits it (the earlier answer was
+   * forgotten, or the engine changed): ask, with what the request really sends.
+   * "Allow once" here lasts for the rest of the turn, like the first one.
+   */
+  private async consentDuringTurn(settings: AiSettings, panel: object, engine: AiEngineConfig, req: AiCompletionRequest, turn: AiCompletionTurn): Promise<ConsentAnswer> {
+    const answer = await this.ensureConsent(engine, req.feature, turn.sends, this.baseNamesFor(settings, turn.baseIds), turn.id);
+    if (answer === 'allowOnce') {this.grantTurn(panel, turn.id, engine, req.feature, turn.sends, turn.baseIds);}
+    return answer;
+  }
+
   /** The answer that holds (stored, then this session's "Don't allow"), else the modal's. */
-  private async ensureConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope, baseNames?: string[]): Promise<ConsentAnswer> {
+  private async ensureConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope, baseNames?: string[], turnId?: string): Promise<ConsentAnswer> {
     for (;;) {
       const stored = this.storedConsent(engine);
       if (stored) {return stored.answer;}
       if (this.deniedThisSession(engine)) {return 'deny';}
-      const key = JSON.stringify([feature ?? '', sends ?? '', baseNames ?? []]);
+      // A turn has its own dialog: one answer never makes grants for two turns.
+      const key = JSON.stringify([feature ?? '', sends ?? '', baseNames ?? [], turnId ?? '']);
       const pending = this.consentPrompts.get(engine.id);
       if (!pending) {return this.askConsentOnce(engine, key, feature, sends, baseNames);}
       // The same ask shares the open dialog. A different one (other bases, another feature) waits for it and
@@ -644,11 +732,19 @@ export class AiEngineService {
       const { engine, model } = this.target(settings, req);
       const isLocal = engineLocality(engine, settings.localNetworks) === 'local';
       picked = { engine, model, isLocal };
+      const { turn } = req;
+      if (turn?.isLocal !== undefined && turn.isLocal !== isLocal) {
+        throw makeAiError('unknown', `${engineName(engine)} moved between local and cloud during this turn. Ask again.`);
+      }
 
       if (!isLocal) {
         if (!settings.allowCloud) {throw makeAiError('cloudBlocked', `${engineName(engine)} is a cloud engine and Allow cloud is off.`);}
-        // A stored allow, an unused "Allow once" from the consent request, or ask now.
-        const answer = this.storedConsent(engine)?.answer === 'allow' || this.takeOnceGrant(engine) ? 'allow' : await this.ensureConsent(engine, req.feature);
+        // A stored allow, an unused "Allow once" from the consent request (for a turn, this turn's grant), or ask now.
+        const answer = this.storedConsent(engine)?.answer === 'allow'
+          ? 'allow'
+          : turn
+            ? this.useTurnGrant(panel, engine, req, turn) ? 'allow' : await this.consentDuringTurn(settings, panel, engine, req, turn)
+            : this.takeOnceGrant(engine) ? 'allow' : await this.ensureConsent(engine, req.feature);
         if (answer !== 'allow' && answer !== 'allowOnce') {
           throw makeAiError('consentDenied', answer === 'never'
             ? `Sending text to ${engineName(engine)} was turned off for this workspace.`
@@ -677,6 +773,8 @@ export class AiEngineService {
       return result;
     } catch (err) {
       const error: AiError = controller.signal.aborted ? makeAiError('cancelled') : toAiError(err);
+      // A failed or cancelled request ends its turn, so it ends the turn's "Allow once" too.
+      if (req.turn) {this.endTurn(panel, req.turn.id);}
       if (error.code === 'unreachable' && picked) {this.recordHealth(picked.engine, false, error.message);}
       this.logRequest(req, picked, started, error.code === 'cancelled' ? 'cancelled' : `error ${error.code}`);
       throw error;
@@ -695,6 +793,7 @@ export class AiEngineService {
   disposePanel(panel: object): void {
     this.inFlight.get(panel)?.controller.abort();
     this.inFlight.delete(panel);
+    this.turnGrants.delete(panel);
   }
 
   /** True while `panel` has a request running (tests, status). */
@@ -750,6 +849,7 @@ export class AiEngineService {
       this.moe.delete(id);
       this.sessionDenied.delete(id);
       this.onceGrants.delete(id);
+      this.dropTurnGrants(id);
       await this.deps.consent.forget(id);
     }
     for (const id of this.deps.consent.ids()) {
@@ -772,6 +872,7 @@ export class AiEngineService {
   dispose(): void {
     for (const { controller } of this.inFlight.values()) {controller.abort();}
     this.inFlight.clear();
+    this.turnGrants.clear();
     this.listeners.clear();
   }
 }

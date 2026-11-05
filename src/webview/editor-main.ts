@@ -145,7 +145,8 @@
  *         — the stored cloud consents of this workspace; answered by aiConsents.
  *     { type: 'aiForgetConsent', requestId, engineId }
  *         — forget one stored answer; answered by aiConsents (the list after).
- *     { type: 'aiRequestCloudConsent', requestId, engineId, feature?, sends?, baseIds? }
+ *     { type: 'aiEndTurn', turnId }  — a chat turn is over: the host forgets its "Allow once".
+ *     { type: 'aiRequestCloudConsent', requestId, engineId, feature?, sends?, baseIds?, turnId? }
  *         — host modal (its words from aiConsentText: `feature` and `sends`
  *         say what the request sends; `baseIds` are the documentation bases
  *         the request would read, which the host maps to names from its own
