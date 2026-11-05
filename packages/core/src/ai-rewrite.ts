@@ -75,7 +75,8 @@ import {
   whatIsSent,
   type AiSummaryKind,
 } from './ai';
-import type { AiError, AiErrorCopy, AiMessage, AiResultStats, AiRouteOk, AiSendsScope, AiServedBy, AiThinkingLevel } from './ai';
+import type { AiError, AiErrorCopy, AiMessage, AiResultStats, AiRouteOk, AiSendsScope, AiServedBy, AiThinkingLevel, InsertUrlPolicy } from './ai';
+import { guardInsertFragment, guardSourceMarkdown, insertUrlCheck, type InsertGuardParser, type SourceInspector } from './ai-insert-guard';
 import type { AiServedRequest } from './ai-settings-model';
 import {
   AI_AUDIENCES,
@@ -175,7 +176,8 @@ function serializeRange(editor: Editor, doc: PmNode, from: number, to: number): 
 }
 
 type MarkdownStorage = {
-  parser?: { parse(md: string, o?: { inline?: boolean }): string };
+  // `md` is the markdown-it instance behind `parse`, for the insert guard.
+  parser?: { parse(md: string, o?: { inline?: boolean }): string; md?: InsertGuardParser };
   getMarkdown?(): string;
 };
 
@@ -187,6 +189,12 @@ function markdownStorage(editor: Editor): MarkdownStorage | undefined {
 function parseBlocks(editor: Editor, markdown: string): Fragment {
   const html = markdownStorage(editor)?.parser?.parse(markdown) ?? markdown;
   return PmDOMParser.fromSchema(editor.state.schema).parse(elementFromString(html)).content;
+}
+
+/** The insert guard's view of source text: the same parse the rich editor would do. */
+function sourceInspector(editor: Editor, policy: InsertUrlPolicy): SourceInspector {
+  const md = markdownStorage(editor)?.parser?.md;
+  return { check: insertUrlCheck(policy, md), fragment: (markdown) => parseBlocks(editor, markdown), md };
 }
 
 /** The text as a Markdown blockquote: every line quoted, blank lines kept as `>`. */
@@ -479,6 +487,12 @@ export function sourceDocumentTarget(view: CmEditorView, bodyStart: (markdown: s
 
 /** Where a document job inserts: the caret, or the `/query` it replaces. */
 export interface AiCursorTarget extends AiRewriteTarget {
+  /**
+   * Insert. With a `policy` (the chat panel's Insert at cursor, S8), the
+   * markdown goes through `ai-insert-guard.ts` first; without one (every other
+   * caller), it is inserted as given. False when it could not be.
+   */
+  accept(markdown: string, policy?: InsertUrlPolicy): boolean;
   /** The `/query` (from < to) or the caret (from === to), mapped through edits; null once gone. */
   range(): { from: number; to: number } | null;
 }
@@ -523,10 +537,15 @@ export function cursorInsertTarget(editor: Editor, slash?: { from: number; to: n
       if (!r) {return null;}
       try { return posToDOMRect(editor.view, r.from, r.to); } catch { return null; }
     },
-    accept(markdown) {
+    accept(markdown, policy) {
       const r = range();
       if (!r || editor.isDestroyed) {return false;}
-      const content = parseBlocks(editor, markdown);
+      let content = parseBlocks(editor, markdown);
+      if (policy) {
+        const guarded = guardInsertFragment(content, insertUrlCheck(policy, markdownStorage(editor)?.parser?.md));
+        if (!guarded) {return false;}
+        content = guarded.fragment;
+      }
       if (!content.size) {return false;}
       const current = editor.state;
       // One transaction, its own undo step: `/query` out, the blocks in.
@@ -538,6 +557,9 @@ export function cursorInsertTarget(editor: Editor, slash?: { from: number; to: n
         tr.delete(at, r.to);
       }
       tr.setMeta(aiRewriteHighlightKey, { range: null });
+      // Text that must stay plain stays plain: the Link extension's autolink
+      // plugin would otherwise mark a URL ending a block of this insert.
+      if (policy) {tr.setMeta('preventAutolink', true);}
       const $at = tr.doc.resolve(Math.min(at, tr.doc.content.size));
       let from = $at.pos;
       let to = $at.pos;
@@ -568,9 +590,11 @@ export function cursorInsertTarget(editor: Editor, slash?: { from: number; to: n
  * The source-mode caret as an insert target. Accept puts the markdown at the
  * caret's line in one CM transaction: in place of a blank line, else after
  * the line, with blank lines around it. A caret inside the frontmatter
- * inserts at the start of the body (`bodyStart`).
+ * inserts at the start of the body (`bodyStart`). `parserEditor` is the rich
+ * editor whose parser judges the text when Accept gets a policy; a policy with
+ * no parser to judge by is refused.
  */
-export function sourceCursorTarget(view: CmEditorView, bodyStart?: (markdown: string) => number): AiCursorTarget {
+export function sourceCursorTarget(view: CmEditorView, bodyStart?: (markdown: string) => number, parserEditor?: Editor): AiCursorTarget {
   const id = ++nextTargetId;
   const head = view.state.selection.main.head;
   view.dispatch({ effects: setCmRewriteRange.of({ from: head, to: head, id, anchor: true }) });
@@ -596,9 +620,9 @@ export function sourceCursorTarget(view: CmEditorView, bodyStart?: (markdown: st
       const c = r ? view.coordsAtPos(r.from) : null;
       return c ? rectUnion(c, c) : null;
     },
-    accept(markdown) {
+    accept(markdown, policy) {
       const r = range();
-      const md = markdown.trim();
+      let md = markdown.trim();
       if (!r || !md) {return false;}
       const doc = view.state.doc;
       const start = bodyStart ? bodyStart(doc.toString()) : 0;
@@ -606,16 +630,25 @@ export function sourceCursorTarget(view: CmEditorView, bodyStart?: (markdown: st
       const prev = line.number > 1 ? doc.line(line.number - 1) : null;
       const next = line.number < doc.lines ? doc.line(line.number + 1) : null;
       const textAfter = !!next && !!next.text.trim();
-      let changes: { from: number; to?: number; insert: string };
-      let caret: number;
-      if (!line.text.trim()) {
-        const lead = prev && prev.text.trim() && line.from >= start ? '\n' : '';
-        changes = { from: line.from, to: line.to, insert: `${lead}${md}${textAfter ? '\n' : ''}` };
-        caret = line.from + lead.length + md.length;
-      } else {
-        changes = { from: line.to, insert: `\n\n${md}${textAfter ? '\n' : ''}` };
-        caret = line.to + 2 + md.length;
+      const place = (text: string): { changes: { from: number; to?: number; insert: string }; caret: number } => {
+        if (!line.text.trim()) {
+          const lead = prev && prev.text.trim() && line.from >= start ? '\n' : '';
+          return { changes: { from: line.from, to: line.to, insert: `${lead}${text}${textAfter ? '\n' : ''}` }, caret: line.from + lead.length + text.length };
+        }
+        return { changes: { from: line.to, insert: `\n\n${text}${textAfter ? '\n' : ''}` }, caret: line.to + 2 + text.length };
+      };
+      if (policy) {
+        if (!parserEditor || parserEditor.isDestroyed) {return false;}
+        const before = doc.toString();
+        const guarded = guardSourceMarkdown(md, sourceInspector(parserEditor, policy), (text) => {
+          const { changes } = place(text);
+          const after = before.slice(0, changes.from) + changes.insert + before.slice(changes.to ?? changes.from);
+          return { before: before.slice(start), after: after.slice(bodyStart ? bodyStart(after) : 0) };
+        });
+        if (guarded === null) {return false;}
+        md = guarded;
       }
+      const { changes, caret } = place(md);
       // One CM transaction, isolated in history so one undo removes it.
       view.dispatch({
         changes,

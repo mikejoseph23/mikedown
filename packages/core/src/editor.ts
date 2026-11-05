@@ -2625,10 +2625,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       thinking: ui.thinkingLevelFor,
       featureOffNotice: () => ui.aiFeatureOffNotice(ai, currentAiSettings, 'chat'),
       canInsert: () => !readOnly,
-      insertAtCursor: (markdown) => {
+      insertAtCursor: (markdown, policy) => {
         const target = aiCursorTarget();
         if (!target) {return false;}
-        const ok = target.accept(markdown);
+        const ok = target.accept(markdown, policy);
         if (!ok) {target.release();}
         return ok;
       },
@@ -4653,6 +4653,15 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     return { contextTokens: model?.capabilities.contextTokens ?? null, json: model?.capabilities.json === true };
   }
 
+  /**
+   * Replace the whole document. A bare URL is text unless the user makes it a
+   * link: without `preventAutolink`, the Link plugin marks one ending the first
+   * block on every load, so a URL Insert left plain (S8) would come back live.
+   */
+  function setWholeDocument(body: string, options?: { emitUpdate: boolean }): void {
+    editor.chain().setMeta('preventAutolink', true).setContent(body, options).run();
+  }
+
   /** The body as markdown (frontmatter left out), from whichever view shows. */
   function aiBodyMarkdown(): string {
     if (sourceMode && cmView) {return extractFrontmatter(cmView.state.doc.toString()).body;}
@@ -4664,7 +4673,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const ui = aiUi;
     if (!ui) {return null;}
     if (sourceMode) {
-      return cmView ? ui.sourceCursorTarget(cmView, (md) => md.length - extractFrontmatter(md).body.length) : null;
+      return cmView ? ui.sourceCursorTarget(cmView, (md) => md.length - extractFrontmatter(md).body.length, editor) : null;
     }
     return ui.cursorInsertTarget(editor, slash);
   }
@@ -6682,7 +6691,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       const wasPristine = pmStale && md === originalContent;
       originalContent = md; // reset baseline to avoid false dirty
       trailingNewline = md.endsWith('\n');
-      editor.commands.setContent(body);
+      setWholeDocument(body);
       // The setContent above is on the undo stack by default; clear it so
       // Cmd+Z after switching from source can't undo past the full reload.
       resetPmHistory(editor);
@@ -6940,7 +6949,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       if (sourceMode && cmView) {
         cmView.dispatch({ changes: { from: 0, to: cmView.state.doc.length, insert: markdown } });
       } else {
-        editor.commands.setContent(body, { emitUpdate: true });
+        setWholeDocument(body, { emitUpdate: true });
       }
       renderFrontmatterBlock();
       refreshPropertiesSidebar();
@@ -6985,7 +6994,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const { frontmatter, body } = extractFrontmatter(originalContent);
     frontmatterContent = frontmatter;
 
-    editor.commands.setContent(body);
+    setWholeDocument(body);
 
     // Clear the undo history so pressing Cmd+Z right after opening a file
     // doesn't revert the document to empty (setContent adds to history by

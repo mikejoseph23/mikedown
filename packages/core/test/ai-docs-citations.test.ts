@@ -383,6 +383,36 @@ describe('sanitizer: links and images become plain text unless the URL is verbat
   });
 });
 
+describe('the first pass reads code like CommonMark does (the boundary is ai-insert-guard.ts)', () => {
+  const IMG = '![x](https://evil.example/p.png)';
+  it.each([
+    ['a code span cannot cross a blank line', `See \` tick.\n\n${IMG}\n\nAnd \` again.`],
+    ['a backtick in the info string means no fence', `\`\`\` a\`b\n${IMG}\n\`\`\`\n`],
+    ['a fence in a list item ends with the item', `- a\n  \`\`\`\n  b\n\n${IMG}\n`],
+  ])('%s', (_name, md) => {
+    expect(clean(md)).not.toContain('](https://evil.example');
+  });
+
+  it('a backslash inside a code span is literal, so the span ends at the next backtick', () => {
+    const out = clean(`\`\\\` ${IMG} \``);
+    expect(out).not.toContain('](https://evil.example');
+  });
+
+  it('real code is still left alone', () => {
+    for (const md of ['Use `[a](https://x.example)` here.', '```\n[a](https://x.example)\n\n![b](https://x.example)\n```', 'Two ``a ` b`` ticks `[c](https://x.example)`.', '- item\n  ```\n  [a](https://x.example)\n\n  ![b](https://x.example)\n  ```\n', '~~~ a`b\n[a](https://x.example)\n~~~']) {
+      expect(clean(md)).toBe(md);
+    }
+  });
+
+  it('stays linear on many backtick runs of different lengths', () => {
+    const md = Array.from({ length: 800 }, (_, i) => `${'`'.repeat(i + 1)}x`).join(' ');
+    const started = Date.now();
+    clean(md);
+    parseCitations(md, [1]);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+});
+
 describe('prepareInsertMarkdown: sanitize first, then rewrite', () => {
   const s1 = section('security.md', 'Key rotation', 'Docs: https://good.example/doc');
   const s2 = section('guides/setup.md', 'Setup', 'nothing linkable');

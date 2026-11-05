@@ -8,7 +8,13 @@
  * `[text][1]` reference). Unknown numbers are dropped from the text (and from
  * a list); none valid means `NO_SOURCES_CITED`.
  *
- * Insert (`prepareInsertMarkdown`, A8/S8). Two steps, in this order:
+ * Insert (`prepareInsertMarkdown`, A8/S8). THE SECURITY BOUNDARY IS NOT HERE. It
+ * is the parsed walk in `ai-insert-guard.ts`, which runs on the editor's own
+ * parser output and enforces `InsertUrlPolicy`. A string-level pass approximates
+ * CommonMark, and wherever it disagrees with markdown-it, markup gets through.
+ * Treat what follows as a first pass that keeps the common cases readable (in
+ * source mode above all), and never rely on it to stop anything.
+ * Two steps, in this order:
  *   1. `sanitizeInsertMarkdown`: every link, image, reference-style link and
  *      bare or `<...>` autolink the MODEL wrote becomes plain text unless its
  *      URL appears verbatim in a cited section's text (and is `https:`,
@@ -34,32 +40,67 @@ export const ANSWERED_WITHOUT_SOURCES = 'answered without sources';
 
 // ── Code-aware masking ──────────────────────────────────────────────────────
 
-/** Per character: true inside a fenced block, a code span, or an escape (`\x`). */
+/**
+ * Per character: true inside a fenced block, a code span, or an escape (`\x`).
+ * An approximation of CommonMark (see the header): it knows nothing of
+ * containers, beyond closing an indented fence when a line drops below its
+ * indent, which is how a fence in a list item ends with the item.
+ */
 function codeMask(s: string): boolean[] {
   const mask: boolean[] = new Array<boolean>(s.length).fill(false);
+  // A code span cannot cross a block, so backticks only pair within one.
+  const block = new Int32Array(s.length);
+  let blockId = 0;
   // Fenced blocks, by lines.
-  let fence: { ch: string; len: number } | null = null;
+  let fence: { ch: string; len: number; indent: number } | null = null;
   let pos = 0;
   while (pos < s.length) {
     const nl = s.indexOf('\n', pos);
     const end = nl < 0 ? s.length : nl + 1;
     const line = s.slice(pos, nl < 0 ? s.length : nl).replace(/\r$/, '');
+    const blank = line.trim() === '';
+    if (fence && !blank && /^ */.exec(line)![0].length < fence.indent) {fence = null;}
     let inFence = fence !== null;
     if (!fence) {
-      const m = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+      // A backtick fence has no backtick in its info string.
+      const m = /^( {0,3})(`{3,}(?=[^`]*$)|~{3,})/.exec(line);
       if (m) {
-        fence = { ch: m[1][0], len: m[1].length };
+        fence = { ch: m[2][0], len: m[2].length, indent: m[1].length };
         inFence = true;
       }
     } else {
       const m = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(line);
       if (m && m[1][0] === fence.ch && m[1].length >= fence.len) {fence = null;}
     }
-    if (inFence) {for (let i = pos; i < end; i++) {mask[i] = true;}}
+    if (inFence || blank) {blockId++;}
+    for (let i = pos; i < end; i++) {
+      block[i] = blockId;
+      if (inFence) {mask[i] = true;}
+    }
+    if (inFence || blank) {blockId++;}
     pos = end;
   }
-  // Code spans and escapes, outside fences.
-  const runs: Array<{ at: number; len: number }> = [];
+  // Every backtick run outside fences, by length, to find closers. A backslash
+  // is literal inside a code span, so a closer ignores escapes.
+  const runsByLen = new Map<number, number[]>();
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] !== '`' || mask[i]) {continue;}
+    let j = i;
+    while (j < s.length && s[j] === '`' && !mask[j]) {j++;}
+    const list = runsByLen.get(j - i);
+    if (list) {list.push(i);} else {runsByLen.set(j - i, [i]);}
+    i = j - 1;
+  }
+  // Left to right; each per-length cursor only moves forward, so this is linear.
+  const cursor = new Map<number, number>();
+  const closerAfter = (len: number, from: number): number => {
+    const list = runsByLen.get(len);
+    if (!list) {return -1;}
+    let c = cursor.get(len) ?? 0;
+    while (c < list.length && list[c] < from) {c++;}
+    cursor.set(len, c);
+    return c < list.length ? list[c] : -1;
+  };
   for (let i = 0; i < s.length; i++) {
     if (mask[i]) {continue;}
     if (s[i] === '\\' && i + 1 < s.length) {
@@ -69,24 +110,15 @@ function codeMask(s: string): boolean[] {
     } else if (s[i] === '`') {
       let j = i;
       while (j < s.length && s[j] === '`' && !mask[j]) {j++;}
-      runs.push({ at: i, len: j - i });
-      i = j - 1;
+      const closer = closerAfter(j - i, j);
+      if (closer >= 0 && block[closer] === block[i]) {
+        const to = closer + (j - i);
+        mask.fill(true, i, to);
+        i = to - 1;
+      } else {
+        i = j - 1;
+      }
     }
-  }
-  // Pair backtick runs of equal length, right to left so each lookup is O(1).
-  const nextByLen = new Map<number, number>();
-  const closer: number[] = new Array<number>(runs.length).fill(-1);
-  for (let r = runs.length - 1; r >= 0; r--) {
-    const nx = nextByLen.get(runs[r].len);
-    if (nx !== undefined) {closer[r] = nx;}
-    nextByLen.set(runs[r].len, r);
-  }
-  for (let r = 0; r < runs.length; r++) {
-    if (closer[r] < 0) {continue;}
-    const to = runs[closer[r]].at + runs[closer[r]].len;
-    for (let i = runs[r].at; i < to; i++) {mask[i] = true;}
-    // Skip runs swallowed by this span.
-    while (r + 1 < runs.length && runs[r + 1].at < to) {r++;}
   }
   return mask;
 }
@@ -234,11 +266,21 @@ export function relativeDocsPath(fromFolder: string, toRelPath: string): string 
  * document is not under the section's root (then the caller writes plain text).
  */
 export function citationLink(section: AiDocsSection, location: DocsDocumentLocation | null | undefined): string | null {
+  const href = citationHref(section, location);
+  return href === null ? null : `[${escapeMarkdownText(section.heading ?? section.title)}](${href})`;
+}
+
+/** The link destination of `citationLink`, as written in the markdown. */
+function citationHref(section: AiDocsSection, location: DocsDocumentLocation | null | undefined): string | null {
   if (!location || location.root !== docsIdRoot(section.pageId)) {return null;}
   const slug = docsSectionSlug(section);
-  const path = encodeLinkPath(relativeDocsPath(location.folder, section.relPath));
-  const text = escapeMarkdownText(section.heading ?? section.title);
-  return `[${text}](${path}${slug ? `#${slug}` : ''})`;
+  return `${encodeLinkPath(relativeDocsPath(location.folder, section.relPath))}${slug ? `#${slug}` : ''}`;
+}
+
+/** A source from another base than the document's is never linked (labels are unique per base only). */
+function linkableHref(source: AiDocsNumberedSection & { baseId?: string }, location: DocsDocumentLocation | null | undefined): string | null {
+  const otherBase = source.baseId !== undefined && location?.baseId !== undefined && source.baseId !== location.baseId;
+  return otherBase ? null : citationHref(source.section, location);
 }
 
 /**
@@ -253,16 +295,15 @@ export function rewriteCitationsForInsert(answer: string, sources: ReadonlyArray
       if (part.type === 'text') {return part.text;}
       return part.ns
         .map((n) => {
-          const { section, baseId } = byN.get(n) as AiDocsNumberedSection & { baseId?: string };
-          const otherBase = baseId !== undefined && location?.baseId !== undefined && baseId !== location.baseId;
-          return (otherBase ? null : citationLink(section, location)) ?? escapeMarkdownText(docsCitationLabel(section));
+          const source = byN.get(n) as AiDocsNumberedSection & { baseId?: string };
+          return (linkableHref(source, location) === null ? null : citationLink(source.section, location)) ?? escapeMarkdownText(docsCitationLabel(source.section));
         })
         .join(', ');
     })
     .join('');
 }
 
-// ── Sanitizer (S8) ──────────────────────────────────────────────────────────
+// ── Sanitizer (S8): the first pass, not the boundary (see the header) ───────
 
 /** How far past `(` an inline link destination and title are read (a longer URL is not a URL we would keep). */
 const INLINE_SCAN_MAX = 2100;
@@ -301,6 +342,22 @@ const MAX_LABEL = 999;
 
 function normLabel(label: string): string {
   return label.length > MAX_LABEL ? '' : label.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * What may stay live in inserted content (S8), enforced on the parsed result by
+ * `ai-insert-guard.ts`: citation links built from the sections sent, and URLs
+ * that appear verbatim in a cited section.
+ */
+export interface InsertUrlPolicy {
+  /** Destinations of the citation links, as written in the markdown (before the parser normalizes them). */
+  citationHrefs: readonly string[];
+  citedTexts: readonly string[];
+}
+
+/** The verbatim half of `InsertUrlPolicy`: a link (`https:`, `http:`, `mailto:`) or image (`https:`) URL found in a cited section. */
+export function insertUrlIsVerbatim(policy: InsertUrlPolicy, url: string, kind: 'link' | 'image'): boolean {
+  return allowedUrl(url, kind === 'image', policy.citedTexts);
 }
 
 export interface SanitizedMarkdown {
@@ -553,11 +610,14 @@ export function sanitizeInsertMarkdown(markdown: string, citedTexts: readonly st
 
 /**
  * The text Insert at cursor puts in the document: sanitize what the model
- * wrote, then turn citations into relative links (or `file › heading`).
+ * wrote, then turn citations into relative links (or `file › heading`). Also
+ * returns the `policy` the caller must hand to the insert, whose parsed walk is
+ * what actually keeps anything else out.
  */
-export function prepareInsertMarkdown(answer: string, sources: ReadonlyArray<AiDocsNumberedSection & { baseId?: string }>, location?: DocsDocumentLocation | null): SanitizedMarkdown {
+export function prepareInsertMarkdown(answer: string, sources: ReadonlyArray<AiDocsNumberedSection & { baseId?: string }>, location?: DocsDocumentLocation | null): SanitizedMarkdown & { policy: InsertUrlPolicy } {
   const parsed = parseCitations(answer, sources.map((x) => x.n));
   const citedTexts = parsed.cited.map((n) => sources.find((x) => x.n === n)?.section.text ?? '');
   const clean = sanitizeInsertMarkdown(answer, citedTexts);
-  return { ...clean, markdown: rewriteCitationsForInsert(clean.markdown, sources, location) };
+  const citationHrefs = sources.map((x) => linkableHref(x, location)).filter((x): x is string => x !== null);
+  return { ...clean, markdown: rewriteCitationsForInsert(clean.markdown, sources, location), policy: { citationHrefs, citedTexts } };
 }

@@ -22,7 +22,7 @@ import {
 } from './ai';
 import type {
   AiDocBaseStatus, AiDocsOptions, AiError, AiRouteOk, DocsChat, DocsSentSection, DocsTurnAnswer, DocsTurnInput, DocsTurnOutcome, DocsTurnProgress,
-  MikeDownDocsHost,
+  InsertUrlPolicy, MikeDownDocsHost,
 } from './ai';
 import { renderPreviewMarkdown } from './ai-markdown-preview';
 import { ICONS, button, el, experimentalBadge, nextId, note } from './ai-settings-dom';
@@ -44,8 +44,8 @@ export interface AiChatPanelOptions {
   featureOffNotice(): string | null;
   /** False: no Insert (read-only). */
   canInsert(): boolean;
-  /** Put markdown at the cursor as one undo step, or return false. */
-  insertAtCursor(markdown: string): boolean;
+  /** Put markdown at the cursor as one undo step, or return false. `policy` is S8's boundary: the insert enforces it on the parsed result. */
+  insertAtCursor(markdown: string, policy: InsertUrlPolicy): boolean;
   /** The current document's absolute folder, null when it has none. */
   documentFolder?(): string | null;
   /** Open a base file. Absent: chips only show. */
@@ -527,8 +527,8 @@ export function mountAiChatPanel(container: HTMLElement, opts: AiChatPanelOption
       insert.addEventListener('click', () => {
         const sources = turn.scope === 'bases' ? answer.sent : [];
         const location = docsDocumentLocation(opts.documentFolder?.() ?? null, statuses, answer.sent.map((s) => s.baseId));
-        const { markdown } = prepareInsertMarkdown(answer.answer, sources, location);
-        if (opts.insertAtCursor(markdown)) {status.show('Inserted');}
+        const { markdown, policy } = prepareInsertMarkdown(answer.answer, sources, location);
+        if (opts.insertAtCursor(markdown, policy)) {status.show('Inserted');}
         else {status.show('Could not insert here.', 'error');}
       });
       row.append(insert);
