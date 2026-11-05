@@ -24,7 +24,7 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 | [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | ✅ Done | 11 | `4c28014`. Modal entry is M8's |
 | [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | 🔄 In Progress | — | Rust |
 | [M7 Host tests](#m7-host-tests) | Sonnet | ⬜ Not Started | — | vitest + cargo |
-| [M8 Bases manager page](#m8-bases-manager-page) | Opus | 🔄 In Progress | — | UI |
+| [M8 Bases manager page](#m8-bases-manager-page) | Opus | ✅ Done | 14 | `7fdf1be`. UI |
 | [M9 Chat panel](#m9-chat-panel) | Opus | ⬜ Not Started | — | UI |
 | [M10 UI tests](#m10-ui-tests) | Sonnet | ⬜ Not Started | — | vitest jsdom |
 | [M11 Hands-on in both hosts](#m11-hands-on-in-both-hosts) | Sonnet | ⬜ Not Started | — | Mike signs off |
@@ -177,7 +177,7 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 - [x] Index per base: titles, headings (`headingsOutline`), links; lazy on first use; `FileSystemWatcher` with `RelativePattern(Uri.file(root), '**/*.{md,markdown}')` for invalidation plus a TTL re-walk.
 - [x] Keyword search using the shared ranking from M2 over the index's files.
 - [x] Bridge messages: `docsListBases`, `docsIndex`, `docsReadSections`, `docsKeywordSearch` and replies; list them at the top of `webviewBridge.ts` and `src/webview/editor-main.ts`.
-- [ ] Settings rule, all three places: `mikedown.ai.docBases` and `mikedown.ai.docs` in `package.json#contributes.configuration` (scope `machine`), `src/settings.ts`, and the Settings modal entry pointing at the manager page.
+- [x] Settings rule, all three places: `mikedown.ai.docBases` and `mikedown.ai.docs` in `package.json#contributes.configuration` (scope `machine`), `src/settings.ts`, and the Settings modal entry pointing at the manager page.
 - [x] (S4) `docBases` read from `globalValue` only in `effectiveAiRaw`; added to `USER_ONLY_KEYS`; "Add this workspace folder" writes the global value (multi-root: `showQuickPick`).
 - [x] (S9) Watcher per root only; no workspace-wide watcher.
 
@@ -216,13 +216,13 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 
 **Model:** Opus (UI). New `packages/core/src/ai-docs-page.ts`, loaded through `ai-ui.ts`; a section of the Engines page beside Tasks and Activity (`ai-engines-page.ts`).
 
-- [ ] Bases list: name, roots, home document found (or "No home document"), file count, skipped oversize count, broken links, "Root not found"; Refresh button; health computed on open and Refresh only.
-- [ ] Add base: name, roots (VS Code "Add this workspace folder" through the host; Desktop folder picker), optional home file name, per-base "May be sent to cloud engines" switch (off by default, one plain sentence under it saying what it allows).
-- [ ] Edit, remove, enable/disable a base; validation messages from the schema reasons.
-- [ ] Advanced: max hops (1 to 5), source share (30 to 80%), navigate by section or page; clamped in the model, not only the control.
-- [ ] Tasks table gets the `docs` row through the existing routing section (`ai-routing-section.ts`), nothing hardcoded.
-- [ ] Design craft: match the Engines page's rhythm (settings-rows spacing, quiet health chips like VS Code's native settings, no cards within cards); empty state explains what a base is in two lines.
-- [ ] Lazy-load test still passes; `host.docs` absent hides the section.
+- [x] Bases list: name, roots, home document found (or "No home document"), file count, skipped oversize count, broken links, "Root not found"; Refresh button; health computed on open and Refresh only.
+- [x] Add base: name, roots (VS Code "Add this workspace folder" through the host; Desktop folder picker), optional home file name, per-base "May be sent to cloud engines" switch (off by default, one plain sentence under it saying what it allows).
+- [x] Edit, remove, enable/disable a base; validation messages from the schema reasons.
+- [x] Advanced: max hops (1 to 5), source share (30 to 80%), navigate by section or page; clamped in the model, not only the control.
+- [x] Tasks table gets the `docs` row through the existing routing section (`ai-routing-section.ts`), nothing hardcoded.
+- [x] Design craft: match the Engines page's rhythm (settings-rows spacing, quiet health chips like VS Code's native settings, no cards within cards); empty state explains what a base is in two lines.
+- [x] Lazy-load test still passes; `host.docs` absent hides the section.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
@@ -327,5 +327,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 17:18** - M3 done (`4c458a1`). Attack tests found and fixed three M2 bugs: a quadratic Insert sanitizer (28 s on 150 KB), `#` and `?` unencoded in citation links, a PEM header re-wrapped across a line break not detected. 4 consent and bridge failures in M5's in-progress files to re-check when M5 lands.
 
 **2026-11-05 17:21** - M5 done (`4c28014`), 3949 unit tests per the worker; the 4 consent and bridge failures M3 saw are gone (143 re-run here). The Settings rule box stays open until M8 adds the modal entry. For M7: a file swapped for a symlink after indexing is still readable when it resolves inside the root; the Summary says symlinks are refused, so M7 tightens this on both hosts.
+
+**2026-11-05 17:23** - M8 done (`7fdf1be`), including the Settings modal entry moved from M5.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
