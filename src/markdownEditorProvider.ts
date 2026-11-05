@@ -1215,6 +1215,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           await this.handlePickImage(document, webviewPanel.webview, message);
           break;
         }
+        case 'saveTextFile': {
+          await this.handleSaveTextFile(document, webviewPanel.webview, message);
+          break;
+        }
         case 'resizeImage': {
           await this.handleResizeImage(document, webviewPanel.webview, message);
           break;
@@ -1863,6 +1867,46 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   /**
+   * Handle a 'saveTextFile' request from the webview (the AI Activity panel's
+   * Save buttons): show a save dialog, defaulting to the document's folder with
+   * the suggested name, and write the text as UTF-8. Always replies, so the
+   * webview promise settles: `saved`, `cancelled` (dialog dismissed) or `error`.
+   * The webview never chooses the path; the user does.
+   */
+  private async handleSaveTextFile(
+    document: vscode.TextDocument,
+    webview: vscode.Webview,
+    message: WebviewMessage
+  ): Promise<void> {
+    const requestId = message.requestId ?? '';
+    const reply = (payload: Record<string, unknown>): void => {
+      void webview.postMessage({ type: 'saveTextFileResult', requestId, ...payload });
+    };
+    try {
+      const rawName = typeof message.name === 'string' ? message.name : '';
+      // A suggested file name only: drop any folder part and reserved characters.
+      const base = path.basename(rawName.replace(/\\/g, '/'));
+      const name = Array.from(base, (ch) => (ch.charCodeAt(0) < 0x20 || '<>:"|?*'.includes(ch) ? '_' : ch)).join('') || 'mikedown-ai-activity.txt';
+      const text = typeof message.text === 'string' ? message.text : '';
+      const folder = document.uri.scheme === 'file'
+        ? vscode.Uri.file(path.dirname(document.uri.fsPath))
+        : vscode.workspace.workspaceFolders?.[0]?.uri;
+      const target = await vscode.window.showSaveDialog({
+        defaultUri: folder ? vscode.Uri.joinPath(folder, name) : undefined,
+        saveLabel: 'Save',
+      });
+      if (!target) {
+        reply({ cancelled: true });
+        return;
+      }
+      await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(text));
+      reply({ saved: true });
+    } catch (err) {
+      reply({ error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  /**
    * Handle a 'pickImage' request from the webview (the `/image` slash
    * command): show a native file picker and reply with the same shape
    * `savePastedImage` uses. Files already inside the doc folder or a
@@ -2311,7 +2355,7 @@ ${cssLinks}
  * Message shape sent from the webview to the extension host.
  */
 interface WebviewMessage {
-  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'openTag' | 'getTags' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'pickImage' | 'headingRenamed' | 'headingRenameAmbiguous' | 'openKeybindings' | 'supportAction' | 'supportCardShown' | 'busy';
+  type: 'edit' | 'ready' | 'stats' | 'toggleSource' | 'toggleTheme' | 'openLink' | 'openTag' | 'getTags' | 'exportHtml' | 'viewInBrowser' | 'printDocument' | 'printReady' | 'copyRichText' | 'checkLinks' | 'getLinkSuggestions' | 'getFileHeadings' | 'resolveWikilinks' | 'createWikilink' | 'saveSettings' | 'sidebarRequestState' | 'sidebarSetPref' | 'sidebarApplyDefaults' | 'sidebarSectionCollapsed' | 'requestDiff' | 'showDiff' | 'savePastedImage' | 'resizeImage' | 'pickImage' | 'saveTextFile' | 'headingRenamed' | 'headingRenameAmbiguous' | 'openKeybindings' | 'supportAction' | 'supportCardShown' | 'busy';
   /** supportAction payload — which "A note from Mike" card button was clicked, or 'open' from an entry point. */
   action?: SupportAction | 'open';
   content?: string;
@@ -2341,6 +2385,9 @@ interface WebviewMessage {
    *  base64-encoded image bytes and metadata for savePastedImage/resizeImage.
    *  pickImage carries only requestId; the host shows its own file dialog. */
   requestId?: string;
+  /** saveTextFile: suggested file name and the UTF-8 text to write. */
+  name?: string;
+  text?: string;
   mime?: string;
   dataBase64?: string;
   /** resizeImage: webview-resolved URI of the image being replaced. */

@@ -190,7 +190,7 @@ export interface InspectedValue<T = unknown> {
  * - `allowCloud` comes from user settings (package.json scopes it `machine`);
  *   a stale workspace value of `false` still counts, so a workspace can never
  *   turn cloud on.
- * - `enabled`, `routing`, `features` and `showToolbarButton` follow the
+ * - `enabled`, `routing`, `features`, `showToolbarButton` and `activityPanel` follow the
  *   normal precedence.
  *
  * Exported for unit testing.
@@ -210,6 +210,7 @@ export function effectiveAiRaw(inspect: (key: string) => InspectedValue | undefi
     features: effective('features'),
     localNetworks: inspect('localNetworks')?.globalValue ?? [...DEFAULT_LOCAL_NETWORKS],
     showToolbarButton: effective('showToolbarButton'),
+    activityPanel: effective('activityPanel'),
   };
 }
 

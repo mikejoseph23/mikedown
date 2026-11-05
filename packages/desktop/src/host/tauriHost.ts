@@ -86,6 +86,12 @@ export interface TauriHostDeps {
     /** M9: export the rendered HTML as a standalone file / hand it to the print window. */
     exportHtml?(html: string): void;
     printDocument?(html: string): void;
+    /**
+     * Save dialog with a suggested name, then write the UTF-8 text there (the
+     * AI Activity panel). Resolves after the write or a cancelled dialog.
+     * Absent: core hides the panel's Save buttons.
+     */
+    saveTextFile?(name: string, text: string): Promise<void>;
   };
   /** M6: text of the newest version snapshot of a file, or null (none, or no folder). */
   diffBaseline?(path: string): Promise<string | null>;
@@ -112,6 +118,8 @@ export class TauriHost implements MikeDownHost {
   readonly uploadImage: MikeDownHost['uploadImage'];
   readonly pickImage: MikeDownHost['pickImage'];
   readonly resizeImage: MikeDownHost['resizeImage'];
+  /** Present only when the app can show a save dialog (see `deps.app.saveTextFile`). */
+  readonly saveTextFile?: MikeDownHost['saveTextFile'];
 
   // Present only while a folder is open (see setKnowledgeBase). `declare`
   // keeps them off the instance until then, so `!!host.getLinkSuggestions`
@@ -127,6 +135,8 @@ export class TauriHost implements MikeDownHost {
     this.uploadImage = (file) => deps.images.uploadImage(file);
     this.pickImage = () => deps.images.pickImage();
     this.resizeImage = (req) => deps.images.resizeImage(req);
+    const saveTextFile = deps.app.saveTextFile;
+    if (saveTextFile) {this.saveTextFile = (name, text) => saveTextFile(name, text);}
     const baseline = deps.diffBaseline;
     if (baseline) {
       this.getDiffBaseline = async () => {

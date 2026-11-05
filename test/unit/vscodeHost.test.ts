@@ -13,7 +13,7 @@ function setup() {
   const last = () => {
     const m = { ...posted[posted.length - 1] };
     if (typeof m.requestId === 'string') {
-      expect(m.requestId).toMatch(/^img(paste|pick|resize)-\d+-[a-z0-9]+$/);
+      expect(m.requestId).toMatch(/^(img(paste|pick|resize)|textsave)-\d+-[a-z0-9]+$/);
       m.requestId = '<requestId>';
     }
     return m;
@@ -99,6 +99,12 @@ describe('VsCodeHost outbound messages', () => {
     expect(last()).toStrictEqual({ type: 'pickImage', requestId: '<requestId>' });
   });
 
+  it('saveTextFile posts saveTextFile with a requestId, the suggested name and the text', () => {
+    const { host, last } = setup();
+    void host.saveTextFile('activity.md', '# log\n');
+    expect(last()).toStrictEqual({ type: 'saveTextFile', requestId: '<requestId>', name: 'activity.md', text: '# log\n' });
+  });
+
   it('resizeImage posts resizeImage with the source, base64 bytes and percent', () => {
     const { host, last } = setup();
     void host.resizeImage({ currentSrc: 'vscode-webview://x/a.png', mime: 'image/png', bytes: new Uint8Array([1, 2, 3]), percent: 50 });
@@ -166,7 +172,7 @@ describe('VsCodeHost outbound messages', () => {
       'onChange', 'onStats', 'openLink', 'saveSettings', 'toggleTheme', 'openKeybindings', 'uploadImage',
       'pickImage', 'resizeImage', 'getLinkSuggestions', 'getFileHeadings', 'resolveWikilinks', 'createWikilink',
       'checkLinks', 'getTags', 'openTag', 'getDiffBaseline', 'onHeadingRenamed', 'onHeadingRenameAmbiguous',
-      'exportHtml', 'printDocument', 'viewInBrowser',
+      'exportHtml', 'printDocument', 'viewInBrowser', 'saveTextFile',
     ];
     for (const name of advertised) expect(typeof (host as any)[name], name).toBe('function');
     expect(Object.keys(host.sidebarPrefs).sort()).toEqual(['applyDefaults', 'requestState', 'sectionCollapsed', 'setPref']);
@@ -194,6 +200,19 @@ describe('VsCodeHost reply routing', () => {
     const p = host.pickImage();
     host.handleReply({ type: 'pickedImageResult', requestId: posted[0].requestId, cancelled: true });
     await expect(p).resolves.toBeNull();
+  });
+
+  it('settles saveTextFile from saveTextFileResult: saved and cancelled resolve, error rejects', async () => {
+    const { host, posted } = setup();
+    const saved = host.saveTextFile('a.md', 'x');
+    host.handleReply({ type: 'saveTextFileResult', requestId: posted[0].requestId, saved: true });
+    await expect(saved).resolves.toBeUndefined();
+    const cancelled = host.saveTextFile('a.md', 'x');
+    host.handleReply({ type: 'saveTextFileResult', requestId: posted[1].requestId, cancelled: true });
+    await expect(cancelled).resolves.toBeUndefined();
+    const failed = host.saveTextFile('a.md', 'x');
+    host.handleReply({ type: 'saveTextFileResult', requestId: posted[2].requestId, error: 'disk full' });
+    await expect(failed).rejects.toThrow('disk full');
   });
 
   it('resolves resizeImage and getTags and getDiffBaseline from their replies', async () => {

@@ -73,6 +73,7 @@ function nextRequestId(prefix: string): string {
 export class VsCodeHost implements MikeDownHost {
   private readonly pastes = new Map<string, Resolver<ImageInsertResult>>();
   private readonly picks = new Map<string, Resolver<ImageInsertResult | null>>();
+  private readonly textSaves = new Map<string, Resolver<void>>();
   private readonly resizes = new Map<string, Resolver<ImageResizeResult>>();
   private linkSuggestionWaiters: Array<Resolver<LinkSuggestion[]>> = [];
   private readonly fileHeadingWaiters = new Map<string, Array<Resolver<LinkSuggestion[]>>>();
@@ -160,6 +161,17 @@ export class VsCodeHost implements MikeDownHost {
     return new Promise((resolve, reject) => {
       this.picks.set(requestId, { resolve, reject });
       this.post({ type: 'pickImage', requestId });
+    });
+  }
+
+  // ── Output ────────────────────────────────────────────────────────────────
+
+  /** Save dialog plus write on the extension host; resolves when the file is written or the dialog is cancelled. */
+  saveTextFile(name: string, text: string): Promise<void> {
+    const requestId = nextRequestId('textsave');
+    return new Promise((resolve, reject) => {
+      this.textSaves.set(requestId, { resolve, reject });
+      this.post({ type: 'saveTextFile', requestId, name, text });
     });
   }
 
@@ -446,6 +458,17 @@ export class VsCodeHost implements MikeDownHost {
           waiter.resolve(null);
         } else {
           waiter.resolve({ src: message.webviewUri ?? message.insertPath ?? '', alt: message.alt ?? '' });
+        }
+        return true;
+      }
+      case 'saveTextFileResult': {
+        const waiter = this.textSaves.get(message.requestId);
+        if (!waiter) {return true;}
+        this.textSaves.delete(message.requestId);
+        if (message.error) {
+          waiter.reject(new Error(message.error));
+        } else {
+          waiter.resolve();
         }
         return true;
       }

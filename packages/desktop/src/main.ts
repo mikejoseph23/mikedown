@@ -295,6 +295,7 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
       notify: (message, opts) => dialogs.toast(message, opts),
       exportHtml: (html) => { void exporterRef?.exportHtml(html); },
       printDocument: (html) => { void exporterRef?.print(html); },
+      saveTextFile: (name, text) => saveTextFileViaDialog(name, text, panes.activeDoc(paneId)?.path ?? null),
     },
     diffBaseline: (p) => versioning.newestText(p),
     outline: { get: () => settings.get().outline, set: (patch) => settings.setOutline(patch) },
@@ -386,6 +387,26 @@ panesReady = true;
 // The panes container keeps the `#editor` id index.html had, so `#editor
 // .ProseMirror` still finds the editors (specs, Web Inspector habits).
 panes.el.id = 'editor';
+
+/**
+ * The AI Activity panel's Save buttons: a native save dialog (default folder:
+ * the document's, when it has a path), then `write_text`. The dialog plugin
+ * adds the picked file to the fs scope, so `write_text`'s scope check passes
+ * for a file outside the home folder too. A cancelled dialog is not an error.
+ */
+async function saveTextFileViaDialog(name: string, text: string, docPath: string | null): Promise<void> {
+  const target = await dialogs.saveFile({
+    defaultPath: docPath ? path.join(path.dirname(docPath), name) : name,
+    title: 'Save AI Activity',
+  });
+  if (!target) {return;}
+  try {
+    await fsApi.writeText(target, text, { eol: 'lf', bom: false });
+    dialogs.toast(`Saved ${path.basename(target)}`);
+  } catch (err) {
+    await dialogs.error(`Could not save ${target}.\n\n${String(err)}`);
+  }
+}
 
 async function createFileWithText(p: string, content: string): Promise<void> {
   await treeApi.createFile(p);

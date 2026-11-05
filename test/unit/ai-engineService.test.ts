@@ -390,6 +390,13 @@ describe('settings scope rules', () => {
     expect(raw.enabled).toBe(false);
   });
 
+  it('activityPanel follows normal precedence and parses to a boolean', () => {
+    const raw = effectiveAiRaw(inspect({ activityPanel: { defaultValue: false, globalValue: true } }));
+    expect(raw.activityPanel).toBe(true);
+    expect(parseAiSettings(raw, { onWarning: () => {} }).activityPanel).toBe(true);
+    expect(parseAiSettings(effectiveAiRaw(inspect({})), { onWarning: () => {} }).activityPanel).toBe(false);
+  });
+
   it('engines without an id get the same id on every parse', () => {
     const engines = [{ name: 'oMLX (Studio)', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8000/v1' }];
     const a = parseAiSettings({ engines }, { generateId: stableEngineIdGenerator(), onWarning: () => {} }).engines[0].id;

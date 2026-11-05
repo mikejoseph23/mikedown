@@ -69,6 +69,16 @@
  *       copied into the image-paste folder first (host-side), so
  *       `insertPath`/`webviewUri` always point at a servable location.
  *
+ * Save text file (core host.saveTextFile, the AI Activity panel's Save buttons):
+ *   Webview → Extension:
+ *     { type: 'saveTextFile', requestId, name, text } — show a native save
+ *         dialog (default folder: the document's folder, suggested file name
+ *         `name`) and write `text` as UTF-8 to the chosen file.
+ *   Extension → Webview:
+ *     { type: 'saveTextFileResult', requestId, saved?, cancelled?, error? } —
+ *         reply keyed by `requestId`. The host promise resolves for `saved`
+ *         and for `cancelled` (the user dismissed the dialog); `error` rejects.
+ *
  * Heading Rename → Fix Links (2.7.0):
  *   Webview → Extension:
  *     { type: 'headingRenamed', oldSlug, newSlug } — a heading's anchor slug
@@ -184,7 +194,7 @@
  *   { type: 'backlinks', items }, { type: 'docMeta', mtimeMs },
  *   { type: 'sidebarState', pref, width, position, sectionPrefs }, { type: 'diffStatus', hasChanges }
  * Replies routed to VsCodeHost promises: pastedImageResult, pickedImageResult,
- * resizeImageResult, linkSuggestions, fileHeadings, wikilinksResolved,
+ * saveTextFileResult, resizeImageResult, linkSuggestions, fileHeadings, wikilinksResolved,
  * brokenLinks, diffData, tags (tags and linkSuggestions also arrive as pushes),
  * and the ai* replies above (aiEngines also arrives as a push).
  */

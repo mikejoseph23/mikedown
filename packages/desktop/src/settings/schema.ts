@@ -37,6 +37,8 @@ export const DESKTOP_KEY_DEFAULTS = {
   // RFC 1918, the same default as core's DEFAULT_LOCAL_NETWORKS.
   'ai.localNetworks': ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'] as unknown[],
   'ai.showToolbarButton': true,
+  // Experimental: the in-memory AI Activity panel (never written to disk).
+  'ai.activityPanel': false,
   fileAssociationsOffered: false,
 } as const;
 

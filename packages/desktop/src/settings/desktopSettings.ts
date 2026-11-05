@@ -49,6 +49,7 @@ export interface AiStoreSettings {
   features: Record<string, unknown>;
   localNetworks: unknown[];
   showToolbarButton: boolean;
+  activityPanel: boolean;
 }
 
 export interface DesktopSettings {
@@ -89,6 +90,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
     features: {},
     localNetworks: [...(DESKTOP_KEY_DEFAULTS['ai.localNetworks'] as unknown[])],
     showToolbarButton: true,
+    activityPanel: false,
   },
   fileAssociationsOffered: false,
 };

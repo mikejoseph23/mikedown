@@ -768,6 +768,11 @@
           "default": true,
           "description": "Show the AI button on the MikeDown toolbar. While AI is off, it offers to turn AI on and set up an engine. Edit it in the MikeDown Settings modal (toolbar gear, AI tab)."
         },
+        "mikedown.ai.activityPanel": {
+          "type": "boolean",
+          "default": false,
+          "description": "Experimental. Show an AI activity panel that lists each AI request MikeDown makes in this session: the engine and model it used, the prompt it sent and the reply, so you can see exactly what left the editor. Kept in memory only, never written to disk, and cleared when the editor closes (use the panel's Save to export a copy). Edit it in the MikeDown Settings modal (toolbar gear, AI tab)."
+        },
         "mikedown.ai.allowCloud": {
           "type": "boolean",
           "default": false,
