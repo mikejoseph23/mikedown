@@ -34,8 +34,7 @@ import { SupportAction } from './supportPromptEligibility';
 import type { AiEngineService } from './ai/engineService';
 import type { AiStatusBar } from './ai/statusBar';
 import { handleAiMessage, isAiWebviewMessage } from './ai/webviewBridge';
-import { isPathUnderRoot, type DocsHost } from './ai/docsHost';
-import type { AiDocBase } from '@mikedown/core/ai';
+import { isDocsBaseFile, type DocsHost } from './ai/docsHost';
 import { saveAiSettingsPatch } from './ai/vscodeAi';
 
 /**
@@ -44,13 +43,6 @@ import { saveAiSettingsPatch } from './ai/vscodeAi';
  * Implements the VS Code CustomTextEditorProvider interface to render
  * Markdown files in a WYSIWYG webview panel.
  */
-/** A markdown file under a configured documentation base root: the only `file:` target a chat citation opens. */
-function isDocsBaseFile(fsPath: string, bases: readonly AiDocBase[]): boolean {
-  const file = path.normalize(fsPath);
-  if (!/\.(?:md|markdown)$/i.test(file)) {return false;}
-  return bases.some((base) => base.roots.some((root) => isPathUnderRoot(path.normalize(root), file)));
-}
-
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'mikedown.editor';
 
@@ -957,8 +949,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           // A chat citation: a `file:` URL under a configured documentation base.
           // Any other `file:` link falls through, as it always has.
           if (/^file:/i.test(href)) {
-            const baseFile = vscode.Uri.parse(href);
-            if (isDocsBaseFile(baseFile.fsPath, settings.ai.docBases)) {
+            let baseFile: vscode.Uri | null = null;
+            try { baseFile = vscode.Uri.parse(href); } catch { /* a bad URL opens nothing here */ }
+            if (baseFile && isDocsBaseFile(baseFile.fsPath, settings.ai.docBases)) {
               await MarkdownEditorProvider.openDocsBaseFile(
                 baseFile,
                 message.revealSection,

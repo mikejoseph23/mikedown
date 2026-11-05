@@ -322,33 +322,49 @@ describe('sanitizer: links and images become plain text unless the URL is verbat
     }
   });
 
-  it('stays fast on adversarial input of 100 to 250 KB (a model, or a page it quoted, may write anything)', () => {
-    const n = 30_000;
-    const inputs = [
-      '['.repeat(50_000) + ']'.repeat(50_000),
-      '[a](b'.repeat(n),
-      '[a](b (x'.repeat(n),
-      '[a](<'.repeat(n),
-      '[a](b "'.repeat(n),
-      '![x][y]'.repeat(20_000),
-      'https://x.example/'.repeat(20_000),
-      '<'.repeat(50_000),
-      '['.repeat(20_000) + 'a' + '](x)'.repeat(20_000),
-      '!['.repeat(20_000) + 'a' + '](x)'.repeat(20_000),
-      '[r]: https://evil.example/x\n'.repeat(20_000),
-      '[a][r] '.repeat(20_000) + '\n' + '[r]: https://evil.example/x\n'.repeat(5000),
-      '[a](' + 'x'.repeat(100_000) + ')',
-      '\\'.repeat(100_000) + '[a](b)',
-      '`a'.repeat(50_000),
-      'http://'.repeat(30_000),
-      '[a'.repeat(50_000) + ']'.repeat(50_000) + '(x)',
+  // Growth, not a wall clock: a busy machine slows a fixed limit into a false alarm, but it slows
+  // the small and the large run alike. Linear work grows about 8x from 1/8 to 1x of the size; the
+  // quadratic scan this guards against (28 s on 150 KB) grows about 64x. The line is 24x, with the
+  // best of three small runs, and anything that finishes under 150 ms at full size passes.
+  it('stays near-linear on adversarial input of 100 to 250 KB (a model, or a page it quoted, may write anything)', () => {
+    const rep = (s: string, n: number, u: number): string => s.repeat(Math.max(1, Math.round(n * u)));
+    const inputs: Array<[string, (u: number) => string]> = [
+      ['brackets', (u) => rep('[', 50_000, u) + rep(']', 50_000, u)],
+      ['open paren', (u) => rep('[a](b', 30_000, u)],
+      ['nested paren', (u) => rep('[a](b (x', 30_000, u)],
+      ['angle dest', (u) => rep('[a](<', 30_000, u)],
+      ['open title', (u) => rep('[a](b "', 30_000, u)],
+      ['refs', (u) => rep('![x][y]', 20_000, u)],
+      ['urls', (u) => rep('https://x.example/', 20_000, u)],
+      ['lt', (u) => rep('<', 50_000, u)],
+      ['nest text', (u) => rep('[', 20_000, u) + 'a' + rep('](x)', 20_000, u)],
+      ['nest image', (u) => rep('![', 20_000, u) + 'a' + rep('](x)', 20_000, u)],
+      ['defs', (u) => rep('[r]: https://evil.example/x\n', 20_000, u)],
+      ['refs and defs', (u) => rep('[a][r] ', 20_000, u) + '\n' + rep('[r]: https://evil.example/x\n', 5000, u)],
+      ['long dest', (u) => '[a](' + rep('x', 100_000, u) + ')'],
+      ['backslashes', (u) => rep('\\', 100_000, u) + '[a](b)'],
+      ['backticks', (u) => rep('`a', 50_000, u)],
+      ['schemes', (u) => rep('http://', 30_000, u)],
+      ['text then dest', (u) => rep('[a', 50_000, u) + rep(']', 50_000, u) + '(x)'],
     ];
-    for (const text of inputs) {
-      const t0 = Date.now();
-      expect(() => clean(text, cited)).not.toThrow();
-      expect(Date.now() - t0, text.slice(0, 12)).toBeLessThan(3000);
+    const time = (text: string): number => {
+      const t0 = performance.now();
+      sanitizeInsertMarkdown(text, cited);
+      return performance.now() - t0;
+    };
+    const best = (text: string, runs: number): number => Math.min(...Array.from({ length: runs }, () => time(text)));
+    for (const [name, make] of inputs) {
+      const full = make(1);
+      expect(() => clean(full, cited), name).not.toThrow();
+      let large = time(full);
+      if (large < 150) {continue;}
+      // Floor the small run: a few milliseconds is mostly timer and GC noise.
+      const small = Math.max(best(make(1 / 8), 3), 5);
+      // A slow first run may be the machine: one more look before calling it. (A quadratic scan takes tens of seconds, so it fails both.)
+      if (large / small >= 24) {large = Math.min(large, time(full));}
+      expect(large / small, `${name}: ${large.toFixed(0)} ms at full size, ${small.toFixed(0)} ms at 1/8`).toBeLessThan(24);
     }
-  });
+  }, 600_000);
 
   it('a destination too long to judge is never left as a link', () => {
     const long = `https://evil.example/${'x'.repeat(5000)}`;

@@ -1,69 +1,10 @@
 /** The chat panel's wiring end to end with a fake chat; M10 owns the thorough tests. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { docsDocumentLocation, docsFileHref, docsHeadingAt, parseCitations, type AiDocBaseStatus, type DocsChat, type DocsSentSection, type DocsTurnEvents, type DocsTurnOutcome } from '../src/ai';
-import { chatProgressLine, formatChatExport, mountAiChatPanel, type AiChatPanelOptions } from '../src/ai-chat-panel';
+import { docsDocumentLocation, docsFileHref, docsHeadingAt, type DocsTurnOutcome } from '../src/ai';
+import { chatProgressLine, formatChatExport } from '../src/ai-chat-panel';
+import { answered, ask, fakeChat, mount, sent, settle, status, unmountPanels } from './helpers/ai-chat-fakes';
 
-const status = (id: string, root: string, label: string, over: Partial<AiDocBaseStatus> = {}): AiDocBaseStatus => ({
-  base: { id, name: id.toUpperCase(), roots: [root], enabled: true, allowCloud: false },
-  active: true,
-  roots: [{ root, label, found: true, fileCount: 1, oversizeSkipped: 0, capReached: false }],
-  fileCount: 1,
-  oversizeSkipped: 0,
-  rootsMissing: 0,
-  capReached: false,
-  ...over,
-} as AiDocBaseStatus);
-
-const sent = (n: number, relPath: string, slug: string, heading: string, baseId = 'b', root = 'docs', text = 'see https://ok.example/x'): DocsSentSection => ({
-  n,
-  baseId,
-  section: { id: `${root}/${relPath}#${slug}`, pageId: `${root}/${relPath}`, title: relPath, relPath, heading, text, truncated: false },
-});
-
-function answered(answer: string, list: DocsSentSection[]): DocsTurnOutcome {
-  const citations = parseCitations(answer, list.map((s) => s.n));
-  return {
-    kind: 'answered', answer: citations.text, citations, sent: list, coverage: 'answered from 1 of 2 sections, 1 left out',
-    withoutSources: list.length === 0, noSources: list.length > 0 && citations.noSources, hops: 1, droppedCount: 0, secretsLeftOut: 0, entriesLeftOut: 0,
-    run: { result: { text: answer }, route: { engineId: 'e', modelId: 'm', isLocal: true, viaFallback: false, task: 'docs', needsConsent: false }, viaFallback: false, thinking: null, requestId: 'req1' },
-  } as unknown as DocsTurnOutcome;
-}
-
-function fakeChat(run: (events: DocsTurnEvents, signal: AbortSignal) => Promise<DocsTurnOutcome>): DocsChat & { input: unknown } {
-  const chat = { busy: false, input: null as unknown, run: (input: unknown, events: DocsTurnEvents, signal: AbortSignal) => { chat.input = input; return run(events, signal); } };
-  return chat as unknown as DocsChat & { input: unknown };
-}
-
-const mounted: Array<{ destroy(): void }> = [];
-afterEach(() => {
-  while (mounted.length) {mounted.pop()!.destroy();}
-  document.body.replaceChildren();
-});
-
-function mount(over: Partial<AiChatPanelOptions> & Pick<AiChatPanelOptions, 'chat'>) {
-  const container = document.createElement('div');
-  document.body.append(container);
-  const opts: AiChatPanelOptions = {
-    documentText: () => '# Doc',
-    featureOffNotice: () => null,
-    canInsert: () => true,
-    insertAtCursor: vi.fn(() => true),
-    onClose: () => {},
-    ...over,
-  };
-  const handle = mountAiChatPanel(container, opts);
-  mounted.push(handle);
-  return { container, handle, opts, input: container.querySelector('textarea')! };
-}
-
-async function ask(input: HTMLTextAreaElement, text: string): Promise<void> {
-  input.value = text;
-  input.dispatchEvent(new Event('input'));
-  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  await new Promise((r) => setTimeout(r, 0));
-}
-
-const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+afterEach(unmountPanels);
 
 describe('chat panel', () => {
   it('This document by default without host.docs; the picker is hidden; Shift+Enter does not send', async () => {

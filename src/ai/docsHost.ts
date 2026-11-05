@@ -131,6 +131,21 @@ export function isPathUnderRoot(root: string, file: string, platform: string = p
   return true;
 }
 
+/**
+ * May a chat citation open `fsPath`? Only a markdown file (`.md`, `.markdown`,
+ * any case) strictly inside a root of a configured base. The path is
+ * normalised first, so `/docs/../etc/x.md` is judged as `/etc/x.md`. Whole
+ * components, so `/docs-evil` is not `/docs`; case-insensitive on Windows only.
+ * Nothing else is allowed: no root in the configuration, no match.
+ */
+export function isDocsBaseFile(fsPath: string, bases: readonly AiDocBase[], platform: string = process.platform): boolean {
+  const pathApi = platform === 'win32' ? nodePath.win32 : nodePath.posix;
+  if (typeof fsPath !== 'string' || fsPath === '') {return false;}
+  const file = pathApi.normalize(fsPath);
+  if (!isMarkdownName(file)) {return false;}
+  return bases.some((base) => base.roots.some((root) => isPathUnderRoot(pathApi.normalize(root), file, platform)));
+}
+
 /** Two canonical paths are the same file: equal by components, case-insensitive on Windows only. */
 export function samePath(a: string, b: string, platform: string = process.platform): boolean {
   const windows = platform === 'win32';

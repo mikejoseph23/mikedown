@@ -15,6 +15,7 @@ import {
   DocsHost,
   extractDocsLinks,
   frontmatterTitle,
+  isDocsBaseFile,
   isPathUnderRoot,
   prepareBasesForSave,
   type DocsEntryKind,
@@ -738,5 +739,86 @@ describe('prepareBasesForSave (A2)', () => {
   it('parseAiSettings agrees on what a valid base is', () => {
     const settings = parseAiSettings({ docBases: [{ id: 'x', name: 'X', roots: ['/x/y'] }] }, { onWarning: () => {} });
     expect(settings.docBases.map((b) => b.roots)).toEqual([['/x/y']]);
+  });
+});
+
+describe('isDocsBaseFile (which file: links a chat chip may open)', () => {
+  const base = (roots: string[], over: Partial<AiDocBase> = {}): AiDocBase => ({ id: 'b', name: 'B', roots, allowCloud: false, enabled: true, ...over });
+  const docs = [base(['/kb/docs'])];
+
+  it('opens a markdown file under a root, and nothing else', () => {
+    expect(isDocsBaseFile('/kb/docs/a.md', docs, 'linux')).toBe(true);
+    expect(isDocsBaseFile('/kb/docs/deep/er/a.markdown', docs, 'linux')).toBe(true);
+    expect(isDocsBaseFile('/kb/docs/A.MD', docs, 'linux')).toBe(true);
+    expect(isDocsBaseFile('/kb/docs/sub dir/a b.md', docs, 'linux')).toBe(true);
+  });
+
+  it('refuses a non-markdown file, however it is named', () => {
+    for (const name of ['/kb/docs/a.txt', '/kb/docs/a.md.exe', '/kb/docs/a.mdx', '/kb/docs/a.sh', '/kb/docs/md', '/kb/docs/.md.bak']) {
+      expect(isDocsBaseFile(name, docs, 'linux'), name).toBe(false);
+    }
+  });
+
+  it('refuses the root itself and a sibling that shares its prefix', () => {
+    expect(isDocsBaseFile('/kb/docs', docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/docs.md', docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/docs-evil/a.md', docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/docsevil/a.md', docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/doc/a.md', docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/a.md', docs, 'linux')).toBe(false);
+  });
+
+  it('judges a ../ path by where it lands', () => {
+    expect(isDocsBaseFile('/kb/docs/../secret/a.md', docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/docs/../../etc/a.md', docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/docs/x/../../docs-evil/a.md', docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/docs/x/../a.md', docs, 'linux')).toBe(true);
+    expect(isDocsBaseFile('/kb/docs//a.md', docs, 'linux')).toBe(true);
+    expect(isDocsBaseFile('/kb/docs/./a.md', docs, 'linux')).toBe(true);
+  });
+
+  it('a root that is not in the configuration opens nothing', () => {
+    expect(isDocsBaseFile('/other/a.md', docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/docs/a.md', [], 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/docs/a.md', [base([])], 'linux')).toBe(false);
+  });
+
+  it('any root of any base in the configuration counts', () => {
+    const many = [base(['/a', '/b/c'], { id: 'one' }), base(['/d'], { id: 'two' })];
+    expect(isDocsBaseFile('/b/c/x.md', many, 'linux')).toBe(true);
+    expect(isDocsBaseFile('/d/x.md', many, 'linux')).toBe(true);
+    expect(isDocsBaseFile('/b/x.md', many, 'linux')).toBe(false);
+  });
+
+  it('is case-sensitive on POSIX and case-insensitive on Windows only', () => {
+    expect(isDocsBaseFile('/kb/Docs/a.md', docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile('/kb/Docs/a.md', docs, 'darwin')).toBe(false);
+    const win = [base(['C:\\KB\\Docs'])];
+    expect(isDocsBaseFile('c:\\kb\\docs\\A.md', win, 'win32')).toBe(true);
+    expect(isDocsBaseFile('C:\\KB\\Docs-evil\\a.md', win, 'win32')).toBe(false);
+    expect(isDocsBaseFile('D:\\KB\\Docs\\a.md', win, 'win32')).toBe(false);
+    expect(isDocsBaseFile('C:\\KB\\Docs\\..\\Secret\\a.md', win, 'win32')).toBe(false);
+    expect(isDocsBaseFile('C:/KB/Docs/sub/a.md', win, 'win32')).toBe(true);
+    expect(isDocsBaseFile('C:\\KB\\Docs\\a.txt', win, 'win32')).toBe(false);
+  });
+
+  it('a UNC root keeps its server and share', () => {
+    const unc = [base(['\\\\srv\\share\\docs'])];
+    expect(isDocsBaseFile('\\\\srv\\share\\docs\\a.md', unc, 'win32')).toBe(true);
+    expect(isDocsBaseFile('\\\\other\\share\\docs\\a.md', unc, 'win32')).toBe(false);
+    expect(isDocsBaseFile('\\\\srv\\share2\\docs\\a.md', unc, 'win32')).toBe(false);
+  });
+
+  it('a bad URL, an empty path or a relative one opens nothing', () => {
+    for (const bad of ['', '.', 'a.md', 'docs/a.md', '../kb/docs/a.md', '\0', '%2e%2e/a.md', 'file:///kb/docs/a.md', '/']) {
+      expect(isDocsBaseFile(bad, docs, 'linux'), bad).toBe(false);
+    }
+    expect(isDocsBaseFile(undefined as unknown as string, docs, 'linux')).toBe(false);
+    expect(isDocsBaseFile(null as unknown as string, docs, 'linux')).toBe(false);
+  });
+
+  it('the filesystem root is never a base in practice, and a root with only a drive is not special-cased here', () => {
+    // parseAiSettings refuses "/" as a root, so no configured base holds it.
+    expect(parseAiSettings({ docBases: [{ id: 'x', name: 'X', roots: ['/'] }] }, { onWarning: () => {} }).docBases).toEqual([]);
   });
 });

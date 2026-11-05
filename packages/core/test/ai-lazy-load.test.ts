@@ -1,4 +1,6 @@
 /** The AI UI loads on demand (ai-lite.ts): never without host.ai, and the editor works before it arrives. */
+import * as fs from 'fs';
+import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle, type MikeDownHost } from '../src/index';
 import { parseAiSettings, type MikeDownAiHost } from '../src/ai';
@@ -90,5 +92,103 @@ describe('AI UI loading', () => {
     expect(document.querySelector('#mikedown-settings-overlay')).toBeNull();
     await settle();
     expect(document.querySelector('#mikedown-settings-overlay [data-tab-id="ai"]')).not.toBeNull();
+  });
+});
+
+// ── The editor's main path ──────────────────────────────────────────────────
+
+/** Every module reached from `entry` by a static (non-type) import or re-export; `import()` is not followed. */
+function staticClosure(entry: string): Set<string> {
+  const root = path.resolve(__dirname, '../src');
+  const seen = new Set<string>();
+  const resolve = (from: string, spec: string): string | null => {
+    const base = path.resolve(path.dirname(from), spec);
+    for (const candidate of [`${base}.ts`, path.join(base, 'index.ts'), base]) {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {return candidate;}
+    }
+    return null;
+  };
+  const visit = (file: string): void => {
+    if (seen.has(file)) {return;}
+    seen.add(file);
+    const source = fs.readFileSync(file, 'utf8');
+    const statements = source.matchAll(/^(import|export)\s+(type\s+)?([^;]*?)\s*from\s*['"](\.[^'"]+)['"]|^import\s+['"](\.[^'"]+)['"]/gm);
+    for (const m of statements) {
+      // `import type` and `export type { }` are erased, so they load nothing.
+      if (m[2]) {continue;}
+      const next = resolve(file, m[4] ?? m[5]);
+      if (next && next.startsWith(root)) {visit(next);}
+    }
+  };
+  visit(path.join(root, entry));
+  return new Set(Array.from(seen, (f) => path.relative(root, f)));
+}
+
+describe('the editor\'s main path does not import the AI UI', () => {
+  const lazy = ['ai-ui.ts', 'ai-chat-panel.ts', 'ai-docs-page.ts', 'ai-engines-page.ts', 'ai-activity-panel.ts', 'ai-docs-run.ts', 'ai-request.ts'];
+
+  it.each(['index.ts', 'editor.ts'])('nothing statically reachable from %s is one of the lazy modules', (entry) => {
+    const reached = staticClosure(entry);
+    // The walk really walked: it found the editor, and the little the editor does import.
+    expect(reached.has('editor.ts')).toBe(true);
+    expect(reached.has('ai-lite.ts')).toBe(true);
+    for (const module of lazy) {expect(reached.has(module), `${module} is imported from ${entry}`).toBe(false);}
+  });
+
+  it('the only way in is the dynamic import in ai-lite.ts, and ai-ui.ts is what carries both panels', () => {
+    const lite = fs.readFileSync(path.resolve(__dirname, '../src/ai-lite.ts'), 'utf8');
+    expect(lite).toMatch(/import\('\.\/ai-ui'\)/);
+    expect(lite).not.toMatch(/^import [^t].*from '\.\/ai-ui'/m);
+    const ui = fs.readFileSync(path.resolve(__dirname, '../src/ai-ui.ts'), 'utf8');
+    expect(ui).toContain("from './ai-chat-panel'");
+    expect(ui).toContain("from './ai-docs-page'");
+    // And through ai-ui, both are in the chunk.
+    const chunk = staticClosure('ai-ui.ts');
+    expect(chunk.has('ai-chat-panel.ts')).toBe(true);
+    expect(chunk.has('ai-docs-page.ts')).toBe(true);
+  });
+
+  it('the editor imports the panels\' types only', () => {
+    const editor = fs.readFileSync(path.resolve(__dirname, '../src/editor.ts'), 'utf8');
+    for (const m of editor.matchAll(/^import\s+(type\s+)?[^;]*?from\s*'\.\/(ai-chat-panel|ai-docs-page|ai-engines-page)'/gm)) {
+      expect(m[1], m[0]).toBeTruthy();
+    }
+  });
+});
+
+describe('the panels load only with the AI UI', () => {
+  it('without host.ai the chat command opens nothing and the AI UI stays unloaded', async () => {
+    const handle = mount(new NoopHost());
+    handle.command('aiChat');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(loadedAiUi()).toBeNull();
+    expect(document.querySelector('.ai-chat')).toBeNull();
+  });
+
+  it('with host.ai the chat opens once the chunk has arrived, and not before', async () => {
+    class Host extends NoopHost { ai = aiHost(); }
+    const handle = mount(new Host(), { ai: parseAiSettings({ enabled: true }, quiet) });
+    handle.command('aiChat');
+    expect(document.querySelector('.ai-chat')).toBeNull();
+    await settle();
+    expect(document.querySelector('.ai-chat')).not.toBeNull();
+    handle.destroy();
+    expect(document.querySelector('.ai-chat')).toBeNull();
+  });
+
+  it('the bases manager is offered only to a host with host.docs', async () => {
+    class Plain extends NoopHost { ai = aiHost(); }
+    class WithDocs extends NoopHost { ai = aiHost(); docs = { listBases: vi.fn(async () => []), index: vi.fn(), readSections: vi.fn(), keywordSearch: vi.fn(), saveBases: vi.fn(async () => {}) } as never; }
+    const open = async (host: MikeDownHost) => {
+      const handle = mount(host);
+      handle.command('openAiSettings');
+      await settle();
+      return document.querySelector('#mikedown-settings-overlay');
+    };
+    const plain = await open(new Plain());
+    expect(plain?.querySelector('[data-fk="manage-bases"]')).toBeNull();
+    document.querySelectorAll('#mikedown-settings-overlay').forEach((n) => n.remove());
+    const withDocs = await open(new WithDocs());
+    expect(withDocs?.querySelector('[data-fk="manage-bases"]')).not.toBeNull();
   });
 });
