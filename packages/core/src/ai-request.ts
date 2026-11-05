@@ -299,6 +299,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
       startedAt: Date.now(),
       endedAt: null,
       feature: request.feature,
+      ...(req.job ? { job: req.job } : {}),
       task: request.task,
       route: route ? activityRoute(ctx.settings(), route) : null,
       thinking: thinking?.info ?? null,

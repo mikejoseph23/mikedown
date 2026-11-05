@@ -17,7 +17,7 @@
  */
 
 import type { AiRunThinking } from './ai-request';
-import type { AiCompletionRequest, AiCompletionResult, AiError, AiFinishReason, AiServedBy, AiTiming, AiUsage } from './ai';
+import type { AiCompletionRequest, AiCompletionResult, AiError, AiFinishReason, AiServedBy, AiThinkingJob, AiTiming, AiUsage } from './ai';
 
 /** How many requests the log keeps. */
 export const AI_ACTIVITY_LIMIT = 50;
@@ -51,6 +51,8 @@ export interface AiActivityEntry {
   /** Null while streaming. */
   endedAt: number | null;
   feature: string;
+  /** What the request was for when that differs from the feature (explain and translate run under `rewrite`); labels only, never routing. */
+  job?: AiThinkingJob;
   task: string;
   route: AiActivityRoute | null;
   thinking: AiRunThinking | null;

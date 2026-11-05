@@ -99,8 +99,11 @@ function entryDuration(entry: AiActivityEntry): number | null {
   return entry.endedAt === null ? null : entry.endedAt - entry.startedAt;
 }
 
+/** Jobs that run under another feature (`rewrite`) and get their own name. */
+const JOB_LABELS: Partial<Record<string, string>> = { explain: 'Explain', translate: 'Translate' };
+
 function featureLabel(entry: AiActivityEntry): string {
-  return getAiFeature(entry.feature)?.label ?? entry.feature;
+  return (entry.job ? JOB_LABELS[entry.job] : undefined) ?? getAiFeature(entry.feature)?.label ?? entry.feature;
 }
 
 /** Where the request went: the route, or what a tier-1 host reported once it finished. */
@@ -154,6 +157,7 @@ function exportEntry(entry: AiActivityEntry, index: number, total: number): stri
   const head: Array<[string, string | number | null | undefined]> = [
     ['Time', new Date(entry.startedAt).toISOString()],
     ['Feature', entry.feature],
+    ['Job', entry.job && JOB_LABELS[entry.job] ? entry.job : null],
     ['Task', entry.task],
     ['Status', aiActivityStatus(entry)],
     ['Engine', engine ? `${engine}${isLocal === null ? '' : isLocal ? ' (local)' : ' (cloud)'}` : 'chosen by the app'],
