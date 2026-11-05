@@ -17,10 +17,10 @@ Defaults applied: incremental testing, vitest unit tests, hands-on for interacti
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| M1 Core: prompt, trimming, settings | Sonnet | ⬜ Not Started | — | Pure modules in `packages/core/src/ai/` |
-| M2 Core: ghost controller | Sonnet | ⬜ Not Started | — | Debounce, abort, stop rules, prefix matching |
+| M1 Core: prompt, trimming, settings | Sonnet | ✅ Done | 15 | f8daa9a |
+| M2 Core: ghost controller | Sonnet | 🔄 In Progress | — | Debounce, abort, stop rules, prefix matching |
 | M3 Tests: core | Sonnet | ⬜ Not Started | — | vitest, `packages/core/test/` |
-| M4 UI: decoration plugin, keys, status | Opus | ⬜ Not Started | — | Widget decoration, Tab/Esc, chip |
+| M4 UI: decoration plugin, keys, status | Opus | 🔄 In Progress | — | Widget decoration, Tab/Esc, chip |
 | M5 UI: settings, consent, activity | Opus | ⬜ Not Started | — | Feature row knobs, consent-once, recorder |
 | M6 Tests: UI | Sonnet | ⬜ Not Started | — | jsdom editor tests |
 | M7 Hands-on walk (both hosts) | Opus | ⬜ Not Started | — | Mike signs off |
@@ -65,14 +65,14 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Sonnet.** Pure modules, no DOM. Workers must complete every item; note anything they think should be deferred in the summary instead of skipping it.
 
-- [ ] `packages/core/src/ai/prompts/continue.ts`: `CONTINUE_SYSTEM_PROMPT`, `buildContinueMessages({ before, after, blockKind })` returning `AiMessage[]`, `continueMaxTokens(setting)`. The prompt forbids preamble, quotes and markdown fences, and says to stop where `<after>` resumes.
-- [ ] `packages/core/src/ai/ghostContext.ts`: `ghostContext(markdown, caretOffset, contextTokens)` returning `{ before, after }` per D3, using `budgetDocument` and `headingsOutline`.
-- [ ] `packages/core/src/ai/ghostTrim.ts`: `trimGhostSuggestion(raw, { atBlockEnd, before })` per D5, plus `ghostAcceptWord(text)` and `ghostPrefixMatch(text, typed)` for D6.
-- [ ] `packages/core/src/ai/features.ts`: `ghostText` becomes `status: 'available'`, `sends: 'selection'`, keeps `defaultEnabled: false`.
-- [ ] `packages/core/src/ai/types.ts` and `schema.ts`: `AiGhostTextOptions` (`delayMs`, `maxTokens`, `trigger`, `localOnly`) with a `ghostTextOptions(features)` reader that applies defaults (400, 48, `'auto'`, true) and clamps ranges; `parseFeatures` validates those keys when present and warns on bad types.
-- [ ] `packages/core/src/ai/router.ts`: `ResolveRouteOptions.localOnly`; a cloud candidate is rejected with `cloudBlocked` and reason "Inline suggestions use local engines only." when set. `runAiCompletion` forwards `req.localOnly`.
-- [ ] Export the new modules from `packages/core/src/ai/index.ts`; keep the package shape test green (`npm run test:packages`).
-- [ ] Commit.
+- [x] `packages/core/src/ai/prompts/continue.ts`: `CONTINUE_SYSTEM_PROMPT`, `buildContinueMessages({ before, after, blockKind })` returning `AiMessage[]`, `continueMaxTokens(setting)`. The prompt forbids preamble, quotes and markdown fences, and says to stop where `<after>` resumes.
+- [x] `packages/core/src/ai/ghostContext.ts`: `ghostContext(markdown, caretOffset, contextTokens)` returning `{ before, after }` per D3, using `budgetDocument` and `headingsOutline`.
+- [x] `packages/core/src/ai/ghostTrim.ts`: `trimGhostSuggestion(raw, { atBlockEnd, before })` per D5, plus `ghostAcceptWord(text)` and `ghostPrefixMatch(text, typed)` for D6.
+- [x] `packages/core/src/ai/features.ts`: `ghostText` becomes `status: 'available'`, `sends: 'selection'`, keeps `defaultEnabled: false`.
+- [x] `packages/core/src/ai/types.ts` and `schema.ts`: `AiGhostTextOptions` (`delayMs`, `maxTokens`, `trigger`, `localOnly`) with a `ghostTextOptions(features)` reader that applies defaults (400, 48, `'auto'`, true) and clamps ranges; `parseFeatures` validates those keys when present and warns on bad types.
+- [x] `packages/core/src/ai/router.ts`: `ResolveRouteOptions.localOnly`; a cloud candidate is rejected with `cloudBlocked` and reason "Inline suggestions use local engines only." when set. `runAiCompletion` forwards `req.localOnly`.
+- [x] Export the new modules from `packages/core/src/ai/index.ts`; keep the package shape test green (`npm run test:packages`).
+- [x] Commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -183,5 +183,9 @@ Gap-filling prompts follow the original milestone prompt structure (header, miss
 ## Progress Log / Notes
 
 **2026-11-05 16:05** - Plan written after reading the feature and task registries, `runAiCompletion`, the router, the activity recorder, the rewrite flow, the settings parser and the decoration plugins. Key finding: no FIM wire path exists, so v1 is chat-continue for every model (D4).
+
+**2026-11-05 18:36** - M1 done (f8daa9a). Continue prompt, caret context, trimming, ghostText settings, router localOnly. Beyond the listed files: `consent.rs` and the consent fixture gained ghostText, and the toggles test now filters on defaultEnabled. Unit tests unchanged at 4256 passed.
+
+**2026-11-05 18:36** - Two orchestration refinements of the M2 inputs, neither changing D1 to D13: \`noteChange\` takes a lazy \`read()\` for the markdown and caret offset so the document is serialized when a request is about to fire, not on every keystroke; and a selection move aborts and clears without starting a timer, because D1 triggers only on text changes and a move has no fresh snapshot. M4 is split into a plugin half (M4a, beside M2) and a wiring half (M4b, after M3).
 
 [Return to Top](#ghost-text-plan)
