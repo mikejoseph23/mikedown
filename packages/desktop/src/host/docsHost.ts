@@ -6,11 +6,13 @@
  * commands into the host contract core expects:
  *
  * - `listBases`, `index`, `readSections`, `keywordSearch` are plain commands. A
- *   failure rejects with an `Error` carrying Rust's sentence. `listBases` adds
- *   `brokenLinks` to every base Rust just walked (enabled, with a folder
- *   found): the count comes from core's link resolver over `docs_index`, which
- *   Rust serves from the index the same call built, so it costs no second walk.
- *   A disabled or unreadable base keeps it undefined.
+ *   failure rejects with an `Error` carrying Rust's sentence. A plain
+ *   `listBases` (the chat, once per turn) walks only a base with no usable
+ *   index and fetches no index of its own; `{ refresh: true }` (the manager)
+ *   walks every enabled base and adds `brokenLinks` from core's link resolver
+ *   over `docs_index`, which Rust serves from the index that call just built.
+ *   A plain call reports the last count; a disabled or unreadable base keeps
+ *   it undefined.
  * - `watch(baseId, cb)` starts the window's recursive watchers on that base's
  *   roots and calls `cb` on `docs-changed`; the returned function stops
  *   listening, and the watchers when this window's last subscriber for the
@@ -54,17 +56,32 @@ async function call<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-/** The statuses with `brokenLinks` filled in for the bases that were walked. A base whose index cannot be read keeps it undefined. */
-async function withBrokenLinks(api: DocsApi, list: AiDocBaseStatus[]): Promise<AiDocBaseStatus[]> {
+/**
+ * The statuses with `brokenLinks` filled in. On `refresh` the count comes from
+ * the base's index (one IPC per base) and is remembered; a plain call fetches
+ * no index and reports the last count it knows (undefined before any refresh).
+ * A base whose index cannot be read keeps it undefined.
+ */
+async function withBrokenLinks(api: DocsApi, list: AiDocBaseStatus[], known: Map<string, number>, refresh: boolean): Promise<AiDocBaseStatus[]> {
   const out: AiDocBaseStatus[] = [];
   for (const status of list) {
+    const id = status.base.id;
     if (!status.base.enabled || !status.active) {
+      known.delete(id);
       out.push(status);
       continue;
     }
+    if (!refresh) {
+      const last = known.get(id);
+      out.push(last === undefined ? status : { ...status, brokenLinks: last });
+      continue;
+    }
     try {
-      out.push({ ...status, brokenLinks: createDocsLinkResolver(await api.index(status.base.id)).countBroken() });
+      const count = createDocsLinkResolver(await api.index(id)).countBroken();
+      known.set(id, count);
+      out.push({ ...status, brokenLinks: count });
     } catch {
+      known.delete(id);
       out.push(status);
     }
   }
@@ -73,8 +90,13 @@ async function withBrokenLinks(api: DocsApi, list: AiDocBaseStatus[]): Promise<A
 
 export function createDocsHost(deps: DocsHostDeps): MikeDownDocsHost {
   const { api } = deps;
+  /** Last broken-link count per base, so a plain `listBases` can report it without fetching an index. */
+  const brokenKnown = new Map<string, number>();
   const host: MikeDownDocsHost = {
-    listBases: () => call(async () => withBrokenLinks(api, await api.listBases())),
+    listBases: (opts) => call(async () => {
+      const refresh = opts?.refresh === true;
+      return withBrokenLinks(api, await api.listBases({ refresh }), brokenKnown, refresh);
+    }),
     index: (baseId) => call(() => api.index(baseId)),
     readSections: (baseId, ids) => call(() => api.readSections(baseId, ids)),
     keywordSearch: (baseId, query) => call(() => api.keywordSearch(baseId, query)),

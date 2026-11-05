@@ -634,6 +634,43 @@ describe('broken links in health (review fix 2)', () => {
   });
 });
 
+describe('plain and refreshed listBases (decisions 12 and 14, A4)', () => {
+  it('a plain call after an index exists walks nothing; refresh walks again and picks up a file added since', async () => {
+    write('a.md', '# A\n');
+    const readDirectory = vi.fn(realFs.readDirectory);
+    const h = host(() => [base()], { fs: { ...realFs, readDirectory } });
+    expect((await h.listBases())[0].fileCount).toBe(1);
+    const walked = readDirectory.mock.calls.length;
+    expect(walked).toBeGreaterThan(0);
+    for (let i = 0; i < 3; i += 1) {await h.listBases();}
+    expect(readDirectory).toHaveBeenCalledTimes(walked);
+    write('b.md', '# B\n');
+    expect((await h.listBases())[0].fileCount).toBe(1);
+    expect(readDirectory).toHaveBeenCalledTimes(walked);
+    expect((await h.listBases({ refresh: true }))[0].fileCount).toBe(2);
+    expect(readDirectory.mock.calls.length).toBeGreaterThan(walked);
+  });
+
+  it('allowCloud, enabled and a rename are read afresh on a plain call, with no walk', async () => {
+    write('a.md', '# A\n');
+    const readDirectory = vi.fn(realFs.readDirectory);
+    let current = base();
+    const h = host(() => [current], { fs: { ...realFs, readDirectory } });
+    expect((await h.listBases())[0].base.allowCloud).toBe(false);
+    const walked = readDirectory.mock.calls.length;
+
+    current = base({ allowCloud: true });
+    expect((await h.listBases())[0].base.allowCloud).toBe(true);
+    current = base({ allowCloud: true, name: 'Renamed' });
+    expect((await h.listBases())[0].base.name).toBe('Renamed');
+    expect(readDirectory).toHaveBeenCalledTimes(walked);
+
+    current = base({ allowCloud: true, name: 'Renamed', enabled: false });
+    expect(await h.listBases()).toMatchObject([{ active: false, base: { enabled: false } }]);
+    expect(readDirectory).toHaveBeenCalledTimes(walked);
+  });
+});
+
 describe('keyword search over files: the shared fixture', () => {
   it('keyword-files.json gives the same ids and scores, in the same order', async () => {
     const f = JSON.parse(fs.readFileSync(path.join(__dirname, '../ai-fixtures/docs/keyword-files.json'), 'utf8')) as {

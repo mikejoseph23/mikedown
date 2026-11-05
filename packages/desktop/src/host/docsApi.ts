@@ -11,8 +11,12 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 export interface DocsApi {
-  /** Every configured base with its health; enabled bases are walked fresh. */
-  listBases(): Promise<AiDocBaseStatus[]>;
+  /**
+   * Every configured base with its health, the bases read afresh from the
+   * settings. Plain: an enabled base is walked only when it has no usable
+   * index. `refresh: true` walks every enabled base.
+   */
+  listBases(opts?: { refresh?: boolean }): Promise<AiDocBaseStatus[]>;
   index(baseId: string): Promise<AiDocsIndex>;
   readSections(baseId: string, ids: string[]): Promise<AiDocsSection[]>;
   keywordSearch(baseId: string, query: string): Promise<AiDocsSectionRef[]>;
@@ -26,7 +30,7 @@ export interface DocsApi {
 }
 
 export const docsApi: DocsApi = {
-  listBases: () => invoke<AiDocBaseStatus[]>('docs_list_bases'),
+  listBases: (opts) => invoke<AiDocBaseStatus[]>('docs_list_bases', { refresh: opts?.refresh === true }),
   index: (baseId) => invoke<AiDocsIndex>('docs_index', { baseId }),
   readSections: (baseId, ids) => invoke<AiDocsSection[]>('docs_read_sections', { baseId, ids }),
   keywordSearch: (baseId, query) => invoke<AiDocsSectionRef[]>('docs_keyword_search', { baseId, query }),

@@ -811,3 +811,94 @@ fn a_missing_first_root_does_not_shift_the_other_roots_ids() {
     assert_eq!(with_both.out.pages.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), vec!["docs/one.md", "docs-2/two.md"]);
     let _ = stdfs::remove_dir_all(&parent);
 }
+
+// ── Refresh and the per-turn walk (decisions 12 and 14, A4) ─────────────────
+
+fn list(state: &DocsState, app_data: &Path, refresh: bool) -> Vec<BaseStatusOut> {
+    let bases = bases_from_app_data(app_data).unwrap();
+    tauri::async_runtime::block_on(list_bases_with(state, bases, refresh)).unwrap()
+}
+
+fn walks(state: &DocsState) -> u64 {
+    state.walks.load(Ordering::SeqCst)
+}
+
+fn write_bases(app_data: &Path, root: &Path, allow_cloud: bool, enabled: bool, name: &str) {
+    let settings = json!({ "ai.docBases": [{ "id": "kb", "name": name, "roots": [root.to_string_lossy()], "allowCloud": allow_cloud, "enabled": enabled }] });
+    stdfs::write(app_data.join("settings.json"), settings.to_string()).unwrap();
+}
+
+#[test]
+fn a_plain_list_after_an_index_exists_walks_nothing_and_refresh_walks_again() {
+    let root = temp_dir("plain-root");
+    write(&root, "a.md", "# A\n");
+    let app_data = temp_dir("plain-data");
+    write_bases(&app_data, &root, false, true, "Docs");
+    let state = DocsState::default();
+
+    let first = list(&state, &app_data, false);
+    assert_eq!(walks(&state), 1, "no index yet: the first call walks");
+    assert_eq!(first[0].file_count, 1);
+    for _ in 0..3 {
+        assert_eq!(list(&state, &app_data, false)[0].file_count, 1);
+    }
+    assert_eq!(walks(&state), 1, "plain calls on a usable index walk nothing");
+
+    write(&root, "b.md", "# B\n");
+    assert_eq!(list(&state, &app_data, false)[0].file_count, 1, "a plain call serves the last known health");
+    assert_eq!(walks(&state), 1);
+    assert_eq!(list(&state, &app_data, true)[0].file_count, 2, "refresh picks up the file added since");
+    assert_eq!(walks(&state), 2);
+
+    // A watcher invalidation makes the next plain call walk.
+    write(&root, "c.md", "# C\n");
+    state.invalidate("kb");
+    assert_eq!(list(&state, &app_data, false)[0].file_count, 3);
+    assert_eq!(walks(&state), 3);
+
+    let _ = stdfs::remove_dir_all(&root);
+    let _ = stdfs::remove_dir_all(&app_data);
+}
+
+#[test]
+fn flipping_allow_cloud_or_enabled_shows_on_the_next_plain_list_without_a_walk() {
+    let root = temp_dir("a4-root");
+    write(&root, "a.md", "# A\n");
+    let app_data = temp_dir("a4-data");
+    write_bases(&app_data, &root, false, true, "Docs");
+    let state = DocsState::default();
+    assert!(!list(&state, &app_data, false)[0].base.allow_cloud);
+    assert_eq!(walks(&state), 1);
+
+    write_bases(&app_data, &root, true, true, "Docs");
+    assert!(list(&state, &app_data, false)[0].base.allow_cloud, "allowCloud is read afresh");
+    write_bases(&app_data, &root, true, true, "Renamed");
+    assert_eq!(list(&state, &app_data, false)[0].base.name, "Renamed");
+
+    write_bases(&app_data, &root, true, false, "Renamed");
+    let off = list(&state, &app_data, false);
+    assert!(!off[0].base.enabled && !off[0].active, "enabled is read afresh");
+    write_bases(&app_data, &root, true, true, "Renamed");
+    let on = list(&state, &app_data, false);
+    assert!(on[0].base.enabled && on[0].active);
+    assert_eq!(on[0].file_count, 1);
+    assert_eq!(walks(&state), 1, "none of the flips walked");
+
+    let _ = stdfs::remove_dir_all(&root);
+    let _ = stdfs::remove_dir_all(&app_data);
+}
+
+#[test]
+fn a_plain_list_notices_a_root_that_vanishes_or_a_base_with_new_roots() {
+    let root = temp_dir("gone-root");
+    write(&root, "a.md", "# A\n");
+    let app_data = temp_dir("gone-data");
+    write_bases(&app_data, &root, false, true, "Docs");
+    let state = DocsState::default();
+    assert!(list(&state, &app_data, false)[0].active);
+    stdfs::remove_dir_all(&root).unwrap();
+    let after = list(&state, &app_data, false);
+    assert!(!after[0].active && after[0].roots_missing == 1, "a vanished root is judged afresh");
+    assert_eq!(walks(&state), 2);
+    let _ = stdfs::remove_dir_all(&app_data);
+}

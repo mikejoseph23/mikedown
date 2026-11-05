@@ -258,7 +258,7 @@ export function createDocsBasesSection(ctx: MikeDownSettingsSectionContext, deps
     void enqueue(async () => {
       if (disposed) {return;}
       try {
-        const list = await docs.listBases();
+        const list = await docs.listBases({ refresh: true });
         if (disposed) {return;}
         entries = list.map((status) => ({ base: status.base, health: status }));
         loaded = true;

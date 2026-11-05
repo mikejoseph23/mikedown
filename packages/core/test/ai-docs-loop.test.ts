@@ -334,6 +334,15 @@ describe('the per-base cloud switch (S6)', () => {
     expect(listBases).toHaveBeenCalledTimes(2);
   });
 
+  it('asks listBases without refresh, once per turn: a chat turn must not force a walk', async () => {
+    const { ai } = fakeAi([nav([], true)]);
+    const { docs, listBases } = fakeDocs([simple()]);
+    expect((await run(ctxOf(ai, aiSettings()), docs)).kind).toBe('answered');
+    expect(listBases).toHaveBeenCalledTimes(1);
+    const args = listBases.mock.calls[0] as unknown[];
+    expect(args.length === 0 || (args[0] as { refresh?: boolean } | undefined)?.refresh !== true).toBe(true);
+  });
+
   it('ignores a disabled base for the switch, and never indexes or sends it', async () => {
     const { ai, calls } = fakeAi([nav(['docs/off.md', 'docs/README.md#start-here'], true)]);
     const off: FakeBase = { id: 'off', enabled: false, allowCloud: false, root: 'docs', pages: [{ relPath: 'off.md', title: 'OFF PAGE', headings: [] }] };

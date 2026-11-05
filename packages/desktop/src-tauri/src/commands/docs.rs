@@ -692,6 +692,8 @@ pub struct DocsState {
     /// Bumped by every invalidation, so a build that raced one is not cached.
     generation: AtomicU64,
     watchers: Mutex<HashMap<String, WatchSet>>,
+    /// How many times a base has been walked (tests count them; nothing reads it otherwise).
+    walks: AtomicU64,
 }
 
 impl DocsState {
@@ -734,6 +736,7 @@ async fn index_of(state: &DocsState, base: DocBase, force: bool) -> Result<Arc<B
         }
     }
     let generation = state.generation.load(Ordering::SeqCst);
+    state.walks.fetch_add(1, Ordering::SeqCst);
     let id = base.id.clone();
     let built = tauri::async_runtime::spawn_blocking(move || build_base_index(&base)).await.map_err(|e| e.to_string())?;
     let built = Arc::new(built);
@@ -752,22 +755,43 @@ async fn active_index(state: &DocsState, base: DocBase) -> Result<Arc<BaseIndex>
 
 // ── Commands ────────────────────────────────────────────────────────────────
 
-/// Every configured base with its health. Enabled bases are walked fresh (the
-/// manager page calls this on open and on Refresh); disabled ones are only
-/// checked for their folders.
-#[tauri::command]
-pub async fn docs_list_bases<R: Runtime>(app: AppHandle<R>, state: State<'_, DocsState>) -> Result<Vec<BaseStatusOut>, String> {
-    let bases = load_bases(&app)?;
+/// `docs_list_bases`, on the bases already read from the settings. A plain call
+/// (`refresh == false`) is cheap: an enabled base is walked only when it has no
+/// index yet or its cached one is stale (a watcher invalidated it, the TTL ran
+/// out, its roots changed in the settings, or a root appeared or vanished since
+/// the walk); otherwise the last known health is reported. `refresh == true`
+/// walks every enabled base. A disabled base is never walked.
+async fn list_bases_with(state: &DocsState, bases: Vec<DocBase>, refresh: bool) -> Result<Vec<BaseStatusOut>, String> {
     let mut out = Vec::with_capacity(bases.len());
     for base in bases {
-        if base.enabled {
-            let index = index_of(&state, base.clone(), true).await?;
-            out.push(base_status(&base, Some(&index)));
-        } else {
+        if !base.enabled {
             out.push(base_status(&base, None));
+            continue;
         }
+        let mut force = refresh;
+        if !force {
+            if let Some(hit) = state.cached(&base.id, &config_key(&base)) {
+                // A root that appeared or vanished since the walk: judge it afresh.
+                force = base.roots.iter().enumerate().any(|(i, root)| {
+                    let exists = stdfs::metadata(root).map(|m| m.is_dir()).unwrap_or(false);
+                    hit.roots.get(i).map(|r| r.canonical.is_some() != exists).unwrap_or(true)
+                });
+            }
+        }
+        let index = index_of(state, base.clone(), force).await?;
+        out.push(base_status(&base, Some(&index)));
     }
     Ok(out)
+}
+
+/// Every configured base with its health, read from the global settings on each
+/// call (so `enabled`, `allowCloud` and renames are current). The chat calls it
+/// once per turn without `refresh`; the manager page calls it with
+/// `refresh: true` when it opens and on Refresh.
+#[tauri::command]
+pub async fn docs_list_bases<R: Runtime>(app: AppHandle<R>, state: State<'_, DocsState>, refresh: Option<bool>) -> Result<Vec<BaseStatusOut>, String> {
+    let bases = load_bases(&app)?;
+    list_bases_with(&state, bases, refresh.unwrap_or(false)).await
 }
 
 /// The base's index: pages with ids, titles, headings and links; no bodies.

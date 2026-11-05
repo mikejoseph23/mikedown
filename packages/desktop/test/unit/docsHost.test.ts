@@ -76,7 +76,7 @@ describe('createDocsHost', () => {
       const { host, api } = setup();
       api.listBases.mockResolvedValueOnce([status('b1')] as never);
       api.index.mockImplementation(async (baseId: string) => indexWithLinks(baseId));
-      const [one] = await host.listBases();
+      const [one] = await host.listBases({ refresh: true });
       expect(one.brokenLinks).toBe(3); // gone.md, Nowhere, ../../escape.md; the external link is not broken
       expect(api.index).toHaveBeenCalledWith('b1');
     });
@@ -86,7 +86,7 @@ describe('createDocsHost', () => {
       const off = status('off', { active: false, base: { id: 'off', name: 'off', roots: ['/x'], allowCloud: false, enabled: false } });
       const missing = status('missing', { active: false, fileCount: 0, rootsMissing: 1 });
       api.listBases.mockResolvedValueOnce([off, missing] as never);
-      const list = await host.listBases();
+      const list = await host.listBases({ refresh: true });
       expect(list.map((s) => s.brokenLinks)).toEqual([undefined, undefined]);
       expect(api.index).not.toHaveBeenCalled();
     });
@@ -98,7 +98,7 @@ describe('createDocsHost', () => {
         if (baseId === 'a') {throw 'No folder of the documentation base was found.';}
         return indexWithLinks(baseId);
       });
-      const list = await host.listBases();
+      const list = await host.listBases({ refresh: true });
       expect(list.map((s) => [s.base.id, s.brokenLinks])).toEqual([['a', undefined], ['b', 3]]);
     });
 
@@ -106,22 +106,35 @@ describe('createDocsHost', () => {
       const { host, api } = setup();
       api.listBases.mockResolvedValueOnce([status('clean')] as never);
       api.index.mockImplementation(async (baseId: string) => ({ ...indexWithLinks(baseId), pages: [] }));
-      expect((await host.listBases())[0].brokenLinks).toBe(0);
+      expect((await host.listBases({ refresh: true }))[0].brokenLinks).toBe(0);
     });
 
     it('only the index command is added: no listBases call of its own beyond the one', async () => {
       const { host, api } = setup();
       api.listBases.mockResolvedValueOnce([status('a'), status('b')] as never);
       api.index.mockImplementation(async (baseId: string) => indexWithLinks(baseId));
-      await host.listBases();
+      await host.listBases({ refresh: true });
       expect(api.listBases).toHaveBeenCalledTimes(1);
       expect(api.index).toHaveBeenCalledTimes(2);
+    });
+
+    it('a plain call fetches no index, passes no refresh and reports the last known count', async () => {
+      const { host, api } = setup();
+      api.listBases.mockResolvedValue([status('a')] as never);
+      api.index.mockImplementation(async (baseId: string) => indexWithLinks(baseId));
+      expect((await host.listBases())[0].brokenLinks).toBeUndefined();
+      expect(api.listBases).toHaveBeenLastCalledWith({ refresh: false });
+      expect((await host.listBases({ refresh: true }))[0].brokenLinks).toBe(3);
+      expect(api.listBases).toHaveBeenLastCalledWith({ refresh: true });
+      api.index.mockClear();
+      expect((await host.listBases())[0].brokenLinks).toBe(3);
+      expect(api.index).not.toHaveBeenCalled();
     });
 
     it('a failure of listBases itself still rejects with the sentence', async () => {
       const { host, api } = setup();
       api.listBases.mockRejectedValueOnce('settings unreadable');
-      await expect(host.listBases()).rejects.toThrow('settings unreadable');
+      await expect(host.listBases({ refresh: true })).rejects.toThrow('settings unreadable');
     });
   });
 

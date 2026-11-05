@@ -115,10 +115,12 @@ describe('Documentation bases on the AI Engines page', () => {
     fk(c, 'nav:bases').click();
     await settle();
     expect(docs.listBases).toHaveBeenCalledTimes(1);
+    expect(docs.listBases).toHaveBeenLastCalledWith({ refresh: true });
 
     fk(c, 'docs:refresh').click();
     await settle();
     expect(docs.listBases).toHaveBeenCalledTimes(2);
+    expect(docs.listBases).toHaveBeenLastCalledWith({ refresh: true });
   });
 
   it('explains a base when there are none, and never saves before the list is known', async () => {

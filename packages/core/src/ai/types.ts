@@ -676,8 +676,15 @@ export interface AiConsentAbout {
  * - The model names ids from core's index and nothing else.
  */
 export interface MikeDownDocsHost {
-  /** Every configured base with its health (disabled ones included). Computed on call; the manager page calls it on open and on Refresh. */
-  listBases(): Promise<AiDocBaseStatus[]>;
+  /**
+   * Every configured base with its health (disabled ones included). The bases
+   * themselves (`enabled`, `allowCloud`, names) are read afresh on every call.
+   * A plain call is cheap and must not walk a base that already has a usable
+   * index: the chat loop calls it once per turn. `refresh: true` forces a walk
+   * and fills the health (file counts, broken links); the manager page passes
+   * it when its section opens and on Refresh.
+   */
+  listBases(opts?: { refresh?: boolean }): Promise<AiDocBaseStatus[]>;
   /** The base's index (pages, headings, links, homes; no bodies), built lazily and kept in memory. Rejects for an unknown, disabled or inactive base. */
   index(baseId: string): Promise<AiDocsIndex>;
   /**
