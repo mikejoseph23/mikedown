@@ -224,6 +224,35 @@
   opacity: 0.7;
 }
 
+/* Inline AI suggestion: inherits the text it continues, only dimmer. A widget
+   decoration, never part of the document. No box of its own, so showing it
+   moves nothing but what wraps after it. */
+:is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-ghost {
+  display: inline;
+  opacity: 0.55;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  animation: mikedown-ghost-in 120ms ease-out both;
+}
+
+@keyframes mikedown-ghost-in {
+  from { opacity: 0; }
+  to { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-ghost {
+    animation: none;
+  }
+}
+
+@media print {
+  :is(.mikedown-root, .mikedown-portal) .ProseMirror .mikedown-ghost {
+    display: none;
+  }
+}
+
 /* ─── Headings ────────────────────────────────────────────────────────────── */
 
 :is(.mikedown-root, .mikedown-portal) .ProseMirror h1 {
