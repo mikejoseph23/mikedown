@@ -17,8 +17,8 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| [M1 Core types, settings, `docs` task, `docsBase` scope](#m1-core-types-settings-docs-task-docsbase-scope) | Sonnet | ⬜ Not Started | — | |
-| [M2 Core index model, link graph, keyword fallback, secrets scan](#m2-core-index-model-link-graph-keyword-fallback-secrets-scan) | Sonnet | ⬜ Not Started | — | Pure TS |
+| [M1 Core types, settings, `docs` task, `docsBase` scope](#m1-core-types-settings-docs-task-docsbase-scope) | Sonnet | ✅ Done | 8 | `98707b6` |
+| [M2 Core index model, link graph, keyword fallback, secrets scan](#m2-core-index-model-link-graph-keyword-fallback-secrets-scan) | Sonnet | 🔄 In Progress | — | Pure TS |
 | [M3 Core tests](#m3-core-tests) | Sonnet | ⬜ Not Started | — | vitest |
 | [M4 Navigation loop and answer call](#m4-navigation-loop-and-answer-call) | Opus | ⬜ Not Started | — | Nuanced prompts |
 | [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | ⬜ Not Started | — | |
@@ -111,13 +111,13 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 
 **Model:** Sonnet. Files: `packages/core/src/ai/types.ts`, `schema.ts`, `tasks.ts`, `features.ts`, `privacy.ts`, `host.ts`, `test/ai-fixtures/consent/consent-text.json`.
 
-- [ ] Add `AiDocBase` type: `{ id, name, roots: string[], homeFile?: string, allowCloud: boolean }` and `AiDocsSettings` (`bases`, `maxHops`, `sourceShare`, `navigateBy: 'section' | 'page'`) to `types.ts`.
-- [ ] Add `docBases` and `docs` (advanced options) to `AI_SETTINGS_KEYS`, `parseAiSettings` (clamp hops 1 to 5, share 30 to 80, drop invalid bases with a reason) and `serializeAiSettings` in `schema.ts`.
-- [ ] Add the `docs` task to `AI_TASKS` (decision 7) and a `taskThinkingDefault` entry for `navigate` and `answer` jobs.
-- [ ] Change the `chat` feature: status `available`, label "Chat", description names bases, `sends: 'document'` (the loop overrides with `docsBase` per request through `AiRunRequest.sends`).
-- [ ] (S5) Add `'docsBase'` to `AiSendsScope`, `AI_SENDS_TEXT` ("pages from the documentation bases you turned on: ...") and a `whatIsSent` variant that takes the base names; update `consent-text.json` fixtures.
-- [ ] Add `MikeDownDocsHost` to `host.ts`: `listBases(): Promise<AiDocBaseStatus[]>`, `index(baseId): Promise<AiDocsIndex>`, `readSections(baseId, ids: string[]): Promise<AiDocsSection[]>`, `keywordSearch(baseId, query): Promise<AiDocsSectionRef[]>`, `watch?(baseId, cb)`; `docs?: MikeDownDocsHost` on `MikeDownHost`.
-- [ ] Export the new types from `packages/core/src/ai/index.ts`; `npm run lint` and the existing `ai-schema`, `ai-privacy` and `ai-fixtures` tests green.
+- [x] Add `AiDocBase` type: `{ id, name, roots: string[], homeFile?: string, allowCloud: boolean }` and `AiDocsSettings` (`bases`, `maxHops`, `sourceShare`, `navigateBy: 'section' | 'page'`) to `types.ts`.
+- [x] Add `docBases` and `docs` (advanced options) to `AI_SETTINGS_KEYS`, `parseAiSettings` (clamp hops 1 to 5, share 30 to 80, drop invalid bases with a reason) and `serializeAiSettings` in `schema.ts`.
+- [x] Add the `docs` task to `AI_TASKS` (decision 7) and a `taskThinkingDefault` entry for `navigate` and `answer` jobs.
+- [x] Change the `chat` feature: status `available`, label "Chat", description names bases, `sends: 'document'` (the loop overrides with `docsBase` per request through `AiRunRequest.sends`).
+- [x] (S5) Add `'docsBase'` to `AiSendsScope`, `AI_SENDS_TEXT` ("pages from the documentation bases you turned on: ...") and a `whatIsSent` variant that takes the base names; update `consent-text.json` fixtures.
+- [x] Add `MikeDownDocsHost` to `host.ts`: `listBases(): Promise<AiDocBaseStatus[]>`, `index(baseId): Promise<AiDocsIndex>`, `readSections(baseId, ids: string[]): Promise<AiDocsSection[]>`, `keywordSearch(baseId, query): Promise<AiDocsSectionRef[]>`, `watch?(baseId, cb)`; `docs?: MikeDownDocsHost` on `MikeDownHost`.
+- [x] Export the new types from `packages/core/src/ai/index.ts`; `npm run lint` and the existing `ai-schema`, `ai-privacy` and `ai-fixtures` tests green.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
@@ -317,5 +317,9 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 ## Progress Log / Notes
 
 **2026-11-05 14:00** - Plan written from the completed interview (ten decisions, four follow-up decisions, Fable's defaults and security findings). Code references re-checked: `walk_markdown` in `fs.rs:562` with the 50,000 cap; `USER_ONLY_KEYS` in `src/ai/vscodeAi.ts:19`; `effectiveAiRaw` in `src/settings.ts:198`; `AiSendsScope` in `packages/core/src/ai/types.ts:450`; `AiRunRequest.sends` in `ai-request.ts:71`; `img-src https:` at `markdownEditorProvider.ts:2322`; `getFileHeadings` at `:1061`; `BacklinkProvider` 500-file cap; `host.ai.embed` declared in `types.ts:368`, unused. The feature id stays `chat` (the brief said `docsChat`) so existing feature toggles keep working.
+
+**2026-11-05 16:45** - Orchestration started. Mike: no human approval or testing gates until the end, so M11 sign-off moves after M12 and the plan stays in the root until it is signed. M2 runs before M5 and M6 (they need its ranking, ids and exports), then M3, M4, M5, M6, M8 together. Workers commit on develop, no worktrees. Gaps closed in the worker briefs (`.orchestrator/workspace-rag-plan/prompts/worker-common.md`): route pinning for S6 (`runAiCompletion` falls back mid-call), `enabled` on bases, host methods for saving and picking folders, base ids through the consent wire, hosts validating roots, secrets scan over nav outlines, S1 made explicit in M5, S13 made explicit in M4.
+
+**2026-11-05 16:53** - M1 done (`98707b6`). 3586 unit tests pass per the worker; settings, privacy and schema tests re-run by the orchestrator. Chat now shows a working toggle in AI settings that does nothing until M9. Bridge and `consent.rs` forwarding of `baseIds` is left to M5 and M6. M2 dispatched.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
