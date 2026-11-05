@@ -94,6 +94,12 @@ Fixture: `test/workspace/docs-base/` (the base) and `test/workspace/outside-docs
 - [ ] Repeat 1.4 and 1.5 (secrets scan, injection). Same results.
 - [ ] In a terminal at the repo root: `mv test/workspace/docs-base /tmp/docs-base-moved`. Refresh: "Root not found", the base stays listed. Restore: `mv /tmp/docs-base-moved test/workspace/docs-base`, then `git status` shows it unchanged.
 
+### 2.y "Allow once" across a turn (native dialog not run in tests)
+
+- [ ] On each host, with the base's cloud switch on and a cloud engine not yet allowed: ask a question that takes several hops, choose "Allow once". One dialog, naming the base. The turn finishes.
+- [ ] Ask again. It asks again.
+- [ ] Mid-turn, turn the base's cloud switch off. The turn stops before the answer with the local-only state.
+
 ### 2.x Folder dialogs (stubbed in tests)
 
 - [ ] Desktop, Bases: "Choose folder…" adds a folder in one click, with no second prompt.
@@ -120,3 +126,4 @@ Layout notes:
 1. Should a follow-up question see earlier answers? Each turn is standalone today.
 2. Should an engine that is already allowed ask again when base pages are first sent? It does not today; the per-base switch is the guard.
 3. Should a newly added base show health immediately? Today it says "Not checked yet" until Refresh.
+4. Should Insert keep an image or link whose URL appears word for word in a cited section? It does today, as S8 says, so an image at a fixed URL on a hostile page can load when rendered, though it cannot carry your data. The stricter option is links only, images always plain text.
