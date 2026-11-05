@@ -25,8 +25,9 @@ Fixture: `test/workspace/docs-base/` (the base) and `test/workspace/outside-docs
 
 ### 1.1 Add the base
 
-- [ ] Open `sample.md`. Toolbar AI menu, then Manage bases (or Engines page, Bases). The page opens with "No bases yet".
-- [ ] Choose "Add this workspace folder", pick `docs-base`, name it "Acme docs", Save. It is listed.
+- [ ] Open `sample.md`. Toolbar gear, AI tab, Documentation bases, "Manage bases…". The page opens with "No bases yet".
+- [ ] Choose "Add this workspace folder". It fills in the workspace root, `test/workspace`, with no picker (one folder open). Cancel without saving: that root also holds `outside-docs-base/`, which this walk must keep out.
+- [ ] Add the base by typing the folder path `/Users/michaeljosephwork/git/mikedown/test/workspace/docs-base`, name it "Acme docs", Save. It is listed.
 - [ ] Choose Refresh. Health shows: home `INDEX.md`; 5 files indexed; 1 oversize skipped (`archive-large.md`); 1 broken link; no symlink target listed; no roots missing.
 - [ ] `linked-outside.md` appears nowhere in the base's pages.
 
@@ -91,7 +92,7 @@ Fixture: `test/workspace/docs-base/` (the base) and `test/workspace/outside-docs
 - [ ] Ask the café question. The chip reveals the non-ASCII heading.
 - [ ] Insert at cursor: relative links, no key, remote image and foreign link as plain text.
 - [ ] Repeat 1.4 and 1.5 (secrets scan, injection). Same results.
-- [ ] Remove the folder on disk, Refresh: "Root not found", the base stays listed. Restore it.
+- [ ] In a terminal at the repo root: `mv test/workspace/docs-base /tmp/docs-base-moved`. Refresh: "Root not found", the base stays listed. Restore: `mv /tmp/docs-base-moved test/workspace/docs-base`, then `git status` shows it unchanged.
 
 ## 3. Second engine (LM Studio, port 1234)
 
