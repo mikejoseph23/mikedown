@@ -42,7 +42,7 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
     defaultTask: 'continue',
     requires: { stream: true },
     status: 'available',
-    sends: 'selection',
+    sends: 'cursor',
   },
   {
     id: 'chat',

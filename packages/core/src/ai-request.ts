@@ -49,6 +49,7 @@ import { aiActivityResponse, type AiActivityEntry, type AiActivityLog } from './
 import type {
   AiCompletionRequest,
   AiCompletionResult,
+  AiConsentReply,
   AiConsentState,
   AiDocsActivityDetail,
   AiEngineStatus,
@@ -134,6 +135,8 @@ export interface AiRunEvents {
   onRoute?(route: AiRouteOk | null, thinking: AiRunThinking | null): void;
   /** A text delta, and everything received so far for the current attempt. */
   onToken?(delta: string, text: string): void;
+  /** The host answered the consent request. Called even when the run was aborted while it asked: the answer still stands. */
+  onConsent?(reply: AiConsentReply): void;
 }
 
 export interface AiRunOutcome {
@@ -370,6 +373,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
         const reply = ctx.ai.requestCloudConsent
           ? await ctx.ai.requestCloudConsent(resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}), ...(req.baseIds && req.baseIds.length > 0 ? { baseIds: req.baseIds } : {}) })
           : true;
+        events.onConsent?.(reply);
         if (signal.aborted) {throw makeAiError('cancelled');}
         if (reply === true) {ctx.consent[resolved.engineId] = true;}
         else if (reply === 'once') {once[resolved.engineId] = true;}

@@ -24,6 +24,7 @@ pub fn sends_text(scope: &str) -> Option<&'static str> {
         "documentAndTags" => Some("the document, its frontmatter and the tag names used in this workspace"),
         // The base names follow in `what_is_sent`; without them this is all there is to say.
         "docsBase" => Some("pages from the documentation bases you turned on"),
+        "cursor" => Some("the text around the cursor (the document up to it, as much as fits the model, and a short stretch after it) for Inline suggestions, again each time you pause"),
         _ => None,
     }
 }
@@ -31,7 +32,8 @@ pub fn sends_text(scope: &str) -> Option<&'static str> {
 /// `AI_FEATURES[].sends`: what each feature's requests send.
 pub fn feature_sends(feature: &str) -> Option<&'static str> {
     match feature {
-        "rewrite" | "ghostText" => Some("selection"),
+        "rewrite" => Some("selection"),
+        "ghostText" => Some("cursor"),
         "chat" | "summary" | "title" => Some("document"),
         "frontmatter" => Some("documentAndTags"),
         _ => None,

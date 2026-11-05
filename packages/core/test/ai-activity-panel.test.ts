@@ -128,11 +128,13 @@ describe('rows and detail', () => {
     log.record(entry('x', { job: 'explain' }));
     log.record(entry('t', { job: 'translate' }));
     log.record(entry('r', { job: 'rewrite' }));
+    log.record(entry('g', { feature: 'ghostText', job: 'ghostText' }));
     const label = (id: string): string | null | undefined =>
       q(c.querySelector<HTMLElement>(`.ai-activity-row[data-entry-id="${id}"]`), '.ai-activity-row-feature')?.textContent;
     expect(label('x')).toBe('Explain');
     expect(label('t')).toBe('Translate');
     expect(label('r')).toBe('Rewrite selection');
+    expect(label('g')).toBe('Inline suggestions');
     click(c.querySelector('.ai-activity-row[data-entry-id="x"]'));
     expect(q(c, '.ai-activity-detail-title')?.textContent).toBe('Explain');
     const text = formatActivityExport([entry('x', { job: 'explain' })]);

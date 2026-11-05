@@ -273,7 +273,7 @@ describe('the request', () => {
     h.ctl.noteChange(h.input({ blockKind: 'listItem' }));
     await vi.advanceTimersByTimeAsync(400);
     const { req } = h.last();
-    expect(req).toMatchObject({ feature: 'ghostText', task: 'continue', sends: 'selection', maxTokens: 96, thinking: 'off', job: 'ghostText', localOnly: true });
+    expect(req).toMatchObject({ feature: 'ghostText', task: 'continue', sends: 'cursor', maxTokens: 96, thinking: 'off', job: 'ghostText', localOnly: true });
     expect(req.messages.map((m) => m.role)).toEqual(['system', 'user']);
     const user = req.messages[1].content as string;
     expect(user).toContain(BEFORE);
@@ -667,6 +667,47 @@ describe('silent errors', () => {
     expect(h.run).toHaveBeenCalledTimes(1);
     h.ctl.triggerNow(h.input());
     expect(h.run).toHaveBeenCalledTimes(1);
+  });
+
+  it('"Allow once" stops the idle trigger, so pauses do not ask on every stop; the shortcut can still ask', async () => {
+    const h = harness();
+    h.ctl.noteChange(h.input());
+    await vi.advanceTimersByTimeAsync(400);
+    h.last().events.onConsent?.('once');
+    h.last().resolve(' the once-allowed text.');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.shown()).toBe(' the once-allowed text.');
+
+    h.ctl.noteChange(h.input());
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(h.run).toHaveBeenCalledTimes(1);
+
+    h.ctl.triggerNow(h.input());
+    expect(h.run).toHaveBeenCalledTimes(2);
+  });
+
+  it('an "Allow once" answered after the request was aborted still counts', async () => {
+    const h = harness();
+    h.ctl.noteChange(h.input());
+    await vi.advanceTimersByTimeAsync(400);
+    const first = h.last();
+    h.ctl.noteChange(h.input());
+    expect(first.signal.aborted).toBe(true);
+    first.events.onConsent?.('once');
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(h.run).toHaveBeenCalledTimes(1);
+  });
+
+  it('a stored or remembered allow leaves the idle trigger alone', async () => {
+    const h = harness();
+    h.ctl.noteChange(h.input());
+    await vi.advanceTimersByTimeAsync(400);
+    h.last().events.onConsent?.(true);
+    h.last().resolve(' more.');
+    await vi.advanceTimersByTimeAsync(0);
+    h.ctl.noteChange(h.input());
+    await vi.advanceTimersByTimeAsync(400);
+    expect(h.run).toHaveBeenCalledTimes(2);
   });
 });
 

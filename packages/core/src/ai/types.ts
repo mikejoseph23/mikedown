@@ -654,10 +654,11 @@ export interface AiConsentRecord {
 /**
  * What a request sends to the engine, for the privacy copy (`whatIsSent`):
  * the selection with its neighbouring paragraphs, the whole document, the
- * document with its frontmatter and the workspace's tag names, or pages from
- * the documentation bases the user turned on.
+ * document with its frontmatter and the workspace's tag names, pages from
+ * the documentation bases the user turned on, or the text around the cursor
+ * on every pause (Inline suggestions).
  */
-export type AiSendsScope = 'selection' | 'document' | 'documentAndTags' | 'docsBase';
+export type AiSendsScope = 'selection' | 'document' | 'documentAndTags' | 'docsBase' | 'cursor';
 
 /**
  * The request behind a consent prompt. `sends` overrides the feature's own

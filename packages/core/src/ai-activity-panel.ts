@@ -101,8 +101,8 @@ function entryDuration(entry: AiActivityEntry): number | null {
   return entry.endedAt === null ? null : entry.endedAt - entry.startedAt;
 }
 
-/** Jobs that run under another feature (`rewrite`) and get their own name. */
-const JOB_LABELS: Partial<Record<string, string>> = { explain: 'Explain', translate: 'Translate', navigate: 'Chat: navigate', answer: 'Chat: answer' };
+/** Jobs that get their own name, most because they run under another feature (`rewrite`). */
+const JOB_LABELS: Partial<Record<string, string>> = { explain: 'Explain', translate: 'Translate', navigate: 'Chat: navigate', answer: 'Chat: answer', ghostText: 'Inline suggestions' };
 
 function featureLabel(entry: AiActivityEntry): string {
   return (entry.job ? JOB_LABELS[entry.job] : undefined) ?? getAiFeature(entry.feature)?.label ?? entry.feature;

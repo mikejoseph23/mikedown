@@ -167,6 +167,8 @@ export function createGhostController(deps: GhostControllerDeps): GhostControlle
   const reported = new Set<GhostErrorReason>();
   /** The user refused cloud consent: no more requests this session (D9). */
   let silenced = false;
+  /** "Allow once" covers one request, so a pause stops asking on every stop; the shortcut still can. */
+  let idleStopped = false;
 
   function setBusy(next: boolean): void {
     if (busy === next) {return;}
@@ -303,7 +305,7 @@ export function createGhostController(deps: GhostControllerDeps): GhostControlle
     const req: AiRunRequest = {
       feature: 'ghostText',
       task: 'continue',
-      sends: 'selection',
+      sends: 'cursor',
       messages,
       maxTokens,
       temperature: 0.3,
@@ -350,6 +352,10 @@ export function createGhostController(deps: GhostControllerDeps): GhostControlle
           succeeded();
           stopStream();
         }
+      },
+      // Not tied to `seq`: an answer given after this request was aborted counts too.
+      onConsent(reply) {
+        if (reply === 'once') {idleStopped = true;}
       },
     };
 
@@ -398,7 +404,7 @@ export function createGhostController(deps: GhostControllerDeps): GhostControlle
   function startTimer(input: GhostChangeInput): void {
     timer = setTimer(() => {
       timer = null;
-      fire(input);
+      if (!idleStopped) {fire(input);}
     }, delay());
   }
 
@@ -407,7 +413,7 @@ export function createGhostController(deps: GhostControllerDeps): GhostControlle
       if (destroyed) {return;}
       latest = input;
       clearAll();
-      if (!input.eligible || silenced) {return;}
+      if (!input.eligible || silenced || idleStopped) {return;}
       if (deps.options().trigger === 'manual') {return;}
       startTimer(input);
     },
