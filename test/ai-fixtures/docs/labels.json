@@ -1,0 +1,20 @@
+{
+  "description": "Root labels (docsRootLabels): last path segment, '#' and control characters become '_', duplicates in configured order get -2, -3 (smallest unused suffix).",
+  "cases": [
+    { "roots": ["/Users/mike/notes"], "labels": ["notes"] },
+    { "roots": ["/Users/mike/work/docs", "/Users/mike/personal/docs"], "labels": ["docs", "docs-2"] },
+    { "roots": ["/a/docs", "/b/docs", "/c/docs"], "labels": ["docs", "docs-2", "docs-3"] },
+    { "roots": ["/a/docs", "/b/docs", "/c/docs-2"], "labels": ["docs", "docs-2", "docs-2-2"] },
+    { "roots": ["/a/docs-2", "/b/docs", "/c/docs"], "labels": ["docs-2", "docs", "docs-3"] },
+    { "roots": ["/Users/mike/notes/", "/Users/mike/notes//"], "labels": ["notes", "notes-2"] },
+    { "roots": ["C:\\Users\\mike\\Docs", "D:\\Docs"], "labels": ["Docs", "Docs-2"] },
+    { "roots": ["\\\\server\\share\\wiki"], "labels": ["wiki"] },
+    { "roots": ["/x/Docs", "/y/docs"], "labels": ["Docs", "docs"] },
+    { "roots": ["/home/m/c#notes", "/home/m/c_notes"], "labels": ["c_notes", "c_notes-2"] },
+    { "roots": ["/home/m/my docs"], "labels": ["my docs"] },
+    { "roots": ["/home/m/café", "/srv/日本語"], "labels": ["café", "日本語"] },
+    { "roots": ["/"], "labels": ["root"] },
+    { "roots": [""], "labels": ["root"] },
+    { "roots": ["/a/..", "/b/."], "labels": ["root", "root-2"] }
+  ]
+}

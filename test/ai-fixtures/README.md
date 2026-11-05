@@ -112,3 +112,15 @@ Core checks `requestOverrides` (`packages/core/test/ai-thinking-dial.test.ts`); 
 ## `requests/unsupported-params.json`
 
 The one-retry net for a 400 that names a parameter the model does not take. `errors`: `{ name, status, body (raw response text), param }`, where `param` is what `unsupportedRequestParam(status, body)` returns (null: not retried). `adjust`: `{ name, param, body, expected }`, where `expected` is `withoutRequestParam(body, param)` (null: nothing to retry). Checked by the same two suites; both hosts' retry loops are tested against the first two `errors` bodies (`test/unit/ai-providers.test.ts`, `commands/ai/tests.rs`).
+
+## `docs/`
+
+The documentation-base contract (workspace RAG) that the VS Code host (TypeScript) and Desktop (Rust) must agree on byte for byte. The rules are written in the header comments of `packages/core/src/ai/docs/index.ts` (root labels, page and section ids, heading slugs), `sections.ts` (section splitting) and `keyword.ts` (terms and ranking). Checked by `packages/core/test/ai-docs-fixtures.test.ts`; the Desktop Rust port must run the same files.
+
+| File | Shape |
+| --- | --- |
+| `labels.json` | `cases[]`: `roots` (paths as configured, `/` or `\`) to `labels` (`docsRootLabels`) |
+| `slugs.json` | `slug[]`: `text` to base `slug`; `pages[]`: `headings` of one page to unique `slugs` |
+| `ids.json` | page and section id formats, `parse` cases (`parseDocsId` with `known` as the index), `safeRelPaths`, `stems` |
+| `sections.json` | `cases[]`: `markdown` to `sections[]` (`heading` is `{level,text,slug}` or `null` for the preamble, and the section `text`) |
+| `keyword.json` | `terms[]`: `query` to `terms`; `rank[]`: `query`, `limit`, `sections[]` to `expected[]` (`id`, integer `score`, in order) |

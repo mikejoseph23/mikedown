@@ -1,0 +1,158 @@
+{
+  "description": "splitDocsSections: markdown to sections (heading level, text, unique slug; null heading is the preamble). Rules: header of packages/core/src/ai/docs/sections.ts.",
+  "cases": [
+    {
+      "name": "heading first, no preamble",
+      "markdown": "# Title\nBody\n\n## Sub\nMore\n",
+      "sections": [
+        {
+          "heading": {
+            "level": 1,
+            "text": "Title",
+            "slug": "title"
+          },
+          "text": "# Title\nBody\n\n"
+        },
+        {
+          "heading": {
+            "level": 2,
+            "text": "Sub",
+            "slug": "sub"
+          },
+          "text": "## Sub\nMore\n"
+        }
+      ]
+    },
+    {
+      "name": "preamble then headings",
+      "markdown": "Intro text\n\n# Title\nBody\n",
+      "sections": [
+        {
+          "heading": null,
+          "text": "Intro text\n\n"
+        },
+        {
+          "heading": {
+            "level": 1,
+            "text": "Title",
+            "slug": "title"
+          },
+          "text": "# Title\nBody\n"
+        }
+      ]
+    },
+    {
+      "name": "frontmatter then heading: frontmatter belongs to no section",
+      "markdown": "---\ntitle: X\n---\n# Title\nBody\n",
+      "sections": [
+        {
+          "heading": {
+            "level": 1,
+            "text": "Title",
+            "slug": "title"
+          },
+          "text": "# Title\nBody\n"
+        }
+      ]
+    },
+    {
+      "name": "frontmatter and preamble: preamble starts at 0",
+      "markdown": "---\ntitle: X\n---\nHello\n# Title\nBody\n",
+      "sections": [
+        {
+          "heading": null,
+          "text": "---\ntitle: X\n---\nHello\n"
+        },
+        {
+          "heading": {
+            "level": 1,
+            "text": "Title",
+            "slug": "title"
+          },
+          "text": "# Title\nBody\n"
+        }
+      ]
+    },
+    {
+      "name": "no headings",
+      "markdown": "Just text.\nMore text.\n",
+      "sections": [
+        {
+          "heading": null,
+          "text": "Just text.\nMore text.\n"
+        }
+      ]
+    },
+    {
+      "name": "blank",
+      "markdown": "  \n\n",
+      "sections": []
+    },
+    {
+      "name": "fenced code hides headings, duplicate headings get suffixes",
+      "markdown": "# A\n```\n# not a heading\n```\n# A\ntext\n#### \n## A\n",
+      "sections": [
+        {
+          "heading": {
+            "level": 1,
+            "text": "A",
+            "slug": "a"
+          },
+          "text": "# A\n```\n# not a heading\n```\n"
+        },
+        {
+          "heading": {
+            "level": 1,
+            "text": "A",
+            "slug": "a-1"
+          },
+          "text": "# A\ntext\n#### \n"
+        },
+        {
+          "heading": {
+            "level": 2,
+            "text": "A",
+            "slug": "a-2"
+          },
+          "text": "## A\n"
+        }
+      ]
+    },
+    {
+      "name": "closing hashes and indentation",
+      "markdown": "   ## Indented ##\ntext\n    # code, not a heading\n",
+      "sections": [
+        {
+          "heading": {
+            "level": 2,
+            "text": "Indented",
+            "slug": "indented"
+          },
+          "text": "   ## Indented ##\ntext\n    # code, not a heading\n"
+        }
+      ]
+    },
+    {
+      "name": "CRLF",
+      "markdown": "# One\r\ntext\r\n# Two\r\n",
+      "sections": [
+        {
+          "heading": {
+            "level": 1,
+            "text": "One",
+            "slug": "one"
+          },
+          "text": "# One\r\ntext\r\n"
+        },
+        {
+          "heading": {
+            "level": 1,
+            "text": "Two",
+            "slug": "two"
+          },
+          "text": "# Two\r\n"
+        }
+      ]
+    }
+  ]
+}

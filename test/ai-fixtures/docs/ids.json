@@ -1,0 +1,39 @@
+{
+  "description": "Page and section ids. 'pages': docsPageId(root label, rel path). 'sections': docsSectionId(page id, slug). 'parse': parseDocsId(id, hasPage) where hasPage is membership in 'known'; expected is null or {pageId, slug?}. 'safeRelPaths': isSafeRelPath. 'stems': docsFileStem.",
+  "pages": [
+    { "root": "docs", "relPath": "README.md", "id": "docs/README.md" },
+    { "root": "docs-2", "relPath": "guides/Setup Guide.md", "id": "docs-2/guides/Setup Guide.md" }
+  ],
+  "sections": [
+    { "pageId": "docs/README.md", "slug": "intro", "id": "docs/README.md#intro" }
+  ],
+  "known": ["docs/README.md", "docs/c#.md", "docs/guides/setup.md"],
+  "parse": [
+    { "id": "docs/README.md", "expected": { "pageId": "docs/README.md" } },
+    { "id": "docs/README.md#intro", "expected": { "pageId": "docs/README.md", "slug": "intro" } },
+    { "id": "docs/c#.md", "expected": { "pageId": "docs/c#.md" } },
+    { "id": "docs/c#.md#install", "expected": { "pageId": "docs/c#.md", "slug": "install" } },
+    { "id": "docs/guides/setup.md#a#b", "expected": null },
+    { "id": "docs/missing.md", "expected": null },
+    { "id": "docs/README.md#", "expected": null },
+    { "id": "#intro", "expected": null },
+    { "id": "../../etc/passwd", "expected": null }
+  ],
+  "safeRelPaths": [
+    { "relPath": "a.md", "safe": true },
+    { "relPath": "a/b/c.md", "safe": true },
+    { "relPath": "", "safe": false },
+    { "relPath": "/a.md", "safe": false },
+    { "relPath": "a//b.md", "safe": false },
+    { "relPath": "a/../b.md", "safe": false },
+    { "relPath": "./a.md", "safe": false },
+    { "relPath": "a/b/", "safe": false },
+    { "relPath": "..", "safe": false }
+  ],
+  "stems": [
+    { "relPath": "guides/Setup.md", "stem": "Setup" },
+    { "relPath": "Notes.MARKDOWN", "stem": "Notes" },
+    { "relPath": "a.b.md", "stem": "a.b" },
+    { "relPath": "readme", "stem": "readme" }
+  ]
+}

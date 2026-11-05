@@ -1,0 +1,61 @@
+/**
+ * Every cap and clamp of the documentation-base feature, in one place (S9).
+ * Hosts and the loop import these; nothing else hardcodes a number. The hop
+ * and share limits are M1's (`AI_DOCS_*` in `../types`), re-exported here so a
+ * caller needs one import.
+ */
+
+import {
+  AI_DOCS_MAX_HOPS_DEFAULT,
+  AI_DOCS_MAX_HOPS_MAX,
+  AI_DOCS_MAX_HOPS_MIN,
+  AI_DOCS_SOURCE_SHARE_DEFAULT,
+  AI_DOCS_SOURCE_SHARE_MAX,
+  AI_DOCS_SOURCE_SHARE_MIN,
+} from '../types';
+import { cutUtf8, utf8Length } from './util';
+
+/** Markdown files indexed per base (decision 13). The walk stops at this many. */
+export const DOCS_MAX_FILES = 5000;
+/** Bytes per file; a bigger file is skipped and counted in health. */
+export const DOCS_MAX_FILE_BYTES = 1024 * 1024;
+/** Bytes per section sent to a model (the host cuts at this and sets `truncated`). */
+export const DOCS_MAX_SECTION_BYTES = 24 * 1024;
+/** Links in one hop-1 list. */
+export const DOCS_MAX_LINKS = 200;
+/** Pages in the in-memory map used when a root has no home document. */
+export const DOCS_MAX_MAP_ENTRIES = 400;
+/** Sections the keyword fallback returns. */
+export const DOCS_KEYWORD_TOP = 20;
+/** Terms the keyword fallback uses from one query. */
+export const DOCS_KEYWORD_MAX_TERMS = 12;
+/** Headings and links kept per page in the index (defence against one huge file). */
+export const DOCS_MAX_HEADINGS_PER_PAGE = 1000;
+export const DOCS_MAX_LINKS_PER_PAGE = 1000;
+
+export { AI_DOCS_MAX_HOPS_DEFAULT, AI_DOCS_MAX_HOPS_MAX, AI_DOCS_MAX_HOPS_MIN, AI_DOCS_SOURCE_SHARE_DEFAULT, AI_DOCS_SOURCE_SHARE_MAX, AI_DOCS_SOURCE_SHARE_MIN };
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {return fallback;}
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/** Navigation calls before the answer, 1 to 5; anything not a number is the default (3). */
+export function clampDocsHops(value: unknown): number {
+  return clampInt(value, AI_DOCS_MAX_HOPS_MIN, AI_DOCS_MAX_HOPS_MAX, AI_DOCS_MAX_HOPS_DEFAULT);
+}
+
+/** Percent of the route's context the answer's sections may take, 30 to 80; default 60. */
+export function clampDocsSourceShare(value: unknown): number {
+  return clampInt(value, AI_DOCS_SOURCE_SHARE_MIN, AI_DOCS_SOURCE_SHARE_MAX, AI_DOCS_SOURCE_SHARE_DEFAULT);
+}
+
+/**
+ * Cut a section's text to `DOCS_MAX_SECTION_BYTES` UTF-8 bytes on a code point
+ * boundary. Scan (`secrets.ts`) the uncapped text first when you can, so a key
+ * is never cut in half and slips through.
+ */
+export function capSectionText(text: string, maxBytes: number = DOCS_MAX_SECTION_BYTES): { text: string; truncated: boolean } {
+  if (utf8Length(text) <= maxBytes) {return { text, truncated: false };}
+  return { text: cutUtf8(text, maxBytes), truncated: true };
+}

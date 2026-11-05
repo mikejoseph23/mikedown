@@ -86,19 +86,36 @@ function fenceMask(lines: readonly Line[]): boolean[] {
   return mask;
 }
 
-/** Heading levels and texts, skipping frontmatter and fenced code. */
-export function headingsOutline(markdown: string): HeadingOutlineEntry[] {
+export interface HeadingWithOffsets extends HeadingOutlineEntry {
+  /** Offset of the heading line's first character. */
+  start: number;
+  /** Offset just past the heading line's end of line (the next line's start, or the text length). */
+  end: number;
+}
+
+/** Heading levels, texts and line offsets, skipping frontmatter and fenced code. */
+export function headingsWithOffsets(markdown: string): HeadingWithOffsets[] {
   const lines = splitLines(markdown, frontmatterEnd(markdown));
   const mask = fenceMask(lines);
-  const out: HeadingOutlineEntry[] = [];
+  const out: HeadingWithOffsets[] = [];
   lines.forEach((line, i) => {
     if (mask[i]) {return;}
     const m = HEADING.exec(line.text);
     if (!m) {return;}
     const text = m[2].replace(/[ \t]+#+$/, '').trim();
-    if (text) {out.push({ level: m[1].length, text });}
+    if (text) {out.push({ level: m[1].length, text, start: line.start, end: i + 1 < lines.length ? lines[i + 1].start : markdown.length });}
   });
   return out;
+}
+
+/** Heading levels and texts, skipping frontmatter and fenced code. */
+export function headingsOutline(markdown: string): HeadingOutlineEntry[] {
+  return headingsWithOffsets(markdown).map(({ level, text }) => ({ level, text }));
+}
+
+/** Offset just past the leading frontmatter block (0 when there is none). */
+export function frontmatterEndOffset(markdown: string): number {
+  return frontmatterEnd(markdown);
 }
 
 /** Offsets where each section starts; the first is always 0 (frontmatter and any preamble belong to it). */

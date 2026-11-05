@@ -1,0 +1,328 @@
+{
+  "description": "Keyword fallback ranking (keywordTerms, rankKeywordSections). Rules: header of packages/core/src/ai/docs/keyword.ts. Scores are integers.",
+  "terms": [
+    {
+      "query": "How do I rotate the API keys?",
+      "terms": [
+        "rotate",
+        "api",
+        "keys"
+      ]
+    },
+    {
+      "query": "key-rotation",
+      "terms": [
+        "key",
+        "rotation"
+      ]
+    },
+    {
+      "query": "the and of",
+      "terms": [
+        "the",
+        "and",
+        "of"
+      ]
+    },
+    {
+      "query": "Café É",
+      "terms": [
+        "café",
+        "É"
+      ]
+    },
+    {
+      "query": "",
+      "terms": []
+    },
+    {
+      "query": "a b a B",
+      "terms": [
+        "b"
+      ]
+    },
+    {
+      "query": "one two three four five six seven eight nine ten eleven twelve thirteen fourteen",
+      "terms": [
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+        "ten",
+        "eleven",
+        "twelve"
+      ]
+    },
+    {
+      "query": "日本語 テスト",
+      "terms": [
+        "日本語",
+        "テスト"
+      ]
+    },
+    {
+      "query": "C++ vs C#",
+      "terms": [
+        "c",
+        "vs"
+      ]
+    },
+    {
+      "query": "snake_case, kebab-case; Title Case",
+      "terms": [
+        "snake_case",
+        "kebab",
+        "case",
+        "title"
+      ]
+    }
+  ],
+  "rank": [
+    {
+      "name": "heading beats body, title beats path, ties by id",
+      "query": "key rotation",
+      "limit": 20,
+      "sections": [
+        {
+          "id": "docs/security.md#key-rotation",
+          "pageId": "docs/security.md",
+          "title": "Security",
+          "relPath": "security.md",
+          "heading": "Key rotation",
+          "text": "## Key rotation\nRotate every key each 90 days. Rotation is logged."
+        },
+        {
+          "id": "docs/security.md#overview",
+          "pageId": "docs/security.md",
+          "title": "Security",
+          "relPath": "security.md",
+          "heading": "Overview",
+          "text": "## Overview\nA key is rotated on a schedule."
+        },
+        {
+          "id": "docs/ops/keys.md",
+          "pageId": "docs/ops/keys.md",
+          "title": "Keys",
+          "relPath": "ops/keys.md",
+          "text": "Where keys live. Rotation lives elsewhere."
+        },
+        {
+          "id": "docs/unrelated.md#intro",
+          "pageId": "docs/unrelated.md",
+          "title": "Unrelated",
+          "relPath": "unrelated.md",
+          "heading": "Intro",
+          "text": "# Intro\nNothing about it."
+        },
+        {
+          "id": "docs/a.md#same",
+          "pageId": "docs/a.md",
+          "title": "Other",
+          "relPath": "a.md",
+          "heading": "Same",
+          "text": "key rotation"
+        },
+        {
+          "id": "docs/b.md#same",
+          "pageId": "docs/b.md",
+          "title": "Other",
+          "relPath": "b.md",
+          "heading": "Same",
+          "text": "key rotation"
+        }
+      ],
+      "expected": [
+        {
+          "id": "docs/security.md#key-rotation",
+          "score": 36
+        },
+        {
+          "id": "docs/ops/keys.md",
+          "score": 19
+        },
+        {
+          "id": "docs/a.md#same",
+          "score": 14
+        },
+        {
+          "id": "docs/b.md#same",
+          "score": 14
+        },
+        {
+          "id": "docs/security.md#overview",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "name": "body occurrences saturate at 5 per term",
+      "query": "retry",
+      "limit": 20,
+      "sections": [
+        {
+          "id": "p.md#a",
+          "pageId": "p.md",
+          "title": "P",
+          "relPath": "p.md",
+          "heading": "A",
+          "text": "retry retry retry retry retry retry retry retry"
+        },
+        {
+          "id": "p.md#b",
+          "pageId": "p.md",
+          "title": "P",
+          "relPath": "p.md",
+          "heading": "B",
+          "text": "retry retry retry retry retry"
+        },
+        {
+          "id": "p.md#c",
+          "pageId": "p.md",
+          "title": "P",
+          "relPath": "p.md",
+          "heading": "C",
+          "text": "retry"
+        }
+      ],
+      "expected": [
+        {
+          "id": "p.md#a",
+          "score": 11
+        },
+        {
+          "id": "p.md#b",
+          "score": 11
+        },
+        {
+          "id": "p.md#c",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "name": "ASCII case folding only, substring match, non-overlapping count",
+      "query": "AAA café",
+      "limit": 20,
+      "sections": [
+        {
+          "id": "x.md#one",
+          "pageId": "x.md",
+          "title": "X",
+          "relPath": "x.md",
+          "heading": "One",
+          "text": "aaaaaa CAFÉ café"
+        },
+        {
+          "id": "x.md#two",
+          "pageId": "x.md",
+          "title": "X",
+          "relPath": "x.md",
+          "heading": "Two",
+          "text": "AaAaAa CAFÉ"
+        }
+      ],
+      "expected": [
+        {
+          "id": "x.md#one",
+          "score": 15
+        },
+        {
+          "id": "x.md#two",
+          "score": 8
+        }
+      ]
+    },
+    {
+      "name": "limit cuts after ordering",
+      "query": "zeta",
+      "limit": 2,
+      "sections": [
+        {
+          "id": "z.md#c",
+          "pageId": "z.md",
+          "title": "Z",
+          "relPath": "z.md",
+          "heading": "C",
+          "text": "zeta"
+        },
+        {
+          "id": "z.md#a",
+          "pageId": "z.md",
+          "title": "Z",
+          "relPath": "z.md",
+          "heading": "A",
+          "text": "zeta"
+        },
+        {
+          "id": "z.md#b",
+          "pageId": "z.md",
+          "title": "Z",
+          "relPath": "z.md",
+          "heading": "B",
+          "text": "zeta"
+        }
+      ],
+      "expected": [
+        {
+          "id": "z.md#a",
+          "score": 7
+        },
+        {
+          "id": "z.md#b",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "name": "code point order, not UTF-16: U+FF5E sorts before U+1F600",
+      "query": "needle",
+      "limit": 20,
+      "sections": [
+        {
+          "id": "😀.md",
+          "pageId": "😀.md",
+          "title": "T",
+          "relPath": "t.md",
+          "text": "needle"
+        },
+        {
+          "id": "～.md",
+          "pageId": "～.md",
+          "title": "T",
+          "relPath": "t.md",
+          "text": "needle"
+        }
+      ],
+      "expected": [
+        {
+          "id": "～.md",
+          "score": 7
+        },
+        {
+          "id": "😀.md",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "name": "no terms, no results",
+      "query": "?!",
+      "limit": 20,
+      "sections": [
+        {
+          "id": "q.md",
+          "pageId": "q.md",
+          "title": "Q",
+          "relPath": "q.md",
+          "text": "anything"
+        }
+      ],
+      "expected": []
+    }
+  ]
+}
