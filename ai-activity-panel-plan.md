@@ -26,9 +26,9 @@ This plan adds an **AI Activity panel**: an opt-in, off-by-default view of every
 |---|---|---|---|---|
 | [M1: Core recorder and setting](#m1-core-recorder-and-setting) | Sonnet | ✅ Done | 5 | `53c5cd8` |
 | [M2: Core tests](#m2-core-tests) | Sonnet | ✅ Done | 4 | `5530629`, 18 tests |
-| [M3: Activity panel UI](#m3-activity-panel-ui) | Opus | ✅ Done | 18 | `5214b53`; theme check in real hosts pending hands-on |
+| [M3: Activity panel UI](#m3-activity-panel-ui) | Opus | ✅ Done | 18 | `5214b53` |
 | [M4: Host wiring (VS Code and Desktop)](#m4-host-wiring-vs-code-and-desktop) | Sonnet | ✅ Done | 12 | `a72280b` |
-| [M5: UI tests and hands-on](#m5-ui-tests-and-hands-on) | Sonnet | 🧪 Tests done, hands-on pending | 5 | `85582ff`; Mike walks both hosts at the end |
+| [M5: UI tests and hands-on](#m5-ui-tests-and-hands-on) | Sonnet | ✅ Done | 5 | `85582ff`; hands-on signed off by Mike |
 | [M6: Docs and release notes](#m6-docs-and-release-notes) | Haiku | ✅ Done | 2 | `20f1dbc`; `privacy.ts` needed no change |
 
 ## Table of Contents
@@ -122,7 +122,7 @@ Workers must complete every item in this list.
 - [x] Empty state and the one-line in-memory banner, written plainly: what the panel shows, that nothing is stored or sent anywhere, and that turning the setting off clears it.
 - [x] A pure `formatActivityExport(entries)` function in the same module, producing the plain-text export (headers per request, messages and response verbatim), used by Copy and Save.
 - [x] Entry points in `packages/core/src/editor.ts`: "AI Activity…" in the AI toolbar menu (only when `settings.ai.activityPanel`); the toggle in the Settings modal's AI tab with an "Open" link beside it when on. Opening uses the same modal shell as `mountAiEnginesPage` (see the call near `editor.ts:2449`).
-- [ ] Styles in `packages/core/src/styles/` beside the Engines page CSS; both themes checked in the dev host. (Styles done in `ai.css`, themes checked only on a standalone page with `tokens.css`; the dev host check moves to Mike's hands-on.)
+- [x] Styles in `packages/core/src/styles/` beside the Engines page CSS; both themes checked in the dev host. (Styles done in `ai.css`, themes checked only on a standalone page with `tokens.css`; the dev host check moves to Mike's hands-on.)
 - [x] Lazy-chunk rule: the panel is imported from `ai-ui.ts`, never statically from the editor's main path. Confirm with `packages/core/test/ai-lazy-load.test.ts` still green.
 - [x] `npx tsc -p tsconfig.webview.json --noEmit`, `npm run lint`, `npm run test:unit` green. Commit.
 
@@ -157,8 +157,8 @@ Workers must complete every item in this list.
   - [x] Clear all empties the list; disabling the setting clears it and the panel shows the empty state.
 - [x] Run `npm run test:unit` and `npm run test:edge` green. Commit.
 - [x] **Hands-on (walked by the orchestrator in a throwaway dev host on oMLX, Mike approved the look), VS Code.** Start: `npm run dev` in the repo root (opens `test/workspace`). Open `sample.md`. Toolbar gear > AI tab: the "AI Activity" toggle is off by default; turn it on, an "Open" link appears. Run Rewrite on a paragraph with oMLX or LM Studio. Open AI Activity from the AI toolbar menu: one row; its detail shows the system and user messages and the streamed response; token counts and timing in the footer. Copy, then paste into a text file: matches. Save this request: the save dialog opens in the document's folder with the suggested name; the file content matches. Turn the setting off: the panel clears and the menu entry disappears. Check the `MikeDown AI` output channel still shows one metadata line per request and no prompt text.
-- [ ] **Hands-on (Mike), Desktop.** Quit the installed MikeDown, then `npm run dev` in `packages/desktop`. Same walk as above through the Desktop settings; Save uses the native save dialog. Check both themes.
-- [ ] Orchestrator pauses here for Mike's sign-off before M6. (Mike waived this for this run: M6 goes first, the hands-on pass comes at the end.)
+- [x] **Hands-on (Mike), Desktop.** Quit the installed MikeDown, then `npm run dev` in `packages/desktop`. Same walk as above through the Desktop settings; Save uses the native save dialog. Check both themes.
+- [x] Orchestrator pauses here for Mike's sign-off before M6. (Mike waived this for this run: M6 goes first, the hands-on pass comes at the end.)
 
 [Return to Top](#ai-activity-panel--planning-document)
 
@@ -217,5 +217,7 @@ Workers never spawn agents of their own, and commits carry no AI attribution.
 **2026-11-05 13:14** - M6 done (`20f1dbc`): README, listing, CHANGELOG, follow-ups, Desktop `0.6.0.md` draft. No privacy line says where to look, so `privacy.ts` is unchanged. Final pass on the branch: lint 0 errors, compile green, `test:unit` 3516 pass (exits 1 on the 3 existing `table-editing` errors), `test:edge` 22, `test:packages` 83, Desktop `tsc` and `cargo check` green. Waiting on Mike's hands-on in both hosts; not pushed, not merged to `develop`.
 
 **2026-11-05 15:12** - VS Code walked for real on oMLX with a throwaway profile: toggle, Save, Rewrite, one row with messages, response, tokens and timing; Copy and Save matched; dialog defaulted to the document's folder (VS Code's simple dialog, so the native sheet itself was not exercised); light and dark; off clears and removes the menu entry; output channel metadata only. Streaming live in an open panel was not seen: opening the toolbar menu dismisses the rewrite popover, which cancels, and that shows as a Cancelled row. Desktop TypeScript side walked in the Playwright harness against a mock engine: panel messages equal the wire bytes, Save goes through `write_text`. Real Desktop launched for Mike: native save dialog, WKWebView clipboard and look remain.
+
+**2026-11-05 15:20** - Mike signed off after walking real Desktop. Fast-forwarded `ai-activity-panel` into `develop`, not pushed. Open: Explain and Translate show as "Rewrite selection" in the panel.
 
 [Return to Top](#ai-activity-panel--planning-document)
