@@ -19,7 +19,7 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 |---|---|---|---|---|
 | [M1 Core types, settings, `docs` task, `docsBase` scope](#m1-core-types-settings-docs-task-docsbase-scope) | Sonnet | ✅ Done | 8 | `98707b6` |
 | [M2 Core index model, link graph, keyword fallback, secrets scan](#m2-core-index-model-link-graph-keyword-fallback-secrets-scan) | Sonnet | ✅ Done | 14 | `d3aa708`. Pure TS |
-| [M3 Core tests](#m3-core-tests) | Sonnet | 🔄 In Progress | — | vitest |
+| [M3 Core tests](#m3-core-tests) | Sonnet | ✅ Done | 9 | `4c458a1`. Found and fixed 3 M2 bugs |
 | [M4 Navigation loop and answer call](#m4-navigation-loop-and-answer-call) | Opus | 🔄 In Progress | — | Nuanced prompts |
 | [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | 🔄 In Progress | — | |
 | [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | 🔄 In Progress | — | Rust |
@@ -140,14 +140,14 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 
 **Model:** Sonnet. Mode: unit (vitest), `packages/core/test/ai-docs-*.test.ts`.
 
-- [ ] Schema: clamps, invalid base rejection (relative path, token, file, duplicate), serialize round-trip.
-- [ ] Home precedence per root, including multi-root bases and the map fallback cap.
-- [ ] Link graph: relative links, wikilinks with duplicates, links leaving every root flagged broken.
-- [ ] Keyword ranking is deterministic and heading-weighted.
-- [ ] Secrets scan: each pattern hit, no false positive on ordinary prose with `sk-` in a word, coverage phrase.
-- [ ] Budget: share cut, numbering, coverage note wording, section cap 24 KB.
-- [ ] Citations: unknown numbers dropped, "No sources cited", relative link rewrite, non-cited links and images become plain text.
-- [ ] Privacy: `docsBase` text names the bases; fixture test passes; `npm run test:unit` green.
+- [x] Schema: clamps, invalid base rejection (relative path, token, file, duplicate), serialize round-trip.
+- [x] Home precedence per root, including multi-root bases and the map fallback cap.
+- [x] Link graph: relative links, wikilinks with duplicates, links leaving every root flagged broken.
+- [x] Keyword ranking is deterministic and heading-weighted.
+- [x] Secrets scan: each pattern hit, no false positive on ordinary prose with `sk-` in a word, coverage phrase.
+- [x] Budget: share cut, numbering, coverage note wording, section cap 24 KB.
+- [x] Citations: unknown numbers dropped, "No sources cited", relative link rewrite, non-cited links and images become plain text.
+- [x] Privacy: `docsBase` text names the bases; fixture test passes; `npm run test:unit` green.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
@@ -323,5 +323,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 16:53** - M1 done (`98707b6`). 3586 unit tests pass per the worker; settings, privacy and schema tests re-run by the orchestrator. Chat now shows a working toggle in AI settings that does nothing until M9. Bridge and `consent.rs` forwarding of `baseIds` is left to M5 and M6. M2 dispatched.
 
 **2026-11-05 17:08** - M2 done (`d3aa708`): 151 new tests re-run by the orchestrator, 3694 total per the worker. M3, M4, M5, M6 and M8 dispatched together. The Settings modal entry moves from M5 to M8, which owns the page it opens. M4's `loop.ts` takes the completion runner as a parameter so `ai/` stays pure.
+
+**2026-11-05 17:18** - M3 done (`4c458a1`). Attack tests found and fixed three M2 bugs: a quadratic Insert sanitizer (28 s on 150 KB), `#` and `?` unencoded in citation links, a PEM header re-wrapped across a line break not detected. 4 consent and bridge failures in M5's in-progress files to re-check when M5 lands.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
