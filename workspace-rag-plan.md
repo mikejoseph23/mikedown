@@ -18,13 +18,13 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
 | [M1 Core types, settings, `docs` task, `docsBase` scope](#m1-core-types-settings-docs-task-docsbase-scope) | Sonnet | ✅ Done | 8 | `98707b6` |
-| [M2 Core index model, link graph, keyword fallback, secrets scan](#m2-core-index-model-link-graph-keyword-fallback-secrets-scan) | Sonnet | 🔄 In Progress | — | Pure TS |
-| [M3 Core tests](#m3-core-tests) | Sonnet | ⬜ Not Started | — | vitest |
-| [M4 Navigation loop and answer call](#m4-navigation-loop-and-answer-call) | Opus | ⬜ Not Started | — | Nuanced prompts |
-| [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | ⬜ Not Started | — | |
-| [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | ⬜ Not Started | — | Rust |
+| [M2 Core index model, link graph, keyword fallback, secrets scan](#m2-core-index-model-link-graph-keyword-fallback-secrets-scan) | Sonnet | ✅ Done | 14 | `d3aa708`. Pure TS |
+| [M3 Core tests](#m3-core-tests) | Sonnet | 🔄 In Progress | — | vitest |
+| [M4 Navigation loop and answer call](#m4-navigation-loop-and-answer-call) | Opus | 🔄 In Progress | — | Nuanced prompts |
+| [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | 🔄 In Progress | — | |
+| [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | 🔄 In Progress | — | Rust |
 | [M7 Host tests](#m7-host-tests) | Sonnet | ⬜ Not Started | — | vitest + cargo |
-| [M8 Bases manager page](#m8-bases-manager-page) | Opus | ⬜ Not Started | — | UI |
+| [M8 Bases manager page](#m8-bases-manager-page) | Opus | 🔄 In Progress | — | UI |
 | [M9 Chat panel](#m9-chat-panel) | Opus | ⬜ Not Started | — | UI |
 | [M10 UI tests](#m10-ui-tests) | Sonnet | ⬜ Not Started | — | vitest jsdom |
 | [M11 Hands-on in both hosts](#m11-hands-on-in-both-hosts) | Sonnet | ⬜ Not Started | — | Mike signs off |
@@ -125,14 +125,14 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 
 **Model:** Sonnet. New folder `packages/core/src/ai/docs/` (pure TS, no DOM, no network; the package shape test checks).
 
-- [ ] `index.ts`: `AiDocsIndex` builder from host-supplied `{ id, relPath, title, headings[], links[] }` pages; stable ids (`<root-label>/<rel-path>` and `#<slug>` for sections); dedupe.
-- [ ] `home.ts`: home precedence per root (override, `INDEX.md`, `README.md`, map); map builder capped at 400 entries; "No home document" health state.
-- [ ] `links.ts`: resolve relative links and wikilinks inside the index (decision 14), mark broken links, produce the hop-1 link list capped at 200.
-- [ ] `keyword.ts`: shared ranking for the keyword fallback (headings weighted, top 20) so both hosts return the same order for the same input.
-- [ ] (S7) `secrets.ts`: strict patterns for AWS access keys (`AKIA[0-9A-Z]{16}`), `sk-` style tokens, PEM blocks, JWT-shaped tokens; returns matched section ids and the coverage phrase.
-- [ ] (S9) `caps.ts`: one place for every cap and clamp (5,000 files, 1 MiB, 24 KB section, 200 links, 400 map, hops, share).
-- [ ] `budget.ts`: section numbering and the share-of-context cut with the coverage note, built on `documentBudget.ts`.
-- [ ] `citations.ts`: parse `[n]` from an answer, drop unknown numbers, "No sources cited", and the CommonMark relative-link rewrite for Insert at cursor.
+- [x] `index.ts`: `AiDocsIndex` builder from host-supplied `{ id, relPath, title, headings[], links[] }` pages; stable ids (`<root-label>/<rel-path>` and `#<slug>` for sections); dedupe.
+- [x] `home.ts`: home precedence per root (override, `INDEX.md`, `README.md`, map); map builder capped at 400 entries; "No home document" health state.
+- [x] `links.ts`: resolve relative links and wikilinks inside the index (decision 14), mark broken links, produce the hop-1 link list capped at 200.
+- [x] `keyword.ts`: shared ranking for the keyword fallback (headings weighted, top 20) so both hosts return the same order for the same input.
+- [x] (S7) `secrets.ts`: strict patterns for AWS access keys (`AKIA[0-9A-Z]{16}`), `sk-` style tokens, PEM blocks, JWT-shaped tokens; returns matched section ids and the coverage phrase.
+- [x] (S9) `caps.ts`: one place for every cap and clamp (5,000 files, 1 MiB, 24 KB section, 200 links, 400 map, hops, share).
+- [x] `budget.ts`: section numbering and the share-of-context cut with the coverage note, built on `documentBudget.ts`.
+- [x] `citations.ts`: parse `[n]` from an answer, drop unknown numbers, "No sources cited", and the CommonMark relative-link rewrite for Insert at cursor.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
@@ -321,5 +321,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 16:45** - Orchestration started. Mike: no human approval or testing gates until the end, so M11 sign-off moves after M12 and the plan stays in the root until it is signed. M2 runs before M5 and M6 (they need its ranking, ids and exports), then M3, M4, M5, M6, M8 together. Workers commit on develop, no worktrees. Gaps closed in the worker briefs (`.orchestrator/workspace-rag-plan/prompts/worker-common.md`): route pinning for S6 (`runAiCompletion` falls back mid-call), `enabled` on bases, host methods for saving and picking folders, base ids through the consent wire, hosts validating roots, secrets scan over nav outlines, S1 made explicit in M5, S13 made explicit in M4.
 
 **2026-11-05 16:53** - M1 done (`98707b6`). 3586 unit tests pass per the worker; settings, privacy and schema tests re-run by the orchestrator. Chat now shows a working toggle in AI settings that does nothing until M9. Bridge and `consent.rs` forwarding of `baseIds` is left to M5 and M6. M2 dispatched.
+
+**2026-11-05 17:08** - M2 done (`d3aa708`): 151 new tests re-run by the orchestrator, 3694 total per the worker. M3, M4, M5, M6 and M8 dispatched together. The Settings modal entry moves from M5 to M8, which owns the page it opens. M4's `loop.ts` takes the completion runner as a parameter so `ai/` stays pure.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
