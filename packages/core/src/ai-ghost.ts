@@ -247,12 +247,12 @@ export function createGhostController(deps: GhostControllerDeps): GhostControlle
     };
   }
 
-  /** The first accept of a suggestion: one activity entry, and the footer chip. */
+  /** The first accept of a suggestion: one activity entry (the trimmed text on screen, not the raw stream), and the footer chip. */
   function markAccepted(): void {
     const o = origin;
     if (!o || o.recorded) {return;}
     o.recorded = true;
-    record(entryFor(o, o.raw, null));
+    record(entryFor(o, visible ?? o.raw, null));
     const served = servedOf(o);
     if (served) {
       try { deps.onServed?.(served, o.viaFallback); } catch { /* ignore */ }
