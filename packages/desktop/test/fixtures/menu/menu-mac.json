@@ -413,6 +413,12 @@
             "label": "Translate…"
           },
           {
+            "kind": "item",
+            "id": "aiSuggestContinuation",
+            "label": "Suggest Continuation",
+            "accelerator": "CmdOrCtrl+Alt+Space"
+          },
+          {
             "kind": "separator"
           },
           {

@@ -167,6 +167,18 @@ export interface OutlineSidebar {
 }
 
 /**
+ * A heading's text as the document has it, without an inline suggestion's
+ * widget. Headings here are read from the DOM to compute anchors. Reads a copy:
+ * nothing touches the live editor DOM.
+ */
+export function headingDomText(heading: HTMLElement): string {
+  if (!heading.querySelector('.mikedown-ghost')) {return heading.textContent || '';}
+  const copy = heading.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll('.mikedown-ghost').forEach((n) => n.remove());
+  return copy.textContent || '';
+}
+
+/**
  * Build the sidebar into `opts.sidebarEl` and wire it to `opts.editor`. All
  * state lives in this closure, so two editors on one page keep separate
  * sidebars.
@@ -1084,7 +1096,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     const seen = new Map<string, number>();
     let currentAnchor = '';
     for (const h of headings) {
-      const base = anchorFnRef(h.textContent || '');
+      const base = anchorFnRef(headingDomText(h));
       const count = seen.get(base) ?? 0;
       const anchor = count === 0 ? base : `${base}-${count}`;
       seen.set(base, count + 1);
@@ -1096,7 +1108,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     }
     if (!currentAnchor) {
       const first = headings[0];
-      currentAnchor = anchorFnRef(first.textContent || '');
+      currentAnchor = anchorFnRef(headingDomText(first));
     }
     if (currentAnchor === activeAnchor) {return;}
     activeAnchor = currentAnchor;
@@ -1109,7 +1121,7 @@ export function createOutlineSidebar(opts: InitOptions): OutlineSidebar {
     const headings = editorContainer.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
     const seen = new Map<string, number>();
     for (const h of headings) {
-      const base = anchorFnRef(h.textContent || '');
+      const base = anchorFnRef(headingDomText(h));
       const count = seen.get(base) ?? 0;
       const id = count === 0 ? base : `${base}-${count}`;
       seen.set(base, count + 1);

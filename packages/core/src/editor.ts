@@ -32,15 +32,15 @@ import { ImagePasteExtension, insertImageAt } from './imagepaste';
 import { TableCheckboxExtension } from './tablecheckbox';
 import { HtmlAnchor } from './htmlanchor';
 import { Emoji } from './emoji';
-import { EmojiAutocomplete } from './emojiautocomplete';
+import { EmojiAutocomplete, isEmojiAutocompleteOpen } from './emojiautocomplete';
 import { Highlight } from './highlight';
 import { TagDecorator, setTagsEnabled } from './tag';
-import { TagAutocomplete, receiveTagCandidates, setTagCandidateRequester } from './tagautocomplete';
+import { TagAutocomplete, isTagAutocompleteOpen, receiveTagCandidates, setTagCandidateRequester } from './tagautocomplete';
 import { extractTags } from './shared/tagExtract';
 import { Callout, CALLOUT_KINDS, type CalloutKind } from './callout-node';
 import { Wikilink } from './wikilink-node';
-import { WikilinkAutocomplete, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
-import { SlashCommands, closeSlashMenu, setSlashFrontmatterProvider, setSlashDisableHandler, setSlashHiddenCommands, setSlashSourceMode, setSlashCommandsConfig } from './slashcommands';
+import { WikilinkAutocomplete, isWikilinkAutocompleteOpen, receiveWikilinkCandidates, setWikilinkCandidateRequester } from './wikilinkautocomplete';
+import { SlashCommands, closeSlashMenu, isSlashMenuOpen, setSlashFrontmatterProvider, setSlashDisableHandler, setSlashHiddenCommands, setSlashSourceMode, setSlashCommandsConfig } from './slashcommands';
 import { initSlashCommandActions } from './slashcommands-actions';
 import { AI_SLASH_COMMANDS } from './slashcommands-registry';
 import { MermaidPreview, setMermaidEnabled, refreshMermaidTheme } from './mermaid';
@@ -48,7 +48,7 @@ import { MathInline, MathBlock, setMathRenderingEnabled } from './math';
 import { FootnoteRef, FootnoteDef } from './footnote';
 import { TableOfContents, syncTableOfContents, TOC_DISPLAY_ONLY_META } from './toc-node';
 import { parseTocStyle, type TocStyle } from './toc';
-import { createOutlineSidebar, type OutlineSidebar, type SuggestPropertiesAvailability } from './outlineSidebar';
+import { createOutlineSidebar, headingDomText, type OutlineSidebar, type SuggestPropertiesAvailability } from './outlineSidebar';
 import { FrontmatterHistory, frontmatterAfterTransition, frontmatterEditTransaction } from './frontmatterHistory';
 import { mergePropertySuggestion, type PropertySuggestionPick } from './propertySuggestions';
 import {
@@ -114,6 +114,7 @@ import type { AiActivityLog } from './ai-activity';
 import type { AiActivityPanelHandle } from './ai-activity-panel';
 import type { AiChatPanelHandle } from './ai-chat-panel';
 import type { AiFeatureAvailability, AiRunContext, AiRunOutcome } from './ai-request';
+import type { GhostSession } from './ai-ghost-session';
 import type { AiCursorTarget, AiRewritePopover, AiRewriteBadge, AiRewriteTarget, AiTitleEffect } from './ai-rewrite';
 import type { AiRewriteParams, AiRewriteVariant } from './ai/prompts/rewrite';
 import type {
@@ -695,7 +696,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const headings = container.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
     const seenIds = new Map<string, number>();
     for (const h of headings) {
-      const base = githubAnchorId(h.textContent || '');
+      const base = githubAnchorId(headingDomText(h));
       const count = seenIds.get(base) ?? 0;
       const id = count === 0 ? base : `${base}-${count}`;
       seenIds.set(base, count + 1);
@@ -2346,6 +2347,58 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     }).catch(() => { /* AI stays unavailable; the next entry point tries again */ });
   }
 
+  /** Inline suggestions in this editor: exists only while the feature is on, so off means no plugin, controller or timer. */
+  let aiGhost: GhostSession | null = null;
+  disposers.push(() => {
+    aiGhost?.destroy();
+    aiGhost = null;
+  });
+
+  /** Install or remove inline suggestions to match the settings. Anything else leaves the session alone (its "Don't allow" latch, D9). */
+  function syncAiGhost(): void {
+    const ai = aiHost;
+    const ui = aiUi;
+    if (!ai || !ui || destroyed) {return;}
+    const on = ui.ghostFeatureOn(currentAiSettings);
+    if (on === (aiGhost !== null)) {return;}
+    if (!on) {
+      aiGhost?.destroy();
+      aiGhost = null;
+      return;
+    }
+    aiGhost = ui.createGhostSession({
+      editor,
+      run: (req, events, signal) => ui.runAiCompletion({ ...aiRunContext(ui, ai), activity: undefined }, req, events, signal),
+      settings: () => currentAiSettings,
+      statuses: () => aiStatuses,
+      consent: aiConsent,
+      popupOpen: () => isEmojiAutocompleteOpen() || isWikilinkAutocompleteOpen() || isTagAutocompleteOpen() || isSlashMenuOpen()
+        || isDropdownActive() || isToolbarDropdownOpen() || isEmojiPickerOpen() || !!aiRewrite?.isOpen(),
+      enabled: () => !sourceMode,
+      onBusy: (busy) => { aiGhostBusy = busy; syncAiToolbarBusy(); },
+      onServed: (served, viaFallback) => {
+        aiServed = { served, viaFallback };
+        renderAiIndicator();
+      },
+      record: (entry) => aiActivityLog(ui).record(entry),
+    });
+  }
+
+  /** The manual trigger (the shortcut, the host command, the AI menu). False leaves the key alone. */
+  function startAiGhost(): boolean {
+    if (!aiHost || destroyed || sourceMode || readOnly) {return false;}
+    if (!aiUi) {
+      whenAiUi(() => { startAiGhost(); });
+      return true;
+    }
+    if (!aiGhost) {
+      noteAiFeatureOff('ghostText');
+      return true;
+    }
+    aiGhost.trigger();
+    return true;
+  }
+
   /** First time the AI UI is here: build what needs it and catch up on settings. */
   function onAiUiLoaded(ui: AiUi): void {
     if (aiUi) {return;}
@@ -2362,6 +2415,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   function renderAiIndicator(): void {
+    syncAiGhost();
     syncAiSlashCommands();
     syncAiPropertiesAvailability();
     const ui = aiUi;
@@ -2757,7 +2811,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   /** A launch that finds its feature switched off says so, instead of doing nothing. */
-  function noteAiFeatureOff(feature: 'rewrite' | 'summary' | 'title' | 'frontmatter'): void {
+  function noteAiFeatureOff(feature: 'rewrite' | 'summary' | 'title' | 'frontmatter' | 'ghostText'): void {
     const msg = aiUi?.aiFeatureOffNotice(aiHost, currentAiSettings, feature);
     if (msg) {showTransientToast(msg);}
   }
@@ -2781,10 +2835,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** A request is running in this editor's popover (its `onBusy`). */
   let aiPopoverBusy = false;
+  /** An inline suggestion is streaming (its `onBusy`). */
+  let aiGhostBusy = false;
 
-  /** Whether an AI request runs anywhere in this editor: the popover or the sidebar's Suggest. */
+  /** Whether an AI request runs anywhere in this editor: the popover, the sidebar's Suggest or an inline suggestion. */
   function aiBusy(): boolean {
-    return aiPopoverBusy || propertiesController !== null;
+    return aiPopoverBusy || aiGhostBusy || propertiesController !== null;
   }
 
   /** The toolbar AI button pulses while a request runs (U5); the toolbar's layout does not change. */
@@ -2915,6 +2971,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         : { enabled: true as const };
     const summarize = docEntry('summary');
     const titles = docEntry('title');
+    // Suggest continuation: left out when off, disabled with the router's reason; a failed request's reason shows on it (errors never toast).
+    const ghostState = readOnly ? { state: 'hidden' as const } : ui.ghostAvailability(ai, currentAiSettings, aiStatuses, aiConsent);
+    const ghostReason = aiGhost?.reason();
+    const continuation = ghostState.state === 'hidden' ? null
+      : ghostState.state === 'disabled' ? { enabled: false as const, hint: ghostState.reason }
+        : sourceMode ? { enabled: false as const, hint: 'Not available in source view' }
+          : { enabled: true as const, ...(ghostReason ? { hint: ghostReason } : {}) };
     // Suggest properties needs the sidebar (its chips land there).
     const propsAvailability = outlineSidebar && !readOnly ? aiPropertiesAvailability() : { state: 'hidden' as const };
     const properties = propsAvailability.state === 'hidden' ? null
@@ -2928,6 +2991,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       rewrite,
       explain: selectionEntry(true),
       translate: selectionEntry(false),
+      continuation,
       summarize,
       titles,
       properties,
@@ -2935,7 +2999,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       ...(thinkKind ? { thinking: { choices: ui.thinkingChoices(thinkKind), value: ui.loadThinkingLevel, onChange: ui.rememberThinkingLevel } } : {}),
       canManageEngines: tier2,
       icons: {
-        rewrite: toolbarIcons.rewrite, explain: toolbarIcons.explain, translate: toolbarIcons.translate,
+        rewrite: toolbarIcons.rewrite, explain: toolbarIcons.explain, translate: toolbarIcons.translate, continuation: toolbarIcons.ai,
         summarize: toolbarIcons.toc, titles: toolbarIcons.ai, properties: toolbarIcons.tag, manage: toolbarIcons.gear,
         activity: toolbarIcons.aiActivity,
         chat: toolbarIcons.aiChat,
@@ -2943,6 +3007,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       onRewrite: () => { startAiRewrite(); },
       onExplain: () => { startAiRewrite('explain'); },
       onTranslate: () => { startAiRewrite('translate'); },
+      onSuggestContinuation: () => { startAiGhost(); },
       onSummarize: () => { startAiSummary(); },
       onSuggestTitles: () => { startAiTitles(); },
       onSuggestProperties: () => { startAiPropertySuggestions(); },
@@ -4190,6 +4255,13 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         addKeyboardShortcuts(): Record<string, () => boolean> {
           if (hostOwnsShortcuts) {return {};}
           return { 'Mod-Alt-k': () => startAiRewrite() };
+        },
+      }), Extension.create({
+        // Inline suggestions on demand. A host that owns shortcuts sends the aiSuggestContinuation command instead.
+        name: 'mikedownAiGhostShortcut',
+        addKeyboardShortcuts(): Record<string, () => boolean> {
+          if (hostOwnsShortcuts) {return {};}
+          return { 'Mod-Alt-Space': () => startAiGhost() };
         },
       })] : []),
 
@@ -6535,6 +6607,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function switchToSource(): void {
     if (sourceMode) {return;}
     aiRewrite?.close();
+    aiGhost?.dismiss();
     // Chips apply in rich text only.
     cancelAiPropertySuggestions(true);
 
@@ -7063,6 +7136,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
   /** Rendered HTML of the WYSIWYG surface (export, print, view in browser). */
   function getHtml(): string {
+    // A showing suggestion is a widget in this DOM; only explicit exports call this.
+    aiGhost?.dismiss();
     return editor.view.dom.innerHTML;
   }
 
@@ -7131,7 +7206,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     editor.setEditable(!next, false);
     if (cmView) {cmView.dispatch({ effects: cmReadOnly.reconfigure(EditorState.readOnly.of(next)) });}
     root.classList.toggle('mikedown-readonly', next);
-    if (next) {cancelAiPropertySuggestions(true);}
+    if (next) {
+      aiGhost?.dismiss();
+      cancelAiPropertySuggestions(true);
+    }
     syncAiPropertiesAvailability();
   }
 
@@ -7211,6 +7289,9 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         startAiPropertySuggestions();
         break;
       // The chat panel (a second press goes back to its input).
+      case 'aiSuggestContinuation':
+        startAiGhost();
+        break;
       case 'aiChat':
         showAiChatPanel();
         break;
@@ -7242,6 +7323,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   }
 
   function copyAsRichText(): void {
+    aiGhost?.dismiss();
     const editorEl2 = editor.view.dom;
     if (!navigator.clipboard) {return;}
     (async () => {
@@ -7411,7 +7493,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const seenIds = new Map<string, number>();
     let targetEl: HTMLElement | null = null;
     for (const h of headings) {
-      const base = githubAnchorId(h.textContent || '');
+      const base = githubAnchorId(headingDomText(h));
       const count = seenIds.get(base) ?? 0;
       const id = count === 0 ? base : `${base}-${count}`;
       seenIds.set(base, count + 1);

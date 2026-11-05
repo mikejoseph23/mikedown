@@ -58,7 +58,7 @@ export const EDITOR_COMMANDS = [
   'undo', 'redo', 'pasteWithoutFormatting', 'openFind', 'openFindReplace',
   'zoomIn', 'zoomOut', 'zoomReset',
   'aiRewrite',
-  'aiExplain', 'aiTranslate', 'aiSummarize', 'aiSuggestTitle', 'aiSuggestProperties', 'aiChat',
+  'aiExplain', 'aiTranslate', 'aiSuggestContinuation', 'aiSummarize', 'aiSuggestTitle', 'aiSuggestProperties', 'aiChat',
 ] as const satisfies readonly MikeDownCommand[];
 
 export type EditorCommand = typeof EDITOR_COMMANDS[number];
@@ -167,11 +167,12 @@ export const COMMANDS: readonly ShortcutRow[] = [
   editor('insertImage', 'Image…', undefined, 'richText'),
   editor('openEmojiPicker', 'Emoji…', 'CmdOrCtrl+;', 'richText', 'app'),
   // AI menu (Format > AI): the toolbar AI menu's words and order (U1), no-ops
-  // without AI. Only Rewrite has a chord (core binds it only when the host
-  // does not own shortcuts, so the page handles it here).
+  // without AI. Only Rewrite and Suggest Continuation have a chord (core binds
+  // them only when the host does not own shortcuts, so the page handles them here).
   editor('aiRewrite', 'Rewrite Selection', 'CmdOrCtrl+Alt+K', 'editor', 'app'),
   editor('aiExplain', 'Explain Selection', undefined, 'editor'),
   editor('aiTranslate', 'Translate…', undefined, 'editor'),
+  editor('aiSuggestContinuation', 'Suggest Continuation', 'CmdOrCtrl+Alt+Space', 'richText', 'app'),
   editor('aiSummarize', 'Summarize Document…', undefined, 'always'),
   editor('aiSuggestTitle', 'Suggest Titles…', undefined, 'always'),
   editor('aiSuggestProperties', 'Suggest Properties', undefined, 'always'),
@@ -286,7 +287,7 @@ export function matchesAccelerator(e: KeyLike, accelerator: string, isMac: boole
   const need = requiredModifiers(acc, isMac);
   if (need.meta !== e.metaKey || need.ctrl !== e.ctrlKey) {return false;}
   if (acc.shift !== e.shiftKey || acc.alt !== e.altKey) {return false;}
-  const key = e.key.toLowerCase();
+  const key = e.key === ' ' ? 'space' : e.key.toLowerCase();
   return acc.key === key || acc.key === codeKey(e) || ((acc.alt || acc.shift) && acc.key === physicalKey(e));
 }
 
@@ -346,6 +347,8 @@ function codeKey(e: KeyLike): string {
     case 'Semicolon': return ';';
     case 'Equal': return '=';
     case 'Minus': return '-';
+    // Option+Space types a no-break space on macOS.
+    case 'Space': return 'space';
     default: return '';
   }
 }

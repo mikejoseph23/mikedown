@@ -36,6 +36,7 @@ export const MIKEDOWN_HOTKEYS: MikedownHotkey[] = [
   { command: 'mikedown.redo', label: 'Redo', win: 'ctrl+shift+z', mac: 'cmd+shift+z' },
   // Not Cmd+Shift+K (the plan's pick): that is Toggle Inline Code.
   { command: 'mikedown.ai.rewrite', label: 'Rewrite Selection with AI', win: 'ctrl+alt+k', mac: 'cmd+alt+k' },
+  { command: 'mikedown.ai.suggestContinuation', label: 'Suggest Continuation with AI', win: 'ctrl+alt+space', mac: 'cmd+alt+space' },
 ];
 
 /**
