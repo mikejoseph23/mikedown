@@ -40,7 +40,9 @@ import {
   type AiThinkingLevel,
   type AiThinkingOptions,
 } from './ai';
+import { aiActivityResponse, type AiActivityEntry, type AiActivityLog } from './ai-activity';
 import type {
+  AiCompletionRequest,
   AiCompletionResult,
   AiConsentState,
   AiEngineStatus,
@@ -60,6 +62,8 @@ export interface AiRunContext {
   statuses: () => readonly AiEngineStatus[];
   /** Session consent answers by engine id (grants only are written back). */
   consent: Record<string, boolean | undefined>;
+  /** The editor's activity recorder; every request that is sent is recorded in it (while it is on). */
+  activity?: AiActivityLog;
 }
 
 export interface AiRunRequest {
@@ -196,6 +200,21 @@ function nextRequestId(feature: string): string {
   return `ai-${feature}-${Date.now().toString(36)}-${requestCounter}`;
 }
 
+/** The route as the activity log keeps it. */
+function activityRoute(settings: AiSettings, route: AiRouteOk): NonNullable<AiActivityEntry['route']> {
+  const engine = settings.engines.find((e) => e.id === route.engineId);
+  return { engineId: route.engineId, modelId: route.modelId, label: engine?.name ?? route.engineId, isLocal: route.isLocal, viaFallback: route.viaFallback };
+}
+
+/** The recorder is a side channel: a failure in it never reaches the completion. */
+function openActivity(ctx: AiRunContext, entry: AiActivityEntry): void {
+  try { ctx.activity?.record(entry); } catch { /* ignore */ }
+}
+
+function patchActivity(ctx: AiRunContext, id: string, patch: Parameters<AiActivityLog['update']>[1]): void {
+  try { ctx.activity?.update(id, patch); } catch { /* ignore */ }
+}
+
 /** An unusable route as the error the popover shows. */
 export function routeUnusableError(r: AiRouteUnusable): AiError {
   const map: Partial<Record<AiRouteUnusable['unusable'], AiErrorCode>> = {
@@ -263,29 +282,52 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
     events.onRoute?.(route, thinking?.info ?? null);
     let text = '';
     let gotToken = false;
+    const request: AiCompletionRequest = {
+      requestId: nextRequestId(req.feature),
+      feature: req.feature,
+      task: route?.task ?? req.task ?? resolveAiFeature(ctx.settings().features, req.feature).task,
+      ...(route ? { route: { engineId: route.engineId, modelId: route.modelId } } : {}),
+      messages: req.messages,
+      ...(req.format ? { format: req.format } : {}),
+      ...(maxTokens !== undefined ? { maxTokens } : {}),
+      ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+      ...(thinking?.overrides ? { requestOverrides: thinking.overrides } : {}),
+    };
+    const entryId = request.requestId;
+    openActivity(ctx, {
+      id: entryId,
+      startedAt: Date.now(),
+      endedAt: null,
+      feature: request.feature,
+      task: request.task,
+      route: route ? activityRoute(ctx.settings(), route) : null,
+      thinking: thinking?.info ?? null,
+      request,
+      response: { text: '' },
+      error: null,
+      attempt: retried ? 2 : 1,
+    });
     try {
-      const result = await ctx.ai.complete({
-        requestId: nextRequestId(req.feature),
-        feature: req.feature,
-        task: route?.task ?? req.task ?? resolveAiFeature(ctx.settings().features, req.feature).task,
-        ...(route ? { route: { engineId: route.engineId, modelId: route.modelId } } : {}),
-        messages: req.messages,
-        ...(req.format ? { format: req.format } : {}),
-        ...(maxTokens !== undefined ? { maxTokens } : {}),
-        ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-        ...(thinking?.overrides ? { requestOverrides: thinking.overrides } : {}),
-      }, (delta) => {
+      const result = await ctx.ai.complete(request, (delta) => {
         if (signal.aborted) {return;}
         gotToken = true;
         text += delta;
+        patchActivity(ctx, entryId, { response: { text } });
         events.onToken?.(delta, text);
       }, signal);
+      patchActivity(ctx, entryId, { endedAt: Date.now(), response: aiActivityResponse(result) });
       return { result, route, viaFallback: route?.viaFallback ?? false, thinking: thinking?.info ?? null };
     } catch (err) {
       const e = signal.aborted ? makeAiError('cancelled') : toAiError(err);
+      const retrying = e.code === 'unreachable' && !gotToken && !retried && !!route;
+      patchActivity(ctx, entryId, {
+        endedAt: Date.now(),
+        error: route && !e.engineId && e.code !== 'cancelled' ? { ...e, engineId: route.engineId } : e,
+        ...(retrying ? { retried: true as const } : {}),
+      });
       // The routed engine is down and nothing was shown yet: the host has
       // marked it failed; pass it over and try the fallback once.
-      if (e.code === 'unreachable' && !gotToken && !retried && route) {
+      if (retrying && route) {
         retried = true;
         failed.set(route.engineId, e.message);
         continue;

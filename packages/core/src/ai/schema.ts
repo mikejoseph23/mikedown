@@ -38,7 +38,7 @@ export interface ParseAiSettingsOptions {
 }
 
 /** The top-level keys, without the `ai.` prefix. */
-export const AI_SETTINGS_KEYS = ['enabled', 'allowCloud', 'engines', 'routing', 'features', 'localNetworks', 'showToolbarButton'] as const;
+export const AI_SETTINGS_KEYS = ['enabled', 'allowCloud', 'engines', 'routing', 'features', 'localNetworks', 'showToolbarButton', 'activityPanel'] as const;
 
 export { defaultAiSettings };
 
@@ -108,6 +108,7 @@ export function parseAiSettings(raw: unknown, opts: ParseAiSettingsOptions = {})
   if (typeof source.enabled === 'boolean') {out.enabled = source.enabled;}
   if (typeof source.allowCloud === 'boolean') {out.allowCloud = source.allowCloud;}
   if (typeof source.showToolbarButton === 'boolean') {out.showToolbarButton = source.showToolbarButton;}
+  if (typeof source.activityPanel === 'boolean') {out.activityPanel = source.activityPanel;}
   if (Array.isArray(source.localNetworks)) {
     out.localNetworks = source.localNetworks.filter((n): n is string => typeof n === 'string' && n.trim().length > 0);
   } else if (source.localNetworks !== undefined) {

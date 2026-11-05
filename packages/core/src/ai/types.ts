@@ -165,6 +165,8 @@ export interface AiSettings {
   localNetworks: string[];
   /** The AI button on the toolbar (hosts with AI support only). Default true. */
   showToolbarButton: boolean;
+  /** Record what each AI request sent and received, in memory, and show it in the Activity panel. Default false. */
+  activityPanel: boolean;
 }
 
 // ── Host group ──────────────────────────────────────────────────────────────

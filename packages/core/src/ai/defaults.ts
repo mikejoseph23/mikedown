@@ -15,5 +15,6 @@ export function defaultAiSettings(): AiSettings {
     features: {},
     localNetworks: [...DEFAULT_LOCAL_NETWORKS],
     showToolbarButton: true,
+    activityPanel: false,
   };
 }

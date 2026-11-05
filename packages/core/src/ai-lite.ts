@@ -12,6 +12,11 @@
 
 import type { AiSettings, MikeDownAiHost } from './ai/types';
 
+// Types only: the recorder itself is in the lazy chunk (`ai-ui.ts`).
+export type {
+  AiActivityEntry, AiActivityLog, AiActivityPatch, AiActivityResponse, AiActivityRoute, AiActivityStatus,
+} from './ai-activity';
+
 export type AiUi = typeof import('./ai-ui');
 
 let aiUi: AiUi | null = null;

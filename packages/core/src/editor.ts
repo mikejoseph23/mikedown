@@ -110,7 +110,8 @@ import type { AiEnginesPageHandle, AiEnginesPageSection } from './ai-engines-pag
 import type { AiSettingsSessionOptions } from './ai-settings-session';
 import type { AiFirstRunDetection } from './ai-toolbar';
 import { makeCheckboxRow, makeGroup, makeRow, makeSelectRow, settingsSectionContext } from './settings-rows';
-import type { AiFeatureAvailability, AiRunOutcome } from './ai-request';
+import type { AiActivityLog } from './ai-activity';
+import type { AiFeatureAvailability, AiRunContext, AiRunOutcome } from './ai-request';
 import type { AiCursorTarget, AiRewritePopover, AiRewriteBadge, AiRewriteTarget, AiTitleEffect } from './ai-rewrite';
 import type { AiRewriteParams, AiRewriteVariant } from './ai/prompts/rewrite';
 import type {
@@ -2264,6 +2265,26 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   let aiServed: { served: AiServedBy; viaFallback: boolean } | null = null;
   /** This session's cloud consent answers (grants), shared by every AI request in this editor. */
   const aiConsent: Record<string, boolean | undefined> = {};
+  /**
+   * What this editor's AI requests sent and received (the Activity panel).
+   * Made from the lazily loaded AI UI, so it exists once that has loaded;
+   * `ai.activityPanel` is mirrored into it when it is made and on every
+   * settings broadcast.
+   */
+  let aiActivity: AiActivityLog | null = null;
+
+  /** The one place an AI request's context is built, so no feature can skip the recorder. */
+  function aiRunContext(ui: AiUi, ai: MikeDownAiHost): AiRunContext {
+    aiActivity ??= ui.createAiActivityLog();
+    aiActivity.setEnabled(currentAiSettings.activityPanel);
+    return {
+      ai,
+      settings: () => currentAiSettings,
+      statuses: () => aiStatuses,
+      consent: aiConsent,
+      activity: aiActivity,
+    };
+  }
   /** Pending waiters for a settings echo (the AI tab saving engines before a test). */
   const aiSettingsWaiters = new Set<(s: AiSettings) => void>();
   let aiStatusTimer: number | undefined;
@@ -2336,13 +2357,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       // the two switches it shows by.
       pendingAiSettings = { raw };
       const r = (raw ?? {}) as Partial<AiSettings>;
-      currentAiSettings = { ...currentAiSettings, enabled: r.enabled === true, showToolbarButton: r.showToolbarButton !== false };
+      currentAiSettings = { ...currentAiSettings, enabled: r.enabled === true, showToolbarButton: r.showToolbarButton !== false, activityPanel: r.activityPanel === true };
       refreshAiToolbarButton();
       return;
     }
     // Hosts send parsed settings; parsing again is cheap and keeps a sloppy host safe.
     const before = currentAiSettings;
     currentAiSettings = ui.parseAiSettings(raw, { onWarning: () => { /* the host already warned */ } });
+    aiActivity?.setEnabled(currentAiSettings.activityPanel);
     // A new default or route: the chip shows where the next request goes, not the last one.
     if (aiServed && ui.aiNextRouteChanged(before, currentAiSettings, aiStatuses)) {aiServed = null;}
     for (const waiter of [...aiSettingsWaiters]) {waiter(currentAiSettings);}
@@ -4325,12 +4347,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const ai = aiHost;
     if (!ai) {return null;}
     const popover = ui.createAiRewritePopover({
-      run: (req, events, signal) => ui.runAiCompletion({
-        ai,
-        settings: () => currentAiSettings,
-        statuses: () => aiStatuses,
-        consent: aiConsent,
-      }, req, events, signal),
+      run: (req, events, signal) => ui.runAiCompletion(aiRunContext(ui, ai), req, events, signal),
       badge: aiBadge,
       onServed: (served, viaFallback) => {
         aiServed = { served, viaFallback };
@@ -4592,12 +4609,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     let repairing = false;
     let streamed = '';
     const showRunning = (): void => sidebar.applyPropertySuggestions(null, 'running', repairing ? 'Fixing the answer format…' : badge);
-    const request = (msgs: AiMessage[]): Promise<AiRunOutcome> => ui.runAiCompletion({
-      ai,
-      settings: () => currentAiSettings,
-      statuses: () => aiStatuses,
-      consent: aiConsent,
-    }, {
+    const request = (msgs: AiMessage[]): Promise<AiRunOutcome> => ui.runAiCompletion(aiRunContext(ui, ai), {
       feature: 'frontmatter',
       messages: msgs,
       maxTokens,
