@@ -94,6 +94,12 @@ Fixture: `test/workspace/docs-base/` (the base) and `test/workspace/outside-docs
 - [ ] Repeat 1.4 and 1.5 (secrets scan, injection). Same results.
 - [ ] In a terminal at the repo root: `mv test/workspace/docs-base /tmp/docs-base-moved`. Refresh: "Root not found", the base stays listed. Restore: `mv /tmp/docs-base-moved test/workspace/docs-base`, then `git status` shows it unchanged.
 
+### 2.x Folder dialogs (stubbed in tests)
+
+- [ ] Desktop, Bases: "Choose folder…" adds a folder in one click, with no second prompt.
+- [ ] Desktop: hand-edit `ai.docBases` in the global `settings.json` to add a folder outside `$HOME`, restart. It stays in scope, since it was present at startup.
+- [ ] Desktop: add a root outside `$HOME` while the app is running without using the picker. A native confirmation appears; declining leaves the folder unreadable.
+
 ## 3. Second engine (LM Studio, port 1234)
 
 - [ ] Add LM Studio as an engine and route `docs` to it.

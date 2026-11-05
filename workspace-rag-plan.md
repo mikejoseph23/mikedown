@@ -349,4 +349,6 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 
 **2026-11-05 18:41** - Insert guard done (`7dc33ec`, F1, F4): the boundary is now a walk of the parsed result, 162 tests through the real editor, walk removal makes payloads fail. 317 related tests re-run here. Behaviour change outside Insert: whole-document loads set `preventAutolink`. For Mike: a URL verbatim in a hostile cited page stays live by S8's rule, so a fixed-URL image could still fire on render, though it cannot carry data.
 
+**2026-11-05 18:46** - Host hardening done (`5631ad6`, `0d6985a`, `f2862d4`, `9c0d5ab`, `df7ab29`; F2, F3, F7, F8, F9, watcher). The audit's reproductions re-run here: 9.9 s, 6.6 s and 4.9 s are now under 5 ms. Native dialogs are stubbed in tests, so they are on the hands-on checklist.
+
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
