@@ -19,9 +19,9 @@ Defaults applied: incremental testing, vitest unit tests, hands-on for interacti
 |---|---|---|---|---|
 | M1 Core: prompt, trimming, settings | Sonnet | ✅ Done | 15 | f8daa9a |
 | M2 Core: ghost controller | Sonnet | ✅ Done | 4 | 022937d |
-| M3 Tests: core | Sonnet | 🔄 In Progress | — | vitest, `packages/core/test/` |
+| M3 Tests: core | Sonnet | ✅ Done | 7 | 2ae3bea; 121 tests |
 | M4 UI: decoration plugin, keys, status | Opus | 🔄 In Progress | — | Widget decoration, Tab/Esc, chip |
-| M5 UI: settings, consent, activity | Opus | ⬜ Not Started | — | Feature row knobs, consent-once, recorder |
+| M5 UI: settings, consent, activity | Opus | 🔄 In Progress | — | Feature row knobs, consent-once, recorder |
 | M6 Tests: UI | Sonnet | ⬜ Not Started | — | jsdom editor tests |
 | M7 Hands-on walk (both hosts) | Opus | ⬜ Not Started | — | Mike signs off |
 
@@ -94,13 +94,13 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Sonnet.** Mode: unit (vitest, `packages/core/test/`). Run with `npx vitest run packages/core/test/ai-ghost*.test.ts`.
 
-- [ ] `ai-ghost-prompt.test.ts`: messages carry before and after, no fence, max tokens from the setting.
-- [ ] `ai-ghost-context.test.ts`: long document is cut by budget, last 2400 chars kept verbatim, suffix capped, caret in frontmatter yields nothing.
-- [ ] `ai-ghost-trim.test.ts`: blank-line stop, newline stop mid-block, sentence cut past 120 chars, repeated-prefix discard, word accept, prefix match and mismatch.
-- [ ] `ai-ghost-settings.test.ts`: defaults, clamping, bad types warned and dropped, `serializeAiSettings` round-trips the knobs.
-- [ ] `ai-ghost-router.test.ts`: `localOnly` rejects a cloud route with `cloudBlocked`; a model with neither `fim` nor `chat` is rejected; `fim` preferred among local candidates.
-- [ ] `ai-ghost-controller.test.ts` with fake timers and a fake `run`: idle fires once after 400 ms, keystroke aborts and restarts, manual mode never auto-fires, stop rule aborts the stream, backoff on error, accept records one activity entry and dismiss records none.
-- [ ] All green, `npm run lint` clean, commit.
+- [x] `ai-ghost-prompt.test.ts`: messages carry before and after, no fence, max tokens from the setting.
+- [x] `ai-ghost-context.test.ts`: long document is cut by budget, last 2400 chars kept verbatim, suffix capped, caret in frontmatter yields nothing.
+- [x] `ai-ghost-trim.test.ts`: blank-line stop, newline stop mid-block, sentence cut past 120 chars, repeated-prefix discard, word accept, prefix match and mismatch.
+- [x] `ai-ghost-settings.test.ts`: defaults, clamping, bad types warned and dropped, `serializeAiSettings` round-trips the knobs.
+- [x] `ai-ghost-router.test.ts`: `localOnly` rejects a cloud route with `cloudBlocked`; a model with neither `fim` nor `chat` is rejected; `fim` preferred among local candidates.
+- [x] `ai-ghost-controller.test.ts` with fake timers and a fake `run`: idle fires once after 400 ms, keystroke aborts and restarts, manual mode never auto-fires, stop rule aborts the stream, backoff on error, accept records one activity entry and dismiss records none.
+- [x] All green, `npm run lint` clean, commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -189,5 +189,7 @@ Gap-filling prompts follow the original milestone prompt structure (header, miss
 **2026-11-05 18:36** - Two orchestration refinements of the M2 inputs, neither changing D1 to D13: \`noteChange\` takes a lazy \`read()\` for the markdown and caret offset so the document is serialized when a request is about to fire, not on every keystroke; and a selection move aborts and clears without starting a timer, because D1 triggers only on text changes and a move has no fresh snapshot. M4 is split into a plugin half (M4a, beside M2) and a wiring half (M4b, after M3).
 
 **2026-11-05 18:40** - M2 done (022937d). Controller in `ai-ghost.ts`, `ghostText` default-off in `thinking.ts`. `triggerNow` gained an optional fresh input. `classifyGhostError` reads router sentences because `routeUnusableError` keeps only some codes, so M3 pins it against the real router messages. M3 also corrects the activity entry to hold the shown suggestion rather than the raw stream.
+
+**2026-11-05 18:45** - M3 done (2ae3bea), 121 tests. Discrepancy with D4: the `continue` task has no `prefers`, so `fim` is not a router preference; the chosen route wins, then registry order. Left as is and the test pins it, since with no FIM wire a preference could pick a fim-only model that cannot take the chat prompt. A fim-only model passes `requiresAny` today and would still get a chat request. To raise with Mike at M7.
 
 [Return to Top](#ghost-text-plan)
