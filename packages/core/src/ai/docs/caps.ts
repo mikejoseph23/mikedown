@@ -32,6 +32,24 @@ export const DOCS_KEYWORD_MAX_TERMS = 12;
 /** Headings and links kept per page in the index (defence against one huge file). */
 export const DOCS_MAX_HEADINGS_PER_PAGE = 1000;
 export const DOCS_MAX_LINKS_PER_PAGE = 1000;
+/** Folders read per base while walking; the walk stops at this many and says so in health (S9). */
+export const DOCS_MAX_DIRS = 20_000;
+/** Heading text is cut to this many code points in the index and in sections (same rule on both hosts). */
+export const DOCS_MAX_HEADING_CHARS = 200;
+/** A link target is cut to this many code points in the index. */
+export const DOCS_MAX_LINK_TARGET_CHARS = 500;
+/**
+ * How far (UTF-16 units) the link scanner looks for the end of a `<...>`
+ * destination or a quoted title. A link whose destination or title does not
+ * end within it is not a link. Link text is bounded by the same 300 as before.
+ */
+export const DOCS_LINK_SCAN_UNITS = 1000;
+/** Link text between the brackets, in UTF-16 units (longer is not a link). */
+export const DOCS_LINK_TEXT_UNITS = 300;
+/** Milliseconds one base's walk and index may take; past it the build ends and health says so (S9). */
+export const DOCS_BUILD_BUDGET_MS = 30_000;
+/** Candidate pages looked at while counting broken wikilinks, per base; past it the count stops (a lower bound). */
+export const DOCS_MAX_LINK_WORK = 5_000_000;
 /** Ids taken from one navigation reply; the rest are dropped and counted. Model output is hostile. */
 export const DOCS_MAX_READ_IDS_PER_HOP = 20;
 /** Characters of index text in one navigation prompt, whatever the route's context (several roots of 400 map entries add up). */

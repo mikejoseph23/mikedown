@@ -57,6 +57,29 @@ describe('docs fixtures: sections', () => {
   }
 });
 
+describe('docs fixtures: per-page limits', () => {
+  const f = load('limits.json');
+  it('headings past the 1000th are text of the 1000th section', () => {
+    const c = f.manyHeadings;
+    const md = Array.from({ length: c.count }, (_, n) => c.line.replace('{n}', String(n))).join('');
+    const sections = splitDocsSections(md);
+    expect(sections).toHaveLength(c.sections);
+    const last = sections[sections.length - 1];
+    expect(last.heading?.slug).toBe(c.lastSlug);
+    expect(last.heading?.text).toBe(c.lastHeading);
+    expect(last.text.endsWith(c.lastTextTail)).toBe(true);
+  });
+  it('heading text is cut to 200 code points before the slug', () => {
+    const c = f.longHeading;
+    const s = splitDocsSections(`# ${c.char.repeat(c.length)}\nbody\n`);
+    expect(s[0].heading?.text.length).toBe(c.textLength);
+    expect(s[0].heading?.slug.length).toBe(c.slugLength);
+    const w = f.longHeadingWide;
+    const t = splitDocsSections(`# ${w.char.repeat(w.length)}\n`)[0].heading?.text ?? '';
+    expect(Array.from(t)).toHaveLength(w.textCodePoints);
+  });
+});
+
 describe('docs fixtures: keyword ranking', () => {
   const f = load('keyword.json');
   for (const c of f.terms) {it(`terms of ${JSON.stringify(c.query)}`, () => expect(keywordTerms(c.query)).toEqual(c.terms));}

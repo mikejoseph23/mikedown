@@ -1,0 +1,70 @@
+{
+  "description": "isUtf8Text (src/ai/docsHost.ts) and is_utf8_text (packages/desktop/src-tauri/src/commands/docs/rules.rs): bytes as hex; text is whether the file is indexed. Reason text for a refusal: 'not UTF-8 text'.",
+  "cases": [
+    {
+      "name": "plain ASCII",
+      "hex": "23206869",
+      "text": true
+    },
+    {
+      "name": "UTF-8 with a byte order mark",
+      "hex": "efbbbf23206869",
+      "text": true
+    },
+    {
+      "name": "UTF-8 multibyte",
+      "hex": "23c3a9e282ac",
+      "text": true
+    },
+    {
+      "name": "empty",
+      "hex": "",
+      "text": true
+    },
+    {
+      "name": "UTF-16 LE with a byte order mark",
+      "hex": "fffe230020006800",
+      "text": false
+    },
+    {
+      "name": "UTF-16 BE with a byte order mark",
+      "hex": "feff002300200068",
+      "text": false
+    },
+    {
+      "name": "UTF-32 LE with a byte order mark",
+      "hex": "fffe0000230000002000000068000000",
+      "text": false
+    },
+    {
+      "name": "UTF-32 BE with a byte order mark",
+      "hex": "0000feff000000230000002000000068",
+      "text": false
+    },
+    {
+      "name": "UTF-16 LE without a byte order mark",
+      "hex": "41004b0049004100",
+      "text": false
+    },
+    {
+      "name": "a NUL byte in the middle",
+      "hex": "6162006364",
+      "text": false
+    },
+    {
+      "name": "a NUL byte at the end",
+      "hex": "61626300",
+      "text": false
+    },
+    {
+      "name": "a lone FF byte is not a byte order mark",
+      "hex": "ff41",
+      "text": true
+    },
+    {
+      "name": "invalid UTF-8 without NUL is still text (decoded lossily)",
+      "hex": "2361e2",
+      "text": true
+    }
+  ]
+}

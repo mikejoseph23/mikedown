@@ -1,0 +1,22 @@
+{
+  "description": "Per-page limits shared by splitDocsSections (packages/core/src/ai/docs/sections.ts) and split_sections (Rust): headings beyond the 1000th are text of the 1000th section, heading text is cut to 200 code points before the slug. Compact, so both hosts build the input.",
+  "manyHeadings": {
+    "count": 1005,
+    "line": "# h{n}\n",
+    "sections": 1000,
+    "lastSlug": "h999",
+    "lastHeading": "h999",
+    "lastTextTail": "# h1004\n"
+  },
+  "longHeading": {
+    "char": "a",
+    "length": 250,
+    "textLength": 200,
+    "slugLength": 200
+  },
+  "longHeadingWide": {
+    "char": "😀",
+    "length": 250,
+    "textCodePoints": 200
+  }
+}

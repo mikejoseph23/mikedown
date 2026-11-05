@@ -49,6 +49,13 @@
  * This equals GitHub's anchor for ASCII headings without odd collisions. Link
  * fragments are also matched against GitHub's anchor (`links.ts`).
  *
+ * LIMITS (S9, the same on both hosts; `caps.ts`). A page keeps its first 1000
+ * headings, and a heading's text is cut to its first 200 code points BEFORE
+ * the slug is made, in the index and in `splitDocsSections` alike, so ids
+ * agree. A link target is cut to its first 500 code points (`extractDocsLinks`).
+ * Duplicate suffixes are handed out from a counter per base slug (same result
+ * as "smallest unused suffix", in linear time).
+ *
  * ORDER. `buildDocsIndex` sorts pages by root order, then rel path by code
  * point, so the same files give the same index on both hosts.
  */
@@ -57,11 +64,12 @@ import { githubAnchorId } from '../../shared/anchoring';
 import type { AiDocsHeading, AiDocsIndex, AiDocsLink, AiDocsPage } from '../types';
 import {
   DOCS_MAX_FILES,
+  DOCS_MAX_HEADING_CHARS,
   DOCS_MAX_HEADINGS_PER_PAGE,
   DOCS_MAX_LINKS_PER_PAGE,
 } from './caps';
 import { chooseDocsHomes } from './home';
-import { cmpCodePoints, foldAscii, isAsciiAlnum, isDocsSpace } from './util';
+import { clipCodePoints, cmpCodePoints, foldAscii, isAsciiAlnum, isDocsSpace } from './util';
 
 // ── Root labels ─────────────────────────────────────────────────────────────
 
@@ -113,14 +121,27 @@ export function docsSlug(text: string): string {
 
 /** Unique slugs for a page's heading texts, in document order. */
 export function docsSlugs(texts: readonly string[]): string[] {
+  // `used` only grows, so for a base slug every suffix below the one last handed out is still taken:
+  // each base resumes from its own counter, which keeps the work linear (restarting at 1 was quadratic).
   const used = new Set<string>();
+  const next = new Map<string, number>();
   return texts.map((text) => {
     const base = docsSlug(text);
     let slug = base;
-    for (let n = 1; used.has(slug); n++) {slug = `${base}-${n}`;}
+    if (used.has(slug)) {
+      let n = next.get(base) ?? 1;
+      while (used.has(`${base}-${n}`)) {n++;}
+      slug = `${base}-${n}`;
+      next.set(base, n + 1);
+    }
     used.add(slug);
     return slug;
   });
+}
+
+/** Heading text as the index and the sections keep it: at most `DOCS_MAX_HEADING_CHARS` code points. */
+export function clipDocsHeading(text: string): string {
+  return clipCodePoints(text, DOCS_MAX_HEADING_CHARS);
 }
 
 /** GitHub's anchor for each heading text, with its `-1`, `-2` suffixes (used to match link fragments). */
@@ -219,7 +240,8 @@ export interface AiDocsIndexInput {
 function buildPage(input: AiDocsPageInput, id: string): AiDocsPage {
   const headingInputs = input.headings
     .filter((h) => typeof h.text === 'string' && h.text.trim() !== '')
-    .slice(0, DOCS_MAX_HEADINGS_PER_PAGE);
+    .slice(0, DOCS_MAX_HEADINGS_PER_PAGE)
+    .map((h) => ({ level: h.level, text: clipDocsHeading(h.text) }));
   const slugs = docsSlugs(headingInputs.map((h) => h.text));
   const headings: AiDocsHeading[] = headingInputs.map((h, i) => ({
     id: docsSectionId(id, slugs[i]),

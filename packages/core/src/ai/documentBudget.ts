@@ -44,7 +44,43 @@ interface Line {
 }
 
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
-const HEADING = /^ {0,3}(#{1,6})[ \t]+(.*?)[ \t]*$/;
+/**
+ * An ATX heading line: `^ {0,3}(#{1,6})[ \t]+(.*?)[ \t]*$`, walked by hand so a
+ * long run of blanks cannot make it quadratic (a regex with a lazy group before
+ * `[ \t]*$` retries at every blank). `.` does not match `\r`, U+2028 or U+2029,
+ * so a line holding one after the blanks is not a heading. `raw` is the text with
+ * the blanks around it removed and the closing `#`s still on.
+ */
+function parseHeadingLine(line: string): { level: number; raw: string } | null {
+  let i = 0;
+  while (i < 3 && line.charCodeAt(i) === 0x20) {i++;}
+  let j = i;
+  while (j < line.length && line.charCodeAt(j) === 0x23) {j++;}
+  const level = j - i;
+  if (level < 1 || level > 6) {return null;}
+  let k = j;
+  while (k < line.length && (line.charCodeAt(k) === 0x20 || line.charCodeAt(k) === 0x09)) {k++;}
+  if (k === j) {return null;}
+  for (let p = k; p < line.length; p++) {
+    const c = line.charCodeAt(p);
+    if (c === 0x0d || c === 0x2028 || c === 0x2029) {return null;}
+  }
+  let end = line.length;
+  while (end > k && (line.charCodeAt(end - 1) === 0x20 || line.charCodeAt(end - 1) === 0x09)) {end--;}
+  return { level, raw: line.slice(k, end) };
+}
+
+/** `raw.replace(/[ \t]+#+$/, '').trim()`: the closing `#`s (after a blank) removed. */
+function headingText(raw: string): string {
+  let e = raw.length;
+  while (e > 0 && raw.charCodeAt(e - 1) === 0x23) {e--;}
+  let text = raw;
+  if (e < raw.length && e > 0 && (raw.charCodeAt(e - 1) === 0x20 || raw.charCodeAt(e - 1) === 0x09)) {
+    while (e > 0 && (raw.charCodeAt(e - 1) === 0x20 || raw.charCodeAt(e - 1) === 0x09)) {e--;}
+    text = raw.slice(0, e);
+  }
+  return text.trim();
+}
 const FRONTMATTER = /^---[ \t]*\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/;
 
 function frontmatterEnd(markdown: string): number {
@@ -93,24 +129,27 @@ export interface HeadingWithOffsets extends HeadingOutlineEntry {
   end: number;
 }
 
-/** Heading levels, texts and line offsets, skipping frontmatter and fenced code. */
-export function headingsWithOffsets(markdown: string): HeadingWithOffsets[] {
+/**
+ * Heading levels, texts and line offsets, skipping frontmatter and fenced code.
+ * `limit` stops after that many headings (the documentation index keeps 1000).
+ */
+export function headingsWithOffsets(markdown: string, limit: number = Infinity): HeadingWithOffsets[] {
   const lines = splitLines(markdown, frontmatterEnd(markdown));
   const mask = fenceMask(lines);
   const out: HeadingWithOffsets[] = [];
-  lines.forEach((line, i) => {
-    if (mask[i]) {return;}
-    const m = HEADING.exec(line.text);
-    if (!m) {return;}
-    const text = m[2].replace(/[ \t]+#+$/, '').trim();
-    if (text) {out.push({ level: m[1].length, text, start: line.start, end: i + 1 < lines.length ? lines[i + 1].start : markdown.length });}
-  });
+  for (let i = 0; i < lines.length && out.length < limit; i++) {
+    if (mask[i]) {continue;}
+    const m = parseHeadingLine(lines[i].text);
+    if (!m) {continue;}
+    const text = headingText(m.raw);
+    if (text) {out.push({ level: m.level, text, start: lines[i].start, end: i + 1 < lines.length ? lines[i + 1].start : markdown.length });}
+  }
   return out;
 }
 
-/** Heading levels and texts, skipping frontmatter and fenced code. */
-export function headingsOutline(markdown: string): HeadingOutlineEntry[] {
-  return headingsWithOffsets(markdown).map(({ level, text }) => ({ level, text }));
+/** Heading levels and texts, skipping frontmatter and fenced code. `limit` as in `headingsWithOffsets`. */
+export function headingsOutline(markdown: string, limit: number = Infinity): HeadingOutlineEntry[] {
+  return headingsWithOffsets(markdown, limit).map(({ level, text }) => ({ level, text }));
 }
 
 /** Offset just past the leading frontmatter block (0 when there is none). */
@@ -123,7 +162,7 @@ function sectionStarts(markdown: string, lines: readonly Line[], mask: readonly 
   const starts = [0];
   const bodyStart = lines.length > 0 ? lines[0].start : markdown.length;
   lines.forEach((line, i) => {
-    if (mask[i] || !HEADING.test(line.text)) {return;}
+    if (mask[i] || parseHeadingLine(line.text) === null) {return;}
     // A heading with nothing before it (apart from frontmatter) opens section 0.
     if (markdown.slice(bodyStart, line.start).trim() === '') {return;}
     starts.push(line.start);

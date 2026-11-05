@@ -93,6 +93,19 @@ export function cutUtf8(text: string, maxBytes: number): string {
   return text;
 }
 
+/**
+ * The first `max` code points of `text` (the whole text when it has no more).
+ * A surrogate pair counts as one and is never cut. Rust takes `chars().take(max)`.
+ */
+export function clipCodePoints(text: string, max: number): string {
+  if (text.length <= max) {return text;}
+  let i = 0;
+  for (let n = 0; n < max && i < text.length; n++) {
+    i += (text.codePointAt(i) as number) > 0xffff ? 2 : 1;
+  }
+  return text.slice(0, i);
+}
+
 /** `1 section`, `3 sections`. */
 export function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;

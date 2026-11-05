@@ -30,7 +30,7 @@
  */
 
 import type { AiDocsIndex, AiDocsLink, AiDocsPage } from '../types';
-import { DOCS_MAX_LINKS } from './caps';
+import { DOCS_MAX_LINK_WORK, DOCS_MAX_LINKS } from './caps';
 import { docsFileStem, docsPageId, githubAnchors } from './index';
 import { cmpCodePoints, foldAscii } from './util';
 
@@ -55,8 +55,16 @@ export interface AiDocsResolvedLink {
 
 export interface DocsLinkResolver {
   resolve(fromPageId: string, link: AiDocsLink): AiDocsResolvedLink;
-  /** Links that are `broken`, over every page of the index. */
+  /**
+   * Links that are `broken`, over every page of the index. The work on
+   * wikilinks is bounded (`DOCS_MAX_LINK_WORK` candidate pages); past it the
+   * count stops, so it is a lower bound for a hostile base.
+   */
   countBroken(): number;
+  /** Broken links on one page, for a host that counts a page at a time and yields between pages. Shares the work bound. */
+  countBrokenOn(pageId: string): number;
+  /** The wikilink work bound was hit, so `countBroken` is a lower bound. */
+  workExceeded(): boolean;
 }
 
 const SCHEME = /^[A-Za-z][A-Za-z0-9+.-]+:/;
@@ -103,31 +111,71 @@ export function rankDocsWikilinkCandidates(fromPageId: string, candidateIds: rea
   });
 }
 
+/** Is candidate `a` nearer to the linking page than `b`? The comparator of `rankDocsWikilinkCandidates`, on parts split once. */
+interface Cand {
+  id: string;
+  folder: string;
+  parts: string[];
+}
+
+function nearer(fromFolder: string, fromParts: readonly string[], a: Cand, b: Cand): boolean {
+  const sa = a.folder === fromFolder ? 0 : 1;
+  const sb = b.folder === fromFolder ? 0 : 1;
+  if (sa !== sb) {return sa < sb;}
+  const da = hopsParts(fromParts, a.parts);
+  const db = hopsParts(fromParts, b.parts);
+  if (da !== db) {return da < db;}
+  if (a.id.length !== b.id.length) {return a.id.length < b.id.length;}
+  return cmpCodePoints(a.id, b.id) < 0;
+}
+
+function hopsParts(fromParts: readonly string[], candParts: readonly string[]): number {
+  let common = 0;
+  while (common < fromParts.length && common < candParts.length - 1 && fromParts[common] === candParts[common]) {common++;}
+  return fromParts.length - common + (candParts.length - common);
+}
+
 export function createDocsLinkResolver(index: Pick<AiDocsIndex, 'pages'>): DocsLinkResolver {
   const byId = new Map<string, AiDocsPage>();
-  const byStem = new Map<string, AiDocsPage[]>();
-  const anchors = new Map<string, string[]>();
+  const byStem = new Map<string, Array<Cand & { page: AiDocsPage; path: string }>>();
+  /** Heading slug and GitHub anchor to the first heading that has it, per page, built when a link first needs them. */
+  const slugAt = new Map<string, Map<string, number>>();
+  const anchorAt = new Map<string, Map<string, number>>();
+  /** Nearest page per (linking folder, wikilink name): the ranking depends on nothing else. */
+  const nearest = new Map<string, { page: AiDocsPage | null; count: number }>();
+  let work = 0;
+  let exceeded = false;
   for (const p of index.pages) {
     byId.set(p.id, p);
     const stem = foldAscii(docsFileStem(p.relPath));
+    const parts = p.id.split('/');
+    const entry = { id: p.id, folder: p.id.slice(0, p.id.lastIndexOf('/')), parts, page: p, path: `/${foldAscii(p.relPath)}`.replace(/\.(?:md|markdown)$/, '') };
     const list = byStem.get(stem);
-    if (list) {list.push(p);} else {byStem.set(stem, [p]);}
+    if (list) {list.push(entry);} else {byStem.set(stem, [entry]);}
+  }
+
+  function firstIndex(map: Map<string, Map<string, number>>, page: AiDocsPage, keys: () => string[]): Map<string, number> {
+    let m = map.get(page.id);
+    if (!m) {
+      m = new Map();
+      keys().forEach((k, i) => {
+        if (!m?.has(k)) {m?.set(k, i);}
+      });
+      map.set(page.id, m);
+    }
+    return m;
   }
 
   function matchFragment(page: AiDocsPage, rawFragment: string): string | null {
     if (rawFragment === '') {return null;}
     const fragment = safeDecode(rawFragment);
     const folded = foldAscii(fragment);
-    for (const h of page.headings) {
-      if (h.slug === fragment || h.slug === folded) {return h.id;}
-    }
-    let gh = anchors.get(page.id);
-    if (!gh) {
-      gh = githubAnchors(page.headings.map((h) => h.text));
-      anchors.set(page.id, gh);
-    }
-    const at = gh.findIndex((a) => a === fragment || a === folded);
-    return at >= 0 ? page.headings[at].id : null;
+    const slugs = firstIndex(slugAt, page, () => page.headings.map((h) => h.slug));
+    const bySlug = Math.min(slugs.get(fragment) ?? Infinity, slugs.get(folded) ?? Infinity);
+    if (bySlug !== Infinity) {return page.headings[bySlug].id;}
+    const anchors = firstIndex(anchorAt, page, () => githubAnchors(page.headings.map((h) => h.text)));
+    const byAnchor = Math.min(anchors.get(fragment) ?? Infinity, anchors.get(folded) ?? Infinity);
+    return byAnchor !== Infinity ? page.headings[byAnchor].id : null;
   }
 
   function landing(base: AiDocsResolvedLink, page: AiDocsPage, fragment: string): AiDocsResolvedLink {
@@ -169,6 +217,31 @@ export function createDocsLinkResolver(index: Pick<AiDocsIndex, 'pages'>): DocsL
     return landing(base, page, fragment);
   }
 
+  /** The page nearest to `from` among those named `wanted` (a folded name, maybe with folders), and how many matched. */
+  function nearestPage(from: AiDocsPage, wanted: string): { page: AiDocsPage | null; count: number } {
+    const folder = from.id.slice(0, from.id.lastIndexOf('/'));
+    const key = `${folder}\u0000${wanted}`;
+    const hit = nearest.get(key);
+    if (hit) {return hit;}
+    const stem = wanted.slice(wanted.lastIndexOf('/') + 1);
+    const suffix = wanted.includes('/') ? `/${wanted.replace(/^\/+/, '')}` : '';
+    const list = byStem.get(stem) ?? [];
+    work += list.length;
+    if (work > DOCS_MAX_LINK_WORK) {exceeded = true;}
+    const fromParts = from.id.split('/');
+    fromParts.pop();
+    let best: (typeof list)[number] | null = null;
+    let count = 0;
+    for (const c of list) {
+      if (suffix !== '' && !c.path.endsWith(suffix)) {continue;}
+      count++;
+      if (best === null || nearer(folder, fromParts, c, best)) {best = c;}
+    }
+    const out = { page: best ? best.page : null, count };
+    nearest.set(key, out);
+    return out;
+  }
+
   function resolveWikilink(from: AiDocsPage, link: AiDocsLink): AiDocsResolvedLink {
     const base: AiDocsResolvedLink = { text: link.text, target: link.target, kind: link.kind, status: 'broken' };
     let name = link.target.trim();
@@ -180,19 +253,10 @@ export function createDocsLinkResolver(index: Pick<AiDocsIndex, 'pages'>): DocsL
     name = name.trim();
     if (name === '') {return landing(base, from, fragment);}
     const wanted = foldAscii(name.replace(/\\/g, '/').replace(/\.(?:md|markdown)$/i, ''));
-    const stem = wanted.slice(wanted.lastIndexOf('/') + 1);
-    const suffix = wanted.includes('/') ? `/${wanted.replace(/^\/+/, '')}` : '';
-    const matches = (byStem.get(stem) ?? []).filter((p) => {
-      if (suffix === '') {return true;}
-      const path = `/${foldAscii(p.relPath)}`;
-      const noExt = path.replace(/\.(?:md|markdown)$/, '');
-      return noExt.endsWith(suffix);
-    });
-    if (matches.length === 0) {return { ...base, reason: 'not-found' };}
-    const ranked = rankDocsWikilinkCandidates(from.id, matches.map((p) => p.id));
-    const page = byId.get(ranked[0]) as AiDocsPage;
+    const { page, count } = nearestPage(from, wanted);
+    if (page === null) {return { ...base, reason: 'not-found' };}
     const out = landing(base, page, fragment);
-    out.candidates = matches.length;
+    out.candidates = count;
     return out;
   }
 
@@ -202,15 +266,25 @@ export function createDocsLinkResolver(index: Pick<AiDocsIndex, 'pages'>): DocsL
       if (!from) {return { text: link.text, target: link.target, kind: link.kind, status: 'broken', reason: 'not-found' };}
       return link.kind === 'wikilink' ? resolveWikilink(from, link) : resolveMarkdown(from, link);
     },
-    countBroken() {
+    countBrokenOn(pageId) {
+      const p = byId.get(pageId);
+      if (!p) {return 0;}
       let n = 0;
-      for (const p of index.pages) {
-        for (const l of p.links) {
-          if (resolver.resolve(p.id, l).status === 'broken') {n++;}
-        }
+      for (const l of p.links) {
+        if (exceeded) {break;}
+        if (resolver.resolve(p.id, l).status === 'broken') {n++;}
       }
       return n;
     },
+    countBroken() {
+      let n = 0;
+      for (const p of index.pages) {
+        if (exceeded) {break;}
+        n += resolver.countBrokenOn(p.id);
+      }
+      return n;
+    },
+    workExceeded: () => exceeded,
   };
   return resolver;
 }

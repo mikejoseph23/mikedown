@@ -1,28 +1,205 @@
 {
   "description": "Heading slugs. 'slug': one heading text to its base slug (docsSlug). 'pages': the heading texts of one page in order to the unique slugs (docsSlugs). Rules are in the header of packages/core/src/ai/docs/index.ts.",
   "slug": [
-    { "text": "Key rotation", "slug": "key-rotation" },
-    { "text": "Memory & Hardware", "slug": "memory--hardware" },
-    { "text": "UD-", "slug": "ud-" },
-    { "text": "What's new in v2.0?", "slug": "whats-new-in-v20" },
-    { "text": "snake_case and CamelCase", "slug": "snake_case-and-camelcase" },
-    { "text": "Tab\tSeparated", "slug": "tab-separated" },
-    { "text": "Two  spaces", "slug": "two--spaces" },
-    { "text": "Non\u00a0breaking", "slug": "non-breaking" },
-    { "text": "Café", "slug": "café" },
-    { "text": "CAFÉ", "slug": "cafÉ" },
-    { "text": "日本語の見出し", "slug": "日本語の見出し" },
-    { "text": "Emoji \ud83d\ude80 launch", "slug": "emoji-\ud83d\ude80-launch" },
-    { "text": "???", "slug": "section" },
-    { "text": "`code` and [link](x)", "slug": "code-and-linkx" },
-    { "text": "İstanbul", "slug": "İstanbul" },
-    { "text": "A.B.C", "slug": "abc" }
+    {
+      "text": "Key rotation",
+      "slug": "key-rotation"
+    },
+    {
+      "text": "Memory & Hardware",
+      "slug": "memory--hardware"
+    },
+    {
+      "text": "UD-",
+      "slug": "ud-"
+    },
+    {
+      "text": "What's new in v2.0?",
+      "slug": "whats-new-in-v20"
+    },
+    {
+      "text": "snake_case and CamelCase",
+      "slug": "snake_case-and-camelcase"
+    },
+    {
+      "text": "Tab\tSeparated",
+      "slug": "tab-separated"
+    },
+    {
+      "text": "Two  spaces",
+      "slug": "two--spaces"
+    },
+    {
+      "text": "Non breaking",
+      "slug": "non-breaking"
+    },
+    {
+      "text": "Café",
+      "slug": "café"
+    },
+    {
+      "text": "CAFÉ",
+      "slug": "cafÉ"
+    },
+    {
+      "text": "日本語の見出し",
+      "slug": "日本語の見出し"
+    },
+    {
+      "text": "Emoji 🚀 launch",
+      "slug": "emoji-🚀-launch"
+    },
+    {
+      "text": "???",
+      "slug": "section"
+    },
+    {
+      "text": "`code` and [link](x)",
+      "slug": "code-and-linkx"
+    },
+    {
+      "text": "İstanbul",
+      "slug": "İstanbul"
+    },
+    {
+      "text": "A.B.C",
+      "slug": "abc"
+    }
   ],
   "pages": [
-    { "headings": ["Setup", "Usage", "Setup", "Setup"], "slugs": ["setup", "usage", "setup-1", "setup-2"] },
-    { "headings": ["Setup", "Setup", "Setup 1", "Setup 1"], "slugs": ["setup", "setup-1", "setup-1-1", "setup-1-2"] },
-    { "headings": ["???", "!!!", "Intro"], "slugs": ["section", "section-1", "intro"] },
-    { "headings": ["Café", "CAFÉ", "café"], "slugs": ["café", "cafÉ", "café-1"] },
-    { "headings": [], "slugs": [] }
+    {
+      "headings": [
+        "Setup",
+        "Usage",
+        "Setup",
+        "Setup"
+      ],
+      "slugs": [
+        "setup",
+        "usage",
+        "setup-1",
+        "setup-2"
+      ]
+    },
+    {
+      "headings": [
+        "Setup",
+        "Setup",
+        "Setup 1",
+        "Setup 1"
+      ],
+      "slugs": [
+        "setup",
+        "setup-1",
+        "setup-1-1",
+        "setup-1-2"
+      ]
+    },
+    {
+      "headings": [
+        "???",
+        "!!!",
+        "Intro"
+      ],
+      "slugs": [
+        "section",
+        "section-1",
+        "intro"
+      ]
+    },
+    {
+      "headings": [
+        "Café",
+        "CAFÉ",
+        "café"
+      ],
+      "slugs": [
+        "café",
+        "cafÉ",
+        "café-1"
+      ]
+    },
+    {
+      "headings": [],
+      "slugs": []
+    },
+    {
+      "headings": [
+        "a",
+        "a",
+        "a-1",
+        "a",
+        "a-1",
+        "a-2",
+        "a",
+        "A"
+      ],
+      "slugs": [
+        "a",
+        "a-1",
+        "a-1-1",
+        "a-2",
+        "a-1-2",
+        "a-2-1",
+        "a-3",
+        "a-4"
+      ]
+    },
+    {
+      "headings": [
+        "Setup",
+        "Setup",
+        "Setup 1",
+        "Setup",
+        "setup-2",
+        "Setup"
+      ],
+      "slugs": [
+        "setup",
+        "setup-1",
+        "setup-1-1",
+        "setup-2",
+        "setup-2-1",
+        "setup-3"
+      ]
+    },
+    {
+      "headings": [
+        "x",
+        "x-1",
+        "x",
+        "x",
+        "x-1-1",
+        "x-1",
+        "x-1"
+      ],
+      "slugs": [
+        "x",
+        "x-1",
+        "x-2",
+        "x-3",
+        "x-1-1",
+        "x-1-2",
+        "x-1-3"
+      ]
+    },
+    {
+      "headings": [
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a"
+      ],
+      "slugs": [
+        "a",
+        "a-1",
+        "a-2",
+        "a-3",
+        "a-4",
+        "a-5"
+      ]
+    }
   ]
 }

@@ -15,12 +15,17 @@
  *     the file has no heading at all and is not blank). A file that opens
  *     with a heading has no preamble, and its frontmatter belongs to no
  *     section (it is still in a whole-page read).
+ *   - Only the first 1000 headings (`DOCS_MAX_HEADINGS_PER_PAGE`) open a section;
+ *     a heading after that is ordinary text of the 1000th section. A heading's
+ *     text is cut to its first 200 code points (`clipDocsHeading`) before its
+ *     slug is made, as in the index.
  *   - A section's id is `<page id>#<slug>` (slugs: `docsSlugs`); the preamble
  *     and a whole-page read are the bare page id.
  */
 
 import { frontmatterEndOffset, headingsWithOffsets } from '../documentBudget';
-import { docsSlugs } from './index';
+import { DOCS_MAX_HEADINGS_PER_PAGE } from './caps';
+import { clipDocsHeading, docsSlugs } from './index';
 
 export interface DocsMarkdownSection {
   /** Position in the file; the preamble, when there is one, is 0. */
@@ -35,7 +40,7 @@ export interface DocsMarkdownSection {
 }
 
 export function splitDocsSections(markdown: string): DocsMarkdownSection[] {
-  const headings = headingsWithOffsets(markdown);
+  const headings = headingsWithOffsets(markdown, DOCS_MAX_HEADINGS_PER_PAGE).map((h) => ({ ...h, text: clipDocsHeading(h.text) }));
   const slugs = docsSlugs(headings.map((h) => h.text));
   const out: DocsMarkdownSection[] = [];
   const firstStart = headings.length > 0 ? headings[0].start : markdown.length;

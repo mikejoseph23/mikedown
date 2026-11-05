@@ -33,7 +33,7 @@ export * from './prompts/properties';
 
 // Documentation bases (workspace RAG): index, home, links, keyword ranking, secrets scan, caps, budget, citations.
 export * from './docs/caps';
-export { cmpCodePoints, foldAscii } from './docs/util';
+export { clipCodePoints, cmpCodePoints, foldAscii } from './docs/util';
 export * from './docs/index';
 export * from './docs/sections';
 export * from './docs/home';
