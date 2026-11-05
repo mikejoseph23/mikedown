@@ -108,13 +108,13 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Opus.** Interaction design in the live editor. Follow the ProseMirror rule: the widget is plugin state, never a DOM write (`spellcheck.ts:47-383` and `findreplace.ts:83-110` are the patterns). Workers must complete every item.
 
-- [ ] `packages/core/src/ai-ghost-plugin.ts`: a PM `Plugin` with `PluginKey('aiGhost')`, state `{ text, pos }`, `Decoration.widget(pos, span, { side: 1 })` rendering `<span class="mikedown-ghost">`; a `setMeta` transaction updates or clears it; any doc change that is not an accept clears it.
-- [ ] Eligibility probe in the plugin's `view.update`: caret at block end, block type allowed, no autocomplete open (check the emoji and wikilink plugin states), selection empty; feeds `controller.noteChange` with the serialized markdown and caret offset (map PM position to markdown offset the way `cursorInsertTarget` does, `ai-rewrite.ts:494`).
-- [ ] Keys in the plugin's `handleKeyDown`, only while a suggestion shows: Tab accept, `Mod-ArrowRight` accept word, Escape dismiss, printable character runs `typed(char)`. Return false otherwise so lists and tables keep Tab (D7).
-- [ ] Accept inserts with `closeHistory(tr)` first, then `insertText`, as one transaction (D6).
+- [x] `packages/core/src/ai-ghost-plugin.ts`: a PM `Plugin` with `PluginKey('aiGhost')`, state `{ text, pos }`, `Decoration.widget(pos, span, { side: 1 })` rendering `<span class="mikedown-ghost">`; a `setMeta` transaction updates or clears it; any doc change that is not an accept clears it.
+- [x] Eligibility probe in the plugin's `view.update`: caret at block end, block type allowed, no autocomplete open (check the emoji and wikilink plugin states), selection empty; feeds `controller.noteChange` with the serialized markdown and caret offset (map PM position to markdown offset the way `cursorInsertTarget` does, `ai-rewrite.ts:494`).
+- [x] Keys in the plugin's `handleKeyDown`, only while a suggestion shows: Tab accept, `Mod-ArrowRight` accept word, Escape dismiss, printable character runs `typed(char)`. Return false otherwise so lists and tables keep Tab (D7).
+- [x] Accept inserts with `closeHistory(tr)` first, then `insertText`, as one transaction (D6).
 - [ ] Manual trigger `Mod-Alt-Space` through a small TipTap `Extension` like `mikedownAiRewriteShortcut` (`editor.ts:4040`), skipped when `hostOwnsShortcuts`.
 - [ ] `editor.ts`: under `whenAiUi`, build the controller with `aiRunContext` (activity set to undefined per D10), register the plugin, wire `onBusy` to `syncAiToolbarBusy` and `onServed` to `aiServed` (D11); tear down in `disposers`; rebuild options on every settings broadcast; stop everything in source mode.
-- [ ] Styling in `packages/core/src/styles/editor.css`: ghost text in the editor font at 55 percent opacity, no layout shift, a 120 ms fade in, respects `prefers-reduced-motion`. It should read like Xcode or VS Code inline completions, quiet and clearly not part of the document.
+- [x] Styling in `packages/core/src/styles/editor.css`: ghost text in the editor font at 55 percent opacity, no layout shift, a 120 ms fade in, respects `prefers-reduced-motion`. It should read like Xcode or VS Code inline completions, quiet and clearly not part of the document.
 - [ ] AI toolbar menu entry "Suggest continuation" (`ai-toolbar.ts`) that calls `triggerNow`, hidden when the feature is off.
 - [ ] Commit.
 
@@ -191,5 +191,7 @@ Gap-filling prompts follow the original milestone prompt structure (header, miss
 **2026-11-05 18:40** - M2 done (022937d). Controller in `ai-ghost.ts`, `ghostText` default-off in `thinking.ts`. `triggerNow` gained an optional fresh input. `classifyGhostError` reads router sentences because `routeUnusableError` keeps only some codes, so M3 pins it against the real router messages. M3 also corrects the activity entry to hold the shown suggestion rather than the raw stream.
 
 **2026-11-05 18:45** - M3 done (2ae3bea), 121 tests. Discrepancy with D4: the `continue` task has no `prefers`, so `fim` is not a router preference; the chosen route wins, then registry order. Left as is and the test pins it, since with no FIM wire a preference could pick a fim-only model that cannot take the chat prompt. A fim-only model passes `requiresAny` today and would still get a chat request. To raise with Mike at M7.
+
+**2026-11-05 18:47** - M4a done (25a79dc): the plugin half of M4. Refinements of D7 and D6: keys use \`handleDOMEvents.keydown\`, because \`editorProps.handleKeyDown\` always runs before any plugin's whatever the order; a suggestion stops at a single newline, since inserting it would break the paragraph. Also added: blur and IME composition dismiss, inline code and empty blocks are ineligible on idle, undo, paste and host updates never trigger. M4b does the wiring.
 
 [Return to Top](#ghost-text-plan)
