@@ -214,6 +214,8 @@ export interface MikeDownHost {
   exportHtml?(html: string): void;
   printDocument?(html: string): void;
   viewInBrowser?(html: string): void;
+  /** Offer a save dialog with this suggested name and write the text there (the AI Activity panel). Without it, the panel's Save buttons are hidden. */
+  saveTextFile?(name: string, text: string): Promise<void>;
 
   // ── Sidebar ───────────────────────────────────────────────────────────────
   sidebarPrefs?: MikeDownSidebarPrefs;
