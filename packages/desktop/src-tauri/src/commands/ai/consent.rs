@@ -31,7 +31,7 @@ pub fn sends_text(scope: &str) -> Option<&'static str> {
 /// `AI_FEATURES[].sends`: what each feature's requests send.
 pub fn feature_sends(feature: &str) -> Option<&'static str> {
     match feature {
-        "rewrite" => Some("selection"),
+        "rewrite" | "ghostText" => Some("selection"),
         "chat" | "summary" | "title" => Some("document"),
         "frontmatter" => Some("documentAndTags"),
         _ => None,

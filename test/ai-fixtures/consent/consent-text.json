@@ -14,6 +14,7 @@
   "sendsFallback": "the text you ask the AI about",
   "features": {
     "rewrite": "selection",
+    "ghostText": "selection",
     "chat": "document",
     "summary": "document",
     "frontmatter": "documentAndTags",

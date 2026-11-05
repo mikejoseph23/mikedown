@@ -85,6 +85,8 @@ export interface ResolveRouteOptions {
   feature: string;
   /** Route this task instead of the feature's. */
   task?: string;
+  /** Inline suggestions: reject every cloud engine (`cloudBlocked`), whatever Allow cloud and consent say. */
+  localOnly?: boolean;
 }
 
 interface Rejection {
@@ -137,7 +139,7 @@ export function resolveRoute(
   const prefers = taskDef?.prefers;
   const statusById = new Map(statuses.map((s) => [s.engineId, s]));
 
-  const check = (route: AiRoute): Candidate | Rejection => checkCandidate(settings, statusById, consent, route, requires, requiresAny);
+  const check = (route: AiRoute): Candidate | Rejection => checkCandidate(settings, statusById, consent, route, requires, requiresAny, opts.localOnly === true);
 
   // Step 2.
   const preferred = settings.routing.tasks[task] ?? settings.routing.default;
@@ -228,6 +230,7 @@ function checkCandidate(
   route: AiRoute,
   requires: AiCapabilityRequirements,
   requiresAny: readonly AiCapabilityFlag[] | undefined,
+  localOnly: boolean,
 ): Candidate | Rejection {
   const engine = settings.engines.find((e) => e.id === route.engineId);
   if (!engine) {return { code: 'engineMissing', reason: 'The routed engine no longer exists.' };}
@@ -254,6 +257,7 @@ function checkCandidate(
   const isLocal = engineLocality(engine, settings.localNetworks) === 'local';
   let needsConsent = false;
   if (!isLocal) {
+    if (localOnly) {return { code: 'cloudBlocked', reason: 'Inline suggestions use local engines only.' };}
     if (!settings.allowCloud) {return { code: 'cloudBlocked', reason: `${name} is a cloud engine and Allow cloud is off.` };}
     const answer = consent[engine.id];
     if (answer === false) {return { code: 'consentDenied', reason: `${name} was not allowed in this workspace.` };}

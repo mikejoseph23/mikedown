@@ -31,6 +31,11 @@ export * from './prompts/summary';
 export * from './prompts/title';
 export * from './prompts/properties';
 
+// Inline suggestions (ghost text): continue prompt, context window, suggestion trimming.
+export * from './prompts/continue';
+export * from './ghostContext';
+export * from './ghostTrim';
+
 // Documentation bases (workspace RAG): index, home, links, keyword ranking, secrets scan, caps, budget, citations.
 export * from './docs/caps';
 export { cmpCodePoints, foldAscii } from './docs/util';

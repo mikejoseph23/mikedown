@@ -104,6 +104,8 @@ export interface AiRunRequest {
   pin?: AiRoutePin;
   /** The documentation chat's ids for this request's Activity entry. */
   docs?: AiDocsActivityDetail;
+  /** Only local engines may serve this request (Inline suggestions); a cloud route is `cloudBlocked`. */
+  localOnly?: boolean;
 }
 
 /** The thinking dial's state for the route serving a request. */
@@ -362,7 +364,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
     if (tier2) {
       const consent: AiConsentState = { ...ctx.consent, ...once, ...refused };
       const settings = pin ? pinnedSettings(ctx.settings(), req, pin) : ctx.settings();
-      const resolved = resolveRoute(settings, withFailures(ctx.statuses(), failed), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
+      const resolved = resolveRoute(settings, withFailures(ctx.statuses(), failed), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}), ...(req.localOnly ? { localOnly: true } : {}) });
       if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
       if (resolved.needsConsent) {
         const reply = ctx.ai.requestCloudConsent

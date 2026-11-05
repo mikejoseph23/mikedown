@@ -147,6 +147,26 @@ export interface AiFeatureSetting {
   enabled?: boolean;
   /** Task override, e.g. `{ task: 'vision' }`. */
   task?: string;
+  /** `ghostText` only (see `AiGhostTextOptions`; read through `ghostTextOptions`). */
+  delayMs?: number;
+  maxTokens?: number;
+  trigger?: AiGhostTrigger;
+  localOnly?: boolean;
+}
+
+/** When Inline suggestions fire: after an idle pause, or only from the shortcut / menu. */
+export type AiGhostTrigger = 'auto' | 'manual';
+
+/** The `features.ghostText` knobs with defaults applied and ranges clamped (`ghostTextOptions`). */
+export interface AiGhostTextOptions {
+  /** Idle time after a keystroke before a request fires, in ms. Default 400. */
+  delayMs: number;
+  /** Output budget in tokens. Default 48. */
+  maxTokens: number;
+  /** Default `auto`. */
+  trigger: AiGhostTrigger;
+  /** Reject cloud engines for this feature. Default true. */
+  localOnly: boolean;
 }
 
 /** Open map keyed by feature id (see `AI_FEATURES`). */
