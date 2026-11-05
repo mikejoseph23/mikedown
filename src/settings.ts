@@ -190,6 +190,9 @@ export interface InspectedValue<T = unknown> {
  * - `allowCloud` comes from user settings (package.json scopes it `machine`);
  *   a stale workspace value of `false` still counts, so a workspace can never
  *   turn cloud on.
+ * - `docBases` and `docs` come from user settings only (S4, A9), like
+ *   `engines`: a repository can never add, redirect or tune a documentation
+ *   base. package.json scopes them `machine`; this is the second fence.
  * - `enabled`, `routing`, `features`, `showToolbarButton` and `activityPanel` follow the
  *   normal precedence.
  *
@@ -209,6 +212,8 @@ export function effectiveAiRaw(inspect: (key: string) => InspectedValue | undefi
     routing: effective('routing'),
     features: effective('features'),
     localNetworks: inspect('localNetworks')?.globalValue ?? [...DEFAULT_LOCAL_NETWORKS],
+    docBases: inspect('docBases')?.globalValue ?? [],
+    docs: inspect('docs')?.globalValue,
     showToolbarButton: effective('showToolbarButton'),
     activityPanel: effective('activityPanel'),
   };

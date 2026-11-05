@@ -990,6 +990,74 @@
           ],
           "scope": "machine",
           "markdownDescription": "IPv4 ranges (CIDR) and host name suffixes that count as local, besides loopback, link-local, `.local`, `.lan` and `.home.arpa`. Add a WireGuard range such as `10.0.98.0/24` or `.ts.net` here. User settings only. Edit it under Advanced: local networks on the AI tab of the MikeDown Settings modal, or here."
+        },
+        "mikedown.ai.docBases": {
+          "type": "array",
+          "default": [],
+          "scope": "machine",
+          "markdownDescription": "Documentation bases the Chat panel can answer from: folders of markdown files, read from disk. Each is `{ \"id\", \"name\", \"roots\": [absolute folder paths], \"homeFile\"?, \"allowCloud\", \"enabled\" }`. User settings only, so a repository cannot add or redirect a base. Manage them on the Documentation bases page of the MikeDown Settings modal.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "roots": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1
+              },
+              "homeFile": {
+                "type": "string",
+                "markdownDescription": "A markdown file name or relative path under each root that is the home document, before `INDEX.md` and `README.md`."
+              },
+              "allowCloud": {
+                "type": "boolean",
+                "default": false,
+                "markdownDescription": "May pages from this base be sent to a cloud engine. Off by default."
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          }
+        },
+        "mikedown.ai.docs": {
+          "type": "object",
+          "default": {},
+          "scope": "machine",
+          "markdownDescription": "Advanced options for answering from documentation bases. User settings only.",
+          "properties": {
+            "maxHops": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5,
+              "default": 3,
+              "markdownDescription": "Navigation calls before the answer."
+            },
+            "sourceShare": {
+              "type": "integer",
+              "minimum": 30,
+              "maximum": 80,
+              "default": 60,
+              "markdownDescription": "Percent of the model's context the sent sections may take."
+            },
+            "navigateBy": {
+              "type": "string",
+              "enum": [
+                "section",
+                "page"
+              ],
+              "default": "section",
+              "markdownDescription": "Whether the model asks for sections (`page#heading`) or whole pages."
+            }
+          }
         }
       }
     }

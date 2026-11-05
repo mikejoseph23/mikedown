@@ -13,6 +13,7 @@ import { maybeOfferDefaultEditorPrompt, setAsDefaultEditorCommand } from './defa
 import { getSettings } from './settings';
 import { AiStatusBar } from './ai/statusBar';
 import { createVsCodeAiService, writeBackEngineIds } from './ai/vscodeAi';
+import { createVsCodeDocsHost } from './ai/docsVsCode';
 
 /**
  * One-shot migration: rename `mikedown.outline.*` settings + globalState key
@@ -426,6 +427,11 @@ function registerAi(context: vscode.ExtensionContext): void {
   MarkdownEditorProvider.aiService = service;
   MarkdownEditorProvider.aiStatusBar = statusBar;
 
+  // Documentation bases: indexed lazily on first use, one watcher per root, all disposed here.
+  const docsHost = createVsCodeDocsHost(output);
+  context.subscriptions.push({ dispose: () => docsHost.dispose() });
+  MarkdownEditorProvider.docsHost = docsHost;
+
   // Probe results, discoveries and stored keys change what the AI tab shows;
   // coalesce bursts (Test all engines) into one push.
   let broadcastTimer: NodeJS.Timeout | undefined;
@@ -439,6 +445,8 @@ function registerAi(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (!e.affectsConfiguration('mikedown.ai')) {return;}
+      // A base that was removed, turned off or re-pointed stops being watched now, not at the next request.
+      docsHost.reconcile();
       const ai = getSettings().ai;
       statusBar.setEnabled(ai.enabled);
       // A new default engine or routing shows at once, not after the next request (Q7).

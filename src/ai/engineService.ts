@@ -96,8 +96,12 @@ export interface EngineServiceDeps {
   readSettings(): AiSettings;
   secrets: AiSecrets;
   consent: ConsentStore;
-  /** Host UI (a modal) asking whether this workspace may send text to a cloud engine. `sends` overrides the feature's own scope. */
-  askConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): PromiseLike<ConsentDialogAnswer>;
+  /**
+   * Host UI (a modal) asking whether this workspace may send text to a cloud engine. `sends` overrides the
+   * feature's own scope. `baseNames` are the documentation bases' names, mapped host-side from ids (never
+   * text the webview sent); the dialog lists them for the `docsBase` scope.
+   */
+  askConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope, baseNames?: string[]): PromiseLike<ConsentDialogAnswer>;
   /** Persist `mikedown.ai.engines` (after a discovery merged models in). */
   saveEngines(engines: AiEngineConfig[]): PromiseLike<void>;
   log(line: string): void;
@@ -153,7 +157,8 @@ export class AiEngineService {
   /** Model ids the server called a mixture of experts, from the last discovery. */
   private readonly moe = new Map<string, Set<string>>();
   private readonly inFlight = new Map<object, { requestId: string; controller: AbortController }>();
-  private readonly consentPrompts = new Map<string, Promise<ConsentAnswer>>();
+  /** The dialog in flight per engine, with what it asks (feature, scope, base names): only an identical ask shares it. */
+  private readonly consentPrompts = new Map<string, { key: string; promise: Promise<ConsentAnswer> }>();
   /** "Allow once" grants not yet used, by engine id (the engine's fingerprint). The next completion takes it. */
   private readonly onceGrants = new Map<string, string>();
   /** This session's "Don't allow", by engine id: the fingerprint and when. */
@@ -537,37 +542,68 @@ export class AiEngineService {
    * once" leaves a grant the next completion for the engine uses up; an
    * unused one is replaced by the next answer.
    */
-  async requestCloudConsent(engineId: string, feature?: string, sends?: AiSendsScope): Promise<AiConsentReply> {
+  async requestCloudConsent(engineId: string, feature?: string, sends?: AiSendsScope, baseIds?: readonly string[]): Promise<AiConsentReply> {
     const settings = this.deps.readSettings();
     const engine = settings.engines.find((e) => e.id === engineId);
     if (!engine) {return false;}
     if (engineLocality(engine, settings.localNetworks) === 'local') {return true;}
     if (!settings.allowCloud) {throw makeAiError('cloudBlocked', `${engineName(engine)} is a cloud engine and Allow cloud is off.`);}
     this.onceGrants.delete(engine.id);
-    const answer = await this.ensureConsent(engine, feature, sends);
+    const answer = await this.ensureConsent(engine, feature, sends, this.baseNamesFor(settings, baseIds));
     if (answer === 'allowOnce') {this.onceGrants.set(engine.id, consentFingerprint(engine));}
     return answer === 'allow' ? true : answer === 'allowOnce' ? 'once' : answer === 'never' ? 'never' : false;
   }
 
+  /**
+   * Base ids from the webview to the names in the user's own `docBases`
+   * (A3). Unknown ids are dropped, so text the webview made up never reaches
+   * the modal; each name is listed once, in the order asked.
+   */
+  private baseNamesFor(settings: AiSettings, baseIds: readonly string[] | undefined): string[] | undefined {
+    if (!baseIds || baseIds.length === 0) {return undefined;}
+    const names: string[] = [];
+    for (const id of new Set(baseIds)) {
+      const base = settings.docBases.find((b) => b.id === id);
+      if (base && base.name.trim() !== '') {names.push(base.name);}
+    }
+    return names;
+  }
+
   /** The answer that holds (stored, then this session's "Don't allow"), else the modal's. */
-  private ensureConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<ConsentAnswer> {
-    const stored = this.storedConsent(engine);
-    if (stored) {return Promise.resolve(stored.answer);}
-    if (this.deniedThisSession(engine)) {return Promise.resolve('deny');}
-    const pending = this.consentPrompts.get(engine.id);
-    if (pending) {return pending;}
+  private async ensureConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope, baseNames?: string[]): Promise<ConsentAnswer> {
+    for (;;) {
+      const stored = this.storedConsent(engine);
+      if (stored) {return stored.answer;}
+      if (this.deniedThisSession(engine)) {return 'deny';}
+      const key = JSON.stringify([feature ?? '', sends ?? '', baseNames ?? []]);
+      const pending = this.consentPrompts.get(engine.id);
+      if (!pending) {return this.askConsentOnce(engine, key, feature, sends, baseNames);}
+      // The same ask shares the open dialog. A different one (other bases, another feature) waits for it and
+      // looks again, so a dialog never shows another request's names and two modals never stack.
+      if (pending.key === key) {return pending.promise;}
+      await pending.promise.catch(() => undefined);
+    }
+  }
+
+  private askConsentOnce(engine: AiEngineConfig, key: string, feature: string | undefined, sends: AiSendsScope | undefined, baseNames: string[] | undefined): Promise<ConsentAnswer> {
+    const open = { key, promise: undefined as unknown as Promise<ConsentAnswer> };
     const prompt = (async (): Promise<ConsentAnswer> => {
-      const answer = await this.deps.askConsent(engine, feature, sends);
-      if (answer === 'allow') {
-        await this.deps.consent.set(engine.id, { fingerprint: consentFingerprint(engine), answer, at: this.now() });
-      } else if (answer === 'deny') {
-        this.sessionDenied.set(engine.id, { fingerprint: consentFingerprint(engine), at: this.now() });
+      try {
+        const answer = await (baseNames ? this.deps.askConsent(engine, feature, sends, baseNames) : this.deps.askConsent(engine, feature, sends));
+        if (answer === 'allow') {
+          await this.deps.consent.set(engine.id, { fingerprint: consentFingerprint(engine), answer, at: this.now() });
+        } else if (answer === 'deny') {
+          this.sessionDenied.set(engine.id, { fingerprint: consentFingerprint(engine), at: this.now() });
+        }
+        this.deps.log(`Consent ${engineName(engine)}: ${answer === 'allow' ? 'allowed for this workspace' : answer === 'allowOnce' ? 'allowed once' : 'not allowed until restart'}`);
+        return answer;
+      } finally {
+        // Cleared before a waiting ask looks again, so it sees the stored or denied answer or asks for itself.
+        if (this.consentPrompts.get(engine.id) === open) {this.consentPrompts.delete(engine.id);}
       }
-      this.deps.log(`Consent ${engineName(engine)}: ${answer === 'allow' ? 'allowed for this workspace' : answer === 'allowOnce' ? 'allowed once' : 'not allowed until restart'}`);
-      return answer;
     })();
-    this.consentPrompts.set(engine.id, prompt);
-    void prompt.finally(() => this.consentPrompts.delete(engine.id));
+    open.promise = prompt;
+    this.consentPrompts.set(engine.id, open);
     return prompt;
   }
 

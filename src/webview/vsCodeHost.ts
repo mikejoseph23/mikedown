@@ -29,12 +29,18 @@ import type {
   AiConsentAbout,
   AiConsentRecord,
   AiConsentReply,
+  AiDocBase,
+  AiDocBaseStatus,
+  AiDocsIndex,
+  AiDocsSection,
+  AiDocsSectionRef,
   AiEngineStatus,
   AiError,
   AiHardwareInfo,
   AiHostEngineProbe,
   AiLocalServerProbe,
   MikeDownAiHost,
+  MikeDownDocsHost,
 } from '../../packages/core/src/ai/types';
 import { makeAiError, toAiError } from '../../packages/core/src/ai/errors';
 import { toWireCompletionRequest } from '../../packages/core/src/ai/wire';
@@ -338,7 +344,7 @@ export class VsCodeHost implements MikeDownHost {
     setSecret: (engineId: string, apiKey: string | null) =>
       this.aiRequest<AiEngineStatus>({ type: 'aiSetSecret', engineId, apiKey }).then(() => undefined),
     requestCloudConsent: (engineId: string, about?: AiConsentAbout) =>
-      this.aiRequest<AiConsentReply>({ type: 'aiRequestCloudConsent', engineId, ...(about?.feature ? { feature: about.feature } : {}), ...(about?.sends ? { sends: about.sends } : {}) }),
+      this.aiRequest<AiConsentReply>({ type: 'aiRequestCloudConsent', engineId, ...(about?.feature ? { feature: about.feature } : {}), ...(about?.sends ? { sends: about.sends } : {}), ...(about?.baseIds && about.baseIds.length > 0 ? { baseIds: about.baseIds } : {}) }),
     listConsents: () => this.aiRequest<AiConsentRecord[]>({ type: 'aiListConsents' }),
     forgetConsent: (engineId: string) => this.aiRequest<AiConsentRecord[]>({ type: 'aiForgetConsent', engineId }).then(() => undefined),
     // The host caps each address; an abort here only stops waiting for the answer.
@@ -364,7 +370,51 @@ export class VsCodeHost implements MikeDownHost {
     hardwareInfo: () => this.aiRequest<AiHardwareInfo | null>({ type: 'aiHardwareInfo' }),
   };
 
+  // ── Documentation bases (the extension host reads the folders) ────────────
+
+  readonly docs: MikeDownDocsHost & { listBases(opts?: { refresh?: boolean }): Promise<AiDocBaseStatus[]> } = {
+    listBases: (opts?: { refresh?: boolean }) => this.aiRequest<AiDocBaseStatus[]>({ type: 'docsListBases', ...(opts?.refresh ? { refresh: true } : {}) }),
+    index: (baseId: string) => this.aiRequest<AiDocsIndex>({ type: 'docsIndex', baseId }),
+    readSections: (baseId: string, ids: string[]) => this.aiRequest<AiDocsSection[]>({ type: 'docsReadSections', baseId, ids }),
+    keywordSearch: (baseId: string, query: string) => this.aiRequest<AiDocsSectionRef[]>({ type: 'docsKeywordSearch', baseId, query }),
+    saveBases: (bases: AiDocBase[]) => this.aiRequest<void>({ type: 'docsSaveBases', bases }),
+    addWorkspaceFolder: () => this.aiRequest<string | null>({ type: 'docsAddWorkspaceFolder' }),
+  };
+
+  private handleDocsReply(message: any): boolean {
+    const settle = (value: unknown): boolean => {
+      const waiter = this.aiWaiters.get(message.requestId);
+      this.aiWaiters.delete(message.requestId);
+      waiter?.resolve(value);
+      return true;
+    };
+    switch (message?.type) {
+      case 'docsBases':
+        return settle(Array.isArray(message.bases) ? message.bases : []);
+      case 'docsIndexResult':
+        return settle(message.index);
+      case 'docsSections':
+        return settle(Array.isArray(message.sections) ? message.sections : []);
+      case 'docsKeywordResults':
+        return settle(Array.isArray(message.refs) ? message.refs : []);
+      case 'docsSaved':
+        return settle(undefined);
+      case 'docsWorkspaceFolder':
+        return settle(typeof message.path === 'string' ? message.path : null);
+      case 'docsError': {
+        const waiter = this.aiWaiters.get(message.requestId);
+        this.aiWaiters.delete(message.requestId);
+        // 'unavailable' (AI is off), 'badRequest' and 'failed' all reach the caller as a plain unknown AiError with the host's words.
+        waiter?.reject(toAiError({ code: 'unknown', message: String(message.message ?? '') }));
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
+
   private handleAiReply(message: any): boolean {
+    if (this.handleDocsReply(message)) {return true;}
     switch (message?.type) {
       case 'aiToken':
         this.aiWaiters.get(message.requestId)?.onToken?.(String(message.delta ?? ''));

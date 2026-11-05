@@ -16,7 +16,7 @@ import { createAdapters, type VsCodeLmApi } from './providers';
 const CONSENT_PREFIX = 'mikedown.ai.consent.';
 
 /** Keys that live in user settings only (OPEN-3). */
-const USER_ONLY_KEYS = new Set(['engines', 'localNetworks', 'allowCloud']);
+const USER_ONLY_KEYS = new Set(['engines', 'localNetworks', 'allowCloud', 'docBases', 'docs']);
 
 function timestamp(): string {
   const d = new Date();
@@ -32,7 +32,7 @@ function timestamp(): string {
  * the session). "Read the provider's policy" opens the policy in the browser
  * and asks again.
  */
-export async function askCloudConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope): Promise<ConsentDialogAnswer> {
+export async function askCloudConsent(engine: AiEngineConfig, feature: string | undefined, sends?: AiSendsScope, baseNames?: readonly string[]): Promise<ConsentDialogAnswer> {
   const policy = aiProviderPolicy(engine);
   const text = aiConsentText({
     engineName: engine.name || engine.id,
@@ -41,6 +41,7 @@ export async function askCloudConsent(engine: AiEngineConfig, feature: string | 
     kind: engine.kind,
     feature,
     sends,
+    ...(baseNames && baseNames.length > 0 ? { baseNames } : {}),
     scopeWord: 'workspace',
     policy,
   });

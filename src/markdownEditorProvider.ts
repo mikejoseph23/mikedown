@@ -34,6 +34,7 @@ import { SupportAction } from './supportPromptEligibility';
 import type { AiEngineService } from './ai/engineService';
 import type { AiStatusBar } from './ai/statusBar';
 import { handleAiMessage, isAiWebviewMessage } from './ai/webviewBridge';
+import type { DocsHost } from './ai/docsHost';
 import { saveAiSettingsPatch } from './ai/vscodeAi';
 
 /**
@@ -73,6 +74,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static instance: MarkdownEditorProvider | undefined = undefined;
   /** AI engines, adapters and the cloud gate (src/ai/engineService.ts); set on activate. */
   public static aiService: AiEngineService | undefined = undefined;
+  /** Documentation bases for the Chat panel (src/ai/docsHost.ts); set on activate. */
+  public static docsHost: DocsHost | undefined = undefined;
   /** The `AI: …` status bar item (src/ai/statusBar.ts); set on activate. */
   public static aiStatusBar: AiStatusBar | undefined = undefined;
 
@@ -708,6 +711,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         if (service) {
           void handleAiMessage(service, webviewPanel, message, msg => void webviewPanel.webview.postMessage(msg), {
             onServed: result => MarkdownEditorProvider.aiStatusBar?.showServed(result, getSettings().ai),
+            ...(MarkdownEditorProvider.docsHost ? { docs: { host: MarkdownEditorProvider.docsHost, isEnabled: () => getSettings().ai.enabled } } : {}),
           });
         }
         return;

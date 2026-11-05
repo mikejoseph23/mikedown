@@ -145,10 +145,12 @@
  *         — the stored cloud consents of this workspace; answered by aiConsents.
  *     { type: 'aiForgetConsent', requestId, engineId }
  *         — forget one stored answer; answered by aiConsents (the list after).
- *     { type: 'aiRequestCloudConsent', requestId, engineId, feature?, sends? }
+ *     { type: 'aiRequestCloudConsent', requestId, engineId, feature?, sends?, baseIds? }
  *         — host modal (its words from aiConsentText: `feature` and `sends`
- *         say what the request sends); answered by aiConsent, or by aiError
- *         (cloudBlocked) while Allow cloud is off.
+ *         say what the request sends; `baseIds` are the documentation bases
+ *         the request would read, which the host maps to names from its own
+ *         user-level settings, dropping unknown ids); answered by aiConsent,
+ *         or by aiError (cloudBlocked) while Allow cloud is off.
  *     { type: 'aiDetectLocalServers', requestId, candidates: { presetId, baseUrl }[] }
  *         — the first-run panel and the quick-start cards look for local
  *         servers (one GET per local preset, 1.5 s cap each, never cached);
@@ -159,6 +161,24 @@
  *     { type: 'aiHardwareInfo', requestId } — memory, CPU and Apple Silicon
  *         for the wizard's local hint (read once per session, no GPU
  *         probe); answered by aiHardware.
+ *     Documentation bases (host.docs, workspace RAG; src/ai/docsHost.ts, the
+ *     bridge is src/ai/webviewBridge.ts). A base id picks a base from the
+ *     host's user-level settings; no message names a folder or a path. All of
+ *     them answer docsError { code: 'unavailable' } while AI is off.
+ *     { type: 'docsListBases', requestId, refresh? } — every base with its
+ *         health (`refresh: true` walks the folders again); answered by docsBases.
+ *     { type: 'docsIndex', requestId, baseId } — pages, headings, links, no
+ *         bodies; answered by docsIndexResult.
+ *     { type: 'docsReadSections', requestId, baseId, ids: string[] } — section
+ *         bodies by id (the host looks ids up in its own index and refuses
+ *         anything else); answered by docsSections.
+ *     { type: 'docsKeywordSearch', requestId, baseId, query } — ids and labels
+ *         of the best sections, at most 20; answered by docsKeywordResults.
+ *     { type: 'docsSaveBases', requestId, bases } — the host re-validates and
+ *         writes the user-level setting only; answered by docsSaved.
+ *     { type: 'docsAddWorkspaceFolder', requestId } — the host offers the open
+ *         workspace folders (a picker when there are several); answered by
+ *         docsWorkspaceFolder with the path, or null. It does not save.
  *   Extension → Webview:
  *     { type: 'aiToken', requestId, delta }
  *     { type: 'aiDone', requestId, result: AiCompletionResult } — `result.timing`
@@ -174,6 +194,13 @@
  *     { type: 'aiEngineProbes', requestId, probes: AiLocalServerProbe[] }
  *     { type: 'aiHostEngines', requestId, probes: AiHostEngineProbe[] }
  *     { type: 'aiHardware', requestId, info: AiHardwareInfo | null }
+ *     { type: 'docsBases', requestId, bases: AiDocBaseStatus[] }
+ *     { type: 'docsIndexResult', requestId, index: AiDocsIndex }
+ *     { type: 'docsSections', requestId, sections: AiDocsSection[] }
+ *     { type: 'docsKeywordResults', requestId, refs: AiDocsSectionRef[] }
+ *     { type: 'docsSaved', requestId }
+ *     { type: 'docsWorkspaceFolder', requestId, path: string | null }
+ *     { type: 'docsError', requestId, code: 'unavailable' | 'badRequest' | 'failed', message }
  *     { type: 'command', command: 'openAiSettings', page?: boolean } —
  *         mikedown.openAiSettings (and the AI status bar item) send
  *         `page: true`: open the full-window AI Engines page. Without `page`
@@ -196,7 +223,7 @@
  * Replies routed to VsCodeHost promises: pastedImageResult, pickedImageResult,
  * saveTextFileResult, resizeImageResult, linkSuggestions, fileHeadings, wikilinksResolved,
  * brokenLinks, diffData, tags (tags and linkSuggestions also arrive as pushes),
- * and the ai* replies above (aiEngines also arrives as a push).
+ * and the ai* and docs* replies above (aiEngines also arrives as a push).
  */
 
 import { createMikeDownEditor } from '../../packages/core/src/index';

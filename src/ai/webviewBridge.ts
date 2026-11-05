@@ -1,4 +1,5 @@
 import { AI_SENDS_TEXT, fromWireCompletionRequest, toAiError, type AiCompletionResult, type AiSendsScope, type AiWireCompletionRequest } from '@mikedown/core/ai';
+import type { AiDocBaseStatus, AiDocsIndex, AiDocsSection, AiDocsSectionRef } from '@mikedown/core/ai';
 import type { AiEngineService } from './engineService';
 
 /**
@@ -12,12 +13,22 @@ import type { AiEngineService } from './engineService';
  *   aiTestEngine          { requestId, engineId }              → aiEngineStatus
  *   aiDiscoverModels      { requestId, engineId }              → aiEngineStatus
  *   aiSetSecret           { requestId, engineId, apiKey }      → aiEngineStatus (hasKey)
- *   aiRequestCloudConsent { requestId, engineId, feature?, sends? } → aiConsent, or aiError (cloudBlocked while Allow cloud is off)
+ *   aiRequestCloudConsent { requestId, engineId, feature?, sends?, baseIds? } → aiConsent, or aiError (cloudBlocked while Allow cloud is off)
+ *       `baseIds` (docs chat): the documentation bases the request would send pages from. The host maps the ids to names
+ *       from its own user-level settings, drops unknown ids and puts only those names in the dialog.
  *   aiListConsents        { requestId }                        → aiConsents
  *   aiForgetConsent       { requestId, engineId }              → aiConsents (the list after forgetting)
  *   aiDetectLocalServers  { requestId, candidates: { presetId, baseUrl }[] } → aiEngineProbes
  *   aiDetectHostEngines   { requestId }                        → aiHostEngines
  *   aiHardwareInfo        { requestId }                        → aiHardware
+ *   docsListBases         { requestId, refresh? }              → docsBases           (every base with its health; `refresh` walks again)
+ *   docsIndex             { requestId, baseId }                → docsIndexResult     (pages, headings, links; no bodies)
+ *   docsReadSections      { requestId, baseId, ids: string[] } → docsSections        (bodies; ids the host's index does not know are left out)
+ *   docsKeywordSearch     { requestId, baseId, query }         → docsKeywordResults  (ids and labels, best first, at most 20)
+ *   docsSaveBases         { requestId, bases }                 → docsSaved           (the host re-validates and writes user settings only)
+ *   docsAddWorkspaceFolder { requestId }                       → docsWorkspaceFolder (a folder path from the open workspace, or null; it does not save)
+ *   Every docs* message answers docsError { code: 'unavailable' } while AI is off, and { code: 'badRequest' } for a malformed field.
+ *   A base id picks a base from the host's user-level settings; no message can name a folder to read.
  *
  * Host → webview:
  *   aiToken        { requestId, delta }
@@ -30,6 +41,13 @@ import type { AiEngineService } from './engineService';
  *   aiEngineProbes { requestId, probes: AiLocalServerProbe[] }  (one per candidate, in order; nothing cached)
  *   aiHostEngines  { requestId, probes: AiHostEngineProbe[] }   (VS Code's Copilot models: how many, never a prompt)
  *   aiHardware     { requestId, info: AiHardwareInfo | null }   (memory, CPU, Apple Silicon; read once per session)
+ *   docsBases      { requestId, bases: AiDocBaseStatus[] }
+ *   docsIndexResult { requestId, index: AiDocsIndex }
+ *   docsSections   { requestId, sections: AiDocsSection[] }
+ *   docsKeywordResults { requestId, refs: AiDocsSectionRef[] }
+ *   docsSaved      { requestId }
+ *   docsWorkspaceFolder { requestId, path: string | null }
+ *   docsError      { requestId, code: 'unavailable' | 'badRequest' | 'failed', message }
  */
 
 export const AI_WEBVIEW_MESSAGE_TYPES: ReadonlySet<string> = new Set([
@@ -45,15 +63,104 @@ export const AI_WEBVIEW_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'aiDetectLocalServers',
   'aiDetectHostEngines',
   'aiHardwareInfo',
+  'docsListBases',
+  'docsIndex',
+  'docsReadSections',
+  'docsKeywordSearch',
+  'docsSaveBases',
+  'docsAddWorkspaceFolder',
 ]);
 
 export function isAiWebviewMessage(message: unknown): message is { type: string } & Record<string, unknown> {
   return typeof message === 'object' && message !== null && AI_WEBVIEW_MESSAGE_TYPES.has((message as { type?: unknown }).type as string);
 }
 
+/** What the docs messages need from `DocsHost` (kept narrow so tests can fake it). */
+export interface DocsBridgeHost {
+  listBases(opts?: { refresh?: boolean }): Promise<AiDocBaseStatus[]>;
+  index(baseId: string): Promise<AiDocsIndex>;
+  readSections(baseId: string, ids: string[]): Promise<AiDocsSection[]>;
+  keywordSearch(baseId: string, query: string): Promise<AiDocsSectionRef[]>;
+  saveBases(bases: unknown): Promise<void>;
+  addWorkspaceFolder(): Promise<string | null>;
+}
+
 export interface AiBridgeHooks {
   /** A completion finished: the status bar mirrors who served it. */
   onServed?(result: AiCompletionResult): void;
+  /** The documentation bases host and the AI switch. Absent: every docs* message answers `unavailable`. */
+  docs?: { host: DocsBridgeHost; isEnabled(): boolean };
+}
+
+const MAX_BASE_ID = 200;
+const MAX_QUERY = 2000;
+const MAX_IDS = 200;
+const MAX_ID_LENGTH = 2000;
+const MAX_BASES = 100;
+const MAX_BASE_IDS = 50;
+
+/** A short string list from the webview: strings only, bounded count and length. */
+function stringList(v: unknown, maxItems: number, maxLength: number): string[] {
+  if (!Array.isArray(v)) {return [];}
+  return v.filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= maxLength).slice(0, maxItems);
+}
+
+class DocsBadRequest extends Error {}
+
+function docsBaseId(message: Record<string, unknown>): string {
+  const id = message.baseId;
+  if (typeof id !== 'string' || id.length === 0 || id.length > MAX_BASE_ID) {throw new DocsBadRequest('Missing or malformed baseId.');}
+  return id;
+}
+
+/** Answer one docs* message. Every field is validated; nothing here reads a path. */
+async function handleDocsMessage(
+  docs: AiBridgeHooks['docs'],
+  message: { type: string } & Record<string, unknown>,
+  post: (msg: unknown) => void,
+): Promise<void> {
+  const requestId = str(message.requestId);
+  if (requestId === '' || requestId.length > 200) {return;}
+  const reply = (type: string, body: Record<string, unknown> = {}): void => post({ type, requestId, ...body });
+  const error = (code: 'unavailable' | 'badRequest' | 'failed', text: string): void => post({ type: 'docsError', requestId, code, message: text });
+  if (!docs || !docs.isEnabled()) {
+    error('unavailable', 'Documentation bases are unavailable: AI is turned off.');
+    return;
+  }
+  const host = docs.host;
+  try {
+    switch (message.type) {
+      case 'docsListBases':
+        reply('docsBases', { bases: await host.listBases({ refresh: message.refresh === true }) });
+        return;
+      case 'docsIndex':
+        reply('docsIndexResult', { index: await host.index(docsBaseId(message)) });
+        return;
+      case 'docsReadSections': {
+        const baseId = docsBaseId(message);
+        if (!Array.isArray(message.ids)) {throw new DocsBadRequest('ids must be a list.');}
+        reply('docsSections', { sections: await host.readSections(baseId, stringList(message.ids, MAX_IDS, MAX_ID_LENGTH)) });
+        return;
+      }
+      case 'docsKeywordSearch': {
+        const baseId = docsBaseId(message);
+        if (typeof message.query !== 'string') {throw new DocsBadRequest('query must be text.');}
+        reply('docsKeywordResults', { refs: await host.keywordSearch(baseId, message.query.slice(0, MAX_QUERY)) });
+        return;
+      }
+      case 'docsSaveBases':
+        if (!Array.isArray(message.bases) || message.bases.length > MAX_BASES) {throw new DocsBadRequest('bases must be a list.');}
+        await host.saveBases(message.bases);
+        reply('docsSaved');
+        return;
+      case 'docsAddWorkspaceFolder':
+        reply('docsWorkspaceFolder', { path: await host.addWorkspaceFolder() });
+        return;
+    }
+  } catch (err) {
+    if (err instanceof DocsBadRequest) {error('badRequest', err.message);}
+    else {error('failed', err instanceof Error ? err.message : String(err));}
+  }
 }
 
 function str(v: unknown): string {
@@ -73,6 +180,10 @@ export async function handleAiMessage(
   post: (msg: unknown) => void,
   hooks: AiBridgeHooks = {},
 ): Promise<void> {
+  if (message.type.startsWith('docs')) {
+    await handleDocsMessage(hooks.docs, message, post);
+    return;
+  }
   const requestId = str(message.requestId);
   const fail = (err: unknown, id = requestId): void => {
     const e = toAiError(err);
@@ -134,7 +245,11 @@ export async function handleAiMessage(
     case 'aiRequestCloudConsent': {
       const engineId = str(message.engineId);
       try {
-        const granted = await service.requestCloudConsent(engineId, typeof message.feature === 'string' ? message.feature : undefined, sendsScope(message.sends));
+        const feature = typeof message.feature === 'string' ? message.feature : undefined;
+        const baseIds = stringList(message.baseIds, MAX_BASE_IDS, MAX_BASE_ID);
+        const granted = baseIds.length > 0
+          ? await service.requestCloudConsent(engineId, feature, sendsScope(message.sends), baseIds)
+          : await service.requestCloudConsent(engineId, feature, sendsScope(message.sends));
         post({ type: 'aiConsent', requestId, engineId, granted });
       } catch (err) {
         // cloudBlocked and friends reach the webview as an error, not as a quiet "no".
