@@ -17,7 +17,7 @@
  */
 
 import type { AiRunThinking } from './ai-request';
-import type { AiCompletionRequest, AiCompletionResult, AiError, AiFinishReason, AiServedBy, AiThinkingJob, AiTiming, AiUsage } from './ai';
+import type { AiCompletionRequest, AiCompletionResult, AiDocsActivityDetail, AiError, AiFinishReason, AiServedBy, AiThinkingJob, AiTiming, AiUsage } from './ai';
 
 /** How many requests the log keeps. */
 export const AI_ACTIVITY_LIMIT = 50;
@@ -65,6 +65,8 @@ export interface AiActivityEntry {
   attempt: 1 | 2;
   /** On attempt 1 only: the request failed and a fallback attempt follows as its own entry. */
   retried?: true;
+  /** A documentation chat request (job `navigate` or `answer`): which pages, and the ids dropped. Ids only, never text. */
+  docs?: AiDocsActivityDetail;
 }
 
 export type AiActivityStatus = 'streaming' | 'ok' | 'error' | 'cancelled' | 'fallback';

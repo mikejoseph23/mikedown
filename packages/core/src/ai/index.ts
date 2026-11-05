@@ -42,6 +42,9 @@ export * from './docs/keyword';
 export * from './docs/secrets';
 export * from './docs/budget';
 export * from './docs/citations';
+export * from './docs/loop';
+export * from './prompts/docsNavigate';
+export * from './prompts/docsAnswer';
 
 // Privacy copy (cloud engines): the card lines, what each feature sends, the consent dialog text.
 export * from './privacy';

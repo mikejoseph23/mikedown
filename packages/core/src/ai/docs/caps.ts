@@ -32,6 +32,15 @@ export const DOCS_KEYWORD_MAX_TERMS = 12;
 /** Headings and links kept per page in the index (defence against one huge file). */
 export const DOCS_MAX_HEADINGS_PER_PAGE = 1000;
 export const DOCS_MAX_LINKS_PER_PAGE = 1000;
+/** Ids taken from one navigation reply; the rest are dropped and counted. Model output is hostile. */
+export const DOCS_MAX_READ_IDS_PER_HOP = 20;
+/** Characters of index text in one navigation prompt, whatever the route's context (several roots of 400 map entries add up). */
+export const DOCS_MAX_NAV_CHARS = 96_000;
+/** Longest id the loop looks up; anything longer is dropped unread. */
+export const DOCS_MAX_ID_CHARS = 2048;
+/** Ids an Activity entry lists per field, each clipped; the count stays exact. */
+export const DOCS_MAX_ACTIVITY_IDS = 100;
+export const DOCS_MAX_ACTIVITY_ID_CHARS = 200;
 
 export { AI_DOCS_MAX_HOPS_DEFAULT, AI_DOCS_MAX_HOPS_MAX, AI_DOCS_MAX_HOPS_MIN, AI_DOCS_SOURCE_SHARE_DEFAULT, AI_DOCS_SOURCE_SHARE_MAX, AI_DOCS_SOURCE_SHARE_MIN };
 

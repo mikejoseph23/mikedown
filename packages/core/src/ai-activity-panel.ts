@@ -100,7 +100,7 @@ function entryDuration(entry: AiActivityEntry): number | null {
 }
 
 /** Jobs that run under another feature (`rewrite`) and get their own name. */
-const JOB_LABELS: Partial<Record<string, string>> = { explain: 'Explain', translate: 'Translate' };
+const JOB_LABELS: Partial<Record<string, string>> = { explain: 'Explain', translate: 'Translate', navigate: 'Chat: navigate', answer: 'Chat: answer' };
 
 function featureLabel(entry: AiActivityEntry): string {
   return (entry.job ? JOB_LABELS[entry.job] : undefined) ?? getAiFeature(entry.feature)?.label ?? entry.feature;
@@ -147,6 +147,23 @@ function messageText(message: AiMessage): string {
 
 const plural = (n: number, word: string): string => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
 
+/** A documentation chat request's ids, as rows. Ids only: nothing a secrets scan left out can get here as text. */
+function docsDetailRows(entry: AiActivityEntry): Array<{ label: string; value: string; raw?: boolean }> {
+  const { docs } = entry;
+  if (!docs) {return [];}
+  const ids = (list: readonly string[], count = list.length): string => {
+    const more = count - list.length;
+    return more > 0 ? `${list.join(', ')}${list.length > 0 ? ', ' : ''}and ${more} more` : list.join(', ');
+  };
+  const rows: Array<{ label: string; value: string; raw?: boolean }> = [];
+  if (docs.hop !== undefined) {rows.push({ label: 'Hop', value: String(docs.hop) });}
+  rows.push({ label: 'Pages', value: docs.pages.length > 0 ? ids(docs.pages) : 'None', raw: true });
+  if (docs.droppedCount > 0) {rows.push({ label: 'Dropped ids', value: ids(docs.droppedIds, docs.droppedCount), raw: true });}
+  if (docs.leftOutIds && docs.leftOutIds.length > 0) {rows.push({ label: 'Left out (key)', value: ids(docs.leftOutIds), raw: true });}
+  if (docs.cutIds && docs.cutIds.length > 0) {rows.push({ label: 'Did not fit', value: ids(docs.cutIds), raw: true });}
+  return rows;
+}
+
 // ── Plain-text export ───────────────────────────────────────────────────────
 
 function exportEntry(entry: AiActivityEntry, index: number, total: number): string {
@@ -164,6 +181,7 @@ function exportEntry(entry: AiActivityEntry, index: number, total: number): stri
     ['Model', model],
     ['Via fallback', entry.route?.viaFallback ? 'yes' : null],
     ['Attempt', entry.attempt],
+    ...docsDetailRows(entry).map(({ label, value }): [string, string] => [label, value]),
     ['Thinking', thinking],
     ['Duration', duration === null ? null : `${duration} ms`],
     ['Format', request.format],
@@ -284,6 +302,7 @@ interface DetailRefs {
   statusWord: HTMLElement;
   route: HTMLElement;
   notes: HTMLElement;
+  docs: HTMLElement;
   receivedSummary: HTMLElement;
   receivedBlock: HTMLElement;
   receivedText: Text;
@@ -621,6 +640,7 @@ export function mountAiActivityPanel(container: HTMLElement, ctx: MikeDownSettin
     head.append(titleRow, route, el('div', 'ai-activity-thinking', facts.join(' · ')));
 
     const notes = el('div', 'ai-activity-notes');
+    const docs = el('div', 'ai-activity-docs');
 
     const sent = buildSection('sent', 'Sent');
     const totalChars = entry.request.messages.reduce((sum, m) => sum + messageText(m).length, 0);
@@ -649,12 +669,12 @@ export function mountAiActivityPanel(container: HTMLElement, ctx: MikeDownSettin
 
     detailPane.replaceChildren();
     const inner = el('div', 'ai-activity-detail-inner');
-    inner.append(head, notes, sent.section, received.section);
+    inner.append(head, notes, docs, sent.section, received.section);
     detailPane.append(inner);
     detailPane.scrollTop = 0;
 
     const refs: DetailRefs = {
-      entry, status, statusWord, route, notes,
+      entry, status, statusWord, route, notes, docs,
       receivedSummary: received.summary, receivedBlock, receivedText, receivedMeta, copyStatus,
     };
     syncDetail(refs, entry, true);
@@ -673,6 +693,11 @@ export function mountAiActivityPanel(container: HTMLElement, ctx: MikeDownSettin
     }
     refs.receivedBlock.hidden = text === '';
     setText(refs.receivedSummary, receivedSummaryText(entry));
+    // A hop's page list arrives after its reply was acted on, so after the request ended.
+    if (first || previous.docs !== entry.docs) {
+      const rows = docsDetailRows(entry);
+      refs.docs.replaceChildren(...(rows.length > 0 ? [metaList(rows)] : []));
+    }
     const ended = first || previous.endedAt !== entry.endedAt || previous.error !== entry.error || previous.retried !== entry.retried || previous.response.served !== entry.response.served;
     if (!ended) {return;}
     const status = aiActivityStatus(entry);

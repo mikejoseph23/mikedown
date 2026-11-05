@@ -22,6 +22,11 @@
  *   against `maxTokens`, so unless the effective level is Off the answer
  *   budget gets reasoning headroom (`thinkingMaxTokens`).
  * - Cancellation is the caller's `AbortSignal`; the host aborts the request.
+ * - A pin (`AiRunRequest.pin`, from `resolveAiTurnRoute`) holds a request to
+ *   one engine and model for a whole turn: never re-routed, never retried
+ *   elsewhere. If that engine cannot serve it, the request fails with a normal
+ *   error and the fallback waits for the next turn. Documentation base pages
+ *   would otherwise follow a fallback past the per-base cloud switch.
  */
 
 import {
@@ -45,11 +50,13 @@ import type {
   AiCompletionRequest,
   AiCompletionResult,
   AiConsentState,
+  AiDocsActivityDetail,
   AiEngineStatus,
   AiError,
   AiErrorCode,
   AiMessage,
   AiRouteOk,
+  AiRoutePin,
   AiRouteUnusable,
   AiSendsScope,
   AiSettings,
@@ -93,6 +100,10 @@ export interface AiRunRequest {
    * `translate` run under the `rewrite` feature.
    */
   job?: AiThinkingJob;
+  /** Use exactly this engine and model (`resolveAiTurnRoute`): no re-routing, no retry elsewhere. Ignored on a tier-1 host, which has no routes. */
+  pin?: AiRoutePin;
+  /** The documentation chat's ids for this request's Activity entry. */
+  docs?: AiDocsActivityDetail;
 }
 
 /** The thinking dial's state for the route serving a request. */
@@ -128,6 +139,8 @@ export interface AiRunOutcome {
   route: AiRouteOk | null;
   viaFallback: boolean;
   thinking: AiRunThinking | null;
+  /** The request's id, which is also its Activity entry's. */
+  requestId?: string;
 }
 
 type Json = Record<string, unknown>;
@@ -248,12 +261,97 @@ function withFailures(statuses: readonly AiEngineStatus[], failed: ReadonlyMap<s
   return out;
 }
 
+/**
+ * The settings a pinned request routes under: the pin as the task's route and
+ * no fallback, so every usual check (switches, capabilities, the cloud gate,
+ * consent, the last probe) still applies and the only possible answers are the
+ * pinned pair or an error.
+ */
+function pinnedSettings(settings: AiSettings, req: AiRunRequest, pin: AiRoutePin): AiSettings {
+  const task = req.task ?? resolveAiFeature(settings.features, req.feature).task;
+  return {
+    ...settings,
+    routing: {
+      ...settings.routing,
+      fallback: 'none',
+      tasks: { ...settings.routing.tasks, [task]: { engineId: pin.engineId, modelId: pin.modelId } },
+    },
+  };
+}
+
+/** What `resolveAiTurnRoute` needs to know about the turn. */
+export interface AiTurnRouteRequest {
+  feature: string;
+  task?: string;
+  sends?: AiSendsScope;
+  baseIds?: string[];
+  /** Asked about each route before any consent dialog; false stops with `blocked`. */
+  allowed?(route: AiRouteOk | null): boolean;
+}
+
+export interface AiTurnRoute {
+  /** `allowed` said no. No dialog was shown. */
+  blocked: boolean;
+  /** Null for a tier-1 host, which routes by itself. */
+  route: AiRouteOk | null;
+  /** What every request of the turn carries; null when there is no route to hold. */
+  pin: AiRoutePin | null;
+}
+
+/**
+ * The one route of a turn, asked for before the turn's first request. Checks
+ * `allowed`, then asks for consent. A refusal may still move to the fallback
+ * here, because nothing has been sent; `allowed` sees that route too. After
+ * this the turn does not move. "Allow once" lasts for the turn. Throws the
+ * router's error when nothing can serve it.
+ */
+export async function resolveAiTurnRoute(ctx: AiRunContext, req: AiTurnRouteRequest, signal: AbortSignal): Promise<AiTurnRoute> {
+  if (!isTier2(ctx.ai)) {
+    return { blocked: req.allowed ? !req.allowed(null) : false, route: null, pin: null };
+  }
+  const refused: Record<string, boolean> = {};
+  const once: Record<string, boolean> = {};
+  for (let pass = 0; pass < 12; pass++) {
+    if (signal.aborted) {throw makeAiError('cancelled');}
+    const consent: AiConsentState = { ...ctx.consent, ...once, ...refused };
+    const resolved = resolveRoute(ctx.settings(), ctx.statuses(), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
+    if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
+    if (req.allowed && !req.allowed(resolved)) {return { blocked: true, route: resolved, pin: null };}
+    if (!resolved.needsConsent) {
+      return {
+        blocked: false,
+        route: resolved,
+        pin: {
+          engineId: resolved.engineId,
+          modelId: resolved.modelId,
+          viaFallback: resolved.viaFallback,
+          ...(resolved.reason ? { reason: resolved.reason } : {}),
+          ...(once[resolved.engineId] ? { consented: true } : {}),
+        },
+      };
+    }
+    const reply = ctx.ai.requestCloudConsent
+      ? await ctx.ai.requestCloudConsent(resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}), ...(req.baseIds && req.baseIds.length > 0 ? { baseIds: req.baseIds } : {}) })
+      : true;
+    if (signal.aborted) {throw makeAiError('cancelled');}
+    if (reply === true) {ctx.consent[resolved.engineId] = true;}
+    else if (reply === 'once') {once[resolved.engineId] = true;}
+    else {
+      refused[resolved.engineId] = false;
+      if (reply === 'never') {ctx.consent[resolved.engineId] = false;}
+    }
+  }
+  throw makeAiError('unknown', 'No engine answered.');
+}
+
 export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, events: AiRunEvents, signal: AbortSignal): Promise<AiRunOutcome> {
   const tier2 = isTier2(ctx.ai);
   const failed = new Map<string, string>();
   const refused: Record<string, boolean> = {};
   /** "Allow once" grants: this run only, never written to the session. */
   const once: Record<string, boolean> = {};
+  const pin = tier2 ? req.pin : undefined;
+  if (pin?.consented) {once[pin.engineId] = true;}
   let retried = false;
 
   // Bounded: each pass either sends, records a consent answer, or marks one engine failed.
@@ -263,7 +361,8 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
     let route: AiRouteOk | null = null;
     if (tier2) {
       const consent: AiConsentState = { ...ctx.consent, ...once, ...refused };
-      const resolved = resolveRoute(ctx.settings(), withFailures(ctx.statuses(), failed), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
+      const settings = pin ? pinnedSettings(ctx.settings(), req, pin) : ctx.settings();
+      const resolved = resolveRoute(settings, withFailures(ctx.statuses(), failed), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
       if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
       if (resolved.needsConsent) {
         const reply = ctx.ai.requestCloudConsent
@@ -280,7 +379,9 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
         }
         continue;
       }
-      route = resolved;
+      route = pin
+        ? { ...resolved, viaFallback: pin.viaFallback ?? false, ...(pin.reason ? { reason: pin.reason } : {}) }
+        : resolved;
     }
 
     const thinking = route ? routeThinking(ctx.settings(), route, req) : null;
@@ -306,6 +407,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
       endedAt: null,
       feature: request.feature,
       ...(req.job ? { job: req.job } : {}),
+      ...(req.docs ? { docs: req.docs } : {}),
       task: request.task,
       route: route ? activityRoute(ctx.settings(), route) : null,
       thinking: thinking?.info ?? null,
@@ -323,10 +425,10 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
         events.onToken?.(delta, text);
       }, signal);
       patchActivity(ctx, entryId, { endedAt: Date.now(), response: aiActivityResponse(result) });
-      return { result, route, viaFallback: route?.viaFallback ?? false, thinking: thinking?.info ?? null };
+      return { result, route, viaFallback: route?.viaFallback ?? false, thinking: thinking?.info ?? null, requestId: entryId };
     } catch (err) {
       const e = signal.aborted ? makeAiError('cancelled') : toAiError(err);
-      const retrying = e.code === 'unreachable' && !gotToken && !retried && !!route;
+      const retrying = e.code === 'unreachable' && !gotToken && !retried && !!route && !pin;
       patchActivity(ctx, entryId, {
         endedAt: Date.now(),
         error: route && !e.engineId && e.code !== 'cancelled' ? { ...e, engineId: route.engineId } : e,
