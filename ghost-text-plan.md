@@ -18,8 +18,8 @@ Defaults applied: incremental testing, vitest unit tests, hands-on for interacti
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
 | M1 Core: prompt, trimming, settings | Sonnet | ✅ Done | 15 | f8daa9a |
-| M2 Core: ghost controller | Sonnet | 🔄 In Progress | — | Debounce, abort, stop rules, prefix matching |
-| M3 Tests: core | Sonnet | ⬜ Not Started | — | vitest, `packages/core/test/` |
+| M2 Core: ghost controller | Sonnet | ✅ Done | 4 | 022937d |
+| M3 Tests: core | Sonnet | 🔄 In Progress | — | vitest, `packages/core/test/` |
 | M4 UI: decoration plugin, keys, status | Opus | 🔄 In Progress | — | Widget decoration, Tab/Esc, chip |
 | M5 UI: settings, consent, activity | Opus | ⬜ Not Started | — | Feature row knobs, consent-once, recorder |
 | M6 Tests: UI | Sonnet | ⬜ Not Started | — | jsdom editor tests |
@@ -80,13 +80,13 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Sonnet.** Surface-agnostic state machine in `packages/core/src/ai-ghost.ts` (lazy chunk, D13). Workers must complete every item.
 
-- [ ] `createGhostController(deps)` with deps: `run` (same shape as the rewrite popover's `run`, `editor.ts:4418`), `options()` returning `AiGhostTextOptions`, `contextTokens()`, `onSuggestion(text | null)`, `onBusy(bool)`, `onServed`, `onError`, `record(entry)` for D10.
-- [ ] Inputs: `noteChange({ markdown, caretOffset, atBlockEnd, eligible })`, `noteSelectionMove()`, `triggerNow()`, `accept()`, `acceptWord()`, `dismiss()`, `typed(char)`, `destroy()`.
-- [ ] Idle timer per D1 and D2; abort on every change; `trigger: 'manual'` disables the timer.
-- [ ] Streaming: tokens accumulate and `onSuggestion` is called with the trimmed text after each token; the request aborts itself once a stop rule fires (D5) so the model does not keep generating.
-- [ ] Request shape: `{ feature: 'ghostText', task: 'continue', sends: 'selection', messages, maxTokens, temperature: 0.3, thinking: 'off', job: 'ghostText', localOnly }`; `job: 'ghostText'` added to `AiThinkingJob` with default level off (`packages/core/src/ai/thinking.ts`).
-- [ ] Errors: `cloudBlocked`, `capability`, `featureDisabled` are silent (no toast, suggestion cleared) but surface once per session through `onError` so the toolbar menu can show a reason; network errors back off (double the delay up to 5 s, reset on success).
-- [ ] Commit.
+- [x] `createGhostController(deps)` with deps: `run` (same shape as the rewrite popover's `run`, `editor.ts:4418`), `options()` returning `AiGhostTextOptions`, `contextTokens()`, `onSuggestion(text | null)`, `onBusy(bool)`, `onServed`, `onError`, `record(entry)` for D10.
+- [x] Inputs: `noteChange({ markdown, caretOffset, atBlockEnd, eligible })`, `noteSelectionMove()`, `triggerNow()`, `accept()`, `acceptWord()`, `dismiss()`, `typed(char)`, `destroy()`.
+- [x] Idle timer per D1 and D2; abort on every change; `trigger: 'manual'` disables the timer.
+- [x] Streaming: tokens accumulate and `onSuggestion` is called with the trimmed text after each token; the request aborts itself once a stop rule fires (D5) so the model does not keep generating.
+- [x] Request shape: `{ feature: 'ghostText', task: 'continue', sends: 'selection', messages, maxTokens, temperature: 0.3, thinking: 'off', job: 'ghostText', localOnly }`; `job: 'ghostText'` added to `AiThinkingJob` with default level off (`packages/core/src/ai/thinking.ts`).
+- [x] Errors: `cloudBlocked`, `capability`, `featureDisabled` are silent (no toast, suggestion cleared) but surface once per session through `onError` so the toolbar menu can show a reason; network errors back off (double the delay up to 5 s, reset on success).
+- [x] Commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -187,5 +187,7 @@ Gap-filling prompts follow the original milestone prompt structure (header, miss
 **2026-11-05 18:36** - M1 done (f8daa9a). Continue prompt, caret context, trimming, ghostText settings, router localOnly. Beyond the listed files: `consent.rs` and the consent fixture gained ghostText, and the toggles test now filters on defaultEnabled. Unit tests unchanged at 4256 passed.
 
 **2026-11-05 18:36** - Two orchestration refinements of the M2 inputs, neither changing D1 to D13: \`noteChange\` takes a lazy \`read()\` for the markdown and caret offset so the document is serialized when a request is about to fire, not on every keystroke; and a selection move aborts and clears without starting a timer, because D1 triggers only on text changes and a move has no fresh snapshot. M4 is split into a plugin half (M4a, beside M2) and a wiring half (M4b, after M3).
+
+**2026-11-05 18:40** - M2 done (022937d). Controller in `ai-ghost.ts`, `ghostText` default-off in `thinking.ts`. `triggerNow` gained an optional fresh input. `classifyGhostError` reads router sentences because `routeUnusableError` keeps only some codes, so M3 pins it against the real router messages. M3 also corrects the activity entry to hold the shown suggestion rather than the raw stream.
 
 [Return to Top](#ghost-text-plan)
