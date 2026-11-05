@@ -11,11 +11,24 @@
  */
 
 import { completeCapabilities, detectCapabilities } from './capabilityHeuristics';
-import { defaultAiSettings } from './defaults';
-import { AI_ENGINE_KINDS, AI_FALLBACK_MODES, AI_HOST_ENGINE_KINDS } from './types';
+import { defaultAiDocsOptions, defaultAiSettings } from './defaults';
+import {
+  AI_DOCS_MAX_HOPS_MAX,
+  AI_DOCS_MAX_HOPS_MIN,
+  AI_DOCS_NAVIGATE_BY,
+  AI_DOCS_SOURCE_SHARE_MAX,
+  AI_DOCS_SOURCE_SHARE_MIN,
+  AI_ENGINE_KINDS,
+  AI_FALLBACK_MODES,
+  AI_HOST_ENGINE_KINDS,
+} from './types';
 import type {
   AiApiKeyFile,
   AiCapabilitiesSource,
+  AiDocBase,
+  AiDocsNavigateBy,
+  AiDocsOptions,
+  AiDocsSettings,
   AiEngineConfig,
   AiEngineKind,
   AiFeatureSetting,
@@ -38,9 +51,9 @@ export interface ParseAiSettingsOptions {
 }
 
 /** The top-level keys, without the `ai.` prefix. */
-export const AI_SETTINGS_KEYS = ['enabled', 'allowCloud', 'engines', 'routing', 'features', 'localNetworks', 'showToolbarButton', 'activityPanel'] as const;
+export const AI_SETTINGS_KEYS = ['enabled', 'allowCloud', 'engines', 'routing', 'features', 'localNetworks', 'showToolbarButton', 'activityPanel', 'docBases', 'docs'] as const;
 
-export { defaultAiSettings };
+export { defaultAiDocsOptions, defaultAiSettings };
 
 export function isKnownEngineKind(kind: string): kind is AiEngineKind {
   return (AI_ENGINE_KINDS as readonly string[]).includes(kind);
@@ -118,6 +131,8 @@ export function parseAiSettings(raw: unknown, opts: ParseAiSettingsOptions = {})
   out.engines = parseEngines(source.engines, genId, warn);
   out.routing = parseRouting(source.routing, warn);
   out.features = parseFeatures(source.features, warn);
+  out.docBases = parseDocBases(source.docBases, genId, warn);
+  out.docs = parseDocsOptions(source.docs, warn);
   return out;
 }
 
@@ -309,4 +324,203 @@ export function serializeAiSettings(settings: AiSettings): AiSettingsPatch {
     patch[`ai.${key}`] = JSON.parse(JSON.stringify(value)) as unknown;
   }
   return patch;
+}
+
+// ── Documentation bases ─────────────────────────────────────────────────────
+
+/** What `checkDocRoot` says about one folder path. */
+export type DocRootCheck = { ok: true; path: string; windows: boolean } | { ok: false; reason: string };
+
+const MARKDOWN_FILE_NAME = /\.(md|markdown)$/i;
+
+/**
+ * Is `raw` an acceptable base root (decision 2)? Absolute, normalized
+ * (separators collapsed, `.` and `..` resolved, no trailing separator), no
+ * `${...}` token, not a filesystem root, and not a markdown file where the
+ * name says so. Pure string work: a host still checks the folder on disk.
+ * POSIX (`/a/b`), drive (`C:\a\b`, `C:/a/b`) and UNC (`\\server\share\a`)
+ * paths are accepted; the result keeps the style it came in (a drive letter
+ * is upper-cased, a Windows path uses `\`).
+ */
+export function checkDocRoot(raw: unknown): DocRootCheck {
+  if (typeof raw !== 'string') {return { ok: false, reason: 'is not a path' };}
+  const text = raw.trim();
+  if (!text) {return { ok: false, reason: 'is empty' };}
+  if (text.includes('${')) {return { ok: false, reason: 'contains a ${...} token; use the full path' };}
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f]/.test(text)) {return { ok: false, reason: 'contains a control character' };}
+
+  let prefix: string;
+  let rest: string;
+  let windows = false;
+  const drive = /^([A-Za-z]):[\\/]/.exec(text);
+  const unc = /^\\\\([^\\/]+)[\\/]+([^\\/]+)/.exec(text);
+  if (drive) {
+    windows = true;
+    prefix = `${drive[1].toUpperCase()}:`;
+    rest = text.slice(2);
+  } else if (unc) {
+    windows = true;
+    prefix = `\\\\${unc[1]}\\${unc[2]}`;
+    rest = text.slice(unc[0].length);
+  } else if (text.startsWith('/')) {
+    prefix = '';
+    rest = text;
+  } else {
+    return { ok: false, reason: 'is not an absolute path' };
+  }
+
+  const segments: string[] = [];
+  for (const segment of rest.split(windows ? /[\\/]+/ : /\/+/)) {
+    if (!segment || segment === '.') {continue;}
+    if (segment === '..') {
+      segments.pop();
+    } else {
+      segments.push(segment);
+    }
+  }
+  if (segments.length === 0 && !unc) {return { ok: false, reason: 'is a filesystem root, not a documentation folder' };}
+  const last = segments[segments.length - 1] ?? '';
+  if (MARKDOWN_FILE_NAME.test(last)) {return { ok: false, reason: 'is a file, not a folder' };}
+  const path = windows ? `${prefix}\\${segments.join('\\')}`.replace(/\\$/, '') : `/${segments.join('/')}`;
+  return { ok: true, path, windows };
+}
+
+/** The key two roots are compared by: case-insensitive for Windows paths only. */
+export function docRootKey(path: string): string {
+  const windows = /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\');
+  return windows ? path.toLowerCase() : path;
+}
+
+/**
+ * A base's home override: a markdown file name, or a relative path under the
+ * root, with `/` separators. No absolute path, no `..`, no `${...}`. Null
+ * when `raw` is not one.
+ */
+export function normalizeDocHomeFile(raw: unknown): string | null {
+  if (typeof raw !== 'string') {return null;}
+  const text = raw.trim().replace(/\\/g, '/');
+  if (!text || text.includes('${') || text.startsWith('/') || /^[A-Za-z]:/.test(text)) {return null;}
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f]/.test(text)) {return null;}
+  const segments = text.split('/').filter((segment) => segment && segment !== '.');
+  if (segments.length === 0 || segments.includes('..')) {return null;}
+  const normalized = segments.join('/');
+  return MARKDOWN_FILE_NAME.test(normalized) ? normalized : null;
+}
+
+const DOC_BASE_KEYS = ['id', 'name', 'roots', 'homeFile', 'allowCloud', 'enabled'] as const;
+
+function lastSegment(path: string): string {
+  const parts = path.split(/[\\/]+/).filter(Boolean);
+  return parts[parts.length - 1] ?? path;
+}
+
+/**
+ * Read `ai.docBases`. Drops, each with a warning that says why: an entry that
+ * is not an object, one with no valid root, a root that fails `checkDocRoot`
+ * or repeats another root (in this base or any earlier one; case-insensitive
+ * for Windows paths). A bad `homeFile` is dropped and the base kept. A base
+ * with no id gets one, once (written back by `serializeAiSettings`).
+ * `allowCloud` is false unless exactly `true`; `enabled` is true unless
+ * exactly `false`. Unknown keys survive.
+ */
+export function parseDocBases(raw: unknown, genId: (name: string) => string, warn: (m: string) => void): AiDocBase[] {
+  if (raw === undefined) {return [];}
+  if (!Array.isArray(raw)) {
+    warn('docBases is not an array; ignoring it.');
+    return [];
+  }
+  const bases: AiDocBase[] = [];
+  const ids = new Set<string>();
+  const rootKeys = new Set<string>();
+  raw.forEach((entry, index) => {
+    const where = `docBases[${index}]`;
+    if (!isObject(entry)) {
+      warn(`${where} is not an object; dropped.`);
+      return;
+    }
+    if (!Array.isArray(entry.roots) || entry.roots.length === 0) {
+      warn(`${where} has no roots; dropped.`);
+      return;
+    }
+    const roots: string[] = [];
+    entry.roots.forEach((candidate: unknown, rootIndex: number) => {
+      const checked = checkDocRoot(candidate);
+      if (!checked.ok) {
+        warn(`${where}.roots[${rootIndex}] ${checked.reason}; root dropped.`);
+        return;
+      }
+      const key = docRootKey(checked.path);
+      if (rootKeys.has(key)) {
+        warn(`${where}.roots[${rootIndex}] repeats the folder ${checked.path}; root dropped.`);
+        return;
+      }
+      rootKeys.add(key);
+      roots.push(checked.path);
+    });
+    if (roots.length === 0) {
+      warn(`${where} has no valid roots left; dropped.`);
+      return;
+    }
+
+    const name = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : lastSegment(roots[0]);
+    let id = typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : '';
+    if (!id || ids.has(id)) {
+      if (id) {warn(`${where} repeats id "${id}"; gave it a new one.`);}
+      do {
+        id = genId(name);
+      } while (ids.has(id));
+    }
+    ids.add(id);
+
+    const base = { ...extras(entry, DOC_BASE_KEYS) } as unknown as AiDocBase;
+    base.id = id;
+    base.name = name;
+    base.roots = roots;
+    if (entry.homeFile !== undefined && entry.homeFile !== null && entry.homeFile !== '') {
+      const home = normalizeDocHomeFile(entry.homeFile);
+      if (home) {base.homeFile = home;} else {warn(`${where}.homeFile must be a markdown file name or relative path under the root; ignored.`);}
+    }
+    base.allowCloud = entry.allowCloud === true;
+    base.enabled = entry.enabled !== false;
+    bases.push(base);
+  });
+  return bases;
+}
+
+function clampInt(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/** Read `ai.docs`: hops clamped to 1 to 5, share to 30 to 80, `navigateBy` to `section` or `page`. Unknown keys survive. */
+export function parseDocsOptions(raw: unknown, warn: (m: string) => void): AiDocsOptions {
+  const defaults = defaultAiDocsOptions();
+  if (raw === undefined) {return defaults;}
+  if (!isObject(raw)) {
+    warn('docs is not an object; using the defaults.');
+    return defaults;
+  }
+  const out = { ...extras(raw, ['maxHops', 'sourceShare', 'navigateBy']), ...defaults } as AiDocsOptions;
+  if (typeof raw.maxHops === 'number' && Number.isFinite(raw.maxHops)) {
+    out.maxHops = clampInt(raw.maxHops, AI_DOCS_MAX_HOPS_MIN, AI_DOCS_MAX_HOPS_MAX);
+  } else if (raw.maxHops !== undefined) {
+    warn('docs.maxHops is not a number; using the default.');
+  }
+  if (typeof raw.sourceShare === 'number' && Number.isFinite(raw.sourceShare)) {
+    out.sourceShare = clampInt(raw.sourceShare, AI_DOCS_SOURCE_SHARE_MIN, AI_DOCS_SOURCE_SHARE_MAX);
+  } else if (raw.sourceShare !== undefined) {
+    warn('docs.sourceShare is not a number; using the default.');
+  }
+  if ((AI_DOCS_NAVIGATE_BY as readonly unknown[]).includes(raw.navigateBy)) {
+    out.navigateBy = raw.navigateBy as AiDocsNavigateBy;
+  } else if (raw.navigateBy !== undefined) {
+    warn('docs.navigateBy must be "section" or "page"; using the default.');
+  }
+  return out;
+}
+
+/** What the navigation loop runs with: the advanced options plus the bases. */
+export function resolveDocsSettings(settings: Pick<AiSettings, 'docBases' | 'docs'>): AiDocsSettings {
+  return { ...settings.docs, bases: settings.docBases };
 }

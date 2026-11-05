@@ -16,11 +16,17 @@
  *   retries and transport details stay inside the host implementation.
  */
 
-import type { MikeDownAiHost } from './ai/types';
+import type { MikeDownAiHost, MikeDownDocsHost } from './ai/types';
 import type { MikeDownSettingsPatch } from './types';
 
 export type {
   MikeDownAiHost,
+  MikeDownDocsHost,
+  AiDocBase,
+  AiDocBaseStatus,
+  AiDocsIndex,
+  AiDocsSection,
+  AiDocsSectionRef,
   AiMessage,
   AiMessagePart,
   AiCompletionRequest,
@@ -227,6 +233,13 @@ export interface MikeDownHost {
    * Types and helpers live in `@mikedown/core/ai`.
    */
   ai?: MikeDownAiHost;
+
+  // ── Documentation bases (absent = the chat's scope picker shows This document only) ──
+  /**
+   * User-level folders of markdown the AI chat can navigate and answer from.
+   * Needs `ai` as well. Types live in `@mikedown/core/ai`.
+   */
+  docs?: MikeDownDocsHost;
 }
 
 /** A host with every optional method absent. `onChange` does nothing. */

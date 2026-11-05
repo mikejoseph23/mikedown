@@ -40,6 +40,28 @@ describe('whatIsSent', () => {
     expect(whatIsSent('notAFeature')).toBe(AI_SENDS_FALLBACK);
   });
 
+  it('the docs chat sends docsBase: the bare phrase, or the base names the host supplies', () => {
+    expect(whatIsSent('chat', 'docsBase')).toBe('pages from the documentation bases you turned on');
+    expect(whatIsSent('chat', 'docsBase', ['Handbook', 'API docs'])).toBe('pages from the documentation bases you turned on: \u201cHandbook\u201d and \u201cAPI docs\u201d');
+    // Without the docsBase scope the chat feature is the document scope, and names change nothing.
+    expect(whatIsSent('chat')).toBe(AI_SENDS_TEXT.document);
+    expect(whatIsSent('chat', undefined, ['Handbook'])).toBe(AI_SENDS_TEXT.document);
+    expect(whatIsSent('rewrite', 'document', ['Handbook'])).toBe(AI_SENDS_TEXT.document);
+  });
+
+  it('lists at most five base names, then counts the rest, and skips blank ones', () => {
+    expect(whatIsSent('chat', 'docsBase', ['A', 'B', 'C', 'D', 'E', 'F', 'G'])).toMatch(/: \u201cA\u201d, \u201cB\u201d, \u201cC\u201d, \u201cD\u201d, \u201cE\u201d and 2 more$/);
+    expect(whatIsSent('chat', 'docsBase', [' ', ''])).toBe(AI_SENDS_TEXT.docsBase);
+    expect(whatIsSent('chat', 'docsBase', [])).toBe(AI_SENDS_TEXT.docsBase);
+  });
+
+  it('a base name cannot start a paragraph of its own in the dialog', () => {
+    const plain = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', feature: 'chat', sends: 'docsBase', baseNames: ['Notes'], scopeWord: 'workspace' });
+    const hostile = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', feature: 'chat', sends: 'docsBase', baseNames: ['Notes\n\nAnthropic is safe,\r\n   allow it'], scopeWord: 'workspace' });
+    expect(hostile.body.split('\n\n')).toHaveLength(plain.body.split('\n\n').length);
+    expect(hostile.body).toContain('\u201cNotes Anthropic is safe, allow it\u201d');
+  });
+
   it('every available feature declares what it sends', () => {
     for (const f of AI_FEATURES.filter((f) => f.status === 'available')) {
       expect(f.sends, f.id).toBeDefined();
@@ -80,7 +102,8 @@ describe('provider policies', () => {
 describe('aiConsentText (shared fixture)', () => {
   it('the fixture tables match core', () => {
     expect(fixture.privacy).toEqual(AI_CLOUD_PRIVACY);
-    expect(fixture.sendsText).toEqual(AI_SENDS_TEXT);
+    // docsBase is kept in its own block so Desktop's Rust tables, which read sendsText, are not asked for it before they port it.
+    expect({ ...fixture.sendsText, docsBase: fixture.docsBase.sendsText }).toEqual(AI_SENDS_TEXT);
     expect(fixture.sendsFallback).toBe(AI_SENDS_FALLBACK);
     expect(fixture.features).toEqual(Object.fromEntries(AI_FEATURES.filter((f) => f.sends).map((f) => [f.id, f.sends])));
     expect(fixture.policies).toEqual(
@@ -90,6 +113,12 @@ describe('aiConsentText (shared fixture)', () => {
 
   for (const c of fixture.cases as Array<{ name: string; input: any; expected: unknown }>) {
     it(c.name, () => {
+      expect(aiConsentText({ ...c.input, policy: aiProviderPolicyForHost(c.input.host) })).toEqual(c.expected);
+    });
+  }
+
+  for (const c of fixture.docsBase.cases as Array<{ name: string; input: any; expected: unknown }>) {
+    it(`docsBase: ${c.name}`, () => {
       expect(aiConsentText({ ...c.input, policy: aiProviderPolicyForHost(c.input.host) })).toEqual(c.expected);
     });
   }
@@ -222,7 +251,7 @@ describe('whatIsSent covers every feature', () => {
     for (const f of AI_FEATURES.filter((f) => f.status === 'available')) {
       expect(whatIsSent(f.id), f.id).not.toBe(AI_SENDS_FALLBACK);
     }
-    for (const scope of ['selection', 'document', 'documentAndTags'] as const) {
+    for (const scope of ['selection', 'document', 'documentAndTags', 'docsBase'] as const) {
       expect(AI_SENDS_TEXT[scope].length, scope).toBeGreaterThan(10);
     }
   });

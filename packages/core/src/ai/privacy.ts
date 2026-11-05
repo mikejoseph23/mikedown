@@ -54,19 +54,41 @@ export const AI_SENDS_TEXT: Readonly<Record<AiSendsScope, string>> = {
   selection: 'the selected text and the paragraph before and after it',
   document: 'the whole document, up to what fits the model',
   documentAndTags: 'the document, its frontmatter and the tag names used in this workspace',
+  // The base names follow in `whatIsSent`; without them this is all there is to say.
+  docsBase: 'pages from the documentation bases you turned on',
 };
 
 /** For a request whose feature is unknown. */
 export const AI_SENDS_FALLBACK = 'the text you ask the AI about';
 
+/** Most base names a consent sentence lists before it says "and N more". */
+export const AI_SENDS_MAX_BASE_NAMES = 5;
+
+/** `“Handbook”, “API docs” and “Notes”`: the names a `docsBase` request lists. Blank names are skipped and whitespace (newlines included) is collapsed, so a name cannot start a paragraph of its own. */
+function listBaseNames(names: readonly string[]): string {
+  const quoted = names.map((n) => n.replace(/\s+/g, ' ').trim()).filter(Boolean).map((n) => `\u201c${n}\u201d`);
+  if (quoted.length <= AI_SENDS_MAX_BASE_NAMES) {
+    return quoted.length > 1 ? `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}` : quoted.join('');
+  }
+  const more = quoted.length - AI_SENDS_MAX_BASE_NAMES;
+  return `${quoted.slice(0, AI_SENDS_MAX_BASE_NAMES).join(', ')} and ${more} more`;
+}
+
 /**
  * What a request sends, as the object of a sentence ("MikeDown sends …").
  * `sends` wins (whole-document Translate runs as the `rewrite` feature);
- * else the feature's own scope; else a generic phrase.
+ * else the feature's own scope; else a generic phrase. For `docsBase`,
+ * `baseNames` (the host's names for the bases the request would read from)
+ * are spelled out: "pages from the documentation bases you turned on:
+ * “Handbook” and “Notes”". Without names it is the bare phrase.
  */
-export function whatIsSent(feature?: string, sends?: AiSendsScope): string {
+export function whatIsSent(feature?: string, sends?: AiSendsScope, baseNames?: readonly string[]): string {
   const scope = sends ?? (feature ? getAiFeature(feature)?.sends : undefined);
-  return scope ? AI_SENDS_TEXT[scope] : AI_SENDS_FALLBACK;
+  if (!scope) {return AI_SENDS_FALLBACK;}
+  const text = AI_SENDS_TEXT[scope];
+  if (scope !== 'docsBase' || !baseNames) {return text;}
+  const list = listBaseNames(baseNames);
+  return list ? `${text}: ${list}` : text;
 }
 
 /** The policy of the cloud preset on `host` (an engine's base URL host), if one matches. */
@@ -111,6 +133,8 @@ export interface AiConsentTextInput {
   host: string;
   feature?: string;
   sends?: AiSendsScope;
+  /** Names of the bases a `docsBase` request reads from, as the host knows them (never from the webview). */
+  baseNames?: readonly string[];
   scopeWord: AiConsentScopeWord;
   /** The provider's policy (see `aiProviderPolicyForHost`). */
   policy?: AiProviderPolicy | null;
@@ -139,7 +163,7 @@ export interface AiConsentText {
 /** The consent dialog's words, the single source for both hosts. */
 export function aiConsentText(input: AiConsentTextInput): AiConsentText {
   const { engineName: name, host, scopeWord, policy } = input;
-  const sends = whatIsSent(input.feature, input.sends);
+  const sends = whatIsSent(input.feature, input.sends, input.baseNames);
   // A host kind has no address: "GitHub Copilot is a cloud engine at GitHub Copilot" would read oddly.
   const paragraphs = input.kind && isHostEngineKind(input.kind)
     ? [

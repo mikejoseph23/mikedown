@@ -92,12 +92,17 @@ export function nearestThinkingLevel(kind: string, level: AiThinkingLevel | null
  */
 export type AiThinkingJob = string;
 
-/** Short edits: thinking spends the budget and adds little, so "Default" sends Off. */
-const SHORT_EDIT_JOBS: ReadonlySet<string> = new Set(['rewrite', 'translate', 'title', 'frontmatter']);
+/**
+ * Short edits: thinking spends the budget and adds little, so "Default" sends Off.
+ * `navigate` is the docs chat's page-picking call (a small JSON answer); the
+ * `answer` call is not here, so the model thinks as it would.
+ */
+const SHORT_EDIT_JOBS: ReadonlySet<string> = new Set(['rewrite', 'translate', 'title', 'frontmatter', 'navigate']);
 
 /**
  * The level MikeDown picks for a job when the dial is on Default (Q6): Off
- * for the short edits, null (the model's own) for everything else.
+ * for the short edits and the docs chat's `navigate` hops, null (the model's
+ * own) for everything else, the docs chat's `answer` call included.
  */
 export function taskThinkingDefault(job: string | undefined): AiThinkingLevel | null {
   return job && SHORT_EDIT_JOBS.has(job) ? 'off' : null;

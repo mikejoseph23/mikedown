@@ -26,6 +26,8 @@ describe('defaults', () => {
       localNetworks: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'],
       showToolbarButton: true,
       activityPanel: false,
+      docBases: [],
+      docs: { maxHops: 3, sourceShare: 60, navigateBy: 'section' },
     });
     expect(Object.keys(s).sort()).toEqual([...AI_SETTINGS_KEYS].sort());
   });

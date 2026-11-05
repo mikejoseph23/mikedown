@@ -167,6 +167,195 @@ export interface AiSettings {
   showToolbarButton: boolean;
   /** Record what each AI request sent and received, in memory, and show it in the Activity panel. Default false. */
   activityPanel: boolean;
+  /**
+   * Documentation bases (`mikedown.ai.docBases`). User-level only: a host
+   * reads this key from its user settings and never from a workspace, so a
+   * repository cannot add or redirect a base. `parseAiSettings` drops invalid
+   * entries with a reason (see `parseDocBases`).
+   */
+  docBases: AiDocBase[];
+  /** Advanced options for chatting with the bases (`mikedown.ai.docs`), user-level only like `docBases`. */
+  docs: AiDocsOptions;
+}
+
+// ── Documentation bases ─────────────────────────────────────────────────────
+
+/**
+ * One documentation base: user-level folders of markdown the chat can
+ * navigate and answer from. Roots are absolute, normalized folder paths.
+ */
+export interface AiDocBase {
+  /** Stable, generated once, never shown. The wire and the consent dialog name a base by id; the host maps it to a name from its own settings. */
+  id: string;
+  name: string;
+  /** Absolute normalized folders (`validateDocRoot`). At least one. */
+  roots: string[];
+  /** Per-base override for the home document's file name, relative to each root (`HOME.md`). Absent: `INDEX.md`, `README.md`, then a map. */
+  homeFile?: string;
+  /** May pages from this base be sent to a cloud engine. Default false. */
+  allowCloud: boolean;
+  /** A disabled base is never indexed for or sent with a request. Default true. */
+  enabled: boolean;
+}
+
+export type AiDocsNavigateBy = 'section' | 'page';
+
+export const AI_DOCS_NAVIGATE_BY: readonly AiDocsNavigateBy[] = ['section', 'page'];
+
+/** The advanced options (`ai.docs`), without the bases. */
+export interface AiDocsOptions {
+  /** Navigation calls before the answer. Clamped to `AI_DOCS_MAX_HOPS_MIN`..`AI_DOCS_MAX_HOPS_MAX`. Default 3. */
+  maxHops: number;
+  /** Percent of the route's context the answer's sections may take. Clamped to `AI_DOCS_SOURCE_SHARE_MIN`..`AI_DOCS_SOURCE_SHARE_MAX`. Default 60. */
+  sourceShare: number;
+  /** Whether the model asks for `page#heading` sections or whole pages. Default `section`. */
+  navigateBy: AiDocsNavigateBy;
+}
+
+/** The options the loop runs with: `ai.docs` plus the bases (`resolveDocsSettings`). */
+export interface AiDocsSettings extends AiDocsOptions {
+  bases: AiDocBase[];
+}
+
+export const AI_DOCS_MAX_HOPS_MIN = 1;
+export const AI_DOCS_MAX_HOPS_MAX = 5;
+export const AI_DOCS_MAX_HOPS_DEFAULT = 3;
+export const AI_DOCS_SOURCE_SHARE_MIN = 30;
+export const AI_DOCS_SOURCE_SHARE_MAX = 80;
+export const AI_DOCS_SOURCE_SHARE_DEFAULT = 60;
+export const AI_DOCS_NAVIGATE_BY_DEFAULT: AiDocsNavigateBy = 'section';
+
+// ── Documentation bases: what a host reports ────────────────────────────────
+
+/** Where a root's home document came from (decision 3). `map` means none was found and core builds an in-memory map. */
+export type AiDocHomeKind = 'override' | 'index' | 'readme' | 'map';
+
+/** One root of a base, as the host last saw it. */
+export interface AiDocRootStatus {
+  /** The root as configured (absolute). */
+  root: string;
+  /** The label ids use for this root (the same rule on both hosts; `docs/index.ts`). */
+  label: string;
+  /** The folder exists and is readable. False: "Root not found"; the root is skipped for requests, never deleted. */
+  found: boolean;
+  /** Which home precedence step won; `map` is the "No home document" state. Absent when the root is not found. */
+  home?: AiDocHomeKind;
+  /** The home document's path relative to the root, when `home` is not `map`. */
+  homePath?: string;
+  /** Markdown files indexed under this root. */
+  fileCount: number;
+  /** Files over the byte cap, skipped. */
+  oversizeSkipped: number;
+  /** The file cap was reached; later files were not indexed. */
+  capReached: boolean;
+}
+
+/**
+ * A base plus its health, as `listBases` reports it. Computed when the
+ * manager page opens and on Refresh. "Active" means enabled with at least one
+ * root found; only active bases are indexed for or sent to a request.
+ */
+export interface AiDocBaseStatus {
+  base: AiDocBase;
+  /** Enabled and at least one root found. */
+  active: boolean;
+  roots: AiDocRootStatus[];
+  /** Sum over roots. */
+  fileCount: number;
+  oversizeSkipped: number;
+  /** Roots not found on disk. */
+  rootsMissing: number;
+  /** Any root hit the file cap. */
+  capReached: boolean;
+  /** Relative links that leave every root or point at no page. Absent when the host did not compute it. */
+  brokenLinks?: number;
+}
+
+/** A heading in the index (a section starts at each). Bodies are never in the index. */
+export interface AiDocsHeading {
+  /** The section id: `<page id>#<slug>`. */
+  id: string;
+  /** 1 to 6. */
+  level: number;
+  text: string;
+  slug: string;
+}
+
+/** A link as written in a page. Core resolves it (`docs/links.ts`); the host only extracts. */
+export interface AiDocsLink {
+  /** The target as written: a relative path with an optional `#fragment`, or a wikilink name. */
+  target: string;
+  /** The link text. */
+  text: string;
+  kind: 'markdown' | 'wikilink';
+}
+
+/** One markdown page of a base, without its body. */
+export interface AiDocsPage {
+  /** `<root label>/<rel path>`, with `/` separators (`docs/index.ts`). The only thing the model names. */
+  id: string;
+  /** The root's label (the first segment of `id`). */
+  root: string;
+  /** Path relative to the root, with `/` separators. */
+  relPath: string;
+  /** Frontmatter title, else the first heading, else the file name. */
+  title: string;
+  headings: AiDocsHeading[];
+  links: AiDocsLink[];
+  /** Size of the file in characters (not bytes), for the budget. */
+  chars: number;
+}
+
+/** The home document chosen for a root. */
+export interface AiDocsHome {
+  /** The root's label. */
+  root: string;
+  kind: AiDocHomeKind;
+  /** The home page's id; null for `map`. */
+  pageId: string | null;
+}
+
+/** A base's index: pages with headings and links, no bodies. Built lazily on the host, in memory. */
+export interface AiDocsIndex {
+  baseId: string;
+  /** Roots that were found, in configured order. */
+  roots: Array<{ label: string }>;
+  pages: AiDocsPage[];
+  homes: AiDocsHome[];
+  /** The file cap cut the walk short. */
+  truncated: boolean;
+  oversizeSkipped: number;
+  /** Unix milliseconds the index was built. */
+  builtAt: number;
+}
+
+/** A section (or whole page) as `readSections` returns it: the only call that carries a body. */
+export interface AiDocsSection {
+  /** The id that was asked for: `<page id>#<slug>` or a page id. */
+  id: string;
+  pageId: string;
+  /** The page's title. */
+  title: string;
+  /** Path relative to the root, for the chip and the relative link. */
+  relPath: string;
+  /** The section's heading text; absent for a whole page. */
+  heading?: string;
+  /** The markdown, capped at the section byte cap by the host. */
+  text: string;
+  /** The host cut `text` at the cap. */
+  truncated: boolean;
+}
+
+/** A keyword match: ids and labels only, no text. The loop reads the bodies through `readSections`. */
+export interface AiDocsSectionRef {
+  /** `<page id>#<slug>`, or a page id for text before the first heading. */
+  id: string;
+  pageId: string;
+  title: string;
+  relPath: string;
+  heading?: string;
+  /** Higher is a better match; the order is `docs/keyword.ts`'s. */
+  score: number;
 }
 
 // ── Host group ──────────────────────────────────────────────────────────────
@@ -444,15 +633,74 @@ export interface AiConsentRecord {
 
 /**
  * What a request sends to the engine, for the privacy copy (`whatIsSent`):
- * the selection with its neighbouring paragraphs, the whole document, or the
- * document with its frontmatter and the workspace's tag names.
+ * the selection with its neighbouring paragraphs, the whole document, the
+ * document with its frontmatter and the workspace's tag names, or pages from
+ * the documentation bases the user turned on.
  */
-export type AiSendsScope = 'selection' | 'document' | 'documentAndTags';
+export type AiSendsScope = 'selection' | 'document' | 'documentAndTags' | 'docsBase';
 
-/** The request behind a consent prompt. `sends` overrides the feature's own scope (whole-document Translate). */
+/**
+ * The request behind a consent prompt. `sends` overrides the feature's own
+ * scope (whole-document Translate; the docs chat sends `docsBase`).
+ */
 export interface AiConsentAbout {
   feature?: string;
   sends?: AiSendsScope;
+  /**
+   * The documentation bases the request would send pages from, by id. The
+   * host maps ids to names from its own user-level settings and drops unknown
+   * ids, so a name from the webview never reaches its modal.
+   */
+  baseIds?: string[];
+}
+
+// ── Docs host group ─────────────────────────────────────────────────────────
+
+/**
+ * The `docs` group on `MikeDownHost`: documentation bases, read through the
+ * host. Absent (npm consumers): the chat's scope picker shows "This document"
+ * only. Defined next to `MikeDownAiHost` so hosts reach it through
+ * `@mikedown/core/ai`; `host.ts` re-exports it.
+ *
+ * Containment is the host's job and is code, not prompt (S1, S2, S3, S9):
+ *
+ * - Every method takes a base id and resolves the roots from the host's own
+ *   user-level configuration. A root that configuration does not list is
+ *   refused, so a webview message can never name a folder. A disabled base is
+ *   refused.
+ * - `readSections` looks ids up in the host's own index and refuses anything
+ *   else. No path is ever built from an id's text.
+ * - Reads canonicalize the root and the file, refuse anything outside the
+ *   root (whole path components), non-markdown, symlinks, non-regular files
+ *   and oversize files.
+ * - The model names ids from core's index and nothing else.
+ */
+export interface MikeDownDocsHost {
+  /** Every configured base with its health (disabled ones included). Computed on call; the manager page calls it on open and on Refresh. */
+  listBases(): Promise<AiDocBaseStatus[]>;
+  /** The base's index (pages, headings, links, homes; no bodies), built lazily and kept in memory. Rejects for an unknown, disabled or inactive base. */
+  index(baseId: string): Promise<AiDocsIndex>;
+  /**
+   * Bodies for section ids (`<page id>#<slug>`) or page ids, each capped at
+   * the section byte cap. Ids the host's index does not know are left out of
+   * the result (never an error, never a path); a read that fails a
+   * containment check is left out too. Order follows `ids`.
+   */
+  readSections(baseId: string, ids: string[]): Promise<AiDocsSection[]>;
+  /** Case-folded scan over the base's files, headings weighted, best first, at most 20 (`docs/keyword.ts`). Ids and labels only. */
+  keywordSearch(baseId: string, query: string): Promise<AiDocsSectionRef[]>;
+  /** Tell core when the base's files change (a watcher per root only). Returns the function that stops watching. */
+  watch?(baseId: string, onChange: () => void): () => void;
+  /**
+   * Save the user's bases. The host re-validates with `parseAiSettings` and
+   * writes the user-level setting only, never a workspace one. Rejects when
+   * nothing valid is left to write over something valid.
+   */
+  saveBases(bases: AiDocBase[]): Promise<void>;
+  /** VS Code: offer the open workspace folders (a picker when there are several) and resolve one's absolute path; null when cancelled or none is open. */
+  addWorkspaceFolder?(): Promise<string | null>;
+  /** Desktop: the native folder picker; resolves the chosen absolute path, null when cancelled. */
+  pickFolder?(): Promise<string | null>;
 }
 
 // ── Provider adapters (host side) ───────────────────────────────────────────

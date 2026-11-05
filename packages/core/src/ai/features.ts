@@ -45,12 +45,13 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
   },
   {
     id: 'chat',
-    label: 'Chat with this document',
-    description: 'A sidebar chat with the document as context.',
+    label: 'Chat',
+    description: 'Ask about this document, or about your documentation bases (folders of markdown you choose), with numbered citations.',
     defaultEnabled: true,
     defaultTask: 'chat',
     requires: { chat: true, stream: true },
-    status: 'planned',
+    status: 'available',
+    // The document scope. A request over the bases overrides it with `docsBase` (AiRunRequest.sends).
     sends: 'document',
   },
   {

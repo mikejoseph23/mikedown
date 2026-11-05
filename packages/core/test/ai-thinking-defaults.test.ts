@@ -28,8 +28,8 @@ const CHAT = { chat: true, stream: true, vision: false, json: false, tools: fals
 
 describe('taskThinkingDefault', () => {
   it('is Off for the short edits and the model\'s own for the rest', () => {
-    for (const job of ['rewrite', 'translate', 'title', 'frontmatter']) {expect(taskThinkingDefault(job), job).toBe('off');}
-    for (const job of ['explain', 'summary', 'structureCheck', 'chat', undefined]) {expect(taskThinkingDefault(job), String(job)).toBeNull();}
+    for (const job of ['rewrite', 'translate', 'title', 'frontmatter', 'navigate']) {expect(taskThinkingDefault(job), job).toBe('off');}
+    for (const job of ['explain', 'summary', 'structureCheck', 'chat', 'answer', undefined]) {expect(taskThinkingDefault(job), String(job)).toBeNull();}
   });
 });
 

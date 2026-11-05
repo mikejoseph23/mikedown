@@ -52,6 +52,13 @@ export const AI_TASKS: readonly AiTaskDefinition[] = [
     requires: { chat: true, stream: true },
   },
   {
+    id: 'docs',
+    label: 'Documentation',
+    description: 'Chat with your documentation bases: picking pages to read, then answering with citations. Prefers a model with JSON output and a large context window; a small one reads fewer pages.',
+    requires: { chat: true },
+    prefers: { json: true, contextTokens: SUMMARIZE_MIN_CONTEXT_TOKENS },
+  },
+  {
     id: 'summarize',
     label: 'Summarize',
     description: 'Summaries and "what changed". Works best with a large context window; long documents are cut and labelled.',

@@ -70,6 +70,12 @@ export interface AiRunRequest {
   feature: string;
   /** What this request sends when it differs from the feature's own scope (whole-document Translate); for the consent dialog. */
   sends?: AiSendsScope;
+  /**
+   * For `sends: 'docsBase'`: the ids of the documentation bases this request
+   * reads from. Forwarded to `requestCloudConsent`; the host maps ids to
+   * names from its own settings and drops unknown ids.
+   */
+  baseIds?: string[];
   task?: string;
   messages: AiMessage[];
   maxTokens?: number;
@@ -261,7 +267,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
       if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
       if (resolved.needsConsent) {
         const reply = ctx.ai.requestCloudConsent
-          ? await ctx.ai.requestCloudConsent(resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}) })
+          ? await ctx.ai.requestCloudConsent(resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}), ...(req.baseIds && req.baseIds.length > 0 ? { baseIds: req.baseIds } : {}) })
           : true;
         if (signal.aborted) {throw makeAiError('cancelled');}
         if (reply === true) {ctx.consent[resolved.engineId] = true;}
