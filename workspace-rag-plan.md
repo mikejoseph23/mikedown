@@ -22,8 +22,8 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 | [M3 Core tests](#m3-core-tests) | Sonnet | ✅ Done | 9 | `4c458a1`. Found and fixed 3 M2 bugs |
 | [M4 Navigation loop and answer call](#m4-navigation-loop-and-answer-call) | Opus | 🔄 In Progress | — | Nuanced prompts |
 | [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | ✅ Done | 11 | `4c28014`. Modal entry is M8's |
-| [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | 🔄 In Progress | — | Rust |
-| [M7 Host tests](#m7-host-tests) | Sonnet | ⬜ Not Started | — | vitest + cargo |
+| [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | ✅ Done | 15 | `984583d`. Rust |
+| [M7 Host tests](#m7-host-tests) | Sonnet | 🔄 In Progress | — | vitest + cargo |
 | [M8 Bases manager page](#m8-bases-manager-page) | Opus | ✅ Done | 14 | `7fdf1be`. UI |
 | [M9 Chat panel](#m9-chat-panel) | Opus | ⬜ Not Started | — | UI |
 | [M10 UI tests](#m10-ui-tests) | Sonnet | ⬜ Not Started | — | vitest jsdom |
@@ -187,14 +187,14 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 
 **Model:** Sonnet. Files: new `packages/desktop/src-tauri/src/commands/docs.rs`, `commands/ai/consent.rs`, `commands/settings.rs`, `capabilities/default.json`, `packages/desktop/src/host/docsHost.ts`, `tauriHost.ts`.
 
-- [ ] (S3) `docs_index(root)`: reuse `walk_markdown` from `fs.rs` (skips symlinks, hidden, `node_modules`) with the 5,000 cap; return titles, headings, links per file (no bodies).
-- [ ] (S2, S12) `docs_read_sections(root, ids)`: `canonicalize`, prefix check against the canonical root, extension and regular-file checks, 1 MiB cap; ids map to paths from the command's own index, never model text.
-- [ ] `docs_keyword_search(root, query)`: shared ranking rules ported from M2 (same input, same order).
-- [ ] (S5) `consent.rs`: `docsBase` sends text with base names; fixture `consent-text.json` passes in `tests.rs`.
-- [ ] (S4) `docBases` and `docs` read from the global `settings.json` only, in the same slice as `ai.engines`.
-- [ ] (S11) On startup, re-allow every base root in the fs scope; document in `capabilities/default.json` that a root outside `$HOME` is readable and writable for the session.
-- [ ] Watcher: reuse `watcher.rs` `watch(dir)` per root; `fs-changed` events invalidate that base's index.
-- [ ] `docsHost.ts` implements `MikeDownDocsHost` over the commands; wired into `tauriHost.ts` as `host.docs`.
+- [x] (S3) `docs_index(root)`: reuse `walk_markdown` from `fs.rs` (skips symlinks, hidden, `node_modules`) with the 5,000 cap; return titles, headings, links per file (no bodies).
+- [x] (S2, S12) `docs_read_sections(root, ids)`: `canonicalize`, prefix check against the canonical root, extension and regular-file checks, 1 MiB cap; ids map to paths from the command's own index, never model text.
+- [x] `docs_keyword_search(root, query)`: shared ranking rules ported from M2 (same input, same order).
+- [x] (S5) `consent.rs`: `docsBase` sends text with base names; fixture `consent-text.json` passes in `tests.rs`.
+- [x] (S4) `docBases` and `docs` read from the global `settings.json` only, in the same slice as `ai.engines`.
+- [x] (S11) On startup, re-allow every base root in the fs scope; document in `capabilities/default.json` that a root outside `$HOME` is readable and writable for the session.
+- [x] Watcher: reuse `watcher.rs` `watch(dir)` per root; `fs-changed` events invalidate that base's index.
+- [x] `docsHost.ts` implements `MikeDownDocsHost` over the commands; wired into `tauriHost.ts` as `host.docs`.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
@@ -329,5 +329,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 17:21** - M5 done (`4c28014`), 3949 unit tests per the worker; the 4 consent and bridge failures M3 saw are gone (143 re-run here). The Settings rule box stays open until M8 adds the modal entry. For M7: a file swapped for a symlink after indexing is still readable when it resolves inside the root; the Summary says symlinks are refused, so M7 tightens this on both hosts.
 
 **2026-11-05 17:23** - M8 done (`7fdf1be`), including the Settings modal entry moved from M5.
+
+**2026-11-05 17:25** - M6 done (`984583d`): 29 docs Rust tests re-run here; 284 lib tests and 589 Desktop vitest per the worker. Live-app paths (startup scope, watcher) are covered by pure tests only until M11. M7 dispatched, with the strict symlink read, broken link health and cross-host parity for links and titles added to it.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
