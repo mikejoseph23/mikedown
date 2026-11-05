@@ -216,7 +216,8 @@
  *   { type: 'toggleSource' }          — mikedown.toggleSourceMode
  *   { type: 'requestExportHtml' | 'requestPrint' | 'requestViewInBrowser' }
  *       — answered with exportHtml / printDocument / viewInBrowser { html }
- *   { type: 'scrollToAnchor', anchor }, { type: 'revealLinkHref', href, occurrence }
+ *   { type: 'scrollToAnchor', anchor }, { type: 'revealLinkHref', href, occurrence },
+ *   { type: 'revealSection', slug } (a chat citation: a documentation-base heading slug)
  *   { type: 'imageFileMissing' | 'imageFileFound', uri, fsPath? }
  *   { type: 'backlinks', items }, { type: 'docMeta', mtimeMs },
  *   { type: 'sidebarState', pref, width, position, sectionPrefs }, { type: 'diffStatus', hasChanges }
@@ -412,6 +413,7 @@ window.addEventListener('message', (event: MessageEvent) => {
     case 'requestPrint': host.printDocument(handle.getHtml()); break;
     case 'scrollToAnchor': handle.scrollToAnchor(message.anchor); break;
     case 'revealLinkHref': handle.revealLink(message.href, message.occurrence); break;
+    case 'revealSection': handle.revealSection(message.slug); break;
     case 'linkSuggestions': handle.setLinkSuggestions(message.suggestions || []); break;
     case 'sidebarState':
       if (message.pref === 'always' || message.pref === 'never') {state.sidebarVisibilityDefault = message.pref;}

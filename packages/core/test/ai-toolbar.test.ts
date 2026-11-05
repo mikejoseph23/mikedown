@@ -266,23 +266,23 @@ describe('AI menu (AI on)', () => {
     aiButton()!.click();
     const items = Array.from(document.querySelectorAll<HTMLElement>('#toolbar-dropdown .tdd-item'));
     expect(items.map((i) => i.querySelector('.tdd-item-label')?.textContent)).toEqual([
-      'Rewrite selection', 'Explain selection', 'Translate…', 'Summarize document…', 'Suggest titles…', 'Manage engines…',
+      'Rewrite selection', 'Explain selection', 'Translate…', 'Summarize document…', 'Suggest titles…', 'Chat…', 'Manage engines…',
     ]);
     expect(items[0].getAttribute('aria-disabled')).toBe('true');
     expect(items[0].querySelector('.tdd-item-hint')?.textContent).toBe('Select text first');
     // Explain needs a selection too; Translate offers the whole document without one.
     expect(items[1].querySelector('.tdd-item-hint')?.textContent).toBe('Select text first');
     expect(items[2].getAttribute('aria-disabled')).not.toBe('true');
-    items[5].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    items[6].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(document.querySelector('#mikedown-ai-page-overlay')).not.toBeNull();
   });
 
-  it('a read-only editor offers only Manage engines…', () => {
+  it('a read-only editor offers only Chat… (it has no Insert there) and Manage engines…', () => {
     class Host extends NoopHost { ai = tier2(); }
     mount(new Host(), withEngine(), true);
     aiButton()!.click();
     const labels = Array.from(document.querySelectorAll('#toolbar-dropdown .tdd-item-label')).map((n) => n.textContent);
-    expect(labels).toEqual(['Manage engines…']);
+    expect(labels).toEqual(['Chat…', 'Manage engines…']);
   });
 });
 

@@ -31,6 +31,8 @@ export interface AiActivityPanelOptions {
   log: AiActivityLog;
   /** The host's save dialog and write. Absent: Save this request and Save all are not shown. */
   saveTextFile?(name: string, text: string): Promise<void>;
+  /** Open on this request (the chat panel's link to an answer's entry). One no longer in the log is ignored. */
+  selectId?: string;
 }
 
 export interface AiActivityPanelHandle {
@@ -316,13 +318,13 @@ export function mountAiActivityPanel(container: HTMLElement, ctx: MikeDownSettin
   const { log } = opts;
   const canSave = typeof opts.saveTextFile === 'function';
 
-  let selectedId: string | null = null;
+  let selectedId: string | null = opts.selectId !== undefined && log.get(opts.selectId) ? opts.selectId : null;
   let detail: DetailRefs | null = null;
   let mounted = false;
   let destroyed = false;
   let narrow = false;
   /** Narrow layout only: which pane shows. */
-  let view: 'list' | 'detail' = 'list';
+  let view: 'list' | 'detail' = selectedId ? 'detail' : 'list';
   let renderTimer: number | undefined;
   let lastRender = 0;
   let savingAll = false;

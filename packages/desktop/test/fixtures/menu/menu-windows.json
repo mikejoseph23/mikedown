@@ -397,6 +397,14 @@
             "kind": "item",
             "id": "aiSuggestProperties",
             "label": "Suggest &Properties"
+          },
+          {
+            "kind": "separator"
+          },
+          {
+            "kind": "item",
+            "id": "aiChat",
+            "label": "&Chat…"
           }
         ]
       }

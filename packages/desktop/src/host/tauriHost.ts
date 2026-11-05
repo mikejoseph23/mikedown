@@ -271,8 +271,8 @@ export class TauriHost implements MikeDownHost {
     this.deps.app.onStats(stats);
   }
 
-  /** `reveal` (a sidebar backlink): scroll the opened file to the link back to this one. */
-  openLink(href: string, _behavior?: LinkOpenBehavior, reveal?: { href?: string; occurrence?: number }): void {
+  /** `reveal`: scroll the opened file to the link back to this one (a sidebar backlink), or to a heading by its documentation-base slug (a chat citation). */
+  openLink(href: string, _behavior?: LinkOpenBehavior, reveal?: { href?: string; occurrence?: number; section?: string }): void {
     const route = routeLink(href, this.deps.doc()?.path ?? null, this.deps.path);
     switch (route.kind) {
       case 'external':
@@ -286,8 +286,13 @@ export class TauriHost implements MikeDownHost {
       case 'local': {
         const opened = this.deps.app.openPath(route.path, { anchor: route.anchor });
         const revealHref = reveal?.href;
-        if (revealHref) {
-          void opened.then((ok) => { if (ok) {this.handle?.revealLink(revealHref, reveal?.occurrence);} });
+        const section = reveal?.section;
+        if (revealHref || section) {
+          void opened.then((ok) => {
+            if (!ok) {return;}
+            if (revealHref) {this.handle?.revealLink(revealHref, reveal?.occurrence);}
+            if (section) {this.handle?.revealSection(section);}
+          });
         }
         return;
       }
@@ -295,6 +300,12 @@ export class TauriHost implements MikeDownHost {
         this.deps.app.notify(`Cannot open link: ${route.reason}`, { error: true });
         return;
     }
+  }
+
+  /** The current document's folder; none until it has been saved somewhere. */
+  documentFolder(): string | null {
+    const docPath = this.deps.doc()?.path ?? null;
+    return docPath ? this.deps.path.dirname(docPath) : null;
   }
 
   exportHtml(html: string): void {

@@ -277,6 +277,8 @@ export type MikeDownCommand =
   | 'aiSuggestTitle'
   /** Suggest properties with AI: the sidebar's Suggest (Properties shown and expanded); chips apply a title, description or tag (no-op without `host.ai`). */
   | 'aiSuggestProperties'
+  /** Open the AI chat panel: questions about this document or the documentation bases (no-op without `host.ai`). */
+  | 'aiChat'
   | 'copyAsRichText'
   // Menu-bar commands for hosts with their own menus (MikeDown Desktop). Each
   // mirrors an existing toolbar action or keystroke; no-ops in source mode
@@ -348,6 +350,8 @@ export interface MikeDownEditorHandle {
   scrollToAnchor(slug: string): void;
   /** Scroll to and flash the Nth link with this href. */
   revealLink(href: string, occurrence?: number): void;
+  /** Scroll to the heading with this documentation-base section slug (`docsSlug`'s rule, not GitHub's). Waits briefly for the document to load. */
+  revealSection(slug: string): void;
   /**
    * Select and scroll to a match in the markdown source: 1-based `line`,
    * 1-based `column` in UTF-16 units, `length` of the match. Exact in source

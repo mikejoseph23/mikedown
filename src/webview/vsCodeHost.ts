@@ -125,14 +125,20 @@ export class VsCodeHost implements MikeDownHost {
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
-  openLink(href: string, behavior?: LinkOpenBehavior, reveal?: { href?: string; occurrence?: number }): void {
+  openLink(href: string, behavior?: LinkOpenBehavior, reveal?: { href?: string; occurrence?: number; section?: string }): void {
     const msg: Record<string, unknown> = { type: 'openLink', href };
     if (behavior) {msg.behavior = behavior;}
     if (reveal) {
       msg.revealHref = reveal.href;
       msg.revealOccurrence = reveal.occurrence;
+      if (reveal.section !== undefined) {msg.revealSection = reveal.section;}
     }
     this.post(msg);
+  }
+
+  /** The folder the `settings` broadcast named. Untitled documents have no absolute one. */
+  documentFolder(): string | null {
+    return /^(?:\/|[A-Za-z]:\/)/.test(this.docDir) ? this.docDir : null;
   }
 
   // ── Settings ──────────────────────────────────────────────────────────────

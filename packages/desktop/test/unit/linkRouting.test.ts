@@ -43,6 +43,13 @@ describe('routeLink (edge 13)', () => {
     expect(routeLink('   ', DOC, posix)).toMatchObject({ kind: 'unresolvable' });
   });
 
+  it('opens a chat citation: a file: URL outside the current folder, on any kind of root', () => {
+    const win = createPathOps('win32');
+    expect(routeLink('file:///Users/mike/kb/my%20docs/a%23b.md', DOC, posix)).toMatchObject({ kind: 'local', fileKind: 'markdown', path: '/Users/mike/kb/my docs/a#b.md', anchor: null });
+    expect(routeLink('file:///C:/kb/a.md', null, win)).toMatchObject({ kind: 'local', path: 'C:\\kb\\a.md' });
+    expect(routeLink('file://srv/share/kb/a.md', null, win)).toMatchObject({ kind: 'local', path: '\\\\srv\\share\\kb\\a.md' });
+  });
+
   it('works with Windows paths', () => {
     const win = createPathOps('win32');
     expect(routeLink('sub/other.md', 'C:\\Users\\mike\\notes\\todo.md', win)).toMatchObject({

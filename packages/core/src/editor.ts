@@ -101,7 +101,7 @@ import {
 import { detectHeadingRename, isRenameAmbiguous } from './headingRename';
 import { MIKEDOWN_HOTKEYS, MIKEDOWN_TABLE_HOTKEYS } from './hotkeys';
 import type { MikeDownHost, LinkOpenBehavior, BacklinkItem } from './host';
-import type { AiEngineStatus, AiMessage, AiRouteOk, AiSendsScope, AiServedBy, AiSettings, AiSettingsPatch, AiSummaryKind, MikeDownAiHost } from './ai';
+import type { AiEngineStatus, AiMessage, AiRouteOk, AiSendsScope, AiServedBy, AiSettings, AiSettingsPatch, AiSummaryKind, DocsChat, MikeDownAiHost } from './ai';
 // The AI UI loads on demand (ai-lite.ts); only types and the light helpers are imported here.
 import { aiHostTier, aiToolbarButtonMode, loadAiUi, loadedAiUi, type AiUi } from './ai-lite';
 import { defaultAiSettings } from './ai/defaults';
@@ -112,6 +112,7 @@ import type { AiFirstRunDetection } from './ai-toolbar';
 import { makeCheckboxRow, makeGroup, makeRow, makeSelectRow, settingsSectionContext } from './settings-rows';
 import type { AiActivityLog } from './ai-activity';
 import type { AiActivityPanelHandle } from './ai-activity-panel';
+import type { AiChatPanelHandle } from './ai-chat-panel';
 import type { AiFeatureAvailability, AiRunContext, AiRunOutcome } from './ai-request';
 import type { AiCursorTarget, AiRewritePopover, AiRewriteBadge, AiRewriteTarget, AiTitleEffect } from './ai-rewrite';
 import type { AiRewriteParams, AiRewriteVariant } from './ai/prompts/rewrite';
@@ -315,6 +316,7 @@ const toolbarIcons = {
   ai: toolbarSvg('<path d="M7 2.5l1.25 3.25L11.5 7 8.25 8.25 7 11.5 5.75 8.25 2.5 7l3.25-1.25z"/><path d="M12.5 10v3.5M10.75 11.75h3.5"/>', 1.5),
   rewrite: toolbarSvg('<path d="M10.5 2.5l3 3L6 13H3v-3z"/><path d="M9 4l3 3"/>', 1.5),
   aiActivity: toolbarSvg('<polyline points="1.5 8 4.5 8 6.5 3 9.5 13 11.5 8 14.5 8"/>', 1.5),
+  aiChat: toolbarSvg('<path d="M2.5 3.5h11v8H7l-3 2.5v-2.5H2.5z"/>', 1.5),
   explain: toolbarSvg('<circle cx="8" cy="8" r="6"/><path d="M6.3 6.3a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1"/><circle cx="8" cy="11.3" r="0.6" fill="currentColor" stroke="none"/>', 1.5),
   translate: toolbarSvg('<path d="M2 4h7M5.5 2.5V4M4 4c.5 2.5 2 4.5 4.5 5.5M7.5 4c-.6 2.6-2.3 4.7-5 6"/><path d="M8.5 14l2.5-6 2.5 6M9.3 12h3.4"/>', 1.5),
   tag: toolbarSvg('<path d="M2.5 2.5h5l6 6-5 5-6-6z"/><circle cx="5.5" cy="5.5" r="1" fill="currentColor" stroke="none"/>', 1.5),
@@ -357,6 +359,9 @@ function calloutBadgeIcon(kind: CalloutKind): string {
 // Editing actions disabled in source mode — the WYSIWYG operates on the
 // (hidden) ProseMirror doc, so firing these while CodeMirror is showing would
 // mutate the wrong view. Anything that produces a doc change belongs here.
+/** Narrower than this and the chat panel fills the editor instead of docking beside it. */
+const DOCK_MIN_ROOT_PX = 720;
+
 const SOURCE_MODE_DISABLED_ACTIONS = new Set([
   'textFormat', 'listBlock', 'link', 'insert',           // condensed dropdowns
   'bold', 'italic', 'strike', 'highlight', 'code', 'emoji',
@@ -2293,6 +2298,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function syncAiActivitySetting(): void {
     aiActivity?.setEnabled(currentAiSettings.activityPanel);
     aiActivityPage?.handle.refresh();
+    aiChatPage?.handle.refresh();
   }
 
   /** The one place an AI request's context is built, so no feature can skip the recorder. */
@@ -2487,6 +2493,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
 
     const finish = (): void => {
       closeAiEnginesPage();
+      // Bases save from the page at once, even when it is then discarded.
+      aiChatPage?.handle.refresh();
       restoreFocus(opener);
     };
     const handle = ui.mountAiEnginesPage(frame, settingsSectionContext(finish, (href) => openLinkViaHost(href)), {
@@ -2528,7 +2536,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     page.overlay.remove();
   }
 
-  function showAiActivityPanel(o: { fromModal?: boolean } = {}): void {
+  function showAiActivityPanel(o: { fromModal?: boolean; selectId?: string } = {}): void {
     if (!aiHost) {return;}
     const ui = aiUi;
     if (!ui) {
@@ -2554,6 +2562,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     };
     const handle = ui.mountAiActivityPanel(frame, settingsSectionContext(finish, (href) => openLinkViaHost(href)), {
       log: aiActivityLog(ui),
+      ...(o.selectId !== undefined ? { selectId: o.selectId } : {}),
       ...(host.saveTextFile ? { saveTextFile: (name: string, text: string) => host.saveTextFile?.(name, text) ?? Promise.resolve() } : {}),
     });
     aiActivityPage = { overlay, handle, fromModal: !!o.fromModal };
@@ -2561,6 +2570,130 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     if (titleId) {frame.setAttribute('aria-labelledby', titleId);}
     frame.addEventListener('keydown', (e) => { if (e.key === 'Tab') {trapTab(frame, e);} });
     handle.focus();
+  }
+
+  // ── AI chat panel (docked) ─────────────────────────────────────────────────
+  // ai-chat-panel.ts, docked inside the root rather than in the portal: it is not
+  // modal, because Insert needs the document and its cursor, and a chip opens a
+  // file the user wants to see. Under DOCK_MIN_ROOT_PX it fills the editor.
+
+  /** The open chat panel, if any. Closing it clears its history. */
+  let aiChatPage: { dock: HTMLElement; handle: AiChatPanelHandle; resize: ResizeObserver | null } | null = null;
+  /** One per editor: the one-request-in-flight rule lives in it. */
+  let aiDocsChat: DocsChat | null = null;
+
+  function closeAiChatPanel(): void {
+    const page = aiChatPage;
+    aiChatPage = null;
+    if (!page) {return;}
+    page.resize?.disconnect();
+    page.handle.destroy();
+    page.dock.remove();
+    root.classList.remove('ai-chat-open', 'ai-chat-docked');
+  }
+
+  /** The menu entry and the command: the chat works in a read-only document too (it just has no Insert). */
+  function showAiChatPanel(): void {
+    const ai = aiHost;
+    if (!ai || destroyed) {return;}
+    const ui = aiUi;
+    if (!ui) {
+      whenAiUi(() => showAiChatPanel());
+      return;
+    }
+    if (aiChatPage) {
+      aiChatPage.handle.focus();
+      return;
+    }
+    const off = ui.aiFeatureOffNotice(ai, currentAiSettings, 'chat');
+    if (off) {
+      showTransientToast(off);
+      return;
+    }
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dock = document.createElement('aside');
+    dock.className = 'ai-chat-dock';
+    root.appendChild(dock);
+    root.classList.add('ai-chat-open');
+    const tier2 = aiHostTier(ai) === 2;
+    const handle = ui.mountAiChatPanel(dock, {
+      chat: aiDocsChat ??= ui.createAiDocsChat(aiRunContext(ui, ai)),
+      ...(host.docs ? { docs: host.docs } : {}),
+      documentText: aiBodyMarkdown,
+      docsOptions: () => currentAiSettings.docs,
+      engineName: (id) => currentAiSettings.engines.find((e) => e.id === id)?.name ?? id,
+      thinking: ui.thinkingLevelFor,
+      featureOffNotice: () => ui.aiFeatureOffNotice(ai, currentAiSettings, 'chat'),
+      canInsert: () => !readOnly,
+      insertAtCursor: (markdown) => {
+        const target = aiCursorTarget();
+        if (!target) {return false;}
+        const ok = target.accept(markdown);
+        if (!ok) {target.release();}
+        return ok;
+      },
+      ...(host.documentFolder ? { documentFolder: () => host.documentFolder?.() ?? null } : {}),
+      ...(host.openLink ? { openFile: (href: string, reveal?: { section: string }) => host.openLink?.(href, 'openNewTab', reveal) } : {}),
+      activityOn: () => currentAiSettings.activityPanel,
+      openActivity: (selectId) => showAiActivityPanel({ selectId }),
+      ...(tier2 ? {
+        openRouting: () => showAiEnginesPage({ initial: { section: 'routing' } }),
+        ...(host.docs ? { openBases: () => showAiEnginesPage({ initial: { section: 'bases' } }) } : {}),
+      } : {}),
+      ...(host.saveTextFile ? { saveTextFile: (name: string, text: string) => host.saveTextFile?.(name, text) ?? Promise.resolve() } : {}),
+      onEscape: () => { if (sourceMode) {cmView?.focus();} else {editor.commands.focus();} },
+      onClose: () => {
+        closeAiChatPanel();
+        restoreFocus(opener);
+      },
+    });
+    const layout = (): void => { root.classList.toggle('ai-chat-docked', root.clientWidth >= DOCK_MIN_ROOT_PX); };
+    layout();
+    const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(layout) : null;
+    resize?.observe(root);
+    aiChatPage = { dock, handle, resize };
+    handle.focus();
+  }
+
+  /**
+   * Chat chips: scroll to a heading by the documentation-base slug rule. The
+   * document may still be loading (a file the chip just opened), so it looks again
+   * a few times, then falls back on the GitHub anchors in case the text changed.
+   */
+  function revealSection(slug: string): void {
+    if (!slug) {return;}
+    whenAiUi((ui) => {
+      let tries = 0;
+      const attempt = (): void => {
+        if (destroyed) {return;}
+        if (sourceMode && cmView) {
+          const hit = ui.docsHeadingAt(cmView.state.doc.toString(), slug);
+          if (hit) {
+            cmView.dispatch({ selection: { anchor: hit.offset }, scrollIntoView: true });
+            return;
+          }
+        } else {
+          const hit = ui.docsHeadingAt(editor.storage.markdown.getMarkdown(), slug);
+          let seen = 0;
+          let pos = -1;
+          if (hit) {
+            editor.state.doc.forEach((node, offset) => {
+              if (node.type.name !== 'heading') {return;}
+              if (seen === hit.index) {pos = offset;}
+              seen++;
+            });
+          }
+          const dom = pos >= 0 ? editor.view.nodeDOM(pos) : null;
+          if (dom instanceof HTMLElement) {
+            smoothScrollHeadingIntoView(dom);
+            return;
+          }
+        }
+        if (tries++ < 13) {window.setTimeout(attempt, 150);}
+        else {scrollToAnchor(slug);}
+      };
+      attempt();
+    });
   }
 
   /** Keep Tab inside `scope` (the page is modal). */
@@ -2776,6 +2909,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
           : { enabled: true as const };
     };
     const tier2 = aiHostTier(ai) === 2;
+    const chatAvailability = aiUi?.aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, 'chat') ?? { state: 'hidden' as const };
+    const chat = chatAvailability.state === 'hidden' ? null
+      : chatAvailability.state === 'disabled' ? { enabled: false as const, hint: chatAvailability.reason }
+        : { enabled: true as const };
     const summarize = docEntry('summary');
     const titles = docEntry('title');
     // Suggest properties needs the sidebar (its chips land there).
@@ -2794,12 +2931,14 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       summarize,
       titles,
       properties,
+      chat,
       ...(thinkKind ? { thinking: { choices: ui.thinkingChoices(thinkKind), value: ui.loadThinkingLevel, onChange: ui.rememberThinkingLevel } } : {}),
       canManageEngines: tier2,
       icons: {
         rewrite: toolbarIcons.rewrite, explain: toolbarIcons.explain, translate: toolbarIcons.translate,
         summarize: toolbarIcons.toc, titles: toolbarIcons.ai, properties: toolbarIcons.tag, manage: toolbarIcons.gear,
         activity: toolbarIcons.aiActivity,
+        chat: toolbarIcons.aiChat,
       },
       onRewrite: () => { startAiRewrite(); },
       onExplain: () => { startAiRewrite('explain'); },
@@ -2807,6 +2946,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       onSummarize: () => { startAiSummary(); },
       onSuggestTitles: () => { startAiTitles(); },
       onSuggestProperties: () => { startAiPropertySuggestions(); },
+      onChat: () => { showAiChatPanel(); },
       onManage: () => { if (tier2) {showAiEnginesPage();} else {showSettingsModal('ai');} },
       ...(currentAiSettings.activityPanel ? { onActivity: () => showAiActivityPanel() } : {}),
       // "Look again": retest the engines that failed, then open the menu afresh.
@@ -7070,6 +7210,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       case 'aiSuggestProperties':
         startAiPropertySuggestions();
         break;
+      // The chat panel (a second press goes back to its input).
+      case 'aiChat':
+        showAiChatPanel();
+        break;
       // M11 — Copy as rich text: write HTML + plain text to clipboard.
       case 'copyAsRichText':
         copyAsRichText();
@@ -7404,6 +7548,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     setSlashDisableHandler(null);
     closeAiEnginesPage();
     closeAiActivityPanel();
+    closeAiChatPanel();
     closeSettingsModal();
     cmView?.destroy();
     cmView = null;
@@ -7423,6 +7568,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     updateSettings,
     scrollToAnchor,
     revealLink,
+    revealSection,
     revealText,
     setImageStatus,
     insertLink,

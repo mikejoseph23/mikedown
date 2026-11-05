@@ -494,6 +494,9 @@ function registerAi(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('mikedown.ai.suggestProperties', () => {
       MarkdownEditorProvider.activePanel?.webview.postMessage({ type: 'command', command: 'aiSuggestProperties' });
     }),
+    vscode.commands.registerCommand('mikedown.ai.chat', () => {
+      MarkdownEditorProvider.activePanel?.webview.postMessage({ type: 'command', command: 'aiChat' });
+    }),
     vscode.commands.registerCommand('mikedown.ai.testAllEngines', async () => {
       output.show(true);
       await vscode.window.withProgress(

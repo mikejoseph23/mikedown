@@ -42,6 +42,7 @@ export * from './docs/keyword';
 export * from './docs/secrets';
 export * from './docs/budget';
 export * from './docs/citations';
+export * from './docs/open';
 export * from './docs/loop';
 export * from './prompts/docsNavigate';
 export * from './prompts/docsAnswer';

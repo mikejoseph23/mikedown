@@ -180,6 +180,10 @@
         "title": "MikeDown: Suggest Properties with AI"
       },
       {
+        "command": "mikedown.ai.chat",
+        "title": "MikeDown: Chat with AI"
+      },
+      {
         "command": "mikedown.dev.resetSupportPrompt",
         "title": "MikeDown (Dev): Reset Support Prompt State"
       }
@@ -242,6 +246,10 @@
         },
         {
           "command": "mikedown.ai.suggestProperties",
+          "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
+        },
+        {
+          "command": "mikedown.ai.chat",
           "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
         },
         {

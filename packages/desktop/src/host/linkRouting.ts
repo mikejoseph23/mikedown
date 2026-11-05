@@ -31,6 +31,8 @@ function fromFileUrl(href: string): string | null {
     let p = decodeURIComponent(u.pathname);
     // file:///C:/x → C:/x on Windows-style paths.
     if (/^\/[a-zA-Z]:\//.test(p)) {p = p.slice(1);}
+    // file://server/share/x → //server/share/x (a documentation base on a share).
+    if (u.host && u.host !== 'localhost') {p = `//${u.host}${p}`;}
     return p;
   } catch {
     return null;

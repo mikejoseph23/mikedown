@@ -34,7 +34,8 @@ import { SupportAction } from './supportPromptEligibility';
 import type { AiEngineService } from './ai/engineService';
 import type { AiStatusBar } from './ai/statusBar';
 import { handleAiMessage, isAiWebviewMessage } from './ai/webviewBridge';
-import type { DocsHost } from './ai/docsHost';
+import { isPathUnderRoot, type DocsHost } from './ai/docsHost';
+import type { AiDocBase } from '@mikedown/core/ai';
 import { saveAiSettingsPatch } from './ai/vscodeAi';
 
 /**
@@ -43,6 +44,13 @@ import { saveAiSettingsPatch } from './ai/vscodeAi';
  * Implements the VS Code CustomTextEditorProvider interface to render
  * Markdown files in a WYSIWYG webview panel.
  */
+/** A markdown file under a configured documentation base root: the only `file:` target a chat citation opens. */
+function isDocsBaseFile(fsPath: string, bases: readonly AiDocBase[]): boolean {
+  const file = path.normalize(fsPath);
+  if (!/\.(?:md|markdown)$/i.test(file)) {return false;}
+  return bases.some((base) => base.roots.some((root) => isPathUnderRoot(path.normalize(root), file)));
+}
+
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'mikedown.editor';
 
@@ -58,6 +66,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   private static openPanels = new Map<vscode.WebviewPanel, vscode.TextDocument>();
   /** Tracks panels by file path — when 2+ panels share a path, it's a diff view. */
   private static panelsByPath = new Map<string, Set<{ panel: vscode.WebviewPanel; webview: vscode.Webview }>>();
+  /** Heading slugs waiting for the file a chat citation is opening to send `ready`. */
+  private static pendingSectionReveal = new Map<string, string>();
   /** Tracks file paths with a pending diff redirect to prevent duplicate opens. */
   private static diffRedirectPending = new Set<string>();
   /** StatusBarManager (assigned by extension.ts) — doc + selection word/char counts. */
@@ -131,6 +141,41 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Open a documentation base file for a chat citation and bring its heading
+   * into view. Always in MikeDown's own editor, since the text editor has no
+   * reveal. A file that is already open is revealed where it is: a second panel
+   * on one path reads as a diff view, which closes them all (`pathPanels` below).
+   */
+  private static async openDocsBaseFile(uri: vscode.Uri, section: string | undefined, viewColumn: vscode.ViewColumn): Promise<void> {
+    const target = uri.fsPath;
+    const open = MarkdownEditorProvider.panelsByPath.get(target);
+    if (open && open.size > 0) {
+      const [first] = open;
+      first.panel.reveal(first.panel.viewColumn);
+      if (section) {
+        for (const p of open) {void p.webview.postMessage({ type: 'revealSection', slug: section });}
+      }
+      return;
+    }
+    try {
+      await vscode.workspace.fs.stat(uri);
+    } catch {
+      void vscode.window.showWarningMessage(`MikeDown could not find ${path.basename(target)}. It may have moved or been deleted.`);
+      return;
+    }
+    if (section) {
+      MarkdownEditorProvider.pendingSectionReveal.set(target, section);
+      setTimeout(() => MarkdownEditorProvider.pendingSectionReveal.delete(target), 15_000);
+    }
+    try {
+      await vscode.commands.executeCommand('vscode.openWith', uri, 'mikedown.editor', { viewColumn });
+    } catch (err) {
+      MarkdownEditorProvider.pendingSectionReveal.delete(target);
+      void vscode.window.showWarningMessage(`MikeDown could not open ${path.basename(target)}: ${String(err)}`);
+    }
   }
 
   private static sendBacklinksToWebview(
@@ -766,6 +811,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           MarkdownEditorProvider.sendBacklinksToWebview(webviewPanel.webview, document);
           MarkdownEditorProvider.sendTagsToWebview(webviewPanel.webview, document);
           void this.sendDocMetaToWebview(webviewPanel.webview, document);
+          {
+            // A chat citation opened this file: its heading, now the content is on its way.
+            const slug = MarkdownEditorProvider.pendingSectionReveal.get(document.uri.fsPath);
+            if (slug !== undefined) {
+              MarkdownEditorProvider.pendingSectionReveal.delete(document.uri.fsPath);
+              void webviewPanel.webview.postMessage({ type: 'revealSection', slug });
+            }
+          }
           // Send initial git diff status so the toolbar diff button can be enabled/disabled
           if (document.uri.scheme === 'file') {
             this.sendDiffStatus(document, webviewPanel.webview);
@@ -899,6 +952,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           if (/^(mailto|tel|sms|ftp|ftps|news|nntp|magnet|irc|xmpp|skype|callto|geo|bitcoin):/i.test(href)) {
             void vscode.env.openExternal(vscode.Uri.parse(href));
             break;
+          }
+
+          // A chat citation: a `file:` URL under a configured documentation base.
+          // Any other `file:` link falls through, as it always has.
+          if (/^file:/i.test(href)) {
+            const baseFile = vscode.Uri.parse(href);
+            if (isDocsBaseFile(baseFile.fsPath, settings.ai.docBases)) {
+              await MarkdownEditorProvider.openDocsBaseFile(
+                baseFile,
+                message.revealSection,
+                (message.behavior ?? settings.linkClickBehavior) === 'navigateCurrentTab' ? vscode.ViewColumn.Active : vscode.ViewColumn.Beside,
+              );
+              break;
+            }
           }
 
           // Relative file link (may include anchor: ./other.md#section).
@@ -2373,6 +2440,8 @@ interface WebviewMessage {
   /** openLink payload — which occurrence of `revealHref` to scroll to (0-based)
    *  when the source doc links back more than once. */
   revealOccurrence?: number;
+  /** openLink payload — a chat citation's documentation-base heading slug. */
+  revealSection?: string;
   /** openTag payload — the tag (without leading #) to find documents for. */
   tag?: string;
   html?: string;

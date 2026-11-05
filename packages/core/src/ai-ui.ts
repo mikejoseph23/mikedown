@@ -26,6 +26,9 @@ export {
 export { aiFeatureAvailability, aiFeatureOffNotice, aiRunThinkingOn, runAiCompletion } from './ai-request';
 export { AI_ACTIVITY_LIMIT, aiActivityStatus, createAiActivityLog } from './ai-activity';
 export { activityExportFileName, formatActivityExport, mountAiActivityPanel } from './ai-activity-panel';
+export { createAiDocsChat } from './ai-docs-run';
+export { mountAiChatPanel } from './ai-chat-panel';
+export { docsHeadingAt } from './ai';
 export {
   aiRewriteMenuGroups, applyRichTitle, applySourceTitle,
   createAiRewritePopover, cursorInsertTarget, richDocumentTarget, richRewriteTarget, setYamlTitle, sourceCursorTarget,

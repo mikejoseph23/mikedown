@@ -138,10 +138,28 @@ describe('labels, paths and the relative rewrite', () => {
     expect(relativeDocsPath('', 'c.md')).toBe('c.md');
   });
 
+  it('a heading in a label or link text cannot become markup, with or without a link (S8)', () => {
+    const evil = numbered(section('a_b.md', 'See <img src="https://evil.example/p.png"> ![x](https://evil.example/i.png) `c`'));
+    for (const location of [{ root: 'd', folder: '' }, null]) {
+      const out = rewriteCitationsForInsert('[1]', evil, location);
+      expect(out).toContain('\\<img');
+      expect(out).toContain('\\!\\[x\\]');
+      expect(out).toContain('https\\://');
+      expect(out).toContain('\\`c\\`');
+      expect(out).not.toMatch(/(^|[^\\])!\[/);
+    }
+  });
+
+  it('a source from another base is not linked, even with the same root label', () => {
+    const other = numbered(section('x.md', 'Heading')).map((s) => ({ ...s, baseId: 'other' }));
+    expect(rewriteCitationsForInsert('[1]', other, { root: 'd', folder: '', baseId: 'mine' })).toBe('x.md › Heading');
+    expect(rewriteCitationsForInsert('[1]', other, { root: 'd', folder: '', baseId: 'other' })).toContain('(x.md#heading)');
+  });
+
   it('link text cannot break out of the brackets', () => {
     const evil = numbered(section('x.md', 'Click](https://evil.example) [here'));
     const out = rewriteCitationsForInsert('[1]', evil, { root: 'd', folder: '' });
-    expect(out).toBe('[Click\\](https://evil.example) \\[here](x.md#click-https-evil-example-here)');
+    expect(out).toBe('[Click\\](https\\://evil.example) \\[here](x.md#click-https-evil-example-here)');
     expect(clean(out)).toBe(out.replace(/^/, '') && clean(out));
   });
 

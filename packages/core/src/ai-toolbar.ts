@@ -15,7 +15,7 @@
  * yet), and AI turns on only at its Done (B3). A tier-1
  * host routes by itself: its button is "Turn on" and lands on the AI tab.
  * With AI on, a click opens a menu of every AI action (the same list as the
- * context menu's `AI` submenu), a Thinking row when the routed model can
+ * context menu's `AI` submenu, plus Chat…), a Thinking row when the routed model can
  * think, "AI Activity…" while `ai.activityPanel` is on, and "Manage engines…".
  *
  * Toolbar chrome only: nothing here touches the editor document or its DOM.
@@ -70,6 +70,8 @@ export interface AiToolbarMenuInput {
   titles?: AiToolbarEntryState;
   /** "Suggest properties" (the sidebar's Suggest): absent or null leaves it out. */
   properties?: AiToolbarEntryState;
+  /** "Chat…" (the chat panel): absent or null leaves it out. */
+  chat?: AiToolbarEntryState;
   /**
    * The Thinking row near the bottom (it reads as a setting): Default plus
    * the levels the routed model's kind can express. Absent hides it (no
@@ -78,13 +80,14 @@ export interface AiToolbarMenuInput {
   thinking?: AiToolbarThinkingRow;
   /** True for a host with an engine registry ("Manage engines…"); otherwise "AI settings…". */
   canManageEngines: boolean;
-  icons: { rewrite: string; manage: string; explain?: string; translate?: string; summarize?: string; titles?: string; properties?: string; activity?: string };
+  icons: { rewrite: string; manage: string; explain?: string; translate?: string; summarize?: string; titles?: string; properties?: string; activity?: string; chat?: string };
   onRewrite(): void;
   onExplain?(): void;
   onTranslate?(): void;
   onSummarize?(): void;
   onSuggestTitles?(): void;
   onSuggestProperties?(): void;
+  onChat?(): void;
   onManage(): void;
   /** "AI Activity…". Absent (the setting is off): no such entry. The menu is built each time it opens, so it follows the setting. */
   onActivity?(): void;
@@ -164,7 +167,7 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
   };
   // A reason several items share (an engine that cannot be reached) shows once
   // as a status row on top; the items just grey out.
-  const shared = sharedDisabledReason([input.rewrite, input.explain, input.translate, input.summarize, input.titles, input.properties]);
+  const shared = sharedDisabledReason([input.rewrite, input.explain, input.translate, input.summarize, input.titles, input.properties, input.chat]);
   if (shared) {
     const { label, detail } = aiMenuStatusLine(shared);
     entries.push({ type: 'status', id: 'ai-status', label, ...(detail ? { detail } : {}) });
@@ -192,6 +195,8 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
   add('ai-summarize', 'Summarize document…', input.icons.summarize, input.summarize, () => input.onSummarize?.());
   add('ai-titles', 'Suggest titles…', input.icons.titles, input.titles, () => input.onSuggestTitles?.());
   add('ai-properties', 'Suggest properties', input.icons.properties, input.properties, () => input.onSuggestProperties?.());
+  separate();
+  add('ai-chat', 'Chat…', input.icons.chat, input.chat, () => input.onChat?.());
   if (input.thinking && input.thinking.choices.length > 0) {
     separate();
     entries.push(thinkingRowEntry(input.thinking));

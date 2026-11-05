@@ -58,7 +58,7 @@ export const EDITOR_COMMANDS = [
   'undo', 'redo', 'pasteWithoutFormatting', 'openFind', 'openFindReplace',
   'zoomIn', 'zoomOut', 'zoomReset',
   'aiRewrite',
-  'aiExplain', 'aiTranslate', 'aiSummarize', 'aiSuggestTitle', 'aiSuggestProperties',
+  'aiExplain', 'aiTranslate', 'aiSummarize', 'aiSuggestTitle', 'aiSuggestProperties', 'aiChat',
 ] as const satisfies readonly MikeDownCommand[];
 
 export type EditorCommand = typeof EDITOR_COMMANDS[number];
@@ -175,6 +175,7 @@ export const COMMANDS: readonly ShortcutRow[] = [
   editor('aiSummarize', 'Summarize Document…', undefined, 'always'),
   editor('aiSuggestTitle', 'Suggest Titles…', undefined, 'always'),
   editor('aiSuggestProperties', 'Suggest Properties', undefined, 'always'),
+  editor('aiChat', 'Chat…', undefined, 'always'),
 
   // ── View ────────────────────────────────────────────────────────────────
   { command: 'toggleSidebar', accelerator: 'CmdOrCtrl+B', label: 'Toggle Sidebar', outsideEditor: true, hideAccelerator: true },

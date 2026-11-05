@@ -169,7 +169,7 @@ export function parseCitations(answer: string, validNs: Iterable<number>): Parse
 // ── Labels and relative links ───────────────────────────────────────────────
 
 /** The slug part of a section id (`undefined` for a whole page). */
-function sectionSlug(section: AiDocsSection): string | undefined {
+export function docsSectionSlug(section: Pick<AiDocsSection, 'id' | 'pageId'>): string | undefined {
   const prefix = `${section.pageId}#`;
   return section.id.startsWith(prefix) ? section.id.slice(prefix.length) : undefined;
 }
@@ -198,14 +198,25 @@ export function encodeLinkPath(path: string): string {
   return out;
 }
 
-function escapeLinkText(text: string): string {
-  return text.replace(/\s+/g, ' ').replace(/([\\[\]])/g, '\\$1');
+/**
+ * A heading or path as literal markdown text. These come from the base's files,
+ * not the model, and reach the document after the sanitizer has run, so nothing
+ * in them may become a link, an image, a tag or a code span (S8).
+ */
+function escapeMarkdownText(text: string): string {
+  return text
+    .replace(/\s+/g, ' ')
+    .replace(/[\\`*_[\]<>!~|]/g, '\\$&')
+    .replace(/\b([A-Za-z][A-Za-z0-9+.-]*):\/\//g, '$1\\://')
+    .replace(/\bwww\./gi, (m) => `${m.slice(0, 3)}\\.`);
 }
 
 /** Where the document being edited sits: the label of the root that contains it and its folder relative to that root (`''` for the root itself). */
 export interface DocsDocumentLocation {
   root: string;
   folder: string;
+  /** The base of that root. Labels are unique per base only, so a source from another base is not linked. */
+  baseId?: string;
 }
 
 /** Relative path from a folder (relative to a root) to a file (relative to the same root). */
@@ -224,9 +235,9 @@ export function relativeDocsPath(fromFolder: string, toRelPath: string): string 
  */
 export function citationLink(section: AiDocsSection, location: DocsDocumentLocation | null | undefined): string | null {
   if (!location || location.root !== docsIdRoot(section.pageId)) {return null;}
-  const slug = sectionSlug(section);
+  const slug = docsSectionSlug(section);
   const path = encodeLinkPath(relativeDocsPath(location.folder, section.relPath));
-  const text = escapeLinkText(section.heading ?? section.title);
+  const text = escapeMarkdownText(section.heading ?? section.title);
   return `[${text}](${path}${slug ? `#${slug}` : ''})`;
 }
 
@@ -234,16 +245,17 @@ export function citationLink(section: AiDocsSection, location: DocsDocumentLocat
  * Replace each valid `[n]` with its link (or `file › heading` text). Unknown
  * numbers are removed. Run `sanitizeInsertMarkdown` first.
  */
-export function rewriteCitationsForInsert(answer: string, sources: readonly AiDocsNumberedSection[], location?: DocsDocumentLocation | null): string {
-  const byN = new Map(sources.map((s) => [s.n, s.section]));
+export function rewriteCitationsForInsert(answer: string, sources: ReadonlyArray<AiDocsNumberedSection & { baseId?: string }>, location?: DocsDocumentLocation | null): string {
+  const byN = new Map(sources.map((s) => [s.n, s]));
   const parsed = parseCitations(answer, byN.keys());
   return parsed.parts
     .map((part) => {
       if (part.type === 'text') {return part.text;}
       return part.ns
         .map((n) => {
-          const section = byN.get(n) as AiDocsSection;
-          return citationLink(section, location) ?? docsCitationLabel(section);
+          const { section, baseId } = byN.get(n) as AiDocsNumberedSection & { baseId?: string };
+          const otherBase = baseId !== undefined && location?.baseId !== undefined && baseId !== location.baseId;
+          return (otherBase ? null : citationLink(section, location)) ?? escapeMarkdownText(docsCitationLabel(section));
         })
         .join(', ');
     })
@@ -543,7 +555,7 @@ export function sanitizeInsertMarkdown(markdown: string, citedTexts: readonly st
  * The text Insert at cursor puts in the document: sanitize what the model
  * wrote, then turn citations into relative links (or `file › heading`).
  */
-export function prepareInsertMarkdown(answer: string, sources: readonly AiDocsNumberedSection[], location?: DocsDocumentLocation | null): SanitizedMarkdown {
+export function prepareInsertMarkdown(answer: string, sources: ReadonlyArray<AiDocsNumberedSection & { baseId?: string }>, location?: DocsDocumentLocation | null): SanitizedMarkdown {
   const parsed = parseCitations(answer, sources.map((x) => x.n));
   const citedTexts = parsed.cited.map((n) => sources.find((x) => x.n === n)?.section.text ?? '');
   const clean = sanitizeInsertMarkdown(answer, citedTexts);

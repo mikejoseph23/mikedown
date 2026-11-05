@@ -155,9 +155,17 @@ export interface MikeDownHost {
   /**
    * Open a link. Absent means external links open in a new browser tab and
    * relative links are ignored. `reveal` asks the target document to scroll
-   * to a link back to this one (sidebar backlinks).
+   * to a link back to this one (sidebar backlinks), or, with `section`, to the
+   * heading with that documentation-base slug (chat citations). A chat citation's
+   * href is a `file:` URL under a documentation base root.
    */
-  openLink?(href: string, behavior?: LinkOpenBehavior, reveal?: { href?: string; occurrence?: number }): void;
+  openLink?(href: string, behavior?: LinkOpenBehavior, reveal?: { href?: string; occurrence?: number; section?: string }): void;
+  /**
+   * The absolute folder of the current document, null while it has none
+   * (untitled). Insert from the chat uses it for relative links; absent, it
+   * writes plain `file › heading` text.
+   */
+  documentFolder?(): string | null;
 
   // ── Settings ──────────────────────────────────────────────────────────────
   /**

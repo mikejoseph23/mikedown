@@ -53,6 +53,7 @@ const AI_MNEMONICS: Partial<Record<CommandId, string>> = {
   aiSummarize: '&Summarize Document…',
   aiSuggestTitle: 'Suggest T&itles…',
   aiSuggestProperties: 'Suggest &Properties',
+  aiChat: '&Chat…',
 };
 
 function mnemonic(plain: string, marked: string, isMac: boolean): string {
@@ -118,7 +119,8 @@ export function buildMenuSpec(isMac: boolean, opts: MenuSpecOptions = {}): MenuN
         label: mnemonic('AI', '&AI', isMac),
         items: [
           i('aiRewrite'), i('aiExplain'), i('aiTranslate'), sep,
-          i('aiSummarize'), i('aiSuggestTitle'), i('aiSuggestProperties'),
+          i('aiSummarize'), i('aiSuggestTitle'), i('aiSuggestProperties'), sep,
+          i('aiChat'),
         ].map((n) => withMnemonic(n, isMac)),
       },
     ],
