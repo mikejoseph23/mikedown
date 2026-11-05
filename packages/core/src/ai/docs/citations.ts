@@ -179,12 +179,17 @@ export function docsCitationLabel(section: Pick<AiDocsSection, 'relPath' | 'head
   return section.heading ? `${section.relPath} › ${section.heading}` : section.relPath;
 }
 
-/** Percent-encode what would end a CommonMark link destination: space, `%`, brackets, parentheses, angle brackets, backslash, control characters. */
+/**
+ * Percent-encode what would end a CommonMark link destination or change what
+ * it points at: space, `%`, `#` (a file named `a#b.md` is not `a` plus a
+ * fragment), `?`, brackets, parentheses, angle brackets, backslash, control
+ * characters.
+ */
 export function encodeLinkPath(path: string): string {
   let out = '';
   for (const ch of path) {
     const cp = ch.codePointAt(0) as number;
-    if (cp <= 0x20 || cp === 0x7f || '%()[]<>\\'.includes(ch)) {
+    if (cp <= 0x20 || cp === 0x7f || '%#?()[]<>\\'.includes(ch)) {
       out += encodeURIComponent(ch).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
     } else {
       out += ch;
@@ -247,6 +252,11 @@ export function rewriteCitationsForInsert(answer: string, sources: readonly AiDo
 
 // ── Sanitizer (S8) ──────────────────────────────────────────────────────────
 
+/** How far past `(` an inline link destination and title are read (a longer URL is not a URL we would keep). */
+const INLINE_SCAN_MAX = 2100;
+/** Link text nesting the sanitizer follows before it flattens the rest to escaped text. */
+const MAX_NEST = 16;
+
 const URL_CONTINUES = /[A-Za-z0-9_~/%#?&=+@:-]/;
 
 function urlInSources(url: string, sources: readonly string[]): boolean {
@@ -274,8 +284,11 @@ function defang(url: string): string {
   return url.replace(/^([A-Za-z][A-Za-z0-9+.-]*):/, '$1\\:').replace(/^www\./i, (m) => `${m.slice(0, 3)}\\.`);
 }
 
+/** CommonMark limits a link label to 999 characters; a longer one is never a reference, so it is not worth normalising. */
+const MAX_LABEL = 999;
+
 function normLabel(label: string): string {
-  return label.replace(/\s+/g, ' ').trim().toLowerCase();
+  return label.length > MAX_LABEL ? '' : label.replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 export interface SanitizedMarkdown {
@@ -302,7 +315,7 @@ export function sanitizeInsertMarkdown(markdown: string, citedTexts: readonly st
 
   // Reference definitions: keep the ones whose URL is allowed, drop the rest.
   const defs = new Map<string, boolean>();
-  const dropRanges: Array<[number, number]> = [];
+  const dropMask = new Uint8Array(s.length + 1);
   {
     let pos = 0;
     while (pos < s.length) {
@@ -316,7 +329,7 @@ export function sanitizeInsertMarkdown(markdown: string, citedTexts: readonly st
           const ok = allowedUrl(url, false, citedTexts) || allowedUrl(url, true, citedTexts);
           defs.set(normLabel(m[1]), ok);
           if (!ok) {
-            dropRanges.push([pos, end]);
+            dropMask.fill(1, pos, end);
             result.linksRemoved++;
           }
         }
@@ -324,17 +337,34 @@ export function sanitizeInsertMarkdown(markdown: string, citedTexts: readonly st
       pos = end;
     }
   }
-  const dropped = (i: number): boolean => dropRanges.some(([a, b]) => i >= a && i < b);
+  const dropped = (i: number): boolean => dropMask[i] === 1;
 
-  /** Parse `(destination "title")` starting at `(`; returns the destination and the index after `)`. */
-  function parseInline(open: number, limit: number): { url: string; raw: string; end: number } | null {
+  /**
+   * Parse `(destination "title")` starting at `(`; returns the destination and
+   * the index after `)`. Looks at most `INLINE_SCAN_MAX` characters ahead, so a
+   * run of unclosed `(` cannot make the pass quadratic; a destination or title
+   * that runs past that is `'toolong'` (the caller breaks the link syntax).
+   */
+  function parseInline(open: number, limit: number): { url: string; raw: string; end: number } | 'toolong' | null {
+    const cap = Math.min(limit, open + INLINE_SCAN_MAX);
+    const out = parseInlineWithin(open, cap);
+    return out === null && cap < limit && ranOut ? 'toolong' : out;
+  }
+  let ranOut = false;
+  function parseInlineWithin(open: number, limit: number): { url: string; raw: string; end: number } | null {
+    ranOut = false;
     let i = open + 1;
     while (i < limit && /[ \t\n]/.test(s[i])) {i++;}
     let url = '';
     let raw = '';
     if (s[i] === '<') {
-      const gt = s.indexOf('>', i);
-      if (gt < 0 || gt >= limit || s.slice(i, gt).includes('\n')) {return null;}
+      let gt = i + 1;
+      while (gt < limit && s[gt] !== '>' && s[gt] !== '\n') {gt++;}
+      if (gt >= limit) {
+        ranOut = true;
+        return null;
+      }
+      if (s[gt] !== '>') {return null;}
       url = s.slice(i + 1, gt);
       raw = s.slice(i, gt + 1);
       i = gt + 1;
@@ -352,6 +382,7 @@ export function sanitizeInsertMarkdown(markdown: string, citedTexts: readonly st
         }
         i++;
       }
+      if (i >= limit) {ranOut = true;}
       url = s.slice(from, i);
       raw = url;
     }
@@ -360,15 +391,29 @@ export function sanitizeInsertMarkdown(markdown: string, citedTexts: readonly st
       const closeCh = s[i] === '(' ? ')' : s[i];
       let j = i + 1;
       while (j < limit && s[j] !== closeCh) {j += s[j] === '\\' ? 2 : 1;}
-      if (j >= limit) {return null;}
+      if (j >= limit) {
+        ranOut = true;
+        return null;
+      }
       i = j + 1;
       while (i < limit && /[ \t\n]/.test(s[i])) {i++;}
     }
+    if (i >= limit) {ranOut = true;}
     if (i >= limit || s[i] !== ')') {return null;}
     return { url, raw, end: i + 1 };
   }
 
-  function walk(from: number, to: number): string {
+  /** Past `MAX_NEST` levels of link text, give up on structure: escape what could start markup and defang URLs. */
+  function flatten(from: number, to: number): string {
+    return s
+      .slice(from, to)
+      .replace(/[\\[\]()<!`]/g, (c) => `\\${c}`)
+      .replace(/\b([A-Za-z][A-Za-z0-9+.-]*):\/\//g, '$1\\://')
+      .replace(/\bwww\./gi, (m) => `${m.slice(0, 3)}\\.`);
+  }
+
+  function walk(from: number, to: number, nest = 0): string {
+    if (nest > MAX_NEST) {return flatten(from, to);}
     let out = '';
     let i = from;
     while (i < to) {
@@ -393,6 +438,13 @@ export function sanitizeInsertMarkdown(markdown: string, citedTexts: readonly st
           let refLabel = '';
           if (next === '(' && !mask[close + 1]) {
             const p = parseInline(close + 1, to);
+            if (p === 'toolong') {
+              // A destination too long to judge: break the link syntax so it cannot be one.
+              out += `${image ? '!' : ''}[${walk(open + 1, close, nest + 1)}]\\(`;
+              if (image) {result.imagesRemoved++;} else {result.linksRemoved++;}
+              i = close + 2;
+              continue;
+            }
             if (p) {
               kind = 'inline';
               url = p.url;
@@ -401,17 +453,17 @@ export function sanitizeInsertMarkdown(markdown: string, citedTexts: readonly st
           } else if (next === '[' && !mask[close + 1] && closeOf.has(close + 1) && (closeOf.get(close + 1) as number) < to) {
             const rc = closeOf.get(close + 1) as number;
             const label = s.slice(close + 2, rc);
-            refLabel = normLabel(label === '' ? s.slice(open + 1, close) : label);
+            refLabel = normLabel(label === '' ? s.slice(open + 1, Math.min(close, open + 2 + MAX_LABEL)) : label);
             if (defs.has(refLabel)) {
               kind = 'ref';
               end = rc + 1;
             }
-          } else if (defs.has(normLabel(s.slice(open + 1, close)))) {
+          } else if (defs.size > 0 && close - open <= MAX_LABEL + 1 && defs.has(normLabel(s.slice(open + 1, close)))) {
             kind = 'shortcut';
             refLabel = normLabel(s.slice(open + 1, close));
           }
           if (kind) {
-            const inner = walk(open + 1, close);
+            const inner = walk(open + 1, close, nest + 1);
             if (kind === 'inline') {
               const ok = allowedUrl(url, image, citedTexts);
               if (image) {

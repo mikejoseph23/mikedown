@@ -16,7 +16,8 @@
  *     `rk_live_` / `rk_test_` + 16 or more alphanumerics.
  *   - private-key: any `-----BEGIN ... PRIVATE KEY-----` header (RSA, EC,
  *     DSA, OPENSSH, ENCRYPTED, bare, `PGP PRIVATE KEY BLOCK`). The header is
- *     enough; the body need not be present.
+ *     enough; the body need not be present. Whitespace between the words of
+ *     the header may include a line break (a header re-wrapped by a tool).
  *   - jwt: `eyJ...` `.` `eyJ...` `.` signature (each part base64url; header
  *     and payload at least 8 characters after `eyJ`; the signature may be
  *     empty, for unsecured tokens).
@@ -35,7 +36,7 @@ import { plural } from './util';
 export type DocsSecretKind = 'aws-access-key' | 'api-token' | 'private-key' | 'jwt';
 
 const PATTERNS: ReadonlyArray<[DocsSecretKind, RegExp]> = [
-  ['private-key', /-----BEGIN[ \t]+(?:[A-Z0-9]+[ \t]+){0,5}PRIVATE[ \t]+KEY(?:[ \t]+BLOCK)?-----/],
+  ['private-key', /-----BEGIN\s+(?:[A-Z0-9]+\s+){0,5}PRIVATE\s+KEY(?:\s+BLOCK)?-----/],
   ['aws-access-key', /(?:^|[^A-Za-z0-9])A(?:KIA|SIA)[0-9A-Z]{16}(?![A-Za-z0-9])/],
   ['api-token', /(?:^|[^A-Za-z0-9_-])sk-(?=[A-Za-z0-9_-]{20,})(?=[A-Za-z0-9_-]*[0-9])[A-Za-z0-9_-]{20,}/],
   ['api-token', /(?:^|[^A-Za-z0-9_])[sr]k_(?:live|test)_[A-Za-z0-9]{16,}/],
@@ -59,7 +60,7 @@ export function containsSecret(text: string): boolean {
 const TAIL = 256;
 
 const TAIL_PATTERNS: ReadonlyArray<[DocsSecretKind, RegExp]> = [
-  ['private-key', /-----BEGIN[ \t A-Z0-9]*$/],
+  ['private-key', /-----BEGIN[\s A-Z0-9]*$/],
   ['aws-access-key', /(?:^|[^A-Za-z0-9])A(?:KIA|SIA)[0-9A-Z]{4,15}$/],
   ['api-token', /(?:^|[^A-Za-z0-9_-])sk-(?=[A-Za-z0-9_-]*[0-9])[A-Za-z0-9_-]{8,}$/],
   ['api-token', /(?:^|[^A-Za-z0-9_])[sr]k_(?:live|test)_[A-Za-z0-9]{6,}$/],
