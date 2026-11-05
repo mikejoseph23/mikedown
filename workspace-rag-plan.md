@@ -23,7 +23,7 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 | [M4 Navigation loop and answer call](#m4-navigation-loop-and-answer-call) | Opus | ✅ Done | 17 | `c0d9eb3`. Route pinned for the turn |
 | [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | ✅ Done | 11 | `4c28014`. Modal entry is M8's |
 | [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | ✅ Done | 15 | `984583d`. Rust |
-| [M7 Host tests](#m7-host-tests) | Sonnet | ✅ Done | 14 | `c455fba`. Refresh gap fill running |
+| [M7 Host tests](#m7-host-tests) | Sonnet | ✅ Done | 14 | `c455fba`, gap fill `8cf75b9` |
 | [M8 Bases manager page](#m8-bases-manager-page) | Opus | ✅ Done | 14 | `7fdf1be`. UI |
 | [M9 Chat panel](#m9-chat-panel) | Opus | 🔄 In Progress | — | UI |
 | [M10 UI tests](#m10-ui-tests) | Sonnet | ⬜ Not Started | — | vitest jsdom |
@@ -336,5 +336,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 17:28** - M4 done (`c0d9eb3`): 4053 unit tests per the worker; the loop and request tests re-run here (120). 16 hand mutations of the security rules each failed tests, per the worker. Open for Mike at sign-off: each chat turn is standalone, so a follow-up question does not see the earlier answer; an engine already allowed sends base pages without a dialog once a base's switch is on; a newly added base shows no health until Refresh. M9 dispatched.
 
 **2026-11-05 17:35** - M7 done (`c455fba`): 4084 unit, 296 Rust lib and 595 Desktop vitest tests per the worker. Read-time symlink check on both hosts; Desktop broken link health; link and title parity fixtures, which exposed real disagreement between the hosts, now fixed. Gap fill dispatched for two M5, M6 and M8 defects M7 reported: Desktop re-walks every base on every chat turn, and the manager's Refresh never forces a walk on VS Code.
+
+**2026-11-05 17:39** - M7 gap fill done (`8cf75b9`): a plain `listBases` no longer walks on Desktop, and Refresh forces a walk on both hosts. VS Code needed tests only. `allowCloud` stays fresh on a plain call, tested on each host.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
