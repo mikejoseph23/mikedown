@@ -26,7 +26,7 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
   {
     id: 'rewrite',
     label: 'Rewrite selection',
-    description: 'Shorter, longer, fix flow or a custom prompt, previewed before it replaces the selection.',
+    description: 'Shorter, longer, fix flow or a custom prompt, previewed before it replaces the selection. Explain and Translate switch with it.',
     defaultEnabled: true,
     defaultTask: 'rewrite',
     requires: { chat: true, stream: true },

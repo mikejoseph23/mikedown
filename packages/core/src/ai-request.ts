@@ -340,6 +340,19 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
   throw makeAiError('unknown', 'No engine answered.');
 }
 
+/**
+ * The short notice for a launch (palette command, hotkey) that does nothing
+ * because AI or the feature is switched off, so it never fails silently.
+ * Null when that is not the reason: no AI host, or the feature is on.
+ */
+export function aiFeatureOffNotice(ai: MikeDownAiHost | undefined, settings: AiSettings, feature: string): string | null {
+  if (!ai) {return null;}
+  if (!settings.enabled) {return 'AI is turned off. Turn it on in the AI settings.';}
+  const resolved = resolveAiFeature(settings.features, feature);
+  if (resolved.enabled) {return null;}
+  return `${resolved.definition?.label ?? feature} is turned off in the AI settings.`;
+}
+
 export type AiFeatureAvailability =
   | { state: 'hidden' }
   | { state: 'disabled'; reason: string }

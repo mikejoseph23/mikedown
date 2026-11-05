@@ -2620,6 +2620,12 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     return aiUi.aiFeatureAvailability(aiHost, currentAiSettings, aiStatuses, aiConsent, feature);
   }
 
+  /** A launch that finds its feature switched off says so, instead of doing nothing. */
+  function noteAiFeatureOff(feature: 'rewrite' | 'summary' | 'title' | 'frontmatter'): void {
+    const msg = aiUi?.aiFeatureOffNotice(aiHost, currentAiSettings, feature);
+    if (msg) {showTransientToast(msg);}
+  }
+
   /**
    * The `ai` slash group shows only while its feature is available (D15:
    * hidden and disabled both hide; the reason is in the AI menu). The hidden
@@ -4527,7 +4533,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
    */
   function startAiSummary(kind: AiSummaryKind = 'tldr', slash?: { from: number; to: number }): boolean {
     if (!aiRewrite || destroyed || readOnly) {return false;}
-    if (aiDocAvailability('summary').state !== 'enabled') {return false;}
+    const availability = aiDocAvailability('summary');
+    if (availability.state !== 'enabled') {
+      if (availability.state === 'hidden') {noteAiFeatureOff('summary');}
+      return false;
+    }
     const markdown = aiBodyMarkdown();
     if (!markdown.trim()) {return false;}
     aiRewrite.close();
@@ -4650,7 +4660,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const ui = aiUi;
     const sidebar = outlineSidebar;
     if (!ai || !ui || !sidebar || destroyed) {return false;}
-    if (aiPropertiesAvailability().state !== 'enabled') {return false;}
+    const availability = aiPropertiesAvailability();
+    if (availability.state !== 'enabled') {
+      if (availability.state === 'hidden' && !readOnly) {noteAiFeatureOff('frontmatter');}
+      return false;
+    }
     cancelAiPropertySuggestions();
     const controller = new AbortController();
     propertiesController = controller;
@@ -4766,7 +4780,11 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
   function startAiTitles(slash?: { from: number; to: number }): boolean {
     const ui = aiUi;
     if (!aiRewrite || !ui || destroyed || readOnly) {return false;}
-    if (aiDocAvailability('title').state !== 'enabled') {return false;}
+    const availability = aiDocAvailability('title');
+    if (availability.state !== 'enabled') {
+      if (availability.state === 'hidden') {noteAiFeatureOff('title');}
+      return false;
+    }
     const markdown = aiBodyMarkdown();
     if (!markdown.trim()) {return false;}
     aiRewrite.close();
@@ -4813,7 +4831,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     const ui = aiUi;
     if (!aiRewrite || !ui) {return false;}
     const availability = aiRewriteAvailability();
-    if (availability.state === 'hidden') {return false;}
+    if (availability.state === 'hidden') {
+      if (!readOnly) {noteAiFeatureOff('rewrite');}
+      return false;
+    }
     aiRewrite.close();
     const target = (sourceMode
       ? (cmView ? ui.sourceRewriteTarget(cmView) : null)

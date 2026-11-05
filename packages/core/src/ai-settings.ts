@@ -294,7 +294,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
   // One switch per feature. On tier 2 the task each feature routes through
   // is under "Advanced: task per feature" (U8): most people never change it.
 
-  const featuresRow = ctx.makeRow('Features', 'Turn each feature on or off.');
+  const featuresRow = ctx.makeRow('Features', 'Turn each feature on or off. A feature that is off disappears from the menus, and its commands and shortcuts say so instead of running.');
   featuresRow.classList.add('ai-section');
   const featureRows: HTMLElement[] = [];
   const taskRows: HTMLElement[] = [];
