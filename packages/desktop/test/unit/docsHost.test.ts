@@ -5,7 +5,7 @@
  * (`src-tauri/src/commands/docs/tests.rs`).
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { AiDocBase } from '@mikedown/core/ai';
+import type { AiDocBase, AiDocBaseStatus, AiDocsIndex } from '@mikedown/core/ai';
 import { createDocsHost } from '../../src/host/docsHost';
 import type { DocsApi } from '../../src/host/docsApi';
 
@@ -35,7 +35,96 @@ function setup(overrides: Partial<{ pickFolder: () => Promise<string | null> }> 
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 const BASE: AiDocBase = { id: 'b1', name: 'Handbook', roots: ['/Users/me/handbook'], allowCloud: false, enabled: true };
 
+function status(id: string, over: Partial<AiDocBaseStatus> = {}): AiDocBaseStatus {
+  return {
+    base: { id, name: id, roots: [`/docs/${id}`], allowCloud: false, enabled: true },
+    active: true,
+    roots: [],
+    fileCount: 2,
+    oversizeSkipped: 0,
+    rootsMissing: 0,
+    capReached: false,
+    ...over,
+  };
+}
+
+/** Two pages: `a.md` links to a page that exists, one that does not, a site and a wikilink with no page. */
+function indexWithLinks(baseId: string): AiDocsIndex {
+  const page = (relPath: string, links: Array<{ target: string; text: string; kind: 'markdown' | 'wikilink' }>) => ({ id: `docs/${relPath}`, root: 'docs', relPath, title: relPath, headings: [], links, chars: 10 });
+  return {
+    baseId,
+    roots: [{ label: 'docs' }],
+    pages: [
+      page('a.md', [
+        { target: 'b.md', text: 'ok', kind: 'markdown' },
+        { target: 'gone.md', text: 'broken', kind: 'markdown' },
+        { target: 'https://example.com', text: 'external', kind: 'markdown' },
+        { target: 'Nowhere', text: 'broken wikilink', kind: 'wikilink' },
+      ]),
+      page('b.md', [{ target: '../../escape.md', text: 'outside', kind: 'markdown' }]),
+    ],
+    homes: [],
+    truncated: false,
+    oversizeSkipped: 0,
+    builtAt: 0,
+  };
+}
+
 describe('createDocsHost', () => {
+  describe('listBases fills brokenLinks from the index (review fix 2)', () => {
+    it('counts broken links with core\'s resolver for each base Rust walked', async () => {
+      const { host, api } = setup();
+      api.listBases.mockResolvedValueOnce([status('b1')] as never);
+      api.index.mockImplementation(async (baseId: string) => indexWithLinks(baseId));
+      const [one] = await host.listBases();
+      expect(one.brokenLinks).toBe(3); // gone.md, Nowhere, ../../escape.md; the external link is not broken
+      expect(api.index).toHaveBeenCalledWith('b1');
+    });
+
+    it('leaves it undefined for a disabled or inactive base and never asks for its index', async () => {
+      const { host, api } = setup();
+      const off = status('off', { active: false, base: { id: 'off', name: 'off', roots: ['/x'], allowCloud: false, enabled: false } });
+      const missing = status('missing', { active: false, fileCount: 0, rootsMissing: 1 });
+      api.listBases.mockResolvedValueOnce([off, missing] as never);
+      const list = await host.listBases();
+      expect(list.map((s) => s.brokenLinks)).toEqual([undefined, undefined]);
+      expect(api.index).not.toHaveBeenCalled();
+    });
+
+    it('keeps the status, without a count, when the index cannot be read', async () => {
+      const { host, api } = setup();
+      api.listBases.mockResolvedValueOnce([status('a'), status('b')] as never);
+      api.index.mockImplementation(async (baseId: string) => {
+        if (baseId === 'a') {throw 'No folder of the documentation base was found.';}
+        return indexWithLinks(baseId);
+      });
+      const list = await host.listBases();
+      expect(list.map((s) => [s.base.id, s.brokenLinks])).toEqual([['a', undefined], ['b', 3]]);
+    });
+
+    it('a base with no broken links reports zero, not undefined', async () => {
+      const { host, api } = setup();
+      api.listBases.mockResolvedValueOnce([status('clean')] as never);
+      api.index.mockImplementation(async (baseId: string) => ({ ...indexWithLinks(baseId), pages: [] }));
+      expect((await host.listBases())[0].brokenLinks).toBe(0);
+    });
+
+    it('only the index command is added: no listBases call of its own beyond the one', async () => {
+      const { host, api } = setup();
+      api.listBases.mockResolvedValueOnce([status('a'), status('b')] as never);
+      api.index.mockImplementation(async (baseId: string) => indexWithLinks(baseId));
+      await host.listBases();
+      expect(api.listBases).toHaveBeenCalledTimes(1);
+      expect(api.index).toHaveBeenCalledTimes(2);
+    });
+
+    it('a failure of listBases itself still rejects with the sentence', async () => {
+      const { host, api } = setup();
+      api.listBases.mockRejectedValueOnce('settings unreadable');
+      await expect(host.listBases()).rejects.toThrow('settings unreadable');
+    });
+  });
+
   it('passes base ids and ids straight to the commands and nothing else', async () => {
     const { host, api } = setup();
     await host.listBases();

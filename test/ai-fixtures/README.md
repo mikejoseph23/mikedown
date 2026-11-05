@@ -124,3 +124,6 @@ The documentation-base contract (workspace RAG) that the VS Code host (TypeScrip
 | `ids.json` | page and section id formats, `parse` cases (`parseDocsId` with `known` as the index), `safeRelPaths`, `stems` |
 | `sections.json` | `cases[]`: `markdown` to `sections[]` (`heading` is `{level,text,slug}` or `null` for the preamble, and the section `text`) |
 | `keyword.json` | `terms[]`: `query` to `terms`; `rank[]`: `query`, `limit`, `sections[]` to `expected[]` (`id`, integer `score`, in order) |
+| `titles.json` | `cases[]`: `markdown` to `title` (string, or `null` for none). Host-side `frontmatterTitle` (`src/ai/docsHost.ts`, run in `test/unit/ai-docsHost.test.ts`) and `frontmatter_title` (`commands/docs/markdown.rs`) |
+| `links.json` | `cases[]`: `markdown` to `links[]` (`target`, `text`, `kind`), in document order. Host-side `extractDocsLinks` and `extract_links`; the rules are in the header of `extractDocsLinks` |
+| `keyword-files.json` | `rootName`, `files` (path to content, byte for byte), `queries[]` with `expected[]` (`id`, `score`): keyword search through a whole host over those files. `test/unit/ai-docsHost.test.ts` and `commands/docs/tests.rs` |

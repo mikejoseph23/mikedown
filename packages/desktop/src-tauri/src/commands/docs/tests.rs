@@ -153,6 +153,56 @@ fn keyword_terms_and_ranking_match_the_fixture() {
     }
 }
 
+#[test]
+fn frontmatter_titles_match_the_fixture() {
+    let cases = fixture("titles.json");
+    let cases = cases["cases"].as_array().unwrap();
+    assert!(cases.len() > 10);
+    for case in cases {
+        let want = case["title"].as_str().map(str::to_string);
+        assert_eq!(frontmatter_title(case["markdown"].as_str().unwrap()), want, "{}", case["name"]);
+    }
+}
+
+#[test]
+fn links_match_the_fixture() {
+    let cases = fixture("links.json");
+    let cases = cases["cases"].as_array().unwrap();
+    assert!(cases.len() > 10);
+    for case in cases {
+        let got: Vec<(String, String, String)> = extract_links(case["markdown"].as_str().unwrap()).into_iter().map(|l| (l.target, l.text, l.kind.to_string())).collect();
+        let want: Vec<(String, String, String)> = case["links"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| (l["target"].as_str().unwrap().to_string(), l["text"].as_str().unwrap().to_string(), l["kind"].as_str().unwrap().to_string()))
+            .collect();
+        assert_eq!(got, want, "{}", case["name"]);
+    }
+}
+
+/// Keyword search through a whole host, on files: the same ids and scores in the
+/// same order as `keyword-files.json`, which the VS Code host also runs.
+#[test]
+fn keyword_search_over_files_matches_the_fixture() {
+    let f = fixture("keyword-files.json");
+    let parent = temp_dir("kwfiles");
+    let root = parent.join(f["rootName"].as_str().unwrap());
+    for (rel, text) in f["files"].as_object().unwrap() {
+        let path = root.join(rel);
+        stdfs::create_dir_all(path.parent().unwrap()).unwrap();
+        stdfs::write(path, text.as_str().unwrap().as_bytes()).unwrap();
+    }
+    let index = build_base_index(&base("kw", &[root.as_path()]));
+    for q in f["queries"].as_array().unwrap() {
+        let query = q["query"].as_str().unwrap();
+        let got: Vec<(String, u64)> = keyword_search(&index, query).iter().map(|r| (r.id.clone(), r.score as u64)).collect();
+        let want: Vec<(String, u64)> = q["expected"].as_array().unwrap().iter().map(|e| (e["id"].as_str().unwrap().to_string(), e["score"].as_u64().unwrap())).collect();
+        assert_eq!(got, want, "query {query:?}");
+    }
+    let _ = stdfs::remove_dir_all(&parent);
+}
+
 /// UTF-16 and code point order differ above U+FFFF; Rust's `str` order is the code point one.
 #[test]
 fn ties_break_by_code_point_not_utf16() {
@@ -202,11 +252,13 @@ fn links_are_extracted_as_written() {
     assert_eq!(
         got,
         vec![
+            // In document order; the external link is kept (core marks it), the image is not.
             ("guide/setup.md#install".to_string(), "setup".to_string(), "markdown"),
+            ("https://x.dev".to_string(), "web".to_string(), "markdown"),
             ("#top".to_string(), "here".to_string(), "markdown"),
-            ("a b.md".to_string(), "<angle>".to_string(), "markdown"),
             ("Key rotation".to_string(), "Key rotation".to_string(), "wikilink"),
             ("Security#Keys|the keys".to_string(), "the keys".to_string(), "wikilink"),
+            ("a b.md".to_string(), "<angle>".to_string(), "markdown"),
         ]
     );
 }
@@ -315,9 +367,9 @@ fn reads_refuse_what_the_five_checks_name() {
         assert!(read_checked(&root, &root.join("link.md")).is_err(), "a symlink that escapes the root");
         std::os::unix::fs::symlink(&outside, root.join("linkdir")).unwrap();
         assert!(read_checked(&root, &root.join("linkdir/secret.md")).is_err(), "a symlinked folder that escapes the root");
-        // An inside link is fine for a read; the walker still never lists it.
+        // A link that stays inside the root is refused too: the read must be the file that was listed.
         std::os::unix::fs::symlink(root.join("ok.md"), root.join("inside.md")).unwrap();
-        assert!(read_checked(&root, &root.join("inside.md")).is_ok());
+        assert!(read_checked(&root, &root.join("inside.md")).is_err(), "an in-root symlink");
     }
     let _ = stdfs::remove_dir_all(&root);
     let _ = stdfs::remove_dir_all(&outside);
@@ -596,4 +648,166 @@ fn the_state_drops_an_index_when_told() {
     // A build that started before the invalidation is not cached.
     state.store("s", Arc::new(build_base_index(&cfg)), generation);
     assert!(state.cached("s", &key).is_none());
+}
+
+// ── M7: the refusals through `read_sections` and `keyword_search` ───────────
+
+/// Index a folder and return the index with the id of a page.
+fn indexed(tag: &str, files: &[(&str, &str)]) -> (PathBuf, BaseIndex, String) {
+    let root = temp_dir(tag);
+    for (rel, text) in files {
+        write(&root, rel, text);
+    }
+    let index = build_base_index(&base(tag, &[root.as_path()]));
+    let label = index.out.roots[0].label.clone();
+    (root, index, label)
+}
+
+#[test]
+fn read_sections_refuses_the_five_cases_after_indexing() {
+    let (root, index, label) = indexed("five", &[("page.md", "# Page\ntext\n"), ("grows.md", "# Grows\nsmall\n"), ("swap.md", "# Swap\nx\n")]);
+    let outside = temp_dir("five-outside");
+    write(&outside, "secret.md", "# Secret\nhunter2\n");
+    let ids = |names: &[&str]| names.iter().map(|n| format!("{label}/{n}")).collect::<Vec<_>>();
+    assert_eq!(read_sections(&index, &ids(&["page.md"])).len(), 1);
+    // An id that is not in the index: a ../ path, an absolute path, a .txt that was never listed, nonsense.
+    let hostile = vec![
+        format!("{label}/../outside/secret.md"),
+        "../../etc/passwd".to_string(),
+        format!("{}/secret.md", outside.display()),
+        format!("{label}/notes.txt"),
+        format!("{label}/nope.md"),
+        format!("{label}/page.md#nothing-here"),
+        String::new(),
+    ];
+    assert!(read_sections(&index, &hostile).is_empty());
+    // A file that grew to 2 MiB since it was indexed.
+    write(&root, "grows.md", &"x".repeat(2 * 1024 * 1024));
+    assert!(read_sections(&index, &ids(&["grows.md"])).is_empty(), "2 MiB");
+    // A file swapped for a link that leaves the root.
+    #[cfg(unix)]
+    {
+        stdfs::remove_file(root.join("swap.md")).unwrap();
+        std::os::unix::fs::symlink(outside.join("secret.md"), root.join("swap.md")).unwrap();
+        assert!(read_sections(&index, &ids(&["swap.md"])).is_empty(), "a symlink escaping the root");
+    }
+    assert_eq!(read_sections(&index, &ids(&["page.md"])).len(), 1, "the untouched page still reads");
+    let _ = stdfs::remove_dir_all(&root);
+    let _ = stdfs::remove_dir_all(&outside);
+}
+
+#[test]
+fn a_sibling_folder_sharing_the_roots_prefix_is_not_inside_it() {
+    let parent = temp_dir("evil");
+    let root = parent.join("docs");
+    let evil = parent.join("docs-evil");
+    write(&root, "page.md", "# Page\nok\n");
+    write(&evil, "x.md", "# Evil\nhunter2\n");
+    let index = build_base_index(&base("evil", &[root.as_path()]));
+    let id = format!("{}/page.md", index.out.roots[0].label);
+    assert_eq!(read_sections(&index, &[id.clone()]).len(), 1);
+    assert!(read_checked(&root, &evil.join("x.md")).is_err(), "docs-evil is not under docs");
+    #[cfg(unix)]
+    {
+        stdfs::remove_file(root.join("page.md")).unwrap();
+        std::os::unix::fs::symlink(evil.join("x.md"), root.join("page.md")).unwrap();
+        assert!(read_sections(&index, &[id]).is_empty());
+    }
+    let _ = stdfs::remove_dir_all(&parent);
+}
+
+/// Review fix 1: the read must be the very file the walker listed.
+#[cfg(unix)]
+#[test]
+fn a_file_swapped_for_an_in_root_link_is_refused() {
+    let (root, index, label) = indexed("inlink", &[("page.md", "# Page\ntext\n"), ("other.md", "# Other\nother text\n")]);
+    let id = format!("{label}/page.md");
+    assert_eq!(read_sections(&index, &[id.clone()]).len(), 1);
+    stdfs::remove_file(root.join("page.md")).unwrap();
+    std::os::unix::fs::symlink(root.join("other.md"), root.join("page.md")).unwrap();
+    assert!(read_sections(&index, &[id.clone()]).is_empty(), "the link points inside the root, and is still refused");
+    assert!(keyword_search(&index, "other").iter().all(|r| r.page_id != id), "search refuses it too");
+    // The real file is still readable under its own name.
+    assert_eq!(read_sections(&index, &[format!("{label}/other.md")]).len(), 1);
+    let _ = stdfs::remove_dir_all(&root);
+}
+
+/// Review fix 1: a parent folder swapped for a link, to another folder inside the root.
+#[cfg(unix)]
+#[test]
+fn a_parent_folder_swapped_for_a_link_is_refused() {
+    let (root, index, label) = indexed("parentlink", &[("sub/page.md", "# Page\nreal\n"), ("sub2/page.md", "# Page\nimpostor\n")]);
+    let id = format!("{label}/sub/page.md");
+    assert_eq!(read_sections(&index, &[id.clone()])[0].text, "# Page\nreal\n");
+    stdfs::remove_dir_all(root.join("sub")).unwrap();
+    std::os::unix::fs::symlink(root.join("sub2"), root.join("sub")).unwrap();
+    assert!(read_sections(&index, &[id]).is_empty());
+    let _ = stdfs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_file_deleted_since_indexing_is_left_out_without_a_crash() {
+    let (root, index, label) = indexed("deleted", &[("gone.md", "# Gone\nneedle\n"), ("kept.md", "# Kept\nneedle\n")]);
+    stdfs::remove_file(root.join("gone.md")).unwrap();
+    let got = read_sections(&index, &[format!("{label}/gone.md"), format!("{label}/kept.md")]);
+    assert_eq!(got.iter().map(|s| s.page_id.as_str()).collect::<Vec<_>>(), vec![format!("{label}/kept.md")]);
+    assert_eq!(keyword_search(&index, "needle").iter().map(|r| r.page_id.clone()).collect::<Vec<_>>(), vec![format!("{label}/kept.md")]);
+    // The whole folder gone: nothing is read and nothing panics.
+    let _ = stdfs::remove_dir_all(&root);
+    assert!(read_sections(&index, &[format!("{label}/kept.md")]).is_empty());
+    assert!(keyword_search(&index, "needle").is_empty());
+}
+
+#[test]
+fn a_file_that_is_not_utf8_does_not_take_the_request_down() {
+    let (root, _first, label) = indexed("badutf", &[("good.md", "# Good\nneedle\n")]);
+    let mut bytes = b"# Bad\nneedle \xff\xfe broken\n".to_vec();
+    bytes.extend_from_slice(&[0xc3]); // a cut multi-byte sequence at the end
+    stdfs::write(root.join("bad.md"), &bytes).unwrap();
+    // Indexed after the file exists, so it is a page like any other.
+    let index2 = build_base_index(&base("badutf", &[root.as_path()]));
+    let ids = vec![format!("{label}/bad.md"), format!("{label}/good.md")];
+    let got = read_sections(&index2, &ids);
+    assert_eq!(got.len(), 2, "{got:?}");
+    assert!(got[0].text.contains('\u{fffd}') && got[0].text.contains("needle"));
+    assert_eq!(keyword_search(&index2, "needle").len(), 2);
+    let _ = stdfs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_markdown_extension_in_any_case_is_read_and_a_double_extension_is_not_listed() {
+    let (root, index, label) = indexed("ext", &[("Upper.MD", "# Upper\nx\n"), ("Mixed.Markdown", "# Mixed\ny\n"), ("a.md.txt", "# no\n"), ("b.mdx", "# no\n"), ("c.txt", "no")]);
+    let ids: Vec<&str> = index.out.pages.iter().map(|p| p.rel_path.as_str()).collect();
+    assert_eq!(ids, vec!["Mixed.Markdown", "Upper.MD"]);
+    assert_eq!(read_sections(&index, &[format!("{label}/Upper.MD"), format!("{label}/Mixed.Markdown")]).len(), 2);
+    assert!(read_checked(&root, &root.join("a.md.txt")).is_err());
+    assert!(read_checked(&root, &root.join("b.mdx")).is_err());
+    let _ = stdfs::remove_dir_all(&root);
+}
+
+#[test]
+fn an_unknown_or_disabled_base_is_refused_before_any_root_is_touched() {
+    let a = base("a", &[Path::new("/a")]);
+    let off = DocBase { enabled: false, name: "Off".into(), ..base("off", &[Path::new("/off")]) };
+    let bases = vec![a.clone(), off];
+    assert_eq!(pick_base(bases.clone(), "a").unwrap().id, "a");
+    assert!(pick_base(bases.clone(), "nope").unwrap_err().contains("not in your settings"));
+    assert!(pick_base(bases.clone(), "").is_err());
+    assert!(pick_base(bases.clone(), "/a").is_err(), "a folder is not a base id");
+    assert!(pick_base(bases, "off").unwrap_err().contains("turned off"));
+}
+
+/// A missing first root must not shift the labels, and so the ids, of the others.
+#[test]
+fn a_missing_first_root_does_not_shift_the_other_roots_ids() {
+    let parent = temp_dir("missing-first");
+    let first = parent.join("a").join("docs");
+    let second = parent.join("b").join("docs");
+    write(&second, "two.md", "# Two\n");
+    let with_first_missing = build_base_index(&base("m", &[first.as_path(), second.as_path()]));
+    assert_eq!(with_first_missing.out.pages.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), vec!["docs-2/two.md"]);
+    write(&first, "one.md", "# One\n");
+    let with_both = build_base_index(&base("m", &[first.as_path(), second.as_path()]));
+    assert_eq!(with_both.out.pages.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), vec!["docs/one.md", "docs-2/two.md"]);
+    let _ = stdfs::remove_dir_all(&parent);
 }

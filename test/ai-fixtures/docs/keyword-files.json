@@ -1,0 +1,362 @@
+{
+  "description": "Keyword search through a host, on files (the section level is keyword.json). Write `files` (path to content, `/` separators) into a folder named `rootName`, make it the only root of a base, run keywordSearch for each query: the ids and scores must equal `expected`, in that order. Checked by test/unit/ai-docsHost.test.ts (VS Code) and commands/docs/tests.rs (Desktop). Contents are written byte for byte (a CRLF file and a BOM file are in there); .txt, node_modules and hidden folders are not indexed.",
+  "rootName": "docs",
+  "files": {
+    "README.md": "---\ntitle: Handbook\n---\nWelcome to the handbook. Start with [security](security.md).\n\n# Start here\nRead about key rotation and setup.\n",
+    "security.md": "# Security\nIntro to security\n\n## Key rotation\nRotate every key each 90 days. Rotation is logged. Key key key.\n\n## Setup\nsecond setup for security\n",
+    "guides/Setup.md": "Preamble text about setup.\n\n# Setup\nInstall it. Setup is easy.\n\n```\n# not a heading\nkey rotation inside code\n```\n",
+    "guides/notes.markdown": "# Notes\nSetup notes and key notes.\n\n### Deep Dive\nA deeper look at rotation.\n",
+    "guides/UPPER.MD": "# Upper Case Name\nSETUP in capitals.\n",
+    "guides/notes.txt": "setup setup setup key rotation",
+    "guides/notes.md.txt": "setup setup setup",
+    "café/日本語.md": "# 日本語 テスト\nテスト content café.\n",
+    "node_modules/pkg/readme.md": "# Dep\nsetup setup setup\n",
+    ".hidden/secret.md": "# Hidden\nsetup setup setup\n",
+    "empty.md": "",
+    "crlf.md": "# Windows\r\nsetup on windows\r\n\r\n## Second\r\nkey rotation here\r\n",
+    "bom.md": "﻿# Bom\nsetup with a byte order mark\n",
+    "tie/～.md": "# Same\nword\n",
+    "tie/😀.md": "# Same\nword\n",
+    "tie/a.md": "# Same\nword\n",
+    "tie/B.md": "# Same\nword\n"
+  },
+  "queries": [
+    {
+      "query": "key rotation",
+      "expected": [
+        {
+          "id": "docs/security.md#key-rotation",
+          "score": 39
+        },
+        {
+          "id": "docs/README.md#start-here",
+          "score": 14
+        },
+        {
+          "id": "docs/crlf.md#second",
+          "score": 14
+        },
+        {
+          "id": "docs/guides/Setup.md#setup",
+          "score": 14
+        },
+        {
+          "id": "docs/guides/notes.markdown#deep-dive",
+          "score": 7
+        },
+        {
+          "id": "docs/guides/notes.markdown#notes",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "query": "How do I rotate the keys?",
+      "expected": [
+        {
+          "id": "docs/security.md#key-rotation",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "query": "setup",
+      "expected": [
+        {
+          "id": "docs/guides/Setup.md#setup",
+          "score": 23
+        },
+        {
+          "id": "docs/security.md#setup",
+          "score": 18
+        },
+        {
+          "id": "docs/guides/Setup.md",
+          "score": 12
+        },
+        {
+          "id": "docs/README.md#start-here",
+          "score": 7
+        },
+        {
+          "id": "docs/bom.md#bom",
+          "score": 7
+        },
+        {
+          "id": "docs/crlf.md#windows",
+          "score": 7
+        },
+        {
+          "id": "docs/guides/UPPER.MD#upper-case-name",
+          "score": 7
+        },
+        {
+          "id": "docs/guides/notes.markdown#notes",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "query": "setup guide",
+      "expected": [
+        {
+          "id": "docs/guides/Setup.md#setup",
+          "score": 31
+        },
+        {
+          "id": "docs/guides/Setup.md",
+          "score": 20
+        },
+        {
+          "id": "docs/security.md#setup",
+          "score": 18
+        },
+        {
+          "id": "docs/guides/UPPER.MD#upper-case-name",
+          "score": 15
+        },
+        {
+          "id": "docs/guides/notes.markdown#notes",
+          "score": 15
+        },
+        {
+          "id": "docs/guides/notes.markdown#deep-dive",
+          "score": 8
+        },
+        {
+          "id": "docs/README.md#start-here",
+          "score": 7
+        },
+        {
+          "id": "docs/bom.md#bom",
+          "score": 7
+        },
+        {
+          "id": "docs/crlf.md#windows",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "query": "SETUP",
+      "expected": [
+        {
+          "id": "docs/guides/Setup.md#setup",
+          "score": 23
+        },
+        {
+          "id": "docs/security.md#setup",
+          "score": 18
+        },
+        {
+          "id": "docs/guides/Setup.md",
+          "score": 12
+        },
+        {
+          "id": "docs/README.md#start-here",
+          "score": 7
+        },
+        {
+          "id": "docs/bom.md#bom",
+          "score": 7
+        },
+        {
+          "id": "docs/crlf.md#windows",
+          "score": 7
+        },
+        {
+          "id": "docs/guides/UPPER.MD#upper-case-name",
+          "score": 7
+        },
+        {
+          "id": "docs/guides/notes.markdown#notes",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "query": "テスト",
+      "expected": [
+        {
+          "id": "docs/café/日本語.md#日本語-テスト",
+          "score": 21
+        }
+      ]
+    },
+    {
+      "query": "café",
+      "expected": [
+        {
+          "id": "docs/café/日本語.md#日本語-テスト",
+          "score": 9
+        }
+      ]
+    },
+    {
+      "query": "word",
+      "expected": [
+        {
+          "id": "docs/tie/B.md#same",
+          "score": 7
+        },
+        {
+          "id": "docs/tie/a.md#same",
+          "score": 7
+        },
+        {
+          "id": "docs/tie/～.md#same",
+          "score": 7
+        },
+        {
+          "id": "docs/tie/😀.md#same",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "query": "same word",
+      "expected": [
+        {
+          "id": "docs/tie/B.md#same",
+          "score": 27
+        },
+        {
+          "id": "docs/tie/a.md#same",
+          "score": 27
+        },
+        {
+          "id": "docs/tie/～.md#same",
+          "score": 27
+        },
+        {
+          "id": "docs/tie/😀.md#same",
+          "score": 27
+        }
+      ]
+    },
+    {
+      "query": "the and of",
+      "expected": [
+        {
+          "id": "docs/README.md",
+          "score": 18
+        },
+        {
+          "id": "docs/README.md#start-here",
+          "score": 10
+        },
+        {
+          "id": "docs/guides/notes.markdown#notes",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "query": "",
+      "expected": []
+    },
+    {
+      "query": "zzznotfound",
+      "expected": []
+    },
+    {
+      "query": "rotation rotation key",
+      "expected": [
+        {
+          "id": "docs/security.md#key-rotation",
+          "score": 39
+        },
+        {
+          "id": "docs/README.md#start-here",
+          "score": 14
+        },
+        {
+          "id": "docs/crlf.md#second",
+          "score": 14
+        },
+        {
+          "id": "docs/guides/Setup.md#setup",
+          "score": 14
+        },
+        {
+          "id": "docs/guides/notes.markdown#deep-dive",
+          "score": 7
+        },
+        {
+          "id": "docs/guides/notes.markdown#notes",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "query": "preamble",
+      "expected": [
+        {
+          "id": "docs/guides/Setup.md",
+          "score": 7
+        }
+      ]
+    },
+    {
+      "query": "deep dive",
+      "expected": [
+        {
+          "id": "docs/guides/notes.markdown#deep-dive",
+          "score": 35
+        }
+      ]
+    },
+    {
+      "query": "windows",
+      "expected": [
+        {
+          "id": "docs/crlf.md#windows",
+          "score": 21
+        },
+        {
+          "id": "docs/crlf.md#second",
+          "score": 9
+        }
+      ]
+    },
+    {
+      "query": "byte order mark",
+      "expected": [
+        {
+          "id": "docs/bom.md#bom",
+          "score": 21
+        },
+        {
+          "id": "docs/guides/notes.markdown#deep-dive",
+          "score": 8
+        },
+        {
+          "id": "docs/guides/notes.markdown#notes",
+          "score": 8
+        }
+      ]
+    },
+    {
+      "query": "handbook",
+      "expected": [
+        {
+          "id": "docs/README.md",
+          "score": 11
+        },
+        {
+          "id": "docs/README.md#start-here",
+          "score": 9
+        }
+      ]
+    },
+    {
+      "query": "one two three four five six seven eight nine ten eleven twelve thirteen setup",
+      "expected": [
+        {
+          "id": "docs/café/日本語.md#日本語-テスト",
+          "score": 7
+        }
+      ]
+    }
+  ]
+}

@@ -2,8 +2,9 @@
  * host.docs for VS Code (src/ai/docsHost.ts) against a real temp folder, so
  * symlinks, canonical paths and sizes are the file system's own: the walker's
  * skips, readSections' containment (S1, S2, S3, S12), the index and keyword
- * search, watchers per root (S9), and the bases a webview saves. M7 writes the
- * thorough suite; these are the cases the host must not regress.
+ * search, watchers per root (S9), and the bases a webview saves. Cross-host
+ * contracts (titles, links, keyword ranking on files) run the shared fixtures
+ * in test/ai-fixtures/docs/; Desktop runs the same ones in Rust.
  */
 import * as fs from 'fs';
 import * as os from 'os';
@@ -34,7 +35,8 @@ const realFs: DocsFs = {
     const l = await fs.promises.lstat(p);
     return { kind: kindOfStats(l), size: l.size };
   },
-  readFile: (p) => fs.promises.readFile(p, 'utf8'),
+  // The extension decodes with a default TextDecoder (BOM stripped, bad bytes replaced), so does the test.
+  readFile: async (p) => new TextDecoder('utf-8').decode(await fs.promises.readFile(p)),
   realpath: (p) => fs.promises.realpath(p),
 };
 
@@ -374,6 +376,299 @@ describe('extraction helpers', () => {
       { target: 'two words.md', text: 'two', kind: 'markdown' },
       { target: 'Three#Part|alias', text: 'alias', kind: 'wikilink' },
     ]);
+  });
+});
+
+describe('review fix 1: the read must be the file the walker listed', () => {
+  beforeEach(() => {
+    write('page.md', '# Page\nreal text\n');
+    write('other.md', '# Other\nother text\n');
+  });
+
+  it('refuses a file swapped for a symlink that stays inside the root', async () => {
+    const h = host(() => [base()]);
+    await h.index('b1');
+    fs.rmSync(path.join(docs, 'page.md'));
+    fs.symlinkSync(path.join(docs, 'other.md'), path.join(docs, 'page.md'));
+    const { sections, refused } = await h.readSectionsDetailed('b1', ['docs/page.md', 'docs/other.md']);
+    expect(refused).toEqual([{ id: 'docs/page.md', reason: 'not the file that was indexed' }]);
+    expect(sections.map((x) => x.id)).toEqual(['docs/other.md']);
+    expect((await h.keywordSearch('b1', 'other')).map((r) => r.pageId)).toEqual(['docs/other.md']);
+  });
+
+  it('refuses a file whose parent folder was swapped for a symlink to another folder in the root', async () => {
+    write('sub/page.md', '# Sub\nreal\n');
+    write('sub2/page.md', '# Sub\nimpostor\n');
+    const h = host(() => [base()]);
+    await h.index('b1');
+    expect((await h.readSections('b1', ['docs/sub/page.md']))[0].text).toContain('real');
+    fs.rmSync(path.join(docs, 'sub'), { recursive: true });
+    fs.symlinkSync(path.join(docs, 'sub2'), path.join(docs, 'sub'), 'dir');
+    const { sections, refused } = await h.readSectionsDetailed('b1', ['docs/sub/page.md']);
+    expect(sections).toEqual([]);
+    expect(refused).toEqual([{ id: 'docs/sub/page.md', reason: 'not the file that was indexed' }]);
+  });
+
+  it('refuses a parent folder swapped for a symlink that leaves the root', async () => {
+    write('sub/page.md', '# Sub\nreal\n');
+    write('page.md', '# Sub\nleaked\n', outside);
+    const h = host(() => [base()]);
+    await h.index('b1');
+    fs.rmSync(path.join(docs, 'sub'), { recursive: true });
+    fs.symlinkSync(outside, path.join(docs, 'sub'), 'dir');
+    expect((await h.readSectionsDetailed('b1', ['docs/sub/page.md'])).refused[0].reason).toBe('outside the root');
+  });
+
+  it('still reads the file when nothing was swapped, through a root that is itself a link', async () => {
+    const viaLink = path.join(tmp, 'link-to-docs');
+    fs.symlinkSync(docs, viaLink, 'dir');
+    const h = host(() => [base({ roots: [viaLink] })]);
+    const index = await h.index('b1');
+    expect(index.pages.map((p) => p.id)).toEqual(['link-to-docs/other.md', 'link-to-docs/page.md']);
+    expect((await h.readSections('b1', ['link-to-docs/page.md']))[0].text).toContain('real text');
+  });
+
+  it('compares case-insensitively on Windows only', async () => {
+    // A fake Windows file system: the canonical path comes back in another case than the one joined.
+    const memFs: DocsFs = {
+      readDirectory: async () => [{ name: 'Page.md', kind: 'file' }],
+      stat: async (p) => (p.toLowerCase() === 'c:\\docs' ? { kind: 'dir', size: 0 } : { kind: 'file', size: 4 }),
+      readFile: async () => '# T\n',
+      realpath: async (p) => (p.toLowerCase().endsWith('page.md') ? 'C:\\DOCS\\page.md' : p),
+    };
+    const win = new DocsHost({ fs: memFs, readBases: () => [base({ roots: ['C:\\Docs'] })], platform: 'win32' });
+    expect(await win.readSections('b1', ['Docs/Page.md'])).toHaveLength(1);
+  });
+});
+
+describe('more refusals (the M7 list)', () => {
+  beforeEach(() => {
+    write('guide.md', '# Guide\nneedle text\n');
+  });
+
+  it('refuses a .txt the path resolves to (fake file system, so the extension check is the one that fires)', async () => {
+    const swapped: DocsFs = { ...realFs, realpath: async (p) => (p.endsWith('guide.md') ? p.replace(/guide\.md$/, 'guide.txt') : realFs.realpath(p)) };
+    const h = host(() => [base()], { fs: swapped });
+    await h.index('b1');
+    const { sections, refused } = await h.readSectionsDetailed('b1', ['docs/guide.md']);
+    expect(sections).toEqual([]);
+    expect(refused).toEqual([{ id: 'docs/guide.md', reason: 'not a markdown file' }]);
+  });
+
+  it('refuses a 2 MiB file that grew after indexing', async () => {
+    const h = host(() => [base()]);
+    await h.index('b1');
+    write('guide.md', '# Guide\n' + 'x'.repeat(2 * 1024 * 1024));
+    expect((await h.readSectionsDetailed('b1', ['docs/guide.md'])).refused).toEqual([{ id: 'docs/guide.md', reason: 'file is over the size limit' }]);
+    expect(await h.keywordSearch('b1', 'needle')).toEqual([]);
+  });
+
+  it('refuses a 2 MiB file by its text even when stat says it is small', async () => {
+    const lying: DocsFs = { ...realFs, stat: async (p) => ({ ...(await realFs.stat(p)), size: p.endsWith('guide.md') ? 10 : 0 }) };
+    const h = host(() => [base()], { fs: lying });
+    await h.index('b1');
+    write('guide.md', '# Guide\n' + 'x'.repeat(2 * 1024 * 1024));
+    expect((await h.readSectionsDetailed('b1', ['docs/guide.md'])).refused).toEqual([{ id: 'docs/guide.md', reason: 'file is over the size limit' }]);
+  });
+
+  it('a sibling folder that shares the root\'s name as a prefix is not inside it', async () => {
+    const evil = path.join(tmp, 'docs-evil');
+    fs.mkdirSync(evil);
+    write('x.md', '# Evil\nhunter2\n', evil);
+    const h = host(() => [base()]);
+    await h.index('b1');
+    fs.rmSync(path.join(docs, 'guide.md'));
+    fs.symlinkSync(path.join(evil, 'x.md'), path.join(docs, 'guide.md'));
+    expect((await h.readSectionsDetailed('b1', ['docs/guide.md'])).refused).toEqual([{ id: 'docs/guide.md', reason: 'outside the root' }]);
+  });
+
+  it('accepts a markdown extension in any case and lists no .md.txt, .mdx or .txt', async () => {
+    write('Upper.MD', '# Upper\n');
+    write('Mixed.Markdown', '# Mixed\n');
+    write('a.md.txt', '# no\n');
+    write('b.mdx', '# no\n');
+    write('c.txt', 'no');
+    const h = host(() => [base()]);
+    expect((await h.index('b1')).pages.map((p) => p.relPath)).toEqual(['Mixed.Markdown', 'Upper.MD', 'guide.md']);
+    expect(await h.readSections('b1', ['docs/Upper.MD', 'docs/Mixed.Markdown'])).toHaveLength(2);
+  });
+
+  it('refuses a base id that is not in the configuration, whatever else it looks like', async () => {
+    const h = host(() => [base()]);
+    for (const id of ['', 'nope', docs, '../b1', 'B1', 'b1 ']) {
+      await expect(h.index(id)).rejects.toThrow(/Unknown/);
+      await expect(h.readSections(id, ['docs/guide.md'])).rejects.toThrow(/Unknown/);
+      await expect(h.keywordSearch(id, 'needle')).rejects.toThrow(/Unknown/);
+    }
+    await expect(h.readSections(undefined as unknown as string, [])).rejects.toThrow(/Unknown/);
+  });
+
+  it('a file deleted since indexing is a refusal for that id, not a crash for the request', async () => {
+    write('kept.md', '# Kept\nneedle\n');
+    const h = host(() => [base()]);
+    await h.index('b1');
+    fs.rmSync(path.join(docs, 'guide.md'));
+    const { sections, refused } = await h.readSectionsDetailed('b1', ['docs/guide.md', 'docs/kept.md']);
+    expect(refused).toEqual([{ id: 'docs/guide.md', reason: 'file not found' }]);
+    expect(sections.map((x) => x.id)).toEqual(['docs/kept.md']);
+    expect((await h.keywordSearch('b1', 'needle')).map((r) => r.pageId)).toEqual(['docs/kept.md']);
+    fs.rmSync(docs, { recursive: true });
+    expect(await h.readSections('b1', ['docs/kept.md'])).toEqual([]);
+    expect(await h.keywordSearch('b1', 'needle')).toEqual([]);
+  });
+
+  it('a file that is not UTF-8 is read with replacement characters and does not fail the others', async () => {
+    fs.writeFileSync(path.join(docs, 'bad.md'), Buffer.concat([Buffer.from('# Bad\nneedle '), Buffer.from([0xff, 0xfe, 0xc3]), Buffer.from(' end\n')]));
+    const h = host(() => [base()]);
+    const sections = await h.readSections('b1', ['docs/bad.md', 'docs/guide.md']);
+    expect(sections.map((x) => x.id)).toEqual(['docs/bad.md', 'docs/guide.md']);
+    expect(sections[0].text).toContain('\ufffd');
+    expect(await h.keywordSearch('b1', 'needle')).toHaveLength(2);
+  });
+
+  it('a read that throws for one file leaves that id out and serves the rest', async () => {
+    write('boom.md', '# Boom\nneedle\n');
+    let failing = false;
+    const flaky: DocsFs = { ...realFs, readFile: async (p) => { if (failing && p.endsWith('boom.md')) {throw new Error('EIO');} return realFs.readFile(p); } };
+    const h = host(() => [base()], { fs: flaky });
+    await h.index('b1');
+    failing = true;
+    const { sections, refused } = await h.readSectionsDetailed('b1', ['docs/boom.md', 'docs/guide.md']);
+    expect(refused).toEqual([{ id: 'docs/boom.md', reason: 'could not be read' }]);
+    expect(sections.map((x) => x.id)).toEqual(['docs/guide.md']);
+    expect((await h.keywordSearch('b1', 'needle')).map((r) => r.pageId)).toEqual(['docs/guide.md']);
+  });
+
+  it('a bad UTF-8 or unreadable file at index time does not stop the walk', async () => {
+    write('boom.md', '# Boom\n');
+    const flaky: DocsFs = { ...realFs, readFile: async (p) => { if (p.endsWith('boom.md')) {throw new Error('EIO');} return realFs.readFile(p); } };
+    const h = host(() => [base()], { fs: flaky });
+    expect((await h.index('b1')).pages.map((p) => p.id)).toEqual(['docs/guide.md']);
+  });
+});
+
+describe('walker details (S3)', () => {
+  it('lists a symlinked folder and file as neither folder nor file, even with the bit set on a directory', async () => {
+    // What `docsVsCode.ts#entryKind` produces for `vscode.FileType.Directory | SymbolicLink`.
+    const memFs: DocsFs = {
+      readDirectory: async (d) => (d === '/r' ? [{ name: 'real', kind: 'dir' }, { name: 'linkdir', kind: 'symlink' }, { name: 'link.md', kind: 'symlink' }, { name: 'a.md', kind: 'file' }] : d === '/r/real' ? [{ name: 'b.md', kind: 'file' }] : (() => { throw new Error(`walked into ${d}`); })()),
+      stat: async (p) => (p === '/r' ? { kind: 'dir', size: 0 } : { kind: 'file', size: 4 }),
+      readFile: async () => '# t\n',
+      realpath: async (p) => p,
+    };
+    const h = new DocsHost({ fs: memFs, readBases: () => [base({ roots: ['/r'] })] });
+    expect((await h.index('b1')).pages.map((p) => p.id)).toEqual(['r/a.md', 'r/real/b.md']);
+  });
+
+  it('the vscode.FileType bitmask: Directory | SymbolicLink is a symlink, tested with &', async () => {
+    vi.resetModules();
+    vi.doMock('vscode', () => ({ FileType: { Unknown: 0, File: 1, Directory: 2, SymbolicLink: 64 }, Uri: { file: (p: string) => ({ fsPath: p }) }, workspace: {}, window: {} }));
+    const { entryKind } = await import('../../src/ai/docsVsCode');
+    expect(entryKind(1)).toBe('file');
+    expect(entryKind(2)).toBe('dir');
+    expect(entryKind(2 | 64)).toBe('symlink');
+    expect(entryKind(1 | 64)).toBe('symlink');
+    expect(entryKind(64)).toBe('symlink');
+    expect(entryKind(0)).toBe('other');
+    vi.doUnmock('vscode');
+  });
+
+  it('skips node_modules and hidden folders at any depth, but lists a hidden file', async () => {
+    write('a/node_modules/x.md', '# no\n');
+    write('a/.cache/y.md', '# no\n');
+    write('a/b/.hidden.md', '# yes\n');
+    const h = host(() => [base()]);
+    expect((await h.index('b1')).pages.map((p) => p.relPath)).toEqual(['a/b/.hidden.md']);
+  });
+
+  it('shares the file cap across roots and reports it on the root that ran out', async () => {
+    const files = Array.from({ length: DOCS_MAX_FILES - 2 }, (_, i) => ({ name: `f${i}.md`, kind: 'file' as DocsEntryKind }));
+    const memFs: DocsFs = {
+      readDirectory: async () => files,
+      stat: async (p) => (p === '/one' || p === '/two' ? { kind: 'dir', size: 0 } : { kind: 'file', size: 4 }),
+      readFile: async () => '# t\n',
+      realpath: async (p) => p,
+    };
+    const h = new DocsHost({ fs: memFs, readBases: () => [base({ roots: ['/one', '/two'] })] });
+    const [status] = await h.listBases();
+    expect(status.roots.map((r) => r.capReached)).toEqual([false, true]);
+    expect(status.roots.map((r) => r.fileCount)).toEqual([DOCS_MAX_FILES - 2, 2]);
+    expect(status.capReached).toBe(true);
+    expect((await h.index('b1')).truncated).toBe(true);
+  });
+});
+
+describe('ids and labels over every configured root (review fix 3)', () => {
+  it('a missing first root does not shift the other roots\' ids', async () => {
+    const first = path.join(tmp, 'a', 'docs');
+    const second = path.join(tmp, 'b', 'docs');
+    write('two.md', '# Two\n', second);
+    const h = host(() => [base({ roots: [first, second] })]);
+    expect((await h.index('b1')).pages.map((p) => p.id)).toEqual(['docs-2/two.md']);
+    expect((await h.readSections('b1', ['docs-2/two.md'])).map((x) => x.id)).toEqual(['docs-2/two.md']);
+    write('one.md', '# One\n', first);
+    await h.listBases({ refresh: true });
+    expect((await h.index('b1')).pages.map((p) => p.id)).toEqual(['docs/one.md', 'docs-2/two.md']);
+  });
+});
+
+describe('broken links in health (review fix 2)', () => {
+  it('counts on the walk, keeps the count on a plain cached call without walking, and recounts on refresh', async () => {
+    write('a.md', '# A\n[gone](gone.md) [ok](b.md)\n');
+    write('b.md', '# B\n');
+    const readDirectory = vi.fn(realFs.readDirectory);
+    const h = host(() => [base()], { fs: { ...realFs, readDirectory } });
+    expect((await h.listBases())[0].brokenLinks).toBe(1);
+    const walks = readDirectory.mock.calls.length;
+    write('b.md', '# B\n[also gone](nope.md)\n');
+    expect((await h.listBases())[0].brokenLinks).toBe(1);
+    expect(readDirectory).toHaveBeenCalledTimes(walks);
+    expect((await h.listBases({ refresh: true }))[0].brokenLinks).toBe(2);
+  });
+
+  it('is undefined for a disabled base and for a base with no readable root', async () => {
+    write('a.md', '# A\n[gone](gone.md)\n');
+    const h = host(() => [base({ id: 'off', enabled: false }), base({ id: 'gone', roots: [path.join(tmp, 'nope')] }), base()]);
+    const list = await h.listBases();
+    expect(list.map((s) => [s.base.id, s.brokenLinks])).toEqual([['off', undefined], ['gone', undefined], ['b1', 1]]);
+  });
+});
+
+describe('keyword search over files: the shared fixture', () => {
+  it('keyword-files.json gives the same ids and scores, in the same order', async () => {
+    const f = JSON.parse(fs.readFileSync(path.join(__dirname, '../ai-fixtures/docs/keyword-files.json'), 'utf8')) as {
+      rootName: string;
+      files: Record<string, string>;
+      queries: Array<{ query: string; expected: Array<{ id: string; score: number }> }>;
+    };
+    const root = path.join(tmp, f.rootName);
+    for (const [rel, text] of Object.entries(f.files)) {write(rel, text, root);}
+    const h = host(() => [base({ roots: [root] })]);
+    expect(f.queries.length).toBeGreaterThan(10);
+    for (const q of f.queries) {
+      const got = (await h.keywordSearch('b1', q.query)).map((r) => ({ id: r.id, score: r.score }));
+      expect(got, `query ${JSON.stringify(q.query)}`).toEqual(q.expected);
+    }
+  });
+});
+
+describe('shared fixtures: titles and links (cross-host contract)', () => {
+  const fixture = (name: string): { cases: Array<Record<string, unknown>> } => JSON.parse(fs.readFileSync(path.join(__dirname, '../ai-fixtures/docs', name), 'utf8'));
+
+  it('titles.json', () => {
+    const cases = fixture('titles.json').cases;
+    expect(cases.length).toBeGreaterThan(10);
+    for (const c of cases) {
+      expect(frontmatterTitle(c.markdown as string), c.name as string).toBe((c.title as string | null) ?? undefined);
+    }
+  });
+
+  it('links.json', () => {
+    const cases = fixture('links.json').cases;
+    expect(cases.length).toBeGreaterThan(10);
+    for (const c of cases) {
+      expect(extractDocsLinks(c.markdown as string), c.name as string).toEqual(c.links);
+    }
   });
 });
 

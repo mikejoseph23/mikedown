@@ -1,0 +1,379 @@
+{
+  "description": "Links as written (extractDocsLinks in src/ai/docsHost.ts, extract_links in packages/desktop/src-tauri/src/commands/docs/markdown.rs). Rules: header comment of extractDocsLinks. links is the expected list in document order.",
+  "cases": [
+    {
+      "name": "inline links with titles and fragments",
+      "markdown": "See [one](one.md#a \"T\"), [two](dir/two.md 'T2') and [three](three.md).\n",
+      "links": [
+        {
+          "target": "one.md#a",
+          "text": "one",
+          "kind": "markdown"
+        },
+        {
+          "target": "dir/two.md",
+          "text": "two",
+          "kind": "markdown"
+        },
+        {
+          "target": "three.md",
+          "text": "three",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "angle destinations may hold blanks",
+      "markdown": "[two words](<two words.md>) and [t](<a b.md> \"title\").\n",
+      "links": [
+        {
+          "target": "two words.md",
+          "text": "two words",
+          "kind": "markdown"
+        },
+        {
+          "target": "a b.md",
+          "text": "t",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "images are not links",
+      "markdown": "![alt](img.png) and ![[pic.png]] and [real](real.md)\n",
+      "links": [
+        {
+          "target": "real.md",
+          "text": "real",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "external links are kept for core to mark",
+      "markdown": "[web](https://example.com/x) [mail](mailto:a@b.dev) [proto](//cdn.example.com/a.js) [drive](C:/x.md)\n",
+      "links": [
+        {
+          "target": "https://example.com/x",
+          "text": "web",
+          "kind": "markdown"
+        },
+        {
+          "target": "mailto:a@b.dev",
+          "text": "mail",
+          "kind": "markdown"
+        },
+        {
+          "target": "//cdn.example.com/a.js",
+          "text": "proto",
+          "kind": "markdown"
+        },
+        {
+          "target": "C:/x.md",
+          "text": "drive",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "a fragment alone is kept, an empty target is dropped",
+      "markdown": "[top](#top) [empty]() [blank](  ) [angle](<>)\n",
+      "links": [
+        {
+          "target": "#top",
+          "text": "top",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "frontmatter is skipped",
+      "markdown": "---\nlink: [fm](fm.md)\n---\n[body](body.md)\n",
+      "links": [
+        {
+          "target": "body.md",
+          "text": "body",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "fenced code is skipped, backticks and tildes",
+      "markdown": "```\n[a](a.md)\n```\n~~~js\n[b](b.md)\n~~~\n````\n```\n[c](c.md)\n````\n[d](d.md)\n",
+      "links": [
+        {
+          "target": "d.md",
+          "text": "d",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "an unclosed fence swallows the rest",
+      "markdown": "[a](a.md)\n```\n[b](b.md)\n",
+      "links": [
+        {
+          "target": "a.md",
+          "text": "a",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "inline code is skipped",
+      "markdown": "Use `[code](x.md)` but [real](y.md) and `another` [two](z.md).\n",
+      "links": [
+        {
+          "target": "y.md",
+          "text": "real",
+          "kind": "markdown"
+        },
+        {
+          "target": "z.md",
+          "text": "two",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "an unpaired backtick skips nothing",
+      "markdown": "It's a ` tick [a](a.md)\n",
+      "links": [
+        {
+          "target": "a.md",
+          "text": "a",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "wikilinks, with heading and alias",
+      "markdown": "See [[Key rotation]], [[Security#Keys]], [[Security#Keys|the keys]] and [[folder/Name|alias]].\n",
+      "links": [
+        {
+          "target": "Key rotation",
+          "text": "Key rotation",
+          "kind": "wikilink"
+        },
+        {
+          "target": "Security#Keys",
+          "text": "Security",
+          "kind": "wikilink"
+        },
+        {
+          "target": "Security#Keys|the keys",
+          "text": "the keys",
+          "kind": "wikilink"
+        },
+        {
+          "target": "folder/Name|alias",
+          "text": "alias",
+          "kind": "wikilink"
+        }
+      ]
+    },
+    {
+      "name": "wikilinks with no name are dropped, an empty alias falls back to the name",
+      "markdown": "[[#only]] [[|alias]] [[ ]] [[Name|]] [[ Padded # x ]]\n",
+      "links": [
+        {
+          "target": "Name|",
+          "text": "Name",
+          "kind": "wikilink"
+        },
+        {
+          "target": "Padded # x",
+          "text": "Padded",
+          "kind": "wikilink"
+        }
+      ]
+    },
+    {
+      "name": "links on one line come in the order written",
+      "markdown": "[[First]] then [second](second.md) then [[Third]] then [fourth](fourth.md)\n",
+      "links": [
+        {
+          "target": "First",
+          "text": "First",
+          "kind": "wikilink"
+        },
+        {
+          "target": "second.md",
+          "text": "second",
+          "kind": "markdown"
+        },
+        {
+          "target": "Third",
+          "text": "Third",
+          "kind": "wikilink"
+        },
+        {
+          "target": "fourth.md",
+          "text": "fourth",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "document order across lines",
+      "markdown": "[a](a.md)\n\ntext [[B]]\n- [c](c.md)\n",
+      "links": [
+        {
+          "target": "a.md",
+          "text": "a",
+          "kind": "markdown"
+        },
+        {
+          "target": "B",
+          "text": "B",
+          "kind": "wikilink"
+        },
+        {
+          "target": "c.md",
+          "text": "c",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "a destination with parentheses is not a link",
+      "markdown": "[wiki](https://example.com/a_(b)) [ok](ok.md)\n",
+      "links": [
+        {
+          "target": "ok.md",
+          "text": "ok",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "an opening bracket inside the text does not rescue the link",
+      "markdown": "[a [b] c](x.md) [d](y.md)\n",
+      "links": [
+        {
+          "target": "y.md",
+          "text": "d",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "text is trimmed",
+      "markdown": "[  padded text  ](p.md)\n",
+      "links": [
+        {
+          "target": "p.md",
+          "text": "padded text",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "text is clipped to 120 code points",
+      "markdown": "[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀😀](long.md)\n",
+      "links": [
+        {
+          "target": "long.md",
+          "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "text over 300 units is not a link",
+      "markdown": "[yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy](too-long.md) [ok](ok.md)\n",
+      "links": [
+        {
+          "target": "ok.md",
+          "text": "ok",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "a title that is not closed is not a link",
+      "markdown": "[a](a.md \"open) [b](b.md)\n",
+      "links": [
+        {
+          "target": "b.md",
+          "text": "b",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "a bare destination followed by junk is not a link",
+      "markdown": "[a](a.md junk) [b](b.md)\n",
+      "links": [
+        {
+          "target": "b.md",
+          "text": "b",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "blanks inside the parentheses",
+      "markdown": "[a](  a.md  ) [b]( b.md \"t\" )\n",
+      "links": [
+        {
+          "target": "a.md",
+          "text": "a",
+          "kind": "markdown"
+        },
+        {
+          "target": "b.md",
+          "text": "b",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "reference style links are not extracted",
+      "markdown": "[a][ref]\n\n[ref]: ref.md\n",
+      "links": []
+    },
+    {
+      "name": "crlf line endings",
+      "markdown": "---\r\ntitle: X\r\n---\r\n[a](a.md)\r\n```\r\n[b](b.md)\r\n```\r\n[[C]]\r\n",
+      "links": [
+        {
+          "target": "a.md",
+          "text": "a",
+          "kind": "markdown"
+        },
+        {
+          "target": "C",
+          "text": "C",
+          "kind": "wikilink"
+        }
+      ]
+    },
+    {
+      "name": "unicode names",
+      "markdown": "[日本語](日本語.md) [[Café]] [e](é/é.md)\n",
+      "links": [
+        {
+          "target": "日本語.md",
+          "text": "日本語",
+          "kind": "markdown"
+        },
+        {
+          "target": "Café",
+          "text": "Café",
+          "kind": "wikilink"
+        },
+        {
+          "target": "é/é.md",
+          "text": "e",
+          "kind": "markdown"
+        }
+      ]
+    },
+    {
+      "name": "no links",
+      "markdown": "# Title\nJust text with [brackets] and (parens).\n",
+      "links": []
+    }
+  ]
+}

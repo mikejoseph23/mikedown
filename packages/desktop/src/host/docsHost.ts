@@ -6,7 +6,11 @@
  * commands into the host contract core expects:
  *
  * - `listBases`, `index`, `readSections`, `keywordSearch` are plain commands. A
- *   failure rejects with an `Error` carrying Rust's sentence.
+ *   failure rejects with an `Error` carrying Rust's sentence. `listBases` adds
+ *   `brokenLinks` to every base Rust just walked (enabled, with a folder
+ *   found): the count comes from core's link resolver over `docs_index`, which
+ *   Rust serves from the index the same call built, so it costs no second walk.
+ *   A disabled or unreadable base keeps it undefined.
  * - `watch(baseId, cb)` starts the window's recursive watchers on that base's
  *   roots and calls `cb` on `docs-changed`; the returned function stops
  *   listening, and the watchers when this window's last subscriber for the
@@ -19,8 +23,8 @@
  *   a valid one. Afterwards the roots join the fs scope (S11).
  * - `pickFolder` is the native folder picker; the pick joins the fs scope.
  */
-import type { AiDocBase, MikeDownDocsHost } from '@mikedown/core/ai';
-import { parseAiSettings } from '@mikedown/core/ai';
+import type { AiDocBase, AiDocBaseStatus, MikeDownDocsHost } from '@mikedown/core/ai';
+import { createDocsLinkResolver, parseAiSettings } from '@mikedown/core/ai';
 import type { DocsApi } from './docsApi';
 
 export interface DocsHostDeps {
@@ -50,10 +54,27 @@ async function call<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
+/** The statuses with `brokenLinks` filled in for the bases that were walked. A base whose index cannot be read keeps it undefined. */
+async function withBrokenLinks(api: DocsApi, list: AiDocBaseStatus[]): Promise<AiDocBaseStatus[]> {
+  const out: AiDocBaseStatus[] = [];
+  for (const status of list) {
+    if (!status.base.enabled || !status.active) {
+      out.push(status);
+      continue;
+    }
+    try {
+      out.push({ ...status, brokenLinks: createDocsLinkResolver(await api.index(status.base.id)).countBroken() });
+    } catch {
+      out.push(status);
+    }
+  }
+  return out;
+}
+
 export function createDocsHost(deps: DocsHostDeps): MikeDownDocsHost {
   const { api } = deps;
   const host: MikeDownDocsHost = {
-    listBases: () => call(() => api.listBases()),
+    listBases: () => call(async () => withBrokenLinks(api, await api.listBases())),
     index: (baseId) => call(() => api.index(baseId)),
     readSections: (baseId, ids) => call(() => api.readSections(baseId, ids)),
     keywordSearch: (baseId, query) => call(() => api.keywordSearch(baseId, query)),

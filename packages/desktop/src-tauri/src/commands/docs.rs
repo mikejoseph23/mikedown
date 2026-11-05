@@ -250,7 +250,12 @@ fn load_bases<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<DocBase>, String> {
 
 /// A base the request may use: configured (A9), enabled.
 fn resolve_base<R: Runtime>(app: &AppHandle<R>, base_id: &str) -> Result<DocBase, String> {
-    let base = load_bases(app)?.into_iter().find(|b| b.id == base_id).ok_or_else(|| "That documentation base is not in your settings.".to_string())?;
+    pick_base(load_bases(app)?, base_id)
+}
+
+/// `resolve_base` over a list of bases already read from the global settings.
+pub fn pick_base(bases: Vec<DocBase>, base_id: &str) -> Result<DocBase, String> {
+    let base = bases.into_iter().find(|b| b.id == base_id).ok_or_else(|| "That documentation base is not in your settings.".to_string())?;
     if !base.enabled {
         return Err(format!("The documentation base “{}” is turned off.", base.name));
     }
@@ -303,8 +308,35 @@ pub fn is_within(root: &Path, file: &Path) -> bool {
     }
 }
 
-/// A checked read: canonicalize, stay under the canonical root, be a regular
-/// `.md`/`.markdown` file, and be at most 1 MiB. Returns the decoded text.
+/// The path the walker listed for `rel_path` under a canonical root. `rel_path`
+/// is a validated relative path with `/` separators.
+pub fn indexed_path(canonical_root: &Path, rel_path: &str) -> PathBuf {
+    let mut path = canonical_root.to_path_buf();
+    for part in rel_path.split('/') {
+        path.push(part);
+    }
+    path
+}
+
+/// `a` and `b` are the same path, component by component (case-insensitive on Windows only).
+fn same_path(a: &Path, b: &Path) -> bool {
+    let mut x = a.components();
+    let mut y = b.components();
+    loop {
+        match (x.next(), y.next()) {
+            (None, None) => return true,
+            (Some(p), Some(q)) if component_text(p) == component_text(q) => {}
+            _ => return false,
+        }
+    }
+}
+
+/// A checked read of `file`, which must be `canonical_root` joined with the
+/// index's relative path (`indexed_path`): canonicalize, stay under the
+/// canonical root, be a `.md`/`.markdown` file, resolve to exactly the path
+/// that was given (so a file swapped for a link, even one that points inside
+/// the root, and a parent folder swapped for a link are both refused), be a
+/// regular file, and be at most 1 MiB. Returns the decoded text.
 pub fn read_checked(canonical_root: &Path, file: &Path) -> Result<String, String> {
     let canonical = stdfs::canonicalize(file).map_err(|e| e.to_string())?;
     if !is_within(canonical_root, &canonical) {
@@ -312,6 +344,9 @@ pub fn read_checked(canonical_root: &Path, file: &Path) -> Result<String, String
     }
     if !canonical.file_name().is_some_and(|n| is_markdown_name(&n.to_string_lossy())) {
         return Err("not a markdown file".to_string());
+    }
+    if !same_path(&canonical, file) {
+        return Err("not the file that was indexed".to_string());
     }
     let meta = stdfs::metadata(&canonical).map_err(|e| e.to_string())?;
     if !meta.is_file() {
@@ -343,11 +378,11 @@ pub struct RootInfo {
     pub cap_reached: bool,
 }
 
-/// Where a page lives: the path the walker found, under root `root`.
+/// Where a page lives: under configured root number `root`, at the page's
+/// `rel_path` (a read joins them again, on the root as it is then; see `indexed_path`).
 #[derive(Clone, Debug)]
 pub struct PageFile {
     pub root: usize,
-    pub path: PathBuf,
 }
 
 /// A built index plus the private map from ids to paths (S1): the webview gets
@@ -431,7 +466,7 @@ pub fn build_base_index(base: &DocBase) -> BaseIndex {
                         links: extract_links(&text),
                         chars: utf16_len(&text),
                     });
-                    located.insert(docs_page_id(&labels[i], &rel), PageFile { root: i, path });
+                    located.insert(docs_page_id(&labels[i], &rel), PageFile { root: i });
                     info.file_count += 1;
                 }
             }
@@ -485,7 +520,7 @@ pub fn read_sections(index: &BaseIndex, ids: &[String]) -> Vec<SectionOut> {
         let page = &index.out.pages[page_at];
         let root = roots.entry(file.root).or_insert_with(|| index.canonical_root(file.root));
         let Some(root) = root.as_ref() else { continue };
-        let text = texts.entry(page_id.clone()).or_insert_with(|| read_checked(root, &file.path).ok());
+        let text = texts.entry(page_id.clone()).or_insert_with(|| read_checked(root, &indexed_path(root, &page.rel_path)).ok());
         let Some(text) = text.as_deref() else { continue };
         let (heading, body) = match slug {
             None => (None, text),
@@ -522,7 +557,7 @@ pub fn keyword_search(index: &BaseIndex, query: &str) -> Vec<SectionRef> {
         let Some(file) = index.files.get(&page.id) else { continue };
         let root = roots.entry(file.root).or_insert_with(|| index.canonical_root(file.root));
         let Some(root) = root.as_ref() else { continue };
-        let Ok(text) = read_checked(root, &file.path) else { continue };
+        let Ok(text) = read_checked(root, &indexed_path(root, &page.rel_path)) else { continue };
         let sections: Vec<KeywordSection> = split_sections(&text)
             .into_iter()
             .map(|s| match s.heading {
@@ -584,7 +619,8 @@ pub struct RootStatusOut {
     pub cap_reached: bool,
 }
 
-/// `AiDocBaseStatus`. `brokenLinks` is left out: core can compute it from the index.
+/// `AiDocBaseStatus`. `brokenLinks` is left out here on purpose: `docsHost.ts` fills it from
+/// `docs_index` with core's link resolver, so the resolution rules live in one place.
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BaseStatusOut {

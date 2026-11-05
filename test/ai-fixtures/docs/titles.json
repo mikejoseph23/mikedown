@@ -1,0 +1,115 @@
+{
+  "description": "Frontmatter title (frontmatterTitle in src/ai/docsHost.ts, frontmatter_title in packages/desktop/src-tauri/src/commands/docs/markdown.rs). The first line of the leading frontmatter block that is `title`, optional blanks and `:`; value trimmed, one pair of matching quotes removed and the inside trimmed; empty or block scalar (| >) means none. title is the expected string, null for none.",
+  "cases": [
+    {
+      "name": "plain",
+      "markdown": "---\ntitle: Key rotation\n---\n# H\n",
+      "title": "Key rotation"
+    },
+    {
+      "name": "double quotes",
+      "markdown": "---\ntitle: \"Quoted: a title\"\n---\n",
+      "title": "Quoted: a title"
+    },
+    {
+      "name": "single quotes",
+      "markdown": "---\ntitle: 'Single'\n---\n",
+      "title": "Single"
+    },
+    {
+      "name": "blanks inside quotes are trimmed",
+      "markdown": "---\ntitle: \"  padded  \"\n---\n",
+      "title": "padded"
+    },
+    {
+      "name": "blanks around the colon",
+      "markdown": "---\ntitle  :\t Spaced out \t\n---\n",
+      "title": "Spaced out"
+    },
+    {
+      "name": "mismatched quotes stay",
+      "markdown": "---\ntitle: \"open\n---\n",
+      "title": "\"open"
+    },
+    {
+      "name": "a single quote character stays",
+      "markdown": "---\ntitle: \"\n---\n",
+      "title": "\""
+    },
+    {
+      "name": "empty value",
+      "markdown": "---\ntitle:\ntags: [a]\n---\n",
+      "title": null
+    },
+    {
+      "name": "empty quotes",
+      "markdown": "---\ntitle: \"\"\n---\n",
+      "title": null
+    },
+    {
+      "name": "blank quotes",
+      "markdown": "---\ntitle: \"   \"\n---\n",
+      "title": null
+    },
+    {
+      "name": "folded block scalar",
+      "markdown": "---\ntitle: >\n  A long\n  title\n---\n",
+      "title": null
+    },
+    {
+      "name": "literal block scalar",
+      "markdown": "---\ntitle: |\n  Text\n---\n",
+      "title": null
+    },
+    {
+      "name": "the first title line wins",
+      "markdown": "---\ntitle: First\ntitle: Second\n---\n",
+      "title": "First"
+    },
+    {
+      "name": "an indented title is a nested key",
+      "markdown": "---\nmeta:\n  title: Nested\n---\n",
+      "title": null
+    },
+    {
+      "name": "a longer key is not title",
+      "markdown": "---\ntitles: Many\nsubtitle: Sub\n---\n",
+      "title": null
+    },
+    {
+      "name": "title after other keys",
+      "markdown": "---\ntags: [a, b]\ndate: 2026-01-01\ntitle: Later\n---\n",
+      "title": "Later"
+    },
+    {
+      "name": "crlf line endings",
+      "markdown": "---\r\ntitle: Windows\r\ntags: [a]\r\n---\r\n# H\r\n",
+      "title": "Windows"
+    },
+    {
+      "name": "dots close the block",
+      "markdown": "---\ntitle: Dots\n...\nbody\n",
+      "title": "Dots"
+    },
+    {
+      "name": "no frontmatter",
+      "markdown": "# H\ntitle: not this\n",
+      "title": null
+    },
+    {
+      "name": "a title in the body is not frontmatter",
+      "markdown": "---\ntags: [a]\n---\ntitle: body line\n",
+      "title": null
+    },
+    {
+      "name": "an unclosed block is not frontmatter",
+      "markdown": "---\ntitle: Unclosed\n# H\n",
+      "title": null
+    },
+    {
+      "name": "unicode",
+      "markdown": "---\ntitle: Café 日本語 😀\n---\n",
+      "title": "Café 日本語 😀"
+    }
+  ]
+}

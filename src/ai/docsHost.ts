@@ -131,15 +131,32 @@ export function isPathUnderRoot(root: string, file: string, platform: string = p
   return true;
 }
 
-/** The `title:` of a leading frontmatter block, unquoted, or undefined. */
+/** Two canonical paths are the same file: equal by components, case-insensitive on Windows only. */
+export function samePath(a: string, b: string, platform: string = process.platform): boolean {
+  const windows = platform === 'win32';
+  const fold = (s: string): string => (windows ? s.toLowerCase() : s);
+  const pa = pathParts(a, windows).map(fold);
+  const pb = pathParts(b, windows).map(fold);
+  return pa.length === pb.length && pa.every((part, i) => part === pb[i]);
+}
+
+/**
+ * The `title:` of a leading frontmatter block, or undefined. The contract
+ * (`test/ai-fixtures/docs/titles.json`, shared with Desktop's
+ * `docs/markdown.rs#frontmatter_title`): the first line of the block that is
+ * `title`, optional blanks, `:`; its value trimmed (JavaScript `trim`), one pair
+ * of matching quotes removed and the inside trimmed again. An empty value or a
+ * block scalar (`|`, `>`) has no title; no multi-line values.
+ */
 export function frontmatterTitle(markdown: string): string | undefined {
   const end = frontmatterEndOffset(markdown);
   if (end === 0) {return undefined;}
-  const m = /^title[ \t]*:[ \t]*(.*?)[ \t]*$/m.exec(markdown.slice(0, end));
+  const m = /^title[ \t]*:(.*)$/m.exec(markdown.slice(0, end));
   if (!m) {return undefined;}
   let value = m[1].trim();
+  if (value === '' || value.startsWith('|') || value.startsWith('>')) {return undefined;}
   if (value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))) {
-    value = value.slice(1, -1);
+    value = value.slice(1, -1).trim();
   }
   return value === '' ? undefined : value;
 }
@@ -147,11 +164,32 @@ export function frontmatterTitle(markdown: string): string | undefined {
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
 const INLINE_LINK = /(!?)\[([^\]\n]{0,300})\]\(\s*(<[^>\n]*>|[^()\s]*)(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)/g;
 const WIKILINK = /(!?)\[\[([^[\]\n]{1,300})\]\]/g;
+/** Link text is clipped to this many code points. */
+const LINK_TEXT_MAX = 120;
+
+function clipLinkText(text: string): string {
+  const trimmed = text.trim();
+  const points = Array.from(trimmed);
+  return points.length > LINK_TEXT_MAX ? points.slice(0, LINK_TEXT_MAX).join('') : trimmed;
+}
 
 /**
  * Links as written, for the index: `[text](target)` and `[[wikilink]]`, in
- * document order. Skips frontmatter, fenced code and inline code spans, and
- * images (`![alt](x)`, `![[x]]`). Core resolves them (`docs/links.ts`).
+ * document order. The contract (`test/ai-fixtures/docs/links.json`, shared with
+ * Desktop's `docs/markdown.rs#extract_links`):
+ *  - frontmatter, fenced code, inline code spans and images (`![alt](x)`,
+ *    `![[x]]`) are skipped;
+ *  - a markdown link is `[text](dest "title")` with `dest` either `<...>` or a
+ *    run without parentheses or blanks (so a destination with its own
+ *    parentheses is not a link); the title is `"..."` or `'...'`;
+ *  - external links (`https:`, `//x`) are kept, core marks them external; an
+ *    empty target is dropped, `#fragment` alone is kept;
+ *  - a wikilink is `[[inner]]` with no brackets inside; its target is `inner`
+ *    trimmed, its text the alias after the first `|`, else the name before the
+ *    first `#` or `|`; a wikilink with no name (`[[#x]]`, `[[|a]]`) is dropped;
+ *  - text is trimmed and clipped to 120 code points;
+ *  - on one line, links come in the order they are written.
+ * Core resolves them (`docs/links.ts`).
  */
 export function extractDocsLinks(markdown: string): AiDocsLink[] {
   const out: AiDocsLink[] = [];
@@ -177,14 +215,18 @@ export function extractDocsLinks(markdown: string): AiDocsLink[] {
       if (m[1] === '!') {continue;}
       let target = m[3];
       if (target.startsWith('<') && target.endsWith('>')) {target = target.slice(1, -1);}
-      found.push({ at: m.index ?? 0, link: { target, text: m[2].trim(), kind: 'markdown' } });
+      target = target.trim();
+      if (target === '') {continue;}
+      found.push({ at: m.index ?? 0, link: { target, text: clipLinkText(m[2]), kind: 'markdown' } });
     }
     for (const m of text.matchAll(WIKILINK)) {
       if (m[1] === '!') {continue;}
       const inner = m[2];
+      const name = inner.split(/[#|]/)[0].trim();
+      if (name === '') {continue;}
       const bar = inner.indexOf('|');
-      const label = bar >= 0 ? inner.slice(bar + 1).trim() : inner.split('#')[0].trim();
-      found.push({ at: m.index ?? 0, link: { target: inner, text: label, kind: 'wikilink' } });
+      const alias = bar >= 0 ? inner.slice(bar + 1).trim() : '';
+      found.push({ at: m.index ?? 0, link: { target: inner.trim(), text: clipLinkText(alias !== '' ? alias : name), kind: 'wikilink' } });
     }
     found.sort((a, b) => a.at - b.at);
     for (const f of found) {
@@ -597,7 +639,8 @@ export class DocsHost {
         oversizeSkipped: built.oversizeSkipped,
         rootsMissing: built.rootStatuses.length - found,
         capReached: built.capReached,
-        brokenLinks: built.brokenLinks,
+        // Counted when this base was walked; a base with no readable folder was not.
+        ...(found > 0 ? { brokenLinks: built.brokenLinks } : {}),
       });
     }
     return out;
@@ -631,6 +674,11 @@ export class DocsHost {
     }
     if (!isPathUnderRoot(realRoot, realFile, this.platform)) {return { refused: 'outside the root' };}
     if (!isMarkdownName(realFile)) {return { refused: 'not a markdown file' };}
+    // The file must still be exactly the one the walker listed: the canonical
+    // root joined with the index's relPath. A file swapped for a link (even one
+    // that points inside the root) and a parent folder swapped for a link both
+    // resolve somewhere else and are refused here.
+    if (!samePath(realFile, nodePath.join(realRoot, ...file.relPath.split('/')), this.platform)) {return { refused: 'not the file that was indexed' };}
     try {
       const st = await fs.stat(realFile);
       if (st.kind !== 'file') {return { refused: 'not a regular file' };}

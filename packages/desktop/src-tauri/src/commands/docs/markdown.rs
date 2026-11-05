@@ -229,24 +229,30 @@ pub fn split_sections(md: &str) -> Vec<MdSection<'_>> {
     out
 }
 
-/// The frontmatter `title:` value, when there is one: the first top-level
-/// `title:` line of the block, with matching quotes removed. No multi-line values.
+/// The frontmatter `title:` value, when there is one. The contract is shared
+/// with `frontmatterTitle` (`src/ai/docsHost.ts`) through
+/// `test/ai-fixtures/docs/titles.json`: the first line of the block that is
+/// `title`, optional blanks and `:`; its value trimmed (JavaScript `trim`), one
+/// pair of matching quotes removed and the inside trimmed again. An empty value
+/// or a block scalar (`|`, `>`) has no title; no multi-line values.
 pub fn frontmatter_title(md: &str) -> Option<String> {
     let end = frontmatter_end(md);
     if end == 0 {
         return None;
     }
     let block = &md[..end];
-    for line in block.lines().skip(1) {
-        let line = line.trim_end_matches('\r');
-        let Some(value) = line.strip_prefix("title:") else { continue };
-        let mut value = value.trim();
+    for line in block.split('\n') {
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        let Some(rest) = line.strip_prefix("title") else { continue };
+        let rest = rest.trim_start_matches([' ', '\t']);
+        let Some(value) = rest.strip_prefix(':') else { continue };
+        let mut value = js_trim(value);
         if value.is_empty() || value.starts_with('|') || value.starts_with('>') {
             return None;
         }
         for q in ['"', '\''] {
-            if value.len() >= 2 && value.starts_with(q) && value.ends_with(q) {
-                value = value[1..value.len() - 1].trim();
+            if value.chars().count() >= 2 && value.starts_with(q) && value.ends_with(q) {
+                value = js_trim(&value[1..value.len() - 1]);
                 break;
             }
         }
@@ -256,129 +262,86 @@ pub fn frontmatter_title(md: &str) -> Option<String> {
 }
 
 // ── Links ───────────────────────────────────────────────────────────────────
-
-fn is_scheme(href: &str) -> bool {
-    // /^[A-Za-z][A-Za-z0-9+.-]+:/ (two or more characters before the colon, so `C:` is a drive)
-    let mut chars = href.chars();
-    match chars.next() {
-        Some(c) if c.is_ascii_alphabetic() => {}
-        _ => return false,
-    }
-    let mut n = 1;
-    for c in chars {
-        if c == ':' {
-            return n >= 2;
-        }
-        if !(c.is_ascii_alphanumeric() || matches!(c, '+' | '.' | '-')) {
-            return false;
-        }
-        n += 1;
-    }
-    false
-}
+//
+// The contract is `extractDocsLinks` in `src/ai/docsHost.ts`, shared through
+// `test/ai-fixtures/docs/links.json`. Its two regular expressions are walked
+// by hand here, character by character, with the same alternatives and the
+// same limits (text up to 300 UTF-16 units, wikilink inner 1 to 300).
 
 /// `\s` as JavaScript means it inside a regex.
 fn is_re_space(c: char) -> bool {
     is_js_space(c)
 }
 
-/// One `[text](dest "title")` starting at `chars[at]` (a `[`), as the backlink
-/// regex reads it. Returns the text, the destination and the index after the `)`.
-fn markdown_link_at(chars: &[char], at: usize) -> Option<(String, String, usize)> {
-    let mut i = at + 1;
-    let text_start = i;
-    while i < chars.len() && chars[i] != ']' {
-        i += 1;
+fn units(chars: &[char]) -> usize {
+    chars.iter().map(|c| c.len_utf16()).sum()
+}
+
+/// After a destination ending at `at`: `(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)`.
+/// Returns the index after the `)`.
+fn link_tail(chars: &[char], at: usize) -> Option<usize> {
+    let skip_space = |mut i: usize| {
+        while i < chars.len() && is_re_space(chars[i]) {
+            i += 1;
+        }
+        i
+    };
+    let after_blanks = skip_space(at);
+    if after_blanks > at && after_blanks < chars.len() && (chars[after_blanks] == '"' || chars[after_blanks] == '\'') {
+        let quote = chars[after_blanks];
+        if let Some(close) = (after_blanks + 1..chars.len()).find(|k| chars[*k] == quote) {
+            let e = skip_space(close + 1);
+            if e < chars.len() && chars[e] == ')' {
+                return Some(e + 1);
+            }
+        }
     }
-    if i >= chars.len() || i + 1 >= chars.len() || chars[i + 1] != '(' {
+    (after_blanks < chars.len() && chars[after_blanks] == ')').then_some(after_blanks + 1)
+}
+
+/// `(!?)\[([^\]\n]{0,300})\]\(\s*(<[^>\n]*>|[^()\s]*)(?:\s+(?:"..."|'...'))?\s*\)` starting at
+/// `chars[at]` (the `[`). The text, the destination as written and the index after the `)`.
+fn markdown_link_at(chars: &[char], at: usize) -> Option<(String, String, usize)> {
+    let text_start = at + 1;
+    let close = (text_start..chars.len()).find(|i| chars[*i] == ']')?;
+    if units(&chars[text_start..close]) > 300 || chars.get(close + 1) != Some(&'(') {
         return None;
     }
-    let text: String = chars[text_start..i].iter().collect();
-    let mut j = i + 2;
+    let mut j = close + 2;
     while j < chars.len() && is_re_space(chars[j]) {
         j += 1;
     }
-    // Destination: `<...>` first, else a run of characters that are not `)` or space.
-    let mut candidates: Vec<(usize, usize)> = Vec::new();
-    if j < chars.len() && chars[j] == '<' {
-        if let Some(close) = (j + 1..chars.len()).find(|k| chars[*k] == '>') {
-            candidates.push((j, close + 1));
+    let text: String = chars[text_start..close].iter().collect();
+    if chars.get(j) == Some(&'<') {
+        if let Some(gt) = (j + 1..chars.len()).find(|k| chars[*k] == '>') {
+            if let Some(end) = link_tail(chars, gt + 1) {
+                return Some((text, chars[j..=gt].iter().collect(), end));
+            }
         }
     }
     let mut k = j;
-    while k < chars.len() && chars[k] != ')' && !is_re_space(chars[k]) {
+    while k < chars.len() && !matches!(chars[k], '(' | ')') && !is_re_space(chars[k]) {
         k += 1;
     }
-    if k > j {
-        candidates.push((j, k));
-    }
-    for (d_start, d_end) in candidates {
-        let dest: String = chars[d_start..d_end].iter().collect();
-        let mut m = d_end;
-        // Optional title after at least one blank.
-        let blanks_start = m;
-        while m < chars.len() && is_re_space(chars[m]) {
-            m += 1;
-        }
-        let mut tails: Vec<usize> = vec![blanks_start];
-        if m > blanks_start && m < chars.len() {
-            let title_end = match chars[m] {
-                '"' => (m + 1..chars.len()).find(|x| chars[*x] == '"'),
-                '\'' => (m + 1..chars.len()).find(|x| chars[*x] == '\''),
-                '(' => (m + 1..chars.len()).find(|x| chars[*x] == ')'),
-                _ => None,
-            };
-            if let Some(te) = title_end {
-                tails.insert(0, te + 1);
-            }
-        }
-        for tail in tails {
-            let mut e = tail;
-            while e < chars.len() && is_re_space(chars[e]) {
-                e += 1;
-            }
-            if e < chars.len() && chars[e] == ')' {
-                return Some((text, dest, e + 1));
-            }
-        }
-    }
-    None
+    let end = link_tail(chars, k)?;
+    Some((text, chars[j..k].iter().collect(), end))
 }
 
-/// `\[\[([^\]|#]+)(?:#([^\]|]*))?(?:\|([^\]]*))?\]\]` at `chars[at]`: the inner
-/// text (`Name#Heading|alias` as written), the alias if any, and the end index.
-fn wikilink_at(chars: &[char], at: usize) -> Option<(String, Option<String>, usize)> {
+/// `\[\[([^[\]\n]{1,300})\]\]` at `chars[at]`: the inner text as written and the end index.
+fn wikilink_at(chars: &[char], at: usize) -> Option<(String, usize)> {
     if chars.get(at) != Some(&'[') || chars.get(at + 1) != Some(&'[') {
         return None;
     }
-    let mut i = at + 2;
-    let name_start = i;
-    while i < chars.len() && !matches!(chars[i], ']' | '|' | '#') {
+    let start = at + 2;
+    let mut i = start;
+    while i < chars.len() && !matches!(chars[i], '[' | ']') {
         i += 1;
     }
-    if i == name_start {
+    let n = units(&chars[start..i]);
+    if n == 0 || n > 300 || chars.get(i) != Some(&']') || chars.get(i + 1) != Some(&']') {
         return None;
     }
-    if i < chars.len() && chars[i] == '#' {
-        i += 1;
-        while i < chars.len() && !matches!(chars[i], ']' | '|') {
-            i += 1;
-        }
-    }
-    let mut alias: Option<String> = None;
-    if i < chars.len() && chars[i] == '|' {
-        let a_start = i + 1;
-        i = a_start;
-        while i < chars.len() && chars[i] != ']' {
-            i += 1;
-        }
-        alias = Some(chars[a_start..i].iter().collect());
-    }
-    if i + 1 < chars.len() && chars[i] == ']' && chars[i + 1] == ']' {
-        let inner: String = chars[at + 2..i].iter().collect();
-        return Some((inner, alias, i + 2));
-    }
-    None
+    Some((chars[start..i].iter().collect(), i + 2))
 }
 
 const MAX_LINK_TEXT_CHARS: usize = 120;
@@ -387,10 +350,29 @@ fn clip(text: &str) -> String {
     js_trim(text).chars().take(MAX_LINK_TEXT_CHARS).collect()
 }
 
-/// Outgoing links of a page as written (`AiDocsLink`): inline markdown links
-/// (not images, not external) and `[[wikilinks]]`, in line order, markdown
-/// before wikilinks on a line. Frontmatter and fenced code are skipped. Core
-/// resolves them (`ai/docs/links.ts`); a `#fragment`-only link is kept.
+/// Inline code spans (`` `[^`]*` ``) replaced by one space each, as the TypeScript does.
+fn blank_code_spans(line: &str) -> Vec<char> {
+    let chars: Vec<char> = line.chars().collect();
+    let mut out = Vec::with_capacity(chars.len());
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '`' {
+            if let Some(close) = (i + 1..chars.len()).find(|k| chars[*k] == '`') {
+                out.push(' ');
+                i = close + 1;
+                continue;
+            }
+        }
+        out.push(chars[i]);
+        i += 1;
+    }
+    out
+}
+
+/// Outgoing links of a page as written (`AiDocsLink`), in document order.
+/// Skips frontmatter, fenced code, inline code and images; keeps external
+/// links (core marks them) and a `#fragment`-only link; drops an empty target
+/// and a wikilink with no name. Core resolves them (`ai/docs/links.ts`).
 pub fn extract_links(md: &str) -> Vec<DocsLink> {
     let lines = split_lines(md, frontmatter_end(md));
     let mask = fence_mask(&lines);
@@ -399,15 +381,21 @@ pub fn extract_links(md: &str) -> Vec<DocsLink> {
         if mask[i] || !line.text.contains('[') {
             continue;
         }
-        let chars: Vec<char> = line.text.chars().collect();
+        let chars = blank_code_spans(line.text);
+        let mut found: Vec<(usize, DocsLink)> = Vec::new();
+        // `(!?)` then `[`: a `!` directly before the bracket makes it an image, which is consumed whole.
         let mut at = 0;
         while at < chars.len() {
-            if chars[at] == '[' {
-                if let Some((text, dest, end)) = markdown_link_at(&chars, at) {
-                    let is_image = at > 0 && chars[at - 1] == '!';
-                    let href = js_trim(dest.trim_start_matches('<').trim_end_matches('>')).to_string();
-                    if !is_image && !href.is_empty() && !is_scheme(&href) && !href.starts_with("//") {
-                        out.push(DocsLink { target: href, text: clip(&text), kind: "markdown" });
+            let bang = chars[at] == '!' && chars.get(at + 1) == Some(&'[');
+            let open = if bang { at + 1 } else { at };
+            if chars[open] == '[' {
+                if let Some((text, dest, end)) = markdown_link_at(&chars, open) {
+                    if !bang {
+                        let unwrapped = if dest.chars().count() >= 2 && dest.starts_with('<') && dest.ends_with('>') { &dest[1..dest.len() - 1] } else { dest.as_str() };
+                        let target = js_trim(unwrapped).to_string();
+                        if !target.is_empty() {
+                            found.push((at, DocsLink { target, text: clip(&text), kind: "markdown" }));
+                        }
                     }
                     at = end;
                     continue;
@@ -417,19 +405,29 @@ pub fn extract_links(md: &str) -> Vec<DocsLink> {
         }
         let mut at = 0;
         while at < chars.len() {
-            if chars[at] == '[' {
-                if let Some((inner, alias, end)) = wikilink_at(&chars, at) {
-                    let target = js_trim(&inner).to_string();
-                    let name = inner.split(['#', '|']).next().unwrap_or("");
-                    if !js_trim(name).is_empty() {
-                        let text = alias.as_deref().map(js_trim).filter(|a| !a.is_empty()).map(clip).unwrap_or_else(|| clip(name));
-                        out.push(DocsLink { target, text, kind: "wikilink" });
+            let bang = chars[at] == '!' && chars.get(at + 1) == Some(&'[');
+            let open = if bang { at + 1 } else { at };
+            if chars[open] == '[' {
+                if let Some((inner, end)) = wikilink_at(&chars, open) {
+                    if !bang {
+                        let name = inner.split(['#', '|']).next().unwrap_or("");
+                        if !js_trim(name).is_empty() {
+                            let alias = inner.find('|').map(|bar| js_trim(&inner[bar + 1..])).unwrap_or("");
+                            let text = if alias.is_empty() { clip(name) } else { clip(alias) };
+                            found.push((at, DocsLink { target: js_trim(&inner).to_string(), text, kind: "wikilink" }));
+                        }
                     }
                     at = end;
                     continue;
                 }
             }
             at += 1;
+        }
+        found.sort_by_key(|(at, _)| *at);
+        out.extend(found.into_iter().map(|(_, link)| link));
+        if out.len() >= super::rules::DOCS_MAX_LINKS_PER_PAGE {
+            out.truncate(super::rules::DOCS_MAX_LINKS_PER_PAGE);
+            return out;
         }
     }
     out
