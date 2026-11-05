@@ -28,7 +28,7 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 | [M9 Chat panel](#m9-chat-panel) | Opus | ✅ Done | 20 | `58dcfcd`. UI |
 | [M10 UI tests](#m10-ui-tests) | Sonnet | ✅ Done | 14 | `89f2719`. vitest jsdom |
 | [M11 Hands-on in both hosts](#m11-hands-on-in-both-hosts) | Sonnet | 🔄 In Progress | — | Mike signs off |
-| [M12 Docs and release notes](#m12-docs-and-release-notes) | Haiku | 🔄 In Progress | — | |
+| [M12 Docs and release notes](#m12-docs-and-release-notes) | Haiku | ✅ Done | 3 | `7d15b47`. Plan moves after sign-off |
 
 ## Table of Contents
 
@@ -277,10 +277,10 @@ VS Code: `npm run dev` from the repo root opens `test/workspace`. Desktop: quit 
 
 **Model:** Haiku.
 
-- [ ] `README.md`: a Documentation bases section (what a base is, home precedence, what is sent, the cloud switch, the secrets scan).
-- [ ] `CHANGELOG.md` entries for the extension and the npm family; `docs/ai-writing-features-plan.md` marks chat as shipped and links here.
-- [ ] `CLAUDE.md`: `packages/core/src/ai/docs/`, `host.docs`, the `docs*` bridge messages and the Desktop commands in the AI paragraphs.
-- [ ] Settings docs for `mikedown.ai.docBases` and `mikedown.ai.docs` (machine scope, why).
+- [x] `README.md`: a Documentation bases section (what a base is, home precedence, what is sent, the cloud switch, the secrets scan).
+- [x] `CHANGELOG.md` entries for the extension and the npm family; `docs/ai-writing-features-plan.md` marks chat as shipped and links here.
+- [x] `CLAUDE.md`: `packages/core/src/ai/docs/`, `host.docs`, the `docs*` bridge messages and the Desktop commands in the AI paragraphs.
+- [x] Settings docs for `mikedown.ai.docBases` and `mikedown.ai.docs` (machine scope, why).
 - [ ] Move this plan to `docs/` once complete (reserved root files untouched).
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
@@ -342,5 +342,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 17:50** - M9 done (`58dcfcd`), unit suite and lint re-run here: 207 files pass, 0 lint errors. The panel is docked rather than a full-window modal, so Insert's cursor and the file a chip opens stay visible. It closed an S8 hole in M2's code (a heading could reach the document as markup) and three chip-opening faults in VS Code. The VS Code `file:` path and Desktop `openPath` are traced by reading only, so M11 must click chips on both, including a file open in another group. M10 dispatched.
 
 **2026-11-05 18:04** - M10 done (`89f2719`): 4256 unit tests per the worker. Dispatched together: an independent read-only audit of S1 to S13, M12 docs (the plan stays in the root until sign-off), and M11's fixture and checklist. Mike's walk comes last.
+
+**2026-11-05 18:06** - M12 done (`7d15b47`). Orchestrator review fixed two faults in it: the README's `Link Navigation and Autocomplete` heading had been deleted, and history wording said cleared on editor close and answers not saved (it clears on panel close, and Save exists). The plan's move to `docs/` waits for sign-off; update the link in `docs/ai-writing-features-plan.md` then.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
