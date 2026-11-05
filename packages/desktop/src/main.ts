@@ -309,7 +309,8 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
       api: docsApi,
       // User-level only: `ai.docBases` is an app-wide key, so even a folder-scoped save lands in the global file.
       saveBases: (bases) => settingsMgr.save({ 'ai.docBases': bases }, { silent: true }),
-      pickFolder: () => dialogs.openFolder({ title: 'Choose a documentation folder' }),
+      // Picked in Rust, so Rust knows the folder came from the user (F8); one click, as before.
+      pickFolder: () => docsApi.pickFolder(),
     },
   });
   const kb = workspaceRef?.knowledgeBase() ?? null;

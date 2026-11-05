@@ -4,9 +4,9 @@
  * `saveBases`' re-validation. The Rust side has its own tests
  * (`src-tauri/src/commands/docs/tests.rs`).
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AiDocBase, AiDocBaseStatus, AiDocsIndex } from '@mikedown/core/ai';
-import { createDocsHost } from '../../src/host/docsHost';
+import { countBrokenYielding, createDocsHost } from '../../src/host/docsHost';
 import type { DocsApi } from '../../src/host/docsApi';
 
 type Changed = (baseId: string) => void;
@@ -69,6 +69,11 @@ function indexWithLinks(baseId: string): AiDocsIndex {
     builtAt: 0,
   };
 }
+
+// Hosts keep a window-wide subscription count; closing the "window" releases whatever a test left running.
+afterEach(() => {
+  window.dispatchEvent(new Event('pagehide'));
+});
 
 describe('createDocsHost', () => {
   describe('listBases fills brokenLinks from the index (review fix 2)', () => {
@@ -254,5 +259,140 @@ describe('createDocsHost', () => {
       await expect(host.saveBases([BASE])).rejects.toThrow('disk full');
       expect(api.syncRoots).not.toHaveBeenCalled();
     });
+  });
+});
+
+
+describe('the host starts the watcher itself (nothing in core calls watch)', () => {
+  it('starts it on the first index of a base, once, and not on other calls', async () => {
+    const { host, api, listeners } = setup();
+    await host.listBases();
+    await host.readSections('b1', []);
+    await host.keywordSearch('b1', 'x');
+    await tick();
+    expect(api.watch).not.toHaveBeenCalled();
+    await host.index('b1');
+    await tick();
+    expect(api.watch).toHaveBeenCalledTimes(1);
+    expect(api.watch).toHaveBeenCalledWith('b1');
+    await host.index('b1');
+    await host.index('b1');
+    await tick();
+    expect(api.watch).toHaveBeenCalledTimes(1);
+    expect(listeners()).toBe(1);
+  });
+
+  it('does not start one for a base whose index cannot be read, and watches each base separately', async () => {
+    const { host, api } = setup();
+    api.index.mockRejectedValueOnce(new Error('That documentation base is not in your settings.'));
+    await expect(host.index('nope')).rejects.toThrow();
+    await tick();
+    expect(api.watch).not.toHaveBeenCalled();
+    await host.index('a');
+    await host.index('b');
+    await tick();
+    expect(api.watch.mock.calls.map((c) => c[0])).toEqual(['a', 'b']);
+  });
+
+  it('a refresh from the manager does not start watchers', async () => {
+    const { host, api } = setup();
+    api.listBases.mockResolvedValue([status('a')] as never);
+    api.index.mockImplementation(async (baseId: string) => indexWithLinks(baseId));
+    await host.listBases({ refresh: true });
+    await tick();
+    expect(api.watch).not.toHaveBeenCalled();
+  });
+
+  it('stops it when the base is removed or switched off, as listBases sees it', async () => {
+    const { host, api } = setup();
+    await host.index('a');
+    await host.index('b');
+    await tick();
+    api.listBases.mockResolvedValueOnce([status('a'), status('b')] as never);
+    await host.listBases();
+    await tick();
+    expect(api.unwatch).not.toHaveBeenCalled();
+    // `a` is gone from the list, `b` is switched off.
+    api.listBases.mockResolvedValueOnce([{ ...status('b'), base: { ...status('b').base, enabled: false }, active: false }] as never);
+    await host.listBases();
+    await tick();
+    expect(api.unwatch.mock.calls.map((c) => c[0]).sort()).toEqual(['a', 'b']);
+  });
+
+  it('stops it when saveBases removes or disables the base, and keeps the others', async () => {
+    const { host, api } = setup();
+    await host.index('b1');
+    await host.index('keep');
+    await tick();
+    await host.saveBases([{ ...BASE, id: 'keep', roots: ['/Users/me/keep'] }, { ...BASE, id: 'b1', roots: ['/Users/me/handbook'], enabled: false }]);
+    await tick();
+    expect(api.unwatch.mock.calls.map((c) => c[0])).toEqual(['b1']);
+    await host.saveBases([]);
+    await tick();
+    expect(api.unwatch.mock.calls.map((c) => c[0]).sort()).toEqual(['b1', 'keep']);
+  });
+
+  it('stops it when the window closes', async () => {
+    const { host, api, listeners } = setup();
+    await host.index('b1');
+    await host.index('b2');
+    await tick();
+    window.dispatchEvent(new Event('pagehide'));
+    await tick();
+    expect(api.unwatch.mock.calls.map((c) => c[0]).sort()).toEqual(['b1', 'b2']);
+    expect(listeners()).toBe(0);
+  });
+
+  it('shares the Rust watchers with another subscriber: the last one out stops them', async () => {
+    const { host, api } = setup();
+    await host.index('b1');
+    await tick();
+    const stopOther = host.watch?.('b1', () => {}) as () => void;
+    await tick();
+    window.dispatchEvent(new Event('pagehide'));
+    await tick();
+    expect(api.unwatch).not.toHaveBeenCalled();
+    stopOther();
+    await tick();
+    expect(api.unwatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('a change under the root drops the remembered broken-link count', async () => {
+    const { host, api, emit } = setup();
+    api.listBases.mockResolvedValue([status('a')] as never);
+    api.index.mockImplementation(async (baseId: string) => indexWithLinks(baseId));
+    expect((await host.listBases({ refresh: true }))[0].brokenLinks).toBe(3);
+    await host.index('a');
+    await tick();
+    expect((await host.listBases())[0].brokenLinks).toBe(3);
+    emit('a');
+    expect((await host.listBases())[0].brokenLinks).toBeUndefined();
+  });
+
+  it('counts broken links a page at a time, yielding to the UI, with the same answer as core', async () => {
+    const pages = Array.from({ length: 120 }, (_, i) => ({
+      id: `docs/p${i}.md`,
+      root: 'docs',
+      relPath: `p${i}.md`,
+      title: `p${i}`,
+      headings: [],
+      links: [{ target: 'gone.md', text: 'g', kind: 'markdown' as const }],
+      chars: 5,
+    }));
+    const index: AiDocsIndex = { baseId: 'b', roots: [{ label: 'docs' }], pages, homes: [], truncated: false, oversizeSkipped: 0, builtAt: 0 };
+    const spy = vi.spyOn(globalThis, 'setTimeout');
+    expect(await countBrokenYielding(index)).toBe(120);
+    expect(spy.mock.calls.length).toBeGreaterThanOrEqual(4);
+    spy.mockRestore();
+  });
+});
+
+describe('pickFolder is the Rust picker', () => {
+  it('passes the pick through untouched and errors as sentences', async () => {
+    const pick = vi.fn(async () => '/Users/me/notes');
+    const { host } = setup({ pickFolder: pick });
+    expect(await host.pickFolder?.()).toBe('/Users/me/notes');
+    pick.mockRejectedValueOnce('That is not a folder.');
+    await expect(host.pickFolder?.()).rejects.toThrow('That is not a folder.');
   });
 });

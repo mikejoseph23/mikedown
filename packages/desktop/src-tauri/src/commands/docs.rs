@@ -19,7 +19,11 @@
 //! - `docs_watch(base_id)` / `docs_unwatch(base_id)`: a recursive watcher per
 //!   root, kept here (the folder tree's `unwatch_all` cannot stop it). A change
 //!   drops the base's cached index and emits `docs-changed { baseId }`.
-//! - `docs_sync_roots()`: adds the roots that pass validation to the fs scope.
+//! - `docs_sync_roots()`: adds saved roots to the fs scope, but only those that
+//!   were in the settings at startup, came through `docs_pick_folder`, or the
+//!   user confirms in a native dialog (outside `$HOME`; inside it the scope
+//!   already allows them). `docs_pick_folder()` is the native picker, here in
+//!   Rust so the pick itself is the proof of a user gesture (F8).
 //!
 //! Every command takes a base id and resolves the roots from the global
 //! `<app-data>/settings.json` itself (S4, A9): the webview never names a
@@ -28,9 +32,15 @@
 //!
 //! S11: the fs scope is the allow-list for the webview's own file commands
 //! (opening a cited page). A base root outside `$HOME` is added to it, at
-//! startup and when bases are saved, and Tauri's scope has no read-only mode,
-//! so such a root is readable and writable for the session
-//! (`capabilities/default.json` says so).
+//! startup, when the user picks it, and when the user confirms it, and
+//! Tauri's scope has no read-only mode, so such a root is readable and writable
+//! for the session (`capabilities/default.json` says so). F8: a webview cannot
+//! widen the scope by saving a root it made up. Which roots are trusted is
+//! tracked here (`DocsState::trusted_roots`), not in the webview.
+//!
+//! S9: a build ends at a file cap (5,000), a folder cap (20,000) and a time
+//! budget (30 s), and the base's health says which. A file is read to the size
+//! cap plus one byte and refused unless it is UTF-8 text (`is_utf8_text`).
 
 pub mod markdown;
 pub mod rules;

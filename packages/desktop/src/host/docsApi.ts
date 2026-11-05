@@ -22,6 +22,11 @@ export interface DocsApi {
   keywordSearch(baseId: string, query: string): Promise<AiDocsSectionRef[]>;
   /** Add the saved bases' roots to the fs scope (S11); drops cached indexes. */
   syncRoots(): Promise<number>;
+  /**
+   * The native folder picker, run in Rust: the chosen folder is validated, joins
+   * the fs scope and is remembered as trusted there (F8). Null when cancelled.
+   */
+  pickFolder(): Promise<string | null>;
   /** Start this window's recursive watchers on the base's roots. */
   watch(baseId: string): Promise<number>;
   unwatch(baseId: string): Promise<void>;
@@ -35,6 +40,7 @@ export const docsApi: DocsApi = {
   readSections: (baseId, ids) => invoke<AiDocsSection[]>('docs_read_sections', { baseId, ids }),
   keywordSearch: (baseId, query) => invoke<AiDocsSectionRef[]>('docs_keyword_search', { baseId, query }),
   syncRoots: () => invoke<number>('docs_sync_roots'),
+  pickFolder: () => invoke<string | null>('docs_pick_folder'),
   watch: (baseId) => invoke<number>('docs_watch', { baseId }),
   unwatch: (baseId) => invoke<void>('docs_unwatch', { baseId }),
   onChanged: (handler) => listen<{ baseId: string }>('docs-changed', (e) => handler(e.payload.baseId)),
