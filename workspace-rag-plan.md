@@ -293,6 +293,7 @@ Not milestones. Short list so nothing in the MVP forecloses them.
 - **Generate INDEX.md:** from the map, preview before writing; the only write this feature would ever do.
 - **Persisted chat history:** in app data alongside the embeddings store.
 - **Settings sync across machines:** separate backlog item (`BACKLOG.md`); bases do not travel with a repo by design.
+- **Proposed edits:** the chat proposes changes to the document and the user accepts or rejects each one in a diff; accepted changes apply through `editor.commands`, so each is a normal undoable edit. This document scope only at first, because base pages are untrusted text and could otherwise steer edits (prompt injection). An extension of the read-only loop (S12), not an autonomous agent mode.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
