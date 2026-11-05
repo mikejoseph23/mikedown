@@ -400,6 +400,8 @@ All resolved on 2026-10-28; the decisions are D10 to D17 above and are already f
 8. **Disabled slash entries.** If a later plan gives `slashcommands.ts` a greyed-with-reason row, the `ai` group should use it instead of hiding when `disabled` (D15).
 9. ~~**Split AI code out of the standalone web component bundle** (budget raised 850 → 900 kB on 2026-10-28 to absorb this plan).~~ Done 2026-10-29 (`e1032e9`): the AI UI loads by `import()` only with `host.ai`; budget back to 850 kB.
 10. The shared action list across the toolbar menu, the context menu and Desktop's Format > AI, the engine-named error copy and the thinking dial's keyboard support are done in `ai-setup-privacy-polish-plan.md` (M5).
+11. **Redact secrets in the AI Activity panel.** API keys never appear in the request messages today, so the panel shows them as they are. A redaction pass over the recorded messages and responses (keys, tokens, and any user-defined patterns) would be needed before the panel is shared or saved in a bug report. Not in the first version (`ai-activity-panel-plan.md`).
+12. **"Report a problem" export for one AI request.** A per-request action in the AI Activity panel that bundles the request's engine, model, settings and messages into a file the user can attach to an issue. Depends on the redaction in follow-up 11.
 
 [Return to Top](#ai-writing-features-plan)
 

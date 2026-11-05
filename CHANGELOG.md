@@ -4,6 +4,10 @@ All notable changes to MikeDown Editor are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- AI Activity panel (experimental, off by default): turn on `mikedown.ai.activityPanel`, then open **AI Activity…** from the AI toolbar menu or the AI tab of Settings. It lists each AI request of this session with the exact messages sent and the raw response. Nothing is stored or sent anywhere; the list is kept in memory, can be copied or saved to a text file, and is cleared when you turn the setting off.
+
 ## [2.17.1] - 2026-10-30
 
 ### Fixed
