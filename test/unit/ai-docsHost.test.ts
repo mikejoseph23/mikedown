@@ -17,7 +17,9 @@ import {
   frontmatterTitle,
   isDocsBaseFile,
   isPathUnderRoot,
+  isUtf8Text,
   prepareBasesForSave,
+  readBounded,
   type DocsEntryKind,
   type DocsFs,
 } from '../../src/ai/docsHost';
@@ -36,8 +38,8 @@ const realFs: DocsFs = {
     const l = await fs.promises.lstat(p);
     return { kind: kindOfStats(l), size: l.size };
   },
-  // The extension decodes with a default TextDecoder (BOM stripped, bad bytes replaced), so does the test.
-  readFile: async (p) => new TextDecoder('utf-8').decode(await fs.promises.readFile(p)),
+  // The extension reads through a handle that stops at the cap; the test uses the same function.
+  readFile: readBounded,
   realpath: (p) => fs.promises.realpath(p),
 };
 
@@ -93,7 +95,7 @@ describe('the walker (S3)', () => {
     const memFs: DocsFs = {
       readDirectory: async () => entries,
       stat: async (p) => (p === '/big' ? { kind: 'dir', size: 0 } : { kind: 'file', size: 4 }),
-      readFile: async () => '# t\n',
+      readFile: async () => new TextEncoder().encode('# t\n'),
       realpath: async (p) => p,
     };
     const h = new DocsHost({ fs: memFs, readBases: () => [base({ roots: ['/big'] })] });
@@ -434,7 +436,7 @@ describe('review fix 1: the read must be the file the walker listed', () => {
     const memFs: DocsFs = {
       readDirectory: async () => [{ name: 'Page.md', kind: 'file' }],
       stat: async (p) => (p.toLowerCase() === 'c:\\docs' ? { kind: 'dir', size: 0 } : { kind: 'file', size: 4 }),
-      readFile: async () => '# T\n',
+      readFile: async () => new TextEncoder().encode('# T\n'),
       realpath: async (p) => (p.toLowerCase().endsWith('page.md') ? 'C:\\DOCS\\page.md' : p),
     };
     const win = new DocsHost({ fs: memFs, readBases: () => [base({ roots: ['C:\\Docs'] })], platform: 'win32' });
@@ -530,7 +532,7 @@ describe('more refusals (the M7 list)', () => {
   it('a read that throws for one file leaves that id out and serves the rest', async () => {
     write('boom.md', '# Boom\nneedle\n');
     let failing = false;
-    const flaky: DocsFs = { ...realFs, readFile: async (p) => { if (failing && p.endsWith('boom.md')) {throw new Error('EIO');} return realFs.readFile(p); } };
+    const flaky: DocsFs = { ...realFs, readFile: async (p, max) => { if (failing && p.endsWith('boom.md')) {throw new Error('EIO');} return realFs.readFile(p, max); } };
     const h = host(() => [base()], { fs: flaky });
     await h.index('b1');
     failing = true;
@@ -542,7 +544,7 @@ describe('more refusals (the M7 list)', () => {
 
   it('a bad UTF-8 or unreadable file at index time does not stop the walk', async () => {
     write('boom.md', '# Boom\n');
-    const flaky: DocsFs = { ...realFs, readFile: async (p) => { if (p.endsWith('boom.md')) {throw new Error('EIO');} return realFs.readFile(p); } };
+    const flaky: DocsFs = { ...realFs, readFile: async (p, max) => { if (p.endsWith('boom.md')) {throw new Error('EIO');} return realFs.readFile(p, max); } };
     const h = host(() => [base()], { fs: flaky });
     expect((await h.index('b1')).pages.map((p) => p.id)).toEqual(['docs/guide.md']);
   });
@@ -554,7 +556,7 @@ describe('walker details (S3)', () => {
     const memFs: DocsFs = {
       readDirectory: async (d) => (d === '/r' ? [{ name: 'real', kind: 'dir' }, { name: 'linkdir', kind: 'symlink' }, { name: 'link.md', kind: 'symlink' }, { name: 'a.md', kind: 'file' }] : d === '/r/real' ? [{ name: 'b.md', kind: 'file' }] : (() => { throw new Error(`walked into ${d}`); })()),
       stat: async (p) => (p === '/r' ? { kind: 'dir', size: 0 } : { kind: 'file', size: 4 }),
-      readFile: async () => '# t\n',
+      readFile: async () => new TextEncoder().encode('# t\n'),
       realpath: async (p) => p,
     };
     const h = new DocsHost({ fs: memFs, readBases: () => [base({ roots: ['/r'] })] });
@@ -587,7 +589,7 @@ describe('walker details (S3)', () => {
     const memFs: DocsFs = {
       readDirectory: async () => files,
       stat: async (p) => (p === '/one' || p === '/two' ? { kind: 'dir', size: 0 } : { kind: 'file', size: 4 }),
-      readFile: async () => '# t\n',
+      readFile: async () => new TextEncoder().encode('# t\n'),
       realpath: async (p) => p,
     };
     const h = new DocsHost({ fs: memFs, readBases: () => [base({ roots: ['/one', '/two'] })] });
@@ -698,6 +700,15 @@ describe('shared fixtures: titles and links (cross-host contract)', () => {
     expect(cases.length).toBeGreaterThan(10);
     for (const c of cases) {
       expect(frontmatterTitle(c.markdown as string), c.name as string).toBe((c.title as string | null) ?? undefined);
+    }
+  });
+
+  it('not-text.json', () => {
+    const cases = fixture('not-text.json').cases;
+    expect(cases.length).toBeGreaterThan(8);
+    for (const c of cases) {
+      const bytes = Uint8Array.from(Buffer.from(c.hex as string, 'hex'));
+      expect(isUtf8Text(bytes), c.name as string).toBe(c.text);
     }
   });
 

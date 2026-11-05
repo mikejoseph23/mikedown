@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as nodeFs from 'fs';
 import type { AiDocBase } from '@mikedown/core/ai';
 import { getSettings } from '../settings';
-import { DocsHost, type DocsEntryKind, type DocsFs } from './docsHost';
+import { DocsHost, readBounded, type DocsEntryKind, type DocsFs } from './docsHost';
 
 /**
  * The VS Code wiring for `DocsHost` (docsHost.ts has none): the file system
@@ -24,7 +24,6 @@ export function entryKind(type: number): DocsEntryKind {
 }
 
 export function createVsCodeDocsFs(): DocsFs {
-  const decoder = new TextDecoder('utf-8');
   return {
     readDirectory: async (dir) => {
       const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(dir));
@@ -34,7 +33,8 @@ export function createVsCodeDocsFs(): DocsFs {
       const s = await vscode.workspace.fs.stat(vscode.Uri.file(path));
       return { kind: entryKind(s.type), size: s.size };
     },
-    readFile: async (path) => decoder.decode(await vscode.workspace.fs.readFile(vscode.Uri.file(path))),
+    // `vscode.workspace.fs.readFile` cannot stop early; see readBounded.
+    readFile: readBounded,
     realpath: (path) => nodeFs.promises.realpath(path),
   };
 }

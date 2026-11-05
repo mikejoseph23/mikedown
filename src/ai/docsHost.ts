@@ -1,11 +1,19 @@
+import * as nodeFs from 'fs';
 import * as nodePath from 'path';
 import {
+  DOCS_BUILD_BUDGET_MS,
   DOCS_KEYWORD_TOP,
+  DOCS_LINK_SCAN_UNITS,
+  DOCS_LINK_TEXT_UNITS,
+  DOCS_MAX_DIRS,
   DOCS_MAX_FILES,
   DOCS_MAX_FILE_BYTES,
+  DOCS_MAX_HEADINGS_PER_PAGE,
+  DOCS_MAX_LINK_TARGET_CHARS,
   DOCS_MAX_LINKS_PER_PAGE,
   buildDocsIndex,
   capSectionText,
+  clipCodePoints,
   cmpCodePoints,
   createDocsLinkResolver,
   docsRootLabels,
@@ -47,7 +55,13 @@ import {
  *    under the canonical root by whole path components, a `.md` / `.markdown`
  *    extension (any case), a regular file, and at most 1 MiB (S2).
  *  - The walker uses `readDirectory` entry kinds, skips symlinked folders and
- *    files, `node_modules` and hidden folders, and stops at 5,000 files (S3).
+ *    files, `node_modules` and hidden folders, and stops at 5,000 files and
+ *    20,000 folders (S3, S9).
+ *  - A file is read through a handle that stops at the size cap plus one byte
+ *    (`DocsFs.readFile`), and refused unless it is UTF-8 text (no UTF-16 or
+ *    UTF-32 byte order mark, no NUL byte).
+ *  - The walk and the build yield to the event loop between files so other
+ *    extensions keep running, and end at a time budget with health saying so.
  *  - Read-only. No write, shell or network call exists here (S12). Section
  *    text is never logged.
  *  - One watcher per root, never a workspace-wide one (S9); disposed with the
@@ -62,8 +76,11 @@ export interface DocsFs {
   readDirectory(dir: string): Promise<Array<{ name: string; kind: DocsEntryKind }>>;
   /** Follows nothing the caller has not already canonicalized; `kind` is `symlink` when the path itself is a link. */
   stat(path: string): Promise<{ kind: DocsEntryKind; size: number }>;
-  /** The file as UTF-8 text. */
-  readFile(path: string): Promise<string>;
+  /**
+   * The file's first `maxBytes` bytes (fewer when it is shorter). The host asks
+   * for the size cap plus one, so a file that grew since `stat` is still bounded.
+   */
+  readFile(path: string, maxBytes: number): Promise<Uint8Array>;
   /** The canonical path (symlinks resolved). Rejects when the path does not exist. */
   realpath(path: string): Promise<string>;
 }
@@ -86,11 +103,19 @@ export interface DocsHostDeps {
   platform?: string;
   /** Metadata-only log lines (counts and reasons, never paths or text). */
   log?(line: string): void;
+  /** Let other work run (the extension host is one thread). Default: a macrotask turn. */
+  yieldToHost?(): Promise<void>;
+  /** Milliseconds one base's walk and index may take. Default `DOCS_BUILD_BUDGET_MS`. */
+  buildBudgetMs?: number;
 }
 
 export const DOCS_INDEX_TTL_MS = 5 * 60 * 1000;
 /** Files read at once while walking. */
 const WALK_CONCURRENCY = 16;
+/** Folders read between yields while walking. */
+const WALK_YIELD_EVERY = 64;
+/** Pages whose links are counted between yields. */
+const COUNT_YIELD_EVERY = 25;
 /** Ids one `readSections` call will look at. */
 export const DOCS_MAX_IDS_PER_READ = 200;
 /** Bases one `saveBases` call will accept. */
@@ -103,6 +128,44 @@ export function isMarkdownName(name: string): boolean {
   const lower = name.toLowerCase();
   return lower.endsWith('.md') || lower.endsWith('.markdown');
 }
+
+/**
+ * True when `bytes` is text this host will index as UTF-8: no UTF-16 or UTF-32
+ * byte order mark (`FF FE`, `FE FF`, `00 00 FE FF`) and no NUL byte anywhere.
+ * A UTF-8 byte order mark is fine. Such a file decodes to `A\0K\0I\0A...`, which
+ * would slip past the secrets scan (S7), and no model reads it. Shared with
+ * Desktop through `test/ai-fixtures/docs/not-text.json`.
+ */
+export function isUtf8Text(bytes: Uint8Array): boolean {
+  if (bytes.length >= 2 && ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff))) {return false;}
+  return !bytes.includes(0);
+}
+
+
+/**
+ * The first `maxBytes` bytes of a local file through a handle. `vscode.workspace.fs.readFile`
+ * has no way to stop early (it reads the whole file, whatever its size), so
+ * reads use Node's `fs` on the same absolute path: the roots are local folders
+ * (`Uri.file`), the walk has already canonicalized the path, and the host
+ * stat'ed the file first. The bound covers a file that grows in between.
+ */
+export async function readBounded(path: string, maxBytes: number): Promise<Uint8Array> {
+  const handle = await nodeFs.promises.open(path, 'r');
+  try {
+    const buf = Buffer.allocUnsafe(maxBytes);
+    let filled = 0;
+    while (filled < maxBytes) {
+      const { bytesRead } = await handle.read(buf, filled, maxBytes - filled, filled);
+      if (bytesRead === 0) {break;}
+      filled += bytesRead;
+    }
+    return buf.subarray(0, filled);
+  } finally {
+    await handle.close();
+  }
+}
+
+export const NOT_TEXT_REASON = 'not UTF-8 text';
 
 /** The walker's skip rule for a folder name: hidden (`.x`) and `node_modules`. */
 export function skipDocsDir(name: string): boolean {
@@ -177,15 +240,75 @@ export function frontmatterTitle(markdown: string): string | undefined {
 }
 
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
-const INLINE_LINK = /(!?)\[([^\]\n]{0,300})\]\(\s*(<[^>\n]*>|[^()\s]*)(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)/g;
 const WIKILINK = /(!?)\[\[([^[\]\n]{1,300})\]\]/g;
 /** Link text is clipped to this many code points. */
 const LINK_TEXT_MAX = 120;
 
 function clipLinkText(text: string): string {
-  const trimmed = text.trim();
-  const points = Array.from(trimmed);
-  return points.length > LINK_TEXT_MAX ? points.slice(0, LINK_TEXT_MAX).join('') : trimmed;
+  return clipCodePoints(text.trim(), LINK_TEXT_MAX);
+}
+
+/** `\s` as a JavaScript regular expression means it (and as Desktop's `is_js_space`). */
+function isReSpace(c: number): boolean {
+  return (c >= 0x09 && c <= 0x0d) || c === 0x20 || c === 0xa0 || c === 0x1680 || (c >= 0x2000 && c <= 0x200a) || c === 0x2028 || c === 0x2029 || c === 0x202f || c === 0x205f || c === 0x3000 || c === 0xfeff;
+}
+
+function skipSpace(text: string, from: number): number {
+  let i = from;
+  while (i < text.length && isReSpace(text.charCodeAt(i))) {i++;}
+  return i;
+}
+
+/** The index of the first `ch` in `text` at or after `from` and at most `limit` units on, else -1. */
+function indexWithin(text: string, ch: string, from: number, limit: number): number {
+  const stop = Math.min(text.length, from + limit + 1);
+  for (let i = from; i < stop; i++) {
+    if (text[i] === ch) {return i;}
+  }
+  return -1;
+}
+
+/**
+ * After a destination ending at `at`: `(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)`, the
+ * title looked for within `DOCS_LINK_SCAN_UNITS`. Returns the index after the `)`.
+ */
+function linkTail(text: string, at: number): number {
+  const blanks = skipSpace(text, at);
+  if (blanks > at && blanks < text.length && (text[blanks] === '"' || text[blanks] === "'")) {
+    const close = indexWithin(text, text[blanks], blanks + 1, DOCS_LINK_SCAN_UNITS);
+    if (close >= 0) {
+      const e = skipSpace(text, close + 1);
+      if (text[e] === ')') {return e + 1;}
+    }
+  }
+  return text[blanks] === ')' ? blanks + 1 : -1;
+}
+
+/**
+ * `[text](dest "title")` starting at `text[at]` (the `[`), walked by hand: a
+ * regular expression here backtracked quadratically on runs of blanks and on an
+ * unclosed `<` or quote (S9). The text and the `<...>` destination and title
+ * are looked for within a fixed number of units, so every start costs a bounded
+ * amount; a run destination (no blanks or parentheses) ends at its first
+ * blank, so starts do not rescan each other's runs.
+ */
+function markdownLinkAt(text: string, at: number): { text: string; dest: string; end: number } | null {
+  const textStart = at + 1;
+  const close = indexWithin(text, ']', textStart, DOCS_LINK_TEXT_UNITS);
+  if (close < 0 || text[close + 1] !== '(') {return null;}
+  const inner = text.slice(textStart, close);
+  const j = skipSpace(text, close + 2);
+  if (text[j] === '<') {
+    const gt = indexWithin(text, '>', j + 1, DOCS_LINK_SCAN_UNITS);
+    if (gt >= 0) {
+      const end = linkTail(text, gt + 1);
+      if (end >= 0) {return { text: inner, dest: text.slice(j, gt + 1), end };}
+    }
+  }
+  let k = j;
+  while (k < text.length && text[k] !== '(' && text[k] !== ')' && !isReSpace(text.charCodeAt(k))) {k++;}
+  const end = linkTail(text, k);
+  return end >= 0 ? { text: inner, dest: text.slice(j, k), end } : null;
 }
 
 /**
@@ -196,9 +319,12 @@ function clipLinkText(text: string): string {
  *    `![[x]]`) are skipped;
  *  - a markdown link is `[text](dest "title")` with `dest` either `<...>` or a
  *    run without parentheses or blanks (so a destination with its own
- *    parentheses is not a link); the title is `"..."` or `'...'`;
+ *    parentheses is not a link); the title is `"..."` or `'...'`; the text is
+ *    at most 300 UTF-16 units, and a `<...>` destination or a title must end
+ *    within 1000 units of where it starts, or the line has no link there;
  *  - external links (`https:`, `//x`) are kept, core marks them external; an
- *    empty target is dropped, `#fragment` alone is kept;
+ *    empty target is dropped, `#fragment` alone is kept; a target is cut to its
+ *    first 500 code points;
  *  - a wikilink is `[[inner]]` with no brackets inside; its target is `inner`
  *    trimmed, its text the alias after the first `|`, else the name before the
  *    first `#` or `|`; a wikilink with no name (`[[#x]]`, `[[|a]]`) is dropped;
@@ -223,17 +349,28 @@ export function extractDocsLinks(markdown: string): AiDocsLink[] {
       if (close && close[1][0] === fence.char && close[1].length >= fence.len) {fence = null;}
       continue;
     }
+    if (!line.includes('[')) {continue;}
     const text = line.replace(/`[^`]*`/g, ' ');
     if (!text.includes('[')) {continue;}
     const found: Array<{ at: number; link: AiDocsLink }> = [];
-    for (const m of text.matchAll(INLINE_LINK)) {
-      if (m[1] === '!') {continue;}
-      let target = m[3];
-      if (target.startsWith('<') && target.endsWith('>')) {target = target.slice(1, -1);}
-      target = target.trim();
-      if (target === '') {continue;}
-      found.push({ at: m.index ?? 0, link: { target, text: clipLinkText(m[2]), kind: 'markdown' } });
+    let at = 0;
+    while (at < text.length && found.length < DOCS_MAX_LINKS_PER_PAGE) {
+      const bang = text[at] === '!' && text[at + 1] === '[';
+      const open = bang ? at + 1 : at;
+      const m = text[open] === '[' ? markdownLinkAt(text, open) : null;
+      if (!m) {
+        at++;
+        continue;
+      }
+      if (!bang) {
+        let target = m.dest;
+        if (target.startsWith('<') && target.endsWith('>')) {target = target.slice(1, -1);}
+        target = target.trim();
+        if (target !== '') {found.push({ at, link: { target: clipCodePoints(target, DOCS_MAX_LINK_TARGET_CHARS), text: clipLinkText(m.text), kind: 'markdown' } });}
+      }
+      at = m.end;
     }
+    let wikis = 0;
     for (const m of text.matchAll(WIKILINK)) {
       if (m[1] === '!') {continue;}
       const inner = m[2];
@@ -241,7 +378,8 @@ export function extractDocsLinks(markdown: string): AiDocsLink[] {
       if (name === '') {continue;}
       const bar = inner.indexOf('|');
       const alias = bar >= 0 ? inner.slice(bar + 1).trim() : '';
-      found.push({ at: m.index ?? 0, link: { target: inner.trim(), text: clipLinkText(alias !== '' ? alias : name), kind: 'wikilink' } });
+      found.push({ at: m.index ?? 0, link: { target: clipCodePoints(inner.trim(), DOCS_MAX_LINK_TARGET_CHARS), text: clipLinkText(alias !== '' ? alias : name), kind: 'wikilink' } });
+      if (++wikis >= DOCS_MAX_LINKS_PER_PAGE) {break;}
     }
     found.sort((a, b) => a.at - b.at);
     for (const f of found) {
@@ -285,7 +423,11 @@ interface BuiltBase {
   fileCount: number;
   oversizeSkipped: number;
   capReached: boolean;
-  brokenLinks: number;
+  notTextSkipped: number;
+  dirCapReached: boolean;
+  timedOut: boolean;
+  /** Undefined when the build ran out of time before the links were counted. */
+  brokenLinks: number | undefined;
   /** `found` per configured root, to notice a root appearing or disappearing. */
   foundSignature: string;
 }
@@ -308,6 +450,7 @@ export class DocsHost {
   private readonly entries = new Map<string, Entry>();
   private readonly listeners = new Map<string, Set<() => void>>();
   private disposed = false;
+  private readonly decoder = new TextDecoder('utf-8');
 
   constructor(private readonly deps: DocsHostDeps) {}
 
@@ -402,14 +545,19 @@ export class DocsHost {
     }
   }
 
-  /** Markdown files under a canonical root: no symlinks, no `node_modules`, no hidden folders, at most `limit`. */
-  private async walk(realRoot: string, limit: number): Promise<{ rels: string[]; capReached: boolean }> {
+  /** Markdown files under a canonical root: no symlinks, no `node_modules`, no hidden folders, at most `limit` files and `dirLimit` folders. */
+  private async walk(realRoot: string, limit: number, dirLimit: number, outOfTime: () => boolean): Promise<{ rels: string[]; capReached: boolean; dirsRead: number; dirCapReached: boolean; timedOut: boolean }> {
     const { fs } = this.deps;
     const rels: string[] = [];
     const stack: string[] = [''];
+    let dirsRead = 0;
     while (stack.length > 0) {
+      if (dirsRead >= dirLimit) {return { rels, capReached: false, dirsRead, dirCapReached: true, timedOut: false };}
+      if (outOfTime()) {return { rels, capReached: false, dirsRead, dirCapReached: false, timedOut: true };}
+      if (dirsRead > 0 && dirsRead % WALK_YIELD_EVERY === 0) {await this.yieldToHost();}
       const rel = stack.pop() as string;
       const dir = rel === '' ? realRoot : nodePath.join(realRoot, ...rel.split('/'));
+      dirsRead++;
       let entries: Array<{ name: string; kind: DocsEntryKind }>;
       try {
         entries = await fs.readDirectory(dir);
@@ -425,30 +573,48 @@ export class DocsHost {
           if (!skipDocsDir(entry.name)) {dirs.push(rel === '' ? entry.name : `${rel}/${entry.name}`);}
         } else if (entry.kind === 'file' && isMarkdownName(entry.name)) {
           rels.push(rel === '' ? entry.name : `${rel}/${entry.name}`);
-          if (rels.length >= limit) {return { rels, capReached: true };}
+          if (rels.length >= limit) {return { rels, capReached: true, dirsRead, dirCapReached: false, timedOut: false };}
         }
       }
       for (let i = dirs.length - 1; i >= 0; i--) {stack.push(dirs[i]);}
     }
-    return { rels, capReached: false };
+    return { rels, capReached: false, dirsRead, dirCapReached: false, timedOut: false };
   }
 
-  /** Read one file for the index: size check first, then headings, title, links. Null: skipped (oversize is counted by the caller). */
-  private async indexFile(realRoot: string, rel: string, label: string): Promise<{ page?: Parameters<typeof buildDocsIndex>[0]['pages'][number]; oversize?: boolean }> {
+  private yieldToHost(): Promise<void> {
+    return this.deps.yieldToHost ? this.deps.yieldToHost() : new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  /**
+   * One checked read of a file's text: at most the size cap plus one byte is
+   * read (so a file that grew after `stat` is still bounded), a file over the cap
+   * is `oversize`, and bytes that are not UTF-8 text are `notText` (F7).
+   */
+  private async readText(abs: string): Promise<{ text: string } | { oversize: true } | { notText: true }> {
+    const bytes = await this.deps.fs.readFile(abs, DOCS_MAX_FILE_BYTES + 1);
+    if (bytes.length > DOCS_MAX_FILE_BYTES) {return { oversize: true };}
+    if (!isUtf8Text(bytes)) {return { notText: true };}
+    return { text: this.decoder.decode(bytes) };
+  }
+
+  /** Read one file for the index: size check first, then headings, title, links. Null: skipped (oversize and not-text are counted by the caller). */
+  private async indexFile(realRoot: string, rel: string, label: string): Promise<{ page?: Parameters<typeof buildDocsIndex>[0]['pages'][number]; oversize?: boolean; notText?: boolean }> {
     const abs = nodePath.join(realRoot, ...rel.split('/'));
     try {
       const st = await this.deps.fs.stat(abs);
       if (st.kind !== 'file') {return {};}
       if (st.size > DOCS_MAX_FILE_BYTES) {return { oversize: true };}
-      const text = await this.deps.fs.readFile(abs);
-      if (text.length > DOCS_MAX_FILE_BYTES) {return { oversize: true };}
+      const read = await this.readText(abs);
+      if ('oversize' in read) {return { oversize: true };}
+      if ('notText' in read) {return { notText: true };}
+      const text = read.text;
       const title = frontmatterTitle(text);
       return {
         page: {
           root: label,
           relPath: rel,
           ...(title ? { title } : {}),
-          headings: headingsOutline(text),
+          headings: headingsOutline(text, DOCS_MAX_HEADINGS_PER_PAGE),
           links: extractDocsLinks(text),
           chars: text.length,
         },
@@ -464,10 +630,17 @@ export class DocsHost {
     const pages: Parameters<typeof buildDocsIndex>[0]['pages'][number][] = [];
     const foundLabels: Array<{ label: string }> = [];
     const files = new Map<string, IndexedFile>();
-    const perRoot: Array<{ oversize: number; capReached: boolean }> = base.roots.map(() => ({ oversize: 0, capReached: false }));
+    const perRoot: Array<{ oversize: number; capReached: boolean; notText: number; dirCapReached: boolean }> = base.roots.map(() => ({ oversize: 0, capReached: false, notText: 0, dirCapReached: false }));
     let remaining = DOCS_MAX_FILES;
+    let remainingDirs = DOCS_MAX_DIRS;
     let oversizeSkipped = 0;
+    let notTextSkipped = 0;
     let truncated = false;
+    // One budget for the whole base: the walk, the reads and the link count (S9).
+    const started = this.now();
+    const budget = this.deps.buildBudgetMs ?? DOCS_BUILD_BUDGET_MS;
+    const outOfTime = (): boolean => this.now() - started >= budget;
+    let timedOut = false;
 
     for (let i = 0; i < base.roots.length; i++) {
       const real = reals[i];
@@ -478,25 +651,42 @@ export class DocsHost {
         truncated = true;
         continue;
       }
-      const walked = await this.walk(real, remaining);
+      if (remainingDirs <= 0) {
+        perRoot[i].dirCapReached = true;
+        continue;
+      }
+      const walked = await this.walk(real, remaining, remainingDirs, outOfTime);
       remaining -= walked.rels.length;
+      remainingDirs -= walked.dirsRead;
       if (walked.capReached) {
         perRoot[i].capReached = true;
         truncated = true;
       }
-      for (let at = 0; at < walked.rels.length; at += WALK_CONCURRENCY) {
+      if (walked.dirCapReached) {perRoot[i].dirCapReached = true;}
+      if (walked.timedOut) {timedOut = true;}
+      for (let at = 0; at < walked.rels.length && !timedOut; at += WALK_CONCURRENCY) {
+        if (outOfTime()) {
+          timedOut = true;
+          break;
+        }
         const batch = walked.rels.slice(at, at + WALK_CONCURRENCY);
         const results = await Promise.all(batch.map((rel) => this.indexFile(real, rel, labels[i])));
         results.forEach((r, k) => {
           if (r.oversize) {
             perRoot[i].oversize++;
             oversizeSkipped++;
+          } else if (r.notText) {
+            perRoot[i].notText++;
+            notTextSkipped++;
           } else if (r.page) {
             pages.push(r.page);
             files.set(`${labels[i]}/${batch[k]}`, { pageId: `${labels[i]}/${batch[k]}`, rootIndex: i, relPath: batch[k] });
           }
         });
+        // Parsing a batch is synchronous work on the shared extension host: let others run between batches.
+        await this.yieldToHost();
       }
+      if (timedOut) {break;}
     }
 
     const index = buildDocsIndex({
@@ -526,6 +716,8 @@ export class DocsHost {
         fileCount: found ? countByLabel.get(labels[i]) ?? 0 : 0,
         oversizeSkipped: perRoot[i].oversize,
         capReached: perRoot[i].capReached,
+        ...(perRoot[i].notText > 0 ? { notTextSkipped: perRoot[i].notText } : {}),
+        ...(perRoot[i].dirCapReached ? { dirCapReached: true } : {}),
       };
       if (found) {
         const home = index.homes.find((h) => h.root === labels[i]);
@@ -538,7 +730,26 @@ export class DocsHost {
       return status;
     });
 
-    this.log(`Docs base ${base.id}: indexed ${index.pages.length} files in ${foundLabels.length} of ${base.roots.length} roots${truncated ? ' (file cap reached)' : ''}${oversizeSkipped ? `, ${oversizeSkipped} oversize skipped` : ''}`);
+    // Counting broken links is the one step over the whole index: a page at a time, yielding, inside the same budget.
+    let brokenLinks: number | undefined;
+    if (!timedOut) {
+      const resolver = createDocsLinkResolver(index);
+      let broken = 0;
+      for (let at = 0; at < index.pages.length; at++) {
+        broken += resolver.countBrokenOn(index.pages[at].id);
+        if (at % COUNT_YIELD_EVERY === COUNT_YIELD_EVERY - 1) {
+          if (outOfTime()) {
+            timedOut = true;
+            break;
+          }
+          await this.yieldToHost();
+        }
+      }
+      if (!timedOut) {brokenLinks = broken;}
+    }
+    const dirCapReached = perRoot.some((r) => r.dirCapReached);
+
+    this.log(`Docs base ${base.id}: indexed ${index.pages.length} files in ${foundLabels.length} of ${base.roots.length} roots${truncated ? ' (file cap reached)' : ''}${dirCapReached ? ' (folder cap reached)' : ''}${timedOut ? ' (time budget reached)' : ''}${oversizeSkipped ? `, ${oversizeSkipped} oversize skipped` : ''}${notTextSkipped ? `, ${notTextSkipped} not UTF-8 text skipped` : ''}`);
     return {
       index,
       files,
@@ -546,7 +757,10 @@ export class DocsHost {
       fileCount: index.pages.length,
       oversizeSkipped,
       capReached: perRoot.some((r) => r.capReached),
-      brokenLinks: createDocsLinkResolver(index).countBroken(),
+      notTextSkipped,
+      dirCapReached,
+      timedOut,
+      brokenLinks,
       foundSignature: reals.map((r) => (r === null ? '0' : '1')).join(''),
     };
   }
@@ -654,8 +868,11 @@ export class DocsHost {
         oversizeSkipped: built.oversizeSkipped,
         rootsMissing: built.rootStatuses.length - found,
         capReached: built.capReached,
-        // Counted when this base was walked; a base with no readable folder was not.
-        ...(found > 0 ? { brokenLinks: built.brokenLinks } : {}),
+        ...(built.notTextSkipped > 0 ? { notTextSkipped: built.notTextSkipped } : {}),
+        ...(built.dirCapReached ? { dirCapReached: true } : {}),
+        ...(built.timedOut ? { timedOut: true } : {}),
+        // Counted when this base was walked; a base with no readable folder was not, and neither was one that ran out of time.
+        ...(found > 0 && built.brokenLinks !== undefined ? { brokenLinks: built.brokenLinks } : {}),
       });
     }
     return out;
@@ -698,9 +915,10 @@ export class DocsHost {
       const st = await fs.stat(realFile);
       if (st.kind !== 'file') {return { refused: 'not a regular file' };}
       if (st.size > DOCS_MAX_FILE_BYTES) {return { refused: 'file is over the size limit' };}
-      const text = await fs.readFile(realFile);
-      if (text.length > DOCS_MAX_FILE_BYTES) {return { refused: 'file is over the size limit' };}
-      return { text };
+      const read = await this.readText(realFile);
+      if ('oversize' in read) {return { refused: 'file is over the size limit' };}
+      if ('notText' in read) {return { refused: NOT_TEXT_REASON };}
+      return { text: read.text };
     } catch {
       return { refused: 'could not be read' };
     }
@@ -784,6 +1002,8 @@ export class DocsHost {
         return rankKeywordSections(q, sections);
       }));
       for (const refs of results) {merged.push(...refs);}
+      // Splitting and ranking a batch of files is synchronous: let other extensions run between batches.
+      await this.yieldToHost();
       // Keep the pool small: the global top 20 is inside the union of each file's top 20.
       if (merged.length > 400) {
         merged.sort((a, b) => b.score - a.score || cmpCodePoints(a.id, b.id));
