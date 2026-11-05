@@ -25,8 +25,8 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 | [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | ✅ Done | 15 | `984583d`. Rust |
 | [M7 Host tests](#m7-host-tests) | Sonnet | ✅ Done | 14 | `c455fba`, gap fill `8cf75b9` |
 | [M8 Bases manager page](#m8-bases-manager-page) | Opus | ✅ Done | 14 | `7fdf1be`. UI |
-| [M9 Chat panel](#m9-chat-panel) | Opus | 🔄 In Progress | — | UI |
-| [M10 UI tests](#m10-ui-tests) | Sonnet | ⬜ Not Started | — | vitest jsdom |
+| [M9 Chat panel](#m9-chat-panel) | Opus | ✅ Done | 20 | `58dcfcd`. UI |
+| [M10 UI tests](#m10-ui-tests) | Sonnet | 🔄 In Progress | — | vitest jsdom |
 | [M11 Hands-on in both hosts](#m11-hands-on-in-both-hosts) | Sonnet | ⬜ Not Started | — | Mike signs off |
 | [M12 Docs and release notes](#m12-docs-and-release-notes) | Haiku | ⬜ Not Started | — | |
 
@@ -230,14 +230,14 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 
 **Model:** Opus (UI). New `packages/core/src/ai-chat-panel.ts`, loaded through `ai-ui.ts`; opened from the AI toolbar menu and the `mikedown.ai.chat` command (register in `package.json` commands and menus like `mikedown.ai.summarize`).
 
-- [ ] Panel in the editor (same mount pattern as the AI Activity panel): scope picker This document / Active bases (hidden without `host.docs`), input, Send, Cancel while in flight, one request at a time.
-- [ ] Answer rendering through `ai-markdown-preview.ts` (no href or src); `[n]` citations as `file › heading` chips that call `host.openLink` with a reveal; "No sources cited" and the coverage note under the answer.
-- [ ] (S6) "Base X is local-only" state with two actions: pick a local engine (routing) or open the base's switch (manager page).
-- [ ] (S8) Insert at cursor: citation links rewritten to CommonMark relative links from the current document's folder; other links and images inserted as plain text unless the URL appears verbatim in a cited section; insert through `editor.commands`, never DOM writes.
-- [ ] History in memory per editor instance, cleared on close; Copy and Save using `formatActivityExport` style and `host.saveTextFile`.
-- [ ] Hop progress line ("Reading 2 pages... hop 2 of 3") and a link to the Activity panel entry when activity is on.
-- [ ] Design craft: conversational layout like VS Code's Copilot chat or Apple Notes' quiet chrome, citation chips with hover title showing the path, subtle transition on answer arrival, keyboard: Enter sends, Shift+Enter newline, Esc cancels.
-- [ ] Feature switch: the `chat` feature toggle gates the panel with the standard "blocked by a feature switch" notice (`aiFeatureOffNotice`).
+- [x] Panel in the editor (same mount pattern as the AI Activity panel): scope picker This document / Active bases (hidden without `host.docs`), input, Send, Cancel while in flight, one request at a time.
+- [x] Answer rendering through `ai-markdown-preview.ts` (no href or src); `[n]` citations as `file › heading` chips that call `host.openLink` with a reveal; "No sources cited" and the coverage note under the answer.
+- [x] (S6) "Base X is local-only" state with two actions: pick a local engine (routing) or open the base's switch (manager page).
+- [x] (S8) Insert at cursor: citation links rewritten to CommonMark relative links from the current document's folder; other links and images inserted as plain text unless the URL appears verbatim in a cited section; insert through `editor.commands`, never DOM writes.
+- [x] History in memory per editor instance, cleared on close; Copy and Save using `formatActivityExport` style and `host.saveTextFile`.
+- [x] Hop progress line ("Reading 2 pages... hop 2 of 3") and a link to the Activity panel entry when activity is on.
+- [x] Design craft: conversational layout like VS Code's Copilot chat or Apple Notes' quiet chrome, citation chips with hover title showing the path, subtle transition on answer arrival, keyboard: Enter sends, Shift+Enter newline, Esc cancels.
+- [x] Feature switch: the `chat` feature toggle gates the panel with the standard "blocked by a feature switch" notice (`aiFeatureOffNotice`).
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
@@ -338,5 +338,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 17:35** - M7 done (`c455fba`): 4084 unit, 296 Rust lib and 595 Desktop vitest tests per the worker. Read-time symlink check on both hosts; Desktop broken link health; link and title parity fixtures, which exposed real disagreement between the hosts, now fixed. Gap fill dispatched for two M5, M6 and M8 defects M7 reported: Desktop re-walks every base on every chat turn, and the manager's Refresh never forces a walk on VS Code.
 
 **2026-11-05 17:39** - M7 gap fill done (`8cf75b9`): a plain `listBases` no longer walks on Desktop, and Refresh forces a walk on both hosts. VS Code needed tests only. `allowCloud` stays fresh on a plain call, tested on each host.
+
+**2026-11-05 17:50** - M9 done (`58dcfcd`), unit suite and lint re-run here: 207 files pass, 0 lint errors. The panel is docked rather than a full-window modal, so Insert's cursor and the file a chip opens stay visible. It closed an S8 hole in M2's code (a heading could reach the document as markup) and three chip-opening faults in VS Code. The VS Code `file:` path and Desktop `openPath` are traced by reading only, so M11 must click chips on both, including a file open in another group. M10 dispatched.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
