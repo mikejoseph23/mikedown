@@ -97,7 +97,7 @@ export type AiThinkingJob = string;
  * `navigate` is the docs chat's page-picking call (a small JSON answer); the
  * `answer` call is not here, so the model thinks as it would.
  */
-const SHORT_EDIT_JOBS: ReadonlySet<string> = new Set(['rewrite', 'translate', 'title', 'frontmatter', 'navigate']);
+const SHORT_EDIT_JOBS: ReadonlySet<string> = new Set(['rewrite', 'translate', 'title', 'frontmatter', 'navigate', 'ghostText']);
 
 /**
  * The level MikeDown picks for a job when the dial is on Default (Q6): Off
