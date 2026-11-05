@@ -248,6 +248,12 @@ export interface AiDocRootStatus {
   oversizeSkipped: number;
   /** The file cap was reached; later files were not indexed. */
   capReached: boolean;
+  /** Files that are not UTF-8 text (a UTF-16 or UTF-32 byte order mark, or NUL bytes), skipped. */
+  notTextSkipped?: number;
+  /** The folder cap was reached; later folders were not read. */
+  dirCapReached?: boolean;
+  /** The build's time budget ran out; the index covers what was read before that. */
+  timedOut?: boolean;
 }
 
 /**
@@ -267,6 +273,12 @@ export interface AiDocBaseStatus {
   rootsMissing: number;
   /** Any root hit the file cap. */
   capReached: boolean;
+  /** Files skipped because they are not UTF-8 text, over every root. */
+  notTextSkipped?: number;
+  /** Any root hit the folder cap. */
+  dirCapReached?: boolean;
+  /** The build's time budget ran out; the index and the counts cover what was read before that. */
+  timedOut?: boolean;
   /** Relative links that leave every root or point at no page. Absent when the host did not compute it. */
   brokenLinks?: number;
 }

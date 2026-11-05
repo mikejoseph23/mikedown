@@ -64,12 +64,17 @@ export function docsRootChips(root: AiDocRootStatus): DocsHealthChip[] {
   chips.push({ text: plural(root.fileCount, 'file'), tone: 'quiet' });
   if (root.oversizeSkipped > 0) {chips.push({ text: `${root.oversizeSkipped} too large, skipped`, tone: 'quiet' });}
   if (root.capReached) {chips.push({ text: 'File limit reached', tone: 'warn' });}
+  if (root.notTextSkipped) {chips.push({ text: `${root.notTextSkipped} not UTF-8 text, skipped`, tone: 'quiet' });}
+  if (root.dirCapReached) {chips.push({ text: 'Folder limit reached', tone: 'warn' });}
   return chips;
 }
 
 /** What only the base as a whole knows. */
 export function docsBaseChips(status: AiDocBaseStatus): DocsHealthChip[] {
-  return status.brokenLinks ? [{ text: plural(status.brokenLinks, 'broken link'), tone: 'warn' }] : [];
+  const chips: DocsHealthChip[] = [];
+  if (status.brokenLinks) {chips.push({ text: plural(status.brokenLinks, 'broken link'), tone: 'warn' });}
+  if (status.timedOut) {chips.push({ text: 'Stopped early: this folder took too long to read', tone: 'warn' });}
+  return chips;
 }
 
 /** The advanced options with `patch` applied, clamped here and not only by the controls. */
