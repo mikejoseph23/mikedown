@@ -184,7 +184,7 @@ With `mikedown.ai.enabled` on, **MikeDown: Chat with AI** opens a chat panel in 
 - **This document** answers from the text in the editor, unsaved changes included.
 - **Active bases** answers from your documentation bases: folders of markdown files on your machine, read from disk when you ask.
 
-Each answer has numbered citations that open the section they came from, and **Insert** puts the answer at the cursor with links to those sections. Answers are not saved. The chat history is kept in memory and cleared when you close the editor. MikeDown Desktop has the same panel and bases.
+Each answer has numbered citations that open the section they came from, and **Insert** puts the answer at the cursor with links to those sections. Copy and Save export an answer on request; otherwise the chat history is kept in memory and cleared when you close the panel. Each question stands alone: the model does not see earlier answers. MikeDown Desktop has the same panel and bases.
 
 Add a base on the Documentation bases page of the Settings modal, or choose **Add this workspace folder**. Bases are stored in your user settings only (`mikedown.ai.docBases`, machine scope), so a repository cannot add a base or point one somewhere else. `mikedown.ai.docs` (also user settings only) holds the advanced options: `maxHops` (navigation calls before the answer, 1 to 5, default 3) and `sourceShare` (the share of the model's context the sent sections may use, 30 to 80 percent, default 60).
 
@@ -195,6 +195,7 @@ Add a base on the Documentation bases page of the Settings modal, or choose **Ad
 - **Secrets scan:** every section, and every title and link in a navigation list, is checked before it is sent. Text that looks like an AWS access key, an `sk-` style or Stripe-style key, a PEM private key block or a JWT is left out, and the answer says so. This applies to local engines too.
 - **Cloud is opt-in per base:** each base has `allowCloud`, off by default. With it off, the base's pages never go to a cloud engine. If the chat would need one, it says "Base X is local-only" and offers a local engine or the switch. The consent prompt names the bases that would be sent.
 
+### Link Navigation and Autocomplete
 
 - **Cmd+Click** (or Ctrl+Click) to follow links to files, headings, or URLs
 - **Right-click** any link for Open Link / Open Link in New Tab options
