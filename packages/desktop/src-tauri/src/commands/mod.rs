@@ -4,6 +4,7 @@
 
 pub mod ai;
 pub mod appdata;
+pub mod docs;
 pub mod fs;
 pub mod launch;
 pub mod multiwindow;

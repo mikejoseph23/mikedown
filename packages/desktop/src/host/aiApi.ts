@@ -67,7 +67,7 @@ export interface AiApi {
   testEngine(engineId: string): Promise<AiEngineInfo>;
   discoverModels(engineId: string): Promise<AiDiscoveryResult>;
   setSecret(engineId: string, apiKey: string | null): Promise<void>;
-  /** `feature` and `sends` say what the request sends, for the dialog's words. */
+  /** `feature`, `sends` and `baseIds` say what the request sends, for the dialog's words. */
   requestCloudConsent(engineId: string, about?: AiConsentAbout): Promise<AiConsentAnswer>;
   /** The window folder's stored answers (`allow` / `never`), newest first. */
   listConsents(): Promise<AiConsentRecord[]>;
@@ -92,7 +92,13 @@ export const aiApi: AiApi = {
   discoverModels: (engineId) => invoke<AiDiscoveryResult>('ai_discover_models', { id: engineId }),
   setSecret: (engineId, apiKey) => invoke<void>('ai_set_secret', { id: engineId, apiKey }),
   requestCloudConsent: (engineId, about) =>
-    invoke<AiConsentAnswer>('ai_request_cloud_consent', { id: engineId, feature: about?.feature ?? null, sends: about?.sends ?? null }),
+    invoke<AiConsentAnswer>('ai_request_cloud_consent', {
+      id: engineId,
+      feature: about?.feature ?? null,
+      sends: about?.sends ?? null,
+      // Ids only: Rust maps them to names from the global settings (A3).
+      baseIds: about?.baseIds ?? null,
+    }),
   listConsents: () => invoke<AiConsentRecord[]>('ai_list_consents'),
   forgetConsent: (engineId) => invoke<void>('ai_forget_consent', { id: engineId }),
   forgetEngineConsents: (engineIds) => invoke<void>('ai_forget_engine_consents', { ids: engineIds }),

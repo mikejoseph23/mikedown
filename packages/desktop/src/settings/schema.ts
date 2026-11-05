@@ -37,6 +37,10 @@ export const DESKTOP_KEY_DEFAULTS = {
   // RFC 1918, the same default as core's DEFAULT_LOCAL_NETWORKS.
   'ai.localNetworks': ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'] as unknown[],
   'ai.showToolbarButton': true,
+  // Documentation bases (workspace RAG): folders of markdown the chat can read.
+  // App-wide like the engines; the Rust side reads them from the global file only.
+  'ai.docBases': [] as unknown[],
+  'ai.docs': {} as Record<string, unknown>,
   // Experimental: the in-memory AI Activity panel (never written to disk).
   'ai.activityPanel': false,
   fileAssociationsOffered: false,
@@ -45,7 +49,8 @@ export const DESKTOP_KEY_DEFAULTS = {
 /**
  * AI keys that only the global settings file may carry (OPEN-4). A repo's
  * `.mikedown/settings.json` must not be able to add an endpoint, turn the
- * cloud switch on, or re-label a public host as local: the folder file is
+ * cloud switch on, re-label a public host as local, or point a documentation
+ * base (a folder the chat reads and may send to an engine) anywhere: the folder file is
  * dropped of them on load (with a reason in the banner) and a "Save for this
  * folder" save writes them to the global file instead. The Rust side reads
  * only the global file for the same keys (`commands/ai.rs`).
@@ -54,7 +59,7 @@ export const DESKTOP_KEY_DEFAULTS = {
  * same mechanism: the toolbar is a personal preference, so a folder copy is
  * dropped and a folder-scoped save lands in the global file.
  */
-export const APP_WIDE_KEYS: readonly string[] = ['ai.engines', 'ai.allowCloud', 'ai.localNetworks', 'toolbarLayout'];
+export const APP_WIDE_KEYS: readonly string[] = ['ai.engines', 'ai.allowCloud', 'ai.localNetworks', 'ai.docBases', 'ai.docs', 'toolbarLayout'];
 
 export type DesktopKey = keyof typeof DESKTOP_KEY_DEFAULTS;
 export type SettingsRecord = Record<string, unknown>;
@@ -177,7 +182,7 @@ export function validateFolderOverride(
         key,
         reason: key === 'toolbarLayout'
           ? "toolbarLayout in this folder's settings file was ignored: the toolbar layout is a personal setting and can only be set in your own settings, not per folder."
-          : `${key} in this folder's settings file was ignored: AI engines, the cloud switch and local networks can only be set in your own settings, not per folder.`,
+          : `${key} in this folder's settings file was ignored: AI engines, the cloud switch, local networks and documentation bases can only be set in your own settings, not per folder.`,
       });
       continue;
     }

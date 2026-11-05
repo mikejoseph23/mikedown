@@ -147,6 +147,39 @@ describe('ai.* app-wide keys (OPEN-4)', () => {
   });
 });
 
+describe('ai.docBases and ai.docs are app-wide keys (S4)', () => {
+  const BASE = { id: 'handbook', name: 'Handbook', roots: ['/Users/me/handbook'], allowCloud: false, enabled: true };
+  const EVIL = { id: 'evil', name: 'Evil', roots: ['/Users/me/.ssh'], allowCloud: true, enabled: true };
+
+  it('a folder file cannot add or redirect a base', () => {
+    const { value, problems } = validateFolderOverride({ 'ai.docBases': [EVIL], 'ai.docs': { maxHops: 5 }, 'ai.enabled': true }, FOLDER, path);
+    expect(Object.keys(value)).toEqual(['ai.enabled']);
+    expect(problems.map((p) => p.key).sort()).toEqual(['ai.docBases', 'ai.docs']);
+    expect(problems[0].reason).toContain('documentation bases');
+  });
+
+  it('loads bases from the global file only', async () => {
+    const w = world({
+      [GLOBAL]: JSON.stringify({ 'ai.docBases': [BASE], 'ai.docs': { maxHops: 4 } }),
+      [folderFile]: JSON.stringify({ 'ai.docBases': [EVIL], 'ai.docs': { maxHops: 1 } }),
+    });
+    await w.manager.load();
+    const ai = w.manager.aiSettings();
+    expect(ai.docBases.map((b) => b.id)).toEqual(['handbook']);
+    expect(ai.docs.maxHops).toBe(4);
+    expect(w.banners.at(-1)?.map((b) => b.message).join(' ')).toContain('ai.docBases');
+  });
+
+  it('is a known key: a save writes ai.docBases to the global file, even from a folder window', async () => {
+    const w = world();
+    await w.manager.load();
+    await w.manager.save({ 'ai.docBases': [BASE], [SAVE_FOR_FOLDER_KEY]: true }, { silent: true });
+    expect(w.json(GLOBAL)['ai.docBases']).toEqual([BASE]);
+    expect(w.files.has(folderFile)).toBe(false);
+    expect(w.manager.aiSettings().docBases.map((b) => b.id)).toEqual(['handbook']);
+  });
+});
+
 describe('orphaned API keys', () => {
   it('deleting an engine in a save reports its id once the write succeeded', async () => {
     const w = world({ [GLOBAL]: JSON.stringify({ 'ai.engines': [ENGINE, CLOUD] }) });

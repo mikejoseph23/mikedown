@@ -4,7 +4,7 @@
 //! commands under `src/commands/` (file I/O and the folder tree's operations,
 //! the per-directory watcher, native window state, hot-exit backups and
 //! sessions, multi-window routing and the quit handshake, folder search,
-//! the self-updater, the AI engine commands).
+//! the self-updater, the AI engine commands, the documentation bases).
 
 use std::path::PathBuf;
 
@@ -113,6 +113,7 @@ pub fn run() {
         .manage(commands::updater::UpdaterState::default())
         .manage(commands::search::Searches::default())
         .manage(commands::ai::AiState::new())
+        .manage(commands::docs::DocsState::default())
         .manage(menu::MenuState::default())
         .menu(|handle| menu::build(handle))
         .on_menu_event(|app, event| menu::handle(app, event.id().as_ref()))
@@ -122,6 +123,8 @@ pub fn run() {
             let cwd = std::env::current_dir().ok();
             let paths = commands::launch::paths_from_args(std::env::args().skip(1), cwd.as_deref());
             commands::launch::queue_open(app.handle(), paths);
+            // Documentation bases outside $HOME stay readable after a restart (S11).
+            commands::docs::allow_roots(app.handle());
             dock::install(app.handle());
             Ok(())
         })
@@ -208,6 +211,13 @@ pub fn run() {
             commands::ai::ai_forget_engine_consents,
             commands::ai::ai_detect_local_servers,
             commands::ai::ai_hardware_info,
+            commands::docs::docs_list_bases,
+            commands::docs::docs_index,
+            commands::docs::docs_read_sections,
+            commands::docs::docs_keyword_search,
+            commands::docs::docs_sync_roots,
+            commands::docs::docs_watch,
+            commands::docs::docs_unwatch,
         ])
         .build(context)
         .expect("error while building MikeDown");
@@ -240,6 +250,8 @@ pub fn run() {
                 commands::launch::forget(app_handle, label);
                 // A closed window's AI requests have nowhere to stream to.
                 commands::ai::cancel_window(app_handle, label);
+                // ...and its documentation-base watchers have no one to tell.
+                commands::docs::forget_window(app_handle, label);
                 commands::print::close_stragglers(app_handle);
             }
             _ => {}

@@ -34,6 +34,7 @@ import { createDocumentRegistry, planOpen, type DocumentModel } from './document
 import { appDataApi, fsApi, launchApi, searchApi, treeApi, watchApi, windowApi, windowsApi } from './documents/fsApi';
 import { createSessionWriter, layoutFromSession, parseSession, serializeSession, type SessionData, type SessionTab } from './documents/session';
 import { aiApi } from './host/aiApi';
+import { docsApi } from './host/docsApi';
 import { createImagePipeline } from './host/imagePipeline';
 import { createPathOps, detectPathPlatform } from './host/pathOps';
 import { TauriHost } from './host/tauriHost';
@@ -303,6 +304,12 @@ function createEditor(editorEl: HTMLElement, paneId: string): MikeDownEditorHand
       api: aiApi,
       settings: () => settingsMgr.aiSettings(),
       saveEngines: (engines) => settingsMgr.save({ 'ai.engines': engines }, { silent: true }),
+    },
+    docs: {
+      api: docsApi,
+      // User-level only: `ai.docBases` is an app-wide key, so even a folder-scoped save lands in the global file.
+      saveBases: (bases) => settingsMgr.save({ 'ai.docBases': bases }, { silent: true }),
+      pickFolder: () => dialogs.openFolder({ title: 'Choose a documentation folder' }),
     },
   });
   const kb = workspaceRef?.knowledgeBase() ?? null;

@@ -22,6 +22,8 @@ pub fn sends_text(scope: &str) -> Option<&'static str> {
         "selection" => Some("the selected text and the paragraph before and after it"),
         "document" => Some("the whole document, up to what fits the model"),
         "documentAndTags" => Some("the document, its frontmatter and the tag names used in this workspace"),
+        // The base names follow in `what_is_sent`; without them this is all there is to say.
+        "docsBase" => Some("pages from the documentation bases you turned on"),
         _ => None,
     }
 }
@@ -36,12 +38,52 @@ pub fn feature_sends(feature: &str) -> Option<&'static str> {
     }
 }
 
-/// `whatIsSent(feature, sends)`: `sends` wins, then the feature's own scope.
-pub fn what_is_sent(feature: Option<&str>, sends: Option<&str>) -> &'static str {
-    sends
-        .and_then(sends_text)
-        .or_else(|| feature.and_then(feature_sends).and_then(sends_text))
-        .unwrap_or(SENDS_FALLBACK)
+/// `AI_SENDS_MAX_BASE_NAMES`: most base names a sentence lists before "and N more".
+pub const MAX_BASE_NAMES: usize = 5;
+
+/// JavaScript's `\s` (and `trim`): WhiteSpace plus LineTerminator.
+fn is_js_space(c: char) -> bool {
+    matches!(
+        c,
+        '\u{9}'..='\u{d}' | '\u{20}' | '\u{a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}' | '\u{feff}'
+    )
+}
+
+/// `listBaseNames`: `“Handbook”, “API docs” and “Notes”`. Blank names are skipped
+/// and whitespace (newlines included) is collapsed, so a name cannot start a
+/// paragraph of its own.
+fn list_base_names(names: &[String]) -> String {
+    let quoted: Vec<String> = names
+        .iter()
+        .map(|n| n.split(is_js_space).filter(|part| !part.is_empty()).collect::<Vec<_>>().join(" "))
+        .filter(|n| !n.is_empty())
+        .map(|n| format!("\u{201c}{n}\u{201d}"))
+        .collect();
+    if quoted.len() <= MAX_BASE_NAMES {
+        return match quoted.split_last() {
+            Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+            Some((last, _)) => last.clone(),
+            None => String::new(),
+        };
+    }
+    format!("{} and {} more", quoted[..MAX_BASE_NAMES].join(", "), quoted.len() - MAX_BASE_NAMES)
+}
+
+/// `whatIsSent(feature, sends, baseNames)`: `sends` wins, then the feature's
+/// own scope. For `docsBase` the base names (the host's, never the webview's)
+/// are spelled out; without a usable name it is the bare phrase.
+pub fn what_is_sent(feature: Option<&str>, sends: Option<&str>, base_names: &[String]) -> String {
+    let scope = sends.filter(|s| sends_text(s).is_some()).or_else(|| feature.and_then(feature_sends));
+    let text = scope.and_then(sends_text).unwrap_or(SENDS_FALLBACK);
+    if scope != Some("docsBase") {
+        return text.to_string();
+    }
+    let list = list_base_names(base_names);
+    if list.is_empty() {
+        text.to_string()
+    } else {
+        format!("{text}: {list}")
+    }
 }
 
 /// A cloud preset's policy link (`AiEnginePreset.policy`).
@@ -117,13 +159,20 @@ pub struct ConsentText {
 
 /// `aiConsentText` with `policyLine: true`, the policy looked up from `host`.
 /// `scope_word` is "folder" or "session" on Desktop.
-pub fn consent_text(engine_name: &str, host: &str, feature: Option<&str>, sends: Option<&str>, scope_word: &str) -> ConsentText {
+pub fn consent_text(
+    engine_name: &str,
+    host: &str,
+    feature: Option<&str>,
+    sends: Option<&str>,
+    base_names: &[String],
+    scope_word: &str,
+) -> ConsentText {
     let policy = policy_for_host(host);
     let mut paragraphs = vec![
         format!(
             "{engine_name} is a cloud engine at {host}. If you allow it, this request sends {}. \
 It goes over the internet and is processed on the provider's servers.",
-            what_is_sent(feature, sends)
+            what_is_sent(feature, sends, base_names)
         ),
         match policy.and_then(|p| p.note) {
             Some(note) => format!("{PRIVACY_TERMS} {note}"),
@@ -196,6 +245,7 @@ mod tests {
                 input["host"].as_str().unwrap(),
                 input["feature"].as_str(),
                 input["sends"].as_str(),
+                &[],
                 input["scopeWord"].as_str().unwrap(),
             );
             assert_eq!(got.title, expected["title"].as_str().unwrap(), "{name}: title");
@@ -207,11 +257,62 @@ mod tests {
         }
     }
 
+    fn base_names(input: &Value) -> Vec<String> {
+        input["baseNames"].as_array().map(|a| a.iter().map(|n| n.as_str().unwrap().to_string()).collect()).unwrap_or_default()
+    }
+
+    /// The `docsBase` block (S5): the scope's words, the cap on listed names, and
+    /// every case the Desktop dialog renders (`policyLine: true`; the other is
+    /// VS Code's button variant). The base names come from the host's settings.
+    #[test]
+    fn docs_base_text_matches_the_fixture_block() {
+        let f = fixture();
+        let block = &f["docsBase"];
+        assert_eq!(sends_text("docsBase"), block["sendsText"].as_str());
+        assert_eq!(MAX_BASE_NAMES as u64, block["maxNames"].as_u64().unwrap());
+        let mut rendered = 0;
+        for case in block["cases"].as_array().unwrap() {
+            if case["input"]["policyLine"].as_bool() != Some(true) {
+                continue;
+            }
+            let name = case["name"].as_str().unwrap();
+            let input = &case["input"];
+            let expected = &case["expected"];
+            let got = consent_text(
+                input["engineName"].as_str().unwrap(),
+                input["host"].as_str().unwrap(),
+                input["feature"].as_str(),
+                input["sends"].as_str(),
+                &base_names(input),
+                input["scopeWord"].as_str().unwrap(),
+            );
+            assert_eq!(got.title, expected["title"].as_str().unwrap(), "{name}: title");
+            assert_eq!(got.body, expected["body"].as_str().unwrap(), "{name}: body");
+            assert_eq!(got.allow, expected["allow"].as_str().unwrap(), "{name}: allow");
+            assert_eq!(got.allow_once, expected["allowOnce"].as_str().unwrap(), "{name}: allowOnce");
+            assert_eq!(got.deny, expected["deny"].as_str().unwrap(), "{name}: deny");
+            rendered += 1;
+        }
+        assert!(rendered >= 6, "the Desktop cases of the block ran ({rendered})");
+    }
+
+    /// Names are quoted; blank ones are skipped; whitespace (a newline too) is
+    /// collapsed so a name cannot open a paragraph of its own; only `docsBase`
+    /// lists names.
+    #[test]
+    fn base_names_are_listed_only_for_the_docs_base_scope() {
+        let names = vec!["Hand\nbook".to_string(), "  ".to_string(), "API  docs".to_string()];
+        assert_eq!(what_is_sent(Some("chat"), Some("docsBase"), &names), "pages from the documentation bases you turned on: \u{201c}Hand book\u{201d} and \u{201c}API docs\u{201d}");
+        assert_eq!(what_is_sent(Some("chat"), Some("docsBase"), &[]), "pages from the documentation bases you turned on");
+        assert_eq!(what_is_sent(Some("chat"), Some("document"), &names), "the whole document, up to what fits the model");
+        assert_eq!(what_is_sent(Some("rewrite"), None, &names), "the selected text and the paragraph before and after it");
+    }
+
     /// The fixture is rendered byte for byte, so the body must be the paragraphs
     /// joined with a blank line, exactly as core's `aiConsentText` joins them.
     #[test]
     fn the_body_is_the_paragraphs_joined_by_one_blank_line() {
-        let t = consent_text("Anthropic", "api.anthropic.com", Some("rewrite"), None, "folder");
+        let t = consent_text("Anthropic", "api.anthropic.com", Some("rewrite"), None, &[], "folder");
         let paragraphs: Vec<&str> = t.body.split("\n\n").collect();
         assert_eq!(paragraphs.len(), 4);
         assert!(paragraphs[0].starts_with("Anthropic is a cloud engine at api.anthropic.com. If you allow it, this request sends "));
@@ -230,12 +331,12 @@ mod tests {
             ("frontmatter", "OpenRouter", "openrouter.ai"),
         ] {
             for word in ["folder", "session"] {
-                let t = consent_text(engine, host, Some(feature), None, word);
+                let t = consent_text(engine, host, Some(feature), None, &[], word);
                 assert_eq!(t.title, format!("Send text to {engine}?"));
                 assert_eq!(t.allow, format!("Allow for this {word}"));
                 assert_eq!(t.allow_once, "Allow once");
                 assert_eq!(t.deny, "Don't allow");
-                assert!(t.body.contains(&format!("this request sends {}.", what_is_sent(Some(feature), None))), "{feature}");
+                assert!(t.body.contains(&format!("this request sends {}.", what_is_sent(Some(feature), None, &[]))), "{feature}");
                 assert!(t.body.contains(&format!("You can use a local engine instead. Allow for this {word} ")), "{feature}/{word}");
                 let p = policy_for_host(host).unwrap();
                 assert!(t.body.contains(&format!("{}: {}", p.label, p.url)), "{feature}: policy line");
@@ -245,7 +346,7 @@ mod tests {
 
     #[test]
     fn a_feature_that_sends_nothing_known_falls_back_to_the_generic_phrase() {
-        let t = consent_text("My proxy", "llm.example.com", Some("somethingNew"), None, "folder");
+        let t = consent_text("My proxy", "llm.example.com", Some("somethingNew"), None, &[], "folder");
         assert!(t.body.contains(&format!("this request sends {SENDS_FALLBACK}.")));
         assert!(!t.body.contains("https://"), "a host no preset knows has no policy line");
     }

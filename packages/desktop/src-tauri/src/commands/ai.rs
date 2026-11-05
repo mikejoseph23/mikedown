@@ -19,11 +19,12 @@
 //!   discovered models with core's capability heuristics.
 //! - `ai_set_secret(id, key)`: the OS keychain (service `net.iadev.mikedown`,
 //!   account = engine id). Keys never come back out.
-//! - `ai_request_cloud_consent(id, feature?, sends?)`: a native dialog with
+//! - `ai_request_cloud_consent(id, feature?, sends?, baseIds?)`: a native dialog with
 //!   three answers (Allow for this folder / Allow once / Don't allow), not
 //!   webview UI, so a shared folder cannot restyle it away. Its words come
-//!   from `consent.rs`, the port of core's `aiConsentText`. Resolves to
-//!   `allow`, `allowOnce`, `deny`, or `never` (stored by an older version).
+//!   from `consent.rs`, the port of core's `aiConsentText`; `baseIds` (a
+//!   documentation-base request) become names from the global settings.
+//!   Resolves to `allow`, `allowOnce`, `deny`, or `never` (stored by an older version).
 //! - `ai_list_consents()` and `ai_forget_consent(id)`: the window folder's
 //!   stored answers and this session's "Don't allow", for the Cloud consents
 //!   list on the AI tab.
@@ -580,6 +581,7 @@ pub async fn ai_request_cloud_consent<R: Runtime>(
     id: String,
     feature: Option<String>,
     sends: Option<String>,
+    base_ids: Option<Vec<String>>,
 ) -> Result<Answer, AiError> {
     use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult};
 
@@ -604,11 +606,15 @@ pub async fn ai_request_cloud_consent<R: Runtime>(
     }
     let host = host_of_url(&engine.base_url).unwrap_or_else(|| engine.base_url.clone());
     let scope_word = if folder.is_some() { "folder" } else { "session" };
+    // The dialog names the bases from the global settings; ids the settings do
+    // not list are dropped, so webview text never reaches the native modal (A3).
+    let base_names = super::docs::consent_base_names(&app, &base_ids.unwrap_or_default());
     let text = consent::consent_text(
         engine.display_name(),
         &host,
         feature.as_deref(),
         sends.as_deref(),
+        &base_names,
         scope_word,
     );
     let allow_label = text.allow.clone();

@@ -42,7 +42,8 @@ pub enum Mode {
     Poll,
 }
 
-enum Handle {
+/// A running watcher; dropping it stops it. `docs.rs` keeps its own per root.
+pub(crate) enum Handle {
     Native(#[allow(dead_code)] RecommendedWatcher),
     Poll(#[allow(dead_code)] PollWatcher),
 }
@@ -140,7 +141,7 @@ fn network_path_impl(dir: &Path) -> bool {
     unsafe { GetDriveTypeW(root.as_ptr()) == DRIVE_REMOTE }
 }
 
-fn force_poll() -> bool {
+pub(crate) fn force_poll() -> bool {
     std::env::var_os("MIKEDOWN_WATCH_POLL").is_some_and(|v| v == "1")
 }
 
@@ -148,6 +149,17 @@ fn force_poll() -> bool {
 /// native falls back to polling when it cannot start. Independent of Tauri so
 /// the tests drive it directly.
 fn start<F>(dir: &Path, prefer: Mode, on_signal: F) -> Result<(Handle, Mode), String>
+where
+    F: Fn(Signal) + Send + Sync + Clone + 'static,
+{
+    start_with(dir, prefer, RecursiveMode::NonRecursive, on_signal)
+}
+
+/// `start` with a recursion choice. The folder tree watches one expanded
+/// directory at a time (non-recursive); a documentation base watches its whole
+/// root (`commands/docs.rs`), so it asks for `Recursive` and keeps its own
+/// handles: the tree's `unwatch` and `unwatch_all` can never stop them.
+pub(crate) fn start_with<F>(dir: &Path, prefer: Mode, recursive: RecursiveMode, on_signal: F) -> Result<(Handle, Mode), String>
 where
     F: Fn(Signal) + Send + Sync + Clone + 'static,
 {
@@ -167,7 +179,7 @@ where
             Config::default(),
         );
         if let Ok(mut w) = native {
-            if w.watch(dir, RecursiveMode::NonRecursive).is_ok() {
+            if w.watch(dir, recursive).is_ok() {
                 return Ok((Handle::Native(w), Mode::Native));
             }
         }
@@ -185,7 +197,7 @@ where
         Config::default().with_poll_interval(POLL_INTERVAL),
     )
     .map_err(|e| format!("{}: {e}", dir.display()))?;
-    poll.watch(dir, RecursiveMode::NonRecursive)
+    poll.watch(dir, recursive)
         .map_err(|e| format!("{}: {e}", dir.display()))?;
     Ok((Handle::Poll(poll), Mode::Poll))
 }

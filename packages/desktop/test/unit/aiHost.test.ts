@@ -249,6 +249,10 @@ describe('aiHost registry methods', () => {
     expect(await host.requestCloudConsent?.('e1')).toBe('once');
     api.requestCloudConsent.mockResolvedValueOnce('never');
     expect(await host.requestCloudConsent?.('e1')).toBe('never');
+    // A documentation-base request sends ids only; Rust turns them into names.
+    const about = { feature: 'chat', sends: 'docsBase' as const, baseIds: ['b1', 'b2'] };
+    await host.requestCloudConsent?.('e1', about);
+    expect((api.requestCloudConsent.mock.calls as unknown[][]).at(-1)).toEqual(['e1', about]);
     api.setSecret.mockRejectedValueOnce({ code: 'unknown', message: 'The keychain refused the change: locked' });
     await expect(host.setSecret?.('e1', 'x')).rejects.toMatchObject({ message: expect.stringContaining('locked') });
   });

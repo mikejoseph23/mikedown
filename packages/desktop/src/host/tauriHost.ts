@@ -22,6 +22,11 @@
  * `aiHost.ts` adapts them to the host contract. API keys never reach the
  * webview.
  *
+ * `docs` (`MikeDownDocsHost`, the chat panel's documentation bases) exists when
+ * the app passes `deps.docs`: the index, reads and keyword search run in Rust
+ * (`commands/docs.rs`) and `docsHost.ts` adapts them. The webview never names a
+ * folder, only a base id.
+ *
  * Core's document sidebar (Outline / Backlinks / Properties) gets its
  * persisted pin and section state through `sidebarPrefs` (the app's settings
  * file, `outline.*`) and its backlinks from `refreshBacklinks` /
@@ -49,6 +54,7 @@ import type { FsApi } from '../documents/fsApi';
 import type { DesktopSettingsStore } from '../settings/desktopSettings';
 import type { ImagePipeline } from './imagePipeline';
 import { createAiHost, type AiHostDeps } from './aiHost';
+import { createDocsHost, type DocsHostDeps } from './docsHost';
 import { routeLink } from './linkRouting';
 import { stripQuery } from './imagePipeline';
 import type { BacklinkIndex } from '../tree/backlinks';
@@ -97,6 +103,8 @@ export interface TauriHostDeps {
   diffBaseline?(path: string): Promise<string | null>;
   /** The AI engine registry (tier 2 `host.ai`). Absent: core keeps every AI surface off. */
   ai?: AiHostDeps;
+  /** The documentation bases (`host.docs`). Absent: core shows This document only. */
+  docs?: DocsHostDeps;
   /** Persisted sidebar state (pin, collapsed sections). Absent: core keeps it in memory. */
   outline?: {
     get(): OutlineSettings;
@@ -114,6 +122,7 @@ export class TauriHost implements MikeDownHost {
   private backlinksRun = 0;
   readonly sidebarPrefs?: MikeDownSidebarPrefs;
   readonly ai?: MikeDownHost['ai'];
+  readonly docs?: MikeDownHost['docs'];
 
   readonly uploadImage: MikeDownHost['uploadImage'];
   readonly pickImage: MikeDownHost['pickImage'];
@@ -147,6 +156,7 @@ export class TauriHost implements MikeDownHost {
       };
     }
     if (deps.ai) {this.ai = createAiHost(deps.ai);}
+    if (deps.docs) {this.docs = createDocsHost(deps.docs);}
     const outline = deps.outline;
     if (outline) {
       this.sidebarPrefs = {
