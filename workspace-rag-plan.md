@@ -21,7 +21,7 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 | [M2 Core index model, link graph, keyword fallback, secrets scan](#m2-core-index-model-link-graph-keyword-fallback-secrets-scan) | Sonnet | ✅ Done | 14 | `d3aa708`. Pure TS |
 | [M3 Core tests](#m3-core-tests) | Sonnet | ✅ Done | 9 | `4c458a1`. Found and fixed 3 M2 bugs |
 | [M4 Navigation loop and answer call](#m4-navigation-loop-and-answer-call) | Opus | 🔄 In Progress | — | Nuanced prompts |
-| [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | 🔄 In Progress | — | |
+| [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | ✅ Done | 11 | `4c28014`. Modal entry is M8's |
 | [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | 🔄 In Progress | — | Rust |
 | [M7 Host tests](#m7-host-tests) | Sonnet | ⬜ Not Started | — | vitest + cargo |
 | [M8 Bases manager page](#m8-bases-manager-page) | Opus | 🔄 In Progress | — | UI |
@@ -172,14 +172,14 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 
 **Model:** Sonnet. Files: new `src/ai/docsHost.ts`, `src/ai/webviewBridge.ts`, `src/settings.ts`, `src/ai/vscodeAi.ts`, `package.json`.
 
-- [ ] (S3) Walker over each root with `vscode.workspace.fs`: skip symlinked dirs (`FileType.SymbolicLink`), `node_modules`, hidden dirs; stop at 5,000 files and record the cap in health.
-- [ ] (S2, S12) `readSections`: canonicalize with `fs.realpath`, require the path under the canonical root, `.md`/`.markdown`, regular file, ≤ 1 MiB; refuse otherwise with a reason; read-only, no other I/O.
-- [ ] Index per base: titles, headings (`headingsOutline`), links; lazy on first use; `FileSystemWatcher` with `RelativePattern(Uri.file(root), '**/*.{md,markdown}')` for invalidation plus a TTL re-walk.
-- [ ] Keyword search using the shared ranking from M2 over the index's files.
-- [ ] Bridge messages: `docsListBases`, `docsIndex`, `docsReadSections`, `docsKeywordSearch` and replies; list them at the top of `webviewBridge.ts` and `src/webview/editor-main.ts`.
+- [x] (S3) Walker over each root with `vscode.workspace.fs`: skip symlinked dirs (`FileType.SymbolicLink`), `node_modules`, hidden dirs; stop at 5,000 files and record the cap in health.
+- [x] (S2, S12) `readSections`: canonicalize with `fs.realpath`, require the path under the canonical root, `.md`/`.markdown`, regular file, ≤ 1 MiB; refuse otherwise with a reason; read-only, no other I/O.
+- [x] Index per base: titles, headings (`headingsOutline`), links; lazy on first use; `FileSystemWatcher` with `RelativePattern(Uri.file(root), '**/*.{md,markdown}')` for invalidation plus a TTL re-walk.
+- [x] Keyword search using the shared ranking from M2 over the index's files.
+- [x] Bridge messages: `docsListBases`, `docsIndex`, `docsReadSections`, `docsKeywordSearch` and replies; list them at the top of `webviewBridge.ts` and `src/webview/editor-main.ts`.
 - [ ] Settings rule, all three places: `mikedown.ai.docBases` and `mikedown.ai.docs` in `package.json#contributes.configuration` (scope `machine`), `src/settings.ts`, and the Settings modal entry pointing at the manager page.
-- [ ] (S4) `docBases` read from `globalValue` only in `effectiveAiRaw`; added to `USER_ONLY_KEYS`; "Add this workspace folder" writes the global value (multi-root: `showQuickPick`).
-- [ ] (S9) Watcher per root only; no workspace-wide watcher.
+- [x] (S4) `docBases` read from `globalValue` only in `effectiveAiRaw`; added to `USER_ONLY_KEYS`; "Add this workspace folder" writes the global value (multi-root: `showQuickPick`).
+- [x] (S9) Watcher per root only; no workspace-wide watcher.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
@@ -325,5 +325,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 17:08** - M2 done (`d3aa708`): 151 new tests re-run by the orchestrator, 3694 total per the worker. M3, M4, M5, M6 and M8 dispatched together. The Settings modal entry moves from M5 to M8, which owns the page it opens. M4's `loop.ts` takes the completion runner as a parameter so `ai/` stays pure.
 
 **2026-11-05 17:18** - M3 done (`4c458a1`). Attack tests found and fixed three M2 bugs: a quadratic Insert sanitizer (28 s on 150 KB), `#` and `?` unencoded in citation links, a PEM header re-wrapped across a line break not detected. 4 consent and bridge failures in M5's in-progress files to re-check when M5 lands.
+
+**2026-11-05 17:21** - M5 done (`4c28014`), 3949 unit tests per the worker; the 4 consent and bridge failures M3 saw are gone (143 re-run here). The Settings rule box stays open until M8 adds the modal entry. For M7: a file swapped for a symlink after indexing is still readable when it resolves inside the root; the Summary says symlinks are refused, so M7 tightens this on both hosts.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
