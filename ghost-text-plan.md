@@ -21,7 +21,7 @@ Defaults applied: incremental testing, vitest unit tests, hands-on for interacti
 | M2 Core: ghost controller | Sonnet | ✅ Done | 4 | 022937d |
 | M3 Tests: core | Sonnet | ✅ Done | 7 | 2ae3bea; 121 tests |
 | M4 UI: decoration plugin, keys, status | Opus | 🔄 In Progress | — | Widget decoration, Tab/Esc, chip |
-| M5 UI: settings, consent, activity | Opus | 🔄 In Progress | — | Feature row knobs, consent-once, recorder |
+| M5 UI: settings, consent, activity | Opus | ✅ Done | 10 | 0c5df42; gap fill for D3 and the local-only fence |
 | M6 Tests: UI | Sonnet | ⬜ Not Started | — | jsdom editor tests |
 | M7 Hands-on walk (both hosts) | Opus | ⬜ Not Started | — | Mike signs off |
 
@@ -124,13 +124,13 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Opus.** Settings modal rows and consent copy. Workers must complete every item.
 
-- [ ] `ai-settings.ts`: when `ghostText` is on, a disclosure under its row with Delay (ms), Max tokens, Trigger (Automatic / Manual shortcut), and "Local engines only" switch; saved into `features.ghostText` via the existing draft patch (`ai-settings.ts:322`).
-- [ ] The feature description reads "Dim continuation text while you write. Sends the text around the cursor as you pause." and the row shows a privacy line from `privacyLine` (`ai-settings-dom.ts`) when "Local engines only" is off.
-- [ ] `package.json#contributes.configuration` line 965: add `delayMs`, `maxTokens`, `trigger`, `localOnly` to the per-feature schema with descriptions. `src/settings.ts` needs no change (verify); Desktop `schema.ts` needs no change (verify).
-- [ ] Consent: with `localOnly` off, the first ghost request goes through `requestCloudConsent` as any feature does; confirm the dialog text names Inline suggestions and the cursor-window scope (`aiConsentText`, `privacy.ts:140`). A "Don't allow" answer silences ghost text for the session (D9).
-- [ ] AI Activity: accepted suggestions appear in the panel as feature "Inline suggestions" with the prompt and the accepted text; add the label to `ai-activity-panel.ts` where Explain and Translate are named (commit c974b24).
-- [ ] README (features list and the AI section), CHANGELOG under Unreleased, and the Desktop release notes file the AI Activity work used.
-- [ ] Commit.
+- [x] `ai-settings.ts`: when `ghostText` is on, a disclosure under its row with Delay (ms), Max tokens, Trigger (Automatic / Manual shortcut), and "Local engines only" switch; saved into `features.ghostText` via the existing draft patch (`ai-settings.ts:322`).
+- [x] The feature description reads "Dim continuation text while you write. Sends the text around the cursor as you pause." and the row shows a privacy line from `privacyLine` (`ai-settings-dom.ts`) when "Local engines only" is off.
+- [x] `package.json#contributes.configuration` line 965: add `delayMs`, `maxTokens`, `trigger`, `localOnly` to the per-feature schema with descriptions. `src/settings.ts` needs no change (verify); Desktop `schema.ts` needs no change (verify).
+- [x] Consent: with `localOnly` off, the first ghost request goes through `requestCloudConsent` as any feature does; confirm the dialog text names Inline suggestions and the cursor-window scope (`aiConsentText`, `privacy.ts:140`). A "Don't allow" answer silences ghost text for the session (D9).
+- [x] AI Activity: accepted suggestions appear in the panel as feature "Inline suggestions" with the prompt and the accepted text; add the label to `ai-activity-panel.ts` where Explain and Translate are named (commit c974b24).
+- [x] README (features list and the AI section), CHANGELOG under Unreleased, and the Desktop release notes file the AI Activity work used.
+- [x] Commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -193,5 +193,7 @@ Gap-filling prompts follow the original milestone prompt structure (header, miss
 **2026-11-05 18:45** - M3 done (2ae3bea), 121 tests. Discrepancy with D4: the `continue` task has no `prefers`, so `fim` is not a router preference; the chosen route wins, then registry order. Left as is and the test pins it, since with no FIM wire a preference could pick a fim-only model that cannot take the chat prompt. A fim-only model passes `requiresAny` today and would still get a chat request. To raise with Mike at M7.
 
 **2026-11-05 18:47** - M4a done (25a79dc): the plugin half of M4. Refinements of D7 and D6: keys use \`handleDOMEvents.keydown\`, because \`editorProps.handleKeyDown\` always runs before any plugin's whatever the order; a suggestion stops at a single newline, since inserting it would break the paragraph. Also added: blur and IME composition dismiss, inline code and empty blocks are ineligible on idle, undo, paste and host updates never trigger. M4b does the wiring.
+
+**2026-11-05 18:55** - M5 done (0c5df42). Settings fold, schema, Activity label, docs. Two consent fixes: a new `cursor` send scope replaces `selection` so the dialog describes ghost text, and "Allow once" now stops the idle trigger instead of asking at every pause. Don't allow only silences when no other engine can serve; a working local fallback keeps suggestions flowing. Follow-ups going to a gap fill: `ghostContext` sends everything up to the caret when it fits, which departs from D3 (outline plus the last 2400 chars) and hurts the first-token target; and a repo's settings can turn `localOnly` off, so it is fenced to user scope.
 
 [Return to Top](#ghost-text-plan)
