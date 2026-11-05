@@ -23,7 +23,7 @@ Defaults applied: incremental testing, vitest for core and VS Code host modules,
 | [M4 Navigation loop and answer call](#m4-navigation-loop-and-answer-call) | Opus | ✅ Done | 17 | `c0d9eb3`. Route pinned for the turn |
 | [M5 host.docs in VS Code](#m5-hostdocs-in-vs-code) | Sonnet | ✅ Done | 11 | `4c28014`. Modal entry is M8's |
 | [M6 host.docs on Desktop](#m6-hostdocs-on-desktop) | Sonnet | ✅ Done | 15 | `984583d`. Rust |
-| [M7 Host tests](#m7-host-tests) | Sonnet | 🔄 In Progress | — | vitest + cargo |
+| [M7 Host tests](#m7-host-tests) | Sonnet | ✅ Done | 14 | `c455fba`. Refresh gap fill running |
 | [M8 Bases manager page](#m8-bases-manager-page) | Opus | ✅ Done | 14 | `7fdf1be`. UI |
 | [M9 Chat panel](#m9-chat-panel) | Opus | 🔄 In Progress | — | UI |
 | [M10 UI tests](#m10-ui-tests) | Sonnet | ⬜ Not Started | — | vitest jsdom |
@@ -202,13 +202,13 @@ Workers must complete **all** items in their milestone. Do not skip items as low
 
 **Model:** Sonnet. Modes: unit (vitest for `src/ai/docsHost.ts` with a fake `workspace.fs`, in `test/unit/`), `cargo test` for `docs.rs` and `consent.rs`.
 
-- [ ] VS Code: walker skips symlinked dirs and `node_modules`, stops at the cap and reports it.
-- [ ] VS Code: `readSections` refuses a symlink escaping the root, a `../` path, a `.txt`, a 2 MiB file, and an id not in the index.
-- [ ] VS Code: `effectiveAiRaw` ignores a workspace-scoped `docBases`; `USER_ONLY_KEYS` write test.
-- [ ] Rust: `docs_read_sections` same five refusals; `docs_index` cap; `walk_markdown` reuse.
-- [ ] Rust: `consent.rs` `docsBase` text matches `test/ai-fixtures/consent/consent-text.json`.
-- [ ] Both: keyword search returns the same order for the shared fixture in `test/ai-fixtures/docs/`.
-- [ ] `npm run test:unit`, `npm run test:packages`, `cargo test` in `packages/desktop/src-tauri` green.
+- [x] VS Code: walker skips symlinked dirs and `node_modules`, stops at the cap and reports it.
+- [x] VS Code: `readSections` refuses a symlink escaping the root, a `../` path, a `.txt`, a 2 MiB file, and an id not in the index.
+- [x] VS Code: `effectiveAiRaw` ignores a workspace-scoped `docBases`; `USER_ONLY_KEYS` write test.
+- [x] Rust: `docs_read_sections` same five refusals; `docs_index` cap; `walk_markdown` reuse.
+- [x] Rust: `consent.rs` `docsBase` text matches `test/ai-fixtures/consent/consent-text.json`.
+- [x] Both: keyword search returns the same order for the shared fixture in `test/ai-fixtures/docs/`.
+- [x] `npm run test:unit`, `npm run test:packages`, `cargo test` in `packages/desktop/src-tauri` green.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
 
@@ -333,5 +333,7 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 **2026-11-05 17:25** - M6 done (`984583d`): 29 docs Rust tests re-run here; 284 lib tests and 589 Desktop vitest per the worker. Live-app paths (startup scope, watcher) are covered by pure tests only until M11. M7 dispatched, with the strict symlink read, broken link health and cross-host parity for links and titles added to it.
 
 **2026-11-05 17:28** - M4 done (`c0d9eb3`): 4053 unit tests per the worker; the loop and request tests re-run here (120). 16 hand mutations of the security rules each failed tests, per the worker. Open for Mike at sign-off: each chat turn is standalone, so a follow-up question does not see the earlier answer; an engine already allowed sends base pages without a dialog once a base's switch is on; a newly added base shows no health until Refresh. M9 dispatched.
+
+**2026-11-05 17:35** - M7 done (`c455fba`): 4084 unit, 296 Rust lib and 595 Desktop vitest tests per the worker. Read-time symlink check on both hosts; Desktop broken link health; link and title parity fixtures, which exposed real disagreement between the hosts, now fixed. Gap fill dispatched for two M5, M6 and M8 defects M7 reported: Desktop re-walks every base on every chat turn, and the manager's Refresh never forces a walk on VS Code.
 
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
