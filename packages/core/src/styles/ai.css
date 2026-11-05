@@ -2592,3 +2592,139 @@
   :is(.mikedown-root, .mikedown-portal) [data-status="streaming"] > .ai-activity-dot { animation: none; }
   :is(.mikedown-root, .mikedown-portal) .ai-activity-row { transition: none; }
 }
+
+/* ── Documentation bases (ai-docs-page.ts) ───────────────────────────────── */
+
+:is(.mikedown-root, .mikedown-portal) .ai-docs,
+:is(.mikedown-root, .mikedown-portal) .ai-docs-list-view,
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs { gap: 14px; }
+:is(.mikedown-root, .mikedown-portal) .ai-docs > [hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-page-detail[data-kind="bases"] .ai-detail-head { flex-direction: row; align-items: center; gap: 14px; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-docs-bar,
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form-actions,
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form-adders,
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs-status {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--settings-muted);
+}
+
+/* One base: a row of the settings group, flat, with its folders under the name. */
+:is(.mikedown-root, .mikedown-portal) .settings-group > .settings-row.ai-docs-base { gap: 6px; }
+:is(.mikedown-root, .mikedown-portal) .ai-docs-base-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs-base-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs-base-name {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--settings-fg);
+  overflow-wrap: anywhere;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs-base-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs-base.is-disabled .ai-docs-base-title,
+:is(.mikedown-root, .mikedown-portal) .ai-docs-base.is-disabled .ai-docs-roots { opacity: 0.55; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-docs-roots,
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form-roots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form-roots:empty { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-docs-root {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form-root {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs-path {
+  min-width: 0;
+  color: var(--settings-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Health: small quiet tags, as under a setting in VS Code. Only a warning takes colour. */
+:is(.mikedown-root, .mikedown-portal) .ai-docs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  padding: 0 6px;
+  min-height: 17px;
+  border: 1px solid transparent;
+  border-radius: var(--mikedown-radius-sm, 4px);
+  background: var(--ai-row-hover);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--settings-muted);
+  overflow-wrap: anywhere;
+}
+:is(.mikedown-root, .mikedown-portal) .ai-docs-chip svg { flex-shrink: 0; width: 11px; height: 11px; }
+:is(.mikedown-root, .mikedown-portal) .ai-docs-chip--warn {
+  background: color-mix(in srgb, var(--ai-warn) 10%, transparent);
+  color: var(--ai-warn);
+}
+
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form .settings-input:not(.ai-docs-number) { min-width: 0; }
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form .settings-row--inline > .settings-input { width: 260px; max-width: 100%; }
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form-path .settings-input { flex: 1; width: auto; min-width: 160px; }
+:is(.mikedown-root, .mikedown-portal) .ai-docs-form-error:empty { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-docs-number { width: 72px; }
+:is(.mikedown-root, .mikedown-portal) .ai-docs-select.settings-input { width: auto; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-page-detail .ai-docs-base .ai-confirm { margin: 2px 0 0; }
+
+:is(.mikedown-root, .mikedown-portal) .ai-page.is-narrow .ai-docs-base-head { flex-wrap: wrap; }
+:is(.mikedown-root, .mikedown-portal) .ai-page.is-narrow .ai-docs-path { white-space: normal; overflow-wrap: anywhere; }
+:is(.mikedown-root, .mikedown-portal) .ai-page.is-narrow .ai-docs-form .settings-row--inline { grid-template-columns: minmax(0, 1fr); }
+:is(.mikedown-root, .mikedown-portal) .ai-page.is-narrow .ai-docs-form .settings-row--inline > .settings-input { width: 100%; justify-self: stretch; }
+:is(.mikedown-root, .mikedown-portal) .ai-page.is-narrow .ai-docs-form .settings-row--inline > .ai-switch { justify-self: start; }

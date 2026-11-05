@@ -3,9 +3,9 @@
  * `ai` group (see `editor.ts#showSettingsModal`), with the modal's own row
  * builders so it sits flush with the other tabs.
  *
- * Order (U8): the intro, the master switch, the Engines summary, Allow
- * cloud with the cloud consents, the toolbar button switch, the AI Activity
- * switch, Features.
+ * Order (U8): the intro, the master switch, the Engines summary, the
+ * Documentation bases row (with `host.docs`), Allow cloud with the cloud
+ * consents, the toolbar button switch, the AI Activity switch, Features.
  * Tier 1 hosts (`complete` only, they route by themselves) get the master
  * switch, the toolbar and AI Activity switches and the feature toggles. Tier 2 hosts (an
  * engine registry) also get a compact engine list (name, local/cloud pill,
@@ -46,6 +46,8 @@ export interface AiSettingsSectionOptions extends AiSettingsSessionOptions {
   onSaved(draft: AiSettings): void;
   /** Open the AI Engines page. Absent: no engine list and no Manage engines… button. */
   openEnginesPage?(request: AiEnginesPageRequest): void;
+  /** The host has `host.docs`: a row opens the AI Engines page on its Documentation bases. */
+  docsAvailable?: boolean;
   /** Open the AI Activity panel over the modal. Absent: no "Open" beside the switch. */
   openActivityPanel?(): void;
   /** A stored consent was forgotten: drop this session's copy of the answer so the next request asks again. */
@@ -212,6 +214,13 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
       },
     });
   }
+
+  // ── Documentation bases (the page has the list) ───────────────────────────
+  const basesRow = ctx.makeRow('Documentation bases', 'Folders of markdown the AI can answer from.', 'inline');
+  basesRow.classList.add('ai-section');
+  const basesOpen = button('settings-btn settings-btn--secondary', 'Manage bases…', { fk: 'manage-bases' });
+  basesOpen.addEventListener('click', () => openPage({ section: 'bases' }));
+  basesRow.append(basesOpen);
 
   function renderEngines(): void {
     keepFocus(enginesBody, () => {
@@ -446,6 +455,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
     if (canManage) {
       rows.push(enginesRow);
       renderEngines();
+      if (opts.docsAvailable) {rows.push(basesRow);}
     }
     rows.push(cloudField.row);
     if (listConsents && forgetConsent) {

@@ -42,12 +42,16 @@
  * steps, and the wizard's Done is the page's Done. "Change settings in AI Engines"
  * leaves the wizard for the full page, in the same session.
  *
+ * On a host with `host.docs` the list also has Documentation bases
+ * (`ai-docs-page.ts`), the `'bases'` section. A base saves at once through the
+ * host; only the bases' advanced options wait for Done.
+ *
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
 import { AI_ENGINE_PRESETS, AI_HOST_PRESET_FAMILY, AI_PRESET_FAMILIES, aiProviderPolicy, modelSizeHint, presetForEngine } from './ai';
 import { AI_DETECT_LOOKING, AI_DETECT_NONE, detectLocalServers, hostEngineAvailability, knownHardware, setupHardware } from './ai-local-setup';
-import type { AiEngineConfig, AiEnginePreset, AiEngineStatus, AiHardwareInfo, AiLocalServerProbe, AiPresetFamilyInfo, AiRoute, AiSettings, AiSettingsPatch } from './ai';
+import type { AiEngineConfig, AiEnginePreset, AiEngineStatus, AiHardwareInfo, AiLocalServerProbe, AiPresetFamilyInfo, AiRoute, AiSettings, AiSettingsPatch, MikeDownDocsHost } from './ai';
 import {
   defaultRouteForEngine,
   engineDisplayName,
@@ -66,18 +70,20 @@ import {
 import { createEngineFormController } from './ai-engine-form';
 import type { EngineFormRefresh } from './ai-engine-form';
 import { createRoutingSection } from './ai-routing-section';
+import { createDocsBasesSection } from './ai-docs-page';
 import { createAiSettingsSession } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
 import { ICONS, button, cloudAccessBox, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, statusBadge, switchInput } from './ai-settings-dom';
 import { AI_WIZARD_STEPS, createSetupWizard, subscriptionNote, wizardStepNumber, type AiWizardStep, type SetupWizard } from './ai-setup-wizard';
 import type { MikeDownSettingsSectionContext } from './types';
 
-export type AiEnginesPageSection = 'engines' | 'routing' | 'wizard';
+export type AiEnginesPageSection = 'engines' | 'routing' | 'wizard' | 'bases';
 
 export interface AiEnginesPageOptions extends AiSettingsSessionOptions {
   /**
-   * What to show first: an engine, the routing section, or the setup wizard
-   * (tier 2 only). Default: the first engine (the cards when there is none).
+   * What to show first: an engine, the routing section, the documentation
+   * bases (with `docs`) or the setup wizard (tier 2 only). Default: the first
+   * engine (the cards when there is none).
    */
   initial?: { engineId?: string; section?: AiEnginesPageSection };
   /** Shared with the session that opened the page (stored-key knowledge). */
@@ -93,6 +99,8 @@ export interface AiEnginesPageOptions extends AiSettingsSessionOptions {
    * in the patch) when the result has a usable default route.
    */
   turnOnWhenDone?: boolean;
+  /** The host's documentation bases. Absent: no Documentation bases section. */
+  docs?: MikeDownDocsHost;
 }
 
 export interface AiEnginesPageHandle {
@@ -105,7 +113,7 @@ export interface AiEnginesPageHandle {
 /** Narrower than this and the page is one column. */
 const NARROW_PX = 720;
 
-type Selection = { kind: 'engine'; id: string } | { kind: 'routing' } | { kind: 'add' };
+type Selection = { kind: 'engine'; id: string } | { kind: 'routing' } | { kind: 'bases' } | { kind: 'add' };
 
 export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettingsSectionContext, opts: AiEnginesPageOptions): AiEnginesPageHandle {
   const session = createAiSettingsSession(opts);
@@ -119,7 +127,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   let selection: Selection = initialSelection();
   let narrow = false;
   /** Narrow layout only: which pane shows. */
-  let view: 'list' | 'detail' = opts.initial?.engineId || opts.initial?.section === 'routing' ? 'detail' : 'list';
+  let view: 'list' | 'detail' = opts.initial?.engineId || opts.initial?.section === 'routing' || (opts.initial?.section === 'bases' && opts.docs) ? 'detail' : 'list';
   let confirmDeleteId: string | null = null;
   let confirmDiscard = false;
   let finished = false;
@@ -129,6 +137,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   function initialSelection(): Selection {
     const engines = session.draft.engines;
     if (opts.initial?.section === 'routing') {return { kind: 'routing' };}
+    if (opts.initial?.section === 'bases' && opts.docs) {return { kind: 'bases' };}
     const wanted = opts.initial?.engineId && engines.find((e) => e.id === opts.initial?.engineId);
     if (wanted) {return { kind: 'engine', id: wanted.id };}
     return engines[0] ? { kind: 'engine', id: engines[0].id } : { kind: 'add' };
@@ -218,6 +227,14 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     statusList: () => session.statusList(),
   });
 
+  const docsSection = opts.docs ? createDocsBasesSection(ctx, {
+    docs: opts.docs,
+    getDraft: () => session.draft,
+    setDraft: (next) => { session.draft = next; },
+    announce,
+    onCountChanged: () => refreshBasesEntry(),
+  }) : null;
+
   async function setKey(id: string, value: string | null): Promise<string | null> {
     const engine = getEngine(id);
     const error = await session.setKey(id, value);
@@ -302,7 +319,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
         for (const engine of session.draft.engines) {navList.append(buildNavItem(engine));}
         navEngines.append(navList);
       }
-      routingEntry.replaceChildren(buildRoutingEntry(), buildAddEntry());
+      routingEntry.replaceChildren(buildRoutingEntry(), ...(docsSection ? [buildBasesEntry()] : []), buildAddEntry());
     });
   }
 
@@ -380,6 +397,28 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     if (sub) {sub.textContent = routingSubline();}
   }
 
+  function basesSubline(): string {
+    const count = docsSection?.count() ?? session.draft.docBases.length;
+    return count === 0 ? 'None yet' : `${count} ${count === 1 ? 'base' : 'bases'}`;
+  }
+
+  function buildBasesEntry(): HTMLElement {
+    const btn = navButton('nav:bases', selection.kind === 'bases');
+    btn.classList.add('ai-nav-btn--bases');
+    const icon = el('span', 'ai-nav-icon');
+    icon.innerHTML = ICONS.book;
+    const text = el('span', 'ai-nav-text');
+    text.append(el('span', 'ai-nav-name', 'Documentation bases'), el('span', 'ai-nav-sub', basesSubline()));
+    btn.append(icon, text);
+    btn.addEventListener('click', () => select({ kind: 'bases' }));
+    return btn;
+  }
+
+  function refreshBasesEntry(): void {
+    const sub = routingEntry.querySelector('.ai-nav-btn--bases .ai-nav-sub');
+    if (sub) {sub.textContent = basesSubline();}
+  }
+
   function buildAddEntry(): HTMLElement {
     const btn = navButton('nav:add', selection.kind === 'add');
     btn.classList.add('ai-nav-btn--add');
@@ -448,6 +487,11 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     } else if (selection.kind === 'routing') {
       routing.render();
       detailBody.append(routing.element);
+    } else if (selection.kind === 'bases') {
+      if (docsSection) {
+        detailBody.append(docsSection.element);
+        docsSection.opened();
+      }
     } else {
       detailBody.append(buildPresetCards());
       // The cards look once per page; "Look again" asks again.
@@ -474,6 +518,14 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
         icon.innerHTML = ICONS.routing;
         const main = el('div', 'ai-detail-main');
         main.append(detailTitle('Tasks'), el('div', 'ai-detail-sub', 'Which model does what. Tasks on Default use the default model.'));
+        detailHead.append(icon, main);
+        return;
+      }
+      if (selection.kind === 'bases') {
+        const icon = el('span', 'ai-detail-icon');
+        icon.innerHTML = ICONS.book;
+        const main = el('div', 'ai-detail-main');
+        main.append(detailTitle('Documentation bases'), el('div', 'ai-detail-sub', 'Folders of markdown the AI can answer from. A change to a base saves right away; nothing on disk is ever changed.'));
         detailHead.append(icon, main);
         return;
       }
@@ -901,6 +953,8 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       wizard.back();
       return;
     }
+    // An open base form or remove confirmation closes first.
+    if (selection.kind === 'bases' && docsSection?.back()) {return;}
     if (narrow && view === 'detail') {
       view = 'list';
       applyLayout();
@@ -932,6 +986,12 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     const unpicked = firstEngineNeedingPick(session.draft);
     if (unpicked) {
       requirePick(unpicked.id);
+      return;
+    }
+    // A base typed and not saved would be lost without a word.
+    if (docsSection?.hasUnsavedForm()) {
+      if (selection.kind !== 'bases') {select({ kind: 'bases' });}
+      docsSection.flagUnsavedForm();
       return;
     }
     finished = true;
@@ -978,7 +1038,9 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
     box.setAttribute('aria-describedby', textId);
     const head = el('div', 'ai-page-confirm-title', 'Discard changes?');
     head.id = headId;
-    const text = el('div', 'ai-page-confirm-text', 'Your changes to engines and tasks have not been saved. Engines added here and their keys are removed.');
+    const text = el('div', 'ai-page-confirm-text', docsSection
+      ? 'Your changes to engines, tasks and base options have not been saved. Engines added here and their keys are removed. Bases you saved stay saved.'
+      : 'Your changes to engines and tasks have not been saved. Engines added here and their keys are removed.');
     text.id = textId;
     const keep = button('settings-btn', 'Keep editing', { fk: 'page:keep' });
     keep.addEventListener('click', () => hideDiscard());
@@ -1029,7 +1091,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
   }
 
   function focusSelectedEntry(): void {
-    const fk = selection.kind === 'engine' ? `nav:eng:${selection.id}` : selection.kind === 'routing' ? 'nav:routing' : 'nav:add';
+    const fk = selection.kind === 'engine' ? `nav:eng:${selection.id}` : selection.kind === 'routing' ? 'nav:routing' : selection.kind === 'bases' ? 'nav:bases' : 'nav:add';
     focusKey(fk);
   }
 
@@ -1172,6 +1234,7 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
       unsubscribe?.();
       resizeObserver?.disconnect();
       form.dispose();
+      docsSection?.dispose();
       container.replaceChildren();
     },
     focus(): void {
@@ -1183,6 +1246,8 @@ export function mountAiEnginesPage(container: HTMLElement, ctx: MikeDownSettings
         focusDetailTitle();
       } else if (!narrow && selection.kind === 'routing') {
         focusKey('route:default');
+      } else if (!narrow && selection.kind === 'bases') {
+        docsSection?.focus();
       } else if (!narrow && selection.kind === 'add' && session.draft.engines.length === 0) {
         detailBody.querySelector<HTMLElement>('.ai-card')?.focus({ preventScroll: true });
       } else {

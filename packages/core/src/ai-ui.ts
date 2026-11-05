@@ -14,6 +14,7 @@ export { aiConsentHost, hostOfUrl, isHostEngineKind, whatIsSent } from './ai';
 export { loadThinkingLevel, rememberThinkingLevel, thinkingLevelFor } from './ai-prefs';
 export { buildAiSettingsSection } from './ai-settings';
 export { mountAiEnginesPage } from './ai-engines-page';
+export { createDocsBasesSection } from './ai-docs-page';
 export { withSavedAiKeys } from './ai-settings-session';
 export { bestLocalServer, detectLocalServers, scanForSetup, setUpLocalEngine } from './ai-local-setup';
 export { aiIndicatorState, aiNextRouteChanged, engineDisplayName } from './ai-settings-model';

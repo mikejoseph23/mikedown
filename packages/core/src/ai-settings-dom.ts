@@ -34,6 +34,7 @@ export const ICONS = {
   search: svg('<circle cx="7" cy="7" r="4.25"/><path d="M10.2 10.2l3.3 3.3"/>', 12),
   back: svg('<path d="M10 3.5L5.5 8l4.5 4.5"/>', 14),
   routing: svg('<path d="M3 4h4.5a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2H13M3 12h3M11 2.5L13 4l-2 1.5M11 10.5l2 1.5-2 1.5"/>', 16),
+  book: svg('<path d="M3 13V4a1.5 1.5 0 0 1 1.5-1.5H13v8.5H4.5A1.5 1.5 0 0 0 3 12.5 1.5 1.5 0 0 0 4.5 14H13M6 5.5h4"/>', 16),
 };
 
 /** Two-letter tiles for the kinds without a glyph; the generic kind gets braces. */

@@ -1700,8 +1700,10 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
         ...aiSessionOptions(aiHost),
         // A forgotten consent is asked again: drop this session's copy of the answer too.
         onConsentForgotten: (engineId) => { delete aiConsent[engineId]; },
+        docsAvailable: !!host.docs,
         onSaved: (saved) => {
-          currentAiSettings = saved;
+          // Bases save through host.docs, not the tab: keep what the host last sent.
+          currentAiSettings = { ...saved, docBases: currentAiSettings.docBases };
           syncAiActivitySetting();
           renderAiIndicator();
           refreshAiToolbarButton();
@@ -2491,6 +2493,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       ...(o.session ?? aiSessionOptions(ai)),
       initial: o.initial,
       ...(o.turnOnWhenDone ? { turnOnWhenDone: true } : {}),
+      ...(host.docs ? { docs: host.docs } : {}),
       onDone: (patch, settings) => {
         if (Object.keys(patch).length > 0) {
           // The normal save path. The page may start from the tab's unsaved
