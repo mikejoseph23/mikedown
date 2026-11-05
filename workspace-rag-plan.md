@@ -347,4 +347,6 @@ When a milestone leaves items undone, the follow-up prompt follows the original 
 
 **2026-11-05 18:22** - Independent security audit: 2 High, 3 Medium, 4 Low (`.orchestrator/workspace-rag-plan/processed/worker-summary-security-audit.md`). Containment held on both hosts, and no route takes base pages to a cloud engine past the switch at turn start. Not met: S8, Insert can place live remote images and links in the document (F1, F4). A single hostile page can freeze the VS Code extension host (F2) and stall Desktop (F3). "Allow once" breaks after the first hop and shows a mislabelled dialog (F5). Also fixed in this round: F6 to F9 and the Desktop watcher, which nothing starts. Three fix workers dispatched; S5, S7, S8 and S9 stay open until re-verified. Not verifiable here: Windows `file://server/share` routing.
 
+**2026-11-05 18:41** - Insert guard done (`7dc33ec`, F1, F4): the boundary is now a walk of the parsed result, 162 tests through the real editor, walk removal makes payloads fail. 317 related tests re-run here. Behaviour change outside Insert: whole-document loads set `preventAutolink`. For Mike: a URL verbatim in a hostile cited page stays live by S8's rule, so a fixed-URL image could still fire on render, though it cannot carry data.
+
 [Return to Top](#workspace-rag-documentation-bases--planning-document)
