@@ -23,7 +23,7 @@ Defaults applied: incremental testing, vitest unit tests, hands-on for interacti
 | M4 UI: decoration plugin, keys, status | Opus | ✅ Done | 23 | 25a79dc, 20a557b |
 | M5 UI: settings, consent, activity | Opus | ✅ Done | 10 | 0c5df42; gap fill for D3 and the local-only fence |
 | M6 Tests: UI | Sonnet | ✅ Done | 13 | 2160d7c; 77 tests |
-| M7 Hands-on walk (both hosts) | Opus | ⏸ Waiting for Mike | — | Mike signs off |
+| M7 Hands-on walk (both hosts) | Opus | ✅ Accepted by Mike | 2026-11-06 | Mike signed off |
 
 ## Table of Contents
 
@@ -152,16 +152,16 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 VS Code: from the repo root on `develop` run `npm run dev`; it opens `test/workspace`. Desktop: quit the installed MikeDown Desktop, then `npm run dev` in `packages/desktop`. In each host open the Settings modal (toolbar gear, AI tab), turn on Inline suggestions, and route `continue` to oMLX at `http://127.0.0.1:8000/v1` (then repeat with LM Studio on port 1234). Never print keys.
 
-- [ ] Type a sentence, pause: dim text appears within about a second; the toolbar AI button pulses while it streams.
-- [ ] Tab accepts; Cmd+Z removes exactly the accepted text; the footer chip names the engine.
-- [ ] Cmd+Right accepts one word at a time; Escape clears; typing the suggested next letter keeps the rest, a different letter clears.
-- [ ] Tab in a list indents and Tab in a table moves cells when nothing is suggested; no ghost text appears inside a table or code block.
-- [ ] Type `:smi` and confirm the emoji popup owns Tab; same with `[[`.
-- [ ] Trigger set to Manual: nothing fires on idle; Cmd+Alt+Space fires once (macOS may keep this chord for Finder search; the AI menu's Suggest continuation is the fallback).
-- [ ] Local engines only on, with a cloud engine enabled and routed to `continue`: no request leaves, the AI menu shows the reason. Switch it off: one consent dialog, then suggestions flow with "Allow"; "Allow once" gives one suggestion, then only the shortcut asks; "Don't allow" silences the feature for the session unless a local engine can serve as the fallback, in which case suggestions continue locally.
-- [ ] AI Activity panel on: only accepted suggestions are listed.
-- [ ] Toggle source mode (Cmd+/): no ghost text, no requests; back to rich mode resumes.
-- [ ] Both engines tried in both hosts; Mike signs off, and the walk is logged in the Progress Log.
+- [x] Type a sentence, pause: dim text appears within about a second; the toolbar AI button pulses while it streams.
+- [x] Tab accepts; Cmd+Z removes exactly the accepted text; the footer chip names the engine.
+- [x] Cmd+Right accepts one word at a time; Escape clears; typing the suggested next letter keeps the rest, a different letter clears.
+- [x] Tab in a list indents and Tab in a table moves cells when nothing is suggested; no ghost text appears inside a table or code block.
+- [x] Type `:smi` and confirm the emoji popup owns Tab; same with `[[`.
+- [x] Trigger set to Manual: nothing fires on idle; Cmd+Alt+Space fires once (macOS may keep this chord for Finder search; the AI menu's Suggest continuation is the fallback).
+- [x] Local engines only on, with a cloud engine enabled and routed to `continue`: no request leaves, the AI menu shows the reason. Switch it off: one consent dialog, then suggestions flow with "Allow"; "Allow once" gives one suggestion, then only the shortcut asks; "Don't allow" silences the feature for the session unless a local engine can serve as the fallback, in which case suggestions continue locally.
+- [x] AI Activity panel on: only accepted suggestions are listed.
+- [x] Toggle source mode (Cmd+/): no ghost text, no requests; back to rich mode resumes.
+- [x] Both engines tried in both hosts; Mike signs off, and the walk is logged in the Progress Log.
 
 [Return to Top](#ghost-text-plan)
 
@@ -201,5 +201,7 @@ Gap-filling prompts follow the original milestone prompt structure (header, miss
 **2026-11-05 19:02** - M4b done (20a557b). `ai-ghost-session.ts` holds the wiring, installed and removed live with the feature, so unrelated broadcasts keep the Don't allow latch. Both hosts set `hostOwnsShortcuts`, so the chord is a host command: `mikedown.ai.suggestContinuation` in VS Code, a page-handled menu row in Desktop, whose matcher learned Space. Errors never toast; the last reason shows on the Suggest continuation menu entry. Widget readers fixed: `getHtml`, copy as rich text, heading anchors. For M7: Cmd+Option+Space is macOS's default Finder search shortcut, so the chord may not reach either host; the menu entries work regardless.
 
 **2026-11-05 19:16** - M6 done (2160d7c), no source changes and no bugs found. Orchestrator re-ran everything on the tip: test:unit 220 files, 4489 passed, 2 todo, the 3 pre-existing errors; test:edge 22; lint 0 errors; compile clean; test:packages 83; Desktop tsc clean and vitest 601; `cargo test --lib` 299 passed. Ghost code is in core's `ai-ui` chunk only. A trial merge against develop (2e084ed) conflicts in one file, `packages/core/src/ai-request.ts`. M7 waits for Mike.
+
+**2026-11-06 09:36** - M7 accepted by Mike after the hands-on walk. Step 1 was confirmed working in VS Code with oMLX (the first attempt failed only because the Settings modal was not saved). Added during the walk: an Inline suggestions on/off row in the AI menu that saves at once (c5e24c8). Mike accepted the checklist as a whole; results per item, per host and per engine were not reported item by item. Still open for Mike: the Cmd+Alt+Space rebind, keeping the strict choices, and rejecting fim-only models at routing.
 
 [Return to Top](#ghost-text-plan)
