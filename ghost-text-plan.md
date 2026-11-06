@@ -20,9 +20,9 @@ Defaults applied: incremental testing, vitest unit tests, hands-on for interacti
 | M1 Core: prompt, trimming, settings | Sonnet | ✅ Done | 15 | f8daa9a |
 | M2 Core: ghost controller | Sonnet | ✅ Done | 4 | 022937d |
 | M3 Tests: core | Sonnet | ✅ Done | 7 | 2ae3bea; 121 tests |
-| M4 UI: decoration plugin, keys, status | Opus | 🔄 In Progress | — | Widget decoration, Tab/Esc, chip |
+| M4 UI: decoration plugin, keys, status | Opus | ✅ Done | 23 | 25a79dc, 20a557b |
 | M5 UI: settings, consent, activity | Opus | ✅ Done | 10 | 0c5df42; gap fill for D3 and the local-only fence |
-| M6 Tests: UI | Sonnet | ⬜ Not Started | — | jsdom editor tests |
+| M6 Tests: UI | Sonnet | 🔄 In Progress | — | jsdom editor tests |
 | M7 Hands-on walk (both hosts) | Opus | ⬜ Not Started | — | Mike signs off |
 
 ## Table of Contents
@@ -112,11 +112,11 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 - [x] Eligibility probe in the plugin's `view.update`: caret at block end, block type allowed, no autocomplete open (check the emoji and wikilink plugin states), selection empty; feeds `controller.noteChange` with the serialized markdown and caret offset (map PM position to markdown offset the way `cursorInsertTarget` does, `ai-rewrite.ts:494`).
 - [x] Keys in the plugin's `handleKeyDown`, only while a suggestion shows: Tab accept, `Mod-ArrowRight` accept word, Escape dismiss, printable character runs `typed(char)`. Return false otherwise so lists and tables keep Tab (D7).
 - [x] Accept inserts with `closeHistory(tr)` first, then `insertText`, as one transaction (D6).
-- [ ] Manual trigger `Mod-Alt-Space` through a small TipTap `Extension` like `mikedownAiRewriteShortcut` (`editor.ts:4040`), skipped when `hostOwnsShortcuts`.
-- [ ] `editor.ts`: under `whenAiUi`, build the controller with `aiRunContext` (activity set to undefined per D10), register the plugin, wire `onBusy` to `syncAiToolbarBusy` and `onServed` to `aiServed` (D11); tear down in `disposers`; rebuild options on every settings broadcast; stop everything in source mode.
+- [x] Manual trigger `Mod-Alt-Space` through a small TipTap `Extension` like `mikedownAiRewriteShortcut` (`editor.ts:4040`), skipped when `hostOwnsShortcuts`.
+- [x] `editor.ts`: under `whenAiUi`, build the controller with `aiRunContext` (activity set to undefined per D10), register the plugin, wire `onBusy` to `syncAiToolbarBusy` and `onServed` to `aiServed` (D11); tear down in `disposers`; rebuild options on every settings broadcast; stop everything in source mode.
 - [x] Styling in `packages/core/src/styles/editor.css`: ghost text in the editor font at 55 percent opacity, no layout shift, a 120 ms fade in, respects `prefers-reduced-motion`. It should read like Xcode or VS Code inline completions, quiet and clearly not part of the document.
-- [ ] AI toolbar menu entry "Suggest continuation" (`ai-toolbar.ts`) that calls `triggerNow`, hidden when the feature is off.
-- [ ] Commit.
+- [x] AI toolbar menu entry "Suggest continuation" (`ai-toolbar.ts`) that calls `triggerNow`, hidden when the feature is off.
+- [x] Commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -197,5 +197,7 @@ Gap-filling prompts follow the original milestone prompt structure (header, miss
 **2026-11-05 18:55** - M5 done (0c5df42). Settings fold, schema, Activity label, docs. Two consent fixes: a new `cursor` send scope replaces `selection` so the dialog describes ghost text, and "Allow once" now stops the idle trigger instead of asking at every pause. Don't allow only silences when no other engine can serve; a working local fallback keeps suggestions flowing. Follow-ups going to a gap fill: `ghostContext` sends everything up to the caret when it fits, which departs from D3 (outline plus the last 2400 chars) and hurts the first-token target; and a repo's settings can turn `localOnly` off, so it is fenced to user scope.
 
 **2026-11-05 19:00** - M5 gap fill done (4367c87). \`ghostContext\` now sends the last 2400 chars plus a headings note whatever the window, with no \`budgetDocument\` and no frontmatter; consent copy updated in core, Rust and the fixture. \`ghostText.localOnly\` comes from user settings only in both hosts: Desktop had the same hole through a folder's \`.mikedown/settings.json\`, and saving from a workspace or folder routes the value to user scope. 4412 unit tests, \`cargo test --lib consent\` 24 passed.
+
+**2026-11-05 19:02** - M4b done (20a557b). `ai-ghost-session.ts` holds the wiring, installed and removed live with the feature, so unrelated broadcasts keep the Don't allow latch. Both hosts set `hostOwnsShortcuts`, so the chord is a host command: `mikedown.ai.suggestContinuation` in VS Code, a page-handled menu row in Desktop, whose matcher learned Space. Errors never toast; the last reason shows on the Suggest continuation menu entry. Widget readers fixed: `getHtml`, copy as rich text, heading anchors. For M7: Cmd+Option+Space is macOS's default Finder search shortcut, so the chord may not reach either host; the menu entries work regardless.
 
 [Return to Top](#ghost-text-plan)
