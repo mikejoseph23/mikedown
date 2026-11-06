@@ -150,7 +150,7 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Opus** (drives the setup, Mike signs off). Mode: hands-on in both hosts. The orchestrator pauses for Mike's sign-off.
 
-VS Code: from the ghost-text worktree (`/Users/michaeljosephwork/git/mikedown/.claude/worktrees/ghost-text`) run `npm run dev`; it opens `test/workspace`. Desktop: quit the installed MikeDown Desktop, then `npm run dev` in `packages/desktop` of the same worktree. The main checkout is on `develop` and has none of this. In each host open the Settings modal (toolbar gear, AI tab), turn on Inline suggestions, and route `continue` to oMLX at `http://127.0.0.1:8000/v1` (then repeat with LM Studio on port 1234). Never print keys.
+VS Code: from the repo root on `develop` run `npm run dev`; it opens `test/workspace`. Desktop: quit the installed MikeDown Desktop, then `npm run dev` in `packages/desktop`. In each host open the Settings modal (toolbar gear, AI tab), turn on Inline suggestions, and route `continue` to oMLX at `http://127.0.0.1:8000/v1` (then repeat with LM Studio on port 1234). Never print keys.
 
 - [ ] Type a sentence, pause: dim text appears within about a second; the toolbar AI button pulses while it streams.
 - [ ] Tab accepts; Cmd+Z removes exactly the accepted text; the footer chip names the engine.
