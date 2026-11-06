@@ -69,6 +69,26 @@ describe('aiToolbarMenuEntries', () => {
     expect(actions[1].isDisabled?.()).toBeFalsy();
   });
 
+  it('the Inline suggestions row sits after Suggest continuation, shows its state, and a click asks for the opposite', () => {
+    const onToggle = vi.fn();
+    const build = (on: boolean | null) => aiToolbarMenuEntries({
+      ...base, rewrite: { enabled: true }, continuation: { enabled: true }, inlineSuggestions: on === null ? null : { on },
+      canManageEngines: true, onToggleInlineSuggestions: onToggle,
+    });
+    const ids = (entries: ReturnType<typeof build>) => entries.filter((e) => e.type === 'action').map((e) => e.id);
+    expect(ids(build(true))).toEqual(['ai-rewrite', 'ai-continuation', 'ai-inline-suggestions', 'ai-manage']);
+    expect(ids(build(null))).not.toContain('ai-inline-suggestions');
+
+    const on = build(true).find((e) => e.type === 'action' && e.id === 'ai-inline-suggestions');
+    const off = build(false).find((e) => e.type === 'action' && e.id === 'ai-inline-suggestions');
+    if (on?.type !== 'action' || off?.type !== 'action') {throw new Error('row missing');}
+    expect([on.label, on.hint, on.isActive?.()]).toEqual(['Inline suggestions', 'On', true]);
+    expect([off.hint, off.isActive?.()]).toEqual(['Off', false]);
+    on.action();
+    off.action();
+    expect(onToggle.mock.calls).toEqual([[false], [true]]);
+  });
+
   it('one reason shared by several items shows once as a status row, not under each item', () => {
     const reason = 'oMLX failed its last connection test: Could not reach http://127.0.0.1:8000 (ECONNREFUSED).';
     const off = { enabled: false as const, hint: reason };
@@ -266,14 +286,14 @@ describe('AI menu (AI on)', () => {
     aiButton()!.click();
     const items = Array.from(document.querySelectorAll<HTMLElement>('#toolbar-dropdown .tdd-item'));
     expect(items.map((i) => i.querySelector('.tdd-item-label')?.textContent)).toEqual([
-      'Rewrite selection', 'Explain selection', 'Translate…', 'Summarize document…', 'Suggest titles…', 'Chat…', 'Manage engines…',
+      'Rewrite selection', 'Explain selection', 'Translate…', 'Inline suggestions', 'Summarize document…', 'Suggest titles…', 'Chat…', 'Manage engines…',
     ]);
     expect(items[0].getAttribute('aria-disabled')).toBe('true');
     expect(items[0].querySelector('.tdd-item-hint')?.textContent).toBe('Select text first');
     // Explain needs a selection too; Translate offers the whole document without one.
     expect(items[1].querySelector('.tdd-item-hint')?.textContent).toBe('Select text first');
     expect(items[2].getAttribute('aria-disabled')).not.toBe('true');
-    items[6].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    items[7].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(document.querySelector('#mikedown-ai-page-overlay')).not.toBeNull();
   });
 

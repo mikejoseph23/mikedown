@@ -27,7 +27,7 @@ export { aiFeatureAvailability, aiFeatureOffNotice, aiRunThinkingOn, runAiComple
 export { AI_ACTIVITY_LIMIT, aiActivityStatus, createAiActivityLog } from './ai-activity';
 export { activityExportFileName, formatActivityExport, mountAiActivityPanel } from './ai-activity-panel';
 export { createAiDocsChat } from './ai-docs-run';
-export { createGhostSession, ghostAvailability, ghostFeatureOn } from './ai-ghost-session';
+export { createGhostSession, ghostAvailability, ghostFeatureOn, withGhostFeature } from './ai-ghost-session';
 export { mountAiChatPanel } from './ai-chat-panel';
 export { docsHeadingAt } from './ai';
 export {

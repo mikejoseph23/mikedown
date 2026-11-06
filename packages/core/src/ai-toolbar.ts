@@ -66,6 +66,11 @@ export interface AiToolbarMenuInput {
   translate?: AiToolbarEntryState;
   /** "Suggest continuation" (an inline suggestion at the caret): absent or null leaves it out. An enabled hint is why the last one failed. */
   continuation?: AiToolbarEntryState;
+  /**
+   * The "Inline suggestions" switch beside it, with its state: absent or null
+   * leaves it out. A click flips it at once and saves; the menu closes.
+   */
+  inlineSuggestions?: { on: boolean } | null;
   /** "Summarize document…": absent or null leaves it out. A disabled hint carries the router's reason (D15). */
   summarize?: AiToolbarEntryState;
   /** "Suggest titles…": absent or null leaves it out. */
@@ -87,6 +92,8 @@ export interface AiToolbarMenuInput {
   onExplain?(): void;
   onTranslate?(): void;
   onSuggestContinuation?(): void;
+  /** Flip Inline suggestions to `next`. */
+  onToggleInlineSuggestions?(next: boolean): void;
   onSummarize?(): void;
   onSuggestTitles?(): void;
   onSuggestProperties?(): void;
@@ -195,6 +202,18 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
   add('ai-explain', 'Explain selection', input.icons.explain, input.explain, () => input.onExplain?.());
   add('ai-translate', 'Translate…', input.icons.translate, input.translate, () => input.onTranslate?.());
   add('ai-continuation', 'Suggest continuation', input.icons.continuation, input.continuation, () => input.onSuggestContinuation?.());
+  if (input.inlineSuggestions) {
+    const { on } = input.inlineSuggestions;
+    entries.push({
+      type: 'action',
+      id: 'ai-inline-suggestions',
+      label: 'Inline suggestions',
+      icon: input.icons.continuation ?? input.icons.rewrite,
+      hint: on ? 'On' : 'Off',
+      isActive: () => on,
+      action: () => input.onToggleInlineSuggestions?.(!on),
+    });
+  }
   separate();
   add('ai-summarize', 'Summarize document…', input.icons.summarize, input.summarize, () => input.onSummarize?.());
   add('ai-titles', 'Suggest titles…', input.icons.titles, input.titles, () => input.onSuggestTitles?.());

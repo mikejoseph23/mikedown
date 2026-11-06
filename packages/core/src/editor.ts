@@ -2384,6 +2384,21 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
     });
   }
 
+  /**
+   * The AI menu's Inline suggestions switch: take effect now (the session is
+   * installed or removed, which also drops a visible suggestion and aborts a
+   * request) and save through the normal path, no Save step. Without a
+   * `saveSettings` it holds for this session only.
+   */
+  function setAiInlineSuggestions(next: boolean): void {
+    const ui = aiUi;
+    if (!aiHost || !ui || destroyed) {return;}
+    const { settings, patch } = ui.withGhostFeature(currentAiSettings, next);
+    currentAiSettings = settings;
+    renderAiIndicator();
+    host.saveSettings?.(patch, { silent: true });
+  }
+
   /** The manual trigger (the shortcut, the host command, the AI menu). False leaves the key alone. */
   function startAiGhost(): boolean {
     if (!aiHost || destroyed || sourceMode || readOnly) {return false;}
@@ -2978,6 +2993,8 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       : ghostState.state === 'disabled' ? { enabled: false as const, hint: ghostState.reason }
         : sourceMode ? { enabled: false as const, hint: 'Not available in source view' }
           : { enabled: true as const, ...(ghostReason ? { hint: ghostReason } : {}) };
+    // The switch beside it shows wherever the menu does, even with the feature off (it is how to turn it on).
+    const inlineSuggestions = readOnly ? null : { on: ui.ghostFeatureOn(currentAiSettings) };
     // Suggest properties needs the sidebar (its chips land there).
     const propsAvailability = outlineSidebar && !readOnly ? aiPropertiesAvailability() : { state: 'hidden' as const };
     const properties = propsAvailability.state === 'hidden' ? null
@@ -2992,6 +3009,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       explain: selectionEntry(true),
       translate: selectionEntry(false),
       continuation,
+      inlineSuggestions,
       summarize,
       titles,
       properties,
@@ -3008,6 +3026,7 @@ export function createMikeDownEditor(container: HTMLElement, options: MikeDownOp
       onExplain: () => { startAiRewrite('explain'); },
       onTranslate: () => { startAiRewrite('translate'); },
       onSuggestContinuation: () => { startAiGhost(); },
+      onToggleInlineSuggestions: setAiInlineSuggestions,
       onSummarize: () => { startAiSummary(); },
       onSuggestTitles: () => { startAiTitles(); },
       onSuggestProperties: () => { startAiPropertySuggestions(); },

@@ -54,6 +54,20 @@ export function ghostFeatureOn(settings: AiSettings): boolean {
   return settings.enabled && resolveAiFeature(settings.features, 'ghostText').enabled;
 }
 
+/**
+ * The settings with Inline suggestions switched on or off, and the one-key
+ * patch that saves it. Everything else under `features` stays as it is (the
+ * other features, the delay, trigger, token and `localOnly` options, unknown
+ * keys). Only `features` is in the patch; no secret is ever near it.
+ */
+export function withGhostFeature(settings: AiSettings, enabled: boolean): { settings: AiSettings; patch: Record<'ai.features', unknown> } {
+  const features = { ...settings.features, ghostText: { ...(settings.features.ghostText ?? {}), enabled } };
+  return {
+    settings: { ...settings, features },
+    patch: { 'ai.features': JSON.parse(JSON.stringify(features)) as unknown },
+  };
+}
+
 /** `aiFeatureAvailability` for a request as the controller sends it, which carries `localOnly`. */
 export function ghostAvailability(
   ai: MikeDownAiHost | undefined,

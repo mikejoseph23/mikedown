@@ -59,8 +59,8 @@ function aiSettings(ghost: Record<string, unknown> | null = { enabled: true, del
 
 const mounted: Array<{ handle: MikeDownEditorHandle; el: HTMLElement }> = [];
 
-async function boot(ai: MikeDownAiHost, settings: AiSettings, markdown = 'Hello world') {
-  class Host extends NoopHost { ai = ai; }
+async function boot(ai: MikeDownAiHost, settings: AiSettings, markdown = 'Hello world', saveSettings?: (patch: Record<string, unknown>, opts?: { silent?: boolean }) => void) {
+  class Host extends NoopHost { ai = ai; saveSettings = saveSettings as never; }
   const el = document.createElement('div');
   document.body.appendChild(el);
   const handle = createMikeDownEditor(el, { host: new Host(), initialMarkdown: markdown, settings: { ai: settings } as never });
@@ -446,6 +446,90 @@ describe('manual trigger', () => {
     openAiMenu(el);
     expect(document.querySelector('#toolbar-dropdown')).not.toBeNull();
     expect(menuItem('ai-continuation')).toBeNull();
+  });
+});
+
+describe('the Inline suggestions row in the AI menu', () => {
+  const click = (id: string) => menuItem(id)!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+
+  it('shows its state next to Suggest continuation, even while the feature is off', async () => {
+    const { ai } = fakeAi();
+    const on = await boot(ai, aiSettings());
+    openAiMenu(on.el);
+    expect(menuItem('ai-inline-suggestions')?.classList.contains('tdd-active')).toBe(true);
+    expect(menuItem('ai-inline-suggestions')?.querySelector('.tdd-item-hint')?.textContent).toBe('On');
+    expect(menuItem('ai-continuation')!.nextElementSibling).toBe(menuItem('ai-inline-suggestions'));
+
+    hideToolbarDropdown();
+    const off = await boot(ai, aiSettings({ enabled: false }));
+    openAiMenu(off.el);
+    expect(menuItem('ai-inline-suggestions')?.classList.contains('tdd-active')).toBe(false);
+    expect(menuItem('ai-inline-suggestions')?.querySelector('.tdd-item-hint')?.textContent).toBe('Off');
+  });
+
+  it('is not offered for a read-only document', async () => {
+    const { ai } = fakeAi();
+    const { el, handle } = await boot(ai, aiSettings());
+    handle.setReadOnly(true);
+    openAiMenu(el);
+    expect(menuItem('ai-inline-suggestions')).toBeNull();
+  });
+
+  it('turning it off saves only `features`, keeps every other option, and removes the session and its request at once', async () => {
+    const { ai, calls } = fakeAi();
+    const save = vi.fn();
+    const settings = aiSettings({ enabled: true, delayMs: 200, maxTokens: 64, trigger: 'auto', localOnly: false });
+    const { el, view } = await boot(ai, { ...settings, features: { ...settings.features, summary: { enabled: false } } }, 'Hello world', save);
+    vi.useFakeTimers();
+    typeKey(view, '!');
+    await advance(200);
+    calls[0].token(' there');
+    await advance(0);
+    expect(ghostSpans(view)).toHaveLength(1);
+    expect(calls[0].signal.aborted).toBe(false);
+
+    vi.useRealTimers();
+    openAiMenu(el);
+    click('ai-inline-suggestions');
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith({
+      'ai.features': {
+        summary: { enabled: false },
+        ghostText: { enabled: false, delayMs: 200, maxTokens: 64, trigger: 'auto', localOnly: false },
+      },
+    }, { silent: true });
+    expect(hasPlugin(view)).toBe(false);
+    expect(ghostSpans(view)).toHaveLength(0);
+    expect(calls[0].signal.aborted).toBe(true);
+
+    // The menu follows on its next open.
+    openAiMenu(el);
+    expect(menuItem('ai-inline-suggestions')?.querySelector('.tdd-item-hint')?.textContent).toBe('Off');
+    expect(menuItem('ai-continuation')).toBeNull();
+  });
+
+  it('turning it on installs the session and saves', async () => {
+    const { ai, complete } = fakeAi();
+    const save = vi.fn();
+    const { el, view } = await boot(ai, aiSettings({ enabled: false, delayMs: 200 }), 'Hello world', save);
+    expect(hasPlugin(view)).toBe(false);
+    openAiMenu(el);
+    click('ai-inline-suggestions');
+    expect(save).toHaveBeenCalledWith({ 'ai.features': { ghostText: { enabled: true, delayMs: 200 } } }, { silent: true });
+    expect(hasPlugin(view)).toBe(true);
+
+    vi.useFakeTimers();
+    typeKey(view, '!');
+    await advance(200);
+    expect(complete).toHaveBeenCalledTimes(1);
+  });
+
+  it('with a host that cannot save it still holds for the session', async () => {
+    const { ai } = fakeAi();
+    const { el, view } = await boot(ai, aiSettings());
+    openAiMenu(el);
+    click('ai-inline-suggestions');
+    expect(hasPlugin(view)).toBe(false);
   });
 });
 
