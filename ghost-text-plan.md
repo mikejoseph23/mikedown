@@ -22,8 +22,8 @@ Defaults applied: incremental testing, vitest unit tests, hands-on for interacti
 | M3 Tests: core | Sonnet | ✅ Done | 7 | 2ae3bea; 121 tests |
 | M4 UI: decoration plugin, keys, status | Opus | ✅ Done | 23 | 25a79dc, 20a557b |
 | M5 UI: settings, consent, activity | Opus | ✅ Done | 10 | 0c5df42; gap fill for D3 and the local-only fence |
-| M6 Tests: UI | Sonnet | 🔄 In Progress | — | jsdom editor tests |
-| M7 Hands-on walk (both hosts) | Opus | ⬜ Not Started | — | Mike signs off |
+| M6 Tests: UI | Sonnet | ✅ Done | 13 | 2160d7c; 77 tests |
+| M7 Hands-on walk (both hosts) | Opus | ⏸ Waiting for Mike | — | Mike signs off |
 
 ## Table of Contents
 
@@ -138,11 +138,11 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Sonnet.** Mode: unit (vitest jsdom, `packages/core/test/`), following `ai-activity-panel.test.ts` and `ai-lazy-load.test.ts` for editor setup.
 
-- [ ] `ai-ghost-plugin.test.ts`: widget appears after the caret from a `setMeta` transaction; a doc change clears it; Tab inserts the text and one undo removes exactly it; `Mod-ArrowRight` inserts one word; Escape clears; Tab inside a list with no suggestion still indents; no suggestion inside a table or code block.
-- [ ] `ai-ghost-editor.test.ts`: feature off means no plugin, no request; feature on with a fake `host.ai` fires one request after the idle delay and streams into the widget; a keystroke aborts (signal observed aborted); emoji autocomplete open suppresses the trigger; source mode toggle clears and stops.
-- [ ] `ai-lazy-load.test.ts`: add a case that `ai-ghost` is not in the main path (no ghost module loaded without `host.ai`).
-- [ ] `ai-ghost-settings-ui.test.ts`: disclosure renders with the saved values, edits land in the draft, saved settings echo back.
-- [ ] `npm run test:unit`, `npm run test:edge`, `npm run lint` green; commit.
+- [x] `ai-ghost-plugin.test.ts`: widget appears after the caret from a `setMeta` transaction; a doc change clears it; Tab inserts the text and one undo removes exactly it; `Mod-ArrowRight` inserts one word; Escape clears; Tab inside a list with no suggestion still indents; no suggestion inside a table or code block.
+- [x] `ai-ghost-editor.test.ts`: feature off means no plugin, no request; feature on with a fake `host.ai` fires one request after the idle delay and streams into the widget; a keystroke aborts (signal observed aborted); emoji autocomplete open suppresses the trigger; source mode toggle clears and stops.
+- [x] `ai-lazy-load.test.ts`: add a case that `ai-ghost` is not in the main path (no ghost module loaded without `host.ai`).
+- [x] `ai-ghost-settings-ui.test.ts`: disclosure renders with the saved values, edits land in the draft, saved settings echo back.
+- [x] `npm run test:unit`, `npm run test:edge`, `npm run lint` green; commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -150,15 +150,15 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Opus** (drives the setup, Mike signs off). Mode: hands-on in both hosts. The orchestrator pauses for Mike's sign-off.
 
-VS Code: from `/Users/michaeljosephwork/git/mikedown` run `npm run dev`; it opens `test/workspace`. Desktop: quit the installed MikeDown Desktop, then `npm run dev` in `packages/desktop`. In each host open the Settings modal (toolbar gear, AI tab), turn on Inline suggestions, and route `continue` to oMLX at `http://127.0.0.1:8000/v1` (then repeat with LM Studio on port 1234). Never print keys.
+VS Code: from the ghost-text worktree (`/Users/michaeljosephwork/git/mikedown/.claude/worktrees/ghost-text`) run `npm run dev`; it opens `test/workspace`. Desktop: quit the installed MikeDown Desktop, then `npm run dev` in `packages/desktop` of the same worktree. The main checkout is on `develop` and has none of this. In each host open the Settings modal (toolbar gear, AI tab), turn on Inline suggestions, and route `continue` to oMLX at `http://127.0.0.1:8000/v1` (then repeat with LM Studio on port 1234). Never print keys.
 
 - [ ] Type a sentence, pause: dim text appears within about a second; the toolbar AI button pulses while it streams.
 - [ ] Tab accepts; Cmd+Z removes exactly the accepted text; the footer chip names the engine.
 - [ ] Cmd+Right accepts one word at a time; Escape clears; typing the suggested next letter keeps the rest, a different letter clears.
 - [ ] Tab in a list indents and Tab in a table moves cells when nothing is suggested; no ghost text appears inside a table or code block.
 - [ ] Type `:smi` and confirm the emoji popup owns Tab; same with `[[`.
-- [ ] Trigger set to Manual: nothing fires on idle; Cmd+Alt+Space fires once.
-- [ ] Local engines only on, with a cloud engine enabled and routed to `continue`: no request leaves, the AI menu shows the reason. Switch it off: one consent dialog, then suggestions flow; "Don't allow" silences the feature for the session.
+- [ ] Trigger set to Manual: nothing fires on idle; Cmd+Alt+Space fires once (macOS may keep this chord for Finder search; the AI menu's Suggest continuation is the fallback).
+- [ ] Local engines only on, with a cloud engine enabled and routed to `continue`: no request leaves, the AI menu shows the reason. Switch it off: one consent dialog, then suggestions flow with "Allow"; "Allow once" gives one suggestion, then only the shortcut asks; "Don't allow" silences the feature for the session unless a local engine can serve as the fallback, in which case suggestions continue locally.
 - [ ] AI Activity panel on: only accepted suggestions are listed.
 - [ ] Toggle source mode (Cmd+/): no ghost text, no requests; back to rich mode resumes.
 - [ ] Both engines tried in both hosts; Mike signs off, and the walk is logged in the Progress Log.
@@ -199,5 +199,7 @@ Gap-filling prompts follow the original milestone prompt structure (header, miss
 **2026-11-05 19:00** - M5 gap fill done (4367c87). \`ghostContext\` now sends the last 2400 chars plus a headings note whatever the window, with no \`budgetDocument\` and no frontmatter; consent copy updated in core, Rust and the fixture. \`ghostText.localOnly\` comes from user settings only in both hosts: Desktop had the same hole through a folder's \`.mikedown/settings.json\`, and saving from a workspace or folder routes the value to user scope. 4412 unit tests, \`cargo test --lib consent\` 24 passed.
 
 **2026-11-05 19:02** - M4b done (20a557b). `ai-ghost-session.ts` holds the wiring, installed and removed live with the feature, so unrelated broadcasts keep the Don't allow latch. Both hosts set `hostOwnsShortcuts`, so the chord is a host command: `mikedown.ai.suggestContinuation` in VS Code, a page-handled menu row in Desktop, whose matcher learned Space. Errors never toast; the last reason shows on the Suggest continuation menu entry. Widget readers fixed: `getHtml`, copy as rich text, heading anchors. For M7: Cmd+Option+Space is macOS's default Finder search shortcut, so the chord may not reach either host; the menu entries work regardless.
+
+**2026-11-05 19:16** - M6 done (2160d7c), no source changes and no bugs found. Orchestrator re-ran everything on the tip: test:unit 220 files, 4489 passed, 2 todo, the 3 pre-existing errors; test:edge 22; lint 0 errors; compile clean; test:packages 83; Desktop tsc clean and vitest 601; `cargo test --lib` 299 passed. Ghost code is in core's `ai-ui` chunk only. A trial merge against develop (2e084ed) conflicts in one file, `packages/core/src/ai-request.ts`. M7 waits for Mike.
 
 [Return to Top](#ghost-text-plan)
