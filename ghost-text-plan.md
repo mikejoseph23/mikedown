@@ -196,4 +196,6 @@ Gap-filling prompts follow the original milestone prompt structure (header, miss
 
 **2026-11-05 18:55** - M5 done (0c5df42). Settings fold, schema, Activity label, docs. Two consent fixes: a new `cursor` send scope replaces `selection` so the dialog describes ghost text, and "Allow once" now stops the idle trigger instead of asking at every pause. Don't allow only silences when no other engine can serve; a working local fallback keeps suggestions flowing. Follow-ups going to a gap fill: `ghostContext` sends everything up to the caret when it fits, which departs from D3 (outline plus the last 2400 chars) and hurts the first-token target; and a repo's settings can turn `localOnly` off, so it is fenced to user scope.
 
+**2026-11-05 19:00** - M5 gap fill done (4367c87). \`ghostContext\` now sends the last 2400 chars plus a headings note whatever the window, with no \`budgetDocument\` and no frontmatter; consent copy updated in core, Rust and the fixture. \`ghostText.localOnly\` comes from user settings only in both hosts: Desktop had the same hole through a folder's \`.mikedown/settings.json\`, and saving from a workspace or folder routes the value to user scope. 4412 unit tests, \`cargo test --lib consent\` 24 passed.
+
 [Return to Top](#ghost-text-plan)
