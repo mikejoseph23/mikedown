@@ -53,3 +53,45 @@ describe('saving mikedown.ai.localNetworks', () => {
     vi.doUnmock('vscode');
   });
 });
+
+describe('saving features.ghostText.localOnly', () => {
+  async function save(inspected: Record<string, unknown>, patch: Record<string, unknown>) {
+    vi.resetModules();
+    const update = vi.fn(async () => {});
+    vi.doMock('vscode', () => ({
+      ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
+      window: { showErrorMessage: vi.fn(), showWarningMessage: vi.fn() },
+      workspace: { getConfiguration: () => ({ inspect: (key: string) => inspected[key.replace(/^ai\./, '')], update }) },
+    }));
+    const { saveAiSettingsPatch } = await import('../../src/ai/vscodeAi');
+    await saveAiSettingsPatch(patch);
+    vi.doUnmock('vscode');
+    return update;
+  }
+
+  it('with no workspace features value, the whole value goes to user settings', async () => {
+    const update = await save({ features: { globalValue: { ghostText: { delayMs: 500 } } } }, { 'ai.features': { ghostText: { delayMs: 500, localOnly: false } } });
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith('ai.features', { ghostText: { delayMs: 500, localOnly: false } }, 1);
+  });
+
+  it('with a workspace features value, localOnly lands in user settings and not in the workspace file', async () => {
+    const update = await save(
+      { features: { globalValue: { ghostText: { delayMs: 900 } }, workspaceValue: { ghostText: { delayMs: 200, localOnly: false } } } },
+      { 'ai.features': { ghostText: { delayMs: 200, localOnly: false } } },
+    );
+    expect(update).toHaveBeenCalledWith('ai.features', { ghostText: { delayMs: 900, localOnly: false } }, 1);
+    expect(update).toHaveBeenCalledWith('ai.features', { ghostText: { delayMs: 200 } }, 2);
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it('a write-back never copies workspace values into user settings', async () => {
+    // The user switches nothing: localOnly stays at the default, the workspace value is only re-saved to the workspace.
+    const update = await save(
+      { features: { workspaceValue: { rewrite: { enabled: true }, ghostText: { localOnly: false } } } },
+      { 'ai.features': { rewrite: { enabled: true }, ghostText: { localOnly: true } } },
+    );
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith('ai.features', { rewrite: { enabled: true } }, 2);
+  });
+});

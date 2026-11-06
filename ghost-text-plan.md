@@ -17,13 +17,13 @@ Defaults applied: incremental testing, vitest unit tests, hands-on for interacti
 
 | Milestone | Model | Status | Duration (min) | Notes |
 |---|---|---|---|---|
-| M1 Core: prompt, trimming, settings | Sonnet | ⬜ Not Started | — | Pure modules in `packages/core/src/ai/` |
-| M2 Core: ghost controller | Sonnet | ⬜ Not Started | — | Debounce, abort, stop rules, prefix matching |
-| M3 Tests: core | Sonnet | ⬜ Not Started | — | vitest, `packages/core/test/` |
-| M4 UI: decoration plugin, keys, status | Opus | ⬜ Not Started | — | Widget decoration, Tab/Esc, chip |
-| M5 UI: settings, consent, activity | Opus | ⬜ Not Started | — | Feature row knobs, consent-once, recorder |
-| M6 Tests: UI | Sonnet | ⬜ Not Started | — | jsdom editor tests |
-| M7 Hands-on walk (both hosts) | Opus | ⬜ Not Started | — | Mike signs off |
+| M1 Core: prompt, trimming, settings | Sonnet | ✅ Done | 15 | f8daa9a |
+| M2 Core: ghost controller | Sonnet | ✅ Done | 4 | 022937d |
+| M3 Tests: core | Sonnet | ✅ Done | 7 | 2ae3bea; 121 tests |
+| M4 UI: decoration plugin, keys, status | Opus | ✅ Done | 23 | 25a79dc, 20a557b |
+| M5 UI: settings, consent, activity | Opus | ✅ Done | 10 | 0c5df42; gap fill for D3 and the local-only fence |
+| M6 Tests: UI | Sonnet | ✅ Done | 13 | 2160d7c; 77 tests |
+| M7 Hands-on walk (both hosts) | Opus | ⏸ Waiting for Mike | — | Mike signs off |
 
 ## Table of Contents
 
@@ -65,14 +65,14 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Sonnet.** Pure modules, no DOM. Workers must complete every item; note anything they think should be deferred in the summary instead of skipping it.
 
-- [ ] `packages/core/src/ai/prompts/continue.ts`: `CONTINUE_SYSTEM_PROMPT`, `buildContinueMessages({ before, after, blockKind })` returning `AiMessage[]`, `continueMaxTokens(setting)`. The prompt forbids preamble, quotes and markdown fences, and says to stop where `<after>` resumes.
-- [ ] `packages/core/src/ai/ghostContext.ts`: `ghostContext(markdown, caretOffset, contextTokens)` returning `{ before, after }` per D3, using `budgetDocument` and `headingsOutline`.
-- [ ] `packages/core/src/ai/ghostTrim.ts`: `trimGhostSuggestion(raw, { atBlockEnd, before })` per D5, plus `ghostAcceptWord(text)` and `ghostPrefixMatch(text, typed)` for D6.
-- [ ] `packages/core/src/ai/features.ts`: `ghostText` becomes `status: 'available'`, `sends: 'selection'`, keeps `defaultEnabled: false`.
-- [ ] `packages/core/src/ai/types.ts` and `schema.ts`: `AiGhostTextOptions` (`delayMs`, `maxTokens`, `trigger`, `localOnly`) with a `ghostTextOptions(features)` reader that applies defaults (400, 48, `'auto'`, true) and clamps ranges; `parseFeatures` validates those keys when present and warns on bad types.
-- [ ] `packages/core/src/ai/router.ts`: `ResolveRouteOptions.localOnly`; a cloud candidate is rejected with `cloudBlocked` and reason "Inline suggestions use local engines only." when set. `runAiCompletion` forwards `req.localOnly`.
-- [ ] Export the new modules from `packages/core/src/ai/index.ts`; keep the package shape test green (`npm run test:packages`).
-- [ ] Commit.
+- [x] `packages/core/src/ai/prompts/continue.ts`: `CONTINUE_SYSTEM_PROMPT`, `buildContinueMessages({ before, after, blockKind })` returning `AiMessage[]`, `continueMaxTokens(setting)`. The prompt forbids preamble, quotes and markdown fences, and says to stop where `<after>` resumes.
+- [x] `packages/core/src/ai/ghostContext.ts`: `ghostContext(markdown, caretOffset, contextTokens)` returning `{ before, after }` per D3, using `budgetDocument` and `headingsOutline`.
+- [x] `packages/core/src/ai/ghostTrim.ts`: `trimGhostSuggestion(raw, { atBlockEnd, before })` per D5, plus `ghostAcceptWord(text)` and `ghostPrefixMatch(text, typed)` for D6.
+- [x] `packages/core/src/ai/features.ts`: `ghostText` becomes `status: 'available'`, `sends: 'selection'`, keeps `defaultEnabled: false`.
+- [x] `packages/core/src/ai/types.ts` and `schema.ts`: `AiGhostTextOptions` (`delayMs`, `maxTokens`, `trigger`, `localOnly`) with a `ghostTextOptions(features)` reader that applies defaults (400, 48, `'auto'`, true) and clamps ranges; `parseFeatures` validates those keys when present and warns on bad types.
+- [x] `packages/core/src/ai/router.ts`: `ResolveRouteOptions.localOnly`; a cloud candidate is rejected with `cloudBlocked` and reason "Inline suggestions use local engines only." when set. `runAiCompletion` forwards `req.localOnly`.
+- [x] Export the new modules from `packages/core/src/ai/index.ts`; keep the package shape test green (`npm run test:packages`).
+- [x] Commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -80,13 +80,13 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Sonnet.** Surface-agnostic state machine in `packages/core/src/ai-ghost.ts` (lazy chunk, D13). Workers must complete every item.
 
-- [ ] `createGhostController(deps)` with deps: `run` (same shape as the rewrite popover's `run`, `editor.ts:4418`), `options()` returning `AiGhostTextOptions`, `contextTokens()`, `onSuggestion(text | null)`, `onBusy(bool)`, `onServed`, `onError`, `record(entry)` for D10.
-- [ ] Inputs: `noteChange({ markdown, caretOffset, atBlockEnd, eligible })`, `noteSelectionMove()`, `triggerNow()`, `accept()`, `acceptWord()`, `dismiss()`, `typed(char)`, `destroy()`.
-- [ ] Idle timer per D1 and D2; abort on every change; `trigger: 'manual'` disables the timer.
-- [ ] Streaming: tokens accumulate and `onSuggestion` is called with the trimmed text after each token; the request aborts itself once a stop rule fires (D5) so the model does not keep generating.
-- [ ] Request shape: `{ feature: 'ghostText', task: 'continue', sends: 'selection', messages, maxTokens, temperature: 0.3, thinking: 'off', job: 'ghostText', localOnly }`; `job: 'ghostText'` added to `AiThinkingJob` with default level off (`packages/core/src/ai/thinking.ts`).
-- [ ] Errors: `cloudBlocked`, `capability`, `featureDisabled` are silent (no toast, suggestion cleared) but surface once per session through `onError` so the toolbar menu can show a reason; network errors back off (double the delay up to 5 s, reset on success).
-- [ ] Commit.
+- [x] `createGhostController(deps)` with deps: `run` (same shape as the rewrite popover's `run`, `editor.ts:4418`), `options()` returning `AiGhostTextOptions`, `contextTokens()`, `onSuggestion(text | null)`, `onBusy(bool)`, `onServed`, `onError`, `record(entry)` for D10.
+- [x] Inputs: `noteChange({ markdown, caretOffset, atBlockEnd, eligible })`, `noteSelectionMove()`, `triggerNow()`, `accept()`, `acceptWord()`, `dismiss()`, `typed(char)`, `destroy()`.
+- [x] Idle timer per D1 and D2; abort on every change; `trigger: 'manual'` disables the timer.
+- [x] Streaming: tokens accumulate and `onSuggestion` is called with the trimmed text after each token; the request aborts itself once a stop rule fires (D5) so the model does not keep generating.
+- [x] Request shape: `{ feature: 'ghostText', task: 'continue', sends: 'selection', messages, maxTokens, temperature: 0.3, thinking: 'off', job: 'ghostText', localOnly }`; `job: 'ghostText'` added to `AiThinkingJob` with default level off (`packages/core/src/ai/thinking.ts`).
+- [x] Errors: `cloudBlocked`, `capability`, `featureDisabled` are silent (no toast, suggestion cleared) but surface once per session through `onError` so the toolbar menu can show a reason; network errors back off (double the delay up to 5 s, reset on success).
+- [x] Commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -94,13 +94,13 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Sonnet.** Mode: unit (vitest, `packages/core/test/`). Run with `npx vitest run packages/core/test/ai-ghost*.test.ts`.
 
-- [ ] `ai-ghost-prompt.test.ts`: messages carry before and after, no fence, max tokens from the setting.
-- [ ] `ai-ghost-context.test.ts`: long document is cut by budget, last 2400 chars kept verbatim, suffix capped, caret in frontmatter yields nothing.
-- [ ] `ai-ghost-trim.test.ts`: blank-line stop, newline stop mid-block, sentence cut past 120 chars, repeated-prefix discard, word accept, prefix match and mismatch.
-- [ ] `ai-ghost-settings.test.ts`: defaults, clamping, bad types warned and dropped, `serializeAiSettings` round-trips the knobs.
-- [ ] `ai-ghost-router.test.ts`: `localOnly` rejects a cloud route with `cloudBlocked`; a model with neither `fim` nor `chat` is rejected; `fim` preferred among local candidates.
-- [ ] `ai-ghost-controller.test.ts` with fake timers and a fake `run`: idle fires once after 400 ms, keystroke aborts and restarts, manual mode never auto-fires, stop rule aborts the stream, backoff on error, accept records one activity entry and dismiss records none.
-- [ ] All green, `npm run lint` clean, commit.
+- [x] `ai-ghost-prompt.test.ts`: messages carry before and after, no fence, max tokens from the setting.
+- [x] `ai-ghost-context.test.ts`: long document is cut by budget, last 2400 chars kept verbatim, suffix capped, caret in frontmatter yields nothing.
+- [x] `ai-ghost-trim.test.ts`: blank-line stop, newline stop mid-block, sentence cut past 120 chars, repeated-prefix discard, word accept, prefix match and mismatch.
+- [x] `ai-ghost-settings.test.ts`: defaults, clamping, bad types warned and dropped, `serializeAiSettings` round-trips the knobs.
+- [x] `ai-ghost-router.test.ts`: `localOnly` rejects a cloud route with `cloudBlocked`; a model with neither `fim` nor `chat` is rejected; `fim` preferred among local candidates.
+- [x] `ai-ghost-controller.test.ts` with fake timers and a fake `run`: idle fires once after 400 ms, keystroke aborts and restarts, manual mode never auto-fires, stop rule aborts the stream, backoff on error, accept records one activity entry and dismiss records none.
+- [x] All green, `npm run lint` clean, commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -108,15 +108,15 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Opus.** Interaction design in the live editor. Follow the ProseMirror rule: the widget is plugin state, never a DOM write (`spellcheck.ts:47-383` and `findreplace.ts:83-110` are the patterns). Workers must complete every item.
 
-- [ ] `packages/core/src/ai-ghost-plugin.ts`: a PM `Plugin` with `PluginKey('aiGhost')`, state `{ text, pos }`, `Decoration.widget(pos, span, { side: 1 })` rendering `<span class="mikedown-ghost">`; a `setMeta` transaction updates or clears it; any doc change that is not an accept clears it.
-- [ ] Eligibility probe in the plugin's `view.update`: caret at block end, block type allowed, no autocomplete open (check the emoji and wikilink plugin states), selection empty; feeds `controller.noteChange` with the serialized markdown and caret offset (map PM position to markdown offset the way `cursorInsertTarget` does, `ai-rewrite.ts:494`).
-- [ ] Keys in the plugin's `handleKeyDown`, only while a suggestion shows: Tab accept, `Mod-ArrowRight` accept word, Escape dismiss, printable character runs `typed(char)`. Return false otherwise so lists and tables keep Tab (D7).
-- [ ] Accept inserts with `closeHistory(tr)` first, then `insertText`, as one transaction (D6).
-- [ ] Manual trigger `Mod-Alt-Space` through a small TipTap `Extension` like `mikedownAiRewriteShortcut` (`editor.ts:4040`), skipped when `hostOwnsShortcuts`.
-- [ ] `editor.ts`: under `whenAiUi`, build the controller with `aiRunContext` (activity set to undefined per D10), register the plugin, wire `onBusy` to `syncAiToolbarBusy` and `onServed` to `aiServed` (D11); tear down in `disposers`; rebuild options on every settings broadcast; stop everything in source mode.
-- [ ] Styling in `packages/core/src/styles/editor.css`: ghost text in the editor font at 55 percent opacity, no layout shift, a 120 ms fade in, respects `prefers-reduced-motion`. It should read like Xcode or VS Code inline completions, quiet and clearly not part of the document.
-- [ ] AI toolbar menu entry "Suggest continuation" (`ai-toolbar.ts`) that calls `triggerNow`, hidden when the feature is off.
-- [ ] Commit.
+- [x] `packages/core/src/ai-ghost-plugin.ts`: a PM `Plugin` with `PluginKey('aiGhost')`, state `{ text, pos }`, `Decoration.widget(pos, span, { side: 1 })` rendering `<span class="mikedown-ghost">`; a `setMeta` transaction updates or clears it; any doc change that is not an accept clears it.
+- [x] Eligibility probe in the plugin's `view.update`: caret at block end, block type allowed, no autocomplete open (check the emoji and wikilink plugin states), selection empty; feeds `controller.noteChange` with the serialized markdown and caret offset (map PM position to markdown offset the way `cursorInsertTarget` does, `ai-rewrite.ts:494`).
+- [x] Keys in the plugin's `handleKeyDown`, only while a suggestion shows: Tab accept, `Mod-ArrowRight` accept word, Escape dismiss, printable character runs `typed(char)`. Return false otherwise so lists and tables keep Tab (D7).
+- [x] Accept inserts with `closeHistory(tr)` first, then `insertText`, as one transaction (D6).
+- [x] Manual trigger `Mod-Alt-Space` through a small TipTap `Extension` like `mikedownAiRewriteShortcut` (`editor.ts:4040`), skipped when `hostOwnsShortcuts`.
+- [x] `editor.ts`: under `whenAiUi`, build the controller with `aiRunContext` (activity set to undefined per D10), register the plugin, wire `onBusy` to `syncAiToolbarBusy` and `onServed` to `aiServed` (D11); tear down in `disposers`; rebuild options on every settings broadcast; stop everything in source mode.
+- [x] Styling in `packages/core/src/styles/editor.css`: ghost text in the editor font at 55 percent opacity, no layout shift, a 120 ms fade in, respects `prefers-reduced-motion`. It should read like Xcode or VS Code inline completions, quiet and clearly not part of the document.
+- [x] AI toolbar menu entry "Suggest continuation" (`ai-toolbar.ts`) that calls `triggerNow`, hidden when the feature is off.
+- [x] Commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -124,13 +124,13 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Opus.** Settings modal rows and consent copy. Workers must complete every item.
 
-- [ ] `ai-settings.ts`: when `ghostText` is on, a disclosure under its row with Delay (ms), Max tokens, Trigger (Automatic / Manual shortcut), and "Local engines only" switch; saved into `features.ghostText` via the existing draft patch (`ai-settings.ts:322`).
-- [ ] The feature description reads "Dim continuation text while you write. Sends the text around the cursor as you pause." and the row shows a privacy line from `privacyLine` (`ai-settings-dom.ts`) when "Local engines only" is off.
-- [ ] `package.json#contributes.configuration` line 965: add `delayMs`, `maxTokens`, `trigger`, `localOnly` to the per-feature schema with descriptions. `src/settings.ts` needs no change (verify); Desktop `schema.ts` needs no change (verify).
-- [ ] Consent: with `localOnly` off, the first ghost request goes through `requestCloudConsent` as any feature does; confirm the dialog text names Inline suggestions and the cursor-window scope (`aiConsentText`, `privacy.ts:140`). A "Don't allow" answer silences ghost text for the session (D9).
-- [ ] AI Activity: accepted suggestions appear in the panel as feature "Inline suggestions" with the prompt and the accepted text; add the label to `ai-activity-panel.ts` where Explain and Translate are named (commit c974b24).
-- [ ] README (features list and the AI section), CHANGELOG under Unreleased, and the Desktop release notes file the AI Activity work used.
-- [ ] Commit.
+- [x] `ai-settings.ts`: when `ghostText` is on, a disclosure under its row with Delay (ms), Max tokens, Trigger (Automatic / Manual shortcut), and "Local engines only" switch; saved into `features.ghostText` via the existing draft patch (`ai-settings.ts:322`).
+- [x] The feature description reads "Dim continuation text while you write. Sends the text around the cursor as you pause." and the row shows a privacy line from `privacyLine` (`ai-settings-dom.ts`) when "Local engines only" is off.
+- [x] `package.json#contributes.configuration` line 965: add `delayMs`, `maxTokens`, `trigger`, `localOnly` to the per-feature schema with descriptions. `src/settings.ts` needs no change (verify); Desktop `schema.ts` needs no change (verify).
+- [x] Consent: with `localOnly` off, the first ghost request goes through `requestCloudConsent` as any feature does; confirm the dialog text names Inline suggestions and the cursor-window scope (`aiConsentText`, `privacy.ts:140`). A "Don't allow" answer silences ghost text for the session (D9).
+- [x] AI Activity: accepted suggestions appear in the panel as feature "Inline suggestions" with the prompt and the accepted text; add the label to `ai-activity-panel.ts` where Explain and Translate are named (commit c974b24).
+- [x] README (features list and the AI section), CHANGELOG under Unreleased, and the Desktop release notes file the AI Activity work used.
+- [x] Commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -138,11 +138,11 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Sonnet.** Mode: unit (vitest jsdom, `packages/core/test/`), following `ai-activity-panel.test.ts` and `ai-lazy-load.test.ts` for editor setup.
 
-- [ ] `ai-ghost-plugin.test.ts`: widget appears after the caret from a `setMeta` transaction; a doc change clears it; Tab inserts the text and one undo removes exactly it; `Mod-ArrowRight` inserts one word; Escape clears; Tab inside a list with no suggestion still indents; no suggestion inside a table or code block.
-- [ ] `ai-ghost-editor.test.ts`: feature off means no plugin, no request; feature on with a fake `host.ai` fires one request after the idle delay and streams into the widget; a keystroke aborts (signal observed aborted); emoji autocomplete open suppresses the trigger; source mode toggle clears and stops.
-- [ ] `ai-lazy-load.test.ts`: add a case that `ai-ghost` is not in the main path (no ghost module loaded without `host.ai`).
-- [ ] `ai-ghost-settings-ui.test.ts`: disclosure renders with the saved values, edits land in the draft, saved settings echo back.
-- [ ] `npm run test:unit`, `npm run test:edge`, `npm run lint` green; commit.
+- [x] `ai-ghost-plugin.test.ts`: widget appears after the caret from a `setMeta` transaction; a doc change clears it; Tab inserts the text and one undo removes exactly it; `Mod-ArrowRight` inserts one word; Escape clears; Tab inside a list with no suggestion still indents; no suggestion inside a table or code block.
+- [x] `ai-ghost-editor.test.ts`: feature off means no plugin, no request; feature on with a fake `host.ai` fires one request after the idle delay and streams into the widget; a keystroke aborts (signal observed aborted); emoji autocomplete open suppresses the trigger; source mode toggle clears and stops.
+- [x] `ai-lazy-load.test.ts`: add a case that `ai-ghost` is not in the main path (no ghost module loaded without `host.ai`).
+- [x] `ai-ghost-settings-ui.test.ts`: disclosure renders with the saved values, edits land in the draft, saved settings echo back.
+- [x] `npm run test:unit`, `npm run test:edge`, `npm run lint` green; commit.
 
 [Return to Top](#ghost-text-plan)
 
@@ -150,15 +150,15 @@ What exists already: the feature entry `ghostText` (`packages/core/src/ai/featur
 
 **Model: Opus** (drives the setup, Mike signs off). Mode: hands-on in both hosts. The orchestrator pauses for Mike's sign-off.
 
-VS Code: from `/Users/michaeljosephwork/git/mikedown` run `npm run dev`; it opens `test/workspace`. Desktop: quit the installed MikeDown Desktop, then `npm run dev` in `packages/desktop`. In each host open the Settings modal (toolbar gear, AI tab), turn on Inline suggestions, and route `continue` to oMLX at `http://127.0.0.1:8000/v1` (then repeat with LM Studio on port 1234). Never print keys.
+VS Code: from the ghost-text worktree (`/Users/michaeljosephwork/git/mikedown/.claude/worktrees/ghost-text`) run `npm run dev`; it opens `test/workspace`. Desktop: quit the installed MikeDown Desktop, then `npm run dev` in `packages/desktop` of the same worktree. The main checkout is on `develop` and has none of this. In each host open the Settings modal (toolbar gear, AI tab), turn on Inline suggestions, and route `continue` to oMLX at `http://127.0.0.1:8000/v1` (then repeat with LM Studio on port 1234). Never print keys.
 
 - [ ] Type a sentence, pause: dim text appears within about a second; the toolbar AI button pulses while it streams.
 - [ ] Tab accepts; Cmd+Z removes exactly the accepted text; the footer chip names the engine.
 - [ ] Cmd+Right accepts one word at a time; Escape clears; typing the suggested next letter keeps the rest, a different letter clears.
 - [ ] Tab in a list indents and Tab in a table moves cells when nothing is suggested; no ghost text appears inside a table or code block.
 - [ ] Type `:smi` and confirm the emoji popup owns Tab; same with `[[`.
-- [ ] Trigger set to Manual: nothing fires on idle; Cmd+Alt+Space fires once.
-- [ ] Local engines only on, with a cloud engine enabled and routed to `continue`: no request leaves, the AI menu shows the reason. Switch it off: one consent dialog, then suggestions flow; "Don't allow" silences the feature for the session.
+- [ ] Trigger set to Manual: nothing fires on idle; Cmd+Alt+Space fires once (macOS may keep this chord for Finder search; the AI menu's Suggest continuation is the fallback).
+- [ ] Local engines only on, with a cloud engine enabled and routed to `continue`: no request leaves, the AI menu shows the reason. Switch it off: one consent dialog, then suggestions flow with "Allow"; "Allow once" gives one suggestion, then only the shortcut asks; "Don't allow" silences the feature for the session unless a local engine can serve as the fallback, in which case suggestions continue locally.
 - [ ] AI Activity panel on: only accepted suggestions are listed.
 - [ ] Toggle source mode (Cmd+/): no ghost text, no requests; back to rich mode resumes.
 - [ ] Both engines tried in both hosts; Mike signs off, and the walk is logged in the Progress Log.
@@ -183,5 +183,23 @@ Gap-filling prompts follow the original milestone prompt structure (header, miss
 ## Progress Log / Notes
 
 **2026-11-05 16:05** - Plan written after reading the feature and task registries, `runAiCompletion`, the router, the activity recorder, the rewrite flow, the settings parser and the decoration plugins. Key finding: no FIM wire path exists, so v1 is chat-continue for every model (D4).
+
+**2026-11-05 18:36** - M1 done (f8daa9a). Continue prompt, caret context, trimming, ghostText settings, router localOnly. Beyond the listed files: `consent.rs` and the consent fixture gained ghostText, and the toggles test now filters on defaultEnabled. Unit tests unchanged at 4256 passed.
+
+**2026-11-05 18:36** - Two orchestration refinements of the M2 inputs, neither changing D1 to D13: \`noteChange\` takes a lazy \`read()\` for the markdown and caret offset so the document is serialized when a request is about to fire, not on every keystroke; and a selection move aborts and clears without starting a timer, because D1 triggers only on text changes and a move has no fresh snapshot. M4 is split into a plugin half (M4a, beside M2) and a wiring half (M4b, after M3).
+
+**2026-11-05 18:40** - M2 done (022937d). Controller in `ai-ghost.ts`, `ghostText` default-off in `thinking.ts`. `triggerNow` gained an optional fresh input. `classifyGhostError` reads router sentences because `routeUnusableError` keeps only some codes, so M3 pins it against the real router messages. M3 also corrects the activity entry to hold the shown suggestion rather than the raw stream.
+
+**2026-11-05 18:45** - M3 done (2ae3bea), 121 tests. Discrepancy with D4: the `continue` task has no `prefers`, so `fim` is not a router preference; the chosen route wins, then registry order. Left as is and the test pins it, since with no FIM wire a preference could pick a fim-only model that cannot take the chat prompt. A fim-only model passes `requiresAny` today and would still get a chat request. To raise with Mike at M7.
+
+**2026-11-05 18:47** - M4a done (25a79dc): the plugin half of M4. Refinements of D7 and D6: keys use \`handleDOMEvents.keydown\`, because \`editorProps.handleKeyDown\` always runs before any plugin's whatever the order; a suggestion stops at a single newline, since inserting it would break the paragraph. Also added: blur and IME composition dismiss, inline code and empty blocks are ineligible on idle, undo, paste and host updates never trigger. M4b does the wiring.
+
+**2026-11-05 18:55** - M5 done (0c5df42). Settings fold, schema, Activity label, docs. Two consent fixes: a new `cursor` send scope replaces `selection` so the dialog describes ghost text, and "Allow once" now stops the idle trigger instead of asking at every pause. Don't allow only silences when no other engine can serve; a working local fallback keeps suggestions flowing. Follow-ups going to a gap fill: `ghostContext` sends everything up to the caret when it fits, which departs from D3 (outline plus the last 2400 chars) and hurts the first-token target; and a repo's settings can turn `localOnly` off, so it is fenced to user scope.
+
+**2026-11-05 19:00** - M5 gap fill done (4367c87). \`ghostContext\` now sends the last 2400 chars plus a headings note whatever the window, with no \`budgetDocument\` and no frontmatter; consent copy updated in core, Rust and the fixture. \`ghostText.localOnly\` comes from user settings only in both hosts: Desktop had the same hole through a folder's \`.mikedown/settings.json\`, and saving from a workspace or folder routes the value to user scope. 4412 unit tests, \`cargo test --lib consent\` 24 passed.
+
+**2026-11-05 19:02** - M4b done (20a557b). `ai-ghost-session.ts` holds the wiring, installed and removed live with the feature, so unrelated broadcasts keep the Don't allow latch. Both hosts set `hostOwnsShortcuts`, so the chord is a host command: `mikedown.ai.suggestContinuation` in VS Code, a page-handled menu row in Desktop, whose matcher learned Space. Errors never toast; the last reason shows on the Suggest continuation menu entry. Widget readers fixed: `getHtml`, copy as rich text, heading anchors. For M7: Cmd+Option+Space is macOS's default Finder search shortcut, so the chord may not reach either host; the menu entries work regardless.
+
+**2026-11-05 19:16** - M6 done (2160d7c), no source changes and no bugs found. Orchestrator re-ran everything on the tip: test:unit 220 files, 4489 passed, 2 todo, the 3 pre-existing errors; test:edge 22; lint 0 errors; compile clean; test:packages 83; Desktop tsc clean and vitest 601; `cargo test --lib` 299 passed. Ghost code is in core's `ai-ui` chunk only. A trial merge against develop (2e084ed) conflicts in one file, `packages/core/src/ai-request.ts`. M7 waits for Mike.
 
 [Return to Top](#ghost-text-plan)

@@ -23,13 +23,13 @@
  * Modal UI only: nothing here touches the editor document or its DOM.
  */
 
-import { AI_FEATURES, AI_NO_CONSENTS_TEXT, AI_TASKS, aiConsentStepNote, aiConsentSummary, aiProviderPolicy, getAiTask, resolveAiFeature, toAiError } from './ai';
-import type { AiConsentRecord, AiEngineConfig, AiSettings, AiSettingsPatch } from './ai';
+import { AI_FEATURES, AI_NO_CONSENTS_TEXT, AI_TASKS, GHOST_DELAY_MS_DEFAULT, GHOST_DELAY_MS_MAX, GHOST_DELAY_MS_MIN, GHOST_MAX_TOKENS_DEFAULT, GHOST_MAX_TOKENS_MAX, GHOST_MAX_TOKENS_MIN, aiConsentStepNote, aiConsentSummary, aiProviderPolicy, getAiTask, ghostTextOptions, resolveAiFeature, toAiError } from './ai';
+import type { AiConsentRecord, AiEngineConfig, AiFeatureSetting, AiSettings, AiSettingsPatch } from './ai';
 import { engineDisplayName, engineKindLabel, parseLocalNetworksText, routeLabel, taskRouteNote } from './ai-settings-model';
 import { createAiSettingsSession } from './ai-settings-session';
 import type { AiSettingsSessionOptions } from './ai-settings-session';
 import type { AiEnginesPageSection } from './ai-engines-page';
-import { ICONS, button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, privacyCard, statusBadge, switchInput } from './ai-settings-dom';
+import { ICONS, button, el, experimentalBadge, experimentalDisclaimer, keepFocus, kindGlyphHtml, localityPills, nextId, note, privacyCard, privacyLine, statusBadge, switchInput } from './ai-settings-dom';
 import type { MikeDownSettingsSectionBuild, MikeDownSettingsSectionContext } from './types';
 
 /** The tab asks its host to open the AI Engines page over the modal. */
@@ -318,6 +318,7 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
     lbl.id = labelId;
     text.append(lbl, el('span', 'settings-desc', def.description));
     const controls = el('div', 'ai-feature-controls');
+    let options: HTMLElement | null = null;
     if (planned) {
       controls.append(el('span', 'ai-pill ai-pill--soon', 'Coming later'));
       row.setAttribute('aria-disabled', 'true');
@@ -331,9 +332,11 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
         session.draft = { ...draft, features: { ...draft.features, [def.id]: { ...(draft.features[def.id] ?? {}), enabled: toggle.checked } } };
       });
       controls.append(toggle);
+      if (def.id === 'ghostText') {options = buildGhostOptions(toggle, text);}
     }
     row.append(text, controls);
     featureRows.push(row);
+    if (options) {featureRows.push(options);}
   }
   featuresRow.append(ctx.makeGroup(...featureRows));
   if (taskRows.length > 0) {featuresRow.append(...buildTaskDisclosure(taskRows));}
@@ -372,6 +375,108 @@ export function buildAiSettingsSection(ctx: MikeDownSettingsSectionContext, opts
     });
     row.append(lbl, select);
     return row;
+  }
+
+  /**
+   * Inline suggestions' own knobs, folded under its row while the feature is
+   * on, saved into `features.ghostText` like the switch. Tier 1 hosts route by
+   * themselves, so "Local engines only" could not be honoured there and is
+   * left out, with the privacy line that goes with it.
+   */
+  function buildGhostOptions(enabled: HTMLInputElement, rowText: HTMLElement): HTMLElement {
+    const saved = ghostTextOptions(session.draft.features);
+    const patch = (change: (entry: AiFeatureSetting) => void): void => {
+      const draft = session.draft;
+      const entry = { ...(draft.features.ghostText ?? {}) };
+      change(entry);
+      session.draft = { ...draft, features: { ...draft.features, ghostText: entry } };
+    };
+
+    const numberRow = (label: string, hint: string, key: 'delayMs' | 'maxTokens', value: number, range: { min: number; max: number; step: number; dflt: number }): HTMLElement => {
+      const row = ctx.makeRow(label, hint, 'inline');
+      const input = el('input', 'settings-input settings-input--small settings-input--short');
+      input.type = 'number';
+      input.min = String(range.min);
+      input.max = String(range.max);
+      input.step = String(range.step);
+      input.value = String(value);
+      input.dataset.fk = `feature:ghostText:${key}`;
+      input.setAttribute('aria-label', label);
+      input.addEventListener('change', () => {
+        const typed = Number(input.value);
+        if (input.value.trim() === '' || !Number.isFinite(typed)) {
+          // Blank: back to the default, with the key gone rather than saved.
+          patch((entry) => { delete entry[key]; });
+          input.value = String(range.dflt);
+          return;
+        }
+        const next = Math.min(range.max, Math.max(range.min, Math.round(typed)));
+        patch((entry) => { entry[key] = next; });
+        input.value = String(next);
+      });
+      row.append(input);
+      return row;
+    };
+    const delay = numberRow('Delay (ms)', 'How long you pause before a suggestion is requested.', 'delayMs', saved.delayMs, { min: GHOST_DELAY_MS_MIN, max: GHOST_DELAY_MS_MAX, step: 50, dflt: GHOST_DELAY_MS_DEFAULT });
+    const tokens = numberRow('Max tokens', 'The longest suggestion a model may write.', 'maxTokens', saved.maxTokens, { min: GHOST_MAX_TOKENS_MIN, max: GHOST_MAX_TOKENS_MAX, step: 1, dflt: GHOST_MAX_TOKENS_DEFAULT });
+
+    const triggerRow = ctx.makeRow('Trigger', 'Automatic suggests as you pause. Manual shortcut suggests only when you press the shortcut.', 'inline');
+    const trigger = el('select', 'settings-input settings-input--small');
+    trigger.dataset.fk = 'feature:ghostText:trigger';
+    trigger.setAttribute('aria-label', 'Trigger');
+    for (const [value, label] of [['auto', 'Automatic'], ['manual', 'Manual shortcut']] as const) {
+      const o = el('option', '', label);
+      o.value = value;
+      trigger.append(o);
+    }
+    trigger.value = saved.trigger;
+    trigger.addEventListener('change', () => {
+      patch((entry) => { entry.trigger = trigger.value === 'manual' ? 'manual' : 'auto'; });
+    });
+    triggerRow.append(trigger);
+
+    const panelId = nextId('ai-ghost-options');
+    const toggle = button('ai-disclosure ai-ghost-options-toggle', 'Options', { html: ICONS.chevron, fk: 'feature:ghostText:options', ariaLabel: 'Inline suggestions options' });
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', panelId);
+    const panel = el('div', 'ai-advanced ai-ghost-options');
+    panel.id = panelId;
+    panel.hidden = true;
+    toggle.addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      toggle.setAttribute('aria-expanded', String(!panel.hidden));
+    });
+    const group = ctx.makeGroup(delay, tokens, triggerRow);
+    panel.append(group);
+
+    let line: HTMLElement | null = null;
+    let localOnly: HTMLInputElement | null = null;
+    const syncVisible = (): void => {
+      box.hidden = !enabled.checked;
+      if (line) {line.hidden = !enabled.checked || !!localOnly?.checked;}
+    };
+    if (tier === 2) {
+      const localRow = ctx.makeRow('Local engines only', 'Never sends suggestions to a cloud engine, even when one is set for this task.', 'inline');
+      localOnly = switchInput(saved.localOnly, 'Local engines only', 'feature:ghostText:localOnly');
+      const onlyLocal = localOnly;
+      onlyLocal.addEventListener('change', () => {
+        patch((entry) => { entry.localOnly = onlyLocal.checked; });
+        syncVisible();
+      });
+      localRow.append(onlyLocal);
+      group.append(localRow);
+
+      line = privacyLine(() => openPage());
+      // The fuller card is on the AI Engines page; a host without one has only the line.
+      if (!canManage) {line.querySelector('button')?.remove();}
+      rowText.append(line);
+    }
+
+    const box = el('div', 'settings-row ai-ghost-options-box');
+    box.append(toggle, panel);
+    enabled.addEventListener('change', syncVisible);
+    syncVisible();
+    return box;
   }
 
   /** "Advanced: task per feature", closed until opened; a feature can use another task's model. */

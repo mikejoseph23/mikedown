@@ -184,6 +184,10 @@
         "title": "MikeDown: Chat with AI"
       },
       {
+        "command": "mikedown.ai.suggestContinuation",
+        "title": "MikeDown: Suggest Continuation with AI"
+      },
+      {
         "command": "mikedown.dev.resetSupportPrompt",
         "title": "MikeDown (Dev): Reset Support Prompt State"
       }
@@ -250,6 +254,10 @@
         },
         {
           "command": "mikedown.ai.chat",
+          "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
+        },
+        {
+          "command": "mikedown.ai.suggestContinuation",
           "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
         },
         {
@@ -347,6 +355,12 @@
         "command": "mikedown.ai.rewrite",
         "key": "ctrl+alt+k",
         "mac": "cmd+alt+k",
+        "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
+      },
+      {
+        "command": "mikedown.ai.suggestContinuation",
+        "key": "ctrl+alt+space",
+        "mac": "cmd+alt+space",
         "when": "activeCustomEditorId == 'mikedown.editor' && config.mikedown.ai.enabled"
       }
     ],
@@ -973,7 +987,7 @@
         "mikedown.ai.features": {
           "type": "object",
           "default": {},
-          "markdownDescription": "Per-feature switches and task overrides, keyed by feature id, for example { \"rewrite\": { \"enabled\": true } }. Edit these in the MikeDown Settings modal (toolbar gear, AI tab).",
+          "markdownDescription": "Per-feature switches and task overrides, keyed by feature id, for example { \"rewrite\": { \"enabled\": true } }. Inline suggestions (`ghostText`) also takes `delayMs`, `maxTokens`, `trigger` and `localOnly`. Edit these in the MikeDown Settings modal (toolbar gear, AI tab).",
           "additionalProperties": {
             "type": "object",
             "properties": {
@@ -982,6 +996,34 @@
               },
               "task": {
                 "type": "string"
+              },
+              "delayMs": {
+                "type": "number",
+                "minimum": 100,
+                "maximum": 5000,
+                "default": 400,
+                "description": "ghostText only: how long you pause, in milliseconds, before a suggestion is requested."
+              },
+              "maxTokens": {
+                "type": "number",
+                "minimum": 8,
+                "maximum": 256,
+                "default": 48,
+                "description": "ghostText only: the longest suggestion a model may write, in tokens."
+              },
+              "trigger": {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "manual"
+                ],
+                "default": "auto",
+                "description": "ghostText only: auto suggests as you pause, manual only from the shortcut."
+              },
+              "localOnly": {
+                "type": "boolean",
+                "default": true,
+                "description": "ghostText only: never send suggestions to a cloud engine. Applies from user settings only."
               }
             }
           }

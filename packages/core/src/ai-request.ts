@@ -111,6 +111,8 @@ export interface AiRunRequest {
   pin?: AiRoutePin;
   /** The documentation chat's ids for this request's Activity entry. */
   docs?: AiDocsActivityDetail;
+  /** Only local engines may serve this request (Inline suggestions); a cloud route is `cloudBlocked`. */
+  localOnly?: boolean;
 }
 
 /** The thinking dial's state for the route serving a request. */
@@ -139,6 +141,8 @@ export interface AiRunEvents {
   onRoute?(route: AiRouteOk | null, thinking: AiRunThinking | null): void;
   /** A text delta, and everything received so far for the current attempt. */
   onToken?(delta: string, text: string): void;
+  /** The host answered the consent request. Called even when the run was aborted while it asked: the answer still stands. */
+  onConsent?(reply: AiConsentReply): void;
 }
 
 export interface AiRunOutcome {
@@ -397,7 +401,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
     if (tier2) {
       const consent: AiConsentState = { ...ctx.consent, ...once, ...refused };
       const settings = pin ? pinnedSettings(ctx.settings(), req, pin) : ctx.settings();
-      const resolved = resolveRoute(settings, withFailures(ctx.statuses(), failed), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}) });
+      const resolved = resolveRoute(settings, withFailures(ctx.statuses(), failed), consent, { feature: req.feature, ...(req.task ? { task: req.task } : {}), ...(req.localOnly ? { localOnly: true } : {}) });
       if (!isRouteUsable(resolved)) {throw routeUnusableError(resolved);}
       if (pin && pin.isLocal !== undefined && resolved.isLocal !== pin.isLocal) {
         const name = ctx.settings().engines.find((e) => e.id === pin.engineId)?.name || pin.engineId;
@@ -406,6 +410,7 @@ export async function runAiCompletion(ctx: AiRunContext, req: AiRunRequest, even
       }
       if (resolved.needsConsent) {
         const reply = await askConsent(ctx.ai, resolved.engineId, { feature: req.feature, ...(req.sends ? { sends: req.sends } : {}), ...(req.baseIds && req.baseIds.length > 0 ? { baseIds: req.baseIds } : {}) }, pin?.turnId);
+        events.onConsent?.(reply);
         if (signal.aborted) {throw makeAiError('cancelled');}
         if (reply === true) {ctx.consent[resolved.engineId] = true;}
         else if (reply === 'once') {

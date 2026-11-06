@@ -209,6 +209,8 @@
  *         on the AI tab, as before.
  *     { type: 'command', command: 'aiRewrite' } — mikedown.ai.rewrite: open the
  *         rewrite popover on the selection.
+ *     { type: 'command', command: 'aiSuggestContinuation' } — mikedown.ai.suggestContinuation
+ *         (Cmd/Ctrl+Alt+Space): an inline suggestion at the caret now.
  *
  * Also handled here (pushes from the extension host):
  *   { type: 'theme', fontFamily, headingFontFamily, fontSize } — folded into updateSettings

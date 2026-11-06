@@ -477,3 +477,48 @@ describe('settings: toolbarLayout (global file only)', () => {
     await vi.waitFor(() => expect(b.applied.at(-1)).toMatchObject({ toolbarLayout: LAYOUT }));
   });
 });
+
+describe('ai.features.ghostText.localOnly is a user setting', () => {
+  const ghost = (win: ReturnType<typeof createWindow>) => win.manager.aiSettings().features?.ghostText;
+
+  it('a folder file cannot turn Local engines only off, but its other features keys apply', async () => {
+    const world = createWorld();
+    world.files.set(GLOBAL, JSON.stringify({ 'ai.features': { ghostText: { delayMs: 900 } } }));
+    world.files.set(folderFile('/notes'), JSON.stringify({ 'ai.features': { ghostText: { localOnly: false, delayMs: 200 }, rewrite: { enabled: true } } }));
+    const win = createWindow(world, { folder: '/notes' });
+    await win.manager.load();
+    expect(ghost(win)?.localOnly).toBeUndefined();
+    expect(ghost(win)?.delayMs).toBe(200);
+    expect(win.manager.aiSettings().features?.rewrite?.enabled).toBe(true);
+  });
+
+  it('the user setting in the global file still applies under a folder override', async () => {
+    const world = createWorld();
+    world.files.set(GLOBAL, JSON.stringify({ 'ai.features': { ghostText: { localOnly: false } } }));
+    world.files.set(folderFile('/notes'), JSON.stringify({ 'ai.features': { ghostText: { localOnly: true, delayMs: 200 } } }));
+    const win = createWindow(world, { folder: '/notes' });
+    await win.manager.load();
+    expect(ghost(win)).toMatchObject({ localOnly: false, delayMs: 200 });
+  });
+
+  it('Save for this folder puts localOnly in the global file and the rest in the folder file', async () => {
+    const world = createWorld();
+    world.files.set(GLOBAL, JSON.stringify({ 'ai.features': { ghostText: { delayMs: 900 } } }));
+    const win = createWindow(world, { folder: '/notes' });
+    await win.manager.load();
+    await win.manager.save({ 'ai.features': { ghostText: { delayMs: 300, localOnly: false } }, [SAVE_FOR_FOLDER_KEY]: true });
+    expect(JSON.parse(world.files.get(GLOBAL) as string)['ai.features']).toEqual({ ghostText: { delayMs: 900, localOnly: false } });
+    expect(JSON.parse(world.files.get(folderFile('/notes')) as string)['ai.features']).toEqual({ ghostText: { delayMs: 300 } });
+    expect(ghost(win)).toMatchObject({ localOnly: false, delayMs: 300 });
+  });
+
+  it('Save for this folder with only localOnly changed writes nothing to the folder', async () => {
+    const world = createWorld();
+    world.files.set(GLOBAL, JSON.stringify({ 'ai.features': { rewrite: { enabled: true } } }));
+    const win = createWindow(world, { folder: '/notes' });
+    await win.manager.load();
+    await win.manager.save({ 'ai.features': { rewrite: { enabled: true }, ghostText: { localOnly: false } }, [SAVE_FOR_FOLDER_KEY]: true });
+    expect(JSON.parse(world.files.get(GLOBAL) as string)['ai.features']).toEqual({ rewrite: { enabled: true }, ghostText: { localOnly: false } });
+    expect(world.files.has(folderFile('/notes'))).toBe(false);
+  });
+});

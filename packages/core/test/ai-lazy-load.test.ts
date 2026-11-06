@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle, type MikeDownHost } from '../src/index';
 import { parseAiSettings, type MikeDownAiHost } from '../src/ai';
 import { loadAiUi, loadedAiUi, registerAiUi } from '../src/ai-lite';
+import { aiGhostKey } from '../src/ai-ghost-plugin';
 import * as aiUi from '../src/ai-ui';
 import { hideToolbarDropdown } from '../src/toolbar-dropdown';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
@@ -125,7 +126,11 @@ function staticClosure(entry: string): Set<string> {
 }
 
 describe('the editor\'s main path does not import the AI UI', () => {
-  const lazy = ['ai-ui.ts', 'ai-chat-panel.ts', 'ai-docs-page.ts', 'ai-engines-page.ts', 'ai-activity-panel.ts', 'ai-docs-run.ts', 'ai-request.ts'];
+  const lazy = [
+    'ai-ui.ts', 'ai-chat-panel.ts', 'ai-docs-page.ts', 'ai-engines-page.ts', 'ai-activity-panel.ts', 'ai-docs-run.ts', 'ai-request.ts',
+    // Inline suggestions: the controller, the ProseMirror plugin, the session that joins them, and the prompt and context code they use.
+    'ai-ghost.ts', 'ai-ghost-plugin.ts', 'ai-ghost-session.ts', 'ai/prompts/continue.ts', 'ai/ghostContext.ts', 'ai/ghostTrim.ts',
+  ];
 
   it.each(['index.ts', 'editor.ts'])('nothing statically reachable from %s is one of the lazy modules', (entry) => {
     const reached = staticClosure(entry);
@@ -148,11 +153,59 @@ describe('the editor\'s main path does not import the AI UI', () => {
     expect(chunk.has('ai-docs-page.ts')).toBe(true);
   });
 
+  it('ai-ghost is in the lazy chunk: ai-ui.ts carries all three ghost modules, and nothing else reaches them', () => {
+    const chunk = staticClosure('ai-ui.ts');
+    for (const module of ['ai-ghost.ts', 'ai-ghost-plugin.ts', 'ai-ghost-session.ts']) {expect(chunk.has(module), module).toBe(true);}
+    const ui = fs.readFileSync(path.resolve(__dirname, '../src/ai-ui.ts'), 'utf8');
+    expect(ui).toMatch(/from '\.\/ai-ghost-session'/);
+    // Not even by the lightweight entry the editor loads up front.
+    expect(staticClosure('ai-lite.ts').has('ai-ghost.ts')).toBe(false);
+    // The pure code the controller needs is imported from ./ai, which the editor already has; the lazy files are the DOM and request halves.
+    for (const file of fs.readdirSync(path.resolve(__dirname, '../src')).filter((f) => f.endsWith('.ts') && f !== 'ai-ui.ts' && !f.startsWith('ai-ghost'))) {
+      const source = fs.readFileSync(path.resolve(__dirname, '../src', file), 'utf8');
+      for (const m of source.matchAll(/^import\s+(type\s+)?[^;]*?from\s*'\.\/(ai-ghost[\w-]*)'/gm)) {
+        // The editor and the other lazy modules may name the types; nobody else imports a ghost module for a value.
+        if (!m[1]) {expect(['ai-ui.ts', 'ai-ghost-session.ts'], `${file} imports ${m[2]} for a value`).toContain(file);}
+      }
+    }
+  });
+
   it('the editor imports the panels\' types only', () => {
     const editor = fs.readFileSync(path.resolve(__dirname, '../src/editor.ts'), 'utf8');
     for (const m of editor.matchAll(/^import\s+(type\s+)?[^;]*?from\s*'\.\/(ai-chat-panel|ai-docs-page|ai-engines-page)'/gm)) {
       expect(m[1], m[0]).toBeTruthy();
     }
+  });
+});
+
+describe('inline suggestions load only with the AI UI', () => {
+  it('without host.ai nothing of them loads: no AI chunk, no plugin, no timer', async () => {
+    vi.useFakeTimers();
+    try {
+      const handle = mount(new NoopHost(), { ai: parseAiSettings({ enabled: true, features: { ghostText: { enabled: true } } }, quiet) });
+      expect(aiGhostKey.get(handle.tiptap.state)).toBeUndefined();
+      handle.command('aiSuggestContinuation');
+      handle.tiptap.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+      handle.tiptap.view.dispatch(handle.tiptap.state.tr.insertText('a'));
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(loadedAiUi()).toBeNull();
+      expect(aiGhostKey.get(handle.tiptap.state)).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('with host.ai the plugin arrives only with the chunk, and only when the feature is on', async () => {
+    class Host extends NoopHost { ai = aiHost(); }
+    const on = mount(new Host(), { ai: parseAiSettings({ enabled: true, features: { ghostText: { enabled: true } } }, quiet) });
+    expect(aiGhostKey.get(on.tiptap.state)).toBeUndefined();
+    await settle();
+    expect(aiGhostKey.get(on.tiptap.state)).toBeDefined();
+
+    const off = mount(new Host(), { ai: parseAiSettings({ enabled: true }, quiet) });
+    await settle();
+    expect(loadedAiUi()).not.toBeNull();
+    expect(aiGhostKey.get(off.tiptap.state)).toBeUndefined();
   });
 });
 

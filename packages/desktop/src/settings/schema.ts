@@ -61,6 +61,46 @@ export const DESKTOP_KEY_DEFAULTS = {
  */
 export const APP_WIDE_KEYS: readonly string[] = ['ai.engines', 'ai.allowCloud', 'ai.localNetworks', 'ai.docBases', 'ai.docs', 'toolbarLayout'];
 
+/**
+ * `ai.features.ghostText.localOnly` is a user setting like the engine list: a
+ * repo's `.mikedown/settings.json` must not turn "Local engines only" off for
+ * Inline suggestions. The folder's value is ignored; the global file's value
+ * (or the default, true) applies. The rest of `ai.features` follows the
+ * normal folder-wins merge.
+ */
+function featuresObject(v: unknown): Record<string, unknown> | undefined {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
+}
+
+/** `features` without `ghostText.localOnly` (an emptied `ghostText` goes too). */
+export function stripGhostLocalOnly(features: unknown): unknown {
+  const base = featuresObject(features);
+  if (!base) {return features;}
+  const { localOnly: _dropped, ...ghost } = featuresObject(base.ghostText) ?? {};
+  const { ghostText: _old, ...others } = base;
+  return Object.keys(ghost).length === 0 ? others : { ...others, ghostText: ghost };
+}
+
+/** `features` with `ghostText.localOnly` set to `value`. */
+export function withGhostLocalOnly(features: unknown, value: boolean): Record<string, unknown> {
+  const base = featuresObject(features) ?? {};
+  return { ...base, ghostText: { ...(featuresObject(base.ghostText) ?? {}), localOnly: value } };
+}
+
+/** The user's own `ghostText.localOnly` in the global file's `ai.features`, if it sets one. */
+export function userGhostLocalOnly(globalValues: SettingsRecord): boolean | undefined {
+  const v = featuresObject(featuresObject(globalValues['ai.features'])?.ghostText)?.localOnly;
+  return typeof v === 'boolean' ? v : undefined;
+}
+
+/** The merged settings with `ai.features.ghostText.localOnly` taken from the global file only. */
+export function fenceGhostLocalOnly(merged: SettingsRecord, globalValues: SettingsRecord): SettingsRecord {
+  if (!featuresObject(merged['ai.features'])) {return merged;}
+  const stripped = stripGhostLocalOnly(merged['ai.features']);
+  const user = userGhostLocalOnly(globalValues);
+  return { ...merged, 'ai.features': user === undefined ? stripped : withGhostLocalOnly(stripped, user) };
+}
+
 export type DesktopKey = keyof typeof DESKTOP_KEY_DEFAULTS;
 export type SettingsRecord = Record<string, unknown>;
 

@@ -32,6 +32,7 @@ import type {
   AiEngineConfig,
   AiEngineKind,
   AiFeatureSetting,
+  AiGhostTextOptions,
   AiFeatureSettings,
   AiLocalitySetting,
   AiModelCapabilities,
@@ -289,6 +290,54 @@ function parseRouting(raw: unknown, warn: (m: string) => void): AiRouting {
   return out;
 }
 
+const GHOST_KEYS = ['delayMs', 'maxTokens', 'trigger', 'localOnly'] as const;
+
+/** Defaults and ranges for `features.ghostText` (decision D12). */
+export const GHOST_DELAY_MS_DEFAULT = 400;
+export const GHOST_DELAY_MS_MIN = 100;
+export const GHOST_DELAY_MS_MAX = 5000;
+export const GHOST_MAX_TOKENS_DEFAULT = 48;
+export const GHOST_MAX_TOKENS_MIN = 8;
+export const GHOST_MAX_TOKENS_MAX = 256;
+
+/** Copy the valid `ghostText` knobs onto `feature`; a bad type is warned about and dropped. */
+function parseGhostKeys(value: Json, feature: AiFeatureSetting, warn: (m: string) => void): void {
+  for (const key of ['delayMs', 'maxTokens'] as const) {
+    const v = value[key];
+    if (v === undefined) {continue;}
+    if (typeof v === 'number' && Number.isFinite(v)) {feature[key] = v;}
+    else {warn(`features.ghostText.${key} is not a number; dropped.`);}
+  }
+  if (value.trigger !== undefined) {
+    if (value.trigger === 'auto' || value.trigger === 'manual') {feature.trigger = value.trigger;}
+    else {warn('features.ghostText.trigger must be "auto" or "manual"; dropped.');}
+  }
+  if (value.localOnly !== undefined) {
+    if (typeof value.localOnly === 'boolean') {feature.localOnly = value.localOnly;}
+    else {warn('features.ghostText.localOnly is not a boolean; dropped.');}
+  }
+}
+
+function clampGhostInt(v: number | undefined, fallback: number, min: number, max: number): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {return fallback;}
+  return Math.min(max, Math.max(min, Math.round(v)));
+}
+
+/**
+ * The Inline suggestions knobs: defaults (400 ms, 48 tokens, `auto`, local
+ * engines only) for anything absent or of the wrong type, numbers rounded and
+ * clamped (delay 100 to 5000 ms, tokens 8 to 256).
+ */
+export function ghostTextOptions(features: AiFeatureSettings | undefined): AiGhostTextOptions {
+  const saved: AiFeatureSetting = features?.ghostText ?? {};
+  return {
+    delayMs: clampGhostInt(saved.delayMs, GHOST_DELAY_MS_DEFAULT, GHOST_DELAY_MS_MIN, GHOST_DELAY_MS_MAX),
+    maxTokens: clampGhostInt(saved.maxTokens, GHOST_MAX_TOKENS_DEFAULT, GHOST_MAX_TOKENS_MIN, GHOST_MAX_TOKENS_MAX),
+    trigger: saved.trigger === 'manual' ? 'manual' : 'auto',
+    localOnly: typeof saved.localOnly === 'boolean' ? saved.localOnly : true,
+  };
+}
+
 function parseFeatures(raw: unknown, warn: (m: string) => void): AiFeatureSettings {
   const features: AiFeatureSettings = {};
   if (raw === undefined) {return features;}
@@ -301,9 +350,11 @@ function parseFeatures(raw: unknown, warn: (m: string) => void): AiFeatureSettin
       warn(`features.${id} is not an object; dropped.`);
       continue;
     }
-    const feature = { ...extras(value, ['enabled', 'task']) } as AiFeatureSetting;
+    const isGhost = id === 'ghostText';
+    const feature = { ...extras(value, isGhost ? ['enabled', 'task', ...GHOST_KEYS] : ['enabled', 'task']) } as AiFeatureSetting;
     if (typeof value.enabled === 'boolean') {feature.enabled = value.enabled;}
     if (typeof value.task === 'string' && value.task.trim()) {feature.task = value.task;}
+    if (isGhost) {parseGhostKeys(value, feature, warn);}
     features[id] = feature;
   }
   return features;

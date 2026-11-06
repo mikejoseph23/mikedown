@@ -251,9 +251,20 @@ describe('whatIsSent covers every feature', () => {
     for (const f of AI_FEATURES.filter((f) => f.status === 'available')) {
       expect(whatIsSent(f.id), f.id).not.toBe(AI_SENDS_FALLBACK);
     }
-    for (const scope of ['selection', 'document', 'documentAndTags', 'docsBase'] as const) {
+    for (const scope of ['selection', 'document', 'documentAndTags', 'docsBase', 'cursor'] as const) {
       expect(AI_SENDS_TEXT[scope].length, scope).toBeGreaterThan(10);
     }
+  });
+});
+
+describe('aiConsentText for Inline suggestions', () => {
+  it('names the feature, says it is the text around the cursor, and that it repeats', () => {
+    const t = aiConsentText({ engineName: 'Anthropic', host: 'api.anthropic.com', feature: 'ghostText', scopeWord: 'workspace' });
+    expect(t.body).toContain('this request sends the text around the cursor');
+    expect(t.body).toContain('a few paragraphs before it, the headings earlier in the document, and a short stretch after it');
+    expect(t.body).toContain('for Inline suggestions');
+    expect(t.body).toContain('again each time you pause');
+    expect(t.body).not.toContain('selected text');
   });
 });
 

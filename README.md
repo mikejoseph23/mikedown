@@ -4,7 +4,7 @@
 
 ![A launch plan open in MikeDown in a dark theme: heading, a tip callout, a milestones table and a go/no-go task list, with the toolbar above and word count in the status bar.](assets/screenshots/dark-mode-editor.jpg)
 
-**New:** optional AI writing tools (Experimental, off by default): rewrite, explain, translate, summarize and suggest titles or properties, using a model on your own machine (LM Studio, Ollama, oMLX), an API key from a cloud provider (billed by the provider, not a ChatGPT or Claude subscription) or GitHub Copilot through your Copilot plan. [See AI Writing Help](#ai-writing-help-experimental-off-by-default).
+**New:** optional AI writing tools (Experimental, off by default): rewrite, explain, translate, summarize, suggest titles or properties and inline suggestions as you write, using a model on your own machine (LM Studio, Ollama, oMLX), an API key from a cloud provider (billed by the provider, not a ChatGPT or Claude subscription) or GitHub Copilot through your Copilot plan. [See AI Writing Help](#ai-writing-help-experimental-off-by-default).
 
 **[MikeDown Desktop](https://www.iadev.net/mikedown/)** is now available for Mac, Windows and Linux (preview), the same editor as a standalone app.
 
@@ -161,6 +161,7 @@ AI is optional and off until you turn on **AI features** (`mikedown.ai.enabled`)
 - **Keys and engines stay out of repos:** engines are user settings only, and API keys live in VS Code's secret storage (or an environment variable, or oMLX's own settings file), never in `settings.json`.
 - **MikeDown Desktop** has the same features. Its per-folder cloud consent is saved in the app's own data folder, keyed by the folder, not in the folder itself, so a cloned or shared folder cannot arrive with consent already recorded. Engines, keys and the `allowCloud` switch stay global, so a folder cannot add an endpoint.
 - **AI Activity (experimental, off by default):** turn on `mikedown.ai.activityPanel` and open **AI Activity…** from the AI toolbar menu or the AI tab of Settings to see each AI request of this session, with the exact messages sent and the raw response. It is kept in memory only, can be copied or saved to a text file, and is cleared when you turn the setting off.
+- **Inline suggestions (experimental, off by default):** turn on **Inline suggestions** on the AI tab of Settings and dim continuation text appears when you pause while writing. Tab accepts all of it, `Cmd/Ctrl+Right` accepts one word, Escape dismisses it, and typing the letter it suggests keeps the rest. `Cmd/Ctrl+Alt+Space` asks for one on demand, and setting **Trigger** to Manual shortcut makes that the only way. **Local engines only** starts on, so nothing goes to a cloud engine until you turn it off. Then the consent prompt asks first: **Allow once** covers one suggestion, and **Don't allow** stops suggestions for the session. Delay and length are under **Options** beside the switch. Accepted suggestions are listed in AI Activity.
 
 ![Experimental: one-click setup when a local AI server is already running.](assets/screenshots/ai-local-setup-dark.jpg)
 
@@ -175,7 +176,7 @@ With a cloud engine:
 - A local engine keeps everything on this machine or your network.
 - Your API key stays in this app's secure storage on this machine.
 
-Each cloud engine links its provider's own privacy or API data-use page: expand **What this means** above the cloud engines on the AI Engines page (also shown in setup), open an engine and expand **What is sent**, or choose **Read the provider's policy** in the consent prompt, which opens the page in your browser and then asks again. The prompt also says what that request sends: the selection and the paragraph around it for Rewrite, Explain and Translate, the whole document (up to what fits the model) for Summary, Titles and whole-document Translate, and the document with its frontmatter and the workspace's tag names for Properties.
+Each cloud engine links its provider's own privacy or API data-use page: expand **What this means** above the cloud engines on the AI Engines page (also shown in setup), open an engine and expand **What is sent**, or choose **Read the provider's policy** in the consent prompt, which opens the page in your browser and then asks again. The prompt also says what that request sends: the selection and the paragraph around it for Rewrite, Explain and Translate, the whole document (up to what fits the model) for Summary, Titles and whole-document Translate, the document with its frontmatter and the workspace's tag names for Properties, and for Inline suggestions the text around the cursor (a few paragraphs before it, the headings earlier in the document, and a short stretch after it) each time you pause.
 
 ### Documentation Bases *(experimental, off by default)*
 

@@ -55,7 +55,7 @@ export function aiSetupTarget(tier: AiHostTier, settings: Pick<AiSettings, 'engi
 // ── The menu (AI on) ────────────────────────────────────────────────────────
 
 /** An AI menu entry: enabled, or disabled with the reason as its hint; null leaves it out. */
-export type AiToolbarEntryState = { enabled: true } | { enabled: false; hint: string } | null;
+export type AiToolbarEntryState = { enabled: true; hint?: string } | { enabled: false; hint: string } | null;
 
 export interface AiToolbarMenuInput {
   /** Rewrite selection: null leaves it out (read-only), otherwise enabled or disabled with a hint. */
@@ -64,6 +64,8 @@ export interface AiToolbarMenuInput {
   explain?: AiToolbarEntryState;
   /** "Translate…" (the selection, or the whole document without one): absent or null leaves it out. */
   translate?: AiToolbarEntryState;
+  /** "Suggest continuation" (an inline suggestion at the caret): absent or null leaves it out. An enabled hint is why the last one failed. */
+  continuation?: AiToolbarEntryState;
   /** "Summarize document…": absent or null leaves it out. A disabled hint carries the router's reason (D15). */
   summarize?: AiToolbarEntryState;
   /** "Suggest titles…": absent or null leaves it out. */
@@ -80,10 +82,11 @@ export interface AiToolbarMenuInput {
   thinking?: AiToolbarThinkingRow;
   /** True for a host with an engine registry ("Manage engines…"); otherwise "AI settings…". */
   canManageEngines: boolean;
-  icons: { rewrite: string; manage: string; explain?: string; translate?: string; summarize?: string; titles?: string; properties?: string; activity?: string; chat?: string };
+  icons: { rewrite: string; manage: string; explain?: string; translate?: string; continuation?: string; summarize?: string; titles?: string; properties?: string; activity?: string; chat?: string };
   onRewrite(): void;
   onExplain?(): void;
   onTranslate?(): void;
+  onSuggestContinuation?(): void;
   onSummarize?(): void;
   onSuggestTitles?(): void;
   onSuggestProperties?(): void;
@@ -167,7 +170,7 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
   };
   // A reason several items share (an engine that cannot be reached) shows once
   // as a status row on top; the items just grey out.
-  const shared = sharedDisabledReason([input.rewrite, input.explain, input.translate, input.summarize, input.titles, input.properties, input.chat]);
+  const shared = sharedDisabledReason([input.rewrite, input.explain, input.translate, input.continuation, input.summarize, input.titles, input.properties, input.chat]);
   if (shared) {
     const { label, detail } = aiMenuStatusLine(shared);
     entries.push({ type: 'status', id: 'ai-status', label, ...(detail ? { detail } : {}) });
@@ -183,7 +186,7 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
       id,
       label,
       icon: icon ?? input.icons.rewrite,
-      hint: state.enabled || state.hint === shared ? undefined : state.hint,
+      hint: state.hint === shared ? undefined : state.hint,
       isDisabled: () => !state.enabled,
       action: run,
     });
@@ -191,6 +194,7 @@ export function aiToolbarMenuEntries(input: AiToolbarMenuInput): ToolbarDropdown
   add('ai-rewrite', 'Rewrite selection', input.icons.rewrite, input.rewrite, () => input.onRewrite());
   add('ai-explain', 'Explain selection', input.icons.explain, input.explain, () => input.onExplain?.());
   add('ai-translate', 'Translate…', input.icons.translate, input.translate, () => input.onTranslate?.());
+  add('ai-continuation', 'Suggest continuation', input.icons.continuation, input.continuation, () => input.onSuggestContinuation?.());
   separate();
   add('ai-summarize', 'Summarize document…', input.icons.summarize, input.summarize, () => input.onSummarize?.());
   add('ai-titles', 'Suggest titles…', input.icons.titles, input.titles, () => input.onSuggestTitles?.());

@@ -36,12 +36,13 @@ export const AI_FEATURES: readonly AiFeatureDefinition[] = [
   {
     id: 'ghostText',
     label: 'Inline suggestions',
-    description: 'Dim continuation text while you write. Sends the text around the cursor as you type.',
+    description: 'Dim continuation text while you write. Sends the text around the cursor as you pause.',
     // Separate opt-in even with the master switch on (brainstorm idea 1).
     defaultEnabled: false,
     defaultTask: 'continue',
     requires: { stream: true },
-    status: 'planned',
+    status: 'available',
+    sends: 'cursor',
   },
   {
     id: 'chat',

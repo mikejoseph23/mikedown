@@ -385,6 +385,29 @@ describe('settings scope rules', () => {
     expect(effectiveAiRaw(inspect({ allowCloud: { globalValue: true } })).allowCloud).toBe(true);
   });
 
+  it('ghostText.localOnly comes from user settings only; the rest of features keeps normal precedence', () => {
+    const ws = effectiveAiRaw(inspect({
+      features: {
+        globalValue: { ghostText: { localOnly: true, delayMs: 900 }, rewrite: { enabled: false } },
+        workspaceValue: { ghostText: { localOnly: false, delayMs: 200 }, rewrite: { enabled: true } },
+      },
+    }));
+    expect(ws.features).toEqual({ ghostText: { delayMs: 200, localOnly: true }, rewrite: { enabled: true } });
+    // A workspace false is dropped when the user scope does not set the key (the default is true).
+    const unset = effectiveAiRaw(inspect({
+      features: { globalValue: { ghostText: { delayMs: 900 } }, workspaceFolderValue: { ghostText: { localOnly: false } } },
+    }));
+    expect(unset.features).toEqual({});
+    // The user's own false is honoured, even under a workspace value that says true.
+    const userOff = effectiveAiRaw(inspect({
+      features: { globalValue: { ghostText: { localOnly: false } }, workspaceValue: { rewrite: { enabled: true } } },
+    }));
+    expect(userOff.features).toEqual({ rewrite: { enabled: true }, ghostText: { localOnly: false } });
+    // Only the user scope: untouched.
+    expect(effectiveAiRaw(inspect({ features: { globalValue: { ghostText: { localOnly: false, trigger: 'manual' } } } })).features)
+      .toEqual({ ghostText: { localOnly: false, trigger: 'manual' } });
+  });
+
   it('enabled, routing and features follow normal precedence', () => {
     const raw = effectiveAiRaw(inspect({ enabled: { defaultValue: false, globalValue: true, workspaceValue: false } }));
     expect(raw.enabled).toBe(false);

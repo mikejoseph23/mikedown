@@ -24,7 +24,8 @@ function settings(over: Record<string, unknown> = {}): AiSettings {
 // A tier-1 host routes by itself, so availability turns on the switches alone.
 const tier1: MikeDownAiHost = { complete: async () => { throw new Error('not called'); } };
 
-const AVAILABLE = AI_FEATURES.filter((f) => f.status === 'available').map((f) => f.id);
+// Opt-in features (ghostText) are off until switched on, so they are not in the on-by-default set.
+const AVAILABLE = AI_FEATURES.filter((f) => f.status === 'available' && f.defaultEnabled).map((f) => f.id);
 
 describe('feature switches', () => {
   it('has the launchable features the editor wires up', () => {

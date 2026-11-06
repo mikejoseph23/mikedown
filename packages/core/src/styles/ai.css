@@ -1128,6 +1128,12 @@
 :is(.mikedown-root, .mikedown-portal) .ai-feature-tasks > .settings-desc { font-size: 11.5px; }
 :is(.mikedown-root, .mikedown-portal) .ai-feature-task { justify-content: space-between; gap: 10px; }
 
+/* Inline suggestions' options under its switch: the same quiet fold. */
+:is(.mikedown-root, .mikedown-portal) .settings-group > .settings-row.ai-ghost-options-box { padding: 0 0 8px; gap: 2px; border-top: none; }
+:is(.mikedown-root, .mikedown-portal) .settings-row.ai-ghost-options-box[hidden] { display: none; }
+:is(.mikedown-root, .mikedown-portal) .ai-ghost-options-toggle { justify-self: start; }
+:is(.mikedown-root, .mikedown-portal) .ai-ghost-options { margin-top: 2px; }
+
 /* The master switch carries the tab: a touch more presence. */
 :is(.mikedown-root, .mikedown-portal) .ai-master .settings-label { font-size: 13.5px; }
 

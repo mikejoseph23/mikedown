@@ -279,6 +279,8 @@ export type MikeDownCommand =
   | 'aiSuggestProperties'
   /** Open the AI chat panel: questions about this document or the documentation bases (no-op without `host.ai`). */
   | 'aiChat'
+  /** Ask for an inline suggestion at the caret now, whatever the trigger setting (no-op without `host.ai`). */
+  | 'aiSuggestContinuation'
   | 'copyAsRichText'
   // Menu-bar commands for hosts with their own menus (MikeDown Desktop). Each
   // mirrors an existing toolbar action or keystroke; no-ops in source mode

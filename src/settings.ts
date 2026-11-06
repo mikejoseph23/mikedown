@@ -181,6 +181,18 @@ export interface InspectedValue<T = unknown> {
   workspaceFolderValue?: T;
 }
 
+/** `features` with `ghostText.localOnly` taken from user settings only (see `effectiveAiRaw`). Exported for unit testing. */
+export function fenceGhostLocalOnly(features: unknown, userFeatures: unknown): unknown {
+  const asObject = (v: unknown): Record<string, unknown> | undefined => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined);
+  const base = asObject(features);
+  if (!base) {return features;}
+  const { localOnly: _ignored, ...ghost } = asObject(base.ghostText) ?? {};
+  const userLocalOnly = asObject(asObject(userFeatures)?.ghostText)?.localOnly;
+  const next = userLocalOnly === undefined ? ghost : { ...ghost, localOnly: userLocalOnly };
+  const { ghostText: _old, ...others } = base;
+  return Object.keys(next).length === 0 ? others : { ...others, ghostText: next };
+}
+
 /**
  * The raw `mikedown.ai` object, with the scope rules applied (OPEN-3):
  *
@@ -193,6 +205,9 @@ export interface InspectedValue<T = unknown> {
  * - `docBases` and `docs` come from user settings only (S4, A9), like
  *   `engines`: a repository can never add, redirect or tune a documentation
  *   base. package.json scopes them `machine`; this is the second fence.
+ * - `features.ghostText.localOnly` comes from user settings only: a repository
+ *   cannot turn "Local engines only" off for Inline suggestions. The rest of
+ *   `features` follows the normal precedence.
  * - `enabled`, `routing`, `features`, `showToolbarButton` and `activityPanel` follow the
  *   normal precedence.
  *
@@ -210,7 +225,7 @@ export function effectiveAiRaw(inspect: (key: string) => InspectedValue | undefi
     allowCloud: cloud?.globalValue === true && workspaceCloud !== false,
     engines: inspect('engines')?.globalValue ?? [],
     routing: effective('routing'),
-    features: effective('features'),
+    features: fenceGhostLocalOnly(effective('features'), inspect('features')?.globalValue),
     localNetworks: inspect('localNetworks')?.globalValue ?? [...DEFAULT_LOCAL_NETWORKS],
     docBases: inspect('docBases')?.globalValue ?? [],
     docs: inspect('docs')?.globalValue,

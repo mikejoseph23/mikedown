@@ -381,6 +381,12 @@
             "label": "&Translate…"
           },
           {
+            "kind": "item",
+            "id": "aiSuggestContinuation",
+            "label": "Suggest C&ontinuation",
+            "accelerator": "CmdOrCtrl+Alt+Space"
+          },
+          {
             "kind": "separator"
           },
           {
