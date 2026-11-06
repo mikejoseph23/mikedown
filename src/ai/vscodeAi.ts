@@ -122,6 +122,36 @@ export async function writeBackEngineIds(): Promise<boolean> {
   return true;
 }
 
+type Json = Record<string, unknown>;
+
+function jsonObject(v: unknown): Json | undefined {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : undefined;
+}
+
+/** `features` without `ghostText.localOnly`. */
+function withoutGhostLocalOnly(features: unknown): unknown {
+  const base = jsonObject(features);
+  if (!base) {return features;}
+  const { localOnly: _dropped, ...ghost } = jsonObject(base.ghostText) ?? {};
+  const { ghostText: _old, ...others } = base;
+  return Object.keys(ghost).length === 0 ? others : { ...others, ghostText: ghost };
+}
+
+/**
+ * Write the saved `features.ghostText.localOnly` into the user-scope
+ * `mikedown.ai.features`, touching nothing else there and only when the user
+ * scope would change (an unset value means the default, true).
+ */
+async function saveGhostLocalOnlyToUser(config: vscode.WorkspaceConfiguration, features: unknown): Promise<void> {
+  const wanted = jsonObject(jsonObject(features)?.ghostText)?.localOnly;
+  if (typeof wanted !== 'boolean') {return;}
+  const userValue = jsonObject(config.inspect('ai.features')?.globalValue) ?? {};
+  const userGhost = jsonObject(userValue.ghostText) ?? {};
+  const current = typeof userGhost.localOnly === 'boolean' ? userGhost.localOnly : true;
+  if (current === wanted) {return;}
+  await config.update('ai.features', { ...userValue, ghostText: { ...userGhost, localOnly: wanted } }, vscode.ConfigurationTarget.Global);
+}
+
 /**
  * Write the `ai.*` keys of a `saveSettings` patch. The patch is validated by
  * parsing it over the current values (so a malformed engine is dropped, not
@@ -154,7 +184,15 @@ export async function saveAiSettingsPatch(patch: Record<string, unknown>): Promi
       else if (inspected?.workspaceValue !== undefined) {target = vscode.ConfigurationTarget.Workspace;}
     }
     try {
-      await config.update(`ai.${key}`, serialized[`ai.${key}`], target);
+      let value = serialized[`ai.${key}`];
+      if (key === 'features' && target !== vscode.ConfigurationTarget.Global) {
+        // `features.ghostText.localOnly` is read from user settings only, so
+        // it never goes into the workspace file (which would look like the
+        // switch did nothing); it is written to user settings below.
+        value = withoutGhostLocalOnly(value);
+        await saveGhostLocalOnlyToUser(config, serialized['ai.features']);
+      }
+      await config.update(`ai.${key}`, value, target);
       written.push(key);
     } catch (err) {
       void vscode.window.showErrorMessage(`MikeDown: could not save setting "ai.${key}": ${err instanceof Error ? err.message : String(err)}`);

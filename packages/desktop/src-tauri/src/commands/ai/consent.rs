@@ -24,7 +24,7 @@ pub fn sends_text(scope: &str) -> Option<&'static str> {
         "documentAndTags" => Some("the document, its frontmatter and the tag names used in this workspace"),
         // The base names follow in `what_is_sent`; without them this is all there is to say.
         "docsBase" => Some("pages from the documentation bases you turned on"),
-        "cursor" => Some("the text around the cursor (the document up to it, as much as fits the model, and a short stretch after it) for Inline suggestions, again each time you pause"),
+        "cursor" => Some("the text around the cursor (a few paragraphs before it, the headings earlier in the document, and a short stretch after it) for Inline suggestions, again each time you pause"),
         _ => None,
     }
 }

@@ -57,7 +57,7 @@ export const AI_SENDS_TEXT: Readonly<Record<AiSendsScope, string>> = {
   // The base names follow in `whatIsSent`; without them this is all there is to say.
   docsBase: 'pages from the documentation bases you turned on',
   // What `ghostContext` sends. Names the feature because the dialog can pop up while the person is only typing.
-  cursor: 'the text around the cursor (the document up to it, as much as fits the model, and a short stretch after it) for Inline suggestions, again each time you pause',
+  cursor: 'the text around the cursor (a few paragraphs before it, the headings earlier in the document, and a short stretch after it) for Inline suggestions, again each time you pause',
 };
 
 /** For a request whose feature is unknown. */

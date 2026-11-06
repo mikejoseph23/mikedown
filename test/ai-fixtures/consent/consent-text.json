@@ -10,7 +10,7 @@
     "selection": "the selected text and the paragraph before and after it",
     "document": "the whole document, up to what fits the model",
     "documentAndTags": "the document, its frontmatter and the tag names used in this workspace",
-    "cursor": "the text around the cursor (the document up to it, as much as fits the model, and a short stretch after it) for Inline suggestions, again each time you pause"
+    "cursor": "the text around the cursor (a few paragraphs before it, the headings earlier in the document, and a short stretch after it) for Inline suggestions, again each time you pause"
   },
   "sendsFallback": "the text you ask the AI about",
   "features": {
@@ -239,7 +239,7 @@
       },
       "expected": {
         "title": "Send text to Anthropic?",
-        "body": "Anthropic is a cloud engine at api.anthropic.com. If you allow it, this request sends the text around the cursor (the document up to it, as much as fits the model, and a short stretch after it) for Inline suggestions, again each time you pause. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nYou can use a local engine instead. Allow for this workspace is remembered; you can change it in AI settings → Cloud consents.",
+        "body": "Anthropic is a cloud engine at api.anthropic.com. If you allow it, this request sends the text around the cursor (a few paragraphs before it, the headings earlier in the document, and a short stretch after it) for Inline suggestions, again each time you pause. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nYou can use a local engine instead. Allow for this workspace is remembered; you can change it in AI settings → Cloud consents.",
         "allow": "Allow for this workspace",
         "allowOnce": "Allow once",
         "deny": "Don't allow",
@@ -258,7 +258,7 @@
       },
       "expected": {
         "title": "Send text to Anthropic?",
-        "body": "Anthropic is a cloud engine at api.anthropic.com. If you allow it, this request sends the text around the cursor (the document up to it, as much as fits the model, and a short stretch after it) for Inline suggestions, again each time you pause. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nAnthropic privacy and data use: https://privacy.claude.com/en/collections/10663361-commercial-customers\n\nYou can use a local engine instead. Allow for this folder is remembered; you can change it in AI settings → Cloud consents.",
+        "body": "Anthropic is a cloud engine at api.anthropic.com. If you allow it, this request sends the text around the cursor (a few paragraphs before it, the headings earlier in the document, and a short stretch after it) for Inline suggestions, again each time you pause. It goes over the internet and is processed on the provider's servers.\n\nAPI traffic is covered by the provider's API terms, which differ from its consumer apps. Whether it is retained or used for training is set by those terms and may change; read them before you decide.\n\nAnthropic privacy and data use: https://privacy.claude.com/en/collections/10663361-commercial-customers\n\nYou can use a local engine instead. Allow for this folder is remembered; you can change it in AI settings → Cloud consents.",
         "allow": "Allow for this folder",
         "allowOnce": "Allow once",
         "deny": "Don't allow"

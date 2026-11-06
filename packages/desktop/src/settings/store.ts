@@ -23,6 +23,7 @@ import { aiSettingsFromFlat, removedEngineIds } from './aiSettings';
 import { DESKTOP_CORE_SETTING_DEFAULTS, type DesktopSettingsStore } from './desktopSettings';
 import {
   APP_WIDE_KEYS,
+  fenceGhostLocalOnly,
   flattenPatch,
   isDesktopKey,
   mergeSettings,
@@ -31,7 +32,10 @@ import {
   sanitizeDesktopValue,
   SAVE_FOR_FOLDER_KEY,
   splitCoreAndDesktop,
+  stripGhostLocalOnly,
+  userGhostLocalOnly,
   validateFolderOverride,
+  withGhostLocalOnly,
   type SettingsRecord,
 } from './schema';
 import type { SettingsApi, SettingsChangedEvent, SettingsScope } from './settingsApi';
@@ -194,7 +198,7 @@ export function createSettingsManager(deps: SettingsManagerDeps): SettingsManage
         overrideProblems = checked.problems.map((p) => p.reason);
       }
 
-      const merged = mergeSettings(globalFile.values, folderValues);
+      const merged = fenceGhostLocalOnly(mergeSettings(globalFile.values, folderValues), globalFile.values);
       const { core: coreValues, desktop } = splitCoreAndDesktop(merged);
       const prev = lastDesktop;
       store.load(desktop);
@@ -260,6 +264,16 @@ export function createSettingsManager(deps: SettingsManagerDeps): SettingsManage
         }
         if (Object.keys(appWide).length > 0) {
           await manager.save(appWide, { silent: true, force: true });
+        }
+        // `ai.features.ghostText.localOnly` is a user setting too: it goes to the global file, the rest of `ai.features` stays in the folder.
+        if ('ai.features' in changes) {
+          const wanted = (changes['ai.features'] as { ghostText?: { localOnly?: unknown } } | undefined)?.ghostText?.localOnly;
+          const folderFeatures = stripGhostLocalOnly(changes['ai.features']);
+          if (sameValue(folderFeatures, stripGhostLocalOnly(current['ai.features']))) {delete changes['ai.features'];}
+          else {changes['ai.features'] = folderFeatures;}
+          if (typeof wanted === 'boolean' && wanted !== (userGhostLocalOnly(globalFile.values) ?? true)) {
+            await manager.save({ 'ai.features': withGhostLocalOnly(globalFile.values['ai.features'], wanted) }, { silent: true, force: true });
+          }
         }
       }
       // After the app-wide re-save above, which diffs core keys against the previous baseline.

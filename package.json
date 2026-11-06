@@ -1023,7 +1023,7 @@
               "localOnly": {
                 "type": "boolean",
                 "default": true,
-                "description": "ghostText only: never send suggestions to a cloud engine."
+                "description": "ghostText only: never send suggestions to a cloud engine. Applies from user settings only."
               }
             }
           }

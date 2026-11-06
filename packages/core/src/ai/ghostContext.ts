@@ -1,17 +1,16 @@
 /**
- * The text a ghost-text request sends (decision D3). Pure: given the
- * document's markdown and the caret's offset in it, return the text before
- * the caret, cut to the route's context window, and a capped slice of the
- * text after it.
- *
- * Before the caret: the last `GHOST_BEFORE_CHARS` characters are always kept
- * verbatim. Anything earlier is kept whole when it fits the context budget;
- * otherwise only its leading sections are kept (`budgetDocument`) and the
- * sections left out are listed by heading (`headingsOutline`), so the model
- * still knows where in the document it is.
+ * The text a ghost-text request sends (decision D3): the text around the
+ * cursor. Pure: given the document's markdown and the caret's offset in it,
+ * return the last `GHOST_BEFORE_CHARS` characters before the caret verbatim
+ * (a few paragraphs), a capped slice of the text after it, and, when the
+ * document runs longer than that tail, a note listing the headings of
+ * everything earlier so the model still knows where in the document it is.
+ * The earlier text itself is never sent, however large the context window.
+ * A small window shrinks the tail (never below 200 characters). Frontmatter
+ * is never part of `before`.
  */
 
-import { CHARS_PER_TOKEN, budgetDocument, frontmatterEndOffset, headingsOutline } from './documentBudget';
+import { CHARS_PER_TOKEN, frontmatterEndOffset, headingsOutline } from './documentBudget';
 
 /** Characters before the caret that are always sent verbatim. */
 export const GHOST_BEFORE_CHARS = 2400;
@@ -68,26 +67,15 @@ export function ghostContext(markdown: string, caretOffset: number, contextToken
   const outputTokens = opts.outputTokens ?? 48;
   const budgetChars = Math.max(0, Math.floor((window - outputTokens - GHOST_RESERVE_TOKENS) * CHARS_PER_TOKEN) - after.length);
 
-  const fullBefore = markdown.slice(0, caret);
-  // A small window shrinks the verbatim tail too, but never below a couple of sentences.
+  // The frontmatter's YAML is not prose to continue, so `before` starts after it.
+  const fullBefore = markdown.slice(frontmatterEndOffset(markdown), caret);
+  // A small window shrinks the verbatim tail, but never below a couple of sentences.
+  // A large one changes nothing: the tail stops at GHOST_BEFORE_CHARS.
   const tailChars = Math.min(GHOST_BEFORE_CHARS, Math.max(200, budgetChars));
   if (fullBefore.length <= tailChars) {return { before: fullBefore, after };}
 
   const tail = fullBefore.slice(fullBefore.length - tailChars);
   const head = fullBefore.slice(0, fullBefore.length - tailChars);
-
-  const headBudgetChars = budgetChars - tailChars;
-  if (head.length <= headBudgetChars) {return { before: fullBefore, after };}
-
-  // Over budget: the leading sections that fit, a note of what was left out, then the tail.
-  const outlineChars = Math.min(GHOST_OUTLINE_MAX_CHARS, Math.floor(Math.max(0, headBudgetChars) / 2));
-  const headTokens = Math.max(0, Math.floor((headBudgetChars - outlineChars) / CHARS_PER_TOKEN));
-  const kept = headTokens > 0 ? budgetDocument(head, { contextTokens: headTokens, outputTokens: 0, reserveTokens: 0 }) : null;
-  const keptText = kept && kept.truncated ? kept.text : '';
-  const omitted = head.slice(keptText.length);
-  const pieces: string[] = [];
-  if (keptText) {pieces.push(keptText);}
-  pieces.push(outlineNote(omitted, outlineChars));
-  pieces.push(tail);
-  return { before: pieces.join('\n\n'), after };
+  const outlineChars = Math.min(GHOST_OUTLINE_MAX_CHARS, Math.max(0, budgetChars - tailChars));
+  return { before: `${outlineNote(head, outlineChars)}\n\n${tail}`, after };
 }
