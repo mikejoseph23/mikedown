@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMikeDownEditor, NoopHost, type MikeDownEditorHandle, type MikeDownHost } from '../src/index';
 import { parseAiSettings } from '../src/ai';
+import { aiGhostKey } from '../src/ai-ghost-plugin';
 import type { AiSettings, MikeDownAiHost } from '../src/ai';
 import { stubLayoutMeasurement } from '../../../test/harness/webviewHarness';
 
@@ -151,5 +152,97 @@ describe('Inline suggestions options', () => {
     expect(field<HTMLInputElement>('delayMs')).not.toBeNull();
     expect(q('[data-fk="feature:ghostText:localOnly"]')).toBeNull();
     expect(line()).toBeNull();
+  });
+});
+
+describe('saved settings echo back', () => {
+  class Host extends NoopHost { ai = tier2(); saveSettings = vi.fn(); }
+
+  /** What a host does with a save: keep it, and send the same values back as the next settings broadcast. */
+  function echo(handle: MikeDownEditorHandle, host: Host, base: Record<string, unknown> = {}): Record<string, any> {
+    const saved = host.saveSettings.mock.calls[0][0] as Record<string, any>;
+    handle.updateSettings({
+      ai: parseAiSettings({
+        enabled: true,
+        engines: [{ id: 'omlx', name: 'oMLX', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8000/v1', models: [{ id: 'm' }] }],
+        routing: { default: { engineId: 'omlx', modelId: 'm' }, fallback: 'anyLocal', tasks: {} },
+        features: saved['ai.features'],
+        ...base,
+      }, { onWarning: () => {} }),
+    });
+    return saved;
+  }
+
+  const reopen = (handle: MikeDownEditorHandle): void => {
+    document.querySelectorAll('#mikedown-settings-overlay').forEach((n) => n.remove());
+    handle.command('openAiSettings');
+  };
+
+  it('what was saved shows the next time the settings open', () => {
+    const host = new Host();
+    const handle = open(host, settings());
+    flip(field<HTMLInputElement>('enabled'), true);
+    change(field<HTMLInputElement>('delayMs'), '1200');
+    change(field<HTMLInputElement>('maxTokens'), '96');
+    change(field<HTMLSelectElement>('trigger'), 'manual');
+    flip(field<HTMLInputElement>('localOnly'), false);
+    save();
+    expect(q('#mikedown-settings-overlay')).toBeNull();
+    echo(handle, host);
+
+    reopen(handle);
+    expect(field<HTMLInputElement>('enabled').checked).toBe(true);
+    expect(box().hidden).toBe(false);
+    expect(field<HTMLInputElement>('delayMs').value).toBe('1200');
+    expect(field<HTMLInputElement>('maxTokens').value).toBe('96');
+    expect(field<HTMLSelectElement>('trigger').value).toBe('manual');
+    expect(field<HTMLInputElement>('localOnly').checked).toBe(false);
+    expect(line()!.hidden).toBe(false);
+  });
+
+  it('edits land in the draft and are saved once: reopened and saved untouched, nothing is sent again', () => {
+    const host = new Host();
+    const handle = open(host, settings({ enabled: true, delayMs: 900 }));
+    change(field<HTMLInputElement>('maxTokens'), '64');
+    save();
+    const saved = echo(handle, host);
+    expect(saved['ai.features'].ghostText).toEqual({ enabled: true, delayMs: 900, maxTokens: 64 });
+
+    reopen(handle);
+    // Untouched: the draft starts from what was saved, so there is nothing new to send.
+    save();
+    expect(host.saveSettings.mock.calls[1][0]).not.toHaveProperty(['ai.features']);
+  });
+
+  it('closing without saving keeps the saved values', () => {
+    const host = new Host();
+    const handle = open(host, settings({ enabled: true, delayMs: 900 }));
+    change(field<HTMLInputElement>('delayMs'), '2500');
+    flip(field<HTMLInputElement>('enabled'), false);
+    reopen(handle);
+    expect(host.saveSettings).not.toHaveBeenCalled();
+    expect(field<HTMLInputElement>('enabled').checked).toBe(true);
+    expect(field<HTMLInputElement>('delayMs').value).toBe('900');
+  });
+
+  it('turning it on in the modal installs the plugin once the host echoes the save, and off removes it', async () => {
+    const host = new Host();
+    const handle = open(host, settings());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(aiGhostKey.get(handle.tiptap.state)).toBeUndefined();
+    flip(field<HTMLInputElement>('enabled'), true);
+    save();
+    echo(handle, host);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(aiGhostKey.get(handle.tiptap.state)).toBeDefined();
+
+    reopen(handle);
+    flip(field<HTMLInputElement>('enabled'), false);
+    save();
+    const saved = host.saveSettings.mock.calls[1][0] as Record<string, any>;
+    expect(saved['ai.features'].ghostText.enabled).toBe(false);
+    handle.updateSettings({ ai: settings(saved['ai.features'].ghostText) });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(aiGhostKey.get(handle.tiptap.state)).toBeUndefined();
   });
 });
