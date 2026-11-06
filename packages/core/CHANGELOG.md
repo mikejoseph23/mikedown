@@ -1,16 +1,23 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
+
+- New `ai/docs/` module (public through `@mikedown/core/ai`): the documentation base model, home document precedence, link graph, keyword fallback, secrets scan, citations and the navigation loop. Hosts provide `host.docs` (`MikeDownDocsHost`) to back it; without it the chat shows "This document" only.
+- `@mikedown/core/ai` adds the `chat` feature (status `available`), the `docs` task, the `docsBase` value of `AiSendsScope` and an optional `enabled` flag per base.
+- `@mikedown/core` exports the chat panel (`ai-chat-panel.ts`), the documentation bases page (`ai-docs-page.ts`) and the run wiring (`ai-docs-run.ts`) through the AI UI, loaded only when the host has `host.ai`.
+- Run requests can be pinned to one engine and model (`AiRunRequest.pin`). A pinned run never re-routes or falls back within the turn.
+- Inline suggestions: `ai-ghost.ts`, `ai-ghost-plugin.ts` and `ai-ghost-session.ts` in the AI UI, with `ghostContext`, `ghostTrim` and the `continue` prompt in `@mikedown/core/ai`. New `ghostText` feature id and `cursor` consent scope.
+- AI Activity panel: an opt-in, in-memory record of each AI request (`ai-activity.ts`, `ai-activity-panel.ts`), with an optional `saveTextFile` on the host.
+- Insert from chat goes through an allow-list of node and mark types (`ai-insert-guard.ts`).
+- A bare URL at the end of a document's first block is no longer turned into a link on load.
+
+## 0.3.0
 
 - New prompt modules under `ai/prompts/` (`rewrite`, `explain`, `structureCheck`, `summary`, `title`, `properties`) for the AI writing features.
 - `ai/json.ts` parses model JSON leniently and makes one repair retry before reporting `badOutput`. `ai/documentBudget.ts` takes sections from the top of a long document and reports the coverage. `ai-prefs.ts` stores the per-session AI preferences.
 - `AiCompletionRequest.requestOverrides` carries per-request body fields (for example `reasoning_effort`). Hosts merge them over the model's configured overrides, so the request wins. Tier 1 hosts may ignore them.
 - The `summarize` and `structure` tasks now require chat only; `json` and `context` are preferences for them. There is a new `title` feature id, and a `badOutput` error code.
 - The rewrite popover gained modes for insert and choose, used by the summary and title commands.
-- New `ai/docs/` module (public through `@mikedown/core/ai`): the documentation base model, home document precedence, link graph, keyword fallback, secrets scan, citations and the navigation loop. Hosts provide `host.docs` (`MikeDownDocsHost`) to back it; without it the chat shows "This document" only.
-- `@mikedown/core/ai` adds the `chat` feature (status `available`), the `docs` task, the `docsBase` value of `AiSendsScope` and an optional `enabled` flag per base.
-- `@mikedown/core` exports the chat panel (`ai-chat-panel.ts`), the documentation bases page (`ai-docs-page.ts`) and the run wiring (`ai-docs-run.ts`) through the AI UI, loaded only when the host has `host.ai`.
-- Run requests can be pinned to one engine and model (`AiRunRequest.pin`). A pinned run never re-routes or falls back within the turn.
 
 ## 0.2.0
 
