@@ -37,6 +37,32 @@ Prefer to do it by hand: right-click any editor tab → **Reopen Editor With…*
 
 Either way, the raw markdown source is always one keystroke away with `Cmd+/` / `Ctrl+/`.
 
+## What people are saying
+
+★★★★★ 5.0 on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&ssr=false#review-details)
+
+> Powerful and easy to use. Best UX of the available markdown editors.
+>
+> **Jordon Hynes**
+
+> This is the best WYSIWYG markdown editor I have found, and I like it. Very practical, many useful features. The maintainer reacts quickly to bug reports and feature wishes.
+>
+> **Matthias Zenker**
+
+> I've tried a few wysiwyg markdown editors and this is the best by far. Comprehensive but minimal ui with good keyboard shortcut support and responsive developer if you have a feature request or bug report.
+>
+> **Boyd Buchanan**
+
+> 不得不说，这就是我一直在找的markdown 所见即所得的编辑插件
+>
+> *"I have to say, this is exactly the WYSIWYG markdown plugin I've been looking for."*
+>
+> **desenberg**
+
+> Thanks for this plugin. Really handy for reading and updating all the .md files I now have in my repo's.
+>
+> **Sean Marx**
+
 ## A note from the developer
 
 Hi there! Thanks for giving MikeDown a try. I built it for myself a few months ago. I'd used the popular Markdown Preview extension for years, and it's good, but I wanted more of a word processor inside VS Code instead of a split pane. Version 1 was half-decent. Since then I've kept adding features and fixing bugs, and it's now my everyday markdown editor. Thanks too to everyone who has sent in feature requests.

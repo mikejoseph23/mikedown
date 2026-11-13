@@ -56,6 +56,16 @@
     .group h4 { color: var(--text-strong); font-size: 15.5px; font-weight: 600; line-height: 1.4; margin-bottom: 4px; }
     .group p { color: var(--muted); font-size: 15px; line-height: 1.6; }
 
+    /* Reviews */
+    .reviews__rating { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--muted); font-size: 15px; }
+    .reviews__stars { color: #e3a008; letter-spacing: 2px; font-size: 17px; }
+    .reviews { list-style: none; display: grid; gap: 20px; }
+    .review { margin: 0; padding: 22px 24px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; gap: 14px; }
+    .review blockquote { margin: 0; color: var(--text); font-size: 15.5px; line-height: 1.6; }
+    .review__translation { display: block; margin-top: 6px; color: var(--muted); font-size: 14px; }
+    .review figcaption { margin-top: auto; color: var(--muted); font-size: 14px; }
+    .review figcaption strong { color: var(--text-strong); font-weight: 600; }
+
     /* Screenshots next to code */
     .pair { display: grid; gap: 24px; margin-top: 24px; }
 
@@ -77,12 +87,14 @@
     @media (min-width: 560px) {
       .steps { grid-template-columns: repeat(2, 1fr); }
       .pair { grid-template-columns: repeat(2, 1fr); }
+      .reviews { grid-template-columns: repeat(2, 1fr); }
     }
     @media (min-width: 860px) {
       .why { grid-template-columns: 2fr 3fr; }
       .spotlight { grid-template-columns: 5fr 7fr; gap: 48px; }
       .groups { grid-template-columns: repeat(3, 1fr); }
       .steps { grid-template-columns: repeat(4, 1fr); }
+      .reviews { grid-template-columns: repeat(3, 1fr); }
     }
     @media (max-width: 600px) {
       .hero { padding-top: 56px; }
@@ -138,6 +150,37 @@
           <p>The usual markdown workflow in VS Code is a split pane: source on one side, preview on the other, and your eyes moving between them. Standalone markdown apps fix the editing, but they take you away from Git, your other files and the extensions you rely on.</p>
           <p>MikeDown puts the editing in the tab itself. Headings look like headings, tables look like tables, and <span class="keys"><kbd>Cmd</kbd>+<kbd>/</kbd></span> (<span class="keys"><kbd>Ctrl</kbd>+<kbd>/</kbd></span> on Windows and Linux) shows the raw markdown whenever you want it. Saving writes ordinary markdown back to the same file, in the style you wrote it.</p>
         </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="reviews-title">
+      <div class="site-container">
+        <div class="section-head">
+          <h2 class="section-title" id="reviews-title">What people are saying</h2>
+          <a class="reviews__rating" href="https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&amp;ssr=false#review-details"><span class="reviews__stars" aria-hidden="true">★★★★★</span> 5.0 on the VS Code Marketplace</a>
+        </div>
+        <ul class="reviews">
+          <li><figure class="review">
+            <blockquote><p>Powerful and easy to use. Best UX of the available markdown editors.</p></blockquote>
+            <figcaption><strong>Jordon Hynes</strong>, VS Code Marketplace</figcaption>
+          </figure></li>
+          <li><figure class="review">
+            <blockquote><p>This is the best WYSIWYG markdown editor I have found, and I like it. Very practical, many useful features. The maintainer reacts quickly to bug reports and feature wishes.</p></blockquote>
+            <figcaption><strong>Matthias Zenker</strong>, VS Code Marketplace</figcaption>
+          </figure></li>
+          <li><figure class="review">
+            <blockquote><p>I&rsquo;ve tried a few wysiwyg markdown editors and this is the best by far. Comprehensive but minimal ui with good keyboard shortcut support and responsive developer if you have a feature request or bug report.</p></blockquote>
+            <figcaption><strong>Boyd Buchanan</strong>, VS Code Marketplace</figcaption>
+          </figure></li>
+          <li><figure class="review">
+            <blockquote><p lang="zh">不得不说，这就是我一直在找的markdown 所见即所得的编辑插件</p><span class="review__translation">&ldquo;I have to say, this is exactly the WYSIWYG markdown plugin I&rsquo;ve been looking for.&rdquo;</span></blockquote>
+            <figcaption><strong>desenberg</strong>, VS Code Marketplace</figcaption>
+          </figure></li>
+          <li><figure class="review">
+            <blockquote><p>Thanks for this plugin. Really handy for reading and updating all the .md files I now have in my repo&rsquo;s.</p></blockquote>
+            <figcaption><strong>Sean Marx</strong>, VS Code Marketplace</figcaption>
+          </figure></li>
+        </ul>
       </div>
     </section>
 
