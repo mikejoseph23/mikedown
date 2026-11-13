@@ -3,113 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="/mikedown/favicon.ico" sizes="16x16 32x32">
-  <link rel="icon" type="image/png" sizes="32x32" href="/mikedown/favicon-32.png">
-  <link rel="apple-touch-icon" href="/mikedown/apple-touch-icon.png">
-  <title>Compare MikeDown: Desktop, VS Code and the developer packages</title>
-  <meta name="description" content="MikeDown is one WYSIWYG markdown editor in four forms: a desktop app, a VS Code extension, a web component and React, Vue and Angular packages. See what each one does.">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="MikeDown">
-  <meta property="og:title" content="Which MikeDown?">
-  <meta property="og:description" content="The same markdown editor as a desktop app, a VS Code extension, a web component and React, Vue and Angular packages, feature by feature.">
-  <meta property="og:url" content="https://www.iadev.net/mikedown/compare/">
-  <link rel="canonical" href="https://www.iadev.net/mikedown/compare/">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/shared/shell.css">
-  <link rel="stylesheet" href="/shared/page.css">
-  <link rel="stylesheet" href="/compare/compare.css">
+  <!-- The comparison moved into the Features page (#compare). Old links,
+       including #note-N footnote links, land there. -->
+  <script>location.replace('/mikedown/features/' + (location.hash || '#compare'));</script>
+  <meta http-equiv="refresh" content="0; url=/mikedown/features/#compare">
+  <link rel="canonical" href="https://www.iadev.net/mikedown/features/">
+  <meta name="robots" content="noindex">
+  <title>Compare MikeDown: moved to Features</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; padding: 48px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: Canvas; color: CanvasText; }
+  </style>
 </head>
 <body>
-  <!--shell:header page="compare"-->
-
-  <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
-    <symbol id="mk-yes" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.2 9.5"/></symbol>
-    <symbol id="mk-partial" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></symbol>
-    <symbol id="mk-host" viewBox="0 0 24 24"><path d="M9 3v4M15 3v4M6.5 7h11v3.5a5.5 5.5 0 0 1-11 0z M12 16v5"/></symbol>
-    <symbol id="mk-no" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></symbol>
-    <symbol id="mk-na" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-dasharray="2.6 3.05"/></symbol>
-  </svg>
-
-  <main id="main">
-    <section class="compare-hero">
-      <div class="site-container">
-        <h1>Which MikeDown?</h1>
-        <p class="compare-hero__lede">MikeDown is one WYSIWYG markdown editor in four forms. <strong>Desktop</strong> is a free app for macOS and Windows, with a Linux preview, for working through a folder of notes. The <strong>VS Code extension</strong> opens your markdown files in editor tabs, next to your code. The <strong>web component</strong> and the <strong>React, Vue and Angular</strong> packages put the editor inside a web app you build.</p>
-      </div>
-    </section>
-
-    <section class="compare" aria-labelledby="matrix-title">
-      <div class="site-container">
-        <h2 class="visually-hidden" id="matrix-title">Feature by feature</h2>
-        <div class="legend" role="group" aria-labelledby="legend-title">
-          <h3 class="legend__title" id="legend-title">How to read the table</h3>
-          <dl class="legend__list">
-            <div><dt><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></dt><dd>In the product as it ships.</dd></div>
-            <div><dt><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span></dt><dd>There, with the limit named in the cell.</dd></div>
-            <div><dt><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span></dt><dd>The editor has the hook; the app around it supplies the piece.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup> For the VS Code extension, that is VS Code itself.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></dd></div>
-            <div><dt><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></dt><dd>Not in that product.</dd></div>
-            <div><dt><span class="mark mark--na"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-na"/></svg>n/a</span></dt><dd>Does not apply to that product.</dd></div>
-          </dl>
-        </div>
-
-        <table class="matrix" role="table" aria-describedby="legend-title">
-          <caption>What each MikeDown does, feature by feature</caption>
-          <thead role="rowgroup">
-            <tr role="row">
-              <th scope="col" role="columnheader">Feature</th>
-              <th scope="col" role="columnheader">Desktop</th>
-              <th scope="col" role="columnheader">VS Code extension</th>
-              <th scope="col" role="columnheader">Web component</th>
-              <th scope="col" role="columnheader">React / Vue / Angular</th>
-            </tr>
-          </thead>
-          <!--features:matrix-->
-        </table>
-
-        <section class="notes" aria-labelledby="notes-title">
-          <h3 class="notes__title" id="notes-title">Notes</h3>
-          <ol class="notes__list">
-            <li id="note-1">AI writing tools are experimental and off by default in both apps; nothing is sent until you set up an engine. <a href="/mikedown/desktop/#privacy">What is sent, and where</a>.</li>
-            <li id="note-2">In VS Code, the file tree, tabs, split editors, folder search, version history (Git, Timeline), multiple windows and updates come from VS Code itself, not from the extension.</li>
-            <li id="note-3">MikeDown Desktop updates itself on macOS and Windows; the Linux AppImage does not.</li>
-            <li id="note-4"><strong>Host must provide</strong>: the editor has the hook and your app supplies the piece (a <code>host</code> method, an AI host, a dictionary URL, storage). See <a href="/mikedown/developers/#byo-ai">Bring your own AI</a> and <a href="/mikedown/developers/#toolbar-layout">Toolbar layout</a> on the Developers hub.</li>
-          </ol>
-        </section>
-      </div>
-    </section>
-
-    <section class="band" aria-labelledby="pick-title">
-      <div class="site-container">
-        <h2 id="pick-title">Pick yours</h2>
-        <p>All four are free, and your files stay plain markdown in every one of them.</p>
-        <ul class="picks">
-          <li class="pick">
-            <h3>MikeDown Desktop</h3>
-            <p>A free app for macOS and Windows, with a Linux preview.</p>
-            <a class="btn btn--primary" href="/mikedown/desktop/">Download Desktop</a>
-          </li>
-          <li class="pick">
-            <h3>VS Code extension</h3>
-            <p>WYSIWYG markdown in your editor tabs.</p>
-            <a class="btn btn--secondary" href="https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor">Get it on the Marketplace</a>
-          </li>
-          <li class="pick">
-            <h3>In your app</h3>
-            <p>A web component and React, Vue and Angular packages on npm.</p>
-            <a class="btn btn--secondary" href="/mikedown/developers/">Developers hub</a>
-          </li>
-          <li class="pick">
-            <h3>Source</h3>
-            <p>MIT licensed. Issues and ideas are welcome.</p>
-            <a class="btn btn--secondary" href="https://github.com/mikejoseph23/mikedown">MikeDown on GitHub</a>
-          </li>
-        </ul>
-      </div>
-    </section>
-  </main>
-
-  <!--shell:footer-->
+  <p>The comparison is now part of the <a href="/mikedown/features/#compare">Features page</a>.</p>
 </body>
 </html>

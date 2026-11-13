@@ -1,15 +1,15 @@
 // Every MikeDown feature and what each edition does with it. One source for
-// the Features page (features/), the comparison table (compare/) and the home
-// page highlights. Pure data and string functions, no I/O; shared/vite-plugin.js
+// the Features page (features/: the list, then the comparison table) and the
+// home page highlights. Pure data and string functions, no I/O; shared/vite-plugin.js
 // fills the <!--features:...--> markers at dev and build.
 //
-//   <!--features:list-->        grouped feature list with edition chips (features/)
-//   <!--features:matrix-->      the comparison table's <tbody>s (compare/)
+//   <!--features:list-->        grouped feature list with edition chips
+//   <!--features:matrix-->      the comparison table's <tbody>s
 //   <!--features:highlights-->  the home page highlights (index.html)
 //
 // A cell is a mark ('yes' | 'partial' | 'host' | 'no' | 'na'), or
 // [mark, noteHtml] or [mark, noteHtml, footnote]. Footnotes are the numbered
-// notes on the compare page (#note-N). Strings are HTML: escape <, > and &.
+// notes under the table on the Features page (#note-N). Strings are HTML: escape <, > and &.
 
 export const EDITIONS = [
   { id: 'desktop', label: 'Desktop', chip: 'Desktop' },
@@ -365,6 +365,8 @@ export function cell(value) {
   return { mark, note, fn };
 }
 
+/** 'desktop:yes vscode:host ...', read by the page's edition filter. */
+const marksOf = (f) => EDITIONS.map((e) => `${e.id}:${cell(f.editions[e.id]).mark}`).join(' ');
 const icon = (mark, size = 16) => `<svg width="${size}" height="${size}" aria-hidden="true" focusable="false"><use href="#mk-${mark}"/></svg>`;
 const fnRef = (n) => `<sup><a class="fn-ref" href="#note-${n}" aria-label="Note ${n}">${n}</a></sup>`;
 
@@ -382,19 +384,19 @@ export function renderMatrixRows() {
   return GROUPS.map((g, gi) => {
     const rows = [`<tr class="group-row" role="row"><th scope="rowgroup" colspan="${EDITIONS.length + 1}" id="group-${gi + 1}" role="rowheader">${g.title}</th></tr>`];
     for (const f of g.features) {
-      const head = `<th scope="row" role="rowheader"><span class="feature"><a href="/mikedown/features/#${f.id}">${f.name}</a></span>${f.note ? `<span class="feature-note">${f.note}</span>` : ''}</th>`;
+      const head = `<th scope="row" role="rowheader"><span class="feature"><a href="#${f.id}">${f.name}</a></span>${f.note ? `<span class="feature-note">${f.note}</span>` : ''}</th>`;
       const cells = EDITIONS.map((e) => {
         const { mark, note, fn } = cell(f.editions[e.id]);
         const extra = note || fn ? `<span class="cell-note">${note}${fn ? fnRef(fn) : ''}</span>` : '';
-        return `<td role="cell" data-label="${e.label}"><span class="mark mark--${mark}">${icon(mark)}${MARKS[mark]}</span>${extra}</td>`;
+        return `<td role="cell" data-label="${e.label}" data-edition="${e.id}"><span class="mark mark--${mark}">${icon(mark)}${MARKS[mark]}</span>${extra}</td>`;
       });
-      rows.push(`<tr role="row">\n              ${head}\n              ${cells.join('\n              ')}\n            </tr>`);
+      rows.push(`<tr role="row" id="compare-${f.id}">\n              ${head}\n              ${cells.join('\n              ')}\n            </tr>`);
     }
     return `<tbody role="rowgroup">\n            ${rows.join('\n            ')}\n          </tbody>`;
   }).join('\n          ');
 }
 
-const chipLabel = { yes: '', partial: ' (partial)', host: ' (your app provides it)', no: ' (no)', na: ' (does not apply)' };
+const chipLabel = { yes: '', partial: ' (partial)', host: ' (host must provide)', no: ' (no)', na: ' (does not apply)' };
 
 /** The Features page list: one section per group, one entry per feature with its edition chips. */
 export function renderFeatureList() {
@@ -402,10 +404,12 @@ export function renderFeatureList() {
     const items = g.features.map((f) => {
       const chips = EDITIONS.map((e) => {
         const { mark } = cell(f.editions[e.id]);
-        return `<li class="chip chip--${mark}" data-edition="${e.id}" data-mark="${mark}">${icon(mark, 14)}<span>${e.chip}<span class="visually-hidden">${chipLabel[mark]}</span></span></li>`;
+        const body = `${icon(mark, 14)}<span>${e.chip}<span class="visually-hidden">${chipLabel[mark]}</span></span>`;
+        // Partial and host chips have a note in the table: link to it.
+        const inner = mark === 'partial' || mark === 'host' ? `<a href="#compare-${f.id}" title="Details in the comparison table">${body}</a>` : body;
+        return `<li class="chip chip--${mark}" data-edition="${e.id}" data-mark="${mark}">${inner}</li>`;
       }).join('');
-      const marks = EDITIONS.map((e) => `${e.id}:${cell(f.editions[e.id]).mark}`).join(' ');
-      return `<li class="feat" id="${f.id}" data-marks="${marks}">
+      return `<li class="feat" id="${f.id}" data-marks="${marksOf(f)}">
             <h3>${f.name}</h3>
             <p>${f.description}</p>
             <ul class="chips" aria-label="Editions">${chips}</ul>

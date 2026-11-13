@@ -96,9 +96,9 @@ describe('the local-AI post matches the setup code', () => {
     expect(quotes).toEqual([AI_DETECT_NONE, hw]);
   });
 
-  it('links to the Desktop AI section and the compare page', () => {
+  it('links to the Desktop AI section and the comparison table', () => {
     const hrefs = [...doc.querySelectorAll('.post a')].map((a) => a.getAttribute('href'));
     expect(hrefs).toContain('/mikedown/desktop/#ai');
-    expect(hrefs).toContain('/mikedown/compare/');
+    expect(hrefs).toContain('/mikedown/features/#compare');
   });
 });

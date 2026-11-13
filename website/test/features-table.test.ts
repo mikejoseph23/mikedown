@@ -1,11 +1,14 @@
-// The compare page's matrix (website/compare/index.html), read from source so it
-// runs without a build. The expected values below are the settled matrix: change
-// them together with the page.
+// The comparison table on the Features page (website/features/index.html, Table
+// view), rendered from source and shared/features.js so it runs without a build.
+// The expected values below are the settled matrix: change them together with
+// shared/features.js.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+// @ts-expect-error plain JS module without types
+import { applyFeatureMarkers } from '../shared/features.js';
 
-const html = readFileSync(resolve(__dirname, '../compare/index.html'), 'utf8');
+const html: string = applyFeatureMarkers(readFileSync(resolve(__dirname, '../features/index.html'), 'utf8'));
 const doc = new DOMParser().parseFromString(html, 'text/html');
 const table = doc.querySelector('table.matrix') as HTMLTableElement;
 
@@ -20,14 +23,29 @@ const X = 'n/a';
 // Desktop, VS Code extension, Web component, React / Vue / Angular.
 const MATRIX: [string, string[]][] = [
   ['WYSIWYG and source mode', [Y, Y, Y, Y]],
-  ['Tables, callouts, math, Mermaid, emoji, footnotes', [Y, Y, Y, Y]],
-  ['Spellcheck', [Y, P, H, H]],
-  ['Image paste to disk', [Y, Y, H, H]],
+  ['Slash commands', [Y, Y, P, P]],
+  ['Smart paste', [Y, Y, Y, Y]],
+  ['Image paste and drop', [Y, Y, H, H]],
+  ['Tables', [Y, Y, Y, Y]],
+  ['Math', [Y, Y, Y, Y]],
+  ['Callouts, highlights and emoji', [Y, Y, Y, Y]],
+  ['Code and diagrams', [Y, Y, Y, Y]],
+  ['Footnotes', [Y, Y, Y, Y]],
+  ['Spell check', [Y, P, H, H]],
   ['Find and replace', [Y, Y, Y, Y]],
-  ['Outline sidebar', [Y, Y, P, P]],
+  ['Document sidebar', [Y, Y, P, P]],
+  ['Links that know your files', [P, Y, H, H]],
+  ['Broken link detection', [P, Y, H, H]],
   ['Backlinks', [Y, Y, H, H]],
-  ['Wikilinks and tags', [Y, Y, H, H]],
+  ['Wikilinks and tags', [P, Y, H, H]],
   ['Properties and frontmatter', [Y, Y, Y, Y]],
+  ['Heading numbering', [Y, Y, Y, Y]],
+  ['Your own toolbar', [Y, Y, P, P]],
+  ['Settings inside the editor', [Y, Y, P, P]],
+  ['Zoom', [Y, Y, Y, Y]],
+  ['Light or dark, just for the editor', [N, Y, P, P]],
+  ['Font themes', [Y, Y, Y, Y]],
+  ['Your markdown, as you wrote it', [Y, Y, Y, Y]],
   ['Folder tree', [Y, H, N, N]],
   ['Tabs', [Y, H, N, N]],
   ['Split panes', [Y, H, N, N]],
@@ -35,8 +53,7 @@ const MATRIX: [string, string[]][] = [
   ['Version history', [Y, H, N, N]],
   ['Multi-window', [Y, H, N, N]],
   ['HTML and PDF export', [Y, Y, H, H]],
-  ['Settings UI', [Y, Y, P, P]],
-  ['Toolbar customization', [Y, Y, P, P]],
+  ['Copy as rich text', [N, Y, H, H]],
   ['Auto-update', [P, H, N, N]],
   ['AI writing tools', [Y, Y, H, H]],
   ['AI engine setup', [Y, Y, H, H]],
@@ -47,7 +64,7 @@ const MATRIX: [string, string[]][] = [
 const text = (el: Element | null) => (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
 const featureRows = () => [...table.querySelectorAll('tbody tr')].filter((tr) => tr.querySelector('th[scope="row"]'));
 
-describe('compare page matrix', () => {
+describe('features page comparison table', () => {
   it('is a captioned table with column headers', () => {
     expect(table).not.toBeNull();
     expect(text(table.querySelector('caption'))).not.toBe('');

@@ -6,85 +6,99 @@
   <link rel="icon" href="/mikedown/favicon.ico" sizes="16x16 32x32">
   <link rel="icon" type="image/png" sizes="32x32" href="/mikedown/favicon-32.png">
   <link rel="apple-touch-icon" href="/mikedown/apple-touch-icon.png">
-  <title>MikeDown features: what the editor does, edition by edition</title>
-  <meta name="description" content="Every MikeDown feature, from slash commands and tables to backlinks, version history and AI writing tools, with which editions have it: Desktop, VS Code, the web component and the React, Vue and Angular packages.">
+  <title>MikeDown features: what it does, and which edition does what</title>
+  <meta name="description" content="Every MikeDown feature, from slash commands and tables to backlinks, version history and AI writing tools, and a feature-by-feature comparison of Desktop, VS Code, the web component and the React, Vue and Angular packages.">
   <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MikeDown">
   <meta property="og:title" content="MikeDown features">
   <meta property="og:description" content="Every MikeDown feature, and which editions have it.">
   <meta property="og:url" content="https://www.iadev.net/mikedown/features/">
+  <link rel="canonical" href="https://www.iadev.net/mikedown/features/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/shared/shell.css">
   <link rel="stylesheet" href="/shared/page.css">
+  <link rel="stylesheet" href="/features/features.css">
   <style>
-    .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
-
-    .hero { padding: 72px 0 40px; }
+    .hero { padding: 72px 0 32px; }
     .hero h1 { font-size: clamp(2rem, 5.5vw, 3rem); margin-bottom: 14px; }
-    .hero__lede { color: var(--muted); font-size: clamp(1rem, 2.4vw, 1.15rem); max-width: 640px; }
-    .hero__lede a { color: var(--accent); }
+    .hero__lede { color: var(--muted); font-size: clamp(1rem, 2.4vw, 1.15rem); max-width: 680px; }
+    .hero .legend { margin-top: 28px; }
 
-    /* Edition filter: sticky under the header so it stays in reach while scrolling. */
-    .filter {
-      position: sticky; top: 0; z-index: 5; padding: 12px 0;
+    /* The one sticky bar: edition filter on the left, jump links on the right. */
+    .bar {
+      position: sticky; top: 0; z-index: 5; padding: 10px 0;
       background: color-mix(in srgb, var(--bg) 92%, transparent);
       backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--border);
     }
-    .filter__inner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-    .filter__label { color: var(--muted); font-size: 14px; }
-    .filter__options { display: flex; flex-wrap: wrap; gap: 6px; }
-    .filter button {
-      min-height: 34px; padding: 6px 14px; border-radius: 999px;
+    .bar__inner { display: flex; align-items: center; gap: 8px 20px; }
+    .bar__filter { flex: none; display: flex; align-items: center; min-width: 0; }
+    .bar__pills { display: flex; gap: 6px; }
+    .bar button {
+      flex: none; min-height: 34px; padding: 6px 14px; border-radius: 999px;
       border: 1px solid var(--border); background: var(--bg-raised); color: var(--text);
-      font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+      font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;
       transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
     }
-    .filter button:hover { border-color: var(--muted); }
-    .filter button[aria-pressed="true"] { background: var(--button-bg); border-color: var(--button-bg); color: var(--button-text); }
-    .filter button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-    .filter__count { color: var(--muted); font-size: 14px; margin-left: auto; }
+    .bar button:hover { border-color: var(--muted); }
+    .bar button[aria-pressed="true"] { background: var(--button-bg); border-color: var(--button-bg); color: var(--button-text); }
+    .bar button:focus-visible, .bar__jump a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 999px; }
+    .bar__count { flex: none; color: var(--muted); font-size: 13.5px; white-space: nowrap; }
+    .bar__jump { display: flex; gap: 16px; margin-left: auto; flex: none; }
+    .bar__jump a { color: var(--muted); font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap; }
+    .bar__jump a:hover { color: var(--text-strong); }
 
-    .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 20px; color: var(--muted); font-size: 13.5px; list-style: none; }
-    .legend li { display: inline-flex; align-items: center; gap: 6px; }
-
-    .feat-groups { padding: 8px 0 72px; }
-    .feat-group { padding-top: 48px; }
+    /* The list */
+    .feat-groups { padding: 8px 0 56px; scroll-margin-top: 64px; }
+    .feat-group { padding-top: 44px; }
     .feat-group__title { font-size: clamp(1.3rem, 3vw, 1.6rem); padding-bottom: 12px; margin-bottom: 8px; border-bottom: 2px solid var(--accent); display: inline-block; }
     .feats { list-style: none; display: grid; gap: 0 40px; }
     .feat { padding: 20px 0; border-bottom: 1px solid var(--border); scroll-margin-top: 80px; }
     .feat h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
     .feat p { color: var(--muted); font-size: 15px; line-height: 1.6; }
     .feat:target h3 { color: var(--accent); }
-    .feat[hidden], .feat-group[hidden] { display: none; }
-
     .chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-    .chip {
+    .chip > span, .chip > a {
       display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 7px; border-radius: 999px;
-      border: 1px solid var(--border); font-size: 12.5px; font-weight: 500; line-height: 1.4; color: var(--text);
+      border: 1px solid var(--border); font-size: 12.5px; font-weight: 500; line-height: 1.4; color: var(--text); text-decoration: none;
     }
+    .chip > a:hover { border-color: var(--muted); color: var(--text-strong); }
+    .chip > a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     .chip svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .chip--yes svg { color: var(--accent); }
-    .chip--no, .chip--na { color: var(--muted); border-style: dashed; }
-    .legend svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .legend .chip--yes svg { color: var(--accent); }
-    /* The chosen edition's chip stands out. */
-    [data-edition-filter] .chip.is-chosen { border-color: var(--accent); background: var(--accent-soft); color: var(--text-strong); }
+    .chip--no > span, .chip--na > span { color: var(--muted); border-style: dashed; }
+    [data-edition-filter] .chip.is-chosen > span, [data-edition-filter] .chip.is-chosen > a { border-color: var(--accent); background: var(--accent-soft); color: var(--text-strong); }
 
-    .closing { padding: 56px 0 72px; border-top: 1px solid var(--border); }
-    .closing p { color: var(--muted); max-width: 620px; margin: 10px 0 24px; }
-    .closing__ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+    /* The comparison */
+    .compare { padding: 64px 0 72px; border-top: 1px solid var(--border); scroll-margin-top: 56px; }
+    .compare .section-title { font-size: clamp(1.6rem, 4vw, 2.2rem); }
+    .compare .section-lede { margin-bottom: 28px; }
+    .matrix td.is-chosen, .matrix th.is-chosen { background: var(--accent-soft); }
+    .matrix tr[id] { scroll-margin-top: 120px; }
+    .matrix tr[id]:target > * { background: var(--accent-soft); }
+    .notes li { scroll-margin-top: 80px; }
+
+    .feat[hidden], .feat-group[hidden], .bar__filter[hidden] { display: none; }
 
     @media (min-width: 760px) {
       .feats { grid-template-columns: repeat(2, 1fr); }
     }
+    @media (max-width: 860px) {
+      /* Two rows: the jump links and count, then the pills scrolling sideways. */
+      .bar__inner { flex-wrap: wrap; }
+      .bar__filter { order: 2; width: 100%; flex: auto; }
+      .bar__pills { overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; }
+      .bar__pills::-webkit-scrollbar { display: none; }
+      .bar__jump { margin-left: 0; }
+      .bar__count { margin-left: auto; }
+    }
     @media (max-width: 600px) {
       .hero { padding-top: 48px; }
-      .filter__count { margin-left: 0; width: 100%; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .filter button { transition: none; }
+      .bar button { transition: none; }
     }
   </style>
 </head>
@@ -96,44 +110,100 @@
     <section class="hero">
       <div class="site-container">
         <h1>Features</h1>
-        <p class="hero__lede">One editor, the same in every edition, with a few pieces that depend on where it runs. Pick an edition to see what it has. For the details behind each mark, see the <a href="/mikedown/compare/">comparison table</a>.</p>
-        <ul class="legend" aria-label="What the marks mean">
-          <li><span class="chip chip--yes"><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></li>
-          <li><span class="chip chip--partial"><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span></li>
-          <li><span class="chip chip--host"><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Your app provides a piece</span></li>
-          <li><span class="chip chip--no"><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></li>
-        </ul>
+        <p class="hero__lede">MikeDown is one editor in four editions, and most of what it does is the same in all of them. Each feature below shows which editions have it; the comparison after the list has the details.</p>
+        <div class="legend" role="group" aria-labelledby="legend-title">
+          <h3 class="legend__title" id="legend-title">How to read the marks</h3>
+          <dl class="legend__list">
+            <div><dt><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></dt><dd>In the product as it ships.</dd></div>
+            <div><dt><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span></dt><dd>There, with the limit named in the cell.</dd></div>
+            <div><dt><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span></dt><dd>The editor has the hook; the app around it supplies the piece.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup> For the VS Code extension, that is VS Code itself.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></dd></div>
+            <div><dt><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></dt><dd>Not in that product.</dd></div>
+            <div><dt><span class="mark mark--na"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-na"/></svg>n/a</span></dt><dd>Does not apply to that product.</dd></div>
+          </dl>
+        </div>
       </div>
     </section>
 
-    <div class="filter" data-filter hidden>
-      <div class="site-container filter__inner">
-        <span class="filter__label" id="filter-label">Show what’s in</span>
-        <div class="filter__options" role="group" aria-labelledby="filter-label">
-          <button type="button" data-show="all" aria-pressed="true">All editions</button>
-          <button type="button" data-show="desktop" aria-pressed="false">Desktop</button>
-          <button type="button" data-show="vscode" aria-pressed="false">VS Code</button>
-          <button type="button" data-show="wc" aria-pressed="false">Web component</button>
-          <button type="button" data-show="wrappers" aria-pressed="false">React, Vue, Angular</button>
+    <div class="bar" data-bar>
+      <div class="site-container bar__inner">
+        <div class="bar__filter" data-filter hidden>
+          <span class="visually-hidden" id="filter-label">Show what’s in each edition</span>
+          <div class="bar__pills" role="group" aria-labelledby="filter-label">
+            <button type="button" data-show="all" aria-pressed="true">All editions</button>
+            <button type="button" data-show="desktop" aria-pressed="false">Desktop</button>
+            <button type="button" data-show="vscode" aria-pressed="false">VS Code</button>
+            <button type="button" data-show="wc" aria-pressed="false">Web component</button>
+            <button type="button" data-show="wrappers" aria-pressed="false">React, Vue, Angular</button>
+          </div>
         </div>
-        <span class="filter__count" data-count aria-live="polite"></span>
+        <span class="bar__count" data-count aria-live="polite"></span>
+        <nav class="bar__jump" aria-label="On this page">
+          <a href="#features">Features</a>
+          <a href="#compare">Compare editions</a>
+        </nav>
       </div>
     </div>
 
-    <div class="site-container feat-groups" data-features>
+    <section class="site-container feat-groups" id="features" aria-label="Features, grouped" data-list>
       <!--features:list-->
-    </div>
+    </section>
 
-    <section class="closing" aria-labelledby="closing-title">
+    <section class="compare" id="compare" aria-labelledby="compare-title">
       <div class="site-container">
-        <h2 class="section-title" id="closing-title">Pick yours</h2>
-        <p>Desktop for a folder of notes, VS Code for markdown next to your code, the packages for the editor inside your own app.</p>
-        <div class="closing__ctas">
-          <a class="btn btn--primary" href="/mikedown/desktop/">Get MikeDown Desktop</a>
-          <a class="btn btn--secondary" href="/mikedown/vscode/">MikeDown for VS Code</a>
-          <a class="btn btn--secondary" href="/mikedown/developers/">For developers</a>
-          <a class="btn btn--secondary" href="/mikedown/compare/">Comparison table</a>
-        </div>
+        <h2 class="section-title" id="compare-title">Which MikeDown?</h2>
+        <p class="section-lede"><strong>Desktop</strong> is a free app for a folder of notes, the <strong>VS Code extension</strong> opens markdown in your editor tabs, and the <strong>web component</strong> and <strong>React, Vue and Angular</strong> packages put the editor in a web app you build. Here is every feature, edition by edition.</p>
+        <table class="matrix" role="table" aria-describedby="legend-title">
+          <caption>What each MikeDown does, feature by feature</caption>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">Feature</th>
+              <th scope="col" role="columnheader" data-edition="desktop">Desktop</th>
+              <th scope="col" role="columnheader" data-edition="vscode">VS Code extension</th>
+              <th scope="col" role="columnheader" data-edition="wc">Web component</th>
+              <th scope="col" role="columnheader" data-edition="wrappers">React / Vue / Angular</th>
+            </tr>
+          </thead>
+          <!--features:matrix-->
+        </table>
+
+        <section class="notes" aria-labelledby="notes-title">
+          <h3 class="notes__title" id="notes-title">Notes</h3>
+          <ol class="notes__list">
+            <li id="note-1">AI writing tools are experimental and off by default in both apps; nothing is sent until you set up an engine. <a href="/mikedown/desktop/#privacy">What is sent, and where</a>.</li>
+            <li id="note-2">In VS Code, the file tree, tabs, split editors, folder search, version history (Git, Timeline), multiple windows and updates come from VS Code itself, not from the extension.</li>
+            <li id="note-3">MikeDown Desktop updates itself on macOS and Windows; the Linux AppImage does not.</li>
+            <li id="note-4"><strong>Host must provide</strong>: the editor has the hook and your app supplies the piece (a <code>host</code> method, an AI host, a dictionary URL, storage). See <a href="/mikedown/developers/#byo-ai">Bring your own AI</a> and <a href="/mikedown/developers/#toolbar-layout">Toolbar layout</a> on the Developers hub.</li>
+          </ol>
+        </section>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="pick-title">
+      <div class="site-container">
+        <h2 id="pick-title">Pick yours</h2>
+        <p>All four are free, and your files stay plain markdown in every one of them.</p>
+        <ul class="picks">
+          <li class="pick">
+            <h3>MikeDown Desktop</h3>
+            <p>A free app for macOS and Windows, with a Linux preview.</p>
+            <a class="btn btn--primary" href="/mikedown/desktop/">Download Desktop</a>
+          </li>
+          <li class="pick">
+            <h3>VS Code extension</h3>
+            <p>WYSIWYG markdown in your editor tabs.</p>
+            <a class="btn btn--secondary" href="https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor">Get it on the Marketplace</a>
+          </li>
+          <li class="pick">
+            <h3>In your app</h3>
+            <p>A web component and React, Vue and Angular packages on npm.</p>
+            <a class="btn btn--secondary" href="/mikedown/developers/">Developers hub</a>
+          </li>
+          <li class="pick">
+            <h3>Source</h3>
+            <p>MIT licensed. Issues and ideas are welcome.</p>
+            <a class="btn btn--secondary" href="https://github.com/mikejoseph23/mikedown">MikeDown on GitHub</a>
+          </li>
+        </ul>
       </div>
     </section>
   </main>
@@ -141,50 +211,68 @@
   <!--shell:footer-->
 
   <script>
-    // Edition filter. Without script every feature shows, chips and all.
-    // ?edition=desktop (or vscode, wc, wrappers) preselects one, so other pages can link to it.
+    // Edition filter. In the list it hides what the edition lacks; in the
+    // table it only highlights that edition's column, so the comparison stays
+    // whole. Without script nothing is hidden. ?edition=desktop (vscode, wc,
+    // wrappers) preselects one, so other pages can link to it.
     (function () {
-      var bar = document.querySelector('[data-filter]');
-      var root = document.querySelector('[data-features]');
-      if (!bar || !root) { return; }
-      var buttons = Array.prototype.slice.call(bar.querySelectorAll('button[data-show]'));
-      var feats = Array.prototype.slice.call(root.querySelectorAll('.feat'));
-      var groups = Array.prototype.slice.call(root.querySelectorAll('.feat-group'));
+      var filterEl = document.querySelector('[data-filter]');
+      var list = document.querySelector('[data-list]');
+      var bar = document.querySelector('[data-bar]');
+      if (!filterEl || !list) { return; }
+      var buttons = Array.prototype.slice.call(filterEl.querySelectorAll('button[data-show]'));
+      var feats = Array.prototype.slice.call(list.querySelectorAll('.feat'));
+      var groups = Array.prototype.slice.call(list.querySelectorAll('.feat-group'));
       var count = bar.querySelector('[data-count]');
       var names = {};
       buttons.forEach(function (b) { names[b.getAttribute('data-show')] = b.textContent; });
 
-      function markOf(feat, edition) {
-        var m = new RegExp('(?:^| )' + edition + ':([a-z]+)').exec(feat.getAttribute('data-marks'));
+      function markOf(el, edition) {
+        var m = new RegExp('(?:^| )' + edition + ':([a-z]+)').exec(el.getAttribute('data-marks'));
         return m ? m[1] : 'no';
       }
-      function show(edition) {
+      function show(edition, keepUrl) {
         if (!names[edition]) { edition = 'all'; }
+        var all = edition === 'all';
         buttons.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-show') === edition ? 'true' : 'false'); });
         var shown = 0;
         feats.forEach(function (f) {
-          var mark = edition === 'all' ? 'yes' : markOf(f, edition);
-          var on = mark !== 'no' && mark !== 'na';
-          f.hidden = !on;
-          if (on) { shown++; }
-          Array.prototype.forEach.call(f.querySelectorAll('.chip'), function (c) {
-            c.classList.toggle('is-chosen', c.getAttribute('data-edition') === edition);
-          });
+          var mark = all ? 'yes' : markOf(f, edition);
+          f.hidden = mark === 'no' || mark === 'na';
+          if (!f.hidden) { shown++; }
         });
         groups.forEach(function (g) { g.hidden = !g.querySelector('.feat:not([hidden])'); });
-        if (edition === 'all') { root.removeAttribute('data-edition-filter'); } else { root.setAttribute('data-edition-filter', edition); }
-        count.textContent = edition === 'all' ? feats.length + ' features' : shown + ' of ' + feats.length + ' features in ' + names[edition];
+        Array.prototype.forEach.call(document.querySelectorAll('.chip[data-edition], .matrix [data-edition]'), function (el) {
+          el.classList.toggle('is-chosen', el.getAttribute('data-edition') === edition);
+        });
+        if (all) { list.removeAttribute('data-edition-filter'); } else { list.setAttribute('data-edition-filter', edition); }
+        count.textContent = all ? feats.length + ' features' : shown + ' of ' + feats.length + ' in ' + names[edition];
+        if (keepUrl) { return; }
         try {
           var url = new URL(location.href);
-          if (edition === 'all') { url.searchParams.delete('edition'); } else { url.searchParams.set('edition', edition); }
-          history.replaceState(null, '', url);
+          if (all) { url.searchParams.delete('edition'); } else { url.searchParams.set('edition', edition); }
+          history.replaceState(history.state, '', url);
         } catch (e) { /* file:// or an old browser: the filter still works */ }
       }
-      buttons.forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-show')); }); });
-      bar.hidden = false;
+      // A feature filtered out of the list can still be linked to (from the
+      // table or another page): show everything again so the link lands.
+      function revealHash() {
+        var id = location.hash ? decodeURIComponent(location.hash.slice(1)) : '';
+        var el = id && document.getElementById(id);
+        if (el && list.contains(el) && el.closest('[hidden]')) { show('all'); el.scrollIntoView(); }
+      }
+      function setOffset() { document.documentElement.style.setProperty('--sticky-offset', bar.offsetHeight + 'px'); }
+
+      buttons.forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-show')); setOffset(); }); });
+      window.addEventListener('hashchange', revealHash);
+      window.addEventListener('resize', setOffset);
+
       var start = 'all';
       try { start = new URL(location.href).searchParams.get('edition') || 'all'; } catch (e) { /* keep all */ }
-      show(start);
+      filterEl.hidden = false;
+      show(start, true);
+      setOffset();
+      revealHash();
     })();
   </script>
 </body>
