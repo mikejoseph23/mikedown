@@ -24,7 +24,7 @@
     .hero { padding: 44px 0 20px; }
     .hero h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin-bottom: 8px; }
     .hero__lede { color: var(--muted); font-size: 16.5px; max-width: 680px; }
-    .hero__lede a { color: var(--accent); }
+    .hero__lede strong { color: var(--text); font-weight: 600; }
     .key { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 14px; }
     .key__more { font-size: 13px; margin-left: 4px; }
     .key__more a { color: var(--muted); }
@@ -48,11 +48,12 @@
     }
     .bar button:hover { border-color: var(--muted); }
     .bar button[aria-pressed="true"] { background: var(--button-bg); border-color: var(--button-bg); color: var(--button-text); }
-    .bar button:focus-visible, .bar__jump a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 999px; }
-    .bar__count { flex: none; color: var(--muted); font-size: 13.5px; white-space: nowrap; }
-    .bar__jump { display: flex; gap: 16px; margin-left: auto; flex: none; }
-    .bar__jump a { color: var(--muted); font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap; }
-    .bar__jump a:hover { color: var(--text-strong); }
+    .bar button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 999px; }
+    .bar__count { flex: none; color: var(--muted); font-size: 13.5px; white-space: nowrap; margin-left: auto; }
+    /* Grid / Table: one segmented control. */
+    .views { flex: none; display: flex; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-raised); }
+    .views button { border-color: transparent; background: none; min-height: 28px; padding: 3px 14px; }
+    .views button[aria-pressed="true"] { background: var(--button-bg); border-color: var(--button-bg); }
 
     /* The list */
     .feat-groups { padding: 8px 0 56px; scroll-margin-top: 64px; }
@@ -77,15 +78,13 @@
     [data-edition-filter] .chip.is-chosen > span, [data-edition-filter] .chip.is-chosen > a { border-color: var(--accent); background: var(--accent-soft); color: var(--text-strong); }
 
     /* The comparison */
-    .compare { padding: 64px 0 72px; border-top: 1px solid var(--border); scroll-margin-top: 56px; }
-    .compare .section-title { font-size: clamp(1.6rem, 4vw, 2.2rem); }
-    .compare .section-lede { margin-bottom: 28px; }
+    .compare { padding: 28px 0 72px; scroll-margin-top: 56px; }
     .matrix td.is-chosen, .matrix th.is-chosen { background: var(--accent-soft); }
     .matrix tr[id] { scroll-margin-top: 120px; }
     .matrix tr[id]:target > * { background: var(--accent-soft); }
     .notes li { scroll-margin-top: 80px; }
 
-    .feat[hidden], .feat-group[hidden], .bar__filter[hidden] { display: none; }
+    [hidden] { display: none !important; }
 
     @media (min-width: 760px) {
       .feats { grid-template-columns: repeat(2, 1fr); }
@@ -96,8 +95,6 @@
       .bar__filter { order: 2; width: 100%; flex: auto; }
       .bar__pills { overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; }
       .bar__pills::-webkit-scrollbar { display: none; }
-      .bar__jump { margin-left: 0; }
-      .bar__count { margin-left: auto; }
     }
     @media (max-width: 600px) {
       .hero { padding-top: 32px; }
@@ -115,7 +112,7 @@
     <section class="hero">
       <div class="site-container">
         <h1>Features</h1>
-        <p class="hero__lede">Most of MikeDown is the same in all four editions. Each feature shows which ones have it; the <a href="#compare">comparison table</a> has the details.</p>
+        <p class="hero__lede">Most of MikeDown is the same in all four editions. <strong>Grid</strong> shows what each feature does and which editions have it; <strong>Table</strong> compares them side by side, with the details behind each mark.</p>
         <ul class="key" aria-label="What the marks mean">
           <li class="chip chip--yes"><span><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></li>
           <li class="chip chip--partial"><span><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span></li>
@@ -128,6 +125,10 @@
 
     <div class="bar" data-bar>
       <div class="site-container bar__inner">
+        <div class="views" role="group" aria-label="View" data-views hidden>
+          <button type="button" data-view="grid" aria-pressed="true">Grid</button>
+          <button type="button" data-view="table" aria-pressed="false">Table</button>
+        </div>
         <div class="bar__filter" data-filter hidden>
           <span class="visually-hidden" id="filter-label">Show what’s in each edition</span>
           <div class="bar__pills" role="group" aria-labelledby="filter-label">
@@ -139,21 +140,16 @@
           </div>
         </div>
         <span class="bar__count" data-count aria-live="polite"></span>
-        <nav class="bar__jump" aria-label="On this page">
-          <a href="#features">Features</a>
-          <a href="#compare">Compare editions</a>
-        </nav>
       </div>
     </div>
 
-    <section class="site-container feat-groups" id="features" aria-label="Features, grouped" data-list>
+    <section class="site-container feat-groups" id="features" aria-label="Features, grouped" data-list data-pane="grid">
       <!--features:list-->
     </section>
 
-    <section class="compare" id="compare" aria-labelledby="compare-title">
+    <section class="compare" id="compare" aria-labelledby="compare-title" data-pane="table">
       <div class="site-container">
-        <h2 class="section-title" id="compare-title">Which MikeDown?</h2>
-        <p class="section-lede"><strong>Desktop</strong> is a free app for a folder of notes, the <strong>VS Code extension</strong> opens markdown in your editor tabs, and the <strong>web component</strong> and <strong>React, Vue and Angular</strong> packages put the editor in a web app you build. Here is every feature, edition by edition.</p>
+        <h2 class="visually-hidden" id="compare-title">Comparison table</h2>
         <div class="legend" role="group" aria-labelledby="legend-title">
           <h3 class="legend__title" id="legend-title">How to read the marks</h3>
           <dl class="legend__list">
@@ -224,68 +220,100 @@
   <!--shell:footer-->
 
   <script>
-    // Edition filter. In the list it hides what the edition lacks; in the
-    // table it only highlights that edition's column, so the comparison stays
-    // whole. Without script nothing is hidden. ?edition=desktop (vscode, wc,
-    // wrappers) preselects one, so other pages can link to it.
+    // Grid or Table view, and the edition filter. In the grid the filter hides
+    // what an edition lacks; in the table it highlights that edition's column,
+    // so the comparison stays whole. Without script both views show, one after
+    // the other. ?view=table and ?edition=desktop (vscode, wc, wrappers)
+    // preselect, so other pages can link straight to either.
     (function () {
-      var filterEl = document.querySelector('[data-filter]');
-      var list = document.querySelector('[data-list]');
       var bar = document.querySelector('[data-bar]');
-      if (!filterEl || !list) { return; }
-      var buttons = Array.prototype.slice.call(filterEl.querySelectorAll('button[data-show]'));
-      var feats = Array.prototype.slice.call(list.querySelectorAll('.feat'));
-      var groups = Array.prototype.slice.call(list.querySelectorAll('.feat-group'));
+      var panes = { grid: document.querySelector('[data-pane="grid"]'), table: document.querySelector('[data-pane="table"]') };
+      if (!bar || !panes.grid || !panes.table) { return; }
+      var viewButtons = Array.prototype.slice.call(bar.querySelectorAll('button[data-view]'));
+      var showButtons = Array.prototype.slice.call(bar.querySelectorAll('button[data-show]'));
+      var feats = Array.prototype.slice.call(panes.grid.querySelectorAll('.feat'));
+      var groups = Array.prototype.slice.call(panes.grid.querySelectorAll('.feat-group'));
       var count = bar.querySelector('[data-count]');
       var names = {};
-      buttons.forEach(function (b) { names[b.getAttribute('data-show')] = b.textContent; });
+      showButtons.forEach(function (b) { names[b.getAttribute('data-show')] = b.textContent; });
+      var state = { view: 'grid', edition: 'all' };
 
       function markOf(el, edition) {
         var m = new RegExp('(?:^| )' + edition + ':([a-z]+)').exec(el.getAttribute('data-marks'));
         return m ? m[1] : 'no';
       }
-      function show(edition, keepUrl) {
-        if (!names[edition]) { edition = 'all'; }
-        var all = edition === 'all';
-        buttons.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-show') === edition ? 'true' : 'false'); });
+      function render() {
+        var all = state.edition === 'all';
+        viewButtons.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-view') === state.view ? 'true' : 'false'); });
+        showButtons.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-show') === state.edition ? 'true' : 'false'); });
+        panes.grid.hidden = state.view !== 'grid';
+        panes.table.hidden = state.view !== 'table';
         var shown = 0;
         feats.forEach(function (f) {
-          var mark = all ? 'yes' : markOf(f, edition);
+          var mark = all ? 'yes' : markOf(f, state.edition);
           f.hidden = mark === 'no' || mark === 'na';
           if (!f.hidden) { shown++; }
         });
         groups.forEach(function (g) { g.hidden = !g.querySelector('.feat:not([hidden])'); });
         Array.prototype.forEach.call(document.querySelectorAll('.chip[data-edition], .matrix [data-edition]'), function (el) {
-          el.classList.toggle('is-chosen', el.getAttribute('data-edition') === edition);
+          el.classList.toggle('is-chosen', el.getAttribute('data-edition') === state.edition);
         });
-        if (all) { list.removeAttribute('data-edition-filter'); } else { list.setAttribute('data-edition-filter', edition); }
-        count.textContent = all ? feats.length + ' features' : shown + ' of ' + feats.length + ' in ' + names[edition];
-        if (keepUrl) { return; }
+        if (all) { panes.grid.removeAttribute('data-edition-filter'); } else { panes.grid.setAttribute('data-edition-filter', state.edition); }
+        count.textContent = all || state.view === 'table' ? feats.length + ' features' : shown + ' of ' + feats.length + ' in ' + names[state.edition];
         try {
           var url = new URL(location.href);
-          if (all) { url.searchParams.delete('edition'); } else { url.searchParams.set('edition', edition); }
+          if (state.view === 'grid') { url.searchParams.delete('view'); } else { url.searchParams.set('view', state.view); }
+          if (all) { url.searchParams.delete('edition'); } else { url.searchParams.set('edition', state.edition); }
           history.replaceState(history.state, '', url);
-        } catch (e) { /* file:// or an old browser: the filter still works */ }
+        } catch (e) { /* file:// or an old browser: the page still works */ }
+        document.documentElement.style.setProperty('--sticky-offset', bar.offsetHeight + 'px');
       }
-      // A feature filtered out of the list can still be linked to (from the
-      // table or another page): show everything again so the link lands.
-      function revealHash() {
-        var id = location.hash ? decodeURIComponent(location.hash.slice(1)) : '';
+      // A hash names a feature (grid), or a table row, note or the legend (table).
+      function reveal(hash) {
+        var id = hash ? decodeURIComponent(hash.slice(1)) : '';
         var el = id && document.getElementById(id);
-        if (el && list.contains(el) && el.closest('[hidden]')) { show('all'); el.scrollIntoView(); }
+        if (!el) { return false; }
+        var view = panes.grid.contains(el) ? 'grid' : panes.table.contains(el) ? 'table' : null;
+        if (!view) { return false; }
+        state.view = view;
+        render();
+        if (el.closest('[hidden]')) { state.edition = 'all'; render(); } // filtered out: show everything
+        el.scrollIntoView();
+        return true;
       }
-      function setOffset() { document.documentElement.style.setProperty('--sticky-offset', bar.offsetHeight + 'px'); }
 
-      buttons.forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-show')); setOffset(); }); });
-      window.addEventListener('hashchange', revealHash);
-      window.addEventListener('resize', setOffset);
+      viewButtons.forEach(function (b) { b.addEventListener('click', function () { state.view = b.getAttribute('data-view'); render(); }); });
+      showButtons.forEach(function (b) { b.addEventListener('click', function () { state.edition = b.getAttribute('data-show'); render(); }); });
+      // In-page links between the views (chips to table rows, feature names
+      // to the grid, the key to the legend) switch the view first.
+      document.addEventListener('click', function (e) {
+        var a = e.target.closest('a');
+        if (!a) { return; }
+        if (a.hasAttribute('data-to-view')) {
+          e.preventDefault();
+          state.view = a.getAttribute('data-to-view');
+          render();
+          bar.scrollIntoView();
+          return;
+        }
+        var href = a.getAttribute('href') || '';
+        if (href.charAt(0) === '#' && reveal(href)) {
+          e.preventDefault();
+          history.pushState(history.state, '', href);
+        }
+      });
+      window.addEventListener('hashchange', function () { reveal(location.hash); });
+      window.addEventListener('resize', function () { document.documentElement.style.setProperty('--sticky-offset', bar.offsetHeight + 'px'); });
 
-      var start = 'all';
-      try { start = new URL(location.href).searchParams.get('edition') || 'all'; } catch (e) { /* keep all */ }
-      filterEl.hidden = false;
-      show(start, true);
-      setOffset();
-      revealHash();
+      try {
+        var params = new URL(location.href).searchParams;
+        if (params.get('view') === 'table') { state.view = 'table'; }
+        if (names[params.get('edition')]) { state.edition = params.get('edition'); }
+      } catch (e) { /* defaults */ }
+      bar.querySelector('[data-views]').hidden = false;
+      bar.querySelector('[data-filter]').hidden = false;
+      render();
+      if (location.hash) { reveal(location.hash); }
     })();
   </script>
 </body>
