@@ -98,7 +98,7 @@ describe('the local-AI post matches the setup code', () => {
 
   it('links to the Desktop AI section and the compare page', () => {
     const hrefs = [...doc.querySelectorAll('.post a')].map((a) => a.getAttribute('href'));
-    expect(hrefs).toContain('/mikedown/#ai');
+    expect(hrefs).toContain('/mikedown/desktop/#ai');
     expect(hrefs).toContain('/mikedown/compare/');
   });
 });
