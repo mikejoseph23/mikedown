@@ -55,18 +55,26 @@ export function fileForUrl(url, baseUrl) {
   return decodeURIComponent(url.slice(base.length));
 }
 
+/** Where the download page lives in the published folder (/mikedown/desktop/). */
+export const DESKTOP_DIR = 'desktop';
+export const DESKTOP_PAGE = `${DESKTOP_DIR}/index.html`;
+
 /**
- * The staged upload folder, before anything is packed or pushed.
- *   files: { name: Buffer } for every regular file in the folder
- *   dirs:  names of any subfolders (none are allowed)
+ * The staged upload folder, before anything is packed or pushed. Flat, except
+ * for desktop/ (the download page and its screenshots). The site root
+ * index.html is the home page, owned by the site package, so a desktop
+ * release must not carry one.
+ *   files: { 'name' | 'desktop/name': Buffer } for every regular file
+ *   dirs:  names of subfolders other than desktop/ (none are allowed)
  * Returns a list of problems; empty means the folder is safe to publish.
  */
 export function checkStagedUpload({ version, platforms, files, dirs = [], pubkey, baseUrl }) {
   const problems = [];
   if (dirs.length) {problems.push(`subfolders are not allowed (publish-files would mirror them): ${dirs.join(', ')}`);}
-  for (const required of ['index.html', 'web.config']) {
+  for (const required of [DESKTOP_PAGE, 'web.config']) {
     if (!(required in files)) {problems.push(`${required} is missing`);}
   }
+  if (files['index.html']) {problems.push('index.html at the top level would replace the home page; the download page goes in desktop/');}
   if (files['web.config'] && /<!--/.test(files['web.config'].toString('utf8'))) {
     problems.push('web.config has an XML comment (iadev-2025 has 500ed a whole folder over a commented web.config; keep it comment-free)');
   }
@@ -99,21 +107,21 @@ export function checkStagedUpload({ version, platforms, files, dirs = [], pubkey
     }
   }
   // The download page's own images (screenshots): published only when
-  // index.html names them, and every one it names must be staged.
-  const pageImages = files['index.html'] ? pageImageNames(files['index.html'].toString('utf8')) : [];
+  // desktop/index.html names them, and every one it names must be staged.
+  const html = files[DESKTOP_PAGE] ? files[DESKTOP_PAGE].toString('utf8') : '';
+  const pageImages = pageImageNames(html).map((img) => `${DESKTOP_DIR}/${img}`);
   for (const img of pageImages) {
-    if (!files[img]) {problems.push(`index.html shows ${img}, which is not in the folder`);}
+    if (!files[img]) {problems.push(`${DESKTOP_PAGE} shows ${img}, which is not in the folder`);}
   }
   // Linux (preview) is not a platform in the manifests: it ships as a plain
   // download the page links to, so the page and the folder must agree.
   const linux = linuxArtifactName(version);
-  const html = files['index.html'] ? files['index.html'].toString('utf8') : '';
-  if (/@@LINUX_[A-Z]+@@/.test(html)) {problems.push('index.html still has @@LINUX_*@@ placeholders (render-page.js did not run)');}
+  if (/@@LINUX_[A-Z]+@@/.test(html)) {problems.push(`${DESKTOP_PAGE} still has @@LINUX_*@@ placeholders (render-page.js did not run)`);}
   const pageLinksLinux = html.includes(`${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}${linux}`);
-  if (pageLinksLinux && !files[linux]) {problems.push(`index.html links ${linux}, which is not in the folder`);}
-  if (files[linux] && !pageLinksLinux) {problems.push(`${linux} is staged but index.html does not link it`);}
-  if (/\.AppImage"/.test(html) && !pageLinksLinux) {problems.push('index.html links an AppImage other than this version\'s');}
-  const known = new Set([...ALL_MANIFESTS, 'index.html', 'web.config', 'SHA256SUMS.txt', ...pageImages, ...(files[linux] ? [linux] : [])]);
+  if (pageLinksLinux && !files[linux]) {problems.push(`${DESKTOP_PAGE} links ${linux}, which is not in the folder`);}
+  if (files[linux] && !pageLinksLinux) {problems.push(`${linux} is staged but ${DESKTOP_PAGE} does not link it`);}
+  if (/\.AppImage"/.test(html) && !pageLinksLinux) {problems.push(`${DESKTOP_PAGE} links an AppImage other than this version's`);}
+  const known = new Set([...ALL_MANIFESTS, 'index.html', DESKTOP_PAGE, 'web.config', 'SHA256SUMS.txt', ...pageImages, ...(files[linux] ? [linux] : [])]);
   for (const name of Object.keys(files)) {
     if (known.has(name) || referenced.has(name)) {continue;}
     if (!name.includes(version)) {problems.push(`${name} is unversioned and nothing references it`);}

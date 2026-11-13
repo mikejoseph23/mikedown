@@ -6,13 +6,13 @@
 
 **New:** optional AI writing tools (Experimental, off by default): rewrite, explain, translate, summarize, suggest titles or properties and inline suggestions as you write, using a model on your own machine (LM Studio, Ollama, oMLX), an API key from a cloud provider (billed by the provider, not a ChatGPT or Claude subscription) or GitHub Copilot through your Copilot plan. [See AI Writing Help](#ai-writing-help-experimental-off-by-default).
 
-**[MikeDown Desktop](https://www.iadev.net/mikedown/)** is now available for Mac, Windows and Linux (preview), the same editor as a standalone app.
+**[MikeDown Desktop](https://www.iadev.net/mikedown/desktop/)** is now available for Mac, Windows and Linux (preview), the same editor as a standalone app.
 
 ## More MikeDown
 
 [![@mikedown/core on npm](https://img.shields.io/npm/v/@mikedown/core?label=%40mikedown%2Fcore)](https://www.npmjs.com/package/@mikedown/core)
 
-- [MikeDown Desktop](https://www.iadev.net/mikedown/), the same editor as a standalone app.
+- [MikeDown Desktop](https://www.iadev.net/mikedown/desktop/), the same editor as a standalone app.
 - [MikeDown for VS Code](https://www.iadev.net/mikedown/vscode/), screenshots and features on the web.
 - [Developers hub](https://www.iadev.net/mikedown/developers/), to embed the editor in your own app, with a live demo for each package:
   - [`@mikedown/core`](https://www.npmjs.com/package/@mikedown/core), the framework-agnostic editor.

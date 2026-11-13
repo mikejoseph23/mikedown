@@ -118,7 +118,7 @@ describe('update window', () => {
     const link = s.querySelector<HTMLAnchorElement>('.mdapp-updwin__website')!;
     expect(link.hidden).toBe(false);
     link.click();
-    expect(t.openExternal).toHaveBeenCalledWith('https://www.iadev.net/mikedown/');
+    expect(t.openExternal).toHaveBeenCalledWith('https://www.iadev.net/mikedown/desktop/');
   });
 
   it('Escape during a download hides without snoozing', () => {

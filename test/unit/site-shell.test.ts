@@ -17,6 +17,14 @@ describe('site shell partials', () => {
     expect(html).toContain('href="https://github.com/mikejoseph23/mikedown"');
   });
 
+  it('links Desktop at /mikedown/desktop/ and the brand home', () => {
+    const html = renderHeader('home');
+    expect(html).not.toContain('aria-current');
+    expect(html).toContain('class="site-brand" href="/mikedown/"');
+    expect(html).toContain('<a href="/mikedown/desktop/">Desktop</a>');
+    expect(renderFooter()).toContain('href="/mikedown/desktop/#privacy"');
+  });
+
   it('rejects an unknown page', () => {
     expect(() => renderHeader('nope')).toThrow(/unknown page/);
   });
@@ -48,6 +56,10 @@ describe('desktop download page', () => {
     expect(page).toContain('data-dl="mac"');
     expect(page).toContain('data-dl="windows"');
     expect(page).toContain('aria-current="page">Desktop</a>');
+  });
+
+  it('reads the updater manifests from the folder above it (/mikedown/)', () => {
+    expect(page).toContain("fetch('../' + name");
   });
 
   it('links the VS Code page, the Marketplace and the developers page', () => {

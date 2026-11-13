@@ -6,7 +6,8 @@
 import type { UpdaterSnapshot } from '../app/updater';
 import type { UpdateProgress } from '../app/updaterApi';
 
-export const WEBSITE_URL = 'https://www.iadev.net/mikedown/';
+/** Where a failed update sends people to download it by hand. */
+export const WEBSITE_URL = 'https://www.iadev.net/mikedown/desktop/';
 
 export const UPDATE_TEXT = {
   title: 'A new version of MikeDown is available',

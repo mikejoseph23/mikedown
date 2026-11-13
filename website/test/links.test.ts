@@ -37,18 +37,18 @@ const publicPackages = new Set(
 
 type Page = { url: string; file: string; html: string };
 
-// URL path (under /mikedown/) -> page. The desktop page is rendered by the Desktop
-// release script, so its source (Linux blocks removed, as the dev server does) stands in.
+// URL path (under /mikedown/) -> page. The desktop page (/mikedown/desktop/) is rendered
+// by the Desktop release script, so its source (Linux blocks removed, as the dev server
+// does) stands in.
 function pages(): Page[] {
   const list: Page[] = walk(dist)
     .filter((f) => f.endsWith('.html'))
-    .map((file) => ({
-      url: BASE + relative(dist, dirname(file)).split('\\').join('/') + '/',
-      file,
-      html: readFileSync(file, 'utf8'),
-    }));
+    .map((file) => {
+      const rel = relative(dist, dirname(file)).split('\\').join('/');
+      return { url: rel ? `${BASE}${rel}/` : BASE, file, html: readFileSync(file, 'utf8') };
+    });
   const desktop = join(desktopDir, 'index.html');
-  list.push({ url: BASE, file: desktop, html: renderLinuxPage(readFileSync(desktop, 'utf8'), null) as string });
+  list.push({ url: `${BASE}desktop/`, file: desktop, html: renderLinuxPage(readFileSync(desktop, 'utf8'), null) as string });
   return list;
 }
 
@@ -69,10 +69,11 @@ function ids(html: string): Set<string> {
 /** Where a site path (starting with /mikedown/) lives on disk, or null. */
 function locate(sitePath: string): string | null {
   const rel = sitePath.slice(BASE.length);
-  if (rel === '' || rel === 'index.html') {
-    return join(desktopDir, 'index.html');
+  if (rel === 'desktop' || rel.startsWith('desktop/')) {
+    const p = join(desktopDir, rel.slice('desktop/'.length) || 'index.html');
+    return existsSync(p) ? p : null;
   }
-  for (const root of [dist, desktopDir]) {
+  for (const root of [dist]) {
     const p = join(root, rel);
     if (existsSync(p)) {
       return statSync(p).isDirectory() ? (existsSync(join(p, 'index.html')) ? join(p, 'index.html') : null) : p;
@@ -88,6 +89,7 @@ describe.skipIf(!built)('built site links', () => {
     expect(all.map((p) => p.url).sort()).toEqual(
       [
         BASE,
+        BASE + 'desktop/',
         BASE + 'blog/',
         BASE + 'blog/local-ai/',
         BASE + 'compare/',

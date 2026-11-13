@@ -64,9 +64,13 @@ Without `--app` it uses `<output>/MikeDown.app`. It skips the updater payload.
 
 Artifacts are versioned only: `MikeDown-<v>-macos-universal.dmg`,
 `MikeDown-<v>-macos-universal.app.tar.gz(.sig)`,
-`MikeDown-<v>-windows-x64-setup.exe(.sig)`, and, unless `--no-linux`, the Linux (preview) `MikeDown-<v>-linux-x86_64.AppImage` (unsigned, no updater, no manifest entry; the page links it via `render-page.js`; IIS needs a `.AppImage` mimeMap), plus `latest.json`, `index.html`
-(the download page from `website/mikedown-desktop/`), the screenshots it shows
-(`screenshot-*.png` next to it) and `web.config`.
+`MikeDown-<v>-windows-x64-setup.exe(.sig)`, and, unless `--no-linux`, the Linux (preview) `MikeDown-<v>-linux-x86_64.AppImage` (unsigned, no updater, no manifest entry; the page links it via `render-page.js`; IIS needs a `.AppImage` mimeMap), plus `latest.json`, `desktop/index.html`
+(the download page from `website/mikedown-desktop/`, served at `/mikedown/desktop/`), the screenshots it shows
+(`desktop/screenshot-*.png`) and `web.config`. The folder is flat apart from `desktop/`.
+A desktop release never ships a top-level `index.html`: that is the site's home page,
+published by the site package (`check-upload.js` refuses one). The first publish after
+the move (2026-11-13) must be a site publish, so the home page and `desktop/` exist
+before the next desktop release.
 
 ## Keys and secrets (none in git)
 
@@ -247,9 +251,9 @@ packages/desktop/deploy/pack-for-lymedeploy.sh --site --site-n 1              # 
 ```
 
 `--site` reads the published desktop version from `latest.json` (or take
-`--desktop-version`), re-renders `website/mikedown-desktop/index.html` for it and
-packs only `vscode/`, `developers/`, `compare/`, `blog/`, `site-assets/`, that `index.html` and its
-screenshots. The pack fails if the package holds `latest*.json`, any artifact,
+`--desktop-version`), re-renders `website/mikedown-desktop/index.html` for it into `desktop/` and
+packs only the home page (`index.html`), `desktop/` (that page and its screenshots),
+`vscode/`, `developers/`, `compare/`, `blog/` and `site-assets/`. The pack fails if the package holds `latest*.json`, any artifact,
 `SHA256SUMS.txt` or a `web.config`. Use a new `N` each time (a repeated version
 is a Conflict). After the deploy, `verify-site.js` fetches every file and
 confirms `latest.json` still announces the desktop version.

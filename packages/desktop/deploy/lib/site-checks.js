@@ -14,8 +14,8 @@
  */
 import { pageImageNames } from './publish-checks.js';
 
-export const SITE_TOP_DIRS = ['vscode', 'developers', 'compare', 'blog', 'site-assets'];
-const SITE_REQUIRED = ['index.html', 'vscode/index.html', 'developers/index.html', 'compare/index.html', 'blog/index.html'];
+export const SITE_TOP_DIRS = ['desktop', 'vscode', 'developers', 'compare', 'blog', 'site-assets'];
+const SITE_REQUIRED = ['index.html', 'desktop/index.html', 'vscode/index.html', 'developers/index.html', 'compare/index.html', 'blog/index.html'];
 const FORBIDDEN_EXT = /\.(dmg|exe|gz|tgz|sig|appimage|nupkg|msi|pkg|zip)$/i;
 // Served as-is by the folder: IIS defaults plus the machine-wide maps.
 const SERVED_EXT = new Set(['html', 'js', 'css', 'png', 'jpg', 'jpeg', 'ico', 'txt', 'json', 'gif']);
@@ -44,10 +44,11 @@ export function checkSitePackage({ files }) {
     const dot = base.lastIndexOf('.');
     if (dot > 0) {exts.add(base.slice(dot + 1).toLowerCase());}
   }
-  const html = files['index.html'] ? files['index.html'].toString('utf8') : '';
-  if (/@@LINUX_[A-Z]+@@/.test(html)) {problems.push('index.html still has @@LINUX_*@@ placeholders (render-page.js did not run)');}
+  // The download page (desktop/index.html) and the images next to it.
+  const html = files['desktop/index.html'] ? files['desktop/index.html'].toString('utf8') : '';
+  if (/@@LINUX_[A-Z]+@@/.test(html)) {problems.push('desktop/index.html still has @@LINUX_*@@ placeholders (render-page.js did not run)');}
   for (const img of pageImageNames(html)) {
-    if (!files[img]) {problems.push(`index.html shows ${img}, which is not in the package`);}
+    if (!files[`desktop/${img}`]) {problems.push(`desktop/index.html shows desktop/${img}, which is not in the package`);}
   }
   for (const ext of [...exts].sort()) {
     if (!SERVED_EXT.has(ext)) {warnings.push(`.${ext}: not known to be served by iadev-prod; HEAD one after the first publish`);}

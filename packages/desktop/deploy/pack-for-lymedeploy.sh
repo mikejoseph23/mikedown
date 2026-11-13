@@ -40,7 +40,8 @@
 #
 # Site mode (publish the website without a desktop release):
 #   --site               Pack ONLY site files: website/dist (build it first:
-#                        npm run build:site), the re-rendered desktop index.html
+#                        npm run build:site; its index.html is the home page),
+#                        the re-rendered download page (desktop/index.html)
 #                        and its screenshots. Never latest*.json, artifacts or
 #                        web.config (the pack fails if any is present).
 #   --desktop-version V  The published desktop version the page is rendered for
@@ -247,7 +248,7 @@ content_types = '''<?xml version="1.0" encoding="utf-8"?>
 </Types>
 '''
 if site:
-    # Site payload has subfolders (vscode/, developers/, compare/, blog/, site-assets/). Entry
+    # Site payload has subfolders (desktop/, vscode/, developers/, compare/, blog/, site-assets/). Entry
     # names are '/'-separated paths from the folder root. Every extension in a
     # package needs a content type (OPC); unknown ones fall back to octet-stream.
     names = []
@@ -266,10 +267,23 @@ if site:
     add = ''.join('  <Default Extension="%s" ContentType="%s" />\n' % (e, extra.get(e, 'application/octet-stream')) for e in sorted(exts))
     content_types = content_types.replace('</Types>', add + '</Types>')
 else:
-    names = sorted(n for n in os.listdir(src) if n != '.DS_Store')
-    dirs = [n for n in names if os.path.isdir(os.path.join(src, n))]
-    if dirs:
-        raise SystemExit(f'ERROR: {src} has subfolders {dirs}; the payload must be flat.')
+    # Flat, except desktop/ (the download page and its screenshots, one level).
+    names = []
+    for n in sorted(os.listdir(src)):
+        if n == '.DS_Store':
+            continue
+        if os.path.isdir(os.path.join(src, n)):
+            if n != 'desktop':
+                raise SystemExit(f'ERROR: {src} has subfolder {n}; only desktop/ is allowed.')
+            for sub in sorted(os.listdir(os.path.join(src, n))):
+                if sub == '.DS_Store':
+                    continue
+                if os.path.isdir(os.path.join(src, n, sub)):
+                    raise SystemExit(f'ERROR: {src}/desktop/{sub} is a folder; desktop/ must be flat.')
+                names.append(f'desktop/{sub}')
+        else:
+            names.append(n)
+    names.sort()
 with zipfile.ZipFile(out, 'w', zipfile.ZIP_STORED) as z:
     z.writestr(f'{pid}.nuspec', nuspec)
     z.writestr('[Content_Types].xml', content_types)
@@ -281,8 +295,8 @@ with zipfile.ZipFile(out) as z:
         raise SystemExit(f'ERROR: {out} is corrupt.')
     payload = {i.filename: i.file_size for i in z.infolist()
                if i.filename not in (f'{pid}.nuspec', '[Content_Types].xml')}
-    if not site and any('/' in n for n in payload):
-        raise SystemExit('ERROR: nested entries in the package.')
+    if not site and any('/' in n and not n.startswith('desktop/') for n in payload):
+        raise SystemExit('ERROR: nested entries outside desktop/ in the package.')
     want = {n: os.path.getsize(os.path.join(src, n)) for n in names}
     if payload != want:
         raise SystemExit(f'ERROR: package contents differ from {src}.')

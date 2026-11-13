@@ -7,8 +7,9 @@ import { checkSitePackage } from '../../deploy/lib/site-checks.js';
 
 const b = (s = 'x') => Buffer.from(s);
 const good = () => ({
-  'index.html': b('<html><img src="shot.png"></html>'),
-  'shot.png': b(),
+  'index.html': b('<html>home</html>'),
+  'desktop/index.html': b('<html><img src="shot.png"></html>'),
+  'desktop/shot.png': b(),
   'favicon.ico': b(),
   'apple-touch-icon.png': b(),
   'vscode/index.html': b(),
@@ -66,6 +67,13 @@ describe('checkSitePackage', () => {
     expect(checkSitePackage({ files }).problems).toEqual(['blog/index.html is missing']);
   });
 
+  it('requires the download page in desktop/', () => {
+    const files = good();
+    delete files['desktop/index.html'];
+    delete files['desktop/shot.png'];
+    expect(checkSitePackage({ files }).problems).toEqual(['desktop/index.html is missing']);
+  });
+
   it('still rejects a stray top-level folder next to compare/', () => {
     const files = good();
     files['comparison/index.html'] = b();
@@ -74,9 +82,9 @@ describe('checkSitePackage', () => {
 
   it('requires the images the desktop page shows and rejects unrendered Linux placeholders', () => {
     const files = good();
-    files['index.html'] = b('<img src="other.png"> @@LINUX_URL@@');
+    files['desktop/index.html'] = b('<img src="other.png"> @@LINUX_URL@@');
     const text = checkSitePackage({ files }).problems.join('\n');
-    expect(text).toMatch(/other\.png/);
+    expect(text).toMatch(/desktop\/other\.png/);
     expect(text).toMatch(/placeholders/);
   });
 

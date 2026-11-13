@@ -5,7 +5,7 @@
 // link the stylesheet; shared/vite-plugin.js fills the markers at dev and build.
 //
 //   <link rel="stylesheet" href="/shared/shell.css">
-//   <!--shell:header page="vscode"-->      page: desktop | vscode | developers | compare | blog
+//   <!--shell:header page="vscode"-->      page: home | desktop | vscode | developers | compare | blog
 //   <main id="main">...</main>
 //   <!--shell:footer-->
 //
@@ -13,21 +13,22 @@
 // "../shared/shell.css" to its angular.json styles; scripts/build-angular.mjs
 // runs applyShellMarkers on the built index.html.
 //
-// The desktop page (mikedown-desktop/index.html) is not built by Vite, so it
+// The desktop page (mikedown-desktop/index.html, published at /mikedown/desktop/) is not built by Vite, so it
 // carries rendered copies between begin/end markers; scripts/sync-desktop-shell.js
 // rewrites them from here and from shell.css.
 
 export const SITE_BASE = '/mikedown/';
 export const GITHUB_URL = 'https://github.com/mikejoseph23/mikedown';
 export const MARKETPLACE_URL = 'https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor';
+export const DESKTOP_URL = `${SITE_BASE}desktop/`;
 
 const PAGES = [
-  { id: 'desktop', label: 'Desktop', href: SITE_BASE },
+  { id: 'desktop', label: 'Desktop', href: DESKTOP_URL },
   { id: 'vscode', label: 'VS Code', href: `${SITE_BASE}vscode/` },
   { id: 'developers', label: 'Developers', href: `${SITE_BASE}developers/` },
 ];
-// Pages that use the shell but have no main-nav entry (linked from the footer).
-const UNLISTED = ['compare', 'blog'];
+// Pages that use the shell but have no main-nav entry (the brand links home; the rest from the footer).
+const UNLISTED = ['home', 'compare', 'blog'];
 
 // The MikeDown mark (the extension icon's M and down arrow), drawn in currentColor.
 const MARK = '<svg width="24" height="24" viewBox="0 0 128 128" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,86 20,30 64,66 108,30 108,86" stroke-width="13"/><polyline points="49,99 64,114 79,99" stroke-width="10"/></g></svg>';
@@ -55,12 +56,13 @@ export function renderFooter() {
     <div class="site-container">
       <p>MikeDown is made by Interapp Development, Inc.</p>
       <nav aria-label="Footer">
-        <a href="${SITE_BASE}">MikeDown Desktop</a>
+        <a href="${SITE_BASE}">Home</a>
+        <a href="${DESKTOP_URL}">MikeDown Desktop</a>
         <a href="${SITE_BASE}vscode/">MikeDown for VS Code</a>
         <a href="${SITE_BASE}developers/">For developers</a>
         <a href="${SITE_BASE}compare/">Compare</a>
         <a href="${GITHUB_URL}">Source on GitHub</a>
-        <a href="${SITE_BASE}#privacy">Privacy</a>
+        <a href="${DESKTOP_URL}#privacy">Privacy</a>
       </nav>
     </div>
   </footer>`;

@@ -5,10 +5,11 @@
  *   node deploy/stage-site.js --dist website/dist --page-src website/mikedown-desktop \
  *     --desktop-version 0.3.0 --out <folder> [--linux <AppImage>] [--base-url URL]
  *
- * Copies the built site (website/dist: vscode/, developers/, compare/, blog/, site-assets/),
- * renders the desktop download page for the PUBLISHED desktop version (same
- * render-page.js step release.sh runs, so the output is byte-identical to the
- * live page plus whatever changed in the source) with its screenshots, then
+ * Copies the built site (website/dist: the home page index.html, vscode/,
+ * developers/, compare/, blog/, site-assets/), renders the desktop download
+ * page into desktop/ for the PUBLISHED desktop version (same render-page.js
+ * step release.sh runs, so the output is byte-identical to the live page plus
+ * whatever changed in the source) with its screenshots, then
  * gates the folder with checkSitePackage. Never copies manifests, artifacts,
  * SHA256SUMS.txt or web.config.
  */
@@ -31,15 +32,17 @@ fs.rmSync(args.out, { recursive: true, force: true });
 fs.mkdirSync(args.out, { recursive: true });
 fs.cpSync(args.dist, args.out, { recursive: true, filter: (src) => path.basename(src) !== '.DS_Store' });
 
-// The desktop page: the Vite build never produces it (the dist root has no index.html).
-if (fs.existsSync(path.join(args.out, 'index.html'))) {
-  console.error('ERROR: the Vite build output has a root index.html; the desktop page owns /mikedown/.');
+// The desktop page lives at /mikedown/desktop/; the Vite build never produces it.
+const desktopOut = path.join(args.out, 'desktop');
+if (fs.existsSync(desktopOut)) {
+  console.error('ERROR: the Vite build output has a desktop/ folder; the download page is rendered here, not built.');
   process.exit(1);
 }
+fs.mkdirSync(desktopOut);
 const linux = args.linux ? { url: base + linuxArtifactName(version), size: fs.statSync(args.linux).size } : null;
-fs.writeFileSync(path.join(args.out, 'index.html'), renderLinuxPage(fs.readFileSync(path.join(args['page-src'], 'index.html'), 'utf8'), linux));
+fs.writeFileSync(path.join(desktopOut, 'index.html'), renderLinuxPage(fs.readFileSync(path.join(args['page-src'], 'index.html'), 'utf8'), linux));
 for (const f of fs.readdirSync(args['page-src'])) {
-  if (f.endsWith('.png')) {fs.copyFileSync(path.join(args['page-src'], f), path.join(args.out, f));}
+  if (f.endsWith('.png')) {fs.copyFileSync(path.join(args['page-src'], f), path.join(desktopOut, f));}
 }
 
 const files = {};

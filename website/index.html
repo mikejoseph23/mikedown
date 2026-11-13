@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    // The download page used to live here. Old links to its sections
+    // (/mikedown/#privacy, #download...) go to /mikedown/desktop/ instead.
+    (function () {
+      var moved = ['#download', '#features', '#features-title', '#ai', '#ai-title', '#screenshots', '#compare', '#compare-title', '#vscode', '#also-vscode', '#privacy'];
+      if (moved.indexOf(location.hash) >= 0) { location.replace('desktop/' + location.hash); }
+    })();
+  </script>
+  <link rel="icon" href="/mikedown/favicon.ico" sizes="16x16 32x32">
+  <link rel="icon" type="image/png" sizes="32x32" href="/mikedown/favicon-32.png">
+  <link rel="apple-touch-icon" href="/mikedown/apple-touch-icon.png">
+  <title>MikeDown: a WYSIWYG markdown editor</title>
+  <meta name="description" content="MikeDown is a free WYSIWYG markdown editor: a desktop app for macOS and Windows, a VS Code extension, and packages for web apps. Edit the formatted document; the file stays plain markdown.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="MikeDown">
+  <meta property="og:description" content="A free WYSIWYG markdown editor for your desktop, VS Code and your own web app.">
+  <meta property="og:url" content="https://www.iadev.net/mikedown/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/shell.css">
+  <link rel="stylesheet" href="/shared/page.css">
+  <style>
+    /* Hero */
+    .hero { padding: 80px 0 64px; text-align: center; }
+    .hero h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); margin-bottom: 16px; }
+    .hero__lede { color: var(--muted); font-size: clamp(1rem, 2.4vw, 1.2rem); max-width: 620px; margin: 0 auto 32px; }
+    .hero__ctas { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+    .hero__meta { margin-top: 20px; color: var(--muted); font-size: 14px; }
+    .hero__shot { margin-top: 56px; }
+    .hero__shot .shot__frame { box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35); }
+
+    /* Editions */
+    .editions { list-style: none; display: grid; gap: 20px; }
+    .edition {
+      position: relative; height: 100%; padding: 24px;
+      display: flex; flex-direction: column; gap: 10px;
+      background: var(--bg-raised); border: 1px solid var(--border); border-radius: 12px;
+      transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+    .edition:hover, .edition:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+    .edition__kind { color: var(--accent); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .edition h3 { font-size: 1.2rem; }
+    .edition h3 a { color: inherit; text-decoration: none; }
+    /* The whole card is the link's hit area. */
+    .edition h3 a::after { content: ''; position: absolute; inset: 0; border-radius: 12px; }
+    .edition h3 a:focus-visible { outline: none; }
+    .edition:has(a:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+    .edition p { color: var(--muted); font-size: 15px; line-height: 1.6; }
+    .edition__go { margin-top: auto; padding-top: 6px; color: var(--accent); font-size: 15px; font-weight: 600; }
+    .edition__go span { display: inline-block; transition: transform 0.15s ease; }
+    .edition:hover .edition__go span { transform: translateX(3px); }
+
+    /* Reviews: every quote is in the HTML; the script shows one at a time. */
+    .reviews-head { text-align: center; }
+    .reviews-head .section-title { margin-bottom: 8px; }
+    .reviews__rating { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 15px; }
+    .reviews__stars { color: #e3a008; letter-spacing: 2px; font-size: 17px; }
+    .rotator { max-width: 760px; margin: 0 auto; text-align: center; }
+    .rotator__list { list-style: none; display: grid; gap: 32px; }
+    .quote { margin: 0; }
+    .quote blockquote { margin: 0; color: var(--text-strong); font-size: clamp(1.15rem, 2.6vw, 1.45rem); line-height: 1.5; letter-spacing: -0.01em; }
+    .quote blockquote p::before { content: '\201C'; }
+    .quote blockquote p::after { content: '\201D'; }
+    .quote__translation { display: block; margin-top: 10px; color: var(--muted); font-size: 15px; }
+    .quote figcaption { margin-top: 16px; color: var(--muted); font-size: 15px; }
+    .quote figcaption strong { color: var(--text); font-weight: 600; }
+    /* Rotating: stack the quotes in one cell so the box keeps the tallest one's height. */
+    .rotator[data-rotating] .rotator__list > li { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity 0.6s ease, visibility 0s linear 0.6s; }
+    .rotator[data-rotating] .rotator__list > li.is-current { opacity: 1; visibility: visible; transition: opacity 0.6s ease, visibility 0s; }
+    .rotator__controls { display: none; align-items: center; justify-content: center; gap: 4px; margin-top: 28px; }
+    .rotator[data-rotating] .rotator__controls { display: flex; }
+    .rotator__dot, .rotator__pause {
+      display: grid; place-items: center; min-width: 32px; min-height: 32px; padding: 0;
+      border: none; background: none; color: var(--muted); cursor: pointer; border-radius: 8px;
+    }
+    .rotator__dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background 0.15s ease, transform 0.15s ease; }
+    .rotator__dot[aria-current="true"]::before { background: var(--accent); transform: scale(1.25); }
+    .rotator__dot:hover::before { background: var(--muted); }
+    .rotator__pause { margin-left: 8px; }
+    .rotator__pause:hover { color: var(--text-strong); }
+    .rotator__dot:focus-visible, .rotator__pause:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+    .reviews__more { margin-top: 28px; text-align: center; font-size: 15px; color: var(--muted); }
+
+    /* More */
+    .more { display: grid; gap: 16px; }
+    .more a {
+      display: block; padding: 20px 22px; border: 1px solid var(--border); border-radius: 12px;
+      color: var(--text); text-decoration: none; transition: border-color 0.15s ease;
+    }
+    .more a:hover { border-color: var(--muted); }
+    .more strong { display: block; color: var(--text-strong); font-weight: 600; margin-bottom: 4px; }
+    .more span { color: var(--muted); font-size: 15px; }
+
+    @media (min-width: 640px) {
+      .editions { grid-template-columns: repeat(2, 1fr); }
+      .more { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .hero { padding-top: 56px; }
+      .hero__ctas .btn { width: 100%; }
+      .hero__shot { margin-top: 40px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .edition, .edition__go span, .rotator[data-rotating] .rotator__list > li { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <!--shell:header page="home"-->
+
+  <main id="main">
+    <section class="hero">
+      <div class="site-container">
+        <h1>Markdown that looks like a document</h1>
+        <p class="hero__lede">MikeDown is a free WYSIWYG markdown editor. You edit the formatted page; the file stays plain markdown. Use it as a desktop app, in VS Code, or inside your own web app.</p>
+        <div class="hero__ctas">
+          <a class="btn btn--primary" href="desktop/">Get MikeDown Desktop</a>
+          <a class="btn btn--secondary" href="vscode/">Install for VS Code</a>
+        </div>
+        <p class="hero__meta">Free and open source (MIT).</p>
+        <figure class="shot hero__shot">
+          <span class="shot__frame">
+            <picture>
+              <source media="(prefers-color-scheme: light)" srcset="./vscode/light-mode-editor.jpg">
+              <img src="./vscode/dark-mode-editor.jpg" width="2000" height="1250" decoding="async" alt="A markdown document open in MikeDown, with headings, a table, a callout and a task list shown formatted.">
+            </picture>
+          </span>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="editions-title">
+      <div class="site-container">
+        <div class="section-head">
+          <h2 class="section-title" id="editions-title">One editor, four ways to use it</h2>
+          <p class="section-lede">The same editor and the same markdown everywhere. Pick the one that fits where you write.</p>
+        </div>
+        <ul class="editions">
+          <li><article class="edition">
+            <span class="edition__kind">App</span>
+            <h3><a href="desktop/">MikeDown Desktop</a></h3>
+            <p>A free app for macOS and Windows, with a Linux preview. Double-click a .md file or open a folder of notes: tabs, split panes, search across files, version history and export.</p>
+            <span class="edition__go" aria-hidden="true">Download <span>&rarr;</span></span>
+          </article></li>
+          <li><article class="edition">
+            <span class="edition__kind">Extension</span>
+            <h3><a href="vscode/">MikeDown for VS Code</a></h3>
+            <p>Your .md files open as formatted documents in editor tabs, right next to your code, your Git history and the extensions you already use.</p>
+            <span class="edition__go" aria-hidden="true">Install <span>&rarr;</span></span>
+          </article></li>
+          <li><article class="edition">
+            <span class="edition__kind">For developers</span>
+            <h3><a href="developers/web-component/">Web component</a></h3>
+            <p><code>&lt;mikedown-editor&gt;</code> drops into any page: plain HTML from a CDN, htmx, Svelte, Blazor or a server-rendered form. It takes part in forms like a textarea.</p>
+            <span class="edition__go" aria-hidden="true">See the demo <span>&rarr;</span></span>
+          </article></li>
+          <li><article class="edition">
+            <span class="edition__kind">For developers</span>
+            <h3><a href="developers/">React, Vue and Angular</a></h3>
+            <p>Thin, typed wrappers with two-way binding: a component for React and Vue, a form control for Angular. Your app keeps the markdown string.</p>
+            <span class="edition__go" aria-hidden="true">Get started <span>&rarr;</span></span>
+          </article></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="reviews-title">
+      <div class="site-container">
+        <div class="section-head reviews-head">
+          <h2 class="section-title" id="reviews-title">What people are saying</h2>
+          <a class="reviews__rating" href="https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&amp;ssr=false#review-details"><span class="reviews__stars" aria-hidden="true">★★★★★</span> 5.0 on the VS Code Marketplace</a>
+        </div>
+        <div class="rotator" data-rotator>
+          <ul class="rotator__list" aria-live="polite">
+            <li><figure class="quote">
+              <blockquote><p>Powerful and easy to use. Best UX of the available markdown editors.</p></blockquote>
+              <figcaption><strong>Jordon Hynes</strong>, VS Code Marketplace</figcaption>
+            </figure></li>
+            <li><figure class="quote">
+              <blockquote><p>This is the best WYSIWYG markdown editor I have found, and I like it. Very practical, many useful features. The maintainer reacts quickly to bug reports and feature wishes.</p></blockquote>
+              <figcaption><strong>Matthias Zenker</strong>, VS Code Marketplace</figcaption>
+            </figure></li>
+            <li><figure class="quote">
+              <blockquote><p>I&rsquo;ve tried a few wysiwyg markdown editors and this is the best by far. Comprehensive but minimal ui with good keyboard shortcut support and responsive developer if you have a feature request or bug report.</p></blockquote>
+              <figcaption><strong>Boyd Buchanan</strong>, VS Code Marketplace</figcaption>
+            </figure></li>
+            <li><figure class="quote">
+              <blockquote><p lang="zh">不得不说，这就是我一直在找的markdown 所见即所得的编辑插件</p><span class="quote__translation">&ldquo;I have to say, this is exactly the WYSIWYG markdown plugin I&rsquo;ve been looking for.&rdquo;</span></blockquote>
+              <figcaption><strong>desenberg</strong>, VS Code Marketplace</figcaption>
+            </figure></li>
+            <li><figure class="quote">
+              <blockquote><p>Thanks for this plugin. Really handy for reading and updating all the .md files I now have in my repo&rsquo;s.</p></blockquote>
+              <figcaption><strong>Sean Marx</strong>, VS Code Marketplace</figcaption>
+            </figure></li>
+          </ul>
+          <div class="rotator__controls"></div>
+        </div>
+        <p class="reviews__more">Using MikeDown? <a href="https://marketplace.visualstudio.com/items?itemName=interapp.mikedown-editor&amp;ssr=false#review-details">Leave a review</a>.</p>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="more-title">
+      <div class="site-container">
+        <h2 class="section-title" id="more-title">More</h2>
+        <div class="more">
+          <a href="compare/"><strong>Compare the editions</strong><span>What each one can do, feature by feature.</span></a>
+          <a href="blog/"><strong>Blog</strong><span>Release notes and how-tos.</span></a>
+          <a href="https://github.com/mikejoseph23/mikedown"><strong>Source on GitHub</strong><span>Issues, ideas and the code, MIT licensed.</span></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!--shell:footer-->
+
+  <script>
+    // One quote at a time, every 8 seconds. Holds while hovered, has a
+    // pause button (WCAG 2.2.2), and never moves on its own with reduced motion.
+    (function () {
+      var root = document.querySelector('[data-rotator]');
+      if (!root) { return; }
+      var list = root.querySelector('.rotator__list');
+      var items = Array.prototype.slice.call(list.children);
+      if (items.length < 2) { return; }
+      var controls = root.querySelector('.rotator__controls');
+      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var current = 0, timer = null, paused = reduced, hovering = false;
+
+      var dots = items.map(function (_, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'rotator__dot';
+        b.setAttribute('aria-label', 'Show review ' + (i + 1) + ' of ' + items.length);
+        b.addEventListener('click', function () { show(i); restart(); });
+        controls.appendChild(b);
+        return b;
+      });
+      var pause = document.createElement('button');
+      pause.type = 'button';
+      pause.className = 'rotator__pause';
+      controls.appendChild(pause);
+      pause.addEventListener('click', function () { paused = !paused; render(); restart(); });
+
+      function render() {
+        pause.setAttribute('aria-label', paused ? 'Play reviews' : 'Pause reviews');
+        pause.innerHTML = paused
+          ? '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>'
+          : '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h3v11H3zM8 1.5h3v11H8z" fill="currentColor"/></svg>';
+        // Announce changes only when the visitor moved it, not on the timer.
+        list.setAttribute('aria-live', paused ? 'polite' : 'off');
+      }
+      function show(i) {
+        current = (i + items.length) % items.length;
+        items.forEach(function (li, n) {
+          var on = n === current;
+          li.classList.toggle('is-current', on);
+          li.setAttribute('aria-hidden', on ? 'false' : 'true');
+          dots[n].setAttribute('aria-current', on ? 'true' : 'false');
+        });
+      }
+      function restart() {
+        clearInterval(timer);
+        timer = null;
+        if (!paused && !hovering) { timer = setInterval(function () { show(current + 1); }, 8000); }
+      }
+      // Hovering the quote itself holds it (not the controls, so Play works under the pointer).
+      list.addEventListener('mouseenter', function () { hovering = true; restart(); });
+      list.addEventListener('mouseleave', function () { hovering = false; restart(); });
+
+      root.setAttribute('data-rotating', '');
+      show(0);
+      render();
+      restart();
+    })();
+  </script>
+</body>
+</html>

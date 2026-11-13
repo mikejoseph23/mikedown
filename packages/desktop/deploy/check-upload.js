@@ -5,20 +5,21 @@
  *   node deploy/check-upload.js --dir deploy/dist/0.2.0/upload --version 0.2.0 \
  *     [--platforms mac,windows | mac | windows] [--base-url URL] [--pubkey B64]
  *
- * Fails (exit 1, one line per problem) unless: the folder is flat; index.html
- * and a comment-free web.config are there; the shipped platforms' per-target
+ * Fails (exit 1, one line per problem) unless: the folder is flat apart from
+ * desktop/ (the download page); desktop/index.html and a comment-free
+ * web.config are there, and no top-level index.html (that is the home page); the shipped platforms' per-target
  * manifests announce this version; latest.json is there for a full release
  * and NOT there for a split one; every URL in every manifest names a file in
  * the folder whose size, sha256 and minisign signature (against the
  * tauri.conf.json pubkey, with the signed version) match; every image
- * index.html shows is there; and nothing else is in the folder. release.sh runs it after staging, pack-for-lymedeploy.sh
+ * desktop/index.html shows is there; and nothing else is in the folder. release.sh runs it after staging, pack-for-lymedeploy.sh
  * before packing.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parsePlatforms } from './lib/release-lib.js';
-import { checkStagedUpload } from './lib/publish-checks.js';
+import { checkStagedUpload, DESKTOP_DIR } from './lib/publish-checks.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = Object.fromEntries(
@@ -35,7 +36,14 @@ const files = {};
 const dirs = [];
 for (const ent of fs.readdirSync(args.dir, { withFileTypes: true })) {
   if (ent.name === '.DS_Store') {continue;}
-  if (ent.isDirectory()) {dirs.push(ent.name);}
+  if (ent.isDirectory() && ent.name === DESKTOP_DIR) {
+    // The download page and its screenshots; one level, no deeper folders.
+    for (const sub of fs.readdirSync(path.join(args.dir, ent.name), { withFileTypes: true })) {
+      if (sub.name === '.DS_Store') {continue;}
+      if (sub.isDirectory()) {dirs.push(`${DESKTOP_DIR}/${sub.name}`);}
+      else if (sub.isFile()) {files[`${DESKTOP_DIR}/${sub.name}`] = fs.readFileSync(path.join(args.dir, ent.name, sub.name));}
+    }
+  } else if (ent.isDirectory()) {dirs.push(ent.name);}
   else if (ent.isFile()) {files[ent.name] = fs.readFileSync(path.join(args.dir, ent.name));}
 }
 const problems = checkStagedUpload({

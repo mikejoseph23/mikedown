@@ -26,16 +26,16 @@ function developerPages() {
   };
 }
 
-// Multi-page site served from https://www.iadev.net/mikedown/. The desktop
-// download page at /mikedown/ (mikedown-desktop/) is NOT part of this build; the
-// desktop release script renders it.
+// Multi-page site served from https://www.iadev.net/mikedown/. index.html is the
+// home page. The desktop download page at /mikedown/desktop/ (source:
+// mikedown-desktop/) is NOT part of this build; the desktop release script renders it.
 // The developer pages import the wrappers from the workspace (their dist/
 // folders: `build` runs build:packages first). developerPages() fills their
 // code-sample markers and keeps KaTeX's fonts out of the output
 // (developers/common/samples.js). developers/angular/index.html here is only a
 // placeholder: build:angular overwrites it with the Angular CLI build.
 // The shell plugin fills each page's header and footer markers (shared/partials.js)
-// and, in dev and preview, serves the desktop page at /mikedown/ for the nav.
+// and, in dev and preview, serves the desktop page at /mikedown/desktop/ for the nav.
 export default defineConfig({
   root,
   base: '/mikedown/',
@@ -49,6 +49,7 @@ export default defineConfig({
     assetsDir: 'site-assets',
     rollupOptions: {
       input: {
+        home: page('.'),
         vscode: page('vscode'),
         developers: page('developers'),
         'developers-web-component': page('developers/web-component'),

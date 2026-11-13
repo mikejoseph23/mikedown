@@ -146,7 +146,7 @@ for (const name of ALL_MANIFESTS) {
 console.log(`Linux (preview) download`);
 {
   const linux = linuxArtifactName(version);
-  const [sumsRes, pageRes] = await Promise.all([get(`${www}SHA256SUMS.txt`, { bust: true }).catch(() => null), get(`${www}index.html`, { bust: true }).catch(() => null)]);
+  const [sumsRes, pageRes] = await Promise.all([get(`${www}SHA256SUMS.txt`, { bust: true }).catch(() => null), get(`${www}desktop/index.html`, { bust: true }).catch(() => null)]);
   const sums = sumsRes?.status === 200 ? parseSha256Sums(sumsRes.body.toString('utf8')) : {};
   const wantSha = sums[linux];
   const linked = pageRes?.status === 200 && pageRes.body.toString('utf8').includes(baseUrl + linux);
@@ -154,7 +154,7 @@ console.log(`Linux (preview) download`);
     ok(`${linux}: not in SHA256SUMS.txt or linked by the page (no Linux build in this release)`);
   } else {
     if (!wantSha) {bad(`${linux}: the page links it but SHA256SUMS.txt does not list it`);}
-    if (!linked) {bad(`${linux}: SHA256SUMS.txt lists it but index.html does not link it`);}
+    if (!linked) {bad(`${linux}: SHA256SUMS.txt lists it but desktop/index.html does not link it`);}
     const url = www + encodeURIComponent(linux);
     try {
       const head = await get(url, { method: 'HEAD' });

@@ -249,13 +249,16 @@ cp "${STAGE[@]}" "$UPLOAD/"
 # The page's Linux blocks are filled from the staged AppImage (or removed).
 LINUX_ARGS=()
 [[ "$SHIP_LINUX" == true ]] && LINUX_ARGS=(--linux "$DIST/$LINUX_NAME")
-node "$SCRIPT_DIR/render-page.js" --in "$SITE_SRC/index.html" --out "$UPLOAD/index.html" --version "$VERSION" --base-url "$BASE_URL" \
+# The download page lives at /mikedown/desktop/ (the site root is the home
+# page, published by the site package), so it is staged in desktop/.
+mkdir -p "$UPLOAD/desktop"
+node "$SCRIPT_DIR/render-page.js" --in "$SITE_SRC/index.html" --out "$UPLOAD/desktop/index.html" --version "$VERSION" --base-url "$BASE_URL" \
     ${LINUX_ARGS[@]+"${LINUX_ARGS[@]}"}
 # The page's screenshots sit next to it; check-upload.js insists on exactly the
-# images index.html shows.
-find "$SITE_SRC" -maxdepth 1 -type f -name '*.png' -exec cp {} "$UPLOAD/" \;
+# images desktop/index.html shows.
+find "$SITE_SRC" -maxdepth 1 -type f -name '*.png' -exec cp {} "$UPLOAD/desktop/" \;
 cp "$SCRIPT_DIR/site/web.config" "$UPLOAD/web.config"
-( cd "$UPLOAD" && shasum -a 256 -- * > SHA256SUMS.txt )
+( cd "$UPLOAD" && find . -type f ! -name .DS_Store ! -name SHA256SUMS.txt | sed 's|^\./||' | LC_ALL=C sort | tr '\n' '\0' | xargs -0 shasum -a 256 -- > SHA256SUMS.txt )
 node "$SCRIPT_DIR/check-upload.js" --dir "$UPLOAD" --version "$VERSION" --platforms "$PLATFORMS" --base-url "$BASE_URL"
 
 echo ""
@@ -285,7 +288,7 @@ Next (nothing has left this Mac):
        lymedeploy apply -f $SCRIPT_DIR/lymedeploy/deploy.yaml --dry-run   (then without --dry-run)
   3. If the project's purge step is still disabled, purge Cloudflare by hand for every
      manifest on apex and www (latest.json, latest-darwin-aarch64.json,
-     latest-darwin-x86_64.json, latest-windows-x86_64.json) and /mikedown/.
+     latest-darwin-x86_64.json, latest-windows-x86_64.json), /mikedown/ and /mikedown/desktop/.
   4. Verify what clients see (also run by step 2):
        $SCRIPT_DIR/verify-published.sh $VERSION $VERIFY_FLAG
   5. On a Mac and a Windows box running the previous version: Help > Check for

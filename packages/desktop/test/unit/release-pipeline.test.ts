@@ -88,14 +88,18 @@ function stageUpload(dir, upload, version, platforms, { linux = false } = {}) {
     fs.writeFileSync(path.join(upload, name), crypto.randomBytes(5000));
     linuxInfo = { url: `${BASE}${name}`, size: 5000 };
   }
-  fs.writeFileSync(path.join(upload, 'index.html'), renderLinuxPage(fs.readFileSync(path.join(site, 'index.html'), 'utf8'), linuxInfo));
-  for (const f of fs.readdirSync(site)) {if (f.endsWith('.png')) {fs.copyFileSync(path.join(site, f), path.join(upload, f));}}
+  fs.mkdirSync(path.join(upload, 'desktop'));
+  fs.writeFileSync(path.join(upload, 'desktop', 'index.html'), renderLinuxPage(fs.readFileSync(path.join(site, 'index.html'), 'utf8'), linuxInfo));
+  for (const f of fs.readdirSync(site)) {if (f.endsWith('.png')) {fs.copyFileSync(path.join(site, f), path.join(upload, 'desktop', f));}}
   fs.copyFileSync(path.join(deployDir, 'site', 'web.config'), path.join(upload, 'web.config'));
   const sums = Object.entries(readFolder(upload)).map(([n, b]) => `${sha(b)}  ${n}`).join('\n');
   fs.writeFileSync(path.join(upload, 'SHA256SUMS.txt'), `${sums}\n`);
 }
 
-const readFolder = (dir) => Object.fromEntries(fs.readdirSync(dir).map((f) => [f, fs.readFileSync(path.join(dir, f))]));
+/** { name | 'desktop/name': Buffer }, the shape check-upload.js hands checkStagedUpload. */
+const readFolder = (dir) => Object.fromEntries(fs.readdirSync(dir).flatMap((f) => (f === 'desktop'
+  ? fs.readdirSync(path.join(dir, f)).map((g) => [`desktop/${g}`, fs.readFileSync(path.join(dir, f, g))])
+  : [[f, fs.readFileSync(path.join(dir, f))]])));
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'mikedown-u3-'));
 
 // ── minisign ─────────────────────────────────────────────────────────────────
@@ -294,12 +298,17 @@ describe('make-latest-json.js + check-upload', () => {
     // strays
     expect(check({ ...files, 'MikeDown-0.2.0-windows-x64-setup.exe.sig': Buffer.from('x') }).join('\n')).toMatch(/\.sig files are not published/);
     expect(check({ ...files, 'notes.txt': Buffer.from('x') }).join('\n')).toMatch(/unversioned/);
-    // the download page's screenshots: exactly the ones index.html shows
+    // the download page's screenshots: exactly the ones desktop/index.html shows
     const shot = Object.keys(files).find((f) => f.endsWith('.png'));
     expect(shot).toBeTruthy();
     const noShot = { ...files }; delete noShot[shot];
-    expect(check(noShot).join('\n')).toMatch(new RegExp(`index\\.html shows ${shot.replace(/\./g, '\\.')}`));
-    expect(check({ ...files, 'old-screenshot.png': Buffer.from('x') }).join('\n')).toMatch(/old-screenshot\.png is unversioned/);
+    expect(shot.startsWith('desktop/')).toBe(true);
+    expect(check(noShot).join('\n')).toMatch(new RegExp(`desktop/index\\.html shows ${shot.replace(/\./g, '\\.')}`));
+    expect(check({ ...files, 'desktop/old-screenshot.png': Buffer.from('x') }).join('\n')).toMatch(/old-screenshot\.png is unversioned/);
+    // the site root index.html is the home page: a desktop release must not replace it
+    expect(check({ ...files, 'index.html': files['desktop/index.html'] }).join('\n')).toMatch(/would replace the home page/);
+    const noPage = { ...files }; delete noPage['desktop/index.html'];
+    expect(check(noPage).join('\n')).toMatch(/desktop\/index\.html is missing/);
     expect(check(files, undefined, ['engines']).join('\n')).toMatch(/subfolders/);
   });
 
@@ -313,18 +322,18 @@ describe('make-latest-json.js + check-upload', () => {
     const name = linuxArtifactName('0.2.0');
     const check = (f) => checkStagedUpload({ version: '0.2.0', platforms: { mac: true, windows: true }, files: f, pubkey: key.pubkey, baseUrl: BASE });
     expect(check(files)).toEqual([]);
-    const page = files['index.html'].toString('utf8');
+    const page = files['desktop/index.html'].toString('utf8');
     expect(page).toContain(`href="${BASE}${name}"`);
     expect(page).toMatch(/x86_64 AppImage, 1 MB/);
     expect(parseSha256Sums(files['SHA256SUMS.txt'].toString('utf8'))[name]).toBe(sha(files[name]));
     for (const m of ALL_MANIFESTS) {expect(files[m].toString('utf8')).not.toMatch(/linux|AppImage/i);}
     // linked but not staged, staged but not linked, unrendered placeholders, another version's file
     const gone = { ...files }; delete gone[name];
-    expect(check(gone).join('\n')).toMatch(/index\.html links .*AppImage, which is not in the folder/);
+    expect(check(gone).join('\n')).toMatch(/desktop\/index\.html links .*AppImage, which is not in the folder/);
     const raw = fs.readFileSync(path.join(repoRoot, 'website', 'mikedown-desktop', 'index.html'));
-    const stripped = { ...files, 'index.html': Buffer.from(renderLinuxPage(raw.toString('utf8'), null)) };
-    expect(check(stripped).join('\n')).toMatch(/staged but index\.html does not link it/);
-    expect(check({ ...files, 'index.html': raw }).join('\n')).toMatch(/@@LINUX_\*@@ placeholders/);
+    const stripped = { ...files, 'desktop/index.html': Buffer.from(renderLinuxPage(raw.toString('utf8'), null)) };
+    expect(check(stripped).join('\n')).toMatch(/staged but desktop\/index\.html does not link it/);
+    expect(check({ ...files, 'desktop/index.html': raw }).join('\n')).toMatch(/@@LINUX_\*@@ placeholders/);
     expect(check({ ...files, 'MikeDown-0.1.0-linux-x86_64.AppImage': Buffer.from('x') }).join('\n')).toMatch(/AppImage is unversioned|not referenced/);
   });
 
@@ -503,10 +512,11 @@ describe('download page reads the per-target manifests', () => {
 
   async function render(served) {
     const dom = new JSDOM(html, {
-      runScripts: 'dangerously', url: 'https://www.iadev.net/mikedown/',
+      runScripts: 'dangerously', url: 'https://www.iadev.net/mikedown/desktop/',
       beforeParse(window) {
         window.fetch = (u) => {
-          const name = String(u).split('?')[0];
+          // The page lives in desktop/ and reads the manifests one folder up.
+          const name = String(u).split('?')[0].replace(/^\.\.\//, '');
           const body = served[name];
           return Promise.resolve({ ok: Boolean(body), json: () => Promise.resolve(body) });
         };
