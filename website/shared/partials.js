@@ -5,7 +5,7 @@
 // link the stylesheet; shared/vite-plugin.js fills the markers at dev and build.
 //
 //   <link rel="stylesheet" href="/shared/shell.css">
-//   <!--shell:header page="vscode"-->      page: home | desktop | vscode | developers | compare | blog
+//   <!--shell:header page="vscode"-->      page: home | features | desktop | vscode | developers | compare | blog
 //   <main id="main">...</main>
 //   <!--shell:footer-->
 //
@@ -23,6 +23,7 @@ export const MARKETPLACE_URL = 'https://marketplace.visualstudio.com/items?itemN
 export const DESKTOP_URL = `${SITE_BASE}desktop/`;
 
 const PAGES = [
+  { id: 'features', label: 'Features', href: `${SITE_BASE}features/` },
   { id: 'desktop', label: 'Desktop', href: DESKTOP_URL },
   { id: 'vscode', label: 'VS Code', href: `${SITE_BASE}vscode/` },
   { id: 'developers', label: 'Developers', href: `${SITE_BASE}developers/` },
@@ -60,6 +61,7 @@ export function renderFooter() {
         <a href="${DESKTOP_URL}">MikeDown Desktop</a>
         <a href="${SITE_BASE}vscode/">MikeDown for VS Code</a>
         <a href="${SITE_BASE}developers/">For developers</a>
+        <a href="${SITE_BASE}features/">Features</a>
         <a href="${SITE_BASE}compare/">Compare</a>
         <a href="${GITHUB_URL}">Source on GitHub</a>
         <a href="${DESKTOP_URL}#privacy">Privacy</a>

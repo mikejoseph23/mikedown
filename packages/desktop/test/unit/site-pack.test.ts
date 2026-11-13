@@ -16,6 +16,7 @@ const good = () => ({
   'developers/index.html': b(),
   'developers/angular/index.html': b(),
   'developers/angular/main-ABC.js': b(),
+  'features/index.html': b(),
   'compare/index.html': b(),
   'blog/index.html': b(),
   'site-assets/pic.jpg': b(),

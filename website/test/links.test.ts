@@ -93,6 +93,7 @@ describe.skipIf(!built)('built site links', () => {
         BASE + 'blog/',
         BASE + 'blog/local-ai/',
         BASE + 'compare/',
+        BASE + 'features/',
         BASE + 'developers/',
         BASE + 'developers/angular/',
         BASE + 'developers/react/',
@@ -113,7 +114,8 @@ describe.skipIf(!built)('built site links', () => {
           if (/^(https?:|mailto:|data:|tel:|javascript:|vscode:)/.test(value) || value === '') {
             continue;
           }
-          const [pathPart, hash] = value.split('#');
+          const [withQuery, hash] = value.split('#');
+          const pathPart = withQuery.split('?')[0];
           let target: string | null;
           let targetHtml: string | null = null;
           if (pathPart === '') {

@@ -131,6 +131,10 @@ img { max-width: 100%; }
   .site-nav a { padding: 12px 0; }
   .site-nav a[aria-current="page"]::after { left: 0; right: 0; }
 }
+@media (max-width: 380px) {
+  /* Five nav links still fit on one line at 320px. */
+  .site-nav a { font-size: 13px; gap: 4px; }
+}
 
 /* Buttons */
 .btn {

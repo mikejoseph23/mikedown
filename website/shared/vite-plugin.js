@@ -1,7 +1,8 @@
 // Vite plugin for the MikeDown site shell.
 //
 // - Fills the <!--shell:header page="..."--> and <!--shell:footer--> markers
-//   in every page (see partials.js).
+//   in every page (see partials.js), and the <!--features:...--> markers
+//   (features.js).
 // - In `vite` and `vite preview`, serves the desktop download page at
 //   /mikedown/desktop/ with its screenshots, so the Desktop nav link works locally.
 //   It is rendered with no Linux build; the download buttons keep their
@@ -12,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyShellMarkers, DESKTOP_URL } from './partials.js';
+import { applyFeatureMarkers } from './features.js';
 import { renderLinuxPage } from '../../packages/desktop/deploy/lib/publish-checks.js';
 
 const desktopDir = fileURLToPath(new URL('../mikedown-desktop/', import.meta.url));
@@ -38,7 +40,7 @@ export default function mikedownShell() {
     name: 'mikedown-shell',
     transformIndexHtml: {
       order: 'pre',
-      handler: (html) => applyShellMarkers(html),
+      handler: (html) => applyFeatureMarkers(applyShellMarkers(html)),
     },
     configureServer(server) {
       server.middlewares.use(desktopPage);

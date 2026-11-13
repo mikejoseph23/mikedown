@@ -165,6 +165,10 @@ img { max-width: 100%; }
   .site-nav a { padding: 12px 0; }
   .site-nav a[aria-current="page"]::after { left: 0; right: 0; }
 }
+@media (max-width: 380px) {
+  /* Five nav links still fit on one line at 320px. */
+  .site-nav a { font-size: 13px; gap: 4px; }
+}
 
 /* Buttons */
 .btn {
@@ -294,6 +298,7 @@ img { max-width: 100%; }
     <div class="site-container site-header__inner">
       <a class="site-brand" href="/mikedown/"><svg width="24" height="24" viewBox="0 0 128 128" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,86 20,30 64,66 108,30 108,86" stroke-width="13"/><polyline points="49,99 64,114 79,99" stroke-width="10"/></g></svg><span>MikeDown</span></a>
       <nav class="site-nav" aria-label="Main">
+        <a href="/mikedown/features/">Features</a>
         <a href="/mikedown/desktop/" aria-current="page">Desktop</a>
         <a href="/mikedown/vscode/">VS Code</a>
         <a href="/mikedown/developers/">Developers</a>
@@ -331,7 +336,7 @@ img { max-width: 100%; }
     <section id="features" aria-labelledby="features-title">
       <div class="container">
         <h2 class="section-title" id="features-title">What's inside</h2>
-        <p class="section-lede">Everything works on plain .md files in folders you already have. Nothing to import, and no account.</p>
+        <p class="section-lede">Everything works on plain .md files in folders you already have. Nothing to import, and no account. <a href="/mikedown/features/?edition=desktop">See every feature</a>.</p>
         <div class="tour">
           <div class="tour-group">
             <div>
@@ -560,6 +565,7 @@ img { max-width: 100%; }
         <a href="/mikedown/desktop/">MikeDown Desktop</a>
         <a href="/mikedown/vscode/">MikeDown for VS Code</a>
         <a href="/mikedown/developers/">For developers</a>
+        <a href="/mikedown/features/">Features</a>
         <a href="/mikedown/compare/">Compare</a>
         <a href="https://github.com/mikejoseph23/mikedown">Source on GitHub</a>
         <a href="/mikedown/desktop/#privacy">Privacy</a>

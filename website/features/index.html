@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/mikedown/favicon.ico" sizes="16x16 32x32">
+  <link rel="icon" type="image/png" sizes="32x32" href="/mikedown/favicon-32.png">
+  <link rel="apple-touch-icon" href="/mikedown/apple-touch-icon.png">
+  <title>MikeDown features: what the editor does, edition by edition</title>
+  <meta name="description" content="Every MikeDown feature, from slash commands and tables to backlinks, version history and AI writing tools, with which editions have it: Desktop, VS Code, the web component and the React, Vue and Angular packages.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="MikeDown features">
+  <meta property="og:description" content="Every MikeDown feature, and which editions have it.">
+  <meta property="og:url" content="https://www.iadev.net/mikedown/features/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/shell.css">
+  <link rel="stylesheet" href="/shared/page.css">
+  <style>
+    .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+    .hero { padding: 72px 0 40px; }
+    .hero h1 { font-size: clamp(2rem, 5.5vw, 3rem); margin-bottom: 14px; }
+    .hero__lede { color: var(--muted); font-size: clamp(1rem, 2.4vw, 1.15rem); max-width: 640px; }
+    .hero__lede a { color: var(--accent); }
+
+    /* Edition filter: sticky under the header so it stays in reach while scrolling. */
+    .filter {
+      position: sticky; top: 0; z-index: 5; padding: 12px 0;
+      background: color-mix(in srgb, var(--bg) 92%, transparent);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+    .filter__inner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+    .filter__label { color: var(--muted); font-size: 14px; }
+    .filter__options { display: flex; flex-wrap: wrap; gap: 6px; }
+    .filter button {
+      min-height: 34px; padding: 6px 14px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--bg-raised); color: var(--text);
+      font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    }
+    .filter button:hover { border-color: var(--muted); }
+    .filter button[aria-pressed="true"] { background: var(--button-bg); border-color: var(--button-bg); color: var(--button-text); }
+    .filter button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+    .filter__count { color: var(--muted); font-size: 14px; margin-left: auto; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 20px; color: var(--muted); font-size: 13.5px; list-style: none; }
+    .legend li { display: inline-flex; align-items: center; gap: 6px; }
+
+    .feat-groups { padding: 8px 0 72px; }
+    .feat-group { padding-top: 48px; }
+    .feat-group__title { font-size: clamp(1.3rem, 3vw, 1.6rem); padding-bottom: 12px; margin-bottom: 8px; border-bottom: 2px solid var(--accent); display: inline-block; }
+    .feats { list-style: none; display: grid; gap: 0 40px; }
+    .feat { padding: 20px 0; border-bottom: 1px solid var(--border); scroll-margin-top: 80px; }
+    .feat h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .feat p { color: var(--muted); font-size: 15px; line-height: 1.6; }
+    .feat:target h3 { color: var(--accent); }
+    .feat[hidden], .feat-group[hidden] { display: none; }
+
+    .chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 7px; border-radius: 999px;
+      border: 1px solid var(--border); font-size: 12.5px; font-weight: 500; line-height: 1.4; color: var(--text);
+    }
+    .chip svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .chip--yes svg { color: var(--accent); }
+    .chip--no, .chip--na { color: var(--muted); border-style: dashed; }
+    .legend svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .legend .chip--yes svg { color: var(--accent); }
+    /* The chosen edition's chip stands out. */
+    [data-edition-filter] .chip.is-chosen { border-color: var(--accent); background: var(--accent-soft); color: var(--text-strong); }
+
+    .closing { padding: 56px 0 72px; border-top: 1px solid var(--border); }
+    .closing p { color: var(--muted); max-width: 620px; margin: 10px 0 24px; }
+    .closing__ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+
+    @media (min-width: 760px) {
+      .feats { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .hero { padding-top: 48px; }
+      .filter__count { margin-left: 0; width: 100%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .filter button { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <!--shell:header page="features"-->
+  <!--features:sprite-->
+
+  <main id="main">
+    <section class="hero">
+      <div class="site-container">
+        <h1>Features</h1>
+        <p class="hero__lede">One editor, the same in every edition, with a few pieces that depend on where it runs. Pick an edition to see what it has. For the details behind each mark, see the <a href="/mikedown/compare/">comparison table</a>.</p>
+        <ul class="legend" aria-label="What the marks mean">
+          <li><span class="chip chip--yes"><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></li>
+          <li><span class="chip chip--partial"><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span></li>
+          <li><span class="chip chip--host"><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Your app provides a piece</span></li>
+          <li><span class="chip chip--no"><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="filter" data-filter hidden>
+      <div class="site-container filter__inner">
+        <span class="filter__label" id="filter-label">Show what’s in</span>
+        <div class="filter__options" role="group" aria-labelledby="filter-label">
+          <button type="button" data-show="all" aria-pressed="true">All editions</button>
+          <button type="button" data-show="desktop" aria-pressed="false">Desktop</button>
+          <button type="button" data-show="vscode" aria-pressed="false">VS Code</button>
+          <button type="button" data-show="wc" aria-pressed="false">Web component</button>
+          <button type="button" data-show="wrappers" aria-pressed="false">React, Vue, Angular</button>
+        </div>
+        <span class="filter__count" data-count aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="site-container feat-groups" data-features>
+      <!--features:list-->
+    </div>
+
+    <section class="closing" aria-labelledby="closing-title">
+      <div class="site-container">
+        <h2 class="section-title" id="closing-title">Pick yours</h2>
+        <p>Desktop for a folder of notes, VS Code for markdown next to your code, the packages for the editor inside your own app.</p>
+        <div class="closing__ctas">
+          <a class="btn btn--primary" href="/mikedown/desktop/">Get MikeDown Desktop</a>
+          <a class="btn btn--secondary" href="/mikedown/vscode/">MikeDown for VS Code</a>
+          <a class="btn btn--secondary" href="/mikedown/developers/">For developers</a>
+          <a class="btn btn--secondary" href="/mikedown/compare/">Comparison table</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!--shell:footer-->
+
+  <script>
+    // Edition filter. Without script every feature shows, chips and all.
+    // ?edition=desktop (or vscode, wc, wrappers) preselects one, so other pages can link to it.
+    (function () {
+      var bar = document.querySelector('[data-filter]');
+      var root = document.querySelector('[data-features]');
+      if (!bar || !root) { return; }
+      var buttons = Array.prototype.slice.call(bar.querySelectorAll('button[data-show]'));
+      var feats = Array.prototype.slice.call(root.querySelectorAll('.feat'));
+      var groups = Array.prototype.slice.call(root.querySelectorAll('.feat-group'));
+      var count = bar.querySelector('[data-count]');
+      var names = {};
+      buttons.forEach(function (b) { names[b.getAttribute('data-show')] = b.textContent; });
+
+      function markOf(feat, edition) {
+        var m = new RegExp('(?:^| )' + edition + ':([a-z]+)').exec(feat.getAttribute('data-marks'));
+        return m ? m[1] : 'no';
+      }
+      function show(edition) {
+        if (!names[edition]) { edition = 'all'; }
+        buttons.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-show') === edition ? 'true' : 'false'); });
+        var shown = 0;
+        feats.forEach(function (f) {
+          var mark = edition === 'all' ? 'yes' : markOf(f, edition);
+          var on = mark !== 'no' && mark !== 'na';
+          f.hidden = !on;
+          if (on) { shown++; }
+          Array.prototype.forEach.call(f.querySelectorAll('.chip'), function (c) {
+            c.classList.toggle('is-chosen', c.getAttribute('data-edition') === edition);
+          });
+        });
+        groups.forEach(function (g) { g.hidden = !g.querySelector('.feat:not([hidden])'); });
+        if (edition === 'all') { root.removeAttribute('data-edition-filter'); } else { root.setAttribute('data-edition-filter', edition); }
+        count.textContent = edition === 'all' ? feats.length + ' features' : shown + ' of ' + feats.length + ' features in ' + names[edition];
+        try {
+          var url = new URL(location.href);
+          if (edition === 'all') { url.searchParams.delete('edition'); } else { url.searchParams.set('edition', edition); }
+          history.replaceState(null, '', url);
+        } catch (e) { /* file:// or an old browser: the filter still works */ }
+      }
+      buttons.forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-show')); }); });
+      bar.hidden = false;
+      var start = 'all';
+      try { start = new URL(location.href).searchParams.get('edition') || 'all'; } catch (e) { /* keep all */ }
+      show(start);
+    })();
+  </script>
+</body>
+</html>

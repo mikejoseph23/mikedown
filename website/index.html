@@ -56,6 +56,17 @@
     .edition__go span { display: inline-block; transition: transform 0.15s ease; }
     .edition:hover .edition__go span { transform: translateX(3px); }
 
+    /* Highlights (from shared/features.js) */
+    .highlights-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+    .highlights-all { color: var(--accent); font-weight: 600; font-size: 15px; text-decoration: none; }
+    .highlights-all:hover { text-decoration: underline; }
+    .highlights { list-style: none; display: grid; gap: 0 40px; }
+    .highlight { display: block; height: 100%; padding: 18px 0; border-bottom: 1px solid var(--border); color: inherit; text-decoration: none; }
+    .highlight strong { display: block; color: var(--text-strong); font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .highlight span { color: var(--muted); font-size: 15px; line-height: 1.6; }
+    .highlight:hover strong { color: var(--accent); }
+    .highlight:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+
     /* Reviews: every quote is in the HTML; the script shows one at a time. */
     .reviews-head { text-align: center; }
     .reviews-head .section-title { margin-bottom: 8px; }
@@ -100,6 +111,7 @@
     @media (min-width: 640px) {
       .editions { grid-template-columns: repeat(2, 1fr); }
       .more { grid-template-columns: repeat(3, 1fr); }
+      .highlights { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 600px) {
       .hero { padding-top: 56px; }
@@ -170,6 +182,18 @@
       </div>
     </section>
 
+    <section class="section" aria-labelledby="highlights-title">
+      <div class="site-container">
+        <div class="section-head highlights-head">
+          <h2 class="section-title" id="highlights-title">Highlights</h2>
+          <a class="highlights-all" href="features/">See all features <span aria-hidden="true">&rarr;</span></a>
+        </div>
+        <ul class="highlights">
+          <!--features:highlights-->
+        </ul>
+      </div>
+    </section>
+
     <section class="section" aria-labelledby="reviews-title">
       <div class="site-container">
         <div class="section-head reviews-head">
@@ -209,7 +233,7 @@
       <div class="site-container">
         <h2 class="section-title" id="more-title">More</h2>
         <div class="more">
-          <a href="compare/"><strong>Compare the editions</strong><span>What each one can do, feature by feature.</span></a>
+          <a href="compare/"><strong>Compare the editions</strong><span>Every feature in one table, with the details behind each mark.</span></a>
           <a href="blog/"><strong>Blog</strong><span>Release notes and how-tos.</span></a>
           <a href="https://github.com/mikejoseph23/mikedown"><strong>Source on GitHub</strong><span>Issues, ideas and the code, MIT licensed.</span></a>
         </div>
