@@ -21,10 +21,14 @@
   <link rel="stylesheet" href="/shared/page.css">
   <link rel="stylesheet" href="/features/features.css">
   <style>
-    .hero { padding: 72px 0 32px; }
-    .hero h1 { font-size: clamp(2rem, 5.5vw, 3rem); margin-bottom: 14px; }
-    .hero__lede { color: var(--muted); font-size: clamp(1rem, 2.4vw, 1.15rem); max-width: 680px; }
-    .hero .legend { margin-top: 28px; }
+    .hero { padding: 44px 0 20px; }
+    .hero h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin-bottom: 8px; }
+    .hero__lede { color: var(--muted); font-size: 16.5px; max-width: 680px; }
+    .hero__lede a { color: var(--accent); }
+    .key { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 14px; }
+    .key__more { font-size: 13px; margin-left: 4px; }
+    .key__more a { color: var(--muted); }
+    .compare .legend { margin-bottom: 28px; }
 
     /* The one sticky bar: edition filter on the left, jump links on the right. */
     .bar {
@@ -52,7 +56,8 @@
 
     /* The list */
     .feat-groups { padding: 8px 0 56px; scroll-margin-top: 64px; }
-    .feat-group { padding-top: 44px; }
+    .feat-group { padding-top: 32px; }
+    .feat-group:first-child { padding-top: 20px; }
     .feat-group__title { font-size: clamp(1.3rem, 3vw, 1.6rem); padding-bottom: 12px; margin-bottom: 8px; border-bottom: 2px solid var(--accent); display: inline-block; }
     .feats { list-style: none; display: grid; gap: 0 40px; }
     .feat { padding: 20px 0; border-bottom: 1px solid var(--border); scroll-margin-top: 80px; }
@@ -95,7 +100,7 @@
       .bar__count { margin-left: auto; }
     }
     @media (max-width: 600px) {
-      .hero { padding-top: 48px; }
+      .hero { padding-top: 32px; }
     }
     @media (prefers-reduced-motion: reduce) {
       .bar button { transition: none; }
@@ -110,17 +115,14 @@
     <section class="hero">
       <div class="site-container">
         <h1>Features</h1>
-        <p class="hero__lede">MikeDown is one editor in four editions, and most of what it does is the same in all of them. Each feature below shows which editions have it; the comparison after the list has the details.</p>
-        <div class="legend" role="group" aria-labelledby="legend-title">
-          <h3 class="legend__title" id="legend-title">How to read the marks</h3>
-          <dl class="legend__list">
-            <div><dt><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></dt><dd>In the product as it ships.</dd></div>
-            <div><dt><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span></dt><dd>There, with the limit named in the cell.</dd></div>
-            <div><dt><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span></dt><dd>The editor has the hook; the app around it supplies the piece.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup> For the VS Code extension, that is VS Code itself.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></dd></div>
-            <div><dt><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></dt><dd>Not in that product.</dd></div>
-            <div><dt><span class="mark mark--na"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-na"/></svg>n/a</span></dt><dd>Does not apply to that product.</dd></div>
-          </dl>
-        </div>
+        <p class="hero__lede">Most of MikeDown is the same in all four editions. Each feature shows which ones have it; the <a href="#compare">comparison table</a> has the details.</p>
+        <ul class="key" aria-label="What the marks mean">
+          <li class="chip chip--yes"><span><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></li>
+          <li class="chip chip--partial"><span><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span></li>
+          <li class="chip chip--host"><span><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span></li>
+          <li class="chip chip--no"><span><svg width="14" height="14" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></li>
+          <li class="key__more"><a href="#legend-title">What the marks mean</a></li>
+        </ul>
       </div>
     </section>
 
@@ -152,6 +154,17 @@
       <div class="site-container">
         <h2 class="section-title" id="compare-title">Which MikeDown?</h2>
         <p class="section-lede"><strong>Desktop</strong> is a free app for a folder of notes, the <strong>VS Code extension</strong> opens markdown in your editor tabs, and the <strong>web component</strong> and <strong>React, Vue and Angular</strong> packages put the editor in a web app you build. Here is every feature, edition by edition.</p>
+        <div class="legend" role="group" aria-labelledby="legend-title">
+          <h3 class="legend__title" id="legend-title">How to read the marks</h3>
+          <dl class="legend__list">
+            <div><dt><span class="mark mark--yes"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-yes"/></svg>Yes</span></dt><dd>In the product as it ships.</dd></div>
+            <div><dt><span class="mark mark--partial"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-partial"/></svg>Partial</span></dt><dd>There, with the limit named in the cell.</dd></div>
+            <div><dt><span class="mark mark--host"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-host"/></svg>Host must provide</span></dt><dd>The editor has the hook; the app around it supplies the piece.<sup><a class="fn-ref" href="#note-4" aria-label="Note 4">4</a></sup> For the VS Code extension, that is VS Code itself.<sup><a class="fn-ref" href="#note-2" aria-label="Note 2">2</a></sup></dd></div>
+            <div><dt><span class="mark mark--no"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-no"/></svg>No</span></dt><dd>Not in that product.</dd></div>
+            <div><dt><span class="mark mark--na"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#mk-na"/></svg>n/a</span></dt><dd>Does not apply to that product.</dd></div>
+          </dl>
+        </div>
+
         <table class="matrix" role="table" aria-describedby="legend-title">
           <caption>What each MikeDown does, feature by feature</caption>
           <thead role="rowgroup">

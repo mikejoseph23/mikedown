@@ -406,7 +406,7 @@ export function renderFeatureList() {
         const { mark } = cell(f.editions[e.id]);
         const body = `${icon(mark, 14)}<span>${e.chip}<span class="visually-hidden">${chipLabel[mark]}</span></span>`;
         // Partial and host chips have a note in the table: link to it.
-        const inner = mark === 'partial' || mark === 'host' ? `<a href="#compare-${f.id}" title="Details in the comparison table">${body}</a>` : body;
+        const inner = mark === 'partial' || mark === 'host' ? `<a href="#compare-${f.id}" title="Details in the comparison table">${body}</a>` : `<span>${body}</span>`;
         return `<li class="chip chip--${mark}" data-edition="${e.id}" data-mark="${mark}">${inner}</li>`;
       }).join('');
       return `<li class="feat" id="${f.id}" data-marks="${marksOf(f)}">
