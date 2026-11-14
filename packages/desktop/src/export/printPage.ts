@@ -4,8 +4,12 @@
  *
  *   - hidden mode: calls `window.print()` (the OS dialog, with Save as PDF),
  *     reports `printing`, and closes itself after `afterprint`;
- *   - preview mode (the fallback when hidden printing never starts): shows
- *     the document with a Print / Close bar that does not print.
+ *   - preview mode (the fallback when hidden printing never starts, and the
+ *     only mode on macOS): shows the document with a Print / Close bar. On
+ *     macOS it also opens the print sheet straight away.
+ *
+ * macOS WKWebView ignores JS `window.print()`, so there Print goes through
+ * the native `print_native` command (NSPrintOperation) instead.
  *
  * Failures are reported to the opener, which decides on the fallback.
  */
@@ -20,6 +24,14 @@ interface Payload {
 const label = getCurrentWindow().label;
 const report = (state: string, error?: string): Promise<void> =>
   invoke<void>('print_report', { state, error: error ?? null }).catch(() => undefined);
+const isMac = /mac|darwin/i.test(navigator.platform) || /Macintosh/.test(navigator.userAgent);
+const doPrint = (): void => {
+  if (isMac) {
+    invoke<void>('print_native').catch((err: unknown) => report('failed', String(err)));
+  } else {
+    window.print();
+  }
+};
 const close = (): Promise<void> => invoke<void>('print_close', { label }).catch(() => undefined);
 
 async function settle(): Promise<void> {
@@ -41,7 +53,7 @@ function addPreviewBar(): void {
   bar.className = 'mdprint-bar';
   const print = document.createElement('button');
   print.textContent = 'Print…';
-  print.addEventListener('click', () => window.print());
+  print.addEventListener('click', doPrint);
   const done = document.createElement('button');
   done.textContent = 'Close';
   done.addEventListener('click', () => { void close(); });
@@ -63,6 +75,7 @@ async function main(): Promise<void> {
   if (job.preview) {
     addPreviewBar();
     await report('preview');
+    if (isMac) {doPrint();}
     return;
   }
   window.addEventListener('afterprint', () => { void report('closed').then(close); });

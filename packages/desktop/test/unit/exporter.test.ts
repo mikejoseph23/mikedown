@@ -102,19 +102,24 @@ describe('printHtml (hidden first, preview fallback)', () => {
   beforeEach(() => { opened = []; closed = []; });
 
   it('stays hidden when printing starts', async () => {
-    expect(await printHtml('<p/>', 'T', api('printing'), 50)).toBe('printing');
+    expect(await printHtml('<p/>', 'T', api('printing'), 50, false)).toBe('printing');
     expect(opened).toEqual([{ preview: false, label: 'print-1' }]);
     expect(closed).toEqual([]);
   });
 
   it('falls back to a visible preview when the hidden window fails', async () => {
-    expect(await printHtml('<p/>', 'T', api('failed'), 50)).toBe('preview');
+    expect(await printHtml('<p/>', 'T', api('failed'), 50, false)).toBe('preview');
     expect(opened.map((o) => o.preview)).toEqual([false, true]);
     expect(closed).toEqual(['print-1']);
   });
 
   it('falls back when the hidden window never reports', async () => {
-    expect(await printHtml('<p/>', 'T', api(null), 20)).toBe('preview');
+    expect(await printHtml('<p/>', 'T', api(null), 20, false)).toBe('preview');
     expect(opened.map((o) => o.preview)).toEqual([false, true]);
+  });
+
+  it('opens the preview directly when previewOnly (macOS)', async () => {
+    expect(await printHtml('<p/>', 'T', api(null), 20, true)).toBe('printing');
+    expect(opened.map((o) => o.preview)).toEqual([true]);
   });
 });

@@ -91,6 +91,14 @@ pub fn print_report<R: Runtime>(app: AppHandle<R>, window: tauri::WebviewWindow<
     let _ = app.emit(RESULT_EVENT, PrintResult { label: window.label().to_string(), state, error });
 }
 
+/// Native print for the calling window. macOS WKWebView ignores JS
+/// `window.print()`, so the page asks for `NSPrintOperation` (a sheet on the
+/// window, which must be visible) through wry instead.
+#[tauri::command]
+pub fn print_native<R: Runtime>(window: tauri::WebviewWindow<R>) -> Result<(), String> {
+    window.print().map_err(|e| e.to_string())
+}
+
 /// Close a print window (the page calls it after `afterprint` or from the preview's Close button).
 #[tauri::command]
 pub fn print_close<R: Runtime>(app: AppHandle<R>, jobs: tauri::State<'_, PrintJobs>, label: String) {

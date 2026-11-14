@@ -5,6 +5,10 @@
  * (a webview that refuses to print from a hidden window) or the page reports
  * a failure, the hidden window is closed and the document opens in a visible
  * print preview with its own Print button.
+ *
+ * macOS skips the hidden attempt: WKWebView ignores JS `window.print()`, and
+ * the native print sheet needs a visible window, so the preview opens and
+ * shows the sheet itself.
  */
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -30,6 +34,9 @@ export const printApi: PrintApi = {
 /** How long a hidden window gets to start printing before the preview opens. */
 export const HIDDEN_TIMEOUT_MS = 8000;
 
+const IS_MAC = typeof navigator !== 'undefined'
+  && (/mac|darwin/i.test(navigator.platform) || /Macintosh/.test(navigator.userAgent));
+
 export type PrintOutcome = 'printing' | 'preview';
 
 /** Hidden first, visible preview as the fallback. */
@@ -38,7 +45,13 @@ export async function printHtml(
   title: string,
   api: PrintApi = printApi,
   timeoutMs = HIDDEN_TIMEOUT_MS,
+  previewOnly = IS_MAC,
 ): Promise<PrintOutcome> {
+  if (previewOnly) {
+    // The preview page opens the print sheet itself.
+    await api.open(html, title, true);
+    return 'printing';
+  }
   // Results can arrive before `open` returns its label, so keep them by label.
   const seen = new Map<string, PrintResult>();
   const waiters = new Map<string, (r: PrintResult) => void>();
